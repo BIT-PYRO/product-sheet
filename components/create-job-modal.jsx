@@ -87,10 +87,10 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-[1200px] w-[95vw] max-h-[95vh] overflow-y-auto bg-background text-foreground p-0 gap-0 [&>button]:hidden">
+        <DialogContent className="max-w-[700px] w-[95vw] max-h-[95vh] overflow-y-auto bg-background text-foreground p-0 gap-0 [&>button]:hidden">
         <DialogTitle className="sr-only">Create Job Modal</DialogTitle>
         {/* Close button only, no title */}
-        <div className="flex justify-end px-5 pt-3 pb-0">
+        <div className="flex justify-end px-5 pt-0 pb-0">
           <button
             onClick={() => onOpenChange(false)}
             className="text-muted-foreground hover:text-foreground transition-colors"
@@ -100,56 +100,61 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
           </button>
         </div>
 
-        <div className="px-5 pb-4 flex flex-col gap-2.5">
+        <div className="px-5 pb-2 flex flex-col gap-2.5">
           {/* Row 1: DATE & SCHEDULE on LEFT | VOUCHER TYPE & NO. on RIGHT */}
-          <div className="grid grid-cols-4 gap-3">
-            {/* DATE */}
-            <div className="flex flex-col gap-0.5">
-              <Label className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Date</Label>
-              <div className="relative">
-                <CalendarIcon className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground pointer-events-none" />
+          <div className="flex justify-between gap-3">
+            {/* LEFT: DATE & SCHEDULE */}
+            <div className="flex gap-3">
+              {/* DATE */}
+              <div className="flex flex-col gap-0.5">
+                <Label className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Date</Label>
+                <div className="relative flex items-center">
+                  <Input
+                    type="date"
+                    value={date}
+                    onChange={(e) => setDate(e.target.value)}
+                    className="pl-1 h-8 py-1 text-xs bg-background border-border !w-fit max-w-[130px]"
+                  />
+                </div>
+              </div>
+
+              {/* SCHEDULE */}
+              <div className="flex flex-col gap-0.5">
+                <Label className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Schedule</Label>
                 <Input
                   type="date"
-                  value={date}
-                  onChange={(e) => setDate(e.target.value)}
-                  className="pl-7 h-9 text-xs bg-background border-border"
+                  value={scheduleFuture}
+                  onChange={(e) => setScheduleFuture(e.target.value)}
+                  className="h-8 pl-1 py-1 text-xs bg-background border-border !w-fit max-w-[13                  git push origin master                  git log --oneline -50px]"
                 />
               </div>
             </div>
 
-            {/* SCHEDULE */}
-            <div className="flex flex-col gap-0.5">
-              <Label className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Schedule</Label>
-              <Input
-                type="date"
-                value={scheduleFuture}
-                onChange={(e) => setScheduleFuture(e.target.value)}
-                className="h-9 text-xs bg-background border-border"
-              />
-            </div>
+            {/* RIGHT: TYPE & VOUCHER NO. */}
+            <div className="flex gap-3">
+              {/* TYPE */}
+              <div className="flex flex-col gap-0.5">
+                <Label className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Type</Label>
+                <Select value={voucherType} onValueChange={setVoucherType}>
+                  <SelectTrigger className="h-8 px-2 py-1 text-xs bg-background border-border">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="New">New</SelectItem>
+                    <SelectItem value="Re-Issue">Re-Issue</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
 
-            {/* TYPE */}
-            <div className="flex flex-col gap-0.5">
-              <Label className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Type</Label>
-              <Select value={voucherType} onValueChange={setVoucherType}>
-                <SelectTrigger className="h-9 text-xs bg-background border-border">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="New">New</SelectItem>
-                  <SelectItem value="Re-Issue">Re-Issue</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* VOUCHER NO. */}
-            <div className="flex flex-col gap-0.5">
-              <Label className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Voucher No.</Label>
-              <Input
-                value={voucherNo}
-                readOnly
-                className="h-9 text-xs bg-muted border-border font-semibold text-foreground"
-              />
+              {/* VOUCHER NO. */}
+              <div className="flex flex-col gap-0.5">
+                <Label className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Voucher No.</Label>
+                <Input
+                  value={voucherNo}
+                  readOnly
+                  className="h-8 px-2 py-1 text-xs bg-muted border-border font-semibold text-foreground !w-fit max-w-[120px]"
+                />
+              </div>
             </div>
           </div>
 
@@ -171,7 +176,7 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
               <button
                 type="button"
                 onClick={() => setIsQuickEnrollModalOpen(true)}
-                className="h-9 px-4 border-2 border-dashed border-blue-500 text-blue-600 rounded font-semibold text-xs hover:bg-blue-50 transition-colors flex items-center gap-1.5"
+                className="h-9 px-12 border-2 border-dashed border-blue-500 text-blue-600 rounded font-semibold text-xs hover:bg-blue-50 transition-colors flex items-center gap-1.5"
               >
                 <Plus className="h-3.5 w-3.5" />
                 Enroll
@@ -283,9 +288,54 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
                 </div>
               </div>
             ))}
-            <div className="border-t border-border bg-background">
-              <button type="button" className="w-full py-1 text-blue-600 hover:text-blue-700 text-xs font-semibold transition-colors" onClick={addRow}>
+            {/* Totals Rows by Unit */}
+            {(() => {
+              const qtyByUnit = {}
+              const weightByUnit = {}
+              
+              rows.forEach((row) => {
+                if (row.issuedQty) {
+                  const unit = row.unit1
+                  qtyByUnit[unit] = (qtyByUnit[unit] || 0) + parseFloat(row.issuedQty)
+                }
+                if (row.issuedWeight) {
+                  const unit = row.unit2
+                  weightByUnit[unit] = (weightByUnit[unit] || 0) + parseFloat(row.issuedWeight)
+                }
+              })
+              
+              const qtyUnits = Object.keys(qtyByUnit)
+              const weightUnits = Object.keys(weightByUnit)
+              const allUnits = [...new Set([...qtyUnits, ...weightUnits])]
+              
+              return allUnits.map((unit, idx) => (
+                <div key={`total-${unit}`} className="grid grid-cols-[1fr_1fr_0.8fr_60px_0.8fr_60px_32px] gap-0 border-t border-border items-center bg-blue-50">
+                  <div className="px-2 py-1.5">
+                    <div className="text-xs font-bold text-foreground">{idx === 0 ? "Total" : ""}</div>
+                  </div>
+                  <div className="px-2 py-1.5"></div>
+                  <div className="px-2 py-1.5">
+                    <div className="text-xs font-bold text-foreground">{qtyByUnit[unit] ? qtyByUnit[unit].toFixed(2) : "-"}</div>
+                  </div>
+                  <div className="px-2 py-1.5">
+                    <div className="text-xs font-semibold text-foreground">{qtyByUnit[unit] ? unit : ""}</div>
+                  </div>
+                  <div className="px-2 py-1.5">
+                    <div className="text-xs font-bold text-foreground">{weightByUnit[unit] ? weightByUnit[unit].toFixed(2) : "-"}</div>
+                  </div>
+                  <div className="px-2 py-1.5">
+                    <div className="text-xs font-semibold text-foreground">{weightByUnit[unit] ? unit : ""}</div>
+                  </div>
+                  <div className="px-2 py-1.5"></div>
+                </div>
+              ))
+            })()}
+            <div className="border-t border-border bg-background flex gap-2">
+              <button type="button" className="flex-1 py-1 text-blue-600 hover:text-blue-700 text-xs font-semibold transition-colors" onClick={addRow}>
                 + Add Row
+              </button>
+              <button type="button" className="flex-1 py-1 text-blue-600 hover:text-blue-700 text-xs font-semibold transition-colors border-l border-border" disabled>
+                + Add Column
               </button>
             </div>
           </div>
