@@ -1,6 +1,7 @@
 'use client'
 
 import React from "react"
+import { Trash2 } from 'lucide-react'
 
 import { useState, useRef } from 'react'
 import { CreateJobModal } from '@/components/create-job-modal'
@@ -118,6 +119,10 @@ export default function ProductSheet() {
     setFinalStock([...finalStock, { id: newId, sku: '', value: '', unit: '' }])
   }
 
+  const deleteFinalStock = (id) => {
+    setFinalStock(finalStock.filter(row => row.id !== id))
+  }
+
   // Handle image upload
   const handleImageUpload = (e) => {
         const file = e.target.files?.[0];
@@ -164,6 +169,9 @@ export default function ProductSheet() {
             { id: newId, col1: '', col2: '', col3: '' },
         ]);
     };
+    const deletePlatingType = (id) => {
+        setPlatingType(platingType.filter(row => row.id !== id));
+    };
     // Handlers for Others
     const updateOthers = (id, field, value) => {
         setOthers(others.map(row => row.id === id ? { ...row, [field]: value } : row));
@@ -171,6 +179,9 @@ export default function ProductSheet() {
     const addOthersRow = () => {
         const newId = Math.max(...others.map(r => r.id), 0) + 1;
         setOthers([...others, { id: newId, key: '', value: '' }]);
+    };
+    const deleteOthers = (id) => {
+        setOthers(others.filter(row => row.id !== id));
     };
     // Handlers for Die Numbers
     const updateDieNumber = (id, field, value) => {
@@ -186,6 +197,12 @@ export default function ProductSheet() {
             dieNumbers: [...prev.dieNumbers, { id: newId, dieNumber: '', quantity: '' }]
         }));
     };
+    const deleteDieNumber = (id) => {
+        setManufacturing(prev => ({
+            ...prev,
+            dieNumbers: prev.dieNumbers.filter(row => row.id !== id)
+        }));
+    };
     // Handlers for Variations
     const updateVariation = (id, field, value) => {
         setVariations(variations.map(row => row.id === id ? { ...row, [field]: value } : row));
@@ -193,6 +210,9 @@ export default function ProductSheet() {
     const addVariation = () => {
       const newId = Math.max(...variations.map(r => r.id), 0) + 1;
       setVariations([...variations, { id: newId, label: '', col1: '', col2: '' }]);
+    };
+    const deleteVariation = (id) => {
+      setVariations(variations.filter(row => row.id !== id));
     };
     // Handlers for Stone Info
     const updateStoneInfo = (id, field, value) => {
@@ -204,6 +224,9 @@ export default function ProductSheet() {
             ...stoneInfo,
             { id: newId, name: '', cut: '', color: '', size: '', quantity: '' },
         ]);
+    };
+    const deleteStoneInfo = (id) => {
+        setStoneInfo(stoneInfo.filter(row => row.id !== id));
     };
     return (<div className="min-h-screen bg-white p-2">
       <div className="flex justify-between items-center mb-2">
@@ -384,13 +407,16 @@ export default function ProductSheet() {
                 <div className="bg-white border-2 border-gray-400 max-h-[8rem] overflow-y-auto">
                   <div className="flex flex-col">
                     {manufacturing.dieNumbers.map((row, index) => (
-                      <div key={row.id} className={`flex ${index > 0 ? 'border-t border-gray-400' : ''}`}>
+                      <div key={row.id} className={`flex items-center ${index > 0 ? 'border-t border-gray-400' : ''}`}>
                         <div className="flex-1 px-2 py-1 border-r-2 border-gray-400">
                           <input type="text" placeholder="DIE NUMBER/FINDINGS" value={row.dieNumber} onChange={(e) => updateDieNumber(row.id, 'dieNumber', e.target.value)} className="w-full bg-transparent outline-none text-xs placeholder-gray-400"/>
                         </div>
-                        <div className="flex-1 px-2 py-1">
+                        <div className="flex-1 px-2 py-1 border-r-2 border-gray-400">
                           <input type="text" placeholder="QUANTITY" value={row.quantity} onChange={(e) => updateDieNumber(row.id, 'quantity', e.target.value)} className="w-full bg-transparent outline-none text-xs placeholder-gray-400"/>
                         </div>
+                        <button type="button" onClick={() => deleteDieNumber(row.id)} className="px-2 py-1 text-red-500 hover:text-red-700 transition-colors flex-shrink-0">
+                          <Trash2 className="h-3 w-3" />
+                        </button>
                       </div>
                     ))}
                   </div>
@@ -469,7 +495,7 @@ export default function ProductSheet() {
 
                   <div className="max-h-[5.5rem] overflow-y-auto">
                     {variations.map((variation, index) => (
-                      <div key={variation.id} className={`flex ${index < variations.length - 1 ? 'border-b border-gray-400' : ''}`}>
+                      <div key={variation.id} className={`flex items-center ${index < variations.length - 1 ? 'border-b border-gray-400' : ''}`}>
                         <div className="w-32 px-2 py-1 border-r-2 border-gray-400 font-semibold text-xs flex items-center flex-shrink-0">
                           {variation.label ? (
                             <span>{variation.label}</span>
@@ -480,9 +506,12 @@ export default function ProductSheet() {
                         <div className="flex-1 px-2 py-1 border-r-2 border-gray-400">
                           <input type="text" value={variation.col1} onChange={(e) => updateVariation(variation.id, 'col1', e.target.value)} className="w-full bg-transparent outline-none text-xs"/>
                         </div>
-                        <div className="flex-1 px-2 py-1">
+                        <div className="flex-1 px-2 py-1 border-r-2 border-gray-400">
                           <input type="text" value={variation.col2} onChange={(e) => updateVariation(variation.id, 'col2', e.target.value)} className="w-full bg-transparent outline-none text-xs"/>
                         </div>
+                        <button type="button" onClick={() => deleteVariation(variation.id)} className="px-2 py-1 text-red-500 hover:text-red-700 transition-colors flex-shrink-0">
+                          <Trash2 className="h-3 w-3" />
+                        </button>
                       </div>
                     ))}
                   </div>
@@ -590,6 +619,11 @@ export default function ProductSheet() {
                       <td className="px-0.5 py-0.5"><input className="w-full text-xs px-0.5 py-0.5 border rounded" placeholder="SKU" value={row.sku} onChange={(e) => updateFinalStock(row.id, 'sku', e.target.value)} /></td>
                       <td className="px-0.5 py-0.5"><input className="w-full text-xs px-0.5 py-0.5 border rounded" placeholder="Value" value={row.value} onChange={(e) => updateFinalStock(row.id, 'value', e.target.value)} /></td>
                       <td className="px-0.5 py-0.5"><input className="w-full text-xs px-0.5 py-0.5 border rounded" placeholder="Unit" value={row.unit} onChange={(e) => updateFinalStock(row.id, 'unit', e.target.value)} /></td>
+                      <td className="px-0.5 py-0.5 text-center">
+                        <button type="button" onClick={() => deleteFinalStock(row.id)} className="text-red-500 hover:text-red-700 transition-colors">
+                          <Trash2 className="h-3 w-3" />
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -644,8 +678,13 @@ export default function ProductSheet() {
                     <td className="w-32 px-2 py-1 border-r-2 border-gray-400 bg-white">
                       <input type="text" value={stone.size} onChange={(e) => updateStoneInfo(stone.id, 'size', e.target.value)} className="w-full bg-transparent outline-none text-xs"/>
                     </td>
-                    <td className="w-32 px-2 py-1 bg-white">
+                    <td className="w-32 px-2 py-1 border-r-2 border-gray-400 bg-white">
                       <input type="text" value={stone.quantity} onChange={(e) => updateStoneInfo(stone.id, 'quantity', e.target.value)} className="w-full bg-transparent outline-none text-xs"/>
+                    </td>
+                    <td className="px-2 py-1 bg-white text-center">
+                      <button type="button" onClick={() => deleteStoneInfo(stone.id)} className="text-red-500 hover:text-red-700 transition-colors">
+                        <Trash2 className="h-3 w-3" />
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -679,8 +718,13 @@ export default function ProductSheet() {
                     <td className="w-1/2 px-2 py-1 border-r-2 border-gray-400 bg-white">
                       <input type="text" value={row.col1} onChange={(e) => updatePlatingType(row.id, 'col1', e.target.value)} className="w-full bg-transparent outline-none text-xs"/>
                     </td>
-                    <td className="w-1/2 px-2 py-1 bg-white">
+                    <td className="flex-1 px-2 py-1 border-r-2 border-gray-400 bg-white">
                       <input type="text" value={row.col2} onChange={(e) => updatePlatingType(row.id, 'col2', e.target.value)} className="w-full bg-transparent outline-none text-xs"/>
+                    </td>
+                    <td className="px-2 py-1 bg-white text-center">
+                      <button type="button" onClick={() => deletePlatingType(row.id)} className="text-red-500 hover:text-red-700 transition-colors">
+                        <Trash2 className="h-3 w-3" />
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -921,13 +965,16 @@ export default function ProductSheet() {
                         <div className="bg-white border-2 border-gray-400 max-h-[8rem] overflow-y-auto">
                           <div className="flex flex-col">
                             {manufacturing.dieNumbers.map((row, index) => (
-                              <div key={row.id} className={`flex ${index > 0 ? 'border-t border-gray-400' : ''}`}>
+                              <div key={row.id} className={`flex items-center ${index > 0 ? 'border-t border-gray-400' : ''}`}>
                                 <div className="flex-1 px-2 py-1 border-r-2 border-gray-400">
                                   <input type="text" placeholder="DIE NUMBER" value={row.dieNumber} onChange={(e) => updateDieNumber(row.id, 'dieNumber', e.target.value)} className="w-full bg-transparent outline-none text-xs placeholder-gray-400"/>
                                 </div>
-                                <div className="flex-1 px-2 py-1">
+                                <div className="flex-1 px-2 py-1 border-r-2 border-gray-400">
                                   <input type="text" placeholder="QUANTITY" value={row.quantity} onChange={(e) => updateDieNumber(row.id, 'quantity', e.target.value)} className="w-full bg-transparent outline-none text-xs placeholder-gray-400"/>
                                 </div>
+                                <button type="button" onClick={() => deleteDieNumber(row.id)} className="px-2 py-1 text-red-500 hover:text-red-700 transition-colors flex-shrink-0">
+                                  <Trash2 className="h-3 w-3" />
+                                </button>
                               </div>
                             ))}
                           </div>
@@ -1006,7 +1053,7 @@ export default function ProductSheet() {
 
                           <div className="max-h-[5.5rem] overflow-y-auto">
                             {variations.map((variation, index) => (
-                              <div key={variation.id} className={`flex ${index < variations.length - 1 ? 'border-b border-gray-400' : ''}`}>
+                              <div key={variation.id} className={`flex items-center ${index < variations.length - 1 ? 'border-b border-gray-400' : ''}`}>
                                 <div className="w-32 px-2 py-1 border-r-2 border-gray-400 font-semibold text-xs flex items-center flex-shrink-0">
                                   {variation.label ? (
                                     <span>{variation.label}</span>
@@ -1017,9 +1064,12 @@ export default function ProductSheet() {
                                 <div className="flex-1 px-2 py-1 border-r-2 border-gray-400">
                                   <input type="text" value={variation.col1} onChange={(e) => updateVariation(variation.id, 'col1', e.target.value)} className="w-full bg-transparent outline-none text-xs"/>
                                 </div>
-                                <div className="flex-1 px-2 py-1">
+                                <div className="flex-1 px-2 py-1 border-r-2 border-gray-400">
                                   <input type="text" value={variation.col2} onChange={(e) => updateVariation(variation.id, 'col2', e.target.value)} className="w-full bg-transparent outline-none text-xs"/>
                                 </div>
+                                <button type="button" onClick={() => deleteVariation(variation.id)} className="px-2 py-1 text-red-500 hover:text-red-700 transition-colors flex-shrink-0">
+                                  <Trash2 className="h-3 w-3" />
+                                </button>
                               </div>
                             ))}
                           </div>
@@ -1127,6 +1177,11 @@ export default function ProductSheet() {
                               <td className="px-0.5 py-0.5"><input className="w-full text-xs px-0.5 py-0.5 border rounded" placeholder="SKU" value={row.sku} onChange={(e) => updateFinalStock(row.id, 'sku', e.target.value)} /></td>
                               <td className="px-0.5 py-0.5"><input className="w-full text-xs px-0.5 py-0.5 border rounded" placeholder="Value" value={row.value} onChange={(e) => updateFinalStock(row.id, 'value', e.target.value)} /></td>
                               <td className="px-0.5 py-0.5"><input className="w-full text-xs px-0.5 py-0.5 border rounded" placeholder="Unit" value={row.unit} onChange={(e) => updateFinalStock(row.id, 'unit', e.target.value)} /></td>
+                              <td className="px-0.5 py-0.5 text-center">
+                                <button type="button" onClick={() => deleteFinalStock(row.id)} className="text-red-500 hover:text-red-700 transition-colors">
+                                  <Trash2 className="h-3 w-3" />
+                                </button>
+                              </td>
                             </tr>
                           ))}
                         </tbody>
@@ -1181,8 +1236,13 @@ export default function ProductSheet() {
                             <td className="w-32 px-2 py-1 border-r-2 border-gray-400 bg-white">
                               <input type="text" value={stone.size} onChange={(e) => updateStoneInfo(stone.id, 'size', e.target.value)} className="w-full bg-transparent outline-none text-xs"/>
                             </td>
-                            <td className="w-32 px-2 py-1 bg-white">
+                            <td className="w-32 px-2 py-1 border-r-2 border-gray-400 bg-white">
                               <input type="text" value={stone.quantity} onChange={(e) => updateStoneInfo(stone.id, 'quantity', e.target.value)} className="w-full bg-transparent outline-none text-xs"/>
+                            </td>
+                            <td className="px-2 py-1 bg-white text-center">
+                              <button type="button" onClick={() => deleteStoneInfo(stone.id)} className="text-red-500 hover:text-red-700 transition-colors">
+                                <Trash2 className="h-3 w-3" />
+                              </button>
                             </td>
                           </tr>
                         ))}
@@ -1216,8 +1276,13 @@ export default function ProductSheet() {
                             <td className="w-1/2 px-2 py-1 border-r-2 border-gray-400 bg-white">
                               <input type="text" value={row.col1} onChange={(e) => updatePlatingType(row.id, 'col1', e.target.value)} className="w-full bg-transparent outline-none text-xs"/>
                             </td>
-                            <td className="w-1/2 px-2 py-1 bg-white">
+                            <td className="flex-1 px-2 py-1 border-r-2 border-gray-400 bg-white">
                               <input type="text" value={row.col2} onChange={(e) => updatePlatingType(row.id, 'col2', e.target.value)} className="w-full bg-transparent outline-none text-xs"/>
+                            </td>
+                            <td className="px-2 py-1 bg-white text-center">
+                              <button type="button" onClick={() => deletePlatingType(row.id)} className="text-red-500 hover:text-red-700 transition-colors">
+                                <Trash2 className="h-3 w-3" />
+                              </button>
                             </td>
                           </tr>
                         ))}
