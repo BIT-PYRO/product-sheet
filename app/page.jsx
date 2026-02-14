@@ -1,7 +1,7 @@
 'use client'
 
 import React from "react"
-import { Trash2 } from 'lucide-react'
+import { Trash2, LayoutDashboard, X } from 'lucide-react'
 
 import { useState, useRef } from 'react'
 import { CreateJobModal } from '@/components/create-job-modal'
@@ -11,6 +11,7 @@ export default function ProductSheet() {
   const manufacturingImagesRef = useRef(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isCreateJobModalOpen, setIsCreateJobModalOpen] = useState(false)
+  const [isDashboardOpen, setIsDashboardOpen] = useState(false)
   const [productImage, setProductImage] = useState(null)
 
   const [platingType, setPlatingType] = useState([
@@ -235,6 +236,10 @@ export default function ProductSheet() {
           <button onClick={() => setIsModalOpen(true)} className="w-fit px-2 py-1 text-xs bg-blue-600 text-white font-semibold rounded hover:bg-blue-700">+ ADD PRODUCT</button>
           <button className="w-fit px-2 py-1 text-xs bg-green-600 text-white font-semibold rounded hover:bg-green-700">SAVE</button>
           <button className="w-fit px-2 py-1 text-xs bg-red-600 text-white font-semibold rounded hover:bg-red-700">DELETE</button>
+          <button onClick={() => setIsDashboardOpen(!isDashboardOpen)} className="w-fit px-2 py-1 text-xs bg-purple-600 text-white font-semibold rounded hover:bg-purple-700 flex items-center gap-1">
+            <LayoutDashboard className="h-4 w-4" />
+            Dashboard
+          </button>
         </div>
       </div>
 
@@ -1359,6 +1364,90 @@ export default function ProductSheet() {
           </div>
         </div>
       )}
+      </div>
+
+      {/* Dashboard Panel */}
+      {isDashboardOpen && (
+        <div className="fixed inset-0 z-40 bg-black bg-opacity-50" onClick={() => setIsDashboardOpen(false)}></div>
+      )}
+      <div className={`fixed top-0 right-0 h-full w-80 bg-white border-l-2 border-gray-300 shadow-lg transform transition-transform duration-300 z-40 overflow-y-auto ${
+        isDashboardOpen ? 'translate-x-0' : 'translate-x-full'
+      }`}>
+        <div className="p-4">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-2xl font-bold">Dashboard</h2>
+            <button onClick={() => setIsDashboardOpen(false)} className="p-1 hover:bg-gray-200 rounded">
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+
+          {/* Dashboard Content */}
+          <div className="space-y-4">
+            {/* Stats Cards */}
+            <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-4 rounded-lg border border-blue-200">
+              <p className="text-xs text-gray-600 font-semibold uppercase">Total Products</p>
+              <p className="text-2xl font-bold text-blue-600 mt-2">12</p>
+              <p className="text-xs text-gray-500 mt-1">+2 this week</p>
+            </div>
+
+            <div className="bg-gradient-to-br from-green-50 to-green-100 p-4 rounded-lg border border-green-200">
+              <p className="text-xs text-gray-600 font-semibold uppercase">Stock Status</p>
+              <p className="text-2xl font-bold text-green-600 mt-2">In Stock</p>
+              <p className="text-xs text-gray-500 mt-1">245 items available</p>
+            </div>
+
+            <div className="bg-gradient-to-br from-orange-50 to-orange-100 p-4 rounded-lg border border-orange-200">
+              <p className="text-xs text-gray-600 font-semibold uppercase">Pending Orders</p>
+              <p className="text-2xl font-bold text-orange-600 mt-2">5</p>
+              <p className="text-xs text-gray-500 mt-1">Awaiting shipment</p>
+            </div>
+
+            <div className="bg-gradient-to-br from-purple-50 to-purple-100 p-4 rounded-lg border border-purple-200">
+              <p className="text-xs text-gray-600 font-semibold uppercase">Active Channels</p>
+              <p className="text-2xl font-bold text-purple-600 mt-2">7</p>
+              <p className="text-xs text-gray-500 mt-1">All online</p>
+            </div>
+
+            <hr className="my-4" />
+
+            {/* Quick Actions */}
+            <div>
+              <h3 className="text-sm font-semibold text-gray-700 mb-3">Quick Actions</h3>
+              <div className="space-y-2">
+                <button className="w-full p-2 bg-blue-600 text-white text-xs font-semibold rounded hover:bg-blue-700">
+                  Generate Report
+                </button>
+                <button className="w-full p-2 bg-green-600 text-white text-xs font-semibold rounded hover:bg-green-700">
+                  Sync Inventory
+                </button>
+                <button className="w-full p-2 bg-orange-600 text-white text-xs font-semibold rounded hover:bg-orange-700">
+                  View Analytics
+                </button>
+              </div>
+            </div>
+
+            <hr className="my-4" />
+
+            {/* Recent Activity */}
+            <div>
+              <h3 className="text-sm font-semibold text-gray-700 mb-3">Recent Activity</h3>
+              <div className="space-y-2 text-xs">
+                <div className="p-2 bg-gray-50 rounded border-l-4 border-blue-500">
+                  <p className="font-semibold">Product Added</p>
+                  <p className="text-gray-600">Gold Earrings - 2 mins ago</p>
+                </div>
+                <div className="p-2 bg-gray-50 rounded border-l-4 border-green-500">
+                  <p className="font-semibold">Order Placed</p>
+                  <p className="text-gray-600">3 units sold - 1 hour ago</p>
+                </div>
+                <div className="p-2 bg-gray-50 rounded border-l-4 border-orange-500">
+                  <p className="font-semibold">Stock Updated</p>
+                  <p className="text-gray-600">Inventory adjusted - 3 hours ago</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       <CreateJobModal 
