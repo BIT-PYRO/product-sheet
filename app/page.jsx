@@ -271,8 +271,11 @@ export default function ProductSheet() {
         const result = await response.json();
         
         if (result.success) {
-          setSaveStatus({ success: true, message: 'Data saved to Google Sheets successfully!' });
-          setTimeout(() => setSaveStatus(null), 3000);
+          const message = result.isUpdate 
+            ? `✓ Product updated in Google Sheets (${result.message})`
+            : '✓ New product added to Google Sheets';
+          setSaveStatus({ success: true, message });
+          setTimeout(() => setSaveStatus(null), 4000);
         } else {
           setSaveStatus({ success: false, message: `Error: ${result.message}` });
         }
