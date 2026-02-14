@@ -228,8 +228,8 @@ export default function ProductSheet() {
     const deleteStoneInfo = (id) => {
         setStoneInfo(stoneInfo.filter(row => row.id !== id));
     };
-    return (<div className="min-h-screen bg-white p-2">
-      <div className="flex justify-between items-center mb-2">
+    return (<div className="min-h-screen bg-white p-2 flex flex-col">
+      <div className="flex justify-between items-center mb-2 sticky top-0 z-50 bg-white py-2 border-b border-gray-300">
         <h1 className="text-xl font-bold">PRODUCT SHEET</h1>
         <div className="flex gap-2">
           <button onClick={() => setIsModalOpen(true)} className="w-fit px-2 py-1 text-xs bg-blue-600 text-white font-semibold rounded hover:bg-blue-700">+ ADD PRODUCT</button>
@@ -238,6 +238,7 @@ export default function ProductSheet() {
         </div>
       </div>
 
+      <div className="flex-1 overflow-y-auto">
       {/* Top Section - Product Details & Variations Combined */}
       <div className="bg-gray-200 p-2 rounded-lg mb-2">
         <div className="flex gap-3 h-auto">
@@ -1358,6 +1359,7 @@ export default function ProductSheet() {
           </div>
         </div>
       )}
+      </div>
 
       <CreateJobModal 
         open={isCreateJobModalOpen}
