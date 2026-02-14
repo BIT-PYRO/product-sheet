@@ -231,19 +231,20 @@ export default function ProductSheet() {
     };
     return (<div className="min-h-screen bg-white p-2 flex flex-col">
       <div className="flex justify-between items-center mb-2 sticky top-0 z-50 bg-white py-2 border-b border-gray-300">
-        <h1 className="text-xl font-bold">PRODUCT SHEET</h1>
+        <div className="flex items-center gap-3">
+          <button onClick={() => setIsDashboardOpen(!isDashboardOpen)} className="p-2 border-2 border-black bg-white rounded hover:bg-gray-100 transition-colors">
+            <LayoutDashboard className="h-5 w-5 text-black" />
+          </button>
+          <h1 className="text-xl font-bold">PRODUCT SHEET</h1>
+        </div>
         <div className="flex gap-2">
           <button onClick={() => setIsModalOpen(true)} className="w-fit px-2 py-1 text-xs bg-blue-600 text-white font-semibold rounded hover:bg-blue-700">+ ADD PRODUCT</button>
           <button className="w-fit px-2 py-1 text-xs bg-green-600 text-white font-semibold rounded hover:bg-green-700">SAVE</button>
           <button className="w-fit px-2 py-1 text-xs bg-red-600 text-white font-semibold rounded hover:bg-red-700">DELETE</button>
-          <button onClick={() => setIsDashboardOpen(!isDashboardOpen)} className="w-fit px-2 py-1 text-xs bg-purple-600 text-white font-semibold rounded hover:bg-purple-700 flex items-center gap-1">
-            <LayoutDashboard className="h-4 w-4" />
-            Dashboard
-          </button>
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto">
+      <div className={`flex-1 overflow-y-auto transition-all duration-300 ${isDashboardOpen ? 'ml-80' : ''}`}>
       {/* Top Section - Product Details & Variations Combined */}
       <div className="bg-gray-200 p-2 rounded-lg mb-2">
         <div className="flex gap-3 h-auto">
@@ -1370,8 +1371,8 @@ export default function ProductSheet() {
       {isDashboardOpen && (
         <div className="fixed inset-0 z-40 bg-black bg-opacity-50" onClick={() => setIsDashboardOpen(false)}></div>
       )}
-      <div className={`fixed top-0 right-0 h-full w-80 bg-white border-l-2 border-gray-300 shadow-lg transform transition-transform duration-300 z-40 overflow-y-auto ${
-        isDashboardOpen ? 'translate-x-0' : 'translate-x-full'
+      <div className={`fixed top-0 left-0 h-full w-80 bg-white border-r-2 border-gray-300 shadow-lg transform transition-transform duration-300 z-40 overflow-y-auto ${
+        isDashboardOpen ? 'translate-x-0' : '-translate-x-full'
       }`}>
         <div className="p-4">
           <div className="flex justify-between items-center mb-6">
