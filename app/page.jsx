@@ -1369,9 +1369,9 @@ export default function ProductSheet() {
 
       {/* Dashboard Panel */}
       {isDashboardOpen && (
-        <div className="fixed inset-0 z-40 bg-black bg-opacity-50" onClick={() => setIsDashboardOpen(false)}></div>
+        <div className="fixed inset-0 z-30 bg-black bg-opacity-50 top-16" onClick={() => setIsDashboardOpen(false)}></div>
       )}
-      <div className={`fixed top-0 left-0 h-full w-80 bg-white border-r-2 border-gray-300 shadow-lg transform transition-transform duration-300 z-40 overflow-y-auto ${
+      <div className={`fixed top-16 left-0 h-[calc(100vh-64px)] w-80 bg-white border-r-2 border-gray-300 shadow-lg transform transition-transform duration-300 z-40 overflow-y-auto ${
         isDashboardOpen ? 'translate-x-0' : '-translate-x-full'
       }`}>
         <div className="p-4">
