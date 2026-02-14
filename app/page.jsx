@@ -100,6 +100,8 @@ export default function ProductSheet() {
   const [finalStock, setFinalStock] = useState([
     { id: 1, sku: '', value: '', unit: '' },
   ])
+  const [isSaving, setIsSaving] = useState(false)
+  const [saveStatus, setSaveStatus] = useState(null)
 
   const updateLiveStock = (stage, field, value) => {
     setLiveStock(prev => ({
@@ -229,6 +231,57 @@ export default function ProductSheet() {
     const deleteStoneInfo = (id) => {
         setStoneInfo(stoneInfo.filter(row => row.id !== id));
     };
+    
+    // Handle saving to Google Sheets
+    const handleSaveToGoogleSheets = async () => {
+      setIsSaving(true);
+      setSaveStatus(null);
+      
+      try {
+        const productData = {
+          sku,
+          listingName,
+          material,
+          materialSku,
+          dropdown1,
+          weightValue,
+          weightUnit,
+          dropdown2,
+          dropdown3,
+          settingType,
+          enamelType,
+          activeChannels,
+          shopifyStatus,
+          platingType,
+          manufacturing,
+          variations,
+          stoneInfo,
+          finalStock,
+          liveStock,
+        };
+        
+        const response = await fetch('/api/save-to-sheets', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(productData),
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+          setSaveStatus({ success: true, message: 'Data saved to Google Sheets successfully!' });
+          setTimeout(() => setSaveStatus(null), 3000);
+        } else {
+          setSaveStatus({ success: false, message: `Error: ${result.message}` });
+        }
+      } catch (error) {
+        setSaveStatus({ success: false, message: `Error: ${error.message}` });
+      } finally {
+        setIsSaving(false);
+      }
+    };
     return (<div className="min-h-screen bg-white p-2 flex flex-col">
       <div className="flex justify-between items-center mb-2 sticky top-0 z-50 bg-white py-2 border-b border-gray-300">
         <div className="flex items-center gap-3">
@@ -237,10 +290,15 @@ export default function ProductSheet() {
           </button>
           <h1 className="text-xl font-bold">PRODUCT SHEET</h1>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-center">
           <button onClick={() => setIsModalOpen(true)} className="w-fit px-2 py-1 text-xs bg-blue-600 text-white font-semibold rounded hover:bg-blue-700">+ ADD PRODUCT</button>
-          <button className="w-fit px-2 py-1 text-xs bg-green-600 text-white font-semibold rounded hover:bg-green-700">SAVE</button>
+          <button onClick={handleSaveToGoogleSheets} disabled={isSaving} className="w-fit px-2 py-1 text-xs bg-green-600 text-white font-semibold rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed">{isSaving ? 'Saving...' : 'SAVE'}</button>
           <button className="w-fit px-2 py-1 text-xs bg-red-600 text-white font-semibold rounded hover:bg-red-700">DELETE</button>
+          {saveStatus && (
+            <div className={`text-xs px-2 py-1 rounded ${saveStatus.success ? 'bg-green-100 text-green-700 border border-green-300' : 'bg-red-100 text-red-700 border border-red-300'}`}>
+              {saveStatus.message}
+            </div>
+          )}
         </div>
       </div>
 
