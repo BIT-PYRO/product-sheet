@@ -704,24 +704,27 @@ export default function ProductSheet() {
               <table className="w-full border-2 border-gray-400 table-fixed">
               <thead>
                 <tr className="border-b-2 border-gray-400">
-                  <th className="w-1/2 px-2 py-1 text-left font-semibold text-xs border-r-2 border-gray-400 bg-white">
+                  <th className="w-2/5 px-2 py-1 text-left font-semibold text-xs border-r-2 border-gray-400 bg-white">
                     PLATING TYPE
                   </th>
-                  <th className="w-1/2 px-2 py-1 text-left font-semibold text-xs bg-white">
+                  <th className="w-2/5 px-2 py-1 text-left font-semibold text-xs border-r-2 border-gray-400 bg-white">
                     PLATING COLOR
+                  </th>
+                  <th className="w-1/5 px-2 py-1 text-center font-semibold text-xs bg-white">
+                    ACTION
                   </th>
                 </tr>
               </thead>
               <tbody>
                 {platingType.map((row, index) => (
                   <tr key={row.id} className={index < platingType.length - 1 ? 'border-b-2 border-gray-400' : ''}>
-                    <td className="w-1/2 px-2 py-1 border-r-2 border-gray-400 bg-white">
+                    <td className="w-2/5 px-2 py-1 border-r-2 border-gray-400 bg-white">
                       <input type="text" value={row.col1} onChange={(e) => updatePlatingType(row.id, 'col1', e.target.value)} className="w-full bg-transparent outline-none text-xs"/>
                     </td>
-                    <td className="flex-1 px-2 py-1 border-r-2 border-gray-400 bg-white">
+                    <td className="w-2/5 px-2 py-1 border-r-2 border-gray-400 bg-white">
                       <input type="text" value={row.col2} onChange={(e) => updatePlatingType(row.id, 'col2', e.target.value)} className="w-full bg-transparent outline-none text-xs"/>
                     </td>
-                    <td className="px-2 py-1 bg-white text-center">
+                    <td className="w-1/5 px-2 py-1 bg-white text-center">
                       <button type="button" onClick={() => deletePlatingType(row.id)} className="text-red-500 hover:text-red-700 transition-colors">
                         <Trash2 className="h-3 w-3" />
                       </button>
@@ -1262,24 +1265,27 @@ export default function ProductSheet() {
                       <table className="w-full border-2 border-gray-400 table-fixed">
                       <thead>
                         <tr className="border-b-2 border-gray-400">
-                          <th className="w-1/2 px-2 py-1 text-left font-semibold text-xs border-r-2 border-gray-400 bg-white">
+                          <th className="w-2/5 px-2 py-1 text-left font-semibold text-xs border-r-2 border-gray-400 bg-white">
                             PLATING TYPE
                           </th>
-                          <th className="w-1/2 px-2 py-1 text-left font-semibold text-xs bg-white">
+                          <th className="w-2/5 px-2 py-1 text-left font-semibold text-xs border-r-2 border-gray-400 bg-white">
                             PLATING COLOR
+                          </th>
+                          <th className="w-1/5 px-2 py-1 text-center font-semibold text-xs bg-white">
+                            ACTION
                           </th>
                         </tr>
                       </thead>
                       <tbody>
                         {platingType.map((row, index) => (
                           <tr key={row.id} className={index < platingType.length - 1 ? 'border-b-2 border-gray-400' : ''}>
-                            <td className="w-1/2 px-2 py-1 border-r-2 border-gray-400 bg-white">
+                            <td className="w-2/5 px-2 py-1 border-r-2 border-gray-400 bg-white">
                               <input type="text" value={row.col1} onChange={(e) => updatePlatingType(row.id, 'col1', e.target.value)} className="w-full bg-transparent outline-none text-xs"/>
                             </td>
-                            <td className="flex-1 px-2 py-1 border-r-2 border-gray-400 bg-white">
+                            <td className="w-2/5 px-2 py-1 border-r-2 border-gray-400 bg-white">
                               <input type="text" value={row.col2} onChange={(e) => updatePlatingType(row.id, 'col2', e.target.value)} className="w-full bg-transparent outline-none text-xs"/>
                             </td>
-                            <td className="px-2 py-1 bg-white text-center">
+                            <td className="w-1/5 px-2 py-1 bg-white text-center">
                               <button type="button" onClick={() => deletePlatingType(row.id)} className="text-red-500 hover:text-red-700 transition-colors">
                                 <Trash2 className="h-3 w-3" />
                               </button>
