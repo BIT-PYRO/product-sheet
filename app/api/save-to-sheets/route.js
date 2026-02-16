@@ -180,3 +180,97 @@ export async function POST(request) {
     );
   }
 }
+
+export async function DELETE(request) {
+  try {
+    const { sku } = await request.json();
+    
+    if (!sku) {
+      return Response.json(
+        { success: false, message: 'SKU is required' },
+        { status: 400 }
+      );
+    }
+    
+    // Get credentials from environment variables
+    const credentials = {
+      type: process.env.GOOGLE_TYPE,
+      project_id: process.env.GOOGLE_PROJECT_ID,
+      private_key_id: process.env.GOOGLE_PRIVATE_KEY_ID,
+      private_key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+      client_email: process.env.GOOGLE_CLIENT_EMAIL,
+      client_id: process.env.GOOGLE_CLIENT_ID,
+      auth_uri: process.env.GOOGLE_AUTH_URI,
+      token_uri: process.env.GOOGLE_TOKEN_URI,
+      auth_provider_x509_cert_url: process.env.GOOGLE_AUTH_PROVIDER_CERT_URL,
+      client_x509_cert_url: process.env.GOOGLE_CLIENT_CERT_URL,
+    };
+
+    const sheets = google.sheets({
+      version: 'v4',
+      auth: new google.auth.GoogleAuth({
+        credentials,
+        scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+      }),
+    });
+
+    const spreadsheetId = process.env.GOOGLE_SHEET_ID;
+
+    // Get all data to find the SKU
+    const getResponse = await sheets.spreadsheets.values.get({
+      spreadsheetId,
+      range: 'Sheet1!A:B',
+    });
+
+    const rows = getResponse.data.values || [];
+    
+    // Find the row with matching SKU (Column B)
+    const rowIndex = rows.findIndex((row, index) => {
+      if (index === 0) return false; // Skip header
+      return row[1] === sku; // Column B is SKU
+    });
+
+    if (rowIndex === -1) {
+      return Response.json(
+        { success: false, message: `Product with SKU "${sku}" not found` },
+        { status: 404 }
+      );
+    }
+
+    // Delete the row (rowIndex is 0-based, but sheet rows are 1-based)
+    const rowNumber = rowIndex + 1;
+    
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId,
+      resource: {
+        requests: [
+          {
+            deleteDimension: {
+              range: {
+                sheetId: 0, // First sheet
+                dimension: 'ROWS',
+                startIndex: rowIndex,
+                endIndex: rowIndex + 1,
+              },
+            },
+          },
+        ],
+      },
+    });
+
+    return Response.json({
+      success: true,
+      message: `Product with SKU "${sku}" deleted successfully`,
+    });
+  } catch (error) {
+    console.error('Error deleting from Google Sheets:', error);
+    return Response.json(
+      {
+        success: false,
+        message: 'Failed to delete from Google Sheets',
+        error: error.message,
+      },
+      { status: 500 }
+    );
+  }
+}

@@ -285,6 +285,59 @@ export default function ProductSheet() {
         setIsSaving(false);
       }
     };
+    
+    // Handle deleting from Google Sheets
+    const handleDeleteFromGoogleSheets = async () => {
+      if (!sku) {
+        setSaveStatus({ success: false, message: 'Please enter a SKU to delete' });
+        setTimeout(() => setSaveStatus(null), 4000);
+        return;
+      }
+      
+      const confirmed = window.confirm(`Are you sure you want to delete product with SKU "${sku}"?`);
+      if (!confirmed) return;
+      
+      setIsSaving(true);
+      setSaveStatus(null);
+      
+      try {
+        const response = await fetch('/api/save-to-sheets', {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ sku }),
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+          setSaveStatus({ success: true, message: result.message });
+          setTimeout(() => setSaveStatus(null), 4000);
+          
+          // Clear form after successful deletion
+          setSku('');
+          setListingName('');
+          setDropdown1('');
+          setWeightValue('');
+          setWeightUnit('');
+          setDropdown2('');
+          setDropdown3('');
+          setSettingType('');
+          setEnamelType('');
+          setActiveChannels([]);
+          setShopifyStatus('active');
+          setMaterialSku('');
+        } else {
+          setSaveStatus({ success: false, message: result.message });
+        }
+      } catch (error) {
+        setSaveStatus({ success: false, message: `Error: ${error.message}` });
+      } finally {
+        setIsSaving(false);
+      }
+    };
+    
     return (<div className="min-h-screen bg-white p-2 flex flex-col">
       <div className="flex justify-between items-center mb-2 sticky top-0 z-50 bg-white py-2 border-b border-gray-300">
         <div className="flex items-center gap-3">
@@ -296,7 +349,7 @@ export default function ProductSheet() {
         <div className="flex gap-2 items-center">
           <button onClick={() => setIsModalOpen(true)} className="w-fit px-2 py-1 text-xs bg-blue-600 text-white font-semibold rounded hover:bg-blue-700">+ ADD PRODUCT</button>
           <button onClick={handleSaveToGoogleSheets} disabled={isSaving} className="w-fit px-2 py-1 text-xs bg-green-600 text-white font-semibold rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed">{isSaving ? 'Saving...' : 'SAVE'}</button>
-          <button className="w-fit px-2 py-1 text-xs bg-red-600 text-white font-semibold rounded hover:bg-red-700">DELETE</button>
+          <button onClick={handleDeleteFromGoogleSheets} disabled={isSaving} className="w-fit px-2 py-1 text-xs bg-red-600 text-white font-semibold rounded hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed">DELETE</button>
           {saveStatus && (
             <div className={`text-xs px-2 py-1 rounded ${saveStatus.success ? 'bg-green-100 text-green-700 border border-green-300' : 'bg-red-100 text-red-700 border border-red-300'}`}>
               {saveStatus.message}
