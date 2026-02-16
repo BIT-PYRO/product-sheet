@@ -339,8 +339,10 @@ export default function ProductSheet() {
                 <div className="font-semibold text-xs mb-1">Material</div>
                 <select value={dropdown1} onChange={(e) => setDropdown1(e.target.value)} className="w-full bg-transparent outline-none text-xs border border-gray-300 rounded px-2 py-1">
                   <option value="">Select...</option>
-                  <option value="opt1">Material A</option>
-                  <option value="opt2">Material B</option>
+                  <option value="Silver">Silver</option>
+                  <option value="Gold">Gold</option>
+                  <option value="Brass">Brass</option>
+                  <option value="Copper">Copper</option>
                 </select>
               </div>
               <div className="flex-1 bg-white border-2 border-gray-400 px-2 py-1">
@@ -360,16 +362,21 @@ export default function ProductSheet() {
                 <div className="font-semibold text-xs mb-1">Category</div>
                 <select value={dropdown2} onChange={(e) => setDropdown2(e.target.value)} className="w-full bg-transparent outline-none text-xs border border-gray-300 rounded px-2 py-1">
                   <option value="">Select...</option>
-                  <option value="opt1">Category A</option>
-                  <option value="opt2">Category B</option>
+                  <option value="Ring">Ring</option>
+                  <option value="Necklace">Necklace</option>
+                  <option value="Bracelet">Bracelet</option>
+                  <option value="Earring">Earring</option>
+                  <option value="Pendant">Pendant</option>
                 </select>
               </div>
               <div className="flex-1 bg-white border-2 border-gray-400 px-2 py-1">
                 <div className="font-semibold text-xs mb-1">Collection</div>
                 <select value={dropdown3} onChange={(e) => setDropdown3(e.target.value)} className="w-full bg-transparent outline-none text-xs border border-gray-300 rounded px-2 py-1">
                   <option value="">Select...</option>
-                  <option value="opt1">Collection A</option>
-                  <option value="opt2">Collection B</option>
+                  <option value="Classic">Classic</option>
+                  <option value="Modern">Modern</option>
+                  <option value="Vintage">Vintage</option>
+                  <option value="Contemporary">Contemporary</option>
                 </select>
               </div>
             </div>
@@ -900,8 +907,10 @@ export default function ProductSheet() {
                         <div className="font-semibold text-xs mb-1">Material</div>
                         <select value={dropdown1} onChange={(e) => setDropdown1(e.target.value)} className="w-full bg-transparent outline-none text-xs border border-gray-300 rounded px-2 py-1">
                           <option value="">Select...</option>
-                          <option value="opt1">Material A</option>
-                          <option value="opt2">Material B</option>
+                          <option value="Silver">Silver</option>
+                          <option value="Gold">Gold</option>
+                          <option value="Brass">Brass</option>
+                          <option value="Copper">Copper</option>
                         </select>
                       </div>
                       <div className="flex-1 bg-white border-2 border-gray-400 px-2 py-1">
@@ -921,16 +930,21 @@ export default function ProductSheet() {
                         <div className="font-semibold text-xs mb-1">Category</div>
                         <select value={dropdown2} onChange={(e) => setDropdown2(e.target.value)} className="w-full bg-transparent outline-none text-xs border border-gray-300 rounded px-2 py-1">
                           <option value="">Select...</option>
-                          <option value="opt1">Category A</option>
-                          <option value="opt2">Category B</option>
+                          <option value="Ring">Ring</option>
+                          <option value="Necklace">Necklace</option>
+                          <option value="Bracelet">Bracelet</option>
+                          <option value="Earring">Earring</option>
+                          <option value="Pendant">Pendant</option>
                         </select>
                       </div>
                       <div className="flex-1 bg-white border-2 border-gray-400 px-2 py-1">
                         <div className="font-semibold text-xs mb-1">Collection</div>
                         <select value={dropdown3} onChange={(e) => setDropdown3(e.target.value)} className="w-full bg-transparent outline-none text-xs border border-gray-300 rounded px-2 py-1">
                           <option value="">Select...</option>
-                          <option value="opt1">Collection A</option>
-                          <option value="opt2">Collection B</option>
+                          <option value="Classic">Classic</option>
+                          <option value="Modern">Modern</option>
+                          <option value="Vintage">Vintage</option>
+                          <option value="Contemporary">Contemporary</option>
                         </select>
                       </div>
                     </div>
