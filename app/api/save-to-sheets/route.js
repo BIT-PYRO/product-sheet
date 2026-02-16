@@ -29,168 +29,101 @@ export async function POST(request) {
     const spreadsheetId = process.env.GOOGLE_SHEET_ID;
 
     // Format all the detailed data
-    const platingTypeDetails = data.platingType?.filter(p => p.col1 || p.col2 || p.col3).map(p => `${p.col1}|${p.col2}|${p.col3}`).join('; ') || '';
-    
     const dieNumberDetails = data.manufacturing?.dieNumbers?.filter(d => d.dieNumber).map(d => `${d.dieNumber} (Qty: ${d.quantity})`).join('; ') || '';
     
-    const variationDetails = data.variations?.filter(v => v.col1 || v.col2).map(v => `${v.label}: ${v.col1}/${v.col2}`).join('; ') || '';
+    const stoneInfoDetails = data.stoneInfo?.filter(s => s.name).map(s => 
+      `Name: ${s.name}, Cut: ${s.cut || ''}, Color: ${s.color || ''}, Size: ${s.size || ''}, Qty: ${s.quantity || ''}`
+    ).join('; ') || '';
     
-    const stoneInfoDetails = data.stoneInfo?.filter(s => s.name).map(s => `${s.name} (Cut: ${s.cut}, Color: ${s.color}, Size: ${s.size}, Qty: ${s.quantity})`).join('; ') || '';
-    
-    const finalStockDetails = data.finalStock?.filter(f => f.sku).map(f => `${f.sku} - ${f.value} ${f.unit}`).join('; ') || '';
+    const platingTypeDetails = data.platingType?.filter(p => p.col1 || p.col2).map(p => 
+      `Type: ${p.col1 || ''}, Color: ${p.col2 || ''}`
+    ).join('; ') || '';
 
     const manufacturingNotes = data.manufacturing?.notes || '';
     
     const manufacturingImages = data.manufacturing?.images?.length > 0 ? `${data.manufacturing.images.length} image(s) uploaded` : '';
-
-    const othersDetails = data.others?.filter(o => o.key).map(o => `${o.key}: ${o.value}`).join('; ') || '';
-
-    // Format liveStock data
-    const liveStockStages = ['rawMaterial', 'rawSetting', 'tyre', 'dustunuing', 'wipLiquidCasting', 'postCasting', 'filing', 'packing', 'setting', 'finalPolish', 'readyForPlacing'];
     
-    const liveStockData = {};
-    liveStockStages.forEach(stage => {
-      const stageData = data.liveStock?.[stage] || { min: '', current: '', wip: '', location: '' };
-      liveStockData[`${stage}_min`] = stageData.min || '';
-      liveStockData[`${stage}_current`] = stageData.current || '';
-      liveStockData[`${stage}_wip`] = stageData.wip || '';
-      liveStockData[`${stage}_location`] = stageData.location || '';
-    });
+    // Extract color and enamel from variations
+    const colorVariation = data.variations?.find(v => v.label === 'COLOR');
+    const enamelVariation = data.variations?.find(v => v.label === 'ENAMEL');
+    const colorValue = colorVariation ? (colorVariation.col1 || colorVariation.col2 || '') : '';
+    const enamelValue = enamelVariation ? (enamelVariation.col1 || enamelVariation.col2 || '') : '';
 
-    // Prepare the complete row data
+    // Prepare the complete row data matching your form fields exactly
     const rowData = [
       new Date().toLocaleString(),
       data.sku || '',
       data.listingName || '',
-      data.material || '',
-      data.materialSku || '',
-      data.dropdown1 || '',
-      data.weightValue ? `${data.weightValue} ${data.weightUnit || ''}` : '',
-      data.dropdown2 || '',
-      data.dropdown3 || '',
+      data.dropdown1 || '',  // Material
+      data.weightValue && data.weightUnit ? `${data.weightValue} ${data.weightUnit}` : '',
+      data.dropdown2 || '',  // Category
+      data.dropdown3 || '',  // Collection
       data.settingType || '',
       data.enamelType || '',
       data.activeChannels?.join(', ') || '',
       data.shopifyStatus || '',
-      platingTypeDetails,
-      data.platingType?.filter(p => p.col1 || p.col2 || p.col3).length || 0,
       dieNumberDetails,
-      data.manufacturing?.dieNumbers?.filter(d => d.dieNumber).length || 0,
-      variationDetails,
-      data.variations?.filter(v => v.col1 || v.col2).length || 0,
-      stoneInfoDetails,
-      data.stoneInfo?.filter(s => s.name).length || 0,
-      finalStockDetails,
-      data.finalStock?.filter(f => f.sku).length || 0,
+      data.materialSku || '',  // Master SKU
+      colorValue,  // Color from variations
+      enamelValue,  // Enamel from variations
+      data.stoneInfo?.map(s => s.name || '').join('; ') || '',
+      data.stoneInfo?.map(s => s.cut || '').join('; ') || '',
+      data.stoneInfo?.map(s => s.color || '').join('; ') || '',
+      data.stoneInfo?.map(s => s.size || '').join('; ') || '',
+      data.stoneInfo?.map(s => s.quantity || '').join('; ') || '',
+      data.platingType?.map(p => p.col1 || '').join('; ') || '',  // Plating Type from col1
+      data.platingType?.map(p => p.col2 || '').join('; ') || '',  // Plating Color from col2
       manufacturingNotes,
       manufacturingImages,
-      othersDetails,
-      // Add all liveStock data
-      ...liveStockStages.flatMap(stage => [
-        liveStockData[`${stage}_min`],
-        liveStockData[`${stage}_current`],
-        liveStockData[`${stage}_wip`],
-        liveStockData[`${stage}_location`],
-      ]),
     ];
 
-    // Define comprehensive headers
+    // Define comprehensive headers matching your fields
     const headerValues = [
       [
         'Last Updated',
         'SKU',
         'Listing Name',
         'Material',
-        'Material SKU',
-        'Category',
         'Weight',
-        'Dropdown 2',
-        'Dropdown 3',
+        'Category',
+        'Collection',
         'Setting Type',
         'Enamel Type',
         'Active Channels',
         'Shopify Status',
-        'Plating Types Details',
-        'Plating Types Count',
-        'Die Numbers Details',
-        'Die Numbers Count',
-        'Variations Details',
-        'Variations Count',
-        'Stone Info Details',
-        'Stone Info Count',
-        'Final Stock Details',
-        'Final Stock Count',
-        'Manufacturing Notes',
-        'Manufacturing Images',
-        'Others Details',
-        // LiveStock Headers
-        'Raw Material - Min',
-        'Raw Material - Current',
-        'Raw Material - WIP',
-        'Raw Material - Location',
-        'Raw Setting - Min',
-        'Raw Setting - Current',
-        'Raw Setting - WIP',
-        'Raw Setting - Location',
-        'Tyre - Min',
-        'Tyre - Current',
-        'Tyre - WIP',
-        'Tyre - Location',
-        'Dustunuing - Min',
-        'Dustunuing - Current',
-        'Dustunuing - WIP',
-        'Dustunuing - Location',
-        'WIP Liquid Casting - Min',
-        'WIP Liquid Casting - Current',
-        'WIP Liquid Casting - WIP',
-        'WIP Liquid Casting - Location',
-        'Post Casting - Min',
-        'Post Casting - Current',
-        'Post Casting - WIP',
-        'Post Casting - Location',
-        'Filing - Min',
-        'Filing - Current',
-        'Filing - WIP',
-        'Filing - Location',
-        'Packing - Min',
-        'Packing - Current',
-        'Packing - WIP',
-        'Packing - Location',
-        'Setting - Min',
-        'Setting - Current',
-        'Setting - WIP',
-        'Setting - Location',
-        'Final Polish - Min',
-        'Final Polish - Current',
-        'Final Polish - WIP',
-        'Final Polish - Location',
-        'Ready For Placing - Min',
-        'Ready For Placing - Current',
-        'Ready For Placing - WIP',
-        'Ready For Placing - Location',
+        'Die Number/Findings',
+        'Master SKU',
+        'Color',
+        'Enamel',
+        'Stone Name',
+        'Stone Cut',
+        'Stone Color',
+        'Stone Size',
+        'Stone Quantity',
+        'Plating Type',
+        'Plating Color',
+        'Notes',
+        'Images',
       ],
     ];
 
-    // Get all existing data
+    // Always update headers to ensure they match the current structure
+    await sheets.spreadsheets.values.update({
+      spreadsheetId,
+      range: 'Sheet1!A1',
+      valueInputOption: 'RAW',
+      resource: {
+        values: headerValues,
+      },
+    });
+
+    // Get all existing data (starting from row 2 to skip header)
     const getResponse = await sheets.spreadsheets.values.get({
       spreadsheetId,
-      range: 'Sheet1!A:A',
+      range: 'Sheet1!A:B',
     });
 
     const existingRows = getResponse.data.values || [];
-    const headerExists = existingRows.length > 0;
-
-    // Add header if it doesn't exist
-    if (!headerExists) {
-      await sheets.spreadsheets.values.update({
-        spreadsheetId,
-        range: 'Sheet1!A1',
-        valueInputOption: 'RAW',
-        resource: {
-          values: headerValues,
-        },
-      });
-    }
 
     // Find if SKU already exists
     const skuIndex = existingRows.findIndex((row, index) => {
