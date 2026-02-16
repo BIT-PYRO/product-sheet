@@ -1443,6 +1443,11 @@ export default function ProductSheet() {
             </button>
           </div>
 
+          {/* Master Job Sheet Button */}
+          <a href="/master-job-sheet" className="w-full mb-6 px-4 py-3 text-sm bg-yellow-500 text-white font-semibold rounded hover:bg-yellow-600 transition-colors block text-center">
+            Master Job Sheet
+          </a>
+
           {/* Dashboard Content */}
           <div className="space-y-4">
             {/* Stats Cards */}
