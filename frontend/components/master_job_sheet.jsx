@@ -5,10 +5,47 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 export default function MasterJobSheet() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedRows, setSelectedRows] = useState(new Set());
+  
+  // Filter states
+  const [statusFilter, setStatusFilter] = useState('');
+  const [dateFromFilter, setDateFromFilter] = useState('');
+  const [dateToFilter, setDateToFilter] = useState('');
+  const [newReissueFilter, setNewReissueFilter] = useState('');
+  const [nameFilter, setNameFilter] = useState('');
+  const [issuerFilter, setIssuerFilter] = useState('');
+  const [departmentFilter, setDepartmentFilter] = useState('');
+  const [typeFilter, setTypeFilter] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('');
+  const [receiverFilter, setReceiverFilter] = useState('');
+  const [skuFilter, setSKUFilter] = useState('');
+  
+  // Sample data for dropdowns
+  const statusOptions = ['Pending', 'WIP', 'Completed'];
+  const newReissueOptions = ['New', 'Re-issue'];
+  const nameOptions = ['Name 1', 'Name 2', 'Name 3', 'Name 4'];
+  const issuerOptions = ['Issuer 1', 'Issuer 2', 'Issuer 3'];
+  const departmentOptions = ['D1', 'D2', 'D3', 'D4'];
+  const typeOptions = ['T1', 'T2', 'T3', 'T4'];
+  const categoryOptions = ['C1', 'C2', 'C3', 'C4'];
+  const receiverOptions = ['Receiver 1', 'Receiver 2', 'Receiver 3'];
+
   const [data, setData] = useState(
     Array(15).fill(null).map((_, i) => ({
       id: i,
@@ -58,6 +95,16 @@ export default function MasterJobSheet() {
   };
 
   const handlePrint = () => {
+    window.print();
+  };
+
+  const handlePrintVouchers = () => {
+    console.log('Printing vouchers...');
+    window.print();
+  };
+
+  const handlePrintSheet = () => {
+    console.log('Printing sheet...');
     window.print();
   };
 
@@ -140,20 +187,26 @@ export default function MasterJobSheet() {
           >
             Export
           </Button>
-          <Button 
-            onClick={handlePrint}
-            variant="outline"
-            className="border-gray-800 text-gray-800 rounded-full px-6"
-          >
-            Print Vouchers
-          </Button>
-          <Button 
-            onClick={handlePrint}
-            variant="outline"
-            className="border-gray-800 text-gray-800 rounded-full px-6"
-          >
-            Print Sheet
-          </Button>
+          
+          {/* Print Dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button 
+                variant="outline"
+                className="border-gray-800 text-gray-800 rounded-full px-6"
+              >
+                Print
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              <DropdownMenuItem onClick={handlePrintVouchers}>
+                Voucher
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handlePrintSheet}>
+                Sheet
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
 
         {/* Search Bar */}
@@ -169,18 +222,162 @@ export default function MasterJobSheet() {
       </div>
 
       {/* Filter Row */}
-      <div className="grid grid-cols-2 md:grid-cols-6 gap-2 mb-4 text-xs md:text-sm font-semibold text-gray-700 bg-blue-100 p-3 rounded">
-        <div>PENDING WIP COMPLETION</div>
-        <div>DATE FROM</div>
-        <div>DATE TO</div>
-        <div>NEW/REISSUE</div>
-        <div>NAME</div>
-        <div>FOAMP</div>
-        <div>DEPARTMENT</div>
-        <div>TYPE</div>
-        <div>CATEGORY</div>
-        <div>RECEIVER</div>
-        <div>SKU</div>
+      <div className="border border-gray-300 rounded-lg mb-4 bg-blue-50 p-4">
+        <div className="grid grid-cols-2 md:grid-cols-6 lg:grid-cols-11 gap-2">
+          {/* Status/Pending WIP Completion */}
+          <div>
+            <label className="text-xs font-semibold text-gray-700 block mb-1">STATUS</label>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue placeholder="Select Status" />
+              </SelectTrigger>
+              <SelectContent>
+                {statusOptions.map(status => (
+                  <SelectItem key={status} value={status}>{status}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Date From */}
+          <div>
+            <label className="text-xs font-semibold text-gray-700 block mb-1">DATE FROM</label>
+            <Input
+              type="date"
+              value={dateFromFilter}
+              onChange={(e) => setDateFromFilter(e.target.value)}
+              className="h-8 text-xs p-1"
+            />
+          </div>
+
+          {/* Date To */}
+          <div>
+            <label className="text-xs font-semibold text-gray-700 block mb-1">DATE TO</label>
+            <Input
+              type="date"
+              value={dateToFilter}
+              onChange={(e) => setDateToFilter(e.target.value)}
+              className="h-8 text-xs p-1"
+            />
+          </div>
+
+          {/* New/Reissue */}
+          <div>
+            <label className="text-xs font-semibold text-gray-700 block mb-1">NEW/RE-ISSUE</label>
+            <Select value={newReissueFilter} onValueChange={setNewReissueFilter}>
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue placeholder="Select" />
+              </SelectTrigger>
+              <SelectContent>
+                {newReissueOptions.map(option => (
+                  <SelectItem key={option} value={option}>{option}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Name */}
+          <div>
+            <label className="text-xs font-semibold text-gray-700 block mb-1">NAME</label>
+            <Select value={nameFilter} onValueChange={setNameFilter}>
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue placeholder="Select Name" />
+              </SelectTrigger>
+              <SelectContent>
+                {nameOptions.map(name => (
+                  <SelectItem key={name} value={name}>{name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Issuer */}
+          <div>
+            <label className="text-xs font-semibold text-gray-700 block mb-1">ISSUER</label>
+            <Select value={issuerFilter} onValueChange={setIssuerFilter}>
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue placeholder="Select Issuer" />
+              </SelectTrigger>
+              <SelectContent>
+                {issuerOptions.map(issuer => (
+                  <SelectItem key={issuer} value={issuer}>{issuer}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Department */}
+          <div>
+            <label className="text-xs font-semibold text-gray-700 block mb-1">DEPARTMENT</label>
+            <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue placeholder="Select Dept" />
+              </SelectTrigger>
+              <SelectContent>
+                {departmentOptions.map(option => (
+                  <SelectItem key={option} value={option}>{option}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Type */}
+          <div>
+            <label className="text-xs font-semibold text-gray-700 block mb-1">TYPE</label>
+            <Select value={typeFilter} onValueChange={setTypeFilter}>
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue placeholder="Select Type" />
+              </SelectTrigger>
+              <SelectContent>
+                {typeOptions.map(option => (
+                  <SelectItem key={option} value={option}>{option}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Category */}
+          <div>
+            <label className="text-xs font-semibold text-gray-700 block mb-1">CATEGORY</label>
+            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue placeholder="Select Category" />
+              </SelectTrigger>
+              <SelectContent>
+                {categoryOptions.map(option => (
+                  <SelectItem key={option} value={option}>{option}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Receiver */}
+          <div>
+            <label className="text-xs font-semibold text-gray-700 block mb-1">RECEIVER</label>
+            <Select value={receiverFilter} onValueChange={setReceiverFilter}>
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue placeholder="Select Receiver" />
+              </SelectTrigger>
+              <SelectContent>
+                {receiverOptions.map(receiver => (
+                  <SelectItem key={receiver} value={receiver}>{receiver}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* SKU Search */}
+          <div>
+            <label className="text-xs font-semibold text-gray-700 block mb-1">SKU</label>
+            <Input
+              type="text"
+              placeholder="Enter SKU"
+              value={skuFilter}
+              onChange={(e) => setSKUFilter(e.target.value)}
+              className="h-8 text-xs p-1"
+            />
+          </div>
+        </div>
       </div>
 
       {/* Table Section */}
