@@ -1,0 +1,847 @@
+'use client';
+
+import { useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Search } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
+
+export default function MasterProductSheet() {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedRows, setSelectedRows] = useState(new Set());
+  const [isManageColumnsOpen, setIsManageColumnsOpen] = useState(false);
+  const [selectedColumnsForAction, setSelectedColumnsForAction] = useState(new Set());
+  const [isPrintProductOpen, setIsPrintProductOpen] = useState(false);
+  const [selectedProductForPrint, setSelectedProductForPrint] = useState(null);
+  const [isPrintSheetOpen, setIsPrintSheetOpen] = useState(false);
+  const [editingRowIds, setEditingRowIds] = useState(new Set());
+  const [archivedRows, setArchivedRows] = useState(new Set());
+  
+  // Column definitions for products
+  const columns = [
+    { id: 'sku', label: 'SKU' },
+    { id: 'listingName', label: 'Listing Name' },
+    { id: 'material', label: 'Material' },
+    { id: 'weight', label: 'Weight' },
+    { id: 'category', label: 'Category' },
+    { id: 'collection', label: 'Collection' },
+    { id: 'settingType', label: 'Setting Type' },
+    { id: 'enamelType', label: 'Enamel Type' },
+    { id: 'activeChannels', label: 'Active Channels' },
+    { id: 'shopifyStatus', label: 'Shopify Status' },
+    { id: 'dieNumberFindings', label: 'Die Number/Findings' },
+    { id: 'masterSku', label: 'Master SKU' },
+    { id: 'color', label: 'Color' },
+    { id: 'enamel', label: 'Enamel' },
+    { id: 'stoneName', label: 'Stone Name' },
+    { id: 'stoneCut', label: 'Stone Cut' },
+    { id: 'stoneColor', label: 'Stone Color' },
+    { id: 'stoneSize', label: 'Stone Size' },
+    { id: 'stoneQuantity', label: 'Stone Quantity' },
+    { id: 'platingType', label: 'Plating Type' },
+    { id: 'platingColor', label: 'Plating Color' },
+    { id: 'notes', label: 'Notes' },
+    { id: 'images', label: 'Images' },
+  ];
+  
+  // Column configuration with styling
+  const columnConfig = {
+    sku: { minWidth: 'min-w-[80px]', headerBg: 'bg-indigo-300' },
+    listingName: { minWidth: 'min-w-[100px]', headerBg: 'bg-indigo-300' },
+    material: { minWidth: 'min-w-[80px]', headerBg: 'bg-indigo-300' },
+    weight: { minWidth: 'min-w-[70px]', headerBg: 'bg-indigo-300' },
+    category: { minWidth: 'min-w-[80px]', headerBg: 'bg-indigo-300' },
+    collection: { minWidth: 'min-w-[90px]', headerBg: 'bg-indigo-300' },
+    settingType: { minWidth: 'min-w-[80px]', headerBg: 'bg-sky-200', cellBg: 'bg-sky-50' },
+    enamelType: { minWidth: 'min-w-[75px]', headerBg: 'bg-sky-200', cellBg: 'bg-sky-50' },
+    activeChannels: { minWidth: 'min-w-[100px]', headerBg: 'bg-indigo-300' },
+    shopifyStatus: { minWidth: 'min-w-[90px]', headerBg: 'bg-indigo-300' },
+    dieNumberFindings: { minWidth: 'min-w-[100px]', headerBg: 'bg-indigo-300' },
+    masterSku: { minWidth: 'min-w-[85px]', headerBg: 'bg-indigo-300' },
+    color: { minWidth: 'min-w-[70px]', headerBg: 'bg-purple-200', cellBg: 'bg-purple-50' },
+    enamel: { minWidth: 'min-w-[70px]', headerBg: 'bg-purple-200', cellBg: 'bg-purple-50' },
+    stoneName: { minWidth: 'min-w-[80px]', headerBg: 'bg-pink-200', cellBg: 'bg-pink-50' },
+    stoneCut: { minWidth: 'min-w-[75px]', headerBg: 'bg-pink-200', cellBg: 'bg-pink-50' },
+    stoneColor: { minWidth: 'min-w-[80px]', headerBg: 'bg-pink-200', cellBg: 'bg-pink-50' },
+    stoneSize: { minWidth: 'min-w-[70px]', headerBg: 'bg-pink-200', cellBg: 'bg-pink-50' },
+    stoneQuantity: { minWidth: 'min-w-[80px]', headerBg: 'bg-pink-200', cellBg: 'bg-pink-50' },
+    platingType: { minWidth: 'min-w-[85px]', headerBg: 'bg-amber-200', cellBg: 'bg-amber-50' },
+    platingColor: { minWidth: 'min-w-[85px]', headerBg: 'bg-amber-200', cellBg: 'bg-amber-50' },
+    notes: { minWidth: 'min-w-[100px]', headerBg: 'bg-indigo-300' },
+    images: { minWidth: 'min-w-[80px]', headerBg: 'bg-indigo-300' },
+  };
+  
+  // Set default visible columns to prevent horizontal scrolling
+  const [visibleColumns, setVisibleColumns] = useState(new Set([
+    'sku',
+    'listingName',
+    'material',
+    'category',
+    'settingType',
+    'enamelType',
+    'shopifyStatus',
+    'activeChannels',
+  ]));
+  
+  // Toggle column selection in the manage columns dialog
+  const toggleColumnSelection = (columnId) => {
+    const newSelected = new Set(selectedColumnsForAction);
+    if (newSelected.has(columnId)) {
+      newSelected.delete(columnId);
+    } else {
+      newSelected.add(columnId);
+    }
+    setSelectedColumnsForAction(newSelected);
+  };
+  
+  // Hide selected columns
+  const handleHideColumns = () => {
+    const newVisible = new Set(visibleColumns);
+    selectedColumnsForAction.forEach(col => newVisible.delete(col));
+    setVisibleColumns(newVisible);
+    setSelectedColumnsForAction(new Set());
+    setIsManageColumnsOpen(false);
+  };
+  
+  // Show selected columns
+  const handleShowColumns = () => {
+    const newVisible = new Set(visibleColumns);
+    selectedColumnsForAction.forEach(col => newVisible.add(col));
+    setVisibleColumns(newVisible);
+    setSelectedColumnsForAction(new Set());
+    setIsManageColumnsOpen(false);
+  };
+  
+  // Get columns that are currently hidden
+  const hiddenColumns = columns.filter(col => !visibleColumns.has(col.id));
+  
+  // Filter states
+  const [skuFilter, setSKUFilter] = useState('');
+  const [materialFilter, setMaterialFilter] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('');
+  const [collectionFilter, setCollectionFilter] = useState('');
+  const [settingTypeFilter, setSettingTypeFilter] = useState('');
+  const [enamelTypeFilter, setEnamelTypeFilter] = useState('');
+  const [shopifyStatusFilter, setShopifyStatusFilter] = useState('');
+  
+  // Sample data for dropdowns
+  const materialOptions = ['Gold', 'Silver', 'Brass', 'Copper', 'Mixed Metal'];
+  const categoryOptions = ['Earrings', 'Rings', 'Pendants', 'Bracelets', 'Necklaces'];
+  const collectionOptions = ['Collection 1', 'Collection 2', 'Collection 3', 'Collection 4'];
+  const settingTypeOptions = ['Wax', 'Hand'];
+  const enamelTypeOptions = ['Yes', 'No'];
+  const shopifyStatusOptions = ['Active', 'Inactive', 'Draft'];
+
+  const [data, setData] = useState(
+    Array(15).fill(null).map((_, i) => ({
+      id: i,
+      sku: '',
+      listingName: '',
+      material: '',
+      weight: '',
+      category: '',
+      collection: '',
+      settingType: '',
+      enamelType: '',
+      activeChannels: '',
+      shopifyStatus: '',
+      dieNumberFindings: '',
+      masterSku: '',
+      color: '',
+      enamel: '',
+      stoneName: '',
+      stoneCut: '',
+      stoneColor: '',
+      stoneSize: '',
+      stoneQuantity: '',
+      platingType: '',
+      platingColor: '',
+      notes: '',
+      images: '',
+    }))
+  );
+
+  const toggleRowSelection = (id) => {
+    const newSelected = new Set(selectedRows);
+    if (newSelected.has(id)) {
+      newSelected.delete(id);
+    } else {
+      newSelected.add(id);
+    }
+    setSelectedRows(newSelected);
+  };
+
+  const handleCellChange = (id, field, value) => {
+    setData(data.map(row => 
+      row.id === id ? { ...row, [field]: value } : row
+    ));
+  };
+
+  const handlePrint = () => {
+    window.print();
+  };
+
+  const handlePrintProducts = () => {
+    if (selectedRows.size === 0) {
+      alert('Please select a product to print');
+      return;
+    }
+    const productId = Array.from(selectedRows)[0];
+    const product = data.find(row => row.id === productId);
+    setSelectedProductForPrint(product);
+    setIsPrintProductOpen(true);
+  };
+
+  const handlePrintSheet = () => {
+    setIsPrintSheetOpen(true);
+  };
+
+  const handleExport = () => {
+    // Export functionality
+    console.log('Export data:', data);
+  };
+
+  const handleCreateProduct = () => {
+    // Create product functionality
+    console.log('Create new product');
+  };
+
+  const handleManageColumns = () => {
+    setIsManageColumnsOpen(true);
+  };
+
+  const handleAddRow = () => {
+    const newId = Math.max(...data.map(row => row.id), -1) + 1;
+    const newRow = {
+      id: newId,
+      sku: '',
+      listingName: '',
+      material: '',
+      weight: '',
+      category: '',
+      collection: '',
+      settingType: '',
+      enamelType: '',
+      activeChannels: '',
+      shopifyStatus: '',
+      dieNumberFindings: '',
+      masterSku: '',
+      color: '',
+      enamel: '',
+      stoneName: '',
+      stoneCut: '',
+      stoneColor: '',
+      stoneSize: '',
+      stoneQuantity: '',
+      platingType: '',
+      platingColor: '',
+      notes: '',
+      images: '',
+    };
+    setData([...data, newRow]);
+  };
+
+  const handleEditRow = () => {
+    if (selectedRows.size === 0) {
+      alert('Please select at least one row to edit');
+      return;
+    }
+    setEditingRowIds(new Set(selectedRows));
+  };
+
+  const handleSaveEdit = () => {
+    setEditingRowIds(new Set());
+    setSelectedRows(new Set());
+  };
+
+  const handleCancelEdit = () => {
+    setEditingRowIds(new Set());
+  };
+
+  const handleArchiveRow = () => {
+    if (selectedRows.size === 0) {
+      alert('Please select at least one row to archive');
+      return;
+    }
+    const newArchived = new Set(archivedRows);
+    selectedRows.forEach(id => newArchived.add(id));
+    setArchivedRows(newArchived);
+    setSelectedRows(new Set());
+  };
+
+  // Get active (non-archived) data
+  const activeData = data.filter(row => !archivedRows.has(row.id));
+
+  return (
+    <div className="w-full h-full bg-gray-50 p-4 md:p-6">
+      {/* Manage Columns Dialog */}
+      <Dialog open={isManageColumnsOpen} onOpenChange={setIsManageColumnsOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Manage Columns</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 max-h-[400px] overflow-y-auto py-4">
+            {columns.map((column) => (
+              <div key={column.id} className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 flex-1">
+                  <Checkbox
+                    id={column.id}
+                    checked={selectedColumnsForAction.has(column.id)}
+                    onCheckedChange={() => toggleColumnSelection(column.id)}
+                    className="cursor-pointer"
+                  />
+                  <label htmlFor={column.id} className="text-sm cursor-pointer">
+                    {column.label}
+                  </label>
+                </div>
+                <div className="text-xs font-semibold px-2 py-1 rounded">
+                  {!visibleColumns.has(column.id) ? (
+                    <span className="bg-red-100 text-red-700 px-2 py-1 rounded-full text-xs">Hidden</span>
+                  ) : (
+                    <span className="bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs">Visible</span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+          <DialogFooter className="flex gap-2">
+            <Button
+              onClick={handleHideColumns}
+              disabled={selectedColumnsForAction.size === 0}
+              variant="outline"
+              className="text-red-600 border-red-300 hover:bg-red-50"
+            >
+              Hide
+            </Button>
+            <Button
+              onClick={handleShowColumns}
+              disabled={selectedColumnsForAction.size === 0}
+              variant="outline"
+              className="text-green-600 border-green-300 hover:bg-green-50"
+            >
+              Show
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Print Product Dialog */}
+      <Dialog open={isPrintProductOpen} onOpenChange={setIsPrintProductOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader className="border-b pb-4">
+            <DialogTitle>Print Product Details</DialogTitle>
+          </DialogHeader>
+          
+          {selectedProductForPrint && (
+            <div className="space-y-6 py-4">
+              {/* Product Header */}
+              <div className="border-2 border-gray-900 p-6 bg-white">
+                <h2 className="text-2xl font-bold text-center mb-6">PRODUCT DETAILS</h2>
+                
+                {/* Top Section */}
+                <div className="grid grid-cols-3 gap-4 mb-6 border-b-2 border-gray-900 pb-4">
+                  <div className="border-r-2 border-gray-900 pr-4">
+                    <p className="text-xs font-bold text-gray-700 mb-1">SKU</p>
+                    <p className="text-sm">{selectedProductForPrint.sku || '—'}</p>
+                  </div>
+                  <div className="border-r-2 border-gray-900 pr-4">
+                    <p className="text-xs font-bold text-gray-700 mb-1">LISTING NAME</p>
+                    <p className="text-sm">{selectedProductForPrint.listingName || '—'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-gray-700 mb-1">SHOPIFY STATUS</p>
+                    <p className="text-sm">{selectedProductForPrint.shopifyStatus || '—'}</p>
+                  </div>
+                </div>
+
+                {/* Details Section */}
+                <div className="grid grid-cols-2 gap-4 mb-6 border-b-2 border-gray-900 pb-4">
+                  <div>
+                    <p className="text-xs font-bold text-gray-700 mb-1">MATERIAL</p>
+                    <p className="text-sm">{selectedProductForPrint.material || '—'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-gray-700 mb-1">WEIGHT</p>
+                    <p className="text-sm">{selectedProductForPrint.weight || '—'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-gray-700 mb-1">CATEGORY</p>
+                    <p className="text-sm">{selectedProductForPrint.category || '—'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-gray-700 mb-1">COLLECTION</p>
+                    <p className="text-sm">{selectedProductForPrint.collection || '—'}</p>
+                  </div>
+                </div>
+
+                {/* Product Information */}
+                <div className="mb-6">
+                  <table className="w-full border-collapse border-2 border-gray-900">
+                    <thead>
+                      <tr className="bg-gray-900 text-white">
+                        <th className="border-2 border-gray-900 p-2 text-xs font-bold text-left">SETTING TYPE</th>
+                        <th className="border-2 border-gray-900 p-2 text-xs font-bold text-left">ENAMEL TYPE</th>
+                        <th className="border-2 border-gray-900 p-2 text-xs font-bold text-left">ACTIVE CHANNELS</th>
+                        <th className="border-2 border-gray-900 p-2 text-xs font-bold text-left">MASTER SKU</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td className="border-2 border-gray-900 p-2 text-sm">{selectedProductForPrint.settingType || '—'}</td>
+                        <td className="border-2 border-gray-900 p-2 text-sm">{selectedProductForPrint.enamelType || '—'}</td>
+                        <td className="border-2 border-gray-900 p-2 text-sm">{selectedProductForPrint.activeChannels || '—'}</td>
+                        <td className="border-2 border-gray-900 p-2 text-sm">{selectedProductForPrint.masterSku || '—'}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Footer Section */}
+                <div className="grid grid-cols-2 gap-8 pt-4">
+                  <div>
+                    <p className="text-xs font-bold text-gray-700 mb-8">Verified By</p>
+                    <div className="border-t-2 border-gray-900 w-24"></div>
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-gray-700 mb-8">Date</p>
+                    <p className="text-sm">{new Date().toISOString().split('T')[0]}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-4 justify-end">
+                <Button
+                  onClick={() => window.print()}
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  Print
+                </Button>
+                <Button
+                  onClick={() => setIsPrintProductOpen(false)}
+                  variant="outline"
+                >
+                  Close
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Print Sheet Dialog */}
+      <Dialog open={isPrintSheetOpen} onOpenChange={setIsPrintSheetOpen}>
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader className="border-b pb-4">
+            <DialogTitle>Print Master Product Sheet</DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            {/* Sheet Header */}
+            <div className="text-center border-b-2 border-gray-900 pb-4 mb-6">
+              <h2 className="text-2xl font-bold mb-2">MASTER PRODUCT SHEET</h2>
+              <p className="text-sm text-gray-600">Date: {new Date().toISOString().split('T')[0]}</p>
+            </div>
+
+            {/* Sheet Details Summary */}
+            <div className="grid grid-cols-4 gap-4 mb-6 p-4 bg-gray-50 rounded-lg border border-gray-300">
+              <div>
+                <p className="text-xs font-bold text-gray-700 mb-1">Total Products</p>
+                <p className="text-lg font-bold">{data.length}</p>
+              </div>
+              <div>
+                <p className="text-xs font-bold text-gray-700 mb-1">Selected Products</p>
+                <p className="text-lg font-bold">{selectedRows.size}</p>
+              </div>
+              <div>
+                <p className="text-xs font-bold text-gray-700 mb-1">Total SKUs</p>
+                <p className="text-lg font-bold">{data.filter(row => row.sku).length}</p>
+              </div>
+              <div>
+                <p className="text-xs font-bold text-gray-700 mb-1">Active Listings</p>
+                <p className="text-lg font-bold">{data.filter(row => row.shopifyStatus === 'Active').length}</p>
+              </div>
+            </div>
+
+            {/* Data Table */}
+            <div className="border-2 border-gray-900 rounded overflow-x-auto">
+              <table className="w-full border-collapse text-xs">
+                <thead>
+                  <tr className="bg-gray-900 text-white">
+                    <th className="border border-gray-400 p-2 text-left">SKU</th>
+                    <th className="border border-gray-400 p-2 text-left">Listing Name</th>
+                    <th className="border border-gray-400 p-2 text-left">Material</th>
+                    <th className="border border-gray-400 p-2 text-left">Category</th>
+                    <th className="border border-gray-400 p-2 text-left">Collection</th>
+                    <th className="border border-gray-400 p-2 text-left">Setting Type</th>
+                    <th className="border border-gray-400 p-2 text-left">Enamel Type</th>
+                    <th className="border border-gray-400 p-2 text-left">Shopify Status</th>
+                    <th className="border border-gray-400 p-2 text-left">Active Channels</th>
+                    <th className="border border-gray-400 p-2 text-left">Master SKU</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.map((row, index) => (
+                    <tr key={row.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                      <td className="border border-gray-400 p-2">{row.sku || '—'}</td>
+                      <td className="border border-gray-400 p-2">{row.listingName || '—'}</td>
+                      <td className="border border-gray-400 p-2">{row.material || '—'}</td>
+                      <td className="border border-gray-400 p-2">{row.category || '—'}</td>
+                      <td className="border border-gray-400 p-2">{row.collection || '—'}</td>
+                      <td className="border border-gray-400 p-2">{row.settingType || '—'}</td>
+                      <td className="border border-gray-400 p-2">{row.enamelType || '—'}</td>
+                      <td className="border border-gray-400 p-2">{row.shopifyStatus || '—'}</td>
+                      <td className="border border-gray-400 p-2">{row.activeChannels || '—'}</td>
+                      <td className="border border-gray-400 p-2">{row.masterSku || '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Summary Footer */}
+            <div className="border-t-2 border-gray-900 pt-4 mt-6">
+              <div className="grid grid-cols-3 gap-8">
+                <div>
+                  <p className="text-xs font-bold text-gray-700 mb-8">Prepared By</p>
+                  <div className="border-t-2 border-gray-900 w-32"></div>
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-gray-700 mb-8">Reviewed By</p>
+                  <div className="border-t-2 border-gray-900 w-32"></div>
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-gray-700 mb-8">Approved By</p>
+                  <div className="border-t-2 border-gray-900 w-32"></div>
+                </div>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex gap-4 justify-end pt-4">
+              <Button
+                onClick={() => window.print()}
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                Print Sheet
+              </Button>
+              <Button
+                onClick={() => setIsPrintSheetOpen(false)}
+                variant="outline"
+              >
+                Close
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Header Section */}
+      <div className="mb-6">
+        <h1 className="text-3xl md:text-4xl font-bold text-center text-gray-800 mb-6">
+          MASTER PRODUCT SHEET
+        </h1>
+
+        {/* Action Buttons */}
+        <div className="flex flex-wrap gap-2 md:gap-4 justify-end mb-6">
+          <Button 
+            onClick={handleCreateProduct}
+            className="bg-green-500 hover:bg-green-600 text-white rounded-full px-6"
+          >
+            Add Product
+          </Button>
+          <Button 
+            onClick={handleEditRow}
+            variant="outline"
+            className="border-blue-600 text-blue-600 hover:bg-blue-50 rounded-full px-6"
+          >
+            Edit Row
+          </Button>
+          <Button 
+            onClick={handleArchiveRow}
+            variant="outline"
+            className="border-orange-600 text-orange-600 hover:bg-orange-50 rounded-full px-6"
+          >
+            Archive Row
+          </Button>
+          <Button 
+            onClick={handleManageColumns}
+            variant="outline"
+            className="border-gray-800 text-gray-800 rounded-full px-6"
+          >
+            Manage Columns
+          </Button>
+          <Button 
+            onClick={handleExport}
+            variant="outline"
+            className="border-gray-800 text-gray-800 rounded-full px-6"
+          >
+            Export
+          </Button>
+          
+          {/* Print Dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button 
+                variant="outline"
+                className="border-gray-800 text-gray-800 rounded-full px-6"
+              >
+                Print
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              <DropdownMenuItem onClick={handlePrintProducts}>
+                Product Details
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handlePrintSheet}>
+                Sheet
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+
+        {/* Search Bar */}
+        <div className="flex gap-2 mb-6 max-w-md mx-auto md:mx-0">
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+            <Input
+              type="text"
+              placeholder="SEARCH BAR"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="flex-1 border-2 border-gray-400 rounded-lg px-4 py-2 pl-10"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Filter Row */}
+      <div className="border border-gray-300 rounded-lg mb-4 bg-blue-50 p-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-8 gap-2">
+          {/* SKU Search */}
+          <div>
+            <label className="text-xs font-semibold text-gray-700 block mb-1">SKU</label>
+            <Input
+              type="text"
+              placeholder="Enter SKU"
+              value={skuFilter}
+              onChange={(e) => setSKUFilter(e.target.value)}
+              className="h-8 text-xs p-1"
+            />
+          </div>
+
+          {/* Material Filter */}
+          <div>
+            <label className="text-xs font-semibold text-gray-700 block mb-1">MATERIAL</label>
+            <Select value={materialFilter} onValueChange={setMaterialFilter}>
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue placeholder="Select Material" />
+              </SelectTrigger>
+              <SelectContent>
+                {materialOptions.map(option => (
+                  <SelectItem key={option} value={option}>{option}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Category Filter */}
+          <div>
+            <label className="text-xs font-semibold text-gray-700 block mb-1">CATEGORY</label>
+            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue placeholder="Select Category" />
+              </SelectTrigger>
+              <SelectContent>
+                {categoryOptions.map(option => (
+                  <SelectItem key={option} value={option}>{option}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Collection Filter */}
+          <div>
+            <label className="text-xs font-semibold text-gray-700 block mb-1">COLLECTION</label>
+            <Select value={collectionFilter} onValueChange={setCollectionFilter}>
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue placeholder="Select Collection" />
+              </SelectTrigger>
+              <SelectContent>
+                {collectionOptions.map(option => (
+                  <SelectItem key={option} value={option}>{option}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Setting Type Filter */}
+          <div>
+            <label className="text-xs font-semibold text-gray-700 block mb-1">SETTING TYPE</label>
+            <Select value={settingTypeFilter} onValueChange={setSettingTypeFilter}>
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue placeholder="Select Setting" />
+              </SelectTrigger>
+              <SelectContent>
+                {settingTypeOptions.map(option => (
+                  <SelectItem key={option} value={option}>{option}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Enamel Type Filter */}
+          <div>
+            <label className="text-xs font-semibold text-gray-700 block mb-1">ENAMEL TYPE</label>
+            <Select value={enamelTypeFilter} onValueChange={setEnamelTypeFilter}>
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue placeholder="Select Enamel" />
+              </SelectTrigger>
+              <SelectContent>
+                {enamelTypeOptions.map(option => (
+                  <SelectItem key={option} value={option}>{option}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Shopify Status Filter */}
+          <div>
+            <label className="text-xs font-semibold text-gray-700 block mb-1">SHOPIFY STATUS</label>
+            <Select value={shopifyStatusFilter} onValueChange={setShopifyStatusFilter}>
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue placeholder="Select Status" />
+              </SelectTrigger>
+              <SelectContent>
+                {shopifyStatusOptions.map(option => (
+                  <SelectItem key={option} value={option}>{option}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      </div>
+
+      {/* Table Section */}
+      <div className="border border-gray-300 rounded-lg bg-white overflow-hidden">
+        {/* Table wrapper with vertical scrolling only */}
+        <div className="overflow-y-auto max-h-[500px]">
+          <table className="w-full border-collapse text-xs">
+            <thead className="sticky top-0 z-20 bg-indigo-300">
+              <tr className="text-gray-800 font-bold border-b-2 border-gray-400">
+                <th className="border border-gray-400 p-2 w-8 sticky left-0 bg-indigo-300 z-30"></th>
+                {columns.map((column) => 
+                  visibleColumns.has(column.id) && (
+                    <th key={column.id} className={`border border-gray-400 p-2 ${columnConfig[column.id].headerBg} ${columnConfig[column.id].minWidth}`}>
+                      {column.label}
+                    </th>
+                  )
+                )}
+              </tr>
+            </thead>
+
+            <tbody>
+              {activeData.map((row, idx) => {
+                const isEditing = editingRowIds.has(row.id);
+                const isAnyRowEditing = editingRowIds.size > 0;
+                const canEdit = !isAnyRowEditing || isEditing;
+                
+                return (
+                  <tr 
+                    key={row.id} 
+                    className={`border-b border-gray-400 ${
+                      isEditing 
+                        ? 'bg-blue-50 hover:bg-blue-50' 
+                        : 'hover:bg-gray-50'
+                    }`}
+                  >
+                    <td className={`border border-gray-400 p-2 text-center sticky left-0 z-10 ${
+                      isEditing ? 'bg-blue-50' : 'bg-white'
+                    }`}>
+                      <Checkbox
+                        checked={selectedRows.has(row.id)}
+                        onCheckedChange={() => toggleRowSelection(row.id)}
+                        className="cursor-pointer"
+                        disabled={isAnyRowEditing}
+                      />
+                    </td>
+                    {columns.map((column) =>
+                      visibleColumns.has(column.id) && (
+                        <td key={column.id} className={`border border-gray-400 p-1 ${columnConfig[column.id].cellBg || ''}`} style={isEditing ? {backgroundColor: '#eff6ff'} : {}}>
+                          <Input
+                            type="text"
+                            value={row[column.id]}
+                            onChange={(e) => handleCellChange(row.id, column.id, e.target.value)}
+                            className="border-0 p-1 text-xs h-8"
+                            disabled={!canEdit}
+                          />
+                        </td>
+                      )
+                    )}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Add Row and Edit Controls */}
+      <div className="mt-4 flex gap-2 items-center">
+        <Button 
+          onClick={handleAddRow}
+          className="bg-blue-600 hover:bg-blue-700 text-white px-6"
+          disabled={editingRowIds.size > 0}
+        >
+          + Add Row
+        </Button>
+        
+        {editingRowIds.size > 0 && (
+          <div className="flex gap-2 ml-4">
+            <Button 
+              onClick={handleSaveEdit}
+              className="bg-green-600 hover:bg-green-700 text-white px-6"
+            >
+              Save Changes
+            </Button>
+            <Button 
+              onClick={handleCancelEdit}
+              variant="outline"
+              className="border-red-600 text-red-600 hover:bg-red-50 px-6"
+            >
+              Cancel Edit
+            </Button>
+          </div>
+        )}
+      </div>
+
+      {/* Footer Info */}
+      <div className="mt-4 text-xs text-gray-600">
+        <p>Selected Rows: {selectedRows.size}</p>
+        <p>Total Rows: {activeData.length}</p>
+        <p>Archived Rows: {archivedRows.size}</p>
+        {editingRowIds.size > 0 && <p className="text-blue-600 font-semibold">Editing {editingRowIds.size} row(s)</p>}
+      </div>
+    </div>
+  );
+}

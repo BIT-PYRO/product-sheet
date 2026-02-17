@@ -1515,6 +1515,11 @@ export default function ProductSheet() {
             Master Job Sheet
           </a>
 
+          {/* Master Product Sheet Button */}
+          <a href="/master-product-sheet" className="w-full mb-6 px-4 py-3 text-sm bg-teal-500 text-white font-semibold rounded hover:bg-teal-600 transition-colors block text-center">
+            Master Product Sheet
+          </a>
+
           {/* Managers Dashboard Button */}
           <a href="/managers-dashboard" className="w-full mb-6 px-4 py-3 text-sm bg-blue-500 text-white font-semibold rounded hover:bg-blue-600 transition-colors block text-center">
             Managers Dashboard
