@@ -174,6 +174,12 @@ export default function MasterJobSheet() {
             Create a Job
           </Button>
           <Button 
+            onClick={() => window.location.href = '/enrol-workforce'}
+            className="bg-blue-500 hover:bg-blue-600 text-white rounded-full px-6"
+          >
+            Quick Enroll Workforce
+          </Button>
+          <Button 
             onClick={handleManageColumns}
             variant="outline"
             className="border-gray-800 text-gray-800 rounded-full px-6"
