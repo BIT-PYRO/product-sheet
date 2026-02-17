@@ -34,6 +34,8 @@ export default function MasterJobSheet() {
   const [isPrintVoucherOpen, setIsPrintVoucherOpen] = useState(false);
   const [selectedVoucherForPrint, setSelectedVoucherForPrint] = useState(null);
   const [isPrintSheetOpen, setIsPrintSheetOpen] = useState(false);
+  const [editingRowIds, setEditingRowIds] = useState(new Set());
+  const [archivedRows, setArchivedRows] = useState(new Set());
   
   // Column definitions
   const columns = [
@@ -232,6 +234,37 @@ export default function MasterJobSheet() {
     };
     setData([...data, newRow]);
   };
+
+  const handleEditRow = () => {
+    if (selectedRows.size === 0) {
+      alert('Please select at least one row to edit');
+      return;
+    }
+    setEditingRowIds(new Set(selectedRows));
+  };
+
+  const handleSaveEdit = () => {
+    setEditingRowIds(new Set());
+    setSelectedRows(new Set());
+  };
+
+  const handleCancelEdit = () => {
+    setEditingRowIds(new Set());
+  };
+
+  const handleArchiveRow = () => {
+    if (selectedRows.size === 0) {
+      alert('Please select at least one row to archive');
+      return;
+    }
+    const newArchived = new Set(archivedRows);
+    selectedRows.forEach(id => newArchived.add(id));
+    setArchivedRows(newArchived);
+    setSelectedRows(new Set());
+  };
+
+  // Get active (non-archived) data
+  const activeData = data.filter(row => !archivedRows.has(row.id));
 
   return (
     <div className="w-full h-full bg-gray-50 p-4 md:p-6">
@@ -514,6 +547,20 @@ export default function MasterJobSheet() {
             Create a Job
           </Button>
           <Button 
+            onClick={handleEditRow}
+            variant="outline"
+            className="border-blue-600 text-blue-600 hover:bg-blue-50 rounded-full px-6"
+          >
+            Edit Row
+          </Button>
+          <Button 
+            onClick={handleArchiveRow}
+            variant="outline"
+            className="border-orange-600 text-orange-600 hover:bg-orange-50 rounded-full px-6"
+          >
+            Archive Row
+          </Button>
+          <Button 
             onClick={handleManageColumns}
             variant="outline"
             className="border-gray-800 text-gray-800 rounded-full px-6"
@@ -732,15 +779,16 @@ export default function MasterJobSheet() {
               <tr className="text-gray-800 font-bold border-b-2 border-gray-400">
                 <th className="border border-gray-400 p-2 w-8 sticky left-0 bg-yellow-300 z-30">
                   <Checkbox
-                    checked={selectedRows.size === data.length && data.length > 0}
+                    checked={selectedRows.size === activeData.length && activeData.length > 0}
                     onCheckedChange={(checked) => {
                       if (checked) {
-                        setSelectedRows(new Set(data.map(row => row.id)));
+                        setSelectedRows(new Set(activeData.map(row => row.id)));
                       } else {
                         setSelectedRows(new Set());
                       }
                     }}
                     className="cursor-pointer"
+                    disabled={editingRowIds.size > 0}
                   />
                 </th>
                 <th className="border border-gray-400 p-2 bg-yellow-300 min-w-[100px] sticky left-8 z-30 border-r-2 border-r-gray-400" style={{boxShadow: 'inset -2px 0 0 0 rgb(209, 213, 219)'}}>Voucher No.</th>
@@ -755,56 +803,95 @@ export default function MasterJobSheet() {
             </thead>
 
             <tbody>
-              {data.map((row) => (
-                <tr key={row.id} className="hover:bg-gray-50 border-b border-gray-400">
-                  <td className="border border-gray-400 p-2 text-center sticky left-0 bg-white z-10">
-                    <Checkbox
-                      checked={selectedRows.has(row.id)}
-                      onCheckedChange={() => toggleRowSelection(row.id)}
-                      className="cursor-pointer"
-                    />
-                  </td>
-                  <td className="border border-gray-400 p-1 sticky left-8 bg-white z-10 border-r-2 border-r-gray-400" style={{boxShadow: 'inset -2px 0 0 0 rgb(209, 213, 219)'}}>
-                    <Input
-                      type="text"
-                      value={row.voucherNo}
-                      onChange={(e) => handleCellChange(row.id, 'voucherNo', e.target.value)}
-                      className="border-0 p-1 text-xs h-8"
-                    />
-                  </td>
-                  {columns.map((column) =>
-                    visibleColumns.has(column.id) && (
-                      <td key={column.id} className={`border border-gray-400 p-1 ${columnConfig[column.id].cellBg || ''}`}>
-                        <Input
-                          type="text"
-                          value={row[column.id]}
-                          onChange={(e) => handleCellChange(row.id, column.id, e.target.value)}
-                          className="border-0 p-1 text-xs h-8"
-                        />
-                      </td>
-                    )
-                  )}
-                </tr>
-              ))}
+              {activeData.map((row) => {
+                const isEditing = editingRowIds.has(row.id);
+                const isAnyRowEditing = editingRowIds.size > 0;
+                const canEdit = !isAnyRowEditing || isEditing;
+                
+                return (
+                  <tr 
+                    key={row.id} 
+                    className={`border-b border-gray-400 ${
+                      isEditing 
+                        ? 'bg-blue-50 hover:bg-blue-50' 
+                        : 'hover:bg-gray-50'
+                    }`}
+                  >
+                    <td className={`border border-gray-400 p-2 text-center sticky left-0 z-10 ${
+                      isEditing ? 'bg-blue-50' : 'bg-white'
+                    }`}>
+                      <Checkbox
+                        checked={selectedRows.has(row.id)}
+                        onCheckedChange={() => toggleRowSelection(row.id)}
+                        className="cursor-pointer"
+                        disabled={isAnyRowEditing}
+                      />
+                    </td>
+                    <td className={`border border-gray-400 p-1 sticky left-8 z-10 border-r-2 border-r-gray-400`} style={{boxShadow: 'inset -2px 0 0 0 rgb(209, 213, 219)', backgroundColor: isEditing ? '#eff6ff' : 'white'}}>
+                      <Input
+                        type="text"
+                        value={row.voucherNo}
+                        onChange={(e) => handleCellChange(row.id, 'voucherNo', e.target.value)}
+                        className="border-0 p-1 text-xs h-8"
+                        disabled={!canEdit}
+                      />
+                    </td>
+                    {columns.map((column) =>
+                      visibleColumns.has(column.id) && (
+                        <td key={column.id} className={`border border-gray-400 p-1 ${columnConfig[column.id].cellBg || ''}`} style={isEditing ? {backgroundColor: '#eff6ff'} : {}}>
+                          <Input
+                            type="text"
+                            value={row[column.id]}
+                            onChange={(e) => handleCellChange(row.id, column.id, e.target.value)}
+                            className="border-0 p-1 text-xs h-8"
+                            disabled={!canEdit}
+                          />
+                        </td>
+                      )
+                    )}
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
       </div>
 
-      {/* Add Row Button */}
-      <div className="mt-4 flex gap-2">
+      {/* Add Row and Edit Controls */}
+      <div className="mt-4 flex gap-2 items-center">
         <Button 
           onClick={handleAddRow}
           className="bg-blue-600 hover:bg-blue-700 text-white px-6"
+          disabled={editingRowIds.size > 0}
         >
           + Add Row
         </Button>
+        
+        {editingRowIds.size > 0 && (
+          <div className="flex gap-2 ml-4">
+            <Button 
+              onClick={handleSaveEdit}
+              className="bg-green-600 hover:bg-green-700 text-white px-6"
+            >
+              Save Changes
+            </Button>
+            <Button 
+              onClick={handleCancelEdit}
+              variant="outline"
+              className="border-red-600 text-red-600 hover:bg-red-50 px-6"
+            >
+              Cancel Edit
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Footer Info */}
       <div className="mt-4 text-xs text-gray-600">
         <p>Selected Rows: {selectedRows.size}</p>
-        <p>Total Rows: {data.length}</p>
+        <p>Total Rows: {activeData.length}</p>
+        <p>Archived Rows: {archivedRows.size}</p>
+        {editingRowIds.size > 0 && <p className="text-blue-600 font-semibold">Editing {editingRowIds.size} row(s)</p>}
       </div>
     </div>
   );
