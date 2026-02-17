@@ -1,10 +1,10 @@
-﻿'use client';
+'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Search, Pencil, Trash2 } from 'lucide-react';
+import { Search } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -19,30 +19,13 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
-import MasterNavigationDrawer from '@/components/master_navigation_drawer';
-import GlobalSearchBar from '@/components/global-search-bar';
-import { CreateJobModal } from '@/components/create-job-modal';
-import { CompanyKYCForm } from '@/components/company-kyc-form';
-import { ReceiveJobModal } from '@/components/receive-job-modal';
-import DateTimeStamp from '@/components/date-time-stamp';
-import LastUpdatedFooter from '@/components/last-updated-footer';
 
 export default function ManagersDashboard() {
-  const [lastUpdated, setLastUpdated] = useState(null);
-  const [currentUsername, setCurrentUsername] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCard, setSelectedCard] = useState(null);
-  const [isReceiveJobOpen, setIsReceiveJobOpen] = useState(false);
-  const [selectedVoucherForReceive, setSelectedVoucherForReceive] = useState(null);
+  const [isCardModalOpen, setIsCardModalOpen] = useState(false);
   const [isManageColumnsOpen, setIsManageColumnsOpen] = useState(false);
   const [selectedColumnsForAction, setSelectedColumnsForAction] = useState(new Set());
-  const [isCreateJobModalOpen, setIsCreateJobModalOpen] = useState(false);
-  const [isKYCModalOpen, setIsKYCModalOpen] = useState(false);
-  const [selectedVoucher, setSelectedVoucher] = useState(null);
-  const [isEditOpen, setIsEditOpen] = useState(false);
-  const [editForm, setEditForm] = useState({});
-  const [isLoadingJobs, setIsLoadingJobs] = useState(false);
-  const [jobsError, setJobsError] = useState('');
   
   // Filter states
   const [statusFilter, setStatusFilter] = useState('');
@@ -92,15 +75,6 @@ export default function ManagersDashboard() {
     setSelectedColumnsForAction(newSelected);
   };
 
-  // Toggle select all columns
-  const toggleSelectAllColumns = () => {
-    if (selectedColumnsForAction.size === processColumns.length) {
-      setSelectedColumnsForAction(new Set());
-    } else {
-      setSelectedColumnsForAction(new Set(processColumns));
-    }
-  };
-
   // Hide selected columns
   const handleHideColumns = () => {
     const newVisible = new Set(visibleColumns);
@@ -119,226 +93,104 @@ export default function ManagersDashboard() {
     setIsManageColumnsOpen(false);
   };
 
-  const emptyJobCardsData = {
+  // Sample job cards data
+  const [jobCardsData] = useState({
     '3D Print': {
-      new: [],
-      wip: [],
+      new: [
+        { voucherNo: 'V001', name: 'John Doe', category: 'Gold Ring', qty: 5, weight: '15g', status: 'New' },
+        { voucherNo: 'V002', name: 'Jane Smith', category: 'Silver Bracelet', qty: 3, weight: '12g', status: 'New' }
+      ],
+      wip: [
+        { voucherNo: 'V003', name: 'Bob Johnson', category: 'Diamond Ring', qty: 2, weight: '8g', status: 'Work in Progress' }
+      ],
+      completed: [
+        { voucherNo: 'V004', name: 'Alice Brown', category: 'Gold Necklace', qty: 1, weight: '20g', status: 'Completed' }
+      ]
+    },
+    'DIE': {
+      new: [
+        { voucherNo: 'V005', name: 'Charlie Davis', category: 'Platinum Ring', qty: 4, weight: '10g', status: 'New' }
+      ],
+      wip: [
+        { voucherNo: 'V006', name: 'Diana Evans', category: 'Silver Earrings', qty: 6, weight: '5g', status: 'Work in Progress' }
+      ],
       completed: []
     },
-    'DIE': { new: [], wip: [], completed: [] },
     'WAX': {
       new: [],
+      wip: [
+        { voucherNo: 'V007', name: 'Frank Green', category: 'Gold Pendant', qty: 3, weight: '7g', status: 'Work in Progress' }
+      ],
+      completed: [
+        { voucherNo: 'V008', name: 'Grace Hill', category: 'Diamond Bracelet', qty: 2, weight: '18g', status: 'Completed' }
+      ]
+    },
+    'SETTING': {
+      new: [],
       wip: [],
       completed: []
     },
-    'SETTING': { new: [], wip: [], completed: [] },
-    'CASTING': { new: [], wip: [], completed: [] },
-    'FILING': { new: [], wip: [], completed: [] },
-    'PRE POLISH': { new: [], wip: [], completed: [] },
-    'HAND SETTING': { new: [], wip: [], completed: [] },
-    'FINAL POLISH': { new: [], wip: [], completed: [] },
-    'PLATING': { new: [], wip: [], completed: [] },
-    'Others': { new: [], wip: [], completed: [] },
-  };
-
-  const [jobCardsData, setJobCardsData] = useState(emptyJobCardsData);
-
-  const mapBackendStatusToBucket = (status) => {
-    if (status === 'completed') return 'completed';
-    if (status === 'in_progress') return 'wip';
-    return 'new';
-  };
-
-  useEffect(() => {
-    fetch('/api/auth/session').then(r => r.json()).then(d => { if (d?.user?.username) setCurrentUsername(d.user.username); }).catch(() => {});
-  }, []);
-
-  const loadJobs = useCallback(async () => {
-    setIsLoadingJobs(true);
-    setJobsError('');
-
-    try {
-      const response = await fetch('/api/jobs', { cache: 'no-store' });
-      const result = await response.json().catch(() => null);
-
-      if (!response.ok || !result?.success) {
-        setJobsError(result?.error?.message || result?.message || 'Failed to load jobs.');
-        setJobCardsData(emptyJobCardsData);
-        return;
-      }
-
-      const jobs = Array.isArray(result?.data) ? result.data : (result?.data?.results || []);
-      const nextData = {
-        ...emptyJobCardsData,
-        '3D Print': { new: [], wip: [], completed: [] },
-      };
-
-      jobs.forEach((job) => {
-        const bucket = mapBackendStatusToBucket(job.status);
-        nextData['3D Print'][bucket].push({
-          id: job.id,
-          voucherNo: `JOB-${job.id}`,
-          name: job.assignee || 'Unassigned',
-          category: job.title,
-          qty: job.quantity ?? '-',
-          weight: job.weight ?? '-',
-          status: job.status,
-        });
-      });
-
-      setJobCardsData(nextData);
-      setLastUpdated(new Date());
-    } catch {
-      setJobsError('Failed to load jobs.');
-      setJobCardsData(emptyJobCardsData);
-    } finally {
-      setIsLoadingJobs(false);
+    'CASTING': {
+      new: [],
+      wip: [],
+      completed: []
+    },
+    'FILING': {
+      new: [],
+      wip: [],
+      completed: []
+    },
+    'PRE POLISH': {
+      new: [],
+      wip: [],
+      completed: []
+    },
+    'HAND SETTING': {
+      new: [],
+      wip: [],
+      completed: []
+    },
+    'FINAL POLISH': {
+      new: [],
+      wip: [],
+      completed: []
+    },
+    'PLATING': {
+      new: [],
+      wip: [],
+      completed: []
+    },
+    'Others': {
+      new: [],
+      wip: [],
+      completed: []
     }
-  }, []);
-
-  useEffect(() => {
-    loadJobs();
-  }, [loadJobs]);
+  });
 
   const handleCardClick = (card) => {
-    // Single click: select the voucher and open receive job modal
-    setSelectedVoucher(card);
-    setSelectedVoucherForReceive(card);
-    setIsReceiveJobOpen(true);
-  };
-
-  const handleDeleteVoucher = () => {
-    if (!selectedVoucher) return;
-    const confirmed = window.confirm(`Delete voucher ${selectedVoucher.voucherNo}?`);
-    if (!confirmed) return;
-    setJobCardsData(prev => {
-      const next = { ...prev };
-      for (const col of Object.keys(next)) {
-        for (const bucket of ['new', 'wip', 'completed']) {
-          next[col] = {
-            ...next[col],
-            [bucket]: next[col][bucket].filter(c => c.id !== selectedVoucher.id),
-          };
-        }
-      }
-      return next;
-    });
-    setSelectedVoucher(null);
-  };
-
-  const handleOpenEdit = () => {
-    if (!selectedVoucher) return;
-    setEditForm({
-      voucherNo: selectedVoucher.voucherNo,
-      name: selectedVoucher.name,
-      category: selectedVoucher.category,
-      qty: selectedVoucher.qty,
-      weight: selectedVoucher.weight,
-      status: selectedVoucher.status,
-    });
-    setIsEditOpen(true);
-  };
-
-  const handleSaveEdit = () => {
-    setJobCardsData(prev => {
-      const next = { ...prev };
-      for (const col of Object.keys(next)) {
-        for (const bucket of ['new', 'wip', 'completed']) {
-          next[col] = {
-            ...next[col],
-            [bucket]: next[col][bucket].map(c =>
-              c.id === selectedVoucher.id
-                ? { ...c, name: editForm.name, category: editForm.category, qty: editForm.qty, weight: editForm.weight }
-                : c
-            ),
-          };
-        }
-      }
-      return next;
-    });
-    setSelectedVoucher(prev => prev ? { ...prev, ...editForm } : null);
-    setIsEditOpen(false);
+    setSelectedCard(card);
+    setIsCardModalOpen(true);
   };
 
   const handleCreateJob = () => {
-    setIsCreateJobModalOpen(true);
+    console.log('Create new job');
   };
 
   const handleManageColumns = () => {
     setIsManageColumnsOpen(true);
   };
 
-  const getCardStyle = (bucket) => {
-    switch (bucket) {
-      case 'new':
-        return {
-          border: 'border-yellow-400',
-          header: 'bg-yellow-400',
-          headerText: 'text-yellow-900',
-          badge: 'bg-yellow-200 text-yellow-800',
-          label: 'New',
-        };
-      case 'wip':
-        return {
-          border: 'border-orange-500',
-          header: 'bg-orange-500',
-          headerText: 'text-white',
-          badge: 'bg-orange-200 text-orange-900',
-          label: 'WIP',
-        };
-      case 'completed':
-        return {
-          border: 'border-green-500',
-          header: 'bg-green-500',
-          headerText: 'text-white',
-          badge: 'bg-green-200 text-green-900',
-          label: 'Done',
-        };
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'New':
+        return 'bg-yellow-200 border-yellow-400';
+      case 'Work in Progress':
+        return 'bg-orange-200 border-orange-400';
+      case 'Completed':
+        return 'bg-green-200 border-green-400';
       default:
-        return {
-          border: 'border-soft-border',
-          header: 'bg-cloud-gray',
-          headerText: 'text-midnight-ink',
-          badge: 'bg-cloud-gray text-slate-text',
-          label: '',
-        };
+        return 'bg-gray-200 border-gray-400';
     }
-  };
-
-  const VoucherCard = ({ card, bucket }) => {
-    const s = getCardStyle(bucket);
-    const isSelected = selectedVoucher?.id === card.id;
-    return (
-      <div
-        onClick={() => handleCardClick(card)}
-        className={`border-2 ${isSelected ? 'border-trust-blue ring-2 ring-trust-blue/40' : s.border} rounded-lg overflow-hidden cursor-pointer hover:shadow-md transition-shadow ${isSelected ? 'shadow-md' : ''}`}
-      >
-        {/* Header row: Voucher No. | NEW/Reissue badge */}
-        <div className={`${s.header} flex items-center justify-between px-2 py-1`}>
-          <span className={`text-[11px] font-bold ${s.headerText} truncate`}>{card.voucherNo}</span>
-          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${s.badge} whitespace-nowrap`}>{s.label}</span>
-        </div>
-        {/* Name */}
-        <div className="bg-white border-t border-gray-200 px-2 py-1 text-center">
-          <span className="text-xs font-semibold text-midnight-ink truncate block">{card.name}</span>
-        </div>
-        {/* Category */}
-        <div className="bg-white border-t border-gray-200 px-2 py-1 text-center">
-          <span className="text-xs text-slate-text truncate block">{card.category}</span>
-        </div>
-        {/* QTY | WT */}
-        <div className="bg-white border-t border-gray-200 flex divide-x divide-gray-200">
-          <div className="flex-1 px-2 py-1 text-center">
-            <span className="text-[10px] text-cool-gray block leading-tight">QTY</span>
-            <span className="text-xs font-semibold text-midnight-ink">{card.qty ?? '-'}</span>
-          </div>
-          <div className="flex-1 px-2 py-1 text-center">
-            <span className="text-[10px] text-cool-gray block leading-tight">WT</span>
-            <span className="text-xs font-semibold text-midnight-ink">{card.weight ?? '-'}</span>
-          </div>
-        </div>
-      </div>
-    );
   };
 
   const calculateTotal = (processData) => {
@@ -346,7 +198,7 @@ export default function ManagersDashboard() {
   };
 
   return (
-    <div className="w-full min-h-screen bg-cloud-gray">
+    <div className="w-full h-full bg-gray-50 p-4 md:p-6">
       {/* Manage Columns Dialog */}
       <Dialog open={isManageColumnsOpen} onOpenChange={setIsManageColumnsOpen}>
         <DialogContent className="max-w-md">
@@ -354,20 +206,6 @@ export default function ManagersDashboard() {
             <DialogTitle>Manage Columns</DialogTitle>
           </DialogHeader>
           <div className="space-y-3 max-h-[400px] overflow-y-auto py-4">
-            {/* Select All Checkbox */}
-            <div className="flex items-center justify-between gap-3 pb-3 border-b border-soft-border mb-3">
-              <div className="flex items-center gap-3 flex-1">
-                <Checkbox
-                  id="select-all-columns"
-                  checked={selectedColumnsForAction.size === processColumns.length && processColumns.length > 0}
-                  onCheckedChange={toggleSelectAllColumns}
-                  className="cursor-pointer"
-                />
-                <label htmlFor="select-all-columns" className="text-sm font-semibold cursor-pointer">
-                  Select All
-                </label>
-              </div>
-            </div>
             {processColumns.map((column) => (
               <div key={column} className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3 flex-1">
@@ -381,11 +219,11 @@ export default function ManagersDashboard() {
                     {column}
                   </label>
                 </div>
-                <div className="text-sm font-semibold px-2 py-1 rounded">
+                <div className="text-xs font-semibold px-2 py-1 rounded">
                   {!visibleColumns.has(column) ? (
-                    <span className="bg-danger/10 text-danger-dark px-2 py-1 rounded-full text-sm">Hidden</span>
+                    <span className="bg-red-100 text-red-700 px-2 py-1 rounded-full text-xs">Hidden</span>
                   ) : (
-                    <span className="bg-success/10 text-success-dark px-2 py-1 rounded-full text-sm">Visible</span>
+                    <span className="bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs">Visible</span>
                   )}
                 </div>
               </div>
@@ -396,7 +234,7 @@ export default function ManagersDashboard() {
               onClick={handleHideColumns}
               disabled={selectedColumnsForAction.size === 0}
               variant="outline"
-              className="text-danger border-danger/40 hover:bg-danger/10"
+              className="text-red-600 border-red-300 hover:bg-red-50"
             >
               Hide
             </Button>
@@ -404,7 +242,7 @@ export default function ManagersDashboard() {
               onClick={handleShowColumns}
               disabled={selectedColumnsForAction.size === 0}
               variant="outline"
-              className="text-success border-success/40 hover:bg-success/10"
+              className="text-green-600 border-green-300 hover:bg-green-50"
             >
               Show
             </Button>
@@ -412,88 +250,93 @@ export default function ManagersDashboard() {
         </DialogContent>
       </Dialog>
 
-      {/* Receive Job Modal */}
-      <ReceiveJobModal
-        open={isReceiveJobOpen}
-        onOpenChange={setIsReceiveJobOpen}
-        onJobReceived={() => {}}
-        voucherData={selectedVoucherForReceive}
-      />
-
-      <div className="pt-16 px-3 md:px-4 pb-16">
-        {/* Header Section */}
-        <div className="transition-[left,width] duration-300 ease-in-out fixed top-0 left-0 right-0 z-[60] bg-white/95 py-2 border-b border-soft-border shadow-sm backdrop-blur px-3 md:px-4">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3 shrink-0">
-              <MasterNavigationDrawer inHeader />
-              <h1 className="text-xl font-bold tracking-tight text-midnight-ink">MANAGERS DASHBOARD FOR VOUCHERS/JOB CARDS</h1>
+      {/* Card Detail Modal */}
+      <Dialog open={isCardModalOpen} onOpenChange={setIsCardModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Voucher Details</DialogTitle>
+          </DialogHeader>
+          {selectedCard && (
+            <div className={`p-6 rounded-lg border-2 ${getStatusColor(selectedCard.status)}`}>
+              <div className="space-y-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-bold text-gray-700">Voucher No.</span>
+                  <span className="text-sm font-semibold">{selectedCard.voucherNo}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-bold text-gray-700">Name</span>
+                  <span className="text-sm">{selectedCard.name}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-bold text-gray-700">Category</span>
+                  <span className="text-sm">{selectedCard.category}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-bold text-gray-700">QTY</span>
+                  <span className="text-sm">{selectedCard.qty}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-bold text-gray-700">WT</span>
+                  <span className="text-sm">{selectedCard.weight}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-bold text-gray-700">Status</span>
+                  <span className="text-sm font-semibold">{selectedCard.status}</span>
+                </div>
+              </div>
             </div>
-            <GlobalSearchBar />
-            <DateTimeStamp />
-          </div>
-        </div>
+          )}
+          <DialogFooter>
+            <Button onClick={() => setIsCardModalOpen(false)} variant="outline">
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Header Section */}
+      <div className="mb-6">
+        <h1 className="text-2xl md:text-3xl font-bold text-center text-gray-800 mb-6 bg-yellow-200 py-3 rounded">
+          MANAGERS DASHBOARD FOR VOUCHERS/JOB CARDS
+        </h1>
 
         {/* Search Bar and Buttons */}
-        <div className="flex flex-wrap gap-4 items-center justify-between mb-4">
+        <div className="flex flex-wrap gap-4 items-center justify-between mb-6">
           <div className="relative max-w-[250px]">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-cool-gray w-5 h-5" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
             <Input
               type="text"
               placeholder="SEARCH BAR"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="border-2 border-soft-border rounded-lg px-4 py-2 pl-10"
+              className="border-2 border-gray-400 rounded-lg px-4 py-2 pl-10"
             />
           </div>
-          <div className="flex gap-2 flex-wrap">
+          <div className="flex gap-2">
             <Button 
               onClick={handleCreateJob}
-              className="bg-success hover:bg-success text-white rounded-full px-4 text-sm h-8"
+              className="bg-green-500 hover:bg-green-600 text-white rounded-full px-6"
             >
               Create a Job
             </Button>
             <Button 
-              onClick={handleOpenEdit}
-              disabled={!selectedVoucher}
-              className="bg-white border border-trust-blue text-trust-blue hover:bg-trust-blue/10 rounded-full px-3 text-sm h-8 gap-1 disabled:opacity-100 disabled:border-trust-blue disabled:text-trust-blue"
-            >
-              <Pencil className="w-4 h-4" />
-              Edit
-            </Button>
-            <Button 
-              onClick={handleDeleteVoucher}
-              disabled={!selectedVoucher}
-              className="bg-white border border-red-500 text-red-500 hover:bg-red-50 rounded-full px-3 text-sm h-8 gap-1 disabled:opacity-100 disabled:border-red-500 disabled:text-red-500"
-            >
-              <Trash2 className="w-4 h-4" />
-              Delete
-            </Button>
-            <Button 
               onClick={handleManageColumns}
               variant="outline"
-              className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8"
+              className="border-gray-800 text-gray-800 rounded-full px-6"
             >
               Manage Columns
             </Button>
-            <Button 
-              onClick={() => setIsKYCModalOpen(true)}
-              className="bg-trust-blue hover:bg-deep-blue text-white rounded-full px-4 text-sm h-8"
-            >
-              Company KYC
-            </Button>
           </div>
         </div>
-        {isLoadingJobs && <p className="text-sm text-cool-gray mb-3">Loading live jobs...</p>}
-        {jobsError && <p className="text-sm text-danger-dark mb-3">{jobsError}</p>}
 
         {/* Filter Row */}
-        <div className="border border-soft-border rounded-lg mb-6 bg-[#dbeafe] p-4">
+        <div className="border-2 border-blue-400 rounded-lg mb-6 bg-blue-50 p-4">
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-9 gap-3">
             {/* Status */}
             <div>
-              <label className="text-sm font-semibold text-slate-text block mb-1">STATUS</label>
+              <label className="text-xs font-semibold text-gray-700 block mb-1">STATUS</label>
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="h-9 text-sm bg-white">
+                <SelectTrigger className="h-9 text-xs bg-white">
                   <SelectValue placeholder="Select" />
                 </SelectTrigger>
                 <SelectContent>
@@ -506,31 +349,31 @@ export default function ManagersDashboard() {
 
             {/* Date From */}
             <div>
-              <label className="text-sm font-semibold text-slate-text block mb-1">DATE FROM</label>
+              <label className="text-xs font-semibold text-gray-700 block mb-1">DATE FROM</label>
               <Input
                 type="date"
                 value={dateFromFilter}
                 onChange={(e) => setDateFromFilter(e.target.value)}
-                className="h-9 text-sm p-2 bg-white"
+                className="h-9 text-xs p-2 bg-white"
               />
             </div>
 
             {/* Date To */}
             <div>
-              <label className="text-sm font-semibold text-slate-text block mb-1">DATE TO</label>
+              <label className="text-xs font-semibold text-gray-700 block mb-1">DATE TO</label>
               <Input
                 type="date"
                 value={dateToFilter}
                 onChange={(e) => setDateToFilter(e.target.value)}
-                className="h-9 text-sm p-2 bg-white"
+                className="h-9 text-xs p-2 bg-white"
               />
             </div>
 
             {/* New/Reissue */}
             <div>
-              <label className="text-sm font-semibold text-slate-text block mb-1">NEW/REISSUE</label>
+              <label className="text-xs font-semibold text-gray-700 block mb-1">NEW/REISSUE</label>
               <Select value={newReissueFilter} onValueChange={setNewReissueFilter}>
-                <SelectTrigger className="h-9 text-sm bg-white">
+                <SelectTrigger className="h-9 text-xs bg-white">
                   <SelectValue placeholder="Select" />
                 </SelectTrigger>
                 <SelectContent>
@@ -543,9 +386,9 @@ export default function ManagersDashboard() {
 
             {/* Name */}
             <div>
-              <label className="text-sm font-semibold text-slate-text block mb-1">NAME</label>
+              <label className="text-xs font-semibold text-gray-700 block mb-1">NAME</label>
               <Select value={nameFilter} onValueChange={setNameFilter}>
-                <SelectTrigger className="h-9 text-sm bg-white">
+                <SelectTrigger className="h-9 text-xs bg-white">
                   <SelectValue placeholder="Select Name" />
                 </SelectTrigger>
                 <SelectContent>
@@ -558,9 +401,9 @@ export default function ManagersDashboard() {
 
             {/* Issuer */}
             <div>
-              <label className="text-sm font-semibold text-slate-text block mb-1">ISSUER</label>
+              <label className="text-xs font-semibold text-gray-700 block mb-1">ISSUER</label>
               <Select value={issuerFilter} onValueChange={setIssuerFilter}>
-                <SelectTrigger className="h-9 text-sm bg-white">
+                <SelectTrigger className="h-9 text-xs bg-white">
                   <SelectValue placeholder="Select Issuer" />
                 </SelectTrigger>
                 <SelectContent>
@@ -573,9 +416,9 @@ export default function ManagersDashboard() {
 
             {/* Department */}
             <div>
-              <label className="text-sm font-semibold text-slate-text block mb-1">DEPARTMENT</label>
+              <label className="text-xs font-semibold text-gray-700 block mb-1">DEPARTMENT</label>
               <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
-                <SelectTrigger className="h-9 text-sm bg-white">
+                <SelectTrigger className="h-9 text-xs bg-white">
                   <SelectValue placeholder="Select Dept" />
                 </SelectTrigger>
                 <SelectContent>
@@ -588,9 +431,9 @@ export default function ManagersDashboard() {
 
             {/* Type */}
             <div>
-              <label className="text-sm font-semibold text-slate-text block mb-1">TYPE</label>
+              <label className="text-xs font-semibold text-gray-700 block mb-1">TYPE</label>
               <Select value={typeFilter} onValueChange={setTypeFilter}>
-                <SelectTrigger className="h-9 text-sm bg-white">
+                <SelectTrigger className="h-9 text-xs bg-white">
                   <SelectValue placeholder="Select Type" />
                 </SelectTrigger>
                 <SelectContent>
@@ -603,9 +446,9 @@ export default function ManagersDashboard() {
 
             {/* Category */}
             <div>
-              <label className="text-sm font-semibold text-slate-text block mb-1">CATEGORY</label>
+              <label className="text-xs font-semibold text-gray-700 block mb-1">CATEGORY</label>
               <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                <SelectTrigger className="h-9 text-sm bg-white">
+                <SelectTrigger className="h-9 text-xs bg-white">
                   <SelectValue placeholder="Select Category" />
                 </SelectTrigger>
                 <SelectContent>
@@ -617,24 +460,25 @@ export default function ManagersDashboard() {
             </div>
           </div>
         </div>
+      </div>
 
-        {/* Dashboard Table */}
-        <div className="border-2 border-soft-border rounded-lg bg-white overflow-x-auto">
-        <table className="w-full border-collapse text-sm">
+      {/* Dashboard Table */}
+      <div className="border-2 border-gray-300 rounded-lg bg-white overflow-x-auto">
+        <table className="w-full border-collapse text-xs">
           <thead>
-            <tr className="bg-[#dbeafe] border-b-2 border-soft-border">
+            <tr className="bg-gray-300 border-b-2 border-gray-400">
               {processColumns.map((column) => 
                 visibleColumns.has(column) && (
-                  <th key={column} className="border-2 border-soft-border p-3 text-center font-bold text-sm min-w-[200px]">
+                  <th key={column} className="border-2 border-gray-400 p-3 text-center font-bold text-sm min-w-[200px]">
                     {column}
                   </th>
                 )
               )}
             </tr>
-            <tr className="bg-[#dbeafe] border-b-2 border-soft-border">
+            <tr className="bg-gray-200 border-b-2 border-gray-400">
               {processColumns.map((column) => 
                 visibleColumns.has(column) && (
-                  <th key={column} className="border-2 border-soft-border p-2 text-center font-bold text-sm">
+                  <th key={column} className="border-2 border-gray-400 p-2 text-center font-bold text-xs">
                     Total: {calculateTotal(jobCardsData[column])}
                   </th>
                 )
@@ -645,21 +489,78 @@ export default function ManagersDashboard() {
             <tr>
               {processColumns.map((column) => 
                 visibleColumns.has(column) && (
-                  <td key={column} className="border-2 border-soft-border p-3 align-top min-h-[400px]">
-                  <div className="space-y-2.5">
+                  <td key={column} className="border-2 border-gray-400 p-3 align-top min-h-[400px]">
+                  <div className="space-y-3">
                     {/* New Cards */}
                     {jobCardsData[column].new.map((card, idx) => (
-                      <VoucherCard key={`new-${idx}`} card={card} bucket="new" />
+                      <div
+                        key={`new-${idx}`}
+                        onClick={() => handleCardClick(card)}
+                        className="bg-yellow-200 border-2 border-yellow-400 rounded-lg p-3 cursor-pointer hover:shadow-lg transition-shadow"
+                      >
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-1">
+                            <span className="text-[10px] font-bold text-gray-700">Voucher No.</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <span className="text-[10px] font-bold text-gray-700">Name</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <span className="text-[10px] font-bold text-gray-700">Category</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <span className="text-[10px] font-bold text-gray-700">Total Qty & Weight</span>
+                          </div>
+                        </div>
+                      </div>
                     ))}
 
                     {/* Work in Progress Cards */}
                     {jobCardsData[column].wip.map((card, idx) => (
-                      <VoucherCard key={`wip-${idx}`} card={card} bucket="wip" />
+                      <div
+                        key={`wip-${idx}`}
+                        onClick={() => handleCardClick(card)}
+                        className="bg-orange-200 border-2 border-orange-400 rounded-lg p-3 cursor-pointer hover:shadow-lg transition-shadow"
+                      >
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-1">
+                            <span className="text-[10px] font-bold text-gray-700">Voucher No.</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <span className="text-[10px] font-bold text-gray-700">Name</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <span className="text-[10px] font-bold text-gray-700">Category</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <span className="text-[10px] font-bold text-gray-700">Total Qty & Weight</span>
+                          </div>
+                        </div>
+                      </div>
                     ))}
 
                     {/* Completed Cards */}
                     {jobCardsData[column].completed.map((card, idx) => (
-                      <VoucherCard key={`completed-${idx}`} card={card} bucket="completed" />
+                      <div
+                        key={`completed-${idx}`}
+                        onClick={() => handleCardClick(card)}
+                        className="bg-green-200 border-2 border-green-400 rounded-lg p-3 cursor-pointer hover:shadow-lg transition-shadow"
+                      >
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-1">
+                            <span className="text-[10px] font-bold text-gray-700">Voucher No.</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <span className="text-[10px] font-bold text-gray-700">Name</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <span className="text-[10px] font-bold text-gray-700">Category</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <span className="text-[10px] font-bold text-gray-700">Total Qty & Weight</span>
+                          </div>
+                        </div>
+                      </div>
                     ))}
                   </div>
                 </td>
@@ -667,67 +568,8 @@ export default function ManagersDashboard() {
               )}
             </tr>
           </tbody>
-          </table>
-        </div>
+        </table>
       </div>
-
-      {/* Fixed Footer */}
-      <div className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-soft-border shadow-lg px-4 py-2 flex flex-wrap items-center justify-between gap-3 text-sm text-cool-gray">
-        <div className="flex gap-4">
-          <span>Total Vouchers: {Object.values(jobCardsData).reduce((sum, col) => sum + col.new.length + col.wip.length + col.completed.length, 0)}</span>
-          {isLoadingJobs && <span className="text-trust-blue">Loading...</span>}
-        </div>
-        <LastUpdatedFooter timestamp={lastUpdated} username={currentUsername} compact />
-      </div>
-
-      <CreateJobModal
-        open={isCreateJobModalOpen}
-        onOpenChange={setIsCreateJobModalOpen}
-        onJobCreated={loadJobs}
-      />
-
-      {/* Edit Voucher Dialog */}
-      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Edit Voucher — {editForm.voucherNo}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div>
-              <label className="text-sm font-semibold text-slate-text block mb-1">Name</label>
-              <Input value={editForm.name || ''} onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))} />
-            </div>
-            <div>
-              <label className="text-sm font-semibold text-slate-text block mb-1">Category / Title</label>
-              <Input value={editForm.category || ''} onChange={e => setEditForm(f => ({ ...f, category: e.target.value }))} />
-            </div>
-            <div className="flex gap-3">
-              <div className="flex-1">
-                <label className="text-sm font-semibold text-slate-text block mb-1">QTY</label>
-                <Input value={editForm.qty || ''} onChange={e => setEditForm(f => ({ ...f, qty: e.target.value }))} />
-              </div>
-              <div className="flex-1">
-                <label className="text-sm font-semibold text-slate-text block mb-1">Weight</label>
-                <Input value={editForm.weight || ''} onChange={e => setEditForm(f => ({ ...f, weight: e.target.value }))} />
-              </div>
-            </div>
-          </div>
-          <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setIsEditOpen(false)}>Cancel</Button>
-            <Button onClick={handleSaveEdit} className="bg-trust-blue hover:bg-deep-blue text-white">Save Changes</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Company KYC Modal */}
-      <Dialog open={isKYCModalOpen} onOpenChange={setIsKYCModalOpen}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden p-0 [&>button]:hidden">
-          <DialogHeader className="sr-only">
-            <DialogTitle>Company KYC Form</DialogTitle>
-          </DialogHeader>
-          <CompanyKYCForm onClose={() => setIsKYCModalOpen(false)} />
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
