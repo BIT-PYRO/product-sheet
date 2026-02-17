@@ -26,60 +26,61 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 
-export default function MasterJobSheet() {
+export default function MasterWorkforceSheet() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedRows, setSelectedRows] = useState(new Set());
   const [isManageColumnsOpen, setIsManageColumnsOpen] = useState(false);
   const [selectedColumnsForAction, setSelectedColumnsForAction] = useState(new Set());
-  const [isPrintVoucherOpen, setIsPrintVoucherOpen] = useState(false);
-  const [selectedVoucherForPrint, setSelectedVoucherForPrint] = useState(null);
+  const [isPrintEmployeeOpen, setIsPrintEmployeeOpen] = useState(false);
+  const [selectedEmployeeForPrint, setSelectedEmployeeForPrint] = useState(null);
   const [isPrintSheetOpen, setIsPrintSheetOpen] = useState(false);
   const [editingRowIds, setEditingRowIds] = useState(new Set());
   const [archivedRows, setArchivedRows] = useState(new Set());
   
-  // Column definitions
+  // Column definitions for workforce
   const columns = [
-    { id: 'issued', label: 'Issued' },
+    { id: 'sNo', label: 'S No' },
     { id: 'department', label: 'Department' },
-    { id: 'category', label: 'Category' },
     { id: 'firstName', label: 'First Name' },
-    { id: 'status', label: 'Status' },
-    { id: 'newReissue', label: 'New/Re-issue' },
+    { id: 'lastName', label: 'Last Name' },
+    { id: 'contactNumber', label: 'Contact Number' },
     { id: 'type', label: 'Type' },
-    { id: 'receiver', label: 'Receiver' },
-    { id: 'dayCondition', label: 'Day & Condition' },
-    { id: 'issuedQty', label: 'Issued Qty' },
-    { id: 'issuedWeight', label: 'Issued Weight' },
-    { id: 'receivedQty', label: 'Received Qty' },
-    { id: 'receivedWeight', label: 'Received Weight' },
-    { id: 'lossQty', label: 'Loss Qty' },
-    { id: 'lossWeight', label: 'Loss Weight' },
-    { id: 'reIssueQty', label: 'Re-Issue Qty' },
-    { id: 'reIssueWeight', label: 'Re-Issue Weight' },
+    { id: 'aadharCard', label: 'Aadhar Card' },
+    { id: 'paymentType', label: 'Payment Type' },
+    { id: 'origin', label: 'Origin' },
+    { id: 'bankAccount', label: 'Bank A/C' },
+    { id: 'ifsc', label: 'IFSC' },
+    { id: 'bank', label: 'Bank' },
+    { id: 'branch', label: 'Branch' },
   ];
   
   // Column configuration with styling
   const columnConfig = {
-    issued: { minWidth: 'min-w-[80px]', headerBg: 'bg-yellow-300' },
-    department: { minWidth: 'min-w-[100px]', headerBg: 'bg-yellow-300' },
-    category: { minWidth: 'min-w-[80px]', headerBg: 'bg-yellow-300' },
-    firstName: { minWidth: 'min-w-[100px]', headerBg: 'bg-yellow-300' },
-    status: { minWidth: 'min-w-[80px]', headerBg: 'bg-yellow-300' },
-    newReissue: { minWidth: 'min-w-[100px]', headerBg: 'bg-yellow-300' },
-    type: { minWidth: 'min-w-[70px]', headerBg: 'bg-yellow-300' },
-    receiver: { minWidth: 'min-w-[80px]', headerBg: 'bg-yellow-300' },
-    dayCondition: { minWidth: 'min-w-[100px]', headerBg: 'bg-orange-200', cellBg: 'bg-orange-50' },
-    issuedQty: { minWidth: 'min-w-[70px]', headerBg: 'bg-yellow-300' },
-    issuedWeight: { minWidth: 'min-w-[80px]', headerBg: 'bg-yellow-300' },
-    receivedQty: { minWidth: 'min-w-[80px]', headerBg: 'bg-green-100', cellBg: 'bg-green-50' },
-    receivedWeight: { minWidth: 'min-w-[100px]', headerBg: 'bg-green-100', cellBg: 'bg-green-50' },
-    lossQty: { minWidth: 'min-w-[70px]', headerBg: 'bg-red-100', cellBg: 'bg-red-50' },
-    lossWeight: { minWidth: 'min-w-[80px]', headerBg: 'bg-red-100', cellBg: 'bg-red-50' },
-    reIssueQty: { minWidth: 'min-w-[80px]', headerBg: 'bg-orange-100', cellBg: 'bg-orange-50' },
-    reIssueWeight: { minWidth: 'min-w-[100px]', headerBg: 'bg-orange-100', cellBg: 'bg-orange-50' },
+    sNo: { minWidth: 'min-w-[50px]', headerBg: 'bg-yellow-400' },
+    department: { minWidth: 'min-w-[100px]', headerBg: 'bg-yellow-400' },
+    firstName: { minWidth: 'min-w-[100px]', headerBg: 'bg-yellow-400' },
+    lastName: { minWidth: 'min-w-[100px]', headerBg: 'bg-yellow-400' },
+    contactNumber: { minWidth: 'min-w-[120px]', headerBg: 'bg-yellow-400' },
+    type: { minWidth: 'min-w-[80px]', headerBg: 'bg-yellow-400' },
+    aadharCard: { minWidth: 'min-w-[120px]', headerBg: 'bg-yellow-400' },
+    paymentType: { minWidth: 'min-w-[100px]', headerBg: 'bg-yellow-400' },
+    origin: { minWidth: 'min-w-[80px]', headerBg: 'bg-yellow-400' },
+    bankAccount: { minWidth: 'min-w-[120px]', headerBg: 'bg-yellow-400' },
+    ifsc: { minWidth: 'min-w-[80px]', headerBg: 'bg-yellow-400' },
+    bank: { minWidth: 'min-w-[100px]', headerBg: 'bg-yellow-400' },
+    branch: { minWidth: 'min-w-[100px]', headerBg: 'bg-yellow-400' },
   };
   
-  const [visibleColumns, setVisibleColumns] = useState(new Set(columns.map(col => col.id)));
+  // Set default visible columns to prevent horizontal scrolling
+  const [visibleColumns, setVisibleColumns] = useState(new Set([
+    'sNo',
+    'department',
+    'firstName',
+    'lastName',
+    'contactNumber',
+    'type',
+    'paymentType',
+  ]));
   
   // Toggle column selection in the manage columns dialog
   const toggleColumnSelection = (columnId) => {
@@ -114,49 +115,33 @@ export default function MasterJobSheet() {
   const hiddenColumns = columns.filter(col => !visibleColumns.has(col.id));
   
   // Filter states
-  const [statusFilter, setStatusFilter] = useState('');
-  const [dateFromFilter, setDateFromFilter] = useState('');
-  const [dateToFilter, setDateToFilter] = useState('');
-  const [newReissueFilter, setNewReissueFilter] = useState('');
-  const [nameFilter, setNameFilter] = useState('');
-  const [issuerFilter, setIssuerFilter] = useState('');
   const [departmentFilter, setDepartmentFilter] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('');
-  const [receiverFilter, setReceiverFilter] = useState('');
-  const [skuFilter, setSKUFilter] = useState('');
+  const [originFilter, setOriginFilter] = useState('');
+  const [paymentTypeFilter, setPaymentTypeFilter] = useState('');
   
   // Sample data for dropdowns
-  const statusOptions = ['Pending', 'WIP', 'Completed'];
-  const newReissueOptions = ['New', 'Re-issue'];
-  const nameOptions = ['Name 1', 'Name 2', 'Name 3', 'Name 4'];
-  const issuerOptions = ['Issuer 1', 'Issuer 2', 'Issuer 3'];
-  const departmentOptions = ['D1', 'D2', 'D3', 'D4'];
-  const typeOptions = ['T1', 'T2', 'T3', 'T4'];
-  const categoryOptions = ['C1', 'C2', 'C3', 'C4'];
-  const receiverOptions = ['Receiver 1', 'Receiver 2', 'Receiver 3'];
+  const departmentOptions = ['HR', 'Operations', 'Sales', 'Finance', 'IT', 'Manufacturing'];
+  const typeOptions = ['Full-time', 'Part-time', 'Contract', 'Intern'];
+  const originOptions = ['Local', 'Permanent', 'Temporary'];
+  const paymentTypeOptions = ['Salary', 'Hourly', 'Contract', 'Commission'];
 
   const [data, setData] = useState(
     Array(15).fill(null).map((_, i) => ({
       id: i,
-      voucherNo: '',
-      issued: '',
+      sNo: i + 1,
       department: '',
-      category: '',
       firstName: '',
-      status: '',
-      newReissue: '',
+      lastName: '',
+      contactNumber: '',
       type: '',
-      receiver: '',
-      dayCondition: '',
-      issuedQty: '',
-      issuedWeight: '',
-      receivedQty: '',
-      receivedWeight: '',
-      lossQty: '',
-      lossWeight: '',
-      reIssueQty: '',
-      reIssueWeight: '',
+      aadharCard: '',
+      paymentType: '',
+      origin: '',
+      bankAccount: '',
+      ifsc: '',
+      bank: '',
+      branch: '',
     }))
   );
 
@@ -176,19 +161,15 @@ export default function MasterJobSheet() {
     ));
   };
 
-  const handlePrint = () => {
-    window.print();
-  };
-
-  const handlePrintVouchers = () => {
+  const handlePrintEmployees = () => {
     if (selectedRows.size === 0) {
-      alert('Please select a voucher to print');
+      alert('Please select an employee to print');
       return;
     }
-    const voucherId = Array.from(selectedRows)[0];
-    const voucher = data.find(row => row.id === voucherId);
-    setSelectedVoucherForPrint(voucher);
-    setIsPrintVoucherOpen(true);
+    const employeeId = Array.from(selectedRows)[0];
+    const employee = data.find(row => row.id === employeeId);
+    setSelectedEmployeeForPrint(employee);
+    setIsPrintEmployeeOpen(true);
   };
 
   const handlePrintSheet = () => {
@@ -196,13 +177,15 @@ export default function MasterJobSheet() {
   };
 
   const handleExport = () => {
-    // Export functionality
     console.log('Export data:', data);
   };
 
-  const handleCreateJob = () => {
-    // Create job functionality
-    console.log('Create new job');
+  const handleQuickEnroll = () => {
+    console.log('Quick enroll');
+  };
+
+  const handleEnrollWorkforce = () => {
+    console.log('Enroll workforce');
   };
 
   const handleManageColumns = () => {
@@ -213,24 +196,19 @@ export default function MasterJobSheet() {
     const newId = Math.max(...data.map(row => row.id), -1) + 1;
     const newRow = {
       id: newId,
-      voucherNo: '',
-      issued: '',
+      sNo: data.length + 1,
       department: '',
-      category: '',
       firstName: '',
-      status: '',
-      newReissue: '',
+      lastName: '',
+      contactNumber: '',
       type: '',
-      receiver: '',
-      dayCondition: '',
-      issuedQty: '',
-      issuedWeight: '',
-      receivedQty: '',
-      receivedWeight: '',
-      lossQty: '',
-      lossWeight: '',
-      reIssueQty: '',
-      reIssueWeight: '',
+      aadharCard: '',
+      paymentType: '',
+      origin: '',
+      bankAccount: '',
+      ifsc: '',
+      bank: '',
+      branch: '',
     };
     setData([...data, newRow]);
   };
@@ -319,70 +297,72 @@ export default function MasterJobSheet() {
         </DialogContent>
       </Dialog>
 
-      {/* Print Voucher Dialog */}
-      <Dialog open={isPrintVoucherOpen} onOpenChange={setIsPrintVoucherOpen}>
+      {/* Print Employee Dialog */}
+      <Dialog open={isPrintEmployeeOpen} onOpenChange={setIsPrintEmployeeOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader className="border-b pb-4">
-            <DialogTitle>Print Voucher</DialogTitle>
+            <DialogTitle>Print Employee Details</DialogTitle>
           </DialogHeader>
           
-          {selectedVoucherForPrint && (
+          {selectedEmployeeForPrint && (
             <div className="space-y-6 py-4">
-              {/* Voucher Header */}
+              {/* Employee Header */}
               <div className="border-2 border-gray-900 p-6 bg-white">
-                <h2 className="text-2xl font-bold text-center mb-6">VOUCHER</h2>
+                <h2 className="text-2xl font-bold text-center mb-6">EMPLOYEE DETAILS</h2>
                 
                 {/* Top Section */}
-                <div className="grid grid-cols-4 gap-4 mb-6 border-b-2 border-gray-900 pb-4">
+                <div className="grid grid-cols-3 gap-4 mb-6 border-b-2 border-gray-900 pb-4">
                   <div className="border-r-2 border-gray-900 pr-4">
-                    <p className="text-xs font-bold text-gray-700 mb-1">DATE</p>
-                    <p className="text-sm">{new Date().toISOString().split('T')[0]}</p>
-                  </div>
-                  <div className="border-r-2 border-gray-900 pr-4">
-                    <p className="text-xs font-bold text-gray-700 mb-1">SCHEDULE FOR FUTURE</p>
-                    <p className="text-sm">—</p>
+                    <p className="text-xs font-bold text-gray-700 mb-1">S NO</p>
+                    <p className="text-sm">{selectedEmployeeForPrint.sNo || '—'}</p>
                   </div>
                   <div className="border-r-2 border-gray-900 pr-4">
-                    <p className="text-xs font-bold text-gray-700 mb-1">VOUCHER TYPE</p>
-                    <p className="text-sm">{selectedVoucherForPrint.newReissue || 'New'}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs font-bold text-gray-700 mb-1">VOUCHER NO.</p>
-                    <p className="text-sm font-bold">{selectedVoucherForPrint.voucherNo || '—'}</p>
-                  </div>
-                </div>
-
-                {/* Issued To Section */}
-                <div className="grid grid-cols-2 gap-4 mb-6 border-b-2 border-gray-900 pb-4">
-                  <div>
-                    <p className="text-xs font-bold text-gray-700 mb-1">ISSUED TO</p>
-                    <p className="text-sm">{selectedVoucherForPrint.firstName || '—'}</p>
+                    <p className="text-xs font-bold text-gray-700 mb-1">NAME</p>
+                    <p className="text-sm">{selectedEmployeeForPrint.firstName || '—'} {selectedEmployeeForPrint.lastName || '—'}</p>
                   </div>
                   <div>
                     <p className="text-xs font-bold text-gray-700 mb-1">DEPARTMENT</p>
-                    <p className="text-sm">{selectedVoucherForPrint.department || '—'}</p>
+                    <p className="text-sm">{selectedEmployeeForPrint.department || '—'}</p>
                   </div>
                 </div>
 
-                {/* Items Table */}
+                {/* Details Section */}
+                <div className="grid grid-cols-2 gap-4 mb-6 border-b-2 border-gray-900 pb-4">
+                  <div>
+                    <p className="text-xs font-bold text-gray-700 mb-1">CONTACT NUMBER</p>
+                    <p className="text-sm">{selectedEmployeeForPrint.contactNumber || '—'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-gray-700 mb-1">TYPE</p>
+                    <p className="text-sm">{selectedEmployeeForPrint.type || '—'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-gray-700 mb-1">AADHAR CARD</p>
+                    <p className="text-sm">{selectedEmployeeForPrint.aadharCard || '—'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-gray-700 mb-1">PAYMENT TYPE</p>
+                    <p className="text-sm">{selectedEmployeeForPrint.paymentType || '—'}</p>
+                  </div>
+                </div>
+
+                {/* Bank Information */}
                 <div className="mb-6">
                   <table className="w-full border-collapse border-2 border-gray-900">
                     <thead>
                       <tr className="bg-gray-900 text-white">
-                        <th className="border-2 border-gray-900 p-2 text-xs font-bold text-left">ISSUED QTY</th>
-                        <th className="border-2 border-gray-900 p-2 text-xs font-bold text-left">ISSUED WEIGHT</th>
-                        <th className="border-2 border-gray-900 p-2 text-xs font-bold text-left">RECEIVED QTY</th>
-                        <th className="border-2 border-gray-900 p-2 text-xs font-bold text-left">RECEIVED WEIGHT</th>
-                        <th className="border-2 border-gray-900 p-2 text-xs font-bold text-left">STATUS</th>
+                        <th className="border-2 border-gray-900 p-2 text-xs font-bold text-left">ORIGIN</th>
+                        <th className="border-2 border-gray-900 p-2 text-xs font-bold text-left">BANK A/C</th>
+                        <th className="border-2 border-gray-900 p-2 text-xs font-bold text-left">IFSC</th>
+                        <th className="border-2 border-gray-900 p-2 text-xs font-bold text-left">BANK</th>
                       </tr>
                     </thead>
                     <tbody>
                       <tr>
-                        <td className="border-2 border-gray-900 p-2 text-sm">{selectedVoucherForPrint.issuedQty || '—'}</td>
-                        <td className="border-2 border-gray-900 p-2 text-sm">{selectedVoucherForPrint.issuedWeight || '—'}</td>
-                        <td className="border-2 border-gray-900 p-2 text-sm">{selectedVoucherForPrint.receivedQty || '—'}</td>
-                        <td className="border-2 border-gray-900 p-2 text-sm">{selectedVoucherForPrint.receivedWeight || '—'}</td>
-                        <td className="border-2 border-gray-900 p-2 text-sm">{selectedVoucherForPrint.status || '—'}</td>
+                        <td className="border-2 border-gray-900 p-2 text-sm">{selectedEmployeeForPrint.origin || '—'}</td>
+                        <td className="border-2 border-gray-900 p-2 text-sm">{selectedEmployeeForPrint.bankAccount || '—'}</td>
+                        <td className="border-2 border-gray-900 p-2 text-sm">{selectedEmployeeForPrint.ifsc || '—'}</td>
+                        <td className="border-2 border-gray-900 p-2 text-sm">{selectedEmployeeForPrint.bank || '—'}</td>
                       </tr>
                     </tbody>
                   </table>
@@ -391,12 +371,12 @@ export default function MasterJobSheet() {
                 {/* Footer Section */}
                 <div className="grid grid-cols-2 gap-8 pt-4">
                   <div>
-                    <p className="text-xs font-bold text-gray-700 mb-8">Issued By</p>
+                    <p className="text-xs font-bold text-gray-700 mb-8">Verified By</p>
                     <div className="border-t-2 border-gray-900 w-24"></div>
                   </div>
                   <div>
-                    <p className="text-xs font-bold text-gray-700 mb-8">Received By</p>
-                    <div className="border-t-2 border-gray-900 w-24"></div>
+                    <p className="text-xs font-bold text-gray-700 mb-8">Date</p>
+                    <p className="text-sm">{new Date().toISOString().split('T')[0]}</p>
                   </div>
                 </div>
               </div>
@@ -410,7 +390,7 @@ export default function MasterJobSheet() {
                   Print
                 </Button>
                 <Button
-                  onClick={() => setIsPrintVoucherOpen(false)}
+                  onClick={() => setIsPrintEmployeeOpen(false)}
                   variant="outline"
                 >
                   Close
@@ -425,33 +405,33 @@ export default function MasterJobSheet() {
       <Dialog open={isPrintSheetOpen} onOpenChange={setIsPrintSheetOpen}>
         <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
           <DialogHeader className="border-b pb-4">
-            <DialogTitle>Print Master WIP/JOB Sheet</DialogTitle>
+            <DialogTitle>Print Work Force Master Sheet</DialogTitle>
           </DialogHeader>
           
           <div className="space-y-4 py-4">
             {/* Sheet Header */}
             <div className="text-center border-b-2 border-gray-900 pb-4 mb-6">
-              <h2 className="text-2xl font-bold mb-2">MASTER WIP/JOB SHEET</h2>
+              <h2 className="text-2xl font-bold mb-2">WORK FORCE MASTER SHEET</h2>
               <p className="text-sm text-gray-600">Date: {new Date().toISOString().split('T')[0]}</p>
             </div>
 
             {/* Sheet Details Summary */}
             <div className="grid grid-cols-4 gap-4 mb-6 p-4 bg-gray-50 rounded-lg border border-gray-300">
               <div>
-                <p className="text-xs font-bold text-gray-700 mb-1">Total Vouchers</p>
+                <p className="text-xs font-bold text-gray-700 mb-1">Total Employees</p>
                 <p className="text-lg font-bold">{data.length}</p>
               </div>
               <div>
-                <p className="text-xs font-bold text-gray-700 mb-1">Selected Rows</p>
+                <p className="text-xs font-bold text-gray-700 mb-1">Selected Employees</p>
                 <p className="text-lg font-bold">{selectedRows.size}</p>
               </div>
               <div>
-                <p className="text-xs font-bold text-gray-700 mb-1">Total Issued Qty</p>
-                <p className="text-lg font-bold">{data.reduce((sum, row) => sum + (parseInt(row.issuedQty) || 0), 0)}</p>
+                <p className="text-xs font-bold text-gray-700 mb-1">Full-time</p>
+                <p className="text-lg font-bold">{data.filter(row => row.type === 'Full-time').length}</p>
               </div>
               <div>
-                <p className="text-xs font-bold text-gray-700 mb-1">Total Received Qty</p>
-                <p className="text-lg font-bold">{data.reduce((sum, row) => sum + (parseInt(row.receivedQty) || 0), 0)}</p>
+                <p className="text-xs font-bold text-gray-700 mb-1">Active Employees</p>
+                <p className="text-lg font-bold">{activeData.length}</p>
               </div>
             </div>
 
@@ -460,35 +440,31 @@ export default function MasterJobSheet() {
               <table className="w-full border-collapse text-xs">
                 <thead>
                   <tr className="bg-gray-900 text-white">
-                    <th className="border border-gray-400 p-2 text-left">Voucher No.</th>
-                    <th className="border border-gray-400 p-2 text-left">Issued</th>
+                    <th className="border border-gray-400 p-2 text-left">S No</th>
                     <th className="border border-gray-400 p-2 text-left">Department</th>
-                    <th className="border border-gray-400 p-2 text-left">Category</th>
                     <th className="border border-gray-400 p-2 text-left">First Name</th>
-                    <th className="border border-gray-400 p-2 text-left">Status</th>
-                    <th className="border border-gray-400 p-2 text-left">Issued Qty</th>
-                    <th className="border border-gray-400 p-2 text-left">Issued Weight</th>
-                    <th className="border border-gray-400 p-2 text-left">Received Qty</th>
-                    <th className="border border-gray-400 p-2 text-left">Received Weight</th>
-                    <th className="border border-gray-400 p-2 text-left">Loss Qty</th>
-                    <th className="border border-gray-400 p-2 text-left">Loss Weight</th>
+                    <th className="border border-gray-400 p-2 text-left">Last Name</th>
+                    <th className="border border-gray-400 p-2 text-left">Contact Number</th>
+                    <th className="border border-gray-400 p-2 text-left">Type</th>
+                    <th className="border border-gray-400 p-2 text-left">Aadhar Card</th>
+                    <th className="border border-gray-400 p-2 text-left">Payment Type</th>
+                    <th className="border border-gray-400 p-2 text-left">Origin</th>
+                    <th className="border border-gray-400 p-2 text-left">Bank A/C</th>
                   </tr>
                 </thead>
                 <tbody>
                   {data.map((row, index) => (
                     <tr key={row.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                      <td className="border border-gray-400 p-2">{row.voucherNo || '—'}</td>
-                      <td className="border border-gray-400 p-2">{row.issued || '—'}</td>
+                      <td className="border border-gray-400 p-2">{row.sNo || '—'}</td>
                       <td className="border border-gray-400 p-2">{row.department || '—'}</td>
-                      <td className="border border-gray-400 p-2">{row.category || '—'}</td>
                       <td className="border border-gray-400 p-2">{row.firstName || '—'}</td>
-                      <td className="border border-gray-400 p-2">{row.status || '—'}</td>
-                      <td className="border border-gray-400 p-2 text-center">{row.issuedQty || '—'}</td>
-                      <td className="border border-gray-400 p-2 text-center">{row.issuedWeight || '—'}</td>
-                      <td className="border border-gray-400 p-2 text-center">{row.receivedQty || '—'}</td>
-                      <td className="border border-gray-400 p-2 text-center">{row.receivedWeight || '—'}</td>
-                      <td className="border border-gray-400 p-2 text-center">{row.lossQty || '—'}</td>
-                      <td className="border border-gray-400 p-2 text-center">{row.lossWeight || '—'}</td>
+                      <td className="border border-gray-400 p-2">{row.lastName || '—'}</td>
+                      <td className="border border-gray-400 p-2">{row.contactNumber || '—'}</td>
+                      <td className="border border-gray-400 p-2">{row.type || '—'}</td>
+                      <td className="border border-gray-400 p-2">{row.aadharCard || '—'}</td>
+                      <td className="border border-gray-400 p-2">{row.paymentType || '—'}</td>
+                      <td className="border border-gray-400 p-2">{row.origin || '—'}</td>
+                      <td className="border border-gray-400 p-2">{row.bankAccount || '—'}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -535,22 +511,36 @@ export default function MasterJobSheet() {
       {/* Header Section */}
       <div className="mb-6">
         <h1 className="text-3xl md:text-4xl font-bold text-center text-gray-800 mb-6">
-          MASTER WIP/JOB SHEET
+          WORK FORCE MASTER SHEET
         </h1>
 
         {/* Action Buttons */}
         <div className="flex flex-wrap gap-2 md:gap-4 justify-end mb-6">
           <Button 
-            onClick={handleCreateJob}
+            onClick={handleQuickEnroll}
             className="bg-green-500 hover:bg-green-600 text-white rounded-full px-6"
           >
-            Create a Job
+            Quick Enroll
           </Button>
           <Button 
-            onClick={() => window.location.href = '/enrol-workforce'}
-            className="bg-blue-500 hover:bg-blue-600 text-white rounded-full px-6"
+            onClick={handleEnrollWorkforce}
+            className="bg-green-500 hover:bg-green-600 text-white rounded-full px-6"
           >
-            Quick Enroll Workforce
+            Enroll Workforce
+          </Button>
+          <Button 
+            onClick={handleEditRow}
+            variant="outline"
+            className="border-blue-600 text-blue-600 hover:bg-blue-50 rounded-full px-6"
+          >
+            Edit Row
+          </Button>
+          <Button 
+            onClick={handleArchiveRow}
+            variant="outline"
+            className="border-orange-600 text-orange-600 hover:bg-orange-50 rounded-full px-6"
+          >
+            Archive Row
           </Button>
           <Button 
             onClick={handleManageColumns}
@@ -578,8 +568,8 @@ export default function MasterJobSheet() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent>
-              <DropdownMenuItem onClick={handlePrintVouchers}>
-                Voucher
+              <DropdownMenuItem onClick={handlePrintEmployees}>
+                Employee Details
               </DropdownMenuItem>
               <DropdownMenuItem onClick={handlePrintSheet}>
                 Sheet
@@ -605,95 +595,13 @@ export default function MasterJobSheet() {
 
       {/* Filter Row */}
       <div className="border border-gray-300 rounded-lg mb-4 bg-blue-50 p-4">
-        <div className="grid grid-cols-2 md:grid-cols-6 lg:grid-cols-11 gap-2">
-          {/* Status/Pending WIP Completion */}
-          <div>
-            <label className="text-xs font-semibold text-gray-700 block mb-1">STATUS</label>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="h-8 text-xs">
-                <SelectValue placeholder="Select Status" />
-              </SelectTrigger>
-              <SelectContent>
-                {statusOptions.map(status => (
-                  <SelectItem key={status} value={status}>{status}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Date From */}
-          <div>
-            <label className="text-xs font-semibold text-gray-700 block mb-1">DATE FROM</label>
-            <Input
-              type="date"
-              value={dateFromFilter}
-              onChange={(e) => setDateFromFilter(e.target.value)}
-              className="h-8 text-xs p-1"
-            />
-          </div>
-
-          {/* Date To */}
-          <div>
-            <label className="text-xs font-semibold text-gray-700 block mb-1">DATE TO</label>
-            <Input
-              type="date"
-              value={dateToFilter}
-              onChange={(e) => setDateToFilter(e.target.value)}
-              className="h-8 text-xs p-1"
-            />
-          </div>
-
-          {/* New/Reissue */}
-          <div>
-            <label className="text-xs font-semibold text-gray-700 block mb-1">NEW/RE-ISSUE</label>
-            <Select value={newReissueFilter} onValueChange={setNewReissueFilter}>
-              <SelectTrigger className="h-8 text-xs">
-                <SelectValue placeholder="Select" />
-              </SelectTrigger>
-              <SelectContent>
-                {newReissueOptions.map(option => (
-                  <SelectItem key={option} value={option}>{option}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Name */}
-          <div>
-            <label className="text-xs font-semibold text-gray-700 block mb-1">NAME</label>
-            <Select value={nameFilter} onValueChange={setNameFilter}>
-              <SelectTrigger className="h-8 text-xs">
-                <SelectValue placeholder="Select Name" />
-              </SelectTrigger>
-              <SelectContent>
-                {nameOptions.map(name => (
-                  <SelectItem key={name} value={name}>{name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Issuer */}
-          <div>
-            <label className="text-xs font-semibold text-gray-700 block mb-1">ISSUER</label>
-            <Select value={issuerFilter} onValueChange={setIssuerFilter}>
-              <SelectTrigger className="h-8 text-xs">
-                <SelectValue placeholder="Select Issuer" />
-              </SelectTrigger>
-              <SelectContent>
-                {issuerOptions.map(issuer => (
-                  <SelectItem key={issuer} value={issuer}>{issuer}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Department */}
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2">
+          {/* Department Filter */}
           <div>
             <label className="text-xs font-semibold text-gray-700 block mb-1">DEPARTMENT</label>
             <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
               <SelectTrigger className="h-8 text-xs">
-                <SelectValue placeholder="Select Dept" />
+                <SelectValue placeholder="Select Department" />
               </SelectTrigger>
               <SelectContent>
                 {departmentOptions.map(option => (
@@ -703,7 +611,7 @@ export default function MasterJobSheet() {
             </Select>
           </div>
 
-          {/* Type */}
+          {/* Type Filter */}
           <div>
             <label className="text-xs font-semibold text-gray-700 block mb-1">TYPE</label>
             <Select value={typeFilter} onValueChange={setTypeFilter}>
@@ -718,72 +626,46 @@ export default function MasterJobSheet() {
             </Select>
           </div>
 
-          {/* Category */}
+          {/* Origin Filter */}
           <div>
-            <label className="text-xs font-semibold text-gray-700 block mb-1">CATEGORY</label>
-            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+            <label className="text-xs font-semibold text-gray-700 block mb-1">ORIGIN</label>
+            <Select value={originFilter} onValueChange={setOriginFilter}>
               <SelectTrigger className="h-8 text-xs">
-                <SelectValue placeholder="Select Category" />
+                <SelectValue placeholder="Select Origin" />
               </SelectTrigger>
               <SelectContent>
-                {categoryOptions.map(option => (
+                {originOptions.map(option => (
                   <SelectItem key={option} value={option}>{option}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
 
-          {/* Receiver */}
+          {/* Payment Type Filter */}
           <div>
-            <label className="text-xs font-semibold text-gray-700 block mb-1">RECEIVER</label>
-            <Select value={receiverFilter} onValueChange={setReceiverFilter}>
+            <label className="text-xs font-semibold text-gray-700 block mb-1">PAYMENT TYPE</label>
+            <Select value={paymentTypeFilter} onValueChange={setPaymentTypeFilter}>
               <SelectTrigger className="h-8 text-xs">
-                <SelectValue placeholder="Select Receiver" />
+                <SelectValue placeholder="Select Payment Type" />
               </SelectTrigger>
               <SelectContent>
-                {receiverOptions.map(receiver => (
-                  <SelectItem key={receiver} value={receiver}>{receiver}</SelectItem>
+                {paymentTypeOptions.map(option => (
+                  <SelectItem key={option} value={option}>{option}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
-          </div>
-
-          {/* SKU Search */}
-          <div>
-            <label className="text-xs font-semibold text-gray-700 block mb-1">SKU</label>
-            <Input
-              type="text"
-              placeholder="Enter SKU"
-              value={skuFilter}
-              onChange={(e) => setSKUFilter(e.target.value)}
-              className="h-8 text-xs p-1"
-            />
           </div>
         </div>
       </div>
 
       {/* Table Section */}
       <div className="border border-gray-300 rounded-lg bg-white overflow-hidden">
-        {/* Table wrapper with vertical and horizontal scrolling */}
-        <div className="overflow-y-auto overflow-x-auto max-h-[500px]">
+        {/* Table wrapper with vertical scrolling only */}
+        <div className="overflow-y-auto max-h-[500px]">
           <table className="w-full border-collapse text-xs">
-            <thead className="sticky top-0 z-20 bg-yellow-300">
+            <thead className="sticky top-0 z-20 bg-yellow-400">
               <tr className="text-gray-800 font-bold border-b-2 border-gray-400">
-                <th className="border border-gray-400 p-2 w-8 sticky left-0 bg-yellow-300 z-30">
-                  <Checkbox
-                    checked={selectedRows.size === activeData.length && activeData.length > 0}
-                    onCheckedChange={(checked) => {
-                      if (checked) {
-                        setSelectedRows(new Set(activeData.map(row => row.id)));
-                      } else {
-                        setSelectedRows(new Set());
-                      }
-                    }}
-                    className="cursor-pointer"
-                    disabled={editingRowIds.size > 0}
-                  />
-                </th>
-                <th className="border border-gray-400 p-2 bg-yellow-300 min-w-[100px] sticky left-8 z-30 border-r-2 border-r-gray-400" style={{boxShadow: 'inset -2px 0 0 0 rgb(209, 213, 219)'}}>Voucher No.</th>
+                <th className="border border-gray-400 p-2 w-8 sticky left-0 bg-yellow-400 z-30"></th>
                 {columns.map((column) => 
                   visibleColumns.has(column.id) && (
                     <th key={column.id} className={`border border-gray-400 p-2 ${columnConfig[column.id].headerBg} ${columnConfig[column.id].minWidth}`}>
@@ -795,7 +677,7 @@ export default function MasterJobSheet() {
             </thead>
 
             <tbody>
-              {activeData.map((row) => {
+              {activeData.map((row, idx) => {
                 const isEditing = editingRowIds.has(row.id);
                 const isAnyRowEditing = editingRowIds.size > 0;
                 const canEdit = !isAnyRowEditing || isEditing;
@@ -817,15 +699,6 @@ export default function MasterJobSheet() {
                         onCheckedChange={() => toggleRowSelection(row.id)}
                         className="cursor-pointer"
                         disabled={isAnyRowEditing}
-                      />
-                    </td>
-                    <td className={`border border-gray-400 p-1 sticky left-8 z-10 border-r-2 border-r-gray-400`} style={{boxShadow: 'inset -2px 0 0 0 rgb(209, 213, 219)', backgroundColor: isEditing ? '#eff6ff' : 'white'}}>
-                      <Input
-                        type="text"
-                        value={row.voucherNo}
-                        onChange={(e) => handleCellChange(row.id, 'voucherNo', e.target.value)}
-                        className="border-0 p-1 text-xs h-8"
-                        disabled={!canEdit}
                       />
                     </td>
                     {columns.map((column) =>
