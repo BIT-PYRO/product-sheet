@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -25,21 +25,9 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
-import Link from 'next/link';
-import MasterNavigationDrawer from '@/components/master_navigation_drawer';
-import DateTimeStamp from '@/components/date-time-stamp';
-import GlobalSearchBar from '@/components/global-search-bar';
-import BulkUploadButton from '@/components/bulk-upload-button';
-import LastUpdatedFooter from '@/components/last-updated-footer';
 
 export default function MasterProductSheet() {
-  const PRODUCT_SHEET_SYNC_KEY = 'product_sheet_updated_at';
-  const PRODUCT_SHEET_SYNC_EVENT = 'product_sheet_sync';
-  const [lastUpdated, setLastUpdated] = useState(null);
-  const [currentUsername, setCurrentUsername] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
-  const [isLoading, setIsLoading] = useState(true);
-  const [fetchError, setFetchError] = useState('');
   const [selectedRows, setSelectedRows] = useState(new Set());
   const [isManageColumnsOpen, setIsManageColumnsOpen] = useState(false);
   const [selectedColumnsForAction, setSelectedColumnsForAction] = useState(new Set());
@@ -48,13 +36,9 @@ export default function MasterProductSheet() {
   const [isPrintSheetOpen, setIsPrintSheetOpen] = useState(false);
   const [editingRowIds, setEditingRowIds] = useState(new Set());
   const [archivedRows, setArchivedRows] = useState(new Set());
-  const [viewMode, setViewMode] = useState('active');
-  const [rowsPerPage, setRowsPerPage] = useState(25);
-  const [currentPage, setCurrentPage] = useState(1);
   
-  // Column definitions for products — images is first
+  // Column definitions for products
   const columns = [
-    { id: 'images', label: 'Images' },
     { id: 'sku', label: 'SKU' },
     { id: 'listingName', label: 'Listing Name' },
     { id: 'material', label: 'Material' },
@@ -77,38 +61,38 @@ export default function MasterProductSheet() {
     { id: 'platingType', label: 'Plating Type' },
     { id: 'platingColor', label: 'Plating Color' },
     { id: 'notes', label: 'Notes' },
+    { id: 'images', label: 'Images' },
   ];
   
   // Column configuration with styling
   const columnConfig = {
-    images: { minWidth: 'min-w-[120px]', headerBg: 'bg-[#dbeafe]' },
-    sku: { minWidth: 'min-w-[80px]', headerBg: 'bg-[#dbeafe]' },
-    listingName: { minWidth: 'min-w-[100px]', headerBg: 'bg-[#dbeafe]' },
-    material: { minWidth: 'min-w-[80px]', headerBg: 'bg-[#dbeafe]' },
-    weight: { minWidth: 'min-w-[70px]', headerBg: 'bg-[#dbeafe]' },
-    category: { minWidth: 'min-w-[80px]', headerBg: 'bg-[#dbeafe]' },
-    collection: { minWidth: 'min-w-[90px]', headerBg: 'bg-[#dbeafe]' },
-    settingType: { minWidth: 'min-w-[80px]', headerBg: 'bg-[#dbeafe]' },
-    enamelType: { minWidth: 'min-w-[75px]', headerBg: 'bg-[#dbeafe]' },
-    activeChannels: { minWidth: 'min-w-[100px]', headerBg: 'bg-[#dbeafe]' },
-    shopifyStatus: { minWidth: 'min-w-[90px]', headerBg: 'bg-[#dbeafe]' },
-    dieNumberFindings: { minWidth: 'min-w-[100px]', headerBg: 'bg-[#dbeafe]' },
-    masterSku: { minWidth: 'min-w-[85px]', headerBg: 'bg-[#dbeafe]' },
-    color: { minWidth: 'min-w-[70px]', headerBg: 'bg-[#dbeafe]' },
-    enamel: { minWidth: 'min-w-[70px]', headerBg: 'bg-[#dbeafe]' },
-    stoneName: { minWidth: 'min-w-[80px]', headerBg: 'bg-[#dbeafe]' },
-    stoneCut: { minWidth: 'min-w-[75px]', headerBg: 'bg-[#dbeafe]' },
-    stoneColor: { minWidth: 'min-w-[80px]', headerBg: 'bg-[#dbeafe]' },
-    stoneSize: { minWidth: 'min-w-[70px]', headerBg: 'bg-[#dbeafe]' },
-    stoneQuantity: { minWidth: 'min-w-[80px]', headerBg: 'bg-[#dbeafe]' },
-    platingType: { minWidth: 'min-w-[85px]', headerBg: 'bg-[#dbeafe]' },
-    platingColor: { minWidth: 'min-w-[85px]', headerBg: 'bg-[#dbeafe]' },
-    notes: { minWidth: 'min-w-[100px]', headerBg: 'bg-[#dbeafe]' },
+    sku: { minWidth: 'min-w-[80px]', headerBg: 'bg-indigo-300' },
+    listingName: { minWidth: 'min-w-[100px]', headerBg: 'bg-indigo-300' },
+    material: { minWidth: 'min-w-[80px]', headerBg: 'bg-indigo-300' },
+    weight: { minWidth: 'min-w-[70px]', headerBg: 'bg-indigo-300' },
+    category: { minWidth: 'min-w-[80px]', headerBg: 'bg-indigo-300' },
+    collection: { minWidth: 'min-w-[90px]', headerBg: 'bg-indigo-300' },
+    settingType: { minWidth: 'min-w-[80px]', headerBg: 'bg-sky-200', cellBg: 'bg-sky-50' },
+    enamelType: { minWidth: 'min-w-[75px]', headerBg: 'bg-sky-200', cellBg: 'bg-sky-50' },
+    activeChannels: { minWidth: 'min-w-[100px]', headerBg: 'bg-indigo-300' },
+    shopifyStatus: { minWidth: 'min-w-[90px]', headerBg: 'bg-indigo-300' },
+    dieNumberFindings: { minWidth: 'min-w-[100px]', headerBg: 'bg-indigo-300' },
+    masterSku: { minWidth: 'min-w-[85px]', headerBg: 'bg-indigo-300' },
+    color: { minWidth: 'min-w-[70px]', headerBg: 'bg-purple-200', cellBg: 'bg-purple-50' },
+    enamel: { minWidth: 'min-w-[70px]', headerBg: 'bg-purple-200', cellBg: 'bg-purple-50' },
+    stoneName: { minWidth: 'min-w-[80px]', headerBg: 'bg-pink-200', cellBg: 'bg-pink-50' },
+    stoneCut: { minWidth: 'min-w-[75px]', headerBg: 'bg-pink-200', cellBg: 'bg-pink-50' },
+    stoneColor: { minWidth: 'min-w-[80px]', headerBg: 'bg-pink-200', cellBg: 'bg-pink-50' },
+    stoneSize: { minWidth: 'min-w-[70px]', headerBg: 'bg-pink-200', cellBg: 'bg-pink-50' },
+    stoneQuantity: { minWidth: 'min-w-[80px]', headerBg: 'bg-pink-200', cellBg: 'bg-pink-50' },
+    platingType: { minWidth: 'min-w-[85px]', headerBg: 'bg-amber-200', cellBg: 'bg-amber-50' },
+    platingColor: { minWidth: 'min-w-[85px]', headerBg: 'bg-amber-200', cellBg: 'bg-amber-50' },
+    notes: { minWidth: 'min-w-[100px]', headerBg: 'bg-indigo-300' },
+    images: { minWidth: 'min-w-[80px]', headerBg: 'bg-indigo-300' },
   };
   
   // Set default visible columns to prevent horizontal scrolling
   const [visibleColumns, setVisibleColumns] = useState(new Set([
-    'images',
     'sku',
     'listingName',
     'material',
@@ -128,15 +112,6 @@ export default function MasterProductSheet() {
       newSelected.add(columnId);
     }
     setSelectedColumnsForAction(newSelected);
-  };
-
-  // Toggle select all columns
-  const toggleSelectAllColumns = () => {
-    if (selectedColumnsForAction.size === columns.length) {
-      setSelectedColumnsForAction(new Set());
-    } else {
-      setSelectedColumnsForAction(new Set(columns.map(col => col.id)));
-    }
   };
   
   // Hide selected columns
@@ -177,92 +152,34 @@ export default function MasterProductSheet() {
   const enamelTypeOptions = ['Yes', 'No'];
   const shopifyStatusOptions = ['Active', 'Inactive', 'Draft'];
 
-  const [data, setData] = useState([]);
-
-  useEffect(() => {
-    fetch('/api/auth/session').then(r => r.json()).then(d => { if (d?.user?.username) setCurrentUsername(d.user.username); }).catch(() => {});
-  }, []);
-
-  const loadProducts = useCallback(async () => {
-    setIsLoading(true);
-    setFetchError('');
-
-    try {
-      const response = await fetch('/api/products', {
-        method: 'GET',
-        cache: 'no-store',
-      });
-
-      const result = await response.json().catch(() => null);
-
-      if (!response.ok || !result?.success) {
-        throw new Error(result?.message || 'Failed to fetch product data');
-      }
-
-      const rows = Array.isArray(result.data)
-        ? result.data
-        : (Array.isArray(result?.data?.results) ? result.data.results : []);
-
-      const mappedRows = rows.map((product) => ({
-        id: product.id,
-        sku: product.sku || '',
-        listingName: product.name || '',
-        material: product.material || '',
-        weight: product.weight || '',
-        category: product.category || '',
-        collection: product.collection || '',
-        settingType: product.setting_type || '',
-        enamelType: product.enamel_type || '',
-        activeChannels: product.active_channels || '',
-        shopifyStatus: product.is_active ? 'active' : 'inactive',
-        dieNumberFindings: '',
-        masterSku: product.master_sku || product.sku || '',
-        color: product.color || '',
-        enamel: product.enamel || '',
-        stoneName: product.stone_name || '',
-        stoneCut: product.stone_cut || '',
-        stoneColor: product.stone_color || '',
-        stoneSize: product.stone_size || '',
-        stoneQuantity: product.stone_quantity || '',
-        platingType: product.plating_type || '',
-        platingColor: product.plating_color || '',
-        notes: product.notes || '',
-        images: Array.isArray(product.images) ? product.images : [],
-      }));
-
-      setData(mappedRows);
-      setLastUpdated(new Date());
-    } catch (error) {
-      setFetchError(error.message || 'Failed to load products');
-      setData([]);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadProducts();
-  }, [loadProducts]);
-
-  useEffect(() => {
-    const handleStorageSync = (event) => {
-      if (event.key === PRODUCT_SHEET_SYNC_KEY) {
-        loadProducts();
-      }
-    };
-
-    const handleProductSync = () => {
-      loadProducts();
-    };
-
-    window.addEventListener('storage', handleStorageSync);
-    window.addEventListener(PRODUCT_SHEET_SYNC_EVENT, handleProductSync);
-
-    return () => {
-      window.removeEventListener('storage', handleStorageSync);
-      window.removeEventListener(PRODUCT_SHEET_SYNC_EVENT, handleProductSync);
-    };
-  }, [loadProducts]);
+  const [data, setData] = useState(
+    Array(15).fill(null).map((_, i) => ({
+      id: i,
+      sku: '',
+      listingName: '',
+      material: '',
+      weight: '',
+      category: '',
+      collection: '',
+      settingType: '',
+      enamelType: '',
+      activeChannels: '',
+      shopifyStatus: '',
+      dieNumberFindings: '',
+      masterSku: '',
+      color: '',
+      enamel: '',
+      stoneName: '',
+      stoneCut: '',
+      stoneColor: '',
+      stoneSize: '',
+      stoneQuantity: '',
+      platingType: '',
+      platingColor: '',
+      notes: '',
+      images: '',
+    }))
+  );
 
   const toggleRowSelection = (id) => {
     const newSelected = new Set(selectedRows);
@@ -274,124 +191,10 @@ export default function MasterProductSheet() {
     setSelectedRows(newSelected);
   };
 
-
   const handleCellChange = (id, field, value) => {
     setData(data.map(row => 
       row.id === id ? { ...row, [field]: value } : row
     ));
-  };
-
-  // Fetch designer + product data when Master SKU is typed and Enter/Tab pressed
-  const handleMasterSkuLookup = async (rowId, masterSku) => {
-    const sku = (masterSku || '').trim();
-    if (!sku) return;
-
-    try {
-      // Fetch designer data by SKU
-      const [designerRes, productRes] = await Promise.all([
-        fetch(`/api/designers?sku=${encodeURIComponent(sku)}`, { cache: 'no-store' }),
-        fetch(`/api/products?sku=${encodeURIComponent(sku)}`, { cache: 'no-store' }),
-      ]);
-
-      const designerResult = await designerRes.json().catch(() => null);
-      const productResult = await productRes.json().catch(() => null);
-
-      const designerRows = designerRes.ok && designerResult?.success
-        ? (Array.isArray(designerResult.data) ? designerResult.data : designerResult.data?.results || [])
-        : [];
-      const productRows = productRes.ok && productResult?.success
-        ? (Array.isArray(productResult.data) ? productResult.data : productResult.data?.results || [])
-        : [];
-
-      const designer = designerRows[0] || null;
-      const product = productRows[0] || null;
-
-      if (!designer && !product) return;
-
-      setData((prev) =>
-        prev.map((row) => {
-          if (row.id !== rowId) return row;
-          const updates = {};
-
-          // Auto-fill from designer data
-          if (designer) {
-            if (designer.design_material && !row.material) updates.material = designer.design_material;
-            // Stone info from first stone entry
-            const s = Array.isArray(designer.stone_entries) && designer.stone_entries[0];
-            if (s) {
-              if (s.name && !row.stoneName) updates.stoneName = s.name;
-              if (s.cut && !row.stoneCut) updates.stoneCut = s.cut;
-              if (s.color && !row.stoneColor) updates.stoneColor = s.color;
-              if (s.size && !row.stoneSize) updates.stoneSize = s.size;
-              if (s.quantity && !row.stoneQuantity) updates.stoneQuantity = s.quantity;
-            }
-            // Die/Findings from designer
-            const dieInfo = designer.die_code || '';
-            const findingsInfo = Array.isArray(designer.findings_entries) && designer.findings_entries[0];
-            if ((dieInfo || findingsInfo) && !row.dieNumberFindings) {
-              const parts = [];
-              if (dieInfo) parts.push(`Die: ${dieInfo}`);
-              if (findingsInfo?.code) parts.push(`Findings: ${findingsInfo.code}`);
-              updates.dieNumberFindings = parts.join(', ');
-            }
-          }
-
-          // Auto-fill from product data (if a product with this SKU exists)
-          if (product) {
-            if (product.name && !row.listingName) updates.listingName = product.name;
-            if (product.material && !row.material) updates.material = product.material;
-            if (product.weight && !row.weight) updates.weight = product.weight;
-            if (product.category && !row.category) updates.category = product.category;
-            if (product.collection && !row.collection) updates.collection = product.collection;
-            if (product.setting_type && !row.settingType) updates.settingType = product.setting_type;
-            if (product.enamel_type && !row.enamelType) updates.enamelType = product.enamel_type;
-            if (product.active_channels && !row.activeChannels) updates.activeChannels = product.active_channels;
-            if (product.color && !row.color) updates.color = product.color;
-            if (product.enamel && !row.enamel) updates.enamel = product.enamel;
-            if (product.stone_name && !row.stoneName) updates.stoneName = product.stone_name;
-            if (product.stone_cut && !row.stoneCut) updates.stoneCut = product.stone_cut;
-            if (product.stone_color && !row.stoneColor) updates.stoneColor = product.stone_color;
-            if (product.stone_size && !row.stoneSize) updates.stoneSize = product.stone_size;
-            if (product.stone_quantity && !row.stoneQuantity) updates.stoneQuantity = product.stone_quantity;
-            if (product.plating_type && !row.platingType) updates.platingType = product.plating_type;
-            if (product.plating_color && !row.platingColor) updates.platingColor = product.plating_color;
-            if (product.notes && !row.notes) updates.notes = product.notes;
-          }
-
-          return Object.keys(updates).length > 0 ? { ...row, ...updates } : row;
-        })
-      );
-    } catch {
-      // Silently fail — user can still manually fill fields
-    }
-  };
-
-  const handleFindingCodeLookup = async (rowId, findingCode) => {
-    const code = (findingCode || '').trim();
-    if (!code) return;
-    try {
-      const res = await fetch(`/api/findings?finding_code=${encodeURIComponent(code)}`, { cache: 'no-store' });
-      const json = await res.json().catch(() => null);
-      if (!res.ok || !json?.success) return;
-      const rows = Array.isArray(json.data) ? json.data : (json.data?.results || []);
-      const finding = rows[0] || null;
-      if (!finding) return;
-      setData((prev) =>
-        prev.map((row) => {
-          if (row.id !== rowId) return row;
-          const updates = {};
-          // Enrich dieNumberFindings with die number info from the finding
-          if (finding.die_number && !row.dieNumberFindings.includes('Die:')) {
-            updates.dieNumberFindings = `${code} | Die: ${finding.die_number}`;
-          }
-          // Auto-fill weight from finding if currently empty
-          if (finding.weight && !row.weight) updates.weight = finding.weight;
-          return Object.keys(updates).length > 0 ? { ...row, ...updates } : row;
-        })
-      );
-    } catch {
-      // Silently fail — user can still manually fill fields
-    }
   };
 
   const handlePrint = () => {
@@ -419,7 +222,8 @@ export default function MasterProductSheet() {
   };
 
   const handleCreateProduct = () => {
-    window.location.assign(`/?new=${Date.now()}`);
+    // Create product functionality
+    console.log('Create new product');
   };
 
   const handleManageColumns = () => {
@@ -427,10 +231,9 @@ export default function MasterProductSheet() {
   };
 
   const handleAddRow = () => {
-    const tempId = -Date.now(); // negative temp ID to distinguish from real backend IDs
+    const newId = Math.max(...data.map(row => row.id), -1) + 1;
     const newRow = {
-      id: tempId,
-      _isNew: true,
+      id: newId,
       sku: '',
       listingName: '',
       material: '',
@@ -440,7 +243,7 @@ export default function MasterProductSheet() {
       settingType: '',
       enamelType: '',
       activeChannels: '',
-      shopifyStatus: 'active',
+      shopifyStatus: '',
       dieNumberFindings: '',
       masterSku: '',
       color: '',
@@ -453,10 +256,9 @@ export default function MasterProductSheet() {
       platingType: '',
       platingColor: '',
       notes: '',
-      images: [],
+      images: '',
     };
-    setData((prev) => [newRow, ...prev]);
-    setEditingRowIds((prev) => new Set([...prev, tempId]));
+    setData([...data, newRow]);
   };
 
   const handleEditRow = () => {
@@ -467,88 +269,9 @@ export default function MasterProductSheet() {
     setEditingRowIds(new Set(selectedRows));
   };
 
-  const [saveEditStatus, setSaveEditStatus] = useState(null); // { success, message }
-  const [isSavingEdit, setIsSavingEdit] = useState(false);
-
-  const handleSaveEdit = async () => {
-    const editedRows = data.filter((row) => editingRowIds.has(row.id));
-    if (editedRows.length === 0) {
-      setEditingRowIds(new Set());
-      setSelectedRows(new Set());
-      return;
-    }
-    setIsSavingEdit(true);
-    setSaveEditStatus(null);
-    const errors = [];
-    let updatedData = [...data];
-
-    for (const row of editedRows) {
-      try {
-        const payload = {
-          name: row.listingName || row.sku,
-          category: row.category,
-          is_active: String(row.shopifyStatus).toLowerCase() !== 'inactive',
-          material: row.material,
-          weight: row.weight,
-          collection: row.collection,
-          setting_type: row.settingType,
-          enamel_type: row.enamelType,
-          active_channels: row.activeChannels,
-          master_sku: row.masterSku,
-          color: row.color,
-          enamel: row.enamel,
-          stone_name: row.stoneName,
-          stone_cut: row.stoneCut,
-          stone_color: row.stoneColor,
-          stone_size: row.stoneSize,
-          stone_quantity: row.stoneQuantity,
-          plating_type: row.platingType,
-          plating_color: row.platingColor,
-          notes: row.notes,
-        };
-
-        if (row._isNew) {
-          if (!row.sku.trim()) {
-            errors.push('New row requires a SKU');
-            continue;
-          }
-          const response = await fetch('/api/products', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ...payload, sku: row.sku }),
-          });
-          const result = await response.json().catch(() => null);
-          if (!response.ok || !result?.success) throw new Error(result?.message || 'Failed to create product');
-          const savedId = result.data?.id;
-          if (savedId) {
-            updatedData = updatedData.map((r) =>
-              r.id === row.id ? { ...r, id: savedId, _isNew: false } : r
-            );
-          }
-        } else {
-          const response = await fetch(`/api/products/${row.id}`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
-          });
-          const result = await response.json().catch(() => null);
-          if (!response.ok || !result?.success) throw new Error(result?.message || `Failed to save ${row.sku || 'row'}`);
-        }
-      } catch (err) {
-        errors.push(err.message);
-      }
-    }
-
-    setData(updatedData);
-    setIsSavingEdit(false);
+  const handleSaveEdit = () => {
     setEditingRowIds(new Set());
     setSelectedRows(new Set());
-    if (errors.length > 0) {
-      setSaveEditStatus({ success: false, message: errors.join('; ') });
-    } else {
-      setSaveEditStatus({ success: true, message: `${editedRows.length} row(s) saved` });
-      setTimeout(() => setSaveEditStatus(null), 3000);
-    }
   };
 
   const handleCancelEdit = () => {
@@ -556,10 +279,6 @@ export default function MasterProductSheet() {
   };
 
   const handleArchiveRow = () => {
-    if (viewMode === 'archived') {
-      alert('Switch to active rows to archive');
-      return;
-    }
     if (selectedRows.size === 0) {
       alert('Please select at least one row to archive');
       return;
@@ -570,96 +289,11 @@ export default function MasterProductSheet() {
     setSelectedRows(new Set());
   };
 
-  const handleUnarchiveRows = () => {
-    if (selectedRows.size === 0) {
-      alert('Please select at least one row to unarchive');
-      return;
-    }
-    const newArchived = new Set(archivedRows);
-    selectedRows.forEach(id => newArchived.delete(id));
-    setArchivedRows(newArchived);
-    setSelectedRows(new Set());
-  };
-
-  const handleSetViewMode = (mode) => {
-    setViewMode(mode);
-    setCurrentPage(1);
-    setSelectedRows(new Set());
-    setEditingRowIds(new Set());
-  };
-
   // Get active (non-archived) data
   const activeData = data.filter(row => !archivedRows.has(row.id));
-  const archivedData = data.filter(row => archivedRows.has(row.id));
-  const isArchivedView = viewMode === 'archived';
-  const baseData = isArchivedView ? archivedData : activeData;
-
-  const filteredData = useMemo(() => {
-    return baseData.filter((row) => {
-      const searchLower = searchTerm.trim().toLowerCase();
-
-      const matchesSearch =
-        !searchLower ||
-        row.sku?.toLowerCase().includes(searchLower) ||
-        row.listingName?.toLowerCase().includes(searchLower) ||
-        row.material?.toLowerCase().includes(searchLower);
-
-      const matchesSku = !skuFilter || row.sku?.toLowerCase().includes(skuFilter.toLowerCase());
-      const matchesMaterial = !materialFilter || row.material === materialFilter;
-      const matchesCategory = !categoryFilter || row.category === categoryFilter;
-      const matchesCollection = !collectionFilter || row.collection === collectionFilter;
-      const matchesSettingType = !settingTypeFilter || row.settingType === settingTypeFilter;
-      const matchesEnamelType = !enamelTypeFilter || row.enamelType === enamelTypeFilter;
-      const matchesShopifyStatus = !shopifyStatusFilter || row.shopifyStatus === shopifyStatusFilter;
-
-      return (
-        matchesSearch &&
-        matchesSku &&
-        matchesMaterial &&
-        matchesCategory &&
-        matchesCollection &&
-        matchesSettingType &&
-        matchesEnamelType &&
-        matchesShopifyStatus
-      );
-    });
-  }, [
-    baseData,
-    searchTerm,
-    skuFilter,
-    materialFilter,
-    categoryFilter,
-    collectionFilter,
-    settingTypeFilter,
-    enamelTypeFilter,
-    shopifyStatusFilter,
-  ]);
-
-  const displayedData = filteredData;
-
-  const totalPages = Math.max(1, Math.ceil(displayedData.length / rowsPerPage));
-  const safePage = Math.min(currentPage, totalPages);
-  const paginatedData = displayedData.slice((safePage - 1) * rowsPerPage, safePage * rowsPerPage);
-
-  const selectedProduct = useMemo(() => {
-    const selectedId = selectedRows.values().next().value;
-    if (selectedId === undefined) {
-      return null;
-    }
-    return data.find((row) => row.id === selectedId) || null;
-  }, [data, selectedRows]);
-
-  const allDisplayedRowsSelected = paginatedData.length > 0 && paginatedData.every(row => selectedRows.has(row.id));
-  const toggleSelectAllRows = (checked) => {
-    if (checked) {
-      setSelectedRows(new Set(paginatedData.map(row => row.id)));
-    } else {
-      setSelectedRows(new Set());
-    }
-  };
 
   return (
-    <div className="relative min-h-screen bg-cloud-gray flex flex-col text-midnight-ink overflow-x-hidden">
+    <div className="w-full h-full bg-gray-50 p-4 md:p-6">
       {/* Manage Columns Dialog */}
       <Dialog open={isManageColumnsOpen} onOpenChange={setIsManageColumnsOpen}>
         <DialogContent className="max-w-md">
@@ -667,20 +301,6 @@ export default function MasterProductSheet() {
             <DialogTitle>Manage Columns</DialogTitle>
           </DialogHeader>
           <div className="space-y-3 max-h-[400px] overflow-y-auto py-4">
-            {/* Select All Checkbox */}
-            <div className="flex items-center justify-between gap-3 pb-3 border-b border-soft-border mb-3">
-              <div className="flex items-center gap-3 flex-1">
-                <Checkbox
-                  id="select-all-columns"
-                  checked={selectedColumnsForAction.size === columns.length && columns.length > 0}
-                  onCheckedChange={toggleSelectAllColumns}
-                  className="cursor-pointer"
-                />
-                <label htmlFor="select-all-columns" className="text-sm font-semibold cursor-pointer">
-                  Select All
-                </label>
-              </div>
-            </div>
             {columns.map((column) => (
               <div key={column.id} className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3 flex-1">
@@ -694,11 +314,11 @@ export default function MasterProductSheet() {
                     {column.label}
                   </label>
                 </div>
-                <div className="text-sm font-semibold px-2 py-1 rounded">
+                <div className="text-xs font-semibold px-2 py-1 rounded">
                   {!visibleColumns.has(column.id) ? (
-                    <span className="bg-danger/10 text-danger-dark px-2 py-1 rounded-full text-sm">Hidden</span>
+                    <span className="bg-red-100 text-red-700 px-2 py-1 rounded-full text-xs">Hidden</span>
                   ) : (
-                    <span className="bg-success/10 text-success-dark px-2 py-1 rounded-full text-sm">Visible</span>
+                    <span className="bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs">Visible</span>
                   )}
                 </div>
               </div>
@@ -709,7 +329,7 @@ export default function MasterProductSheet() {
               onClick={handleHideColumns}
               disabled={selectedColumnsForAction.size === 0}
               variant="outline"
-              className="text-danger border-danger/40 hover:bg-danger/10"
+              className="text-red-600 border-red-300 hover:bg-red-50"
             >
               Hide
             </Button>
@@ -717,7 +337,7 @@ export default function MasterProductSheet() {
               onClick={handleShowColumns}
               disabled={selectedColumnsForAction.size === 0}
               variant="outline"
-              className="text-success border-green-300 hover:bg-success/10"
+              className="text-green-600 border-green-300 hover:bg-green-50"
             >
               Show
             </Button>
@@ -735,62 +355,62 @@ export default function MasterProductSheet() {
           {selectedProductForPrint && (
             <div className="space-y-6 py-4">
               {/* Product Header */}
-              <div className="border-2 border-midnight-ink p-6 bg-white">
+              <div className="border-2 border-gray-900 p-6 bg-white">
                 <h2 className="text-2xl font-bold text-center mb-6">PRODUCT DETAILS</h2>
                 
                 {/* Top Section */}
-                <div className="grid grid-cols-3 gap-4 mb-6 border-b-2 border-midnight-ink pb-4">
-                  <div className="border-r-2 border-midnight-ink pr-4">
-                    <p className="text-sm font-bold text-slate-text mb-1">SKU</p>
+                <div className="grid grid-cols-3 gap-4 mb-6 border-b-2 border-gray-900 pb-4">
+                  <div className="border-r-2 border-gray-900 pr-4">
+                    <p className="text-xs font-bold text-gray-700 mb-1">SKU</p>
                     <p className="text-sm">{selectedProductForPrint.sku || '—'}</p>
                   </div>
-                  <div className="border-r-2 border-midnight-ink pr-4">
-                    <p className="text-sm font-bold text-slate-text mb-1">LISTING NAME</p>
+                  <div className="border-r-2 border-gray-900 pr-4">
+                    <p className="text-xs font-bold text-gray-700 mb-1">LISTING NAME</p>
                     <p className="text-sm">{selectedProductForPrint.listingName || '—'}</p>
                   </div>
                   <div>
-                    <p className="text-sm font-bold text-slate-text mb-1">SHOPIFY STATUS</p>
+                    <p className="text-xs font-bold text-gray-700 mb-1">SHOPIFY STATUS</p>
                     <p className="text-sm">{selectedProductForPrint.shopifyStatus || '—'}</p>
                   </div>
                 </div>
 
                 {/* Details Section */}
-                <div className="grid grid-cols-2 gap-4 mb-6 border-b-2 border-midnight-ink pb-4">
+                <div className="grid grid-cols-2 gap-4 mb-6 border-b-2 border-gray-900 pb-4">
                   <div>
-                    <p className="text-sm font-bold text-slate-text mb-1">MATERIAL</p>
+                    <p className="text-xs font-bold text-gray-700 mb-1">MATERIAL</p>
                     <p className="text-sm">{selectedProductForPrint.material || '—'}</p>
                   </div>
                   <div>
-                    <p className="text-sm font-bold text-slate-text mb-1">WEIGHT</p>
+                    <p className="text-xs font-bold text-gray-700 mb-1">WEIGHT</p>
                     <p className="text-sm">{selectedProductForPrint.weight || '—'}</p>
                   </div>
                   <div>
-                    <p className="text-sm font-bold text-slate-text mb-1">CATEGORY</p>
+                    <p className="text-xs font-bold text-gray-700 mb-1">CATEGORY</p>
                     <p className="text-sm">{selectedProductForPrint.category || '—'}</p>
                   </div>
                   <div>
-                    <p className="text-sm font-bold text-slate-text mb-1">COLLECTION</p>
+                    <p className="text-xs font-bold text-gray-700 mb-1">COLLECTION</p>
                     <p className="text-sm">{selectedProductForPrint.collection || '—'}</p>
                   </div>
                 </div>
 
                 {/* Product Information */}
                 <div className="mb-6">
-                  <table className="w-full border-collapse border-2 border-midnight-ink break-words">
+                  <table className="w-full border-collapse border-2 border-gray-900">
                     <thead>
                       <tr className="bg-gray-900 text-white">
-                        <th className="border-2 border-midnight-ink p-2 text-sm font-bold text-left break-words">SETTING TYPE</th>
-                        <th className="border-2 border-midnight-ink p-2 text-sm font-bold text-left break-words">ENAMEL TYPE</th>
-                        <th className="border-2 border-midnight-ink p-2 text-sm font-bold text-left break-words">ACTIVE CHANNELS</th>
-                        <th className="border-2 border-midnight-ink p-2 text-sm font-bold text-left break-words">MASTER SKU</th>
+                        <th className="border-2 border-gray-900 p-2 text-xs font-bold text-left">SETTING TYPE</th>
+                        <th className="border-2 border-gray-900 p-2 text-xs font-bold text-left">ENAMEL TYPE</th>
+                        <th className="border-2 border-gray-900 p-2 text-xs font-bold text-left">ACTIVE CHANNELS</th>
+                        <th className="border-2 border-gray-900 p-2 text-xs font-bold text-left">MASTER SKU</th>
                       </tr>
                     </thead>
                     <tbody>
                       <tr>
-                        <td className="border-2 border-midnight-ink p-2 text-sm break-words">{selectedProductForPrint.settingType || '—'}</td>
-                        <td className="border-2 border-midnight-ink p-2 text-sm break-words">{selectedProductForPrint.enamelType || '—'}</td>
-                        <td className="border-2 border-midnight-ink p-2 text-sm break-words">{selectedProductForPrint.activeChannels || '—'}</td>
-                        <td className="border-2 border-midnight-ink p-2 text-sm break-words">{selectedProductForPrint.masterSku || '—'}</td>
+                        <td className="border-2 border-gray-900 p-2 text-sm">{selectedProductForPrint.settingType || '—'}</td>
+                        <td className="border-2 border-gray-900 p-2 text-sm">{selectedProductForPrint.enamelType || '—'}</td>
+                        <td className="border-2 border-gray-900 p-2 text-sm">{selectedProductForPrint.activeChannels || '—'}</td>
+                        <td className="border-2 border-gray-900 p-2 text-sm">{selectedProductForPrint.masterSku || '—'}</td>
                       </tr>
                     </tbody>
                   </table>
@@ -799,11 +419,11 @@ export default function MasterProductSheet() {
                 {/* Footer Section */}
                 <div className="grid grid-cols-2 gap-8 pt-4">
                   <div>
-                    <p className="text-sm font-bold text-slate-text mb-8">Verified By</p>
-                    <div className="border-t-2 border-midnight-ink w-24"></div>
+                    <p className="text-xs font-bold text-gray-700 mb-8">Verified By</p>
+                    <div className="border-t-2 border-gray-900 w-24"></div>
                   </div>
                   <div>
-                    <p className="text-sm font-bold text-slate-text mb-8">Date</p>
+                    <p className="text-xs font-bold text-gray-700 mb-8">Date</p>
                     <p className="text-sm">{new Date().toISOString().split('T')[0]}</p>
                   </div>
                 </div>
@@ -813,7 +433,7 @@ export default function MasterProductSheet() {
               <div className="flex gap-4 justify-end">
                 <Button
                   onClick={() => window.print()}
-                  className="bg-trust-blue hover:bg-deep-blue text-white"
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
                 >
                   Print
                 </Button>
@@ -838,61 +458,61 @@ export default function MasterProductSheet() {
           
           <div className="space-y-4 py-4">
             {/* Sheet Header */}
-            <div className="text-center border-b-2 border-midnight-ink pb-4 mb-6">
+            <div className="text-center border-b-2 border-gray-900 pb-4 mb-6">
               <h2 className="text-2xl font-bold mb-2">MASTER PRODUCT SHEET</h2>
-              <p className="text-sm text-cool-gray">Date: {new Date().toISOString().split('T')[0]}</p>
+              <p className="text-sm text-gray-600">Date: {new Date().toISOString().split('T')[0]}</p>
             </div>
 
             {/* Sheet Details Summary */}
-            <div className="grid grid-cols-4 gap-4 mb-6 p-4 bg-cloud-gray rounded-lg border border-soft-border">
+            <div className="grid grid-cols-4 gap-4 mb-6 p-4 bg-gray-50 rounded-lg border border-gray-300">
               <div>
-                <p className="text-sm font-bold text-slate-text mb-1">Total Products</p>
-                <p className="text-lg font-bold">{filteredData.length}</p>
+                <p className="text-xs font-bold text-gray-700 mb-1">Total Products</p>
+                <p className="text-lg font-bold">{data.length}</p>
               </div>
               <div>
-                <p className="text-sm font-bold text-slate-text mb-1">Selected Products</p>
+                <p className="text-xs font-bold text-gray-700 mb-1">Selected Products</p>
                 <p className="text-lg font-bold">{selectedRows.size}</p>
               </div>
               <div>
-                <p className="text-sm font-bold text-slate-text mb-1">Total SKUs</p>
-                <p className="text-lg font-bold">{filteredData.filter(row => row.sku).length}</p>
+                <p className="text-xs font-bold text-gray-700 mb-1">Total SKUs</p>
+                <p className="text-lg font-bold">{data.filter(row => row.sku).length}</p>
               </div>
               <div>
-                <p className="text-sm font-bold text-slate-text mb-1">Active Listings</p>
-                <p className="text-lg font-bold">{filteredData.filter(row => row.shopifyStatus?.toLowerCase() === 'active').length}</p>
+                <p className="text-xs font-bold text-gray-700 mb-1">Active Listings</p>
+                <p className="text-lg font-bold">{data.filter(row => row.shopifyStatus === 'Active').length}</p>
               </div>
             </div>
 
             {/* Data Table */}
-            <div className="border-2 border-midnight-ink rounded overflow-x-auto">
-              <table className="w-full border-collapse text-sm break-words">
+            <div className="border-2 border-gray-900 rounded overflow-x-auto">
+              <table className="w-full border-collapse text-xs">
                 <thead>
                   <tr className="bg-gray-900 text-white">
-                    <th className="border border-soft-border p-2 text-left break-words">SKU</th>
-                    <th className="border border-soft-border p-2 text-left break-words">Listing Name</th>
-                    <th className="border border-soft-border p-2 text-left break-words">Material</th>
-                    <th className="border border-soft-border p-2 text-left break-words">Category</th>
-                    <th className="border border-soft-border p-2 text-left break-words">Collection</th>
-                    <th className="border border-soft-border p-2 text-left break-words">Setting Type</th>
-                    <th className="border border-soft-border p-2 text-left break-words">Enamel Type</th>
-                    <th className="border border-soft-border p-2 text-left break-words">Shopify Status</th>
-                    <th className="border border-soft-border p-2 text-left break-words">Active Channels</th>
-                    <th className="border border-soft-border p-2 text-left break-words">Master SKU</th>
+                    <th className="border border-gray-400 p-2 text-left">SKU</th>
+                    <th className="border border-gray-400 p-2 text-left">Listing Name</th>
+                    <th className="border border-gray-400 p-2 text-left">Material</th>
+                    <th className="border border-gray-400 p-2 text-left">Category</th>
+                    <th className="border border-gray-400 p-2 text-left">Collection</th>
+                    <th className="border border-gray-400 p-2 text-left">Setting Type</th>
+                    <th className="border border-gray-400 p-2 text-left">Enamel Type</th>
+                    <th className="border border-gray-400 p-2 text-left">Shopify Status</th>
+                    <th className="border border-gray-400 p-2 text-left">Active Channels</th>
+                    <th className="border border-gray-400 p-2 text-left">Master SKU</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredData.map((row, index) => (
-                    <tr key={row.id} className={index % 2 === 0 ? 'bg-white' : 'bg-cloud-gray'}>
-                      <td className="border border-soft-border p-2 break-words">{row.sku || '—'}</td>
-                      <td className="border border-soft-border p-2 break-words">{row.listingName || '—'}</td>
-                      <td className="border border-soft-border p-2 break-words">{row.material || '—'}</td>
-                      <td className="border border-soft-border p-2 break-words">{row.category || '—'}</td>
-                      <td className="border border-soft-border p-2 break-words">{row.collection || '—'}</td>
-                      <td className="border border-soft-border p-2 break-words">{row.settingType || '—'}</td>
-                      <td className="border border-soft-border p-2 break-words">{row.enamelType || '—'}</td>
-                      <td className="border border-soft-border p-2 break-words">{row.shopifyStatus || '—'}</td>
-                      <td className="border border-soft-border p-2 break-words">{row.activeChannels || '—'}</td>
-                      <td className="border border-soft-border p-2 break-words">{row.masterSku || '—'}</td>
+                  {data.map((row, index) => (
+                    <tr key={row.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                      <td className="border border-gray-400 p-2">{row.sku || '—'}</td>
+                      <td className="border border-gray-400 p-2">{row.listingName || '—'}</td>
+                      <td className="border border-gray-400 p-2">{row.material || '—'}</td>
+                      <td className="border border-gray-400 p-2">{row.category || '—'}</td>
+                      <td className="border border-gray-400 p-2">{row.collection || '—'}</td>
+                      <td className="border border-gray-400 p-2">{row.settingType || '—'}</td>
+                      <td className="border border-gray-400 p-2">{row.enamelType || '—'}</td>
+                      <td className="border border-gray-400 p-2">{row.shopifyStatus || '—'}</td>
+                      <td className="border border-gray-400 p-2">{row.activeChannels || '—'}</td>
+                      <td className="border border-gray-400 p-2">{row.masterSku || '—'}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -900,19 +520,19 @@ export default function MasterProductSheet() {
             </div>
 
             {/* Summary Footer */}
-            <div className="border-t-2 border-midnight-ink pt-4 mt-6">
+            <div className="border-t-2 border-gray-900 pt-4 mt-6">
               <div className="grid grid-cols-3 gap-8">
                 <div>
-                  <p className="text-sm font-bold text-slate-text mb-8">Prepared By</p>
-                  <div className="border-t-2 border-midnight-ink w-32"></div>
+                  <p className="text-xs font-bold text-gray-700 mb-8">Prepared By</p>
+                  <div className="border-t-2 border-gray-900 w-32"></div>
                 </div>
                 <div>
-                  <p className="text-sm font-bold text-slate-text mb-8">Reviewed By</p>
-                  <div className="border-t-2 border-midnight-ink w-32"></div>
+                  <p className="text-xs font-bold text-gray-700 mb-8">Reviewed By</p>
+                  <div className="border-t-2 border-gray-900 w-32"></div>
                 </div>
                 <div>
-                  <p className="text-sm font-bold text-slate-text mb-8">Approved By</p>
-                  <div className="border-t-2 border-midnight-ink w-32"></div>
+                  <p className="text-xs font-bold text-gray-700 mb-8">Approved By</p>
+                  <div className="border-t-2 border-gray-900 w-32"></div>
                 </div>
               </div>
             </div>
@@ -921,7 +541,7 @@ export default function MasterProductSheet() {
             <div className="flex gap-4 justify-end pt-4">
               <Button
                 onClick={() => window.print()}
-                className="bg-trust-blue hover:bg-deep-blue text-white"
+                className="bg-blue-600 hover:bg-blue-700 text-white"
               >
                 Print Sheet
               </Button>
@@ -936,96 +556,45 @@ export default function MasterProductSheet() {
         </DialogContent>
       </Dialog>
 
-      <div className="flex-1 pt-16 px-3 md:px-4 pb-16">
-        {/* Header Section */}
-        <div className="transition-[left,width] duration-300 ease-in-out fixed top-0 left-0 right-0 z-[60] bg-white/95 py-2 border-b border-soft-border shadow-sm backdrop-blur px-3 md:px-4">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3 shrink-0">
-              <MasterNavigationDrawer inHeader />
-              <h1 className="text-xl font-bold tracking-tight text-midnight-ink">MASTER PRODUCT SHEET</h1>
-            </div>
-            <GlobalSearchBar />
-            <DateTimeStamp />
-          </div>
-        </div>
+      {/* Header Section */}
+      <div className="mb-6">
+        <h1 className="text-3xl md:text-4xl font-bold text-center text-gray-800 mb-6">
+          MASTER PRODUCT SHEET
+        </h1>
 
         {/* Action Buttons */}
-        <div className="flex flex-wrap gap-2 md:gap-4 justify-end mb-4 items-center">
-          {/* Search Bar */}
-          <div className="relative mr-auto">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-cool-gray w-4 h-4" />
-            <Input
-              type="text"
-              placeholder="SEARCH BAR"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="border border-soft-border rounded-lg pl-9 pr-4 h-9 w-64 text-sm"
-            />
-          </div>
-          <Button
-            onClick={loadProducts}
-            variant="outline"
-            className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8"
-            disabled={isLoading}
-          >
-            {isLoading ? 'Refreshing...' : 'Refresh'}
-          </Button>
-          <BulkUploadButton sheetType="products" onComplete={loadProducts} />
+        <div className="flex flex-wrap gap-2 md:gap-4 justify-end mb-6">
           <Button 
             onClick={handleCreateProduct}
-            className="bg-success hover:bg-success text-white rounded-full px-4 text-sm h-8"
+            className="bg-green-500 hover:bg-green-600 text-white rounded-full px-6"
           >
             Add Product
           </Button>
           <Button 
             onClick={handleEditRow}
             variant="outline"
-            className="border-trust-blue text-trust-blue hover:bg-trust-blue/10 rounded-full px-4 text-sm h-8"
-            disabled={isArchivedView}
+            className="border-blue-600 text-blue-600 hover:bg-blue-50 rounded-full px-6"
           >
             Edit Row
           </Button>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button 
-                variant="outline"
-                className="border-warning text-warning hover:bg-warning/10 rounded-full px-4 text-sm h-8"
-              >
-                Archive
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              <DropdownMenuItem onClick={handleArchiveRow} disabled={isArchivedView}>
-                Archive Selected Rows
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => handleSetViewMode(isArchivedView ? 'active' : 'archived')}
-              >
-                {isArchivedView ? 'Show Active Rows' : 'Show Archived Rows'}
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          {isArchivedView && (
-            <Button
-              onClick={handleUnarchiveRows}
-              variant="outline"
-              className="border-green-600 text-success hover:bg-success/10 rounded-full px-4 text-sm h-8"
-              disabled={selectedRows.size === 0}
-            >
-              Unarchive Selected
-            </Button>
-          )}
+          <Button 
+            onClick={handleArchiveRow}
+            variant="outline"
+            className="border-orange-600 text-orange-600 hover:bg-orange-50 rounded-full px-6"
+          >
+            Archive Row
+          </Button>
           <Button 
             onClick={handleManageColumns}
             variant="outline"
-            className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8"
+            className="border-gray-800 text-gray-800 rounded-full px-6"
           >
             Manage Columns
           </Button>
           <Button 
             onClick={handleExport}
             variant="outline"
-            className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8"
+            className="border-gray-800 text-gray-800 rounded-full px-6"
           >
             Export
           </Button>
@@ -1035,7 +604,7 @@ export default function MasterProductSheet() {
             <DropdownMenuTrigger asChild>
               <Button 
                 variant="outline"
-                className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8"
+                className="border-gray-800 text-gray-800 rounded-full px-6"
               >
                 Print
               </Button>
@@ -1051,50 +620,41 @@ export default function MasterProductSheet() {
           </DropdownMenu>
         </div>
 
-        <div className="mb-4 border border-soft-border rounded-lg bg-white overflow-hidden">
-          <div className="px-3 py-2 bg-trust-blue/40 font-bold text-sm text-midnight-ink border-b border-soft-border">
-            PRODUCT DETAILS
-          </div>
-          <div className="p-3">
-            {!selectedProduct ? (
-              <div className="text-sm text-cool-gray">Select a row to see product details.</div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
-                <DetailCard label="SKU" value={selectedProduct.sku} />
-                <DetailCard label="LISTING NAME" value={selectedProduct.listingName} />
-                <DetailCard label="MATERIAL" value={selectedProduct.material} />
-                <DetailCard label="CATEGORY" value={selectedProduct.category} />
-                <DetailCard label="COLLECTION" value={selectedProduct.collection} />
-                <DetailCard label="DIE NUMBER/FINDINGS" value={selectedProduct.dieNumberFindings} />
-                <DetailCard label="MASTER SKU" value={selectedProduct.masterSku} />
-                <DetailCard label="COLOR" value={selectedProduct.color} />
-                <DetailCard label="IMAGES" value={selectedProduct.images} />
-              </div>
-            )}
+        {/* Search Bar */}
+        <div className="flex gap-2 mb-6 max-w-md mx-auto md:mx-0">
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+            <Input
+              type="text"
+              placeholder="SEARCH BAR"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="flex-1 border-2 border-gray-400 rounded-lg px-4 py-2 pl-10"
+            />
           </div>
         </div>
-
+      </div>
 
       {/* Filter Row */}
-      <div className="border border-soft-border rounded-lg mb-4 bg-trust-blue/10 p-4">
+      <div className="border border-gray-300 rounded-lg mb-4 bg-blue-50 p-4">
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-8 gap-2">
           {/* SKU Search */}
           <div>
-            <label className="text-sm font-semibold text-slate-text block mb-1">SKU</label>
+            <label className="text-xs font-semibold text-gray-700 block mb-1">SKU</label>
             <Input
               type="text"
               placeholder="Enter SKU"
               value={skuFilter}
               onChange={(e) => setSKUFilter(e.target.value)}
-              className="h-8 text-sm p-1"
+              className="h-8 text-xs p-1"
             />
           </div>
 
           {/* Material Filter */}
           <div>
-            <label className="text-sm font-semibold text-slate-text block mb-1">MATERIAL</label>
+            <label className="text-xs font-semibold text-gray-700 block mb-1">MATERIAL</label>
             <Select value={materialFilter} onValueChange={setMaterialFilter}>
-              <SelectTrigger className="h-8 text-sm">
+              <SelectTrigger className="h-8 text-xs">
                 <SelectValue placeholder="Select Material" />
               </SelectTrigger>
               <SelectContent>
@@ -1107,9 +667,9 @@ export default function MasterProductSheet() {
 
           {/* Category Filter */}
           <div>
-            <label className="text-sm font-semibold text-slate-text block mb-1">CATEGORY</label>
+            <label className="text-xs font-semibold text-gray-700 block mb-1">CATEGORY</label>
             <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-              <SelectTrigger className="h-8 text-sm">
+              <SelectTrigger className="h-8 text-xs">
                 <SelectValue placeholder="Select Category" />
               </SelectTrigger>
               <SelectContent>
@@ -1122,9 +682,9 @@ export default function MasterProductSheet() {
 
           {/* Collection Filter */}
           <div>
-            <label className="text-sm font-semibold text-slate-text block mb-1">COLLECTION</label>
+            <label className="text-xs font-semibold text-gray-700 block mb-1">COLLECTION</label>
             <Select value={collectionFilter} onValueChange={setCollectionFilter}>
-              <SelectTrigger className="h-8 text-sm">
+              <SelectTrigger className="h-8 text-xs">
                 <SelectValue placeholder="Select Collection" />
               </SelectTrigger>
               <SelectContent>
@@ -1137,9 +697,9 @@ export default function MasterProductSheet() {
 
           {/* Setting Type Filter */}
           <div>
-            <label className="text-sm font-semibold text-slate-text block mb-1">SETTING TYPE</label>
+            <label className="text-xs font-semibold text-gray-700 block mb-1">SETTING TYPE</label>
             <Select value={settingTypeFilter} onValueChange={setSettingTypeFilter}>
-              <SelectTrigger className="h-8 text-sm">
+              <SelectTrigger className="h-8 text-xs">
                 <SelectValue placeholder="Select Setting" />
               </SelectTrigger>
               <SelectContent>
@@ -1152,9 +712,9 @@ export default function MasterProductSheet() {
 
           {/* Enamel Type Filter */}
           <div>
-            <label className="text-sm font-semibold text-slate-text block mb-1">ENAMEL TYPE</label>
+            <label className="text-xs font-semibold text-gray-700 block mb-1">ENAMEL TYPE</label>
             <Select value={enamelTypeFilter} onValueChange={setEnamelTypeFilter}>
-              <SelectTrigger className="h-8 text-sm">
+              <SelectTrigger className="h-8 text-xs">
                 <SelectValue placeholder="Select Enamel" />
               </SelectTrigger>
               <SelectContent>
@@ -1167,9 +727,9 @@ export default function MasterProductSheet() {
 
           {/* Shopify Status Filter */}
           <div>
-            <label className="text-sm font-semibold text-slate-text block mb-1">SHOPIFY STATUS</label>
+            <label className="text-xs font-semibold text-gray-700 block mb-1">SHOPIFY STATUS</label>
             <Select value={shopifyStatusFilter} onValueChange={setShopifyStatusFilter}>
-              <SelectTrigger className="h-8 text-sm">
+              <SelectTrigger className="h-8 text-xs">
                 <SelectValue placeholder="Select Status" />
               </SelectTrigger>
               <SelectContent>
@@ -1182,39 +742,17 @@ export default function MasterProductSheet() {
         </div>
       </div>
 
-      {isLoading && (
-        <div className="mb-4 rounded-md border border-trust-blue/30 bg-trust-blue/10 px-4 py-2 text-sm text-deep-blue">
-          Loading products...
-        </div>
-      )}
-
-      {!isLoading && fetchError && (
-        <div className="mb-4 rounded-md border border-danger/30 bg-danger/10 px-4 py-2 text-sm text-danger-dark flex items-center justify-between gap-3">
-          <span>{fetchError}</span>
-          <Button onClick={loadProducts} variant="outline" className="h-8 px-3 border-danger/40 text-danger-dark hover:bg-danger/10">
-            Retry
-          </Button>
-        </div>
-      )}
-
       {/* Table Section */}
-      <div className="border border-soft-border rounded-lg bg-white overflow-hidden">
-        {/* Table wrapper with scroll */}
-        <div className="overflow-auto max-h-[500px]">
-          <table className="w-full border-separate border-spacing-0 text-sm">
-            <thead className="sticky top-0 z-20 bg-[#dbeafe]">
-              <tr className="text-midnight-ink font-bold border-b-2 border-soft-border">
-                <th className="border border-soft-border p-2 w-8 sticky left-0 bg-[#dbeafe] z-30 shadow-[2px_0_4px_-1px_rgba(0,0,0,0.08)]">
-                  <Checkbox
-                    checked={allDisplayedRowsSelected}
-                    onCheckedChange={toggleSelectAllRows}
-                    className="cursor-pointer"
-                    disabled={displayedData.length === 0 || editingRowIds.size > 0}
-                  />
-                </th>
+      <div className="border border-gray-300 rounded-lg bg-white overflow-hidden">
+        {/* Table wrapper with vertical scrolling only */}
+        <div className="overflow-y-auto max-h-[500px]">
+          <table className="w-full border-collapse text-xs">
+            <thead className="sticky top-0 z-20 bg-indigo-300">
+              <tr className="text-gray-800 font-bold border-b-2 border-gray-400">
+                <th className="border border-gray-400 p-2 w-8 sticky left-0 bg-indigo-300 z-30"></th>
                 {columns.map((column) => 
                   visibleColumns.has(column.id) && (
-                    <th key={column.id} className={`border border-soft-border p-2 ${columnConfig[column.id].headerBg} ${columnConfig[column.id].minWidth}`}>
+                    <th key={column.id} className={`border border-gray-400 p-2 ${columnConfig[column.id].headerBg} ${columnConfig[column.id].minWidth}`}>
                       {column.label}
                     </th>
                   )
@@ -1223,33 +761,22 @@ export default function MasterProductSheet() {
             </thead>
 
             <tbody>
-              {displayedData.length === 0 && (
-                <tr>
-                  <td
-                    className="border border-soft-border p-4 text-center text-sm text-cool-gray"
-                    colSpan={visibleColumns.size + 1}
-                  >
-                    No products found. Add a product from Product Sheet, then click Refresh.
-                  </td>
-                </tr>
-              )}
-
-              {paginatedData.map((row, idx) => {
+              {activeData.map((row, idx) => {
                 const isEditing = editingRowIds.has(row.id);
                 const isAnyRowEditing = editingRowIds.size > 0;
-                const canEdit = !isArchivedView && isEditing;
+                const canEdit = !isAnyRowEditing || isEditing;
                 
                 return (
                   <tr 
                     key={row.id} 
-                    className={`border-b border-soft-border ${
+                    className={`border-b border-gray-400 ${
                       isEditing 
-                        ? 'bg-trust-blue/10 hover:bg-trust-blue/10' 
-                        : 'hover:bg-cloud-gray'
+                        ? 'bg-blue-50 hover:bg-blue-50' 
+                        : 'hover:bg-gray-50'
                     }`}
                   >
-                    <td className={`border border-soft-border p-2 text-center sticky left-0 z-10 shadow-[2px_0_4px_-1px_rgba(0,0,0,0.08)] ${
-                      isEditing ? 'bg-[#eff6ff]' : 'bg-white'
+                    <td className={`border border-gray-400 p-2 text-center sticky left-0 z-10 ${
+                      isEditing ? 'bg-blue-50' : 'bg-white'
                     }`}>
                       <Checkbox
                         checked={selectedRows.has(row.id)}
@@ -1260,46 +787,14 @@ export default function MasterProductSheet() {
                     </td>
                     {columns.map((column) =>
                       visibleColumns.has(column.id) && (
-                        <td key={column.id} className={`border border-soft-border p-1 ${columnConfig[column.id].cellBg || ''}`} style={isEditing ? {backgroundColor: '#eff6ff'} : {}}>
-                          {column.id === 'images' ? (
-                            <ImageCell
-                              images={row.images}
-                              rowId={row.id}
-                              isNew={!!row._isNew}
-                              isEditing={canEdit}
-                              onImagesChange={(newImages) => handleCellChange(row.id, 'images', newImages)}
-                            />
-                          ) : canEdit ? (
-                            <Input
-                              type="text"
-                              value={row[column.id]}
-                              onChange={(e) => handleCellChange(row.id, column.id, e.target.value)}
-                              onKeyDown={column.id === 'masterSku' ? (e) => {
-                                if (e.key === 'Enter' || e.key === 'Tab') {
-                                  handleMasterSkuLookup(row.id, row.masterSku);
-                                }
-                              } : column.id === 'dieNumberFindings' ? (e) => {
-                                if (e.key === 'Enter' || e.key === 'Tab') {
-                                  handleFindingCodeLookup(row.id, row.dieNumberFindings);
-                                }
-                              } : undefined}
-                              onBlur={column.id === 'masterSku' ? () => handleMasterSkuLookup(row.id, row.masterSku) : column.id === 'dieNumberFindings' ? () => handleFindingCodeLookup(row.id, row.dieNumberFindings) : undefined}
-                              className="border-0 p-1 text-sm h-8"
-                            />
-                          ) : column.id === 'sku' && row[column.id] ? (
-                            <div className="min-h-8 px-1 py-1 text-sm whitespace-pre-wrap break-words leading-4">
-                              <Link
-                                href={`/frontend?sku=${encodeURIComponent(row[column.id])}`}
-                                className="text-deep-blue underline hover:text-deep-blue"
-                              >
-                                {row[column.id]}
-                              </Link>
-                            </div>
-                          ) : (
-                            <div className="min-h-8 px-1 py-1 text-sm whitespace-pre-wrap break-words leading-4">
-                              {row[column.id] || ''}
-                            </div>
-                          )}
+                        <td key={column.id} className={`border border-gray-400 p-1 ${columnConfig[column.id].cellBg || ''}`} style={isEditing ? {backgroundColor: '#eff6ff'} : {}}>
+                          <Input
+                            type="text"
+                            value={row[column.id]}
+                            onChange={(e) => handleCellChange(row.id, column.id, e.target.value)}
+                            className="border-0 p-1 text-xs h-8"
+                            disabled={!canEdit}
+                          />
                         </td>
                       )
                     )}
@@ -1312,170 +807,41 @@ export default function MasterProductSheet() {
       </div>
 
       {/* Add Row and Edit Controls */}
-      <div className="mt-4 flex gap-2 items-center flex-wrap">
+      <div className="mt-4 flex gap-2 items-center">
         <Button 
           onClick={handleAddRow}
-          className="bg-trust-blue hover:bg-deep-blue text-white px-6"
+          className="bg-blue-600 hover:bg-blue-700 text-white px-6"
           disabled={editingRowIds.size > 0}
         >
           + Add Row
         </Button>
         
         {editingRowIds.size > 0 && (
-          <div className="flex gap-2 ml-4 items-center flex-wrap">
+          <div className="flex gap-2 ml-4">
             <Button 
               onClick={handleSaveEdit}
-              className="bg-success hover:bg-success/90 text-white px-6"
-              disabled={isSavingEdit}
+              className="bg-green-600 hover:bg-green-700 text-white px-6"
             >
-              {isSavingEdit ? 'Saving...' : 'Save Changes'}
+              Save Changes
             </Button>
             <Button 
               onClick={handleCancelEdit}
               variant="outline"
-              className="border-red-600 text-danger hover:bg-danger/10 px-6"
-              disabled={isSavingEdit}
+              className="border-red-600 text-red-600 hover:bg-red-50 px-6"
             >
               Cancel Edit
             </Button>
-            {saveEditStatus && (
-              <span className={`text-sm font-semibold ${saveEditStatus.success ? 'text-success' : 'text-danger'}`}>
-                {saveEditStatus.message}
-              </span>
-            )}
           </div>
         )}
-        {!editingRowIds.size && saveEditStatus && (
-          <span className={`ml-4 text-sm font-semibold ${saveEditStatus.success ? 'text-success' : 'text-danger'}`}>
-            {saveEditStatus.message}
-          </span>
-        )}
       </div>
 
+      {/* Footer Info */}
+      <div className="mt-4 text-xs text-gray-600">
+        <p>Selected Rows: {selectedRows.size}</p>
+        <p>Total Rows: {activeData.length}</p>
+        <p>Archived Rows: {archivedRows.size}</p>
+        {editingRowIds.size > 0 && <p className="text-blue-600 font-semibold">Editing {editingRowIds.size} row(s)</p>}
       </div>
-
-      {/* Fixed Footer */}
-      <div className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-soft-border shadow-lg px-4 py-2 flex flex-wrap items-center justify-between gap-3 text-sm text-cool-gray">
-        <div className="flex items-center gap-2">
-          <span>Rows per page:</span>
-          <select
-            value={rowsPerPage}
-            onChange={(e) => { setRowsPerPage(Number(e.target.value)); setCurrentPage(1); }}
-            className="border border-soft-border rounded px-2 py-1 text-sm text-midnight-ink bg-white"
-          >
-            {[25, 50, 75, 100].map((n) => <option key={n} value={n}>{n}</option>)}
-          </select>
-        </div>
-        <div className="flex items-center gap-3">
-          <span>{displayedData.length === 0 ? '0' : `${(safePage - 1) * rowsPerPage + 1}-${Math.min(safePage * rowsPerPage, displayedData.length)}`} of {displayedData.length}</span>
-          <button onClick={() => setCurrentPage((p) => Math.max(1, p - 1))} disabled={safePage <= 1} className="px-2 py-1 border border-soft-border rounded disabled:opacity-40 hover:bg-cloud-gray">&lsaquo;</button>
-          <span>{safePage} / {totalPages}</span>
-          <button onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))} disabled={safePage >= totalPages} className="px-2 py-1 border border-soft-border rounded disabled:opacity-40 hover:bg-cloud-gray">&rsaquo;</button>
-        </div>
-        <div className="flex gap-4">
-          <span>Selected: {selectedRows.size}</span>
-          <span>Archived: {archivedRows.size}</span>
-          {editingRowIds.size > 0 && <span className="text-trust-blue font-semibold">Editing {editingRowIds.size} row(s)</span>}
-        </div>
-        <LastUpdatedFooter timestamp={lastUpdated} username={currentUsername} compact />
-      </div>
-    </div>
-  );
-}
-
-function ImageCell({ images, rowId, isNew, isEditing, onImagesChange }) {
-  const [uploading, setUploading] = useState(false);
-  const [uploadError, setUploadError] = useState('');
-  const inputRef = useRef(null);
-
-  const imageList = Array.isArray(images) ? images : [];
-
-  const backendBase =
-    typeof window !== 'undefined' && window.location.hostname === 'localhost'
-      ? 'http://localhost:8000'
-      : 'https://product-sheet.onrender.com';
-
-  const resolveUrl = (url) => {
-    if (!url) return '';
-    // base64 data URLs and absolute URLs need no prepending
-    if (url.startsWith('data:') || url.startsWith('http://') || url.startsWith('https://')) return url;
-    return `${backendBase}${url}`;
-  };
-
-  const handleFileChange = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (isNew) {
-      setUploadError('Save the row first, then upload an image.');
-      return;
-    }
-    setUploading(true);
-    setUploadError('');
-    try {
-      const formData = new FormData();
-      formData.append('image', file);
-      const res = await fetch(`/api/products/${rowId}/upload-image`, {
-        method: 'POST',
-        body: formData,
-      });
-      const data = await res.json().catch(() => null);
-      if (!res.ok || !data?.success) throw new Error(data?.message || 'Upload failed');
-      onImagesChange(Array.isArray(data.data?.images) ? data.data.images : [...imageList, data.data?.url]);
-    } catch (err) {
-      setUploadError(err.message || 'Upload failed');
-    } finally {
-      setUploading(false);
-      if (inputRef.current) inputRef.current.value = '';
-    }
-  };
-
-  return (
-    <div className="flex flex-col gap-1 min-h-8 px-1 py-1">
-      {imageList.length > 0 && (
-        <div className="flex flex-wrap gap-1">
-          {imageList.map((url, i) => (
-            <img
-              key={i}
-              src={resolveUrl(url)}
-              alt={`product-img-${i + 1}`}
-              className="w-10 h-10 object-cover rounded border border-soft-border"
-              onError={(e) => { e.target.style.display = 'none'; }}
-            />
-          ))}
-        </div>
-      )}
-      {isEditing && (
-        <>
-          <input
-            ref={inputRef}
-            type="file"
-            accept="image/jpeg,image/png,image/webp,image/gif"
-            className="hidden"
-            onChange={handleFileChange}
-          />
-          <button
-            type="button"
-            onClick={() => inputRef.current?.click()}
-            disabled={uploading}
-            className="text-xs px-2 py-0.5 rounded border border-trust-blue text-trust-blue hover:bg-trust-blue/10 disabled:opacity-50 w-fit"
-          >
-            {uploading ? 'Uploading…' : '+ Upload'}
-          </button>
-          {uploadError && <span className="text-xs text-danger">{uploadError}</span>}
-        </>
-      )}
-      {!isEditing && imageList.length === 0 && (
-        <span className="text-xs text-cool-gray">—</span>
-      )}
-    </div>
-  );
-}
-
-function DetailCard({ label, value }) {
-  return (
-    <div className="border border-soft-border rounded-lg bg-white overflow-hidden">
-      <div className="px-2 py-1 bg-cloud-gray font-semibold text-xs text-slate-text border-b border-soft-border">{label}</div>
-      <div className="px-2 py-2 text-sm min-h-[36px] whitespace-pre-wrap break-words">{value || '—'}</div>
     </div>
   );
 }
