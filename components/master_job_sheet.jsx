@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { Search } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -18,10 +18,98 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
 
 export default function MasterJobSheet() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedRows, setSelectedRows] = useState(new Set());
+  const [isManageColumnsOpen, setIsManageColumnsOpen] = useState(false);
+  const [selectedColumnsForAction, setSelectedColumnsForAction] = useState(new Set());
+  const [isPrintVoucherOpen, setIsPrintVoucherOpen] = useState(false);
+  const [selectedVoucherForPrint, setSelectedVoucherForPrint] = useState(null);
+  const [isPrintSheetOpen, setIsPrintSheetOpen] = useState(false);
+  
+  // Column definitions
+  const columns = [
+    { id: 'issued', label: 'Issued' },
+    { id: 'department', label: 'Department' },
+    { id: 'category', label: 'Category' },
+    { id: 'firstName', label: 'First Name' },
+    { id: 'status', label: 'Status' },
+    { id: 'newReissue', label: 'New/Re-issue' },
+    { id: 'type', label: 'Type' },
+    { id: 'receiver', label: 'Receiver' },
+    { id: 'dayCondition', label: 'Day & Condition' },
+    { id: 'issuedQty', label: 'Issued Qty' },
+    { id: 'issuedWeight', label: 'Issued Weight' },
+    { id: 'receivedQty', label: 'Received Qty' },
+    { id: 'receivedWeight', label: 'Received Weight' },
+    { id: 'lossQty', label: 'Loss Qty' },
+    { id: 'lossWeight', label: 'Loss Weight' },
+    { id: 'reIssueQty', label: 'Re-Issue Qty' },
+    { id: 'reIssueWeight', label: 'Re-Issue Weight' },
+  ];
+  
+  // Column configuration with styling
+  const columnConfig = {
+    issued: { minWidth: 'min-w-[80px]', headerBg: 'bg-yellow-300' },
+    department: { minWidth: 'min-w-[100px]', headerBg: 'bg-yellow-300' },
+    category: { minWidth: 'min-w-[80px]', headerBg: 'bg-yellow-300' },
+    firstName: { minWidth: 'min-w-[100px]', headerBg: 'bg-yellow-300' },
+    status: { minWidth: 'min-w-[80px]', headerBg: 'bg-yellow-300' },
+    newReissue: { minWidth: 'min-w-[100px]', headerBg: 'bg-yellow-300' },
+    type: { minWidth: 'min-w-[70px]', headerBg: 'bg-yellow-300' },
+    receiver: { minWidth: 'min-w-[80px]', headerBg: 'bg-yellow-300' },
+    dayCondition: { minWidth: 'min-w-[100px]', headerBg: 'bg-orange-200', cellBg: 'bg-orange-50' },
+    issuedQty: { minWidth: 'min-w-[70px]', headerBg: 'bg-yellow-300' },
+    issuedWeight: { minWidth: 'min-w-[80px]', headerBg: 'bg-yellow-300' },
+    receivedQty: { minWidth: 'min-w-[80px]', headerBg: 'bg-green-100', cellBg: 'bg-green-50' },
+    receivedWeight: { minWidth: 'min-w-[100px]', headerBg: 'bg-green-100', cellBg: 'bg-green-50' },
+    lossQty: { minWidth: 'min-w-[70px]', headerBg: 'bg-red-100', cellBg: 'bg-red-50' },
+    lossWeight: { minWidth: 'min-w-[80px]', headerBg: 'bg-red-100', cellBg: 'bg-red-50' },
+    reIssueQty: { minWidth: 'min-w-[80px]', headerBg: 'bg-orange-100', cellBg: 'bg-orange-50' },
+    reIssueWeight: { minWidth: 'min-w-[100px]', headerBg: 'bg-orange-100', cellBg: 'bg-orange-50' },
+  };
+  
+  const [visibleColumns, setVisibleColumns] = useState(new Set(columns.map(col => col.id)));
+  
+  // Toggle column selection in the manage columns dialog
+  const toggleColumnSelection = (columnId) => {
+    const newSelected = new Set(selectedColumnsForAction);
+    if (newSelected.has(columnId)) {
+      newSelected.delete(columnId);
+    } else {
+      newSelected.add(columnId);
+    }
+    setSelectedColumnsForAction(newSelected);
+  };
+  
+  // Hide selected columns
+  const handleHideColumns = () => {
+    const newVisible = new Set(visibleColumns);
+    selectedColumnsForAction.forEach(col => newVisible.delete(col));
+    setVisibleColumns(newVisible);
+    setSelectedColumnsForAction(new Set());
+    setIsManageColumnsOpen(false);
+  };
+  
+  // Show selected columns
+  const handleShowColumns = () => {
+    const newVisible = new Set(visibleColumns);
+    selectedColumnsForAction.forEach(col => newVisible.add(col));
+    setVisibleColumns(newVisible);
+    setSelectedColumnsForAction(new Set());
+    setIsManageColumnsOpen(false);
+  };
+  
+  // Get columns that are currently hidden
+  const hiddenColumns = columns.filter(col => !visibleColumns.has(col.id));
   
   // Filter states
   const [statusFilter, setStatusFilter] = useState('');
@@ -60,21 +148,13 @@ export default function MasterJobSheet() {
       receiver: '',
       dayCondition: '',
       issuedQty: '',
-      issuedUnit: '',
       issuedWeight: '',
-      issuedWeightUnit: '',
       receivedQty: '',
-      receivedUnit: '',
       receivedWeight: '',
-      receivedWeightUnit: '',
       lossQty: '',
-      lossUnit: '',
       lossWeight: '',
-      lossWeightUnit: '',
       reIssueQty: '',
-      reIssueUnit: '',
       reIssueWeight: '',
-      reIssueWeightUnit: '',
     }))
   );
 
@@ -99,13 +179,18 @@ export default function MasterJobSheet() {
   };
 
   const handlePrintVouchers = () => {
-    console.log('Printing vouchers...');
-    window.print();
+    if (selectedRows.size === 0) {
+      alert('Please select a voucher to print');
+      return;
+    }
+    const voucherId = Array.from(selectedRows)[0];
+    const voucher = data.find(row => row.id === voucherId);
+    setSelectedVoucherForPrint(voucher);
+    setIsPrintVoucherOpen(true);
   };
 
   const handlePrintSheet = () => {
-    console.log('Printing sheet...');
-    window.print();
+    setIsPrintSheetOpen(true);
   };
 
   const handleExport = () => {
@@ -119,8 +204,7 @@ export default function MasterJobSheet() {
   };
 
   const handleManageColumns = () => {
-    // Manage columns functionality
-    console.log('Manage columns');
+    setIsManageColumnsOpen(true);
   };
 
   const handleAddRow = () => {
@@ -138,27 +222,283 @@ export default function MasterJobSheet() {
       receiver: '',
       dayCondition: '',
       issuedQty: '',
-      issuedUnit: '',
       issuedWeight: '',
-      issuedWeightUnit: '',
       receivedQty: '',
-      receivedUnit: '',
       receivedWeight: '',
-      receivedWeightUnit: '',
       lossQty: '',
-      lossUnit: '',
       lossWeight: '',
-      lossWeightUnit: '',
       reIssueQty: '',
-      reIssueUnit: '',
       reIssueWeight: '',
-      reIssueWeightUnit: '',
     };
     setData([...data, newRow]);
   };
 
   return (
     <div className="w-full h-full bg-gray-50 p-4 md:p-6">
+      {/* Manage Columns Dialog */}
+      <Dialog open={isManageColumnsOpen} onOpenChange={setIsManageColumnsOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Manage Columns</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 max-h-[400px] overflow-y-auto py-4">
+            {columns.map((column) => (
+              <div key={column.id} className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 flex-1">
+                  <Checkbox
+                    id={column.id}
+                    checked={selectedColumnsForAction.has(column.id)}
+                    onCheckedChange={() => toggleColumnSelection(column.id)}
+                    className="cursor-pointer"
+                  />
+                  <label htmlFor={column.id} className="text-sm cursor-pointer">
+                    {column.label}
+                  </label>
+                </div>
+                <div className="text-xs font-semibold px-2 py-1 rounded">
+                  {!visibleColumns.has(column.id) ? (
+                    <span className="bg-red-100 text-red-700 px-2 py-1 rounded-full text-xs">Hidden</span>
+                  ) : (
+                    <span className="bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs">Visible</span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+          <DialogFooter className="flex gap-2">
+            <Button
+              onClick={handleHideColumns}
+              disabled={selectedColumnsForAction.size === 0}
+              variant="outline"
+              className="text-red-600 border-red-300 hover:bg-red-50"
+            >
+              Hide
+            </Button>
+            <Button
+              onClick={handleShowColumns}
+              disabled={selectedColumnsForAction.size === 0}
+              variant="outline"
+              className="text-green-600 border-green-300 hover:bg-green-50"
+            >
+              Show
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Print Voucher Dialog */}
+      <Dialog open={isPrintVoucherOpen} onOpenChange={setIsPrintVoucherOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader className="border-b pb-4">
+            <DialogTitle>Print Voucher</DialogTitle>
+          </DialogHeader>
+          
+          {selectedVoucherForPrint && (
+            <div className="space-y-6 py-4">
+              {/* Voucher Header */}
+              <div className="border-2 border-gray-900 p-6 bg-white">
+                <h2 className="text-2xl font-bold text-center mb-6">VOUCHER</h2>
+                
+                {/* Top Section */}
+                <div className="grid grid-cols-4 gap-4 mb-6 border-b-2 border-gray-900 pb-4">
+                  <div className="border-r-2 border-gray-900 pr-4">
+                    <p className="text-xs font-bold text-gray-700 mb-1">DATE</p>
+                    <p className="text-sm">{new Date().toISOString().split('T')[0]}</p>
+                  </div>
+                  <div className="border-r-2 border-gray-900 pr-4">
+                    <p className="text-xs font-bold text-gray-700 mb-1">SCHEDULE FOR FUTURE</p>
+                    <p className="text-sm">—</p>
+                  </div>
+                  <div className="border-r-2 border-gray-900 pr-4">
+                    <p className="text-xs font-bold text-gray-700 mb-1">VOUCHER TYPE</p>
+                    <p className="text-sm">{selectedVoucherForPrint.newReissue || 'New'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-gray-700 mb-1">VOUCHER NO.</p>
+                    <p className="text-sm font-bold">{selectedVoucherForPrint.voucherNo || '—'}</p>
+                  </div>
+                </div>
+
+                {/* Issued To Section */}
+                <div className="grid grid-cols-2 gap-4 mb-6 border-b-2 border-gray-900 pb-4">
+                  <div>
+                    <p className="text-xs font-bold text-gray-700 mb-1">ISSUED TO</p>
+                    <p className="text-sm">{selectedVoucherForPrint.firstName || '—'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-gray-700 mb-1">DEPARTMENT</p>
+                    <p className="text-sm">{selectedVoucherForPrint.department || '—'}</p>
+                  </div>
+                </div>
+
+                {/* Items Table */}
+                <div className="mb-6">
+                  <table className="w-full border-collapse border-2 border-gray-900">
+                    <thead>
+                      <tr className="bg-gray-900 text-white">
+                        <th className="border-2 border-gray-900 p-2 text-xs font-bold text-left">ISSUED QTY</th>
+                        <th className="border-2 border-gray-900 p-2 text-xs font-bold text-left">ISSUED WEIGHT</th>
+                        <th className="border-2 border-gray-900 p-2 text-xs font-bold text-left">RECEIVED QTY</th>
+                        <th className="border-2 border-gray-900 p-2 text-xs font-bold text-left">RECEIVED WEIGHT</th>
+                        <th className="border-2 border-gray-900 p-2 text-xs font-bold text-left">STATUS</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td className="border-2 border-gray-900 p-2 text-sm">{selectedVoucherForPrint.issuedQty || '—'}</td>
+                        <td className="border-2 border-gray-900 p-2 text-sm">{selectedVoucherForPrint.issuedWeight || '—'}</td>
+                        <td className="border-2 border-gray-900 p-2 text-sm">{selectedVoucherForPrint.receivedQty || '—'}</td>
+                        <td className="border-2 border-gray-900 p-2 text-sm">{selectedVoucherForPrint.receivedWeight || '—'}</td>
+                        <td className="border-2 border-gray-900 p-2 text-sm">{selectedVoucherForPrint.status || '—'}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Footer Section */}
+                <div className="grid grid-cols-2 gap-8 pt-4">
+                  <div>
+                    <p className="text-xs font-bold text-gray-700 mb-8">Issued By</p>
+                    <div className="border-t-2 border-gray-900 w-24"></div>
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-gray-700 mb-8">Received By</p>
+                    <div className="border-t-2 border-gray-900 w-24"></div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-4 justify-end">
+                <Button
+                  onClick={() => window.print()}
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  Print
+                </Button>
+                <Button
+                  onClick={() => setIsPrintVoucherOpen(false)}
+                  variant="outline"
+                >
+                  Close
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Print Sheet Dialog */}
+      <Dialog open={isPrintSheetOpen} onOpenChange={setIsPrintSheetOpen}>
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader className="border-b pb-4">
+            <DialogTitle>Print Master WIP/JOB Sheet</DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            {/* Sheet Header */}
+            <div className="text-center border-b-2 border-gray-900 pb-4 mb-6">
+              <h2 className="text-2xl font-bold mb-2">MASTER WIP/JOB SHEET</h2>
+              <p className="text-sm text-gray-600">Date: {new Date().toISOString().split('T')[0]}</p>
+            </div>
+
+            {/* Sheet Details Summary */}
+            <div className="grid grid-cols-4 gap-4 mb-6 p-4 bg-gray-50 rounded-lg border border-gray-300">
+              <div>
+                <p className="text-xs font-bold text-gray-700 mb-1">Total Vouchers</p>
+                <p className="text-lg font-bold">{data.length}</p>
+              </div>
+              <div>
+                <p className="text-xs font-bold text-gray-700 mb-1">Selected Rows</p>
+                <p className="text-lg font-bold">{selectedRows.size}</p>
+              </div>
+              <div>
+                <p className="text-xs font-bold text-gray-700 mb-1">Total Issued Qty</p>
+                <p className="text-lg font-bold">{data.reduce((sum, row) => sum + (parseInt(row.issuedQty) || 0), 0)}</p>
+              </div>
+              <div>
+                <p className="text-xs font-bold text-gray-700 mb-1">Total Received Qty</p>
+                <p className="text-lg font-bold">{data.reduce((sum, row) => sum + (parseInt(row.receivedQty) || 0), 0)}</p>
+              </div>
+            </div>
+
+            {/* Data Table */}
+            <div className="border-2 border-gray-900 rounded overflow-x-auto">
+              <table className="w-full border-collapse text-xs">
+                <thead>
+                  <tr className="bg-gray-900 text-white">
+                    <th className="border border-gray-400 p-2 text-left">Voucher No.</th>
+                    <th className="border border-gray-400 p-2 text-left">Issued</th>
+                    <th className="border border-gray-400 p-2 text-left">Department</th>
+                    <th className="border border-gray-400 p-2 text-left">Category</th>
+                    <th className="border border-gray-400 p-2 text-left">First Name</th>
+                    <th className="border border-gray-400 p-2 text-left">Status</th>
+                    <th className="border border-gray-400 p-2 text-left">Issued Qty</th>
+                    <th className="border border-gray-400 p-2 text-left">Issued Weight</th>
+                    <th className="border border-gray-400 p-2 text-left">Received Qty</th>
+                    <th className="border border-gray-400 p-2 text-left">Received Weight</th>
+                    <th className="border border-gray-400 p-2 text-left">Loss Qty</th>
+                    <th className="border border-gray-400 p-2 text-left">Loss Weight</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.map((row, index) => (
+                    <tr key={row.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                      <td className="border border-gray-400 p-2">{row.voucherNo || '—'}</td>
+                      <td className="border border-gray-400 p-2">{row.issued || '—'}</td>
+                      <td className="border border-gray-400 p-2">{row.department || '—'}</td>
+                      <td className="border border-gray-400 p-2">{row.category || '—'}</td>
+                      <td className="border border-gray-400 p-2">{row.firstName || '—'}</td>
+                      <td className="border border-gray-400 p-2">{row.status || '—'}</td>
+                      <td className="border border-gray-400 p-2 text-center">{row.issuedQty || '—'}</td>
+                      <td className="border border-gray-400 p-2 text-center">{row.issuedWeight || '—'}</td>
+                      <td className="border border-gray-400 p-2 text-center">{row.receivedQty || '—'}</td>
+                      <td className="border border-gray-400 p-2 text-center">{row.receivedWeight || '—'}</td>
+                      <td className="border border-gray-400 p-2 text-center">{row.lossQty || '—'}</td>
+                      <td className="border border-gray-400 p-2 text-center">{row.lossWeight || '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Summary Footer */}
+            <div className="border-t-2 border-gray-900 pt-4 mt-6">
+              <div className="grid grid-cols-3 gap-8">
+                <div>
+                  <p className="text-xs font-bold text-gray-700 mb-8">Prepared By</p>
+                  <div className="border-t-2 border-gray-900 w-32"></div>
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-gray-700 mb-8">Reviewed By</p>
+                  <div className="border-t-2 border-gray-900 w-32"></div>
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-gray-700 mb-8">Approved By</p>
+                  <div className="border-t-2 border-gray-900 w-32"></div>
+                </div>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex gap-4 justify-end pt-4">
+              <Button
+                onClick={() => window.print()}
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                Print Sheet
+              </Button>
+              <Button
+                onClick={() => setIsPrintSheetOpen(false)}
+                variant="outline"
+              >
+                Close
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Header Section */}
       <div className="mb-6">
         <h1 className="text-3xl md:text-4xl font-bold text-center text-gray-800 mb-6">
@@ -211,13 +551,16 @@ export default function MasterJobSheet() {
 
         {/* Search Bar */}
         <div className="flex gap-2 mb-6 max-w-md mx-auto md:mx-0">
-          <Input
-            type="text"
-            placeholder="SEARCH BAR"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="flex-1 border-2 border-gray-400 rounded-md px-4 py-2"
-          />
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+            <Input
+              type="text"
+              placeholder="SEARCH BAR"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="flex-1 border-2 border-gray-400 rounded-lg px-4 py-2 pl-10"
+            />
+          </div>
         </div>
       </div>
 
@@ -381,275 +724,72 @@ export default function MasterJobSheet() {
       </div>
 
       {/* Table Section */}
-      <ScrollArea className="w-full border border-gray-300 rounded-lg bg-white">
-        <table className="w-full border-collapse text-xs">
-          <thead>
-            <tr className="bg-yellow-300 text-gray-800 font-bold border-b-2 border-gray-400">
-              <th className="border border-gray-400 p-2 w-8">
-                <Checkbox
-                  checked={selectedRows.size === data.length && data.length > 0}
-                  onCheckedChange={(checked) => {
-                    if (checked) {
-                      setSelectedRows(new Set(data.map(row => row.id)));
-                    } else {
-                      setSelectedRows(new Set());
-                    }
-                  }}
-                  className="cursor-pointer"
-                />
-              </th>
-              <th className="border border-gray-400 p-2 bg-yellow-300 min-w-[100px]">Voucher No.</th>
-              <th className="border border-gray-400 p-2 bg-yellow-300 min-w-[80px]">Issued</th>
-              <th className="border border-gray-400 p-2 bg-yellow-300 min-w-[100px]">Department</th>
-              <th className="border border-gray-400 p-2 bg-yellow-300 min-w-[80px]">Category</th>
-              <th className="border border-gray-400 p-2 bg-yellow-300 min-w-[100px]">First Name</th>
-              <th className="border border-gray-400 p-2 bg-yellow-300 min-w-[80px]">Status</th>
-              <th className="border border-gray-400 p-2 bg-yellow-300 min-w-[100px]">New/Re-issue</th>
-              <th className="border border-gray-400 p-2 bg-yellow-300 min-w-[70px]">Type</th>
-              <th className="border border-gray-400 p-2 bg-yellow-300 min-w-[80px]">Receiver</th>
-              <th className="border border-gray-400 p-2 bg-orange-200 min-w-[100px]">Day & Condition</th>
-              <th className="border border-gray-400 p-2 text-gray-700 min-w-[70px]">Issued Qty</th>
-              <th className="border border-gray-400 p-2 text-gray-700 min-w-[60px]">Unit</th>
-              <th className="border border-gray-400 p-2 text-gray-700 min-w-[80px]">Issued Weight</th>
-              <th className="border border-gray-400 p-2 text-gray-700 min-w-[60px]">Unit</th>
-              <th className="border border-gray-400 p-2 bg-green-100 min-w-[80px]">Received Qty</th>
-              <th className="border border-gray-400 p-2 bg-green-100 min-w-[60px]">Unit</th>
-              <th className="border border-gray-400 p-2 bg-green-100 min-w-[100px]">Received Weight</th>
-              <th className="border border-gray-400 p-2 bg-green-100 min-w-[60px]">Unit</th>
-              <th className="border border-gray-400 p-2 bg-red-100 min-w-[70px]">Loss Qty</th>
-              <th className="border border-gray-400 p-2 bg-red-100 min-w-[60px]">Unit</th>
-              <th className="border border-gray-400 p-2 bg-red-100 min-w-[80px]">Loss Weight</th>
-              <th className="border border-gray-400 p-2 bg-red-100 min-w-[60px]">Unit</th>
-              <th className="border border-gray-400 p-2 bg-orange-100 min-w-[80px]">Re-Issue Qty</th>
-              <th className="border border-gray-400 p-2 bg-orange-100 min-w-[60px]">Unit</th>
-              <th className="border border-gray-400 p-2 bg-orange-100 min-w-[100px]">Re-Issue Weight</th>
-              <th className="border border-gray-400 p-2 bg-orange-100 min-w-[60px]">Unit</th>
-            </tr>
-          </thead>
-
-          <tbody>
-            {data.map((row) => (
-              <tr key={row.id} className="hover:bg-gray-50 border-b border-gray-400">
-                <td className="border border-gray-400 p-2 text-center">
+      <div className="border border-gray-300 rounded-lg bg-white overflow-hidden">
+        {/* Table wrapper with vertical and horizontal scrolling */}
+        <div className="overflow-y-auto overflow-x-auto max-h-[500px]">
+          <table className="w-full border-collapse text-xs">
+            <thead className="sticky top-0 z-20 bg-yellow-300">
+              <tr className="text-gray-800 font-bold border-b-2 border-gray-400">
+                <th className="border border-gray-400 p-2 w-8 sticky left-0 bg-yellow-300 z-30">
                   <Checkbox
-                    checked={selectedRows.has(row.id)}
-                    onCheckedChange={() => toggleRowSelection(row.id)}
+                    checked={selectedRows.size === data.length && data.length > 0}
+                    onCheckedChange={(checked) => {
+                      if (checked) {
+                        setSelectedRows(new Set(data.map(row => row.id)));
+                      } else {
+                        setSelectedRows(new Set());
+                      }
+                    }}
                     className="cursor-pointer"
                   />
-                </td>
-                <td className="border border-gray-400 p-1">
-                  <Input
-                    type="text"
-                    value={row.voucherNo}
-                    onChange={(e) => handleCellChange(row.id, 'voucherNo', e.target.value)}
-                    className="border-0 p-1 text-xs h-8"
-                  />
-                </td>
-                <td className="border border-gray-400 p-1">
-                  <Input
-                    type="text"
-                    value={row.issued}
-                    onChange={(e) => handleCellChange(row.id, 'issued', e.target.value)}
-                    className="border-0 p-1 text-xs h-8"
-                  />
-                </td>
-                <td className="border border-gray-400 p-1">
-                  <Input
-                    type="text"
-                    value={row.department}
-                    onChange={(e) => handleCellChange(row.id, 'department', e.target.value)}
-                    className="border-0 p-1 text-xs h-8"
-                  />
-                </td>
-                <td className="border border-gray-400 p-1">
-                  <Input
-                    type="text"
-                    value={row.category}
-                    onChange={(e) => handleCellChange(row.id, 'category', e.target.value)}
-                    className="border-0 p-1 text-xs h-8"
-                  />
-                </td>
-                <td className="border border-gray-400 p-1">
-                  <Input
-                    type="text"
-                    value={row.firstName}
-                    onChange={(e) => handleCellChange(row.id, 'firstName', e.target.value)}
-                    className="border-0 p-1 text-xs h-8"
-                  />
-                </td>
-                <td className="border border-gray-400 p-1">
-                  <Input
-                    type="text"
-                    value={row.status}
-                    onChange={(e) => handleCellChange(row.id, 'status', e.target.value)}
-                    className="border-0 p-1 text-xs h-8"
-                  />
-                </td>
-                <td className="border border-gray-400 p-1">
-                  <Input
-                    type="text"
-                    value={row.newReissue}
-                    onChange={(e) => handleCellChange(row.id, 'newReissue', e.target.value)}
-                    className="border-0 p-1 text-xs h-8"
-                  />
-                </td>
-                <td className="border border-gray-400 p-1">
-                  <Input
-                    type="text"
-                    value={row.type}
-                    onChange={(e) => handleCellChange(row.id, 'type', e.target.value)}
-                    className="border-0 p-1 text-xs h-8"
-                  />
-                </td>
-                <td className="border border-gray-400 p-1">
-                  <Input
-                    type="text"
-                    value={row.receiver}
-                    onChange={(e) => handleCellChange(row.id, 'receiver', e.target.value)}
-                    className="border-0 p-1 text-xs h-8"
-                  />
-                </td>
-                <td className="border border-gray-400 p-1 bg-orange-50">
-                  <Input
-                    type="text"
-                    value={row.dayCondition}
-                    onChange={(e) => handleCellChange(row.id, 'dayCondition', e.target.value)}
-                    className="border-0 p-1 text-xs h-8"
-                  />
-                </td>
-                <td className="border border-gray-400 p-1">
-                  <Input
-                    type="text"
-                    value={row.issuedQty}
-                    onChange={(e) => handleCellChange(row.id, 'issuedQty', e.target.value)}
-                    className="border-0 p-1 text-xs h-8"
-                  />
-                </td>
-                <td className="border border-gray-400 p-1">
-                  <Input
-                    type="text"
-                    value={row.issuedUnit}
-                    onChange={(e) => handleCellChange(row.id, 'issuedUnit', e.target.value)}
-                    className="border-0 p-1 text-xs h-8"
-                  />
-                </td>
-                <td className="border border-gray-400 p-1">
-                  <Input
-                    type="text"
-                    value={row.issuedWeight}
-                    onChange={(e) => handleCellChange(row.id, 'issuedWeight', e.target.value)}
-                    className="border-0 p-1 text-xs h-8"
-                  />
-                </td>
-                <td className="border border-gray-400 p-1">
-                  <Input
-                    type="text"
-                    value={row.issuedWeightUnit}
-                    onChange={(e) => handleCellChange(row.id, 'issuedWeightUnit', e.target.value)}
-                    className="border-0 p-1 text-xs h-8"
-                  />
-                </td>
-                <td className="border border-gray-400 p-1 bg-green-50">
-                  <Input
-                    type="text"
-                    value={row.receivedQty}
-                    onChange={(e) => handleCellChange(row.id, 'receivedQty', e.target.value)}
-                    className="border-0 p-1 text-xs h-8"
-                  />
-                </td>
-                <td className="border border-gray-400 p-1 bg-green-50">
-                  <Input
-                    type="text"
-                    value={row.receivedUnit}
-                    onChange={(e) => handleCellChange(row.id, 'receivedUnit', e.target.value)}
-                    className="border-0 p-1 text-xs h-8"
-                  />
-                </td>
-                <td className="border border-gray-400 p-1 bg-green-50">
-                  <Input
-                    type="text"
-                    value={row.receivedWeight}
-                    onChange={(e) => handleCellChange(row.id, 'receivedWeight', e.target.value)}
-                    className="border-0 p-1 text-xs h-8"
-                  />
-                </td>
-                <td className="border border-gray-400 p-1 bg-green-50">
-                  <Input
-                    type="text"
-                    value={row.receivedWeightUnit}
-                    onChange={(e) => handleCellChange(row.id, 'receivedWeightUnit', e.target.value)}
-                    className="border-0 p-1 text-xs h-8"
-                  />
-                </td>
-                <td className="border border-gray-400 p-1 bg-red-50">
-                  <Input
-                    type="text"
-                    value={row.lossQty}
-                    onChange={(e) => handleCellChange(row.id, 'lossQty', e.target.value)}
-                    className="border-0 p-1 text-xs h-8"
-                  />
-                </td>
-                <td className="border border-gray-400 p-1 bg-red-50">
-                  <Input
-                    type="text"
-                    value={row.lossUnit}
-                    onChange={(e) => handleCellChange(row.id, 'lossUnit', e.target.value)}
-                    className="border-0 p-1 text-xs h-8"
-                  />
-                </td>
-                <td className="border border-gray-400 p-1 bg-red-50">
-                  <Input
-                    type="text"
-                    value={row.lossWeight}
-                    onChange={(e) => handleCellChange(row.id, 'lossWeight', e.target.value)}
-                    className="border-0 p-1 text-xs h-8"
-                  />
-                </td>
-                <td className="border border-gray-400 p-1 bg-red-50">
-                  <Input
-                    type="text"
-                    value={row.lossWeightUnit}
-                    onChange={(e) => handleCellChange(row.id, 'lossWeightUnit', e.target.value)}
-                    className="border-0 p-1 text-xs h-8"
-                  />
-                </td>
-                <td className="border border-gray-400 p-1 bg-orange-50">
-                  <Input
-                    type="text"
-                    value={row.reIssueQty}
-                    onChange={(e) => handleCellChange(row.id, 'reIssueQty', e.target.value)}
-                    className="border-0 p-1 text-xs h-8"
-                  />
-                </td>
-                <td className="border border-gray-400 p-1 bg-orange-50">
-                  <Input
-                    type="text"
-                    value={row.reIssueUnit}
-                    onChange={(e) => handleCellChange(row.id, 'reIssueUnit', e.target.value)}
-                    className="border-0 p-1 text-xs h-8"
-                  />
-                </td>
-                <td className="border border-gray-400 p-1 bg-orange-50">
-                  <Input
-                    type="text"
-                    value={row.reIssueWeight}
-                    onChange={(e) => handleCellChange(row.id, 'reIssueWeight', e.target.value)}
-                    className="border-0 p-1 text-xs h-8"
-                  />
-                </td>
-                <td className="border border-gray-400 p-1 bg-orange-50">
-                  <Input
-                    type="text"
-                    value={row.reIssueWeightUnit}
-                    onChange={(e) => handleCellChange(row.id, 'reIssueWeightUnit', e.target.value)}
-                    className="border-0 p-1 text-xs h-8"
-                  />
-                </td>
+                </th>
+                <th className="border border-gray-400 p-2 bg-yellow-300 min-w-[100px] sticky left-8 z-30 border-r-2 border-r-gray-400" style={{boxShadow: 'inset -2px 0 0 0 rgb(209, 213, 219)'}}>Voucher No.</th>
+                {columns.map((column) => 
+                  visibleColumns.has(column.id) && (
+                    <th key={column.id} className={`border border-gray-400 p-2 ${columnConfig[column.id].headerBg} ${columnConfig[column.id].minWidth}`}>
+                      {column.label}
+                    </th>
+                  )
+                )}
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </ScrollArea>
+            </thead>
+
+            <tbody>
+              {data.map((row) => (
+                <tr key={row.id} className="hover:bg-gray-50 border-b border-gray-400">
+                  <td className="border border-gray-400 p-2 text-center sticky left-0 bg-white z-10">
+                    <Checkbox
+                      checked={selectedRows.has(row.id)}
+                      onCheckedChange={() => toggleRowSelection(row.id)}
+                      className="cursor-pointer"
+                    />
+                  </td>
+                  <td className="border border-gray-400 p-1 sticky left-8 bg-white z-10 border-r-2 border-r-gray-400" style={{boxShadow: 'inset -2px 0 0 0 rgb(209, 213, 219)'}}>
+                    <Input
+                      type="text"
+                      value={row.voucherNo}
+                      onChange={(e) => handleCellChange(row.id, 'voucherNo', e.target.value)}
+                      className="border-0 p-1 text-xs h-8"
+                    />
+                  </td>
+                  {columns.map((column) =>
+                    visibleColumns.has(column.id) && (
+                      <td key={column.id} className={`border border-gray-400 p-1 ${columnConfig[column.id].cellBg || ''}`}>
+                        <Input
+                          type="text"
+                          value={row[column.id]}
+                          onChange={(e) => handleCellChange(row.id, column.id, e.target.value)}
+                          className="border-0 p-1 text-xs h-8"
+                        />
+                      </td>
+                    )
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
 
       {/* Add Row Button */}
       <div className="mt-4 flex gap-2">
