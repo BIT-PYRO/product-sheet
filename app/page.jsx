@@ -1520,6 +1520,11 @@ export default function ProductSheet() {
             Master Product Sheet
           </a>
 
+          {/* Master Workforce Sheet Button */}
+          <a href="/master-workforce-sheet" className="w-full mb-6 px-4 py-3 text-sm bg-orange-500 text-white font-semibold rounded hover:bg-orange-600 transition-colors block text-center">
+            Master Workforce Sheet
+          </a>
+
           {/* Managers Dashboard Button */}
           <a href="/managers-dashboard" className="w-full mb-6 px-4 py-3 text-sm bg-blue-500 text-white font-semibold rounded hover:bg-blue-600 transition-colors block text-center">
             Managers Dashboard
