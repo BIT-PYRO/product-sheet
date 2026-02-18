@@ -484,20 +484,20 @@ export default function ProductSheet() {
       }
     };
     
-    return (<div className="min-h-screen bg-white p-2 flex flex-col">
-      <div className="flex justify-between items-center mb-2 sticky top-0 z-50 bg-white py-2 border-b border-gray-300">
+    return (<div className="min-h-screen bg-slate-50 p-3 md:p-4 flex flex-col text-slate-900">
+      <div className="flex justify-between items-center mb-2 sticky top-0 z-50 bg-white/95 py-2 border-b border-gray-200 shadow-sm backdrop-blur">
         <div className="flex items-center gap-3">
-          <button onClick={() => setIsDashboardOpen(!isDashboardOpen)} className="p-2 border-2 border-black bg-white rounded hover:bg-gray-100 transition-colors">
+          <button onClick={() => setIsDashboardOpen(!isDashboardOpen)} className="p-2 border-2 border-black bg-white rounded hover:bg-gray-100 transition-colors shadow-sm">
             <LayoutDashboard className="h-5 w-5 text-black" />
           </button>
-          <h1 className="text-xl font-bold">PRODUCT SHEET</h1>
+          <h1 className="text-xl font-bold tracking-tight text-slate-900">PRODUCT SHEET</h1>
         </div>
         <div className="flex gap-2 items-center">
-          <button onClick={() => setIsModalOpen(true)} className="w-fit px-2 py-1 text-xs bg-blue-600 text-white font-semibold rounded hover:bg-blue-700">+ ADD PRODUCT</button>
-          <button onClick={handleSaveToGoogleSheets} disabled={isSaving} className="w-fit px-2 py-1 text-xs bg-green-600 text-white font-semibold rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed">{isSaving ? 'Saving...' : 'SAVE'}</button>
-          <button onClick={handleDeleteFromGoogleSheets} disabled={isSaving} className="w-fit px-2 py-1 text-xs bg-red-600 text-white font-semibold rounded hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed">DELETE</button>
+          <button onClick={() => setIsModalOpen(true)} className="w-fit px-3 py-1 text-xs bg-blue-600 text-white font-semibold rounded-md shadow-sm hover:bg-blue-700">+ ADD PRODUCT</button>
+          <button onClick={handleSaveToGoogleSheets} disabled={isSaving} className="w-fit px-3 py-1 text-xs bg-green-600 text-white font-semibold rounded-md shadow-sm hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed">{isSaving ? 'Saving...' : 'SAVE'}</button>
+          <button onClick={handleDeleteFromGoogleSheets} disabled={isSaving} className="w-fit px-3 py-1 text-xs bg-red-600 text-white font-semibold rounded-md shadow-sm hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed">DELETE</button>
           {saveStatus && (
-            <div className={`text-xs px-2 py-1 rounded ${saveStatus.success ? 'bg-green-100 text-green-700 border border-green-300' : 'bg-red-100 text-red-700 border border-red-300'}`}>
+            <div className={`text-xs px-2 py-1 rounded-md ${saveStatus.success ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
               {saveStatus.message}
             </div>
           )}
@@ -506,10 +506,10 @@ export default function ProductSheet() {
 
       <div className={`flex-1 overflow-y-auto transition-all duration-300 ${isDashboardOpen ? 'ml-80' : ''}`}>
       {/* Top Section - Product Details & Variations Combined */}
-      <div className="bg-gray-200 p-2 rounded-lg mb-2">
+      <div className="bg-slate-100 p-2 rounded-xl mb-2 border border-gray-200 shadow-sm">
         <div className="flex gap-3 h-auto">
           {/* Product Image - Left Side - 1/4 width */}
-          <div className="w-1/4 h-[27rem] bg-white border-2 border-gray-400 flex items-center justify-center flex-shrink-0 cursor-pointer hover:bg-gray-100 relative overflow-hidden" onClick={() => fileInputRef.current?.click()}>
+          <div className="w-1/4 h-[27rem] bg-white border-2 border-gray-200 rounded-xl shadow-sm ring-1 ring-gray-100 flex items-center justify-center flex-shrink-0 cursor-pointer hover:bg-gray-50 relative overflow-hidden" onClick={() => fileInputRef.current?.click()}>
             {productImage ? (<img src={productImage || "/placeholder.svg"} alt="Product" className="w-full h-full object-cover"/>) : (<span className="text-gray-600 text-center text-xs font-semibold">
                 PRODUCT<br />IMAGE
               </span>)}
@@ -519,7 +519,7 @@ export default function ProductSheet() {
           {/* Product Details & Variations - Right Side - 3/4 width */}
           <div className="w-3/4 flex flex-col gap-2 overflow-y-auto">
             {/* SKU Table */}
-            <div className="bg-white border-2 border-gray-400">
+            <div className="bg-white border-2 border-gray-200 rounded-xl shadow-sm">
               <div className="flex border-b border-gray-400">
                 <div className="flex-1 px-2 py-1 border-r-2 border-gray-400">
                   <div className="font-semibold text-xs mb-1">SKU</div>
@@ -534,7 +534,7 @@ export default function ProductSheet() {
 
             {/* Dropdowns Table */}
             <div className="flex gap-2">
-              <div className="flex-1 bg-white border-2 border-gray-400 px-2 py-1">
+              <div className="flex-1 bg-white border-2 border-gray-200 rounded-xl shadow-sm px-2 py-1">
                 <div className="font-semibold text-xs mb-1">Material</div>
                 <select value={dropdown1} onChange={(e) => setDropdown1(e.target.value)} className="w-full bg-transparent outline-none text-xs border border-gray-300 rounded px-2 py-1">
                   <option value="">Select...</option>
@@ -544,7 +544,7 @@ export default function ProductSheet() {
                   <option value="Copper">Copper</option>
                 </select>
               </div>
-              <div className="flex-1 bg-white border-2 border-gray-400 px-2 py-1">
+              <div className="flex-1 bg-white border-2 border-gray-200 rounded-xl shadow-sm px-2 py-1">
                 <div className="font-semibold text-xs mb-1">Weight</div>
                 <div className="flex gap-1">
                   <input type="text" placeholder="Value" value={weightValue} onChange={(e) => setWeightValue(e.target.value)} className="flex-1 bg-transparent outline-none text-xs border border-gray-300 rounded px-2 py-1"/>
@@ -557,7 +557,7 @@ export default function ProductSheet() {
                   </select>
                 </div>
               </div>
-              <div className="flex-1 bg-white border-2 border-gray-400 px-2 py-1">
+              <div className="flex-1 bg-white border-2 border-gray-200 rounded-xl shadow-sm px-2 py-1">
                 <div className="font-semibold text-xs mb-1">Category</div>
                 <select value={dropdown2} onChange={(e) => setDropdown2(e.target.value)} className="w-full bg-transparent outline-none text-xs border border-gray-300 rounded px-2 py-1">
                   <option value="">Select...</option>
@@ -568,7 +568,7 @@ export default function ProductSheet() {
                   <option value="Pendant">Pendant</option>
                 </select>
               </div>
-              <div className="flex-1 bg-white border-2 border-gray-400 px-2 py-1">
+              <div className="flex-1 bg-white border-2 border-gray-200 rounded-xl shadow-sm px-2 py-1">
                 <div className="font-semibold text-xs mb-1">Collection</div>
                 <select value={dropdown3} onChange={(e) => setDropdown3(e.target.value)} className="w-full bg-transparent outline-none text-xs border border-gray-300 rounded px-2 py-1">
                   <option value="">Select...</option>
@@ -582,7 +582,7 @@ export default function ProductSheet() {
 
             {/* Two Separate Spaces */}
             <div className="flex gap-2">
-              <div className="flex-1 bg-white border-2 border-gray-400 px-2 py-1">
+              <div className="flex-1 bg-white border-2 border-gray-200 rounded-xl shadow-sm px-2 py-1">
                 <div className="font-semibold text-xs mb-2">SETTING TYPE</div>
                 <div className="flex gap-2">
                   <button onClick={() => setSettingType('wax')} className={`flex-1 px-2 py-1 text-xs font-semibold rounded border ${
@@ -601,7 +601,7 @@ export default function ProductSheet() {
                   </button>
                 </div>
               </div>
-              <div className="flex-1 bg-white border-2 border-gray-400 px-2 py-1">
+              <div className="flex-1 bg-white border-2 border-gray-200 rounded-xl shadow-sm px-2 py-1">
                 <div className="font-semibold text-xs mb-2">ENAMEL</div>
                 <div className="flex gap-2">
                   <button onClick={() => setEnamelType('yes')} className={`flex-1 px-2 py-1 text-xs font-semibold rounded border ${
@@ -678,7 +678,7 @@ export default function ProductSheet() {
                   </div>
                 </div>
 
-                <div className="bg-white border-2 border-gray-400 max-h-[8rem] overflow-y-auto">
+                <div className="bg-white border-2 border-gray-200 rounded-xl shadow-sm max-h-[8rem] overflow-y-auto">
                   <div className="flex flex-col">
                     {manufacturing.dieNumbers.map((row, index) => (
                       <div key={row.id} className={`flex items-center ${index > 0 ? 'border-t border-gray-400' : ''}`}>
@@ -757,7 +757,7 @@ export default function ProductSheet() {
                   </div>
                 </div>
 
-                <div className="bg-white border-2 border-gray-400">
+                <div className="bg-white border-2 border-gray-200 rounded-xl shadow-sm">
                   <div className="flex border-b border-gray-400">
                     <div className="w-32 px-2 py-1 border-r-2 border-gray-400 font-semibold text-xs flex items-center flex-shrink-0">
                       MASTER SKU
@@ -833,11 +833,11 @@ export default function ProductSheet() {
       </div>
 
       {/* Live Stock Situation Panel (tabular view) */}
-      <div className="bg-gray-200 p-3 rounded-lg mb-2">
+      <div className="bg-slate-100 p-3 rounded-xl mb-2 border border-gray-200 shadow-sm">
         <h2 className="text-sm font-semibold mb-2 text-center text-yellow-600">LIVE STOCK SITUATION</h2>
         <div className="flex gap-2">
           {/* Main Live Stock Table - 80% */}
-          <div className="flex-shrink-0 bg-white border-2 border-gray-400 p-2 overflow-auto" style={{width: '80%'}}>
+          <div className="flex-shrink-0 bg-white border-2 border-gray-200 rounded-xl shadow-sm p-2 overflow-auto" style={{width: '80%'}}>
             <div className="w-full overflow-hidden">
               <table className="w-full table-fixed text-xs border-collapse text-center">
                 <thead>
@@ -909,7 +909,7 @@ export default function ProductSheet() {
           </div>
 
           {/* Final Stock Table - 20% */}
-          <div className="flex-shrink-0 bg-white border-2 border-gray-400 p-1 flex flex-col" style={{width: '20%'}}>
+          <div className="flex-shrink-0 bg-white border-2 border-gray-200 rounded-xl shadow-sm p-1 flex flex-col" style={{width: '20%'}}>
             <h3 className="text-xs font-semibold mb-1 text-center flex-shrink-0">FINAL STOCK</h3>
             <div className="flex-1 overflow-auto">
               <table className="w-full table-fixed text-xs border-collapse">
@@ -946,7 +946,7 @@ export default function ProductSheet() {
 
       {/* Stone Info and Plating Type - Side by Side */}
       <div className="flex gap-2 mb-2 items-stretch">
-        <div className="w-1/2 bg-gray-200 p-2 rounded-lg flex flex-col h-full">
+        <div className="w-1/2 bg-slate-100 p-2 rounded-xl border border-gray-200 shadow-sm flex flex-col h-full">
           <h2 className="text-sm font-semibold mb-2">STONE INFO</h2>
           <div className="bg-white flex-1 flex flex-col">
             <div className="max-h-36 overflow-y-auto">
@@ -1004,17 +1004,17 @@ export default function ProductSheet() {
           </button>
         </div>
 
-        <div className="w-1/2 bg-gray-200 p-2 rounded-lg flex flex-col h-full">
+        <div className="w-1/2 bg-slate-100 p-2 rounded-xl border border-gray-200 shadow-sm flex flex-col h-full">
           <h2 className="text-sm font-semibold mb-2">PLATING INFO</h2>
           <div className="bg-white flex-1 flex flex-col">
             <div className="max-h-36 overflow-y-auto">
-              <table className="w-full border-2 border-gray-400 table-fixed">
+              <table className="w-full border-2 border-gray-200 table-fixed">
               <thead>
-                <tr className="border-b-2 border-gray-400">
-                  <th className="w-2/5 px-2 py-1 text-left font-semibold text-xs border-r-2 border-gray-400 bg-white">
+                <tr className="border-b-2 border-gray-200">
+                  <th className="w-2/5 px-2 py-1 text-left font-semibold text-xs border-r-2 border-gray-200 bg-white">
                     PLATING TYPE
                   </th>
-                  <th className="w-2/5 px-2 py-1 text-left font-semibold text-xs border-r-2 border-gray-400 bg-white">
+                  <th className="w-2/5 px-2 py-1 text-left font-semibold text-xs border-r-2 border-gray-200 bg-white">
                     PLATING COLOR
                   </th>
                   <th className="w-1/5 px-2 py-1 text-center font-semibold text-xs bg-white">
@@ -1024,11 +1024,11 @@ export default function ProductSheet() {
               </thead>
               <tbody>
                 {platingType.map((row, index) => (
-                  <tr key={row.id} className={index < platingType.length - 1 ? 'border-b-2 border-gray-400' : ''}>
-                    <td className="w-2/5 px-2 py-1 border-r-2 border-gray-400 bg-white">
+                  <tr key={row.id} className={index < platingType.length - 1 ? 'border-b-2 border-gray-200' : ''}>
+                    <td className="w-2/5 px-2 py-1 border-r-2 border-gray-200 bg-white">
                       <input type="text" value={row.col1} onChange={(e) => updatePlatingType(row.id, 'col1', e.target.value)} className="w-full bg-transparent outline-none text-xs"/>
                     </td>
-                    <td className="w-2/5 px-2 py-1 border-r-2 border-gray-400 bg-white">
+                    <td className="w-2/5 px-2 py-1 border-r-2 border-gray-200 bg-white">
                       <input type="text" value={row.col2} onChange={(e) => updatePlatingType(row.id, 'col2', e.target.value)} className="w-full bg-transparent outline-none text-xs"/>
                     </td>
                     <td className="w-1/5 px-2 py-1 bg-white text-center">
@@ -1042,19 +1042,19 @@ export default function ProductSheet() {
             </table>
             </div>
           </div>
-          <button onClick={addPlatingTypeRow} className="w-fit mt-2 px-2 py-1 text-xs bg-blue-600 text-white font-semibold rounded hover:bg-blue-700">
+          <button onClick={addPlatingTypeRow} className="w-fit mt-2 px-3 py-1 text-xs bg-blue-600 text-white font-semibold rounded-md shadow-sm hover:bg-blue-700">
             +ADD ROW
           </button>
         </div>
       </div>
 
       {/* Manufacturing Section */}
-      <div className="bg-gray-200 p-3 rounded-lg mb-2">
+      <div className="bg-slate-100 p-3 rounded-xl mb-2 border border-gray-200 shadow-sm">
         <h2 className="text-sm font-semibold mb-2">MANUFACTURING</h2>
-        <div className="bg-white">
-          <div className="border-2 border-gray-400">
-            <div className="flex border-b-2 border-gray-400">
-              <div className="w-24 p-3 border-r-2 border-gray-400 font-semibold text-sm bg-white flex-shrink-0">
+        <div className="bg-white rounded-xl">
+          <div className="border-2 border-gray-200 rounded-xl shadow-sm">
+            <div className="flex border-b-2 border-gray-200">
+              <div className="w-24 p-3 border-r-2 border-gray-200 font-semibold text-sm bg-white flex-shrink-0">
                 NOTES
               </div>
               <div className="flex-1 p-3 bg-white">
@@ -1063,7 +1063,7 @@ export default function ProductSheet() {
             </div>
 
             <div className="flex">
-              <div className="w-24 p-3 border-r-2 border-gray-400 font-semibold text-sm bg-white flex-shrink-0">
+              <div className="w-24 p-3 border-r-2 border-gray-200 font-semibold text-sm bg-white flex-shrink-0">
                 IMAGES
               </div>
               <div className="flex-1 p-3 bg-white">
@@ -1071,7 +1071,7 @@ export default function ProductSheet() {
                   {manufacturing.images.length > 0 ? (
                     manufacturing.images.map((src, index) => (
                       <div key={`${index}-${src}`} className="relative">
-                        <img src={src} alt={`Manufacturing ${index + 1}`} className="w-40 h-40 object-cover border border-gray-300 rounded"/>
+                        <img src={src} alt={`Manufacturing ${index + 1}`} className="w-40 h-40 object-cover border border-gray-200 rounded-xl"/>
                         <button type="button" onClick={() => removeManufacturingImage(index)} className="absolute -top-1 -right-1 w-5 h-5 bg-red-600 text-white text-xs rounded-full flex items-center justify-center">
                           ×
                         </button>
@@ -1081,7 +1081,7 @@ export default function ProductSheet() {
                     <span className="text-xs text-gray-500">Select images</span>
                   )}
                 </div>
-                <button onClick={() => manufacturingImagesRef.current?.click()} className="mt-2 px-2 py-1 text-xs bg-blue-600 text-white font-semibold rounded hover:bg-blue-700">
+                  <button onClick={() => manufacturingImagesRef.current?.click()} className="mt-2 px-3 py-1 text-xs bg-blue-600 text-white font-semibold rounded-md shadow-sm hover:bg-blue-700">
                   Select Images
                 </button>
                 <input ref={manufacturingImagesRef} type="file" accept="image/*" multiple onChange={handleManufacturingImagesUpload} className="hidden"/>
@@ -1605,17 +1605,17 @@ export default function ProductSheet() {
                   </button>
                 </div>
 
-                <div className="w-1/2 bg-gray-200 p-2 rounded-lg flex flex-col h-full">
+                <div className="w-1/2 bg-slate-100 p-2 rounded-xl border border-gray-200 shadow-sm flex flex-col h-full">
                   <h2 className="text-sm font-semibold mb-2">PLATING INFO</h2>
                   <div className="bg-white flex-1 flex flex-col">
                     <div className="max-h-36 overflow-y-auto">
-                      <table className="w-full border-2 border-gray-400 table-fixed">
+                      <table className="w-full border-2 border-gray-200 table-fixed">
                       <thead>
-                        <tr className="border-b-2 border-gray-400">
-                          <th className="w-2/5 px-2 py-1 text-left font-semibold text-xs border-r-2 border-gray-400 bg-white">
+                        <tr className="border-b-2 border-gray-200">
+                          <th className="w-2/5 px-2 py-1 text-left font-semibold text-xs border-r-2 border-gray-200 bg-white">
                             PLATING TYPE
                           </th>
-                          <th className="w-2/5 px-2 py-1 text-left font-semibold text-xs border-r-2 border-gray-400 bg-white">
+                          <th className="w-2/5 px-2 py-1 text-left font-semibold text-xs border-r-2 border-gray-200 bg-white">
                             PLATING COLOR
                           </th>
                           <th className="w-1/5 px-2 py-1 text-center font-semibold text-xs bg-white">
@@ -1625,11 +1625,11 @@ export default function ProductSheet() {
                       </thead>
                       <tbody>
                         {platingType.map((row, index) => (
-                          <tr key={row.id} className={index < platingType.length - 1 ? 'border-b-2 border-gray-400' : ''}>
-                            <td className="w-2/5 px-2 py-1 border-r-2 border-gray-400 bg-white">
+                          <tr key={row.id} className={index < platingType.length - 1 ? 'border-b-2 border-gray-200' : ''}>
+                            <td className="w-2/5 px-2 py-1 border-r-2 border-gray-200 bg-white">
                               <input type="text" value={row.col1} onChange={(e) => updatePlatingType(row.id, 'col1', e.target.value)} className="w-full bg-transparent outline-none text-xs"/>
                             </td>
-                            <td className="w-2/5 px-2 py-1 border-r-2 border-gray-400 bg-white">
+                            <td className="w-2/5 px-2 py-1 border-r-2 border-gray-200 bg-white">
                               <input type="text" value={row.col2} onChange={(e) => updatePlatingType(row.id, 'col2', e.target.value)} className="w-full bg-transparent outline-none text-xs"/>
                             </td>
                             <td className="w-1/5 px-2 py-1 bg-white text-center">
@@ -1643,19 +1643,19 @@ export default function ProductSheet() {
                     </table>
                     </div>
                   </div>
-                  <button onClick={addPlatingTypeRow} className="w-fit mt-2 px-2 py-1 text-xs bg-blue-600 text-white font-semibold rounded hover:bg-blue-700">
+                  <button onClick={addPlatingTypeRow} className="w-fit mt-2 px-3 py-1 text-xs bg-blue-600 text-white font-semibold rounded-md shadow-sm hover:bg-blue-700">
                     +ADD ROW
                   </button>
                 </div>
               </div>
 
               {/* Manufacturing Section */}
-              <div className="bg-gray-200 p-3 rounded-lg mb-2">
+              <div className="bg-slate-100 p-3 rounded-xl mb-2 border border-gray-200 shadow-sm">
                 <h2 className="text-sm font-semibold mb-2">MANUFACTURING</h2>
-                <div className="bg-white">
-                  <div className="border-2 border-gray-400">
-                    <div className="flex border-b-2 border-gray-400">
-                      <div className="w-24 p-3 border-r-2 border-gray-400 font-semibold text-sm bg-white flex-shrink-0">
+                <div className="bg-white rounded-xl">
+                  <div className="border-2 border-gray-200 rounded-xl shadow-sm">
+                    <div className="flex border-b-2 border-gray-200">
+                      <div className="w-24 p-3 border-r-2 border-gray-200 font-semibold text-sm bg-white flex-shrink-0">
                         NOTES
                       </div>
                       <div className="flex-1 p-3 bg-white">
@@ -1664,7 +1664,7 @@ export default function ProductSheet() {
                     </div>
 
                     <div className="flex">
-                      <div className="w-24 p-3 border-r-2 border-gray-400 font-semibold text-sm bg-white flex-shrink-0">
+                      <div className="w-24 p-3 border-r-2 border-gray-200 font-semibold text-sm bg-white flex-shrink-0">
                         IMAGES
                       </div>
                       <div className="flex-1 p-3 bg-white">
@@ -1672,7 +1672,7 @@ export default function ProductSheet() {
                           {manufacturing.images.length > 0 ? (
                             manufacturing.images.map((src, index) => (
                               <div key={`${index}-${src}`} className="relative">
-                                <img src={src} alt={`Manufacturing ${index + 1}`} className="w-40 h-40 object-cover border border-gray-300 rounded"/>
+                                <img src={src} alt={`Manufacturing ${index + 1}`} className="w-40 h-40 object-cover border border-gray-200 rounded-xl"/>
                                 <button type="button" onClick={() => removeManufacturingImage(index)} className="absolute -top-1 -right-1 w-5 h-5 bg-red-600 text-white text-xs rounded-full flex items-center justify-center">
                                   ×
                                 </button>
@@ -1682,7 +1682,7 @@ export default function ProductSheet() {
                             <span className="text-xs text-gray-500">Select images</span>
                           )}
                         </div>
-                        <button onClick={() => manufacturingImagesRef.current?.click()} className="mt-2 px-2 py-1 text-xs bg-blue-600 text-white font-semibold rounded hover:bg-blue-700">
+                        <button onClick={() => manufacturingImagesRef.current?.click()} className="mt-2 px-3 py-1 text-xs bg-blue-600 text-white font-semibold rounded-md shadow-sm hover:bg-blue-700">
                           Select Images
                         </button>
                         <input ref={manufacturingImagesRef} type="file" accept="image/*" multiple onChange={handleManufacturingImagesUpload} className="hidden"/>
