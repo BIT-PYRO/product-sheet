@@ -17,10 +17,15 @@ export function PrintVoucherModal({ open, onOpenChange, onEdit, onOpenReceiveMod
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[900px] max-h-[88vh] overflow-y-auto bg-white text-slate-900 p-0 gap-0 [&>button]:hidden">
+      <DialogContent className="max-w-[900px] max-h-[88vh] overflow-y-auto bg-white text-slate-900 p-0 gap-0 [&>button]:hidden print:max-w-full print:max-h-full">
+        <style>{`
+          @media print {
+            .print-hide { display: none !important; }
+          }
+        `}</style>
         <DialogTitle className="sr-only">Print Voucher</DialogTitle>
         {/* Close Button */}
-        <div className="flex justify-end px-5 pt-3 pb-2">
+        <div className="flex justify-end px-5 pt-3 pb-2 print-hide">
           <button
             onClick={() => onOpenChange(false)}
             className="text-slate-400 hover:text-slate-600"
@@ -30,7 +35,7 @@ export function PrintVoucherModal({ open, onOpenChange, onEdit, onOpenReceiveMod
           </button>
         </div>
 
-        <div className="px-5 pb-5 flex flex-col gap-1">
+        <div className="px-5 pb-5 flex flex-col gap-1 voucherContainer">
           {/* Header with Date/Schedule on Left, Voucher Type/No on Right */}
           <table className="w-full border border-slate-300">
             <tbody>
@@ -90,7 +95,7 @@ export function PrintVoucherModal({ open, onOpenChange, onEdit, onOpenReceiveMod
           </table>
 
           {/* Action Buttons */}
-          <div className="grid grid-cols-3 gap-2 mt-3">
+          <div className="grid grid-cols-3 gap-2 mt-3 print-hide">
             <Button
               variant="outline"
               className="h-8 font-semibold text-slate-700 border-slate-300 text-xs"
@@ -109,13 +114,10 @@ export function PrintVoucherModal({ open, onOpenChange, onEdit, onOpenReceiveMod
             <Button
               variant="outline"
               className="h-8 font-semibold text-slate-700 border-slate-300 text-xs"
-              onClick={() => {
-                onOpenChange(false)
-                onOpenReceiveModal()
-              }}
+              onClick={() => onOpenChange(false)}
             >
-              <Pencil className="mr-1 h-3.5 w-3.5" />
-              Edit
+              <X className="mr-1 h-3.5 w-3.5" />
+              Exit
             </Button>
           </div>
         </div>

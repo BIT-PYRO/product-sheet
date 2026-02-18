@@ -25,6 +25,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
+import { QuickEnrollModal } from '@/components/quick-enroll-modal';
 
 export default function MasterJobSheet() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -34,6 +35,7 @@ export default function MasterJobSheet() {
   const [isPrintVoucherOpen, setIsPrintVoucherOpen] = useState(false);
   const [selectedVoucherForPrint, setSelectedVoucherForPrint] = useState(null);
   const [isPrintSheetOpen, setIsPrintSheetOpen] = useState(false);
+  const [isQuickEnrollOpen, setIsQuickEnrollOpen] = useState(false);
   const [editingRowIds, setEditingRowIds] = useState(new Set());
   const [archivedRows, setArchivedRows] = useState(new Set());
   
@@ -203,6 +205,10 @@ export default function MasterJobSheet() {
   const handleCreateJob = () => {
     // Create job functionality
     console.log('Create new job');
+  };
+
+  const handleQuickEnroll = () => {
+    setIsQuickEnrollOpen(true);
   };
 
   const handleManageColumns = () => {
@@ -550,7 +556,13 @@ export default function MasterJobSheet() {
             onClick={() => window.location.href = '/enrol-workforce'}
             className="bg-blue-500 hover:bg-blue-600 text-white rounded-full px-6"
           >
-            Quick Enroll Workforce
+            Enroll Workforce
+          </Button>
+          <Button 
+            onClick={handleQuickEnroll}
+            className="bg-blue-500 hover:bg-blue-600 text-white rounded-full px-6"
+          >
+            Quick Enroll
           </Button>
           <Button 
             onClick={handleManageColumns}
@@ -885,6 +897,12 @@ export default function MasterJobSheet() {
         <p>Archived Rows: {archivedRows.size}</p>
         {editingRowIds.size > 0 && <p className="text-blue-600 font-semibold">Editing {editingRowIds.size} row(s)</p>}
       </div>
+
+      {/* Quick Enroll Modal */}
+      <QuickEnrollModal 
+        open={isQuickEnrollOpen} 
+        onOpenChange={setIsQuickEnrollOpen}
+      />
     </div>
   );
 }
