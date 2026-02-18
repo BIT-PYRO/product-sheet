@@ -1,30 +1,143 @@
 import { google } from 'googleapis';
 
+const PRODUCT_HEADERS = [
+  'Last Updated',
+  'SKU',
+  'Listing Name',
+  'Material',
+  'Weight',
+  'Category',
+  'Collection',
+  'Setting Type',
+  'Enamel Type',
+  'Active Channels',
+  'Shopify Status',
+  'Die Number/Findings',
+  'Master SKU',
+  'Color',
+  'Enamel',
+  'Stone Name',
+  'Stone Cut',
+  'Stone Color',
+  'Stone Size',
+  'Stone Quantity',
+  'Plating Type',
+  'Plating Color',
+  'Notes',
+  'Images',
+];
+
+function getCredentials() {
+  return {
+    type: process.env.GOOGLE_TYPE,
+    project_id: process.env.GOOGLE_PROJECT_ID,
+    private_key_id: process.env.GOOGLE_PRIVATE_KEY_ID,
+    private_key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+    client_email: process.env.GOOGLE_CLIENT_EMAIL,
+    client_id: process.env.GOOGLE_CLIENT_ID,
+    auth_uri: process.env.GOOGLE_AUTH_URI,
+    token_uri: process.env.GOOGLE_TOKEN_URI,
+    auth_provider_x509_cert_url: process.env.GOOGLE_AUTH_PROVIDER_CERT_URL,
+    client_x509_cert_url: process.env.GOOGLE_CLIENT_CERT_URL,
+  };
+}
+
+function getSheetsClient() {
+  return google.sheets({
+    version: 'v4',
+    auth: new google.auth.GoogleAuth({
+      credentials: getCredentials(),
+      scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+    }),
+  });
+}
+
+function mapSheetRowsToProducts(rows) {
+  if (!rows || rows.length === 0) {
+    return [];
+  }
+
+  const firstRow = rows[0] || [];
+  const hasHeader = String(firstRow[1] || '').trim().toLowerCase() === 'sku';
+  const dataRows = hasHeader ? rows.slice(1) : rows;
+
+  return dataRows
+    .map((row, index) => {
+      const getValue = (columnIndex) => row[columnIndex] || '';
+      const hasAnyValue = row.some((cell) => String(cell || '').trim() !== '');
+
+      if (!hasAnyValue) {
+        return null;
+      }
+
+      return {
+        id: index,
+        lastUpdated: getValue(0),
+        sku: getValue(1),
+        listingName: getValue(2),
+        material: getValue(3),
+        weight: getValue(4),
+        category: getValue(5),
+        collection: getValue(6),
+        settingType: getValue(7),
+        enamelType: getValue(8),
+        activeChannels: getValue(9),
+        shopifyStatus: getValue(10),
+        dieNumberFindings: getValue(11),
+        masterSku: getValue(12),
+        color: getValue(13),
+        enamel: getValue(14),
+        stoneName: getValue(15),
+        stoneCut: getValue(16),
+        stoneColor: getValue(17),
+        stoneSize: getValue(18),
+        stoneQuantity: getValue(19),
+        platingType: getValue(20),
+        platingColor: getValue(21),
+        notes: getValue(22),
+        images: getValue(23),
+      };
+    })
+    .filter(Boolean);
+}
+
+export async function GET() {
+  try {
+    const spreadsheetId = process.env.GOOGLE_SHEET_ID;
+    const sheets = getSheetsClient();
+
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId,
+      range: 'Sheet1!A:X',
+    });
+
+    const rows = response.data.values || [];
+    const products = mapSheetRowsToProducts(rows);
+
+    return Response.json({
+      success: true,
+      products,
+      total: products.length,
+    });
+  } catch (error) {
+    console.error('Error fetching from Google Sheets:', error);
+    return Response.json(
+      {
+        success: false,
+        message: 'Failed to fetch from Google Sheets',
+        error: error.message,
+      },
+      { status: 500 }
+    );
+  }
+}
+
 export async function POST(request) {
   try {
     const data = await request.json();
     
     // Get credentials from environment variables
-    const credentials = {
-      type: process.env.GOOGLE_TYPE,
-      project_id: process.env.GOOGLE_PROJECT_ID,
-      private_key_id: process.env.GOOGLE_PRIVATE_KEY_ID,
-      private_key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-      client_email: process.env.GOOGLE_CLIENT_EMAIL,
-      client_id: process.env.GOOGLE_CLIENT_ID,
-      auth_uri: process.env.GOOGLE_AUTH_URI,
-      token_uri: process.env.GOOGLE_TOKEN_URI,
-      auth_provider_x509_cert_url: process.env.GOOGLE_AUTH_PROVIDER_CERT_URL,
-      client_x509_cert_url: process.env.GOOGLE_CLIENT_CERT_URL,
-    };
-
-    const sheets = google.sheets({
-      version: 'v4',
-      auth: new google.auth.GoogleAuth({
-        credentials,
-        scopes: ['https://www.googleapis.com/auth/spreadsheets'],
-      }),
-    });
+    const sheets = getSheetsClient();
 
     const spreadsheetId = process.env.GOOGLE_SHEET_ID;
 
@@ -43,11 +156,29 @@ export async function POST(request) {
     
     const manufacturingImages = data.manufacturing?.images?.length > 0 ? `${data.manufacturing.images.length} image(s) uploaded` : '';
     
-    // Extract color and enamel from variations
-    const colorVariation = data.variations?.find(v => v.label === 'COLOR');
-    const enamelVariation = data.variations?.find(v => v.label === 'ENAMEL');
-    const colorValue = colorVariation ? (colorVariation.col1 || colorVariation.col2 || '') : '';
-    const enamelValue = enamelVariation ? (enamelVariation.col1 || enamelVariation.col2 || '') : '';
+    // Extract color and enamel from variations (support multiple rows per field)
+    const formatVariationEntry = (left, right) => {
+      const leftValue = String(left || '').trim();
+      const rightValue = String(right || '').trim();
+
+      if (leftValue && rightValue) {
+        return `${leftValue} (${rightValue})`;
+      }
+
+      return leftValue || rightValue || '';
+    };
+
+    const colorValue = (data.variations || [])
+      .filter((v) => String(v.label || '').toUpperCase() === 'COLOR')
+      .map((v) => formatVariationEntry(v.col1, v.col2))
+      .filter(Boolean)
+      .join('; ');
+
+    const enamelValue = (data.variations || [])
+      .filter((v) => String(v.label || '').toUpperCase() === 'ENAMEL')
+      .map((v) => formatVariationEntry(v.col1, v.col2))
+      .filter(Boolean)
+      .join('; ');
 
     // Prepare the complete row data matching your form fields exactly
     const rowData = [
@@ -78,34 +209,7 @@ export async function POST(request) {
     ];
 
     // Define comprehensive headers matching your fields
-    const headerValues = [
-      [
-        'Last Updated',
-        'SKU',
-        'Listing Name',
-        'Material',
-        'Weight',
-        'Category',
-        'Collection',
-        'Setting Type',
-        'Enamel Type',
-        'Active Channels',
-        'Shopify Status',
-        'Die Number/Findings',
-        'Master SKU',
-        'Color',
-        'Enamel',
-        'Stone Name',
-        'Stone Cut',
-        'Stone Color',
-        'Stone Size',
-        'Stone Quantity',
-        'Plating Type',
-        'Plating Color',
-        'Notes',
-        'Images',
-      ],
-    ];
+    const headerValues = [PRODUCT_HEADERS];
 
     // Always update headers to ensure they match the current structure
     await sheets.spreadsheets.values.update({
@@ -193,26 +297,7 @@ export async function DELETE(request) {
     }
     
     // Get credentials from environment variables
-    const credentials = {
-      type: process.env.GOOGLE_TYPE,
-      project_id: process.env.GOOGLE_PROJECT_ID,
-      private_key_id: process.env.GOOGLE_PRIVATE_KEY_ID,
-      private_key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-      client_email: process.env.GOOGLE_CLIENT_EMAIL,
-      client_id: process.env.GOOGLE_CLIENT_ID,
-      auth_uri: process.env.GOOGLE_AUTH_URI,
-      token_uri: process.env.GOOGLE_TOKEN_URI,
-      auth_provider_x509_cert_url: process.env.GOOGLE_AUTH_PROVIDER_CERT_URL,
-      client_x509_cert_url: process.env.GOOGLE_CLIENT_CERT_URL,
-    };
-
-    const sheets = google.sheets({
-      version: 'v4',
-      auth: new google.auth.GoogleAuth({
-        credentials,
-        scopes: ['https://www.googleapis.com/auth/spreadsheets'],
-      }),
-    });
+    const sheets = getSheetsClient();
 
     const spreadsheetId = process.env.GOOGLE_SHEET_ID;
 

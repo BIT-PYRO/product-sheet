@@ -25,6 +25,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
+import MasterNavigationDrawer from '@/components/master_navigation_drawer';
 
 export default function MasterJobSheet() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -268,6 +269,7 @@ export default function MasterJobSheet() {
 
   return (
     <div className="w-full h-full bg-gray-50 p-4 md:p-6">
+      <MasterNavigationDrawer />
       {/* Manage Columns Dialog */}
       <Dialog open={isManageColumnsOpen} onOpenChange={setIsManageColumnsOpen}>
         <DialogContent className="max-w-md">
