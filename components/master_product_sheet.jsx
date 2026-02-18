@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -25,9 +25,13 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
+import MasterNavigationDrawer from '@/components/master_navigation_drawer';
 
 export default function MasterProductSheet() {
+  const PRODUCT_SHEET_SYNC_KEY = 'product_sheet_updated_at';
   const [searchTerm, setSearchTerm] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
+  const [fetchError, setFetchError] = useState('');
   const [selectedRows, setSelectedRows] = useState(new Set());
   const [isManageColumnsOpen, setIsManageColumnsOpen] = useState(false);
   const [selectedColumnsForAction, setSelectedColumnsForAction] = useState(new Set());
@@ -152,34 +156,50 @@ export default function MasterProductSheet() {
   const enamelTypeOptions = ['Yes', 'No'];
   const shopifyStatusOptions = ['Active', 'Inactive', 'Draft'];
 
-  const [data, setData] = useState(
-    Array(15).fill(null).map((_, i) => ({
-      id: i,
-      sku: '',
-      listingName: '',
-      material: '',
-      weight: '',
-      category: '',
-      collection: '',
-      settingType: '',
-      enamelType: '',
-      activeChannels: '',
-      shopifyStatus: '',
-      dieNumberFindings: '',
-      masterSku: '',
-      color: '',
-      enamel: '',
-      stoneName: '',
-      stoneCut: '',
-      stoneColor: '',
-      stoneSize: '',
-      stoneQuantity: '',
-      platingType: '',
-      platingColor: '',
-      notes: '',
-      images: '',
-    }))
-  );
+  const [data, setData] = useState([]);
+
+  const loadProducts = useCallback(async () => {
+    setIsLoading(true);
+    setFetchError('');
+
+    try {
+      const response = await fetch('/api/save-to-sheets', {
+        method: 'GET',
+        cache: 'no-store',
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.message || 'Failed to fetch product data');
+      }
+
+      setData(Array.isArray(result.products) ? result.products : []);
+    } catch (error) {
+      setFetchError(error.message || 'Failed to load products');
+      setData([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadProducts();
+  }, [loadProducts]);
+
+  useEffect(() => {
+    const handleStorageSync = (event) => {
+      if (event.key === PRODUCT_SHEET_SYNC_KEY) {
+        loadProducts();
+      }
+    };
+
+    window.addEventListener('storage', handleStorageSync);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageSync);
+    };
+  }, [loadProducts]);
 
   const toggleRowSelection = (id) => {
     const newSelected = new Set(selectedRows);
@@ -292,8 +312,50 @@ export default function MasterProductSheet() {
   // Get active (non-archived) data
   const activeData = data.filter(row => !archivedRows.has(row.id));
 
+  const filteredData = useMemo(() => {
+    return activeData.filter((row) => {
+      const searchLower = searchTerm.trim().toLowerCase();
+
+      const matchesSearch =
+        !searchLower ||
+        row.sku?.toLowerCase().includes(searchLower) ||
+        row.listingName?.toLowerCase().includes(searchLower) ||
+        row.material?.toLowerCase().includes(searchLower);
+
+      const matchesSku = !skuFilter || row.sku?.toLowerCase().includes(skuFilter.toLowerCase());
+      const matchesMaterial = !materialFilter || row.material === materialFilter;
+      const matchesCategory = !categoryFilter || row.category === categoryFilter;
+      const matchesCollection = !collectionFilter || row.collection === collectionFilter;
+      const matchesSettingType = !settingTypeFilter || row.settingType === settingTypeFilter;
+      const matchesEnamelType = !enamelTypeFilter || row.enamelType === enamelTypeFilter;
+      const matchesShopifyStatus = !shopifyStatusFilter || row.shopifyStatus === shopifyStatusFilter;
+
+      return (
+        matchesSearch &&
+        matchesSku &&
+        matchesMaterial &&
+        matchesCategory &&
+        matchesCollection &&
+        matchesSettingType &&
+        matchesEnamelType &&
+        matchesShopifyStatus
+      );
+    });
+  }, [
+    activeData,
+    searchTerm,
+    skuFilter,
+    materialFilter,
+    categoryFilter,
+    collectionFilter,
+    settingTypeFilter,
+    enamelTypeFilter,
+    shopifyStatusFilter,
+  ]);
+
   return (
     <div className="w-full h-full bg-gray-50 p-4 md:p-6">
+      <MasterNavigationDrawer />
       {/* Manage Columns Dialog */}
       <Dialog open={isManageColumnsOpen} onOpenChange={setIsManageColumnsOpen}>
         <DialogContent className="max-w-md">
@@ -467,7 +529,7 @@ export default function MasterProductSheet() {
             <div className="grid grid-cols-4 gap-4 mb-6 p-4 bg-gray-50 rounded-lg border border-gray-300">
               <div>
                 <p className="text-xs font-bold text-gray-700 mb-1">Total Products</p>
-                <p className="text-lg font-bold">{data.length}</p>
+                <p className="text-lg font-bold">{filteredData.length}</p>
               </div>
               <div>
                 <p className="text-xs font-bold text-gray-700 mb-1">Selected Products</p>
@@ -475,11 +537,11 @@ export default function MasterProductSheet() {
               </div>
               <div>
                 <p className="text-xs font-bold text-gray-700 mb-1">Total SKUs</p>
-                <p className="text-lg font-bold">{data.filter(row => row.sku).length}</p>
+                <p className="text-lg font-bold">{filteredData.filter(row => row.sku).length}</p>
               </div>
               <div>
                 <p className="text-xs font-bold text-gray-700 mb-1">Active Listings</p>
-                <p className="text-lg font-bold">{data.filter(row => row.shopifyStatus === 'Active').length}</p>
+                <p className="text-lg font-bold">{filteredData.filter(row => row.shopifyStatus?.toLowerCase() === 'active').length}</p>
               </div>
             </div>
 
@@ -501,7 +563,7 @@ export default function MasterProductSheet() {
                   </tr>
                 </thead>
                 <tbody>
-                  {data.map((row, index) => (
+                  {filteredData.map((row, index) => (
                     <tr key={row.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
                       <td className="border border-gray-400 p-2">{row.sku || '—'}</td>
                       <td className="border border-gray-400 p-2">{row.listingName || '—'}</td>
@@ -564,6 +626,14 @@ export default function MasterProductSheet() {
 
         {/* Action Buttons */}
         <div className="flex flex-wrap gap-2 md:gap-4 justify-end mb-6">
+          <Button
+            onClick={loadProducts}
+            variant="outline"
+            className="border-gray-800 text-gray-800 rounded-full px-6"
+            disabled={isLoading}
+          >
+            {isLoading ? 'Refreshing...' : 'Refresh'}
+          </Button>
           <Button 
             onClick={handleCreateProduct}
             className="bg-green-500 hover:bg-green-600 text-white rounded-full px-6"
@@ -742,6 +812,21 @@ export default function MasterProductSheet() {
         </div>
       </div>
 
+      {isLoading && (
+        <div className="mb-4 rounded-md border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">
+          Loading products from Google Sheets...
+        </div>
+      )}
+
+      {!isLoading && fetchError && (
+        <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700 flex items-center justify-between gap-3">
+          <span>{fetchError}</span>
+          <Button onClick={loadProducts} variant="outline" className="h-8 px-3 border-red-300 text-red-700 hover:bg-red-100">
+            Retry
+          </Button>
+        </div>
+      )}
+
       {/* Table Section */}
       <div className="border border-gray-300 rounded-lg bg-white overflow-hidden">
         {/* Table wrapper with vertical scrolling only */}
@@ -761,7 +846,18 @@ export default function MasterProductSheet() {
             </thead>
 
             <tbody>
-              {activeData.map((row, idx) => {
+              {filteredData.length === 0 && (
+                <tr>
+                  <td
+                    className="border border-gray-400 p-4 text-center text-sm text-gray-500"
+                    colSpan={visibleColumns.size + 1}
+                  >
+                    No products found. Add a product from Product Sheet, then click Refresh.
+                  </td>
+                </tr>
+              )}
+
+              {filteredData.map((row, idx) => {
                 const isEditing = editingRowIds.has(row.id);
                 const isAnyRowEditing = editingRowIds.size > 0;
                 const canEdit = !isAnyRowEditing || isEditing;
@@ -838,7 +934,7 @@ export default function MasterProductSheet() {
       {/* Footer Info */}
       <div className="mt-4 text-xs text-gray-600">
         <p>Selected Rows: {selectedRows.size}</p>
-        <p>Total Rows: {activeData.length}</p>
+        <p>Total Rows: {filteredData.length}</p>
         <p>Archived Rows: {archivedRows.size}</p>
         {editingRowIds.size > 0 && <p className="text-blue-600 font-semibold">Editing {editingRowIds.size} row(s)</p>}
       </div>

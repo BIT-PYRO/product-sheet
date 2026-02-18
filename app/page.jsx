@@ -3,12 +3,15 @@
 import React from "react"
 import { Trash2, LayoutDashboard, X } from 'lucide-react'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { CreateJobModal } from '@/components/create-job-modal'
+
+const PRODUCT_SHEET_SYNC_KEY = 'product_sheet_updated_at'
 
 export default function ProductSheet() {
   const fileInputRef = useRef(null)
   const manufacturingImagesRef = useRef(null)
+  const autoSaveTimeoutRef = useRef(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isCreateJobModalOpen, setIsCreateJobModalOpen] = useState(false)
   const [isDashboardOpen, setIsDashboardOpen] = useState(false)
@@ -64,6 +67,34 @@ export default function ProductSheet() {
     'Retail Store'
   ]
 
+  const colorOptions = [
+    'BLACK',
+    'WHITE',
+    'GRAY',
+    'SILVER',
+    'GOLD',
+    'ROSE GOLD',
+    'BRONZE',
+    'COPPER',
+    'BROWN',
+    'BEIGE',
+    'RED',
+    'MAROON',
+    'PINK',
+    'PURPLE',
+    'BLUE',
+    'NAVY',
+    'TEAL',
+    'GREEN',
+    'OLIVE',
+    'YELLOW',
+    'AMBER',
+    'ORANGE',
+    'MULTICOLOR',
+  ]
+
+  const variationTypeOptions = ['COLOR', 'ENAMEL']
+
   const toggleChannel = (channel) => {
     setActiveChannels(prev => 
       prev.includes(channel) 
@@ -73,9 +104,10 @@ export default function ProductSheet() {
   }
 
   const [variations, setVariations] = useState([
-    { id: 1, label: 'COLOR', col1: '', col2: '' },
-    { id: 2, label: 'ENAMEL', col1: '', col2: '' },
+    { id: 1, label: '', col1: '', col2: '' },
+    { id: 2, label: '', col1: '', col2: '' },
   ])
+  const [colorCodeByColor, setColorCodeByColor] = useState({})
 
   const [stoneInfo, setStoneInfo] = useState([
     { id: 1, name: '', cut: '', color: '', size: '', quantity: '' },
@@ -102,6 +134,87 @@ export default function ProductSheet() {
   ])
   const [isSaving, setIsSaving] = useState(false)
   const [saveStatus, setSaveStatus] = useState(null)
+
+  useEffect(() => {
+    return () => {
+      if (autoSaveTimeoutRef.current) {
+        clearTimeout(autoSaveTimeoutRef.current)
+      }
+    }
+  }, [])
+
+  const buildProductData = (overrideValues = {}) => ({
+    sku,
+    listingName,
+    material,
+    materialSku,
+    dropdown1,
+    weightValue,
+    weightUnit,
+    dropdown2,
+    dropdown3,
+    settingType,
+    enamelType,
+    activeChannels,
+    shopifyStatus,
+    platingType,
+    manufacturing,
+    variations,
+    stoneInfo,
+    finalStock,
+    liveStock,
+    ...overrideValues,
+  })
+
+  const saveProductData = async (productData, isAutoSave = false) => {
+    const response = await fetch('/api/save-to-sheets', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(productData),
+    })
+
+    const result = await response.json()
+
+    if (!result.success) {
+      throw new Error(result.message || 'Failed to save product')
+    }
+
+    localStorage.setItem(PRODUCT_SHEET_SYNC_KEY, Date.now().toString())
+
+    if (isAutoSave) {
+      setSaveStatus({ success: true, message: '✓ Auto-saved' })
+      setTimeout(() => setSaveStatus(null), 1500)
+      return
+    }
+
+    const message = result.isUpdate 
+      ? `✓ Product updated in Google Sheets (${result.message})`
+      : '✓ New product added to Google Sheets'
+    setSaveStatus({ success: true, message })
+    setTimeout(() => setSaveStatus(null), 4000)
+  }
+
+  const scheduleAutoSave = (overrideValues = {}) => {
+    const nextProductData = buildProductData(overrideValues)
+
+    if (!nextProductData.sku?.trim()) {
+      return
+    }
+
+    if (autoSaveTimeoutRef.current) {
+      clearTimeout(autoSaveTimeoutRef.current)
+    }
+
+    autoSaveTimeoutRef.current = setTimeout(async () => {
+      try {
+        await saveProductData(nextProductData, true)
+      } catch (error) {
+        setSaveStatus({ success: false, message: `Auto-save failed: ${error.message}` })
+      }
+    }, 600)
+  }
 
   const updateLiveStock = (stage, field, value) => {
     setLiveStock(prev => ({
@@ -208,8 +321,79 @@ export default function ProductSheet() {
     };
     // Handlers for Variations
     const updateVariation = (id, field, value) => {
-        setVariations(variations.map(row => row.id === id ? { ...row, [field]: value } : row));
+        setVariations((prev) => {
+          const nextVariations = prev.map((row) => row.id === id ? { ...row, [field]: value } : row)
+          scheduleAutoSave({ variations: nextVariations })
+          return nextVariations
+        })
     };
+
+    const updateVariationLabel = (id, selectedLabel) => {
+      const normalizedLabel = selectedLabel.toUpperCase()
+
+      setVariations((prev) => {
+        const nextVariations = prev.map((row) => {
+          if (row.id !== id) {
+            return row
+          }
+
+          if (normalizedLabel === 'COLOR') {
+            const selectedColor = (row.col1 || '').toUpperCase()
+            const mappedCode = selectedColor ? (colorCodeByColor[selectedColor] || row.col2 || '') : (row.col2 || '')
+            return {
+              ...row,
+              label: normalizedLabel,
+              col1: selectedColor,
+              col2: mappedCode,
+            }
+          }
+
+          return {
+            ...row,
+            label: normalizedLabel,
+          }
+        })
+
+        scheduleAutoSave({ variations: nextVariations })
+        return nextVariations
+      })
+    }
+
+    const updateColorVariationColor = (id, selectedColor) => {
+      const normalizedColor = selectedColor.toUpperCase();
+      const mappedCode = colorCodeByColor[normalizedColor] || '';
+      const nextVariations = variations.map(row => 
+        row.id === id ? { ...row, col1: normalizedColor, col2: mappedCode } : row
+      )
+
+      setVariations(nextVariations)
+      scheduleAutoSave({ variations: nextVariations })
+    };
+
+    const updateColorVariationCode = (id, codeValue) => {
+      const normalizedCode = codeValue.toUpperCase();
+
+      setVariations((prev) => {
+        const nextVariations = prev.map((row) => {
+          if (row.id !== id) {
+            return row;
+          }
+
+          if (row.label === 'COLOR' && row.col1) {
+            setColorCodeByColor((prevMap) => ({
+              ...prevMap,
+              [row.col1]: normalizedCode,
+            }));
+          }
+
+          return { ...row, col2: normalizedCode };
+        })
+
+        scheduleAutoSave({ variations: nextVariations })
+        return nextVariations
+      });
+    };
+
     const addVariation = () => {
       const newId = Math.max(...variations.map(r => r.id), 0) + 1;
       setVariations([...variations, { id: newId, label: '', col1: '', col2: '' }]);
@@ -238,47 +422,8 @@ export default function ProductSheet() {
       setSaveStatus(null);
       
       try {
-        const productData = {
-          sku,
-          listingName,
-          material,
-          materialSku,
-          dropdown1,
-          weightValue,
-          weightUnit,
-          dropdown2,
-          dropdown3,
-          settingType,
-          enamelType,
-          activeChannels,
-          shopifyStatus,
-          platingType,
-          manufacturing,
-          variations,
-          stoneInfo,
-          finalStock,
-          liveStock,
-        };
-        
-        const response = await fetch('/api/save-to-sheets', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(productData),
-        });
-        
-        const result = await response.json();
-        
-        if (result.success) {
-          const message = result.isUpdate 
-            ? `✓ Product updated in Google Sheets (${result.message})`
-            : '✓ New product added to Google Sheets';
-          setSaveStatus({ success: true, message });
-          setTimeout(() => setSaveStatus(null), 4000);
-        } else {
-          setSaveStatus({ success: false, message: `Error: ${result.message}` });
-        }
+        const productData = buildProductData()
+        await saveProductData(productData)
       } catch (error) {
         setSaveStatus({ success: false, message: `Error: ${error.message}` });
       } finally {
@@ -313,6 +458,7 @@ export default function ProductSheet() {
         
         if (result.success) {
           setSaveStatus({ success: true, message: result.message });
+          localStorage.setItem(PRODUCT_SHEET_SYNC_KEY, Date.now().toString());
           setTimeout(() => setSaveStatus(null), 4000);
           
           // Clear form after successful deletion
@@ -625,18 +771,51 @@ export default function ProductSheet() {
                     {variations.map((variation, index) => (
                       <div key={variation.id} className={`flex items-center ${index < variations.length - 1 ? 'border-b border-gray-400' : ''}`}>
                         <div className="w-32 px-2 py-1 border-r-2 border-gray-400 font-semibold text-xs flex items-center flex-shrink-0">
-                          {variation.label ? (
-                            <span>{variation.label}</span>
-                          ) : (
-                            <input type="text" placeholder="Label" value={variation.label} onChange={(e) => updateVariation(variation.id, 'label', e.target.value)} className="w-full bg-transparent outline-none text-xs placeholder-gray-400"/>
-                          )}
+                          <select
+                            value={variation.label}
+                            onChange={(e) => updateVariationLabel(variation.id, e.target.value)}
+                            className="w-full bg-transparent outline-none text-xs"
+                          >
+                            <option value="" disabled>Variation</option>
+                            {variationTypeOptions.map((type) => (
+                              <option key={type} value={type}>{type}</option>
+                            ))}
+                          </select>
                         </div>
-                        <div className="flex-1 px-2 py-1 border-r-2 border-gray-400">
-                          <input type="text" value={variation.col1} onChange={(e) => updateVariation(variation.id, 'col1', e.target.value)} className="w-full bg-transparent outline-none text-xs"/>
-                        </div>
-                        <div className="flex-1 px-2 py-1 border-r-2 border-gray-400">
-                          <input type="text" value={variation.col2} onChange={(e) => updateVariation(variation.id, 'col2', e.target.value)} className="w-full bg-transparent outline-none text-xs"/>
-                        </div>
+                        {variation.label === 'COLOR' ? (
+                          <>
+                            <div className="flex-1 px-2 py-1 border-r-2 border-gray-400">
+                              <select
+                                value={variation.col1}
+                                onChange={(e) => updateColorVariationColor(variation.id, e.target.value)}
+                                className="w-full bg-transparent outline-none text-xs"
+                              >
+                                <option value="">Select Color</option>
+                                {colorOptions.map((color) => (
+                                  <option key={color} value={color}>{color}</option>
+                                ))}
+                              </select>
+                            </div>
+                            <div className="flex-1 px-2 py-1 border-r-2 border-gray-400">
+                              <input
+                                type="text"
+                                value={variation.col2}
+                                placeholder="e.g. AJP36/G"
+                                onChange={(e) => updateColorVariationCode(variation.id, e.target.value)}
+                                className="w-full bg-transparent outline-none text-xs"
+                              />
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <div className="flex-1 px-2 py-1 border-r-2 border-gray-400">
+                              <input type="text" value={variation.col1} onChange={(e) => updateVariation(variation.id, 'col1', e.target.value)} className="w-full bg-transparent outline-none text-xs"/>
+                            </div>
+                            <div className="flex-1 px-2 py-1 border-r-2 border-gray-400">
+                              <input type="text" value={variation.col2} onChange={(e) => updateVariation(variation.id, 'col2', e.target.value)} className="w-full bg-transparent outline-none text-xs"/>
+                            </div>
+                          </>
+                        )}
                         <button type="button" onClick={() => deleteVariation(variation.id)} className="px-2 py-1 text-red-500 hover:text-red-700 transition-colors flex-shrink-0">
                           <Trash2 className="h-3 w-3" />
                         </button>
@@ -1193,18 +1372,51 @@ export default function ProductSheet() {
                             {variations.map((variation, index) => (
                               <div key={variation.id} className={`flex items-center ${index < variations.length - 1 ? 'border-b border-gray-400' : ''}`}>
                                 <div className="w-32 px-2 py-1 border-r-2 border-gray-400 font-semibold text-xs flex items-center flex-shrink-0">
-                                  {variation.label ? (
-                                    <span>{variation.label}</span>
-                                  ) : (
-                                    <input type="text" placeholder="Label" value={variation.label} onChange={(e) => updateVariation(variation.id, 'label', e.target.value)} className="w-full bg-transparent outline-none text-xs placeholder-gray-400"/>
-                                  )}
+                                  <select
+                                    value={variation.label}
+                                    onChange={(e) => updateVariationLabel(variation.id, e.target.value)}
+                                    className="w-full bg-transparent outline-none text-xs"
+                                  >
+                                    <option value="" disabled>Variation</option>
+                                    {variationTypeOptions.map((type) => (
+                                      <option key={type} value={type}>{type}</option>
+                                    ))}
+                                  </select>
                                 </div>
-                                <div className="flex-1 px-2 py-1 border-r-2 border-gray-400">
-                                  <input type="text" value={variation.col1} onChange={(e) => updateVariation(variation.id, 'col1', e.target.value)} className="w-full bg-transparent outline-none text-xs"/>
-                                </div>
-                                <div className="flex-1 px-2 py-1 border-r-2 border-gray-400">
-                                  <input type="text" value={variation.col2} onChange={(e) => updateVariation(variation.id, 'col2', e.target.value)} className="w-full bg-transparent outline-none text-xs"/>
-                                </div>
+                                {variation.label === 'COLOR' ? (
+                                  <>
+                                    <div className="flex-1 px-2 py-1 border-r-2 border-gray-400">
+                                      <select
+                                        value={variation.col1}
+                                        onChange={(e) => updateColorVariationColor(variation.id, e.target.value)}
+                                        className="w-full bg-transparent outline-none text-xs"
+                                      >
+                                        <option value="">Select Color</option>
+                                        {colorOptions.map((color) => (
+                                          <option key={color} value={color}>{color}</option>
+                                        ))}
+                                      </select>
+                                    </div>
+                                    <div className="flex-1 px-2 py-1 border-r-2 border-gray-400">
+                                      <input
+                                        type="text"
+                                        value={variation.col2}
+                                        placeholder="e.g. AJP36/G"
+                                        onChange={(e) => updateColorVariationCode(variation.id, e.target.value)}
+                                        className="w-full bg-transparent outline-none text-xs"
+                                      />
+                                    </div>
+                                  </>
+                                ) : (
+                                  <>
+                                    <div className="flex-1 px-2 py-1 border-r-2 border-gray-400">
+                                      <input type="text" value={variation.col1} onChange={(e) => updateVariation(variation.id, 'col1', e.target.value)} className="w-full bg-transparent outline-none text-xs"/>
+                                    </div>
+                                    <div className="flex-1 px-2 py-1 border-r-2 border-gray-400">
+                                      <input type="text" value={variation.col2} onChange={(e) => updateVariation(variation.id, 'col2', e.target.value)} className="w-full bg-transparent outline-none text-xs"/>
+                                    </div>
+                                  </>
+                                )}
                                 <button type="button" onClick={() => deleteVariation(variation.id)} className="px-2 py-1 text-red-500 hover:text-red-700 transition-colors flex-shrink-0">
                                   <Trash2 className="h-3 w-3" />
                                 </button>
@@ -1509,6 +1721,11 @@ export default function ProductSheet() {
               <X className="h-5 w-5" />
             </button>
           </div>
+
+          {/* Master Job Sheet Button */}
+          <a href="/" className="w-full mb-6 px-4 py-3 text-sm bg-green-600 text-white font-semibold rounded hover:bg-green-700 transition-colors block text-center">
+            Product Sheet
+          </a>
 
           {/* Master Job Sheet Button */}
           <a href="/master-job-sheet" className="w-full mb-6 px-4 py-3 text-sm bg-yellow-500 text-white font-semibold rounded hover:bg-yellow-600 transition-colors block text-center">
