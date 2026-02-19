@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -29,6 +29,7 @@ import { QuickEnrollModal } from '@/components/quick-enroll-modal';
 import { EnrolWorkforceForm } from '@/app/enrol-workforce/page';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
 import { CreateJobModal } from '@/components/create-job-modal';
+import { ReceiveJobModal } from '@/components/receive-job-modal';
 
 export default function MasterJobSheet() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -38,6 +39,8 @@ export default function MasterJobSheet() {
   const [isPrintVoucherOpen, setIsPrintVoucherOpen] = useState(false);
   const [selectedVoucherForPrint, setSelectedVoucherForPrint] = useState(null);
   const [isPrintSheetOpen, setIsPrintSheetOpen] = useState(false);
+  const [isReceiveJobOpen, setIsReceiveJobOpen] = useState(false);
+  const [shouldPrintReceiveJob, setShouldPrintReceiveJob] = useState(false);
   const [isQuickEnrollOpen, setIsQuickEnrollOpen] = useState(false);
   const [isEnrollWorkforceOpen, setIsEnrollWorkforceOpen] = useState(false);
   const [isCreateJobModalOpen, setIsCreateJobModalOpen] = useState(false);
@@ -189,14 +192,8 @@ export default function MasterJobSheet() {
   };
 
   const handlePrintVouchers = () => {
-    if (selectedRows.size === 0) {
-      alert('Please select a voucher to print');
-      return;
-    }
-    const voucherId = Array.from(selectedRows)[0];
-    const voucher = data.find(row => row.id === voucherId);
-    setSelectedVoucherForPrint(voucher);
-    setIsPrintVoucherOpen(true);
+    setIsReceiveJobOpen(true);
+    setShouldPrintReceiveJob(true);
   };
 
   const handlePrintSheet = () => {
@@ -215,6 +212,19 @@ export default function MasterJobSheet() {
   const handleQuickEnroll = () => {
     setIsQuickEnrollOpen(true);
   };
+
+  useEffect(() => {
+    if (!isReceiveJobOpen || !shouldPrintReceiveJob) {
+      return;
+    }
+
+    const timeoutId = setTimeout(() => {
+      window.print();
+      setShouldPrintReceiveJob(false);
+    }, 300);
+
+    return () => clearTimeout(timeoutId);
+  }, [isReceiveJobOpen, shouldPrintReceiveJob]);
 
   const handleQuickEnrollComplete = (personName) => {
     // Add to global enrolled people list
@@ -486,6 +496,12 @@ export default function MasterJobSheet() {
           )}
         </DialogContent>
       </Dialog>
+
+      <ReceiveJobModal
+        open={isReceiveJobOpen}
+        onOpenChange={setIsReceiveJobOpen}
+        onJobReceived={() => {}}
+      />
 
       {/* Print Sheet Dialog */}
       <Dialog open={isPrintSheetOpen} onOpenChange={setIsPrintSheetOpen}>

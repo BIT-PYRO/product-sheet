@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea"
 import {
   Dialog,
   DialogContent,
+  DialogTitle,
 } from "@/components/ui/dialog"
 import {
   Select,
@@ -85,19 +86,55 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived }) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[1200px] w-[95vw] max-h-[95vh] overflow-y-auto bg-background text-foreground p-0 gap-0 [&>button]:hidden">
-        {/* Close button */}
-        <div className="flex justify-end px-5 pt-3 pb-0">
-          <button
-            onClick={() => onOpenChange(false)}
-            className="text-muted-foreground hover:text-foreground transition-colors"
-            aria-label="Close"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
+      <style jsx global>{`
+        @media print {
+          body * {
+            visibility: hidden !important;
+          }
+          .print-receive-job,
+          .print-receive-job * {
+            visibility: visible !important;
+          }
+          .print-receive-job {
+            position: fixed;
+            inset: 0;
+            margin: 0 !important;
+            padding: 0 !important;
+            background: white !important;
+            overflow: visible !important;
+            box-sizing: border-box !important;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+            max-width: none !important;
+            display: block !important;
+          }
+          .print-receive-job .print-fit {
+            transform: none;
+            transform-origin: top left;
+            width: 100vw;
+            height: auto;
+            max-width: none;
+            position: relative;
+            left: 50%;
+            translate: -50% 0;
+          }
+        }
+      `}</style>
+      <DialogContent className="print-receive-job max-w-[1200px] w-[95vw] max-h-[95vh] overflow-y-auto bg-background text-foreground p-0 gap-0 [&>button]:hidden">
+        <DialogTitle className="sr-only">Receive Job Voucher</DialogTitle>
+        <div className="print-fit">
+          {/* Close button */}
+          <div className="flex justify-end px-5 pt-3 pb-0">
+            <button
+              onClick={() => onOpenChange(false)}
+              className="text-muted-foreground hover:text-foreground transition-colors"
+              aria-label="Close"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
 
-        <div className="px-5 pb-4 flex flex-col gap-2.5">
+          <div className="px-5 pb-4 flex flex-col gap-2.5">
           {/* Header: Issue Date, Voucher Type, Voucher No. */}
           <div className="flex items-end justify-between gap-6">
             <div className="flex flex-col gap-0.5">
@@ -421,9 +458,8 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived }) {
               className="min-h-[35px] text-xs resize-none bg-background border-border p-1.5"
             />
           </div>
-
-
         </div>
+      </div>
       </DialogContent>
     </Dialog>
   )

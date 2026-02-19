@@ -846,25 +846,25 @@ export default function ProductSheet() {
           {/* Main Live Stock Table - 80% */}
           <div className="flex-shrink-0 bg-white border-2 border-gray-200 rounded-xl shadow-sm p-2 overflow-auto" style={{width: '80%'}}>
             <div className="w-full overflow-hidden">
-              <table className="w-full table-fixed text-xs border-collapse text-center">
+              <table className="w-full table-fixed text-xs border-collapse text-center break-words">
                 <thead>
                   <tr>
-                    <th className="w-36 px-1 py-0.5 text-center font-semibold"></th>
-                    <th className="w-20 px-0.5 py-0.5">Wax Piece</th>
-                    <th className="w-20 px-0.5 py-0.5">Wax Setting</th>
-                    <th className="w-24 px-0.5 py-0.5">Casting</th>
-                    <th className="w-20 px-0.5 py-0.5">Final Casting</th>
-                    <th className="w-20 px-0.5 py-0.5">Filling</th>
-                    <th className="w-20 px-0.5 py-0.5">Pre Polish</th>
-                    <th className="w-20 px-0.5 py-0.5">Setting</th>
-                    <th className="w-20 px-0.5 py-0.5">Final Polish</th>
-                    <th className="w-24 px-0.5 py-0.5">Ready for Plating</th>
+                    <th className="w-36 px-1 py-0.5 text-center font-semibold break-words"></th>
+                    <th className="w-20 px-0.5 py-0.5 break-words">Wax Piece</th>
+                    <th className="w-20 px-0.5 py-0.5 break-words">Wax Setting</th>
+                    <th className="w-24 px-0.5 py-0.5 break-words">Casting</th>
+                    <th className="w-20 px-0.5 py-0.5 break-words">Final Casting</th>
+                    <th className="w-20 px-0.5 py-0.5 break-words">Filling</th>
+                    <th className="w-20 px-0.5 py-0.5 break-words">Pre Polish</th>
+                    <th className="w-20 px-0.5 py-0.5 break-words">Setting</th>
+                    <th className="w-20 px-0.5 py-0.5 break-words">Final Polish</th>
+                    <th className="w-24 px-0.5 py-0.5 break-words">Ready for Plating</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr className="border-t">
-                    <td className="px-1 py-0.5 font-semibold text-center">Minimum Suggested</td>
-                    <td className="px-0.5 py-0.5"><input className="w-full text-xs px-0.5 py-0.5 border rounded" value={liveStock.rawMaterial.min} onChange={(e) => updateLiveStock('rawMaterial','min', e.target.value)} /></td>
+                    <td className="px-1 py-0.5 font-semibold text-center break-words">Minimum Suggested</td>
+                    <td className="px-0.5 py-0.5 break-words"><input className="w-full text-xs px-0.5 py-0.5 border rounded" value={liveStock.rawMaterial.min} onChange={(e) => updateLiveStock('rawMaterial','min', e.target.value)} /></td>
                     <td className="px-0.5 py-0.5"><input className="w-full text-xs px-0.5 py-0.5 border rounded" value={liveStock.rawSetting.min} onChange={(e) => updateLiveStock('rawSetting','min', e.target.value)} /></td>
                     <td className="px-0.5 py-0.5"><input className="w-full text-xs px-0.5 py-0.5 border rounded" value={liveStock.wipLiquidCasting.min} onChange={(e) => updateLiveStock('wipLiquidCasting','min', e.target.value)} /></td>
                     <td className="px-0.5 py-0.5"><input className="w-full text-xs px-0.5 py-0.5 border rounded" value={liveStock.postCasting.min} onChange={(e) => updateLiveStock('postCasting','min', e.target.value)} /></td>
@@ -919,21 +919,21 @@ export default function ProductSheet() {
           <div className="flex-shrink-0 bg-white border-2 border-gray-200 rounded-xl shadow-sm p-1 flex flex-col" style={{width: '20%'}}>
             <h3 className="text-xs font-semibold mb-1 text-center flex-shrink-0">FINAL STOCK</h3>
             <div className="flex-1 overflow-auto">
-              <table className="w-full table-fixed text-xs border-collapse">
+              <table className="w-full table-fixed text-xs border-collapse break-words">
                 <thead>
                   <tr>
-                    <th className="px-0.5 py-0.5 text-center text-xs border-b flex-1">SKU</th>
-                    <th className="px-0.5 py-0.5 text-center text-xs border-b flex-1">Value</th>
-                    <th className="px-0.5 py-0.5 text-center text-xs border-b flex-1">Unit</th>
+                    <th className="px-0.5 py-0.5 text-center text-xs border-b flex-1 break-words">SKU</th>
+                    <th className="px-0.5 py-0.5 text-center text-xs border-b flex-1 break-words">Value</th>
+                    <th className="px-0.5 py-0.5 text-center text-xs border-b flex-1 break-words">Unit</th>
                   </tr>
                 </thead>
                 <tbody>
                   {finalStock.map((row) => (
                     <tr key={row.id} className="border-b">
-                      <td className="px-0.5 py-0.5"><input className="w-full text-xs px-0.5 py-0.5 border rounded" placeholder="SKU" value={row.sku} onChange={(e) => updateFinalStock(row.id, 'sku', e.target.value)} /></td>
-                      <td className="px-0.5 py-0.5"><input className="w-full text-xs px-0.5 py-0.5 border rounded" placeholder="Value" value={row.value} onChange={(e) => updateFinalStock(row.id, 'value', e.target.value)} /></td>
-                      <td className="px-0.5 py-0.5"><input className="w-full text-xs px-0.5 py-0.5 border rounded" placeholder="Unit" value={row.unit} onChange={(e) => updateFinalStock(row.id, 'unit', e.target.value)} /></td>
-                      <td className="px-0.5 py-0.5 text-center">
+                      <td className="px-0.5 py-0.5 break-words"><input className="w-full text-xs px-0.5 py-0.5 border rounded" placeholder="SKU" value={row.sku} onChange={(e) => updateFinalStock(row.id, 'sku', e.target.value)} /></td>
+                      <td className="px-0.5 py-0.5 break-words"><input className="w-full text-xs px-0.5 py-0.5 border rounded" placeholder="Value" value={row.value} onChange={(e) => updateFinalStock(row.id, 'value', e.target.value)} /></td>
+                      <td className="px-0.5 py-0.5 break-words"><input className="w-full text-xs px-0.5 py-0.5 border rounded" placeholder="Unit" value={row.unit} onChange={(e) => updateFinalStock(row.id, 'unit', e.target.value)} /></td>
+                      <td className="px-0.5 py-0.5 text-center break-words">
                         <button type="button" onClick={() => deleteFinalStock(row.id)} className="text-red-500 hover:text-red-700 transition-colors">
                           <Trash2 className="h-3 w-3" />
                         </button>
@@ -957,22 +957,22 @@ export default function ProductSheet() {
           <h2 className="text-sm font-semibold mb-2">STONE INFO</h2>
           <div className="bg-white flex-1 flex flex-col">
             <div className="max-h-36 overflow-y-auto">
-              <table className="w-full border-2 border-gray-400 table-fixed">
+              <table className="w-full border-2 border-gray-400 table-fixed break-words">
               <thead>
                 <tr className="border-b-2 border-gray-400">
-                  <th className="w-32 px-2 py-1 text-left font-semibold text-xs border-r-2 border-gray-400 bg-white">
+                  <th className="w-32 px-2 py-1 text-left font-semibold text-xs border-r-2 border-gray-400 bg-white break-words">
                     NAME
                   </th>
-                  <th className="w-32 px-2 py-1 text-left font-semibold text-xs border-r-2 border-gray-400 bg-white">
+                  <th className="w-32 px-2 py-1 text-left font-semibold text-xs border-r-2 border-gray-400 bg-white break-words">
                     CUT
                   </th>
-                  <th className="w-32 px-2 py-1 text-left font-semibold text-xs border-r-2 border-gray-400 bg-white">
+                  <th className="w-32 px-2 py-1 text-left font-semibold text-xs border-r-2 border-gray-400 bg-white break-words">
                     COLOR
                   </th>
-                  <th className="w-32 px-2 py-1 text-left font-semibold text-xs border-r-2 border-gray-400 bg-white">
+                  <th className="w-32 px-2 py-1 text-left font-semibold text-xs border-r-2 border-gray-400 bg-white break-words">
                     SIZE
                   </th>
-                  <th className="w-32 px-2 py-1 text-left font-semibold text-xs bg-white">
+                  <th className="w-32 px-2 py-1 text-left font-semibold text-xs bg-white break-words">
                     QUANTITY
                   </th>
                 </tr>
@@ -1015,16 +1015,16 @@ export default function ProductSheet() {
           <h2 className="text-sm font-semibold mb-2">PLATING INFO</h2>
           <div className="bg-white flex-1 flex flex-col">
             <div className="max-h-36 overflow-y-auto">
-              <table className="w-full border-2 border-gray-200 table-fixed">
+              <table className="w-full border-2 border-gray-200 table-fixed break-words">
               <thead>
                 <tr className="border-b-2 border-gray-200">
-                  <th className="w-2/5 px-2 py-1 text-left font-semibold text-xs border-r-2 border-gray-200 bg-white">
+                  <th className="w-2/5 px-2 py-1 text-left font-semibold text-xs border-r-2 border-gray-200 bg-white break-words">
                     PLATING TYPE
                   </th>
-                  <th className="w-2/5 px-2 py-1 text-left font-semibold text-xs border-r-2 border-gray-200 bg-white">
+                  <th className="w-2/5 px-2 py-1 text-left font-semibold text-xs border-r-2 border-gray-200 bg-white break-words">
                     PLATING COLOR
                   </th>
-                  <th className="w-1/5 px-2 py-1 text-center font-semibold text-xs bg-white">
+                  <th className="w-1/5 px-2 py-1 text-center font-semibold text-xs bg-white break-words">
                     ACTION
                   </th>
                 </tr>
@@ -1032,7 +1032,7 @@ export default function ProductSheet() {
               <tbody>
                 {platingType.map((row, index) => (
                   <tr key={row.id} className={index < platingType.length - 1 ? 'border-b-2 border-gray-200' : ''}>
-                    <td className="w-2/5 px-2 py-1 border-r-2 border-gray-200 bg-white">
+                    <td className="w-2/5 px-2 py-1 border-r-2 border-gray-200 bg-white break-words">
                       <input type="text" value={row.col1} onChange={(e) => updatePlatingType(row.id, 'col1', e.target.value)} className="w-full bg-transparent outline-none text-xs"/>
                     </td>
                     <td className="w-2/5 px-2 py-1 border-r-2 border-gray-200 bg-white">

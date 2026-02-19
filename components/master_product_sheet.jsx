@@ -485,21 +485,21 @@ export default function MasterProductSheet() {
 
                 {/* Product Information */}
                 <div className="mb-6">
-                  <table className="w-full border-collapse border-2 border-gray-900">
+                  <table className="w-full border-collapse border-2 border-gray-900 break-words">
                     <thead>
                       <tr className="bg-gray-900 text-white">
-                        <th className="border-2 border-gray-900 p-2 text-xs font-bold text-left">SETTING TYPE</th>
-                        <th className="border-2 border-gray-900 p-2 text-xs font-bold text-left">ENAMEL TYPE</th>
-                        <th className="border-2 border-gray-900 p-2 text-xs font-bold text-left">ACTIVE CHANNELS</th>
-                        <th className="border-2 border-gray-900 p-2 text-xs font-bold text-left">MASTER SKU</th>
+                        <th className="border-2 border-gray-900 p-2 text-xs font-bold text-left break-words">SETTING TYPE</th>
+                        <th className="border-2 border-gray-900 p-2 text-xs font-bold text-left break-words">ENAMEL TYPE</th>
+                        <th className="border-2 border-gray-900 p-2 text-xs font-bold text-left break-words">ACTIVE CHANNELS</th>
+                        <th className="border-2 border-gray-900 p-2 text-xs font-bold text-left break-words">MASTER SKU</th>
                       </tr>
                     </thead>
                     <tbody>
                       <tr>
-                        <td className="border-2 border-gray-900 p-2 text-sm">{selectedProductForPrint.settingType || '—'}</td>
-                        <td className="border-2 border-gray-900 p-2 text-sm">{selectedProductForPrint.enamelType || '—'}</td>
-                        <td className="border-2 border-gray-900 p-2 text-sm">{selectedProductForPrint.activeChannels || '—'}</td>
-                        <td className="border-2 border-gray-900 p-2 text-sm">{selectedProductForPrint.masterSku || '—'}</td>
+                        <td className="border-2 border-gray-900 p-2 text-sm break-words">{selectedProductForPrint.settingType || '—'}</td>
+                        <td className="border-2 border-gray-900 p-2 text-sm break-words">{selectedProductForPrint.enamelType || '—'}</td>
+                        <td className="border-2 border-gray-900 p-2 text-sm break-words">{selectedProductForPrint.activeChannels || '—'}</td>
+                        <td className="border-2 border-gray-900 p-2 text-sm break-words">{selectedProductForPrint.masterSku || '—'}</td>
                       </tr>
                     </tbody>
                   </table>
@@ -574,34 +574,34 @@ export default function MasterProductSheet() {
 
             {/* Data Table */}
             <div className="border-2 border-gray-900 rounded overflow-x-auto">
-              <table className="w-full border-collapse text-xs">
+              <table className="w-full border-collapse text-xs break-words">
                 <thead>
                   <tr className="bg-gray-900 text-white">
-                    <th className="border border-gray-400 p-2 text-left">SKU</th>
-                    <th className="border border-gray-400 p-2 text-left">Listing Name</th>
-                    <th className="border border-gray-400 p-2 text-left">Material</th>
-                    <th className="border border-gray-400 p-2 text-left">Category</th>
-                    <th className="border border-gray-400 p-2 text-left">Collection</th>
-                    <th className="border border-gray-400 p-2 text-left">Setting Type</th>
-                    <th className="border border-gray-400 p-2 text-left">Enamel Type</th>
-                    <th className="border border-gray-400 p-2 text-left">Shopify Status</th>
-                    <th className="border border-gray-400 p-2 text-left">Active Channels</th>
-                    <th className="border border-gray-400 p-2 text-left">Master SKU</th>
+                    <th className="border border-gray-400 p-2 text-left break-words">SKU</th>
+                    <th className="border border-gray-400 p-2 text-left break-words">Listing Name</th>
+                    <th className="border border-gray-400 p-2 text-left break-words">Material</th>
+                    <th className="border border-gray-400 p-2 text-left break-words">Category</th>
+                    <th className="border border-gray-400 p-2 text-left break-words">Collection</th>
+                    <th className="border border-gray-400 p-2 text-left break-words">Setting Type</th>
+                    <th className="border border-gray-400 p-2 text-left break-words">Enamel Type</th>
+                    <th className="border border-gray-400 p-2 text-left break-words">Shopify Status</th>
+                    <th className="border border-gray-400 p-2 text-left break-words">Active Channels</th>
+                    <th className="border border-gray-400 p-2 text-left break-words">Master SKU</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredData.map((row, index) => (
                     <tr key={row.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                      <td className="border border-gray-400 p-2">{row.sku || '—'}</td>
-                      <td className="border border-gray-400 p-2">{row.listingName || '—'}</td>
-                      <td className="border border-gray-400 p-2">{row.material || '—'}</td>
-                      <td className="border border-gray-400 p-2">{row.category || '—'}</td>
-                      <td className="border border-gray-400 p-2">{row.collection || '—'}</td>
-                      <td className="border border-gray-400 p-2">{row.settingType || '—'}</td>
-                      <td className="border border-gray-400 p-2">{row.enamelType || '—'}</td>
-                      <td className="border border-gray-400 p-2">{row.shopifyStatus || '—'}</td>
-                      <td className="border border-gray-400 p-2">{row.activeChannels || '—'}</td>
-                      <td className="border border-gray-400 p-2">{row.masterSku || '—'}</td>
+                      <td className="border border-gray-400 p-2 break-words">{row.sku || '—'}</td>
+                      <td className="border border-gray-400 p-2 break-words">{row.listingName || '—'}</td>
+                      <td className="border border-gray-400 p-2 break-words">{row.material || '—'}</td>
+                      <td className="border border-gray-400 p-2 break-words">{row.category || '—'}</td>
+                      <td className="border border-gray-400 p-2 break-words">{row.collection || '—'}</td>
+                      <td className="border border-gray-400 p-2 break-words">{row.settingType || '—'}</td>
+                      <td className="border border-gray-400 p-2 break-words">{row.enamelType || '—'}</td>
+                      <td className="border border-gray-400 p-2 break-words">{row.shopifyStatus || '—'}</td>
+                      <td className="border border-gray-400 p-2 break-words">{row.activeChannels || '—'}</td>
+                      <td className="border border-gray-400 p-2 break-words">{row.masterSku || '—'}</td>
                     </tr>
                   ))}
                 </tbody>
