@@ -8,6 +8,7 @@ const NAV_LINKS = [
   { href: '/', label: 'Product Sheet', className: 'bg-green-600 hover:bg-green-700' },
   { href: '/master-job-sheet', label: 'Master Job Sheet', className: 'bg-yellow-500 hover:bg-yellow-600' },
   { href: '/master-product-sheet', label: 'Master Product Sheet', className: 'bg-teal-500 hover:bg-teal-600' },
+  { href: '/master-inventory-sheet', label: 'Master Inventory Sheet', className: 'bg-lime-600 hover:bg-lime-700' },
   { href: '/master-workforce-sheet', label: 'Master Workforce Sheet', className: 'bg-orange-500 hover:bg-orange-600' },
   { href: '/managers-dashboard', label: 'Managers Dashboard', className: 'bg-blue-500 hover:bg-blue-600' },
 ];

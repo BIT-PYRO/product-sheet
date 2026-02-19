@@ -25,7 +25,45 @@ const PRODUCT_HEADERS = [
   'Plating Color',
   'Notes',
   'Images',
+  'Live Stock Data',
+  'Final Stock Data',
 ];
+
+const DEFAULT_LIVE_STOCK = {
+  rawMaterial: { min: '', current: '', wip: '', location: '' },
+  rawSetting: { min: '', current: '', wip: '', location: '' },
+  tyre: { min: '', current: '', wip: '', location: '' },
+  dustunuing: { min: '', current: '', wip: '', location: '' },
+  wipLiquidCasting: { min: '', current: '', wip: '', location: '' },
+  postCasting: { min: '', current: '', wip: '', location: '' },
+  filing: { min: '', current: '', wip: '', location: '' },
+  packing: { min: '', current: '', wip: '', location: '' },
+  setting: { min: '', current: '', wip: '', location: '' },
+  finalPolish: { min: '', current: '', wip: '', location: '' },
+  readyForPlacing: { min: '', current: '', wip: '', location: '' },
+};
+
+function safeParseJson(value, fallback) {
+  if (!value || typeof value !== 'string') {
+    return fallback;
+  }
+
+  try {
+    const parsed = JSON.parse(value);
+    return parsed ?? fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function mapLiveStockData(rawValue) {
+  const parsed = safeParseJson(rawValue, {});
+
+  return {
+    ...DEFAULT_LIVE_STOCK,
+    ...parsed,
+  };
+}
 
 function getCredentials() {
   return {
@@ -96,6 +134,8 @@ function mapSheetRowsToProducts(rows) {
         platingColor: getValue(21),
         notes: getValue(22),
         images: getValue(23),
+        liveStock: mapLiveStockData(getValue(24)),
+        finalStock: safeParseJson(getValue(25), []),
       };
     })
     .filter(Boolean);
@@ -108,7 +148,7 @@ export async function GET() {
 
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId,
-      range: 'Sheet1!A:X',
+      range: 'Sheet1!A:Z',
     });
 
     const rows = response.data.values || [];
@@ -206,6 +246,8 @@ export async function POST(request) {
       data.platingType?.map(p => p.col2 || '').join('; ') || '',  // Plating Color from col2
       manufacturingNotes,
       manufacturingImages,
+      JSON.stringify(data.liveStock || DEFAULT_LIVE_STOCK),
+      JSON.stringify(data.finalStock || []),
     ];
 
     // Define comprehensive headers matching your fields

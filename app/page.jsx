@@ -7,6 +7,7 @@ import { useState, useRef, useEffect } from 'react'
 import { CreateJobModal } from '@/components/create-job-modal'
 
 const PRODUCT_SHEET_SYNC_KEY = 'product_sheet_updated_at'
+const PRODUCT_SHEET_SYNC_EVENT = 'product_sheet_sync'
 
 export default function ProductSheet() {
   const fileInputRef = useRef(null)
@@ -181,7 +182,13 @@ export default function ProductSheet() {
       throw new Error(result.message || 'Failed to save product')
     }
 
-    localStorage.setItem(PRODUCT_SHEET_SYNC_KEY, Date.now().toString())
+    const syncTimestamp = Date.now().toString()
+    localStorage.setItem(PRODUCT_SHEET_SYNC_KEY, syncTimestamp)
+    window.dispatchEvent(
+      new CustomEvent(PRODUCT_SHEET_SYNC_EVENT, {
+        detail: { updatedAt: syncTimestamp },
+      })
+    )
 
     if (isAutoSave) {
       setSaveStatus({ success: true, message: '✓ Auto-saved' })
@@ -1735,6 +1742,11 @@ export default function ProductSheet() {
           {/* Master Product Sheet Button */}
           <a href="/master-product-sheet" className="w-full mb-6 px-4 py-3 text-sm bg-teal-500 text-white font-semibold rounded hover:bg-teal-600 transition-colors block text-center">
             Master Product Sheet
+          </a>
+
+          {/* Master Inventory Sheet Button */}
+          <a href="/master-inventory-sheet" className="w-full mb-6 px-4 py-3 text-sm bg-lime-600 text-white font-semibold rounded hover:bg-lime-700 transition-colors block text-center">
+            Master Inventory Sheet
           </a>
 
           {/* Master Workforce Sheet Button */}
