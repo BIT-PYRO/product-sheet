@@ -179,10 +179,6 @@ export default function ManagersDashboard() {
     setIsCreateJobModalOpen(true);
   };
 
-  const handleGoToInventorySheet = () => {
-    window.location.href = '/master-inventory-sheet';
-  };
-
   const handleManageColumns = () => {
     setIsManageColumnsOpen(true);
   };
@@ -326,12 +322,6 @@ export default function ManagersDashboard() {
               className="bg-green-500 hover:bg-green-600 text-white rounded-full px-6"
             >
               Create a Job
-            </Button>
-            <Button
-              onClick={handleGoToInventorySheet}
-              className="bg-lime-600 hover:bg-lime-700 text-white rounded-full px-6"
-            >
-              Inventory Sheet
             </Button>
             <Button 
               onClick={handleManageColumns}
