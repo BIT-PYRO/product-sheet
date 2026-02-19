@@ -190,8 +190,34 @@ export default function MasterWorkforceSheet() {
     setIsQuickEnrollOpen(true);
   };
 
+  const handleQuickEnrollComplete = (personName) => {
+    // Save to localStorage
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('enrolledPeople');
+      const enrolledPeople = stored ? JSON.parse(stored) : [];
+      if (!enrolledPeople.includes(personName)) {
+        enrolledPeople.push(personName);
+        localStorage.setItem('enrolledPeople', JSON.stringify(enrolledPeople));
+      }
+    }
+    setIsQuickEnrollOpen(false);
+  };
+
   const handleEnrollWorkforce = () => {
     setIsEnrollWorkforceOpen(true);
+  };
+
+  const handleEnrollWorkforceComplete = (personName) => {
+    // Save to localStorage
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('enrolledPeople');
+      const enrolledPeople = stored ? JSON.parse(stored) : [];
+      if (!enrolledPeople.includes(personName)) {
+        enrolledPeople.push(personName);
+        localStorage.setItem('enrolledPeople', JSON.stringify(enrolledPeople));
+      }
+    }
+    setIsEnrollWorkforceOpen(false);
   };
 
   const handleManageColumns = () => {
@@ -816,7 +842,7 @@ export default function MasterWorkforceSheet() {
       </div>
 
       {/* Quick Enroll Modal */}
-      <QuickEnrollModal open={isQuickEnrollOpen} onOpenChange={setIsQuickEnrollOpen} />
+      <QuickEnrollModal open={isQuickEnrollOpen} onOpenChange={setIsQuickEnrollOpen} onEnroll={handleQuickEnrollComplete} />
       
       {/* Enroll Workforce Modal */}
       <Dialog open={isEnrollWorkforceOpen} onOpenChange={setIsEnrollWorkforceOpen}>
@@ -824,7 +850,7 @@ export default function MasterWorkforceSheet() {
           <DialogHeader>
             <DialogTitle>Enroll Workforce</DialogTitle>
           </DialogHeader>
-          <EnrolWorkforceForm />
+          <EnrolWorkforceForm onEnroll={handleEnrollWorkforceComplete} onClose={() => setIsEnrollWorkforceOpen(false)} />
         </DialogContent>
       </Dialog>
     </div>

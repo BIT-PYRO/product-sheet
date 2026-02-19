@@ -20,6 +20,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
+import { CreateJobModal } from '@/components/create-job-modal';
 
 export default function ManagersDashboard() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -27,6 +28,7 @@ export default function ManagersDashboard() {
   const [isCardModalOpen, setIsCardModalOpen] = useState(false);
   const [isManageColumnsOpen, setIsManageColumnsOpen] = useState(false);
   const [selectedColumnsForAction, setSelectedColumnsForAction] = useState(new Set());
+  const [isCreateJobModalOpen, setIsCreateJobModalOpen] = useState(false);
   
   // Filter states
   const [statusFilter, setStatusFilter] = useState('');
@@ -174,7 +176,7 @@ export default function ManagersDashboard() {
   };
 
   const handleCreateJob = () => {
-    console.log('Create new job');
+    setIsCreateJobModalOpen(true);
   };
 
   const handleGoToInventorySheet = () => {
@@ -582,6 +584,10 @@ export default function ManagersDashboard() {
           </tbody>
         </table>
       </div>
+      <CreateJobModal
+        open={isCreateJobModalOpen}
+        onOpenChange={setIsCreateJobModalOpen}
+      />
     </div>
   );
 }

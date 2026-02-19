@@ -28,6 +28,7 @@ import {
 import { QuickEnrollModal } from '@/components/quick-enroll-modal';
 import { EnrolWorkforceForm } from '@/app/enrol-workforce/page';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
+import { CreateJobModal } from '@/components/create-job-modal';
 
 export default function MasterJobSheet() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -39,6 +40,7 @@ export default function MasterJobSheet() {
   const [isPrintSheetOpen, setIsPrintSheetOpen] = useState(false);
   const [isQuickEnrollOpen, setIsQuickEnrollOpen] = useState(false);
   const [isEnrollWorkforceOpen, setIsEnrollWorkforceOpen] = useState(false);
+  const [isCreateJobModalOpen, setIsCreateJobModalOpen] = useState(false);
   const [editingRowIds, setEditingRowIds] = useState(new Set());
   const [archivedRows, setArchivedRows] = useState(new Set());
   const [viewMode, setViewMode] = useState('active');
@@ -207,16 +209,41 @@ export default function MasterJobSheet() {
   };
 
   const handleCreateJob = () => {
-    // Create job functionality
-    console.log('Create new job');
+    setIsCreateJobModalOpen(true);
   };
 
   const handleQuickEnroll = () => {
     setIsQuickEnrollOpen(true);
   };
 
+  const handleQuickEnrollComplete = (personName) => {
+    // Add to global enrolled people list
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('enrolledPeople');
+      const enrolledPeople = stored ? JSON.parse(stored) : [];
+      if (!enrolledPeople.includes(personName)) {
+        enrolledPeople.push(personName);
+        localStorage.setItem('enrolledPeople', JSON.stringify(enrolledPeople));
+      }
+    }
+    setIsQuickEnrollOpen(false);
+  };
+
   const handleEnrollWorkforce = () => {
     setIsEnrollWorkforceOpen(true);
+  };
+
+  const handleWorkforceEnrolled = (personName) => {
+    // Add to global enrolled people list
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('enrolledPeople');
+      const enrolledPeople = stored ? JSON.parse(stored) : [];
+      if (!enrolledPeople.includes(personName)) {
+        enrolledPeople.push(personName);
+        localStorage.setItem('enrolledPeople', JSON.stringify(enrolledPeople));
+      }
+    }
+    setIsEnrollWorkforceOpen(false);
   };
 
   const handleManageColumns = () => {
@@ -974,15 +1001,22 @@ export default function MasterJobSheet() {
       <QuickEnrollModal 
         open={isQuickEnrollOpen} 
         onOpenChange={setIsQuickEnrollOpen}
+        onEnroll={handleQuickEnrollComplete}
       />
-      
+
+      {/* Create Job Modal */}
+      <CreateJobModal
+        open={isCreateJobModalOpen}
+        onOpenChange={setIsCreateJobModalOpen}
+      />
+
       {/* Enroll Workforce Modal */}
       <Dialog open={isEnrollWorkforceOpen} onOpenChange={setIsEnrollWorkforceOpen}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Enroll Workforce</DialogTitle>
           </DialogHeader>
-          <EnrolWorkforceForm />
+          <EnrolWorkforceForm onEnroll={handleWorkforceEnrolled} onClose={() => setIsEnrollWorkforceOpen(false)} />
         </DialogContent>
       </Dialog>
     </div>

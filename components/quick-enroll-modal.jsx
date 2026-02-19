@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/select"
 import { Upload, X } from "lucide-react"
 
-export function QuickEnrollModal({ open, onOpenChange }) {
+export function QuickEnrollModal({ open, onOpenChange, onEnroll }) {
   const [firstName, setFirstName] = useState("")
   const [lastName, setLastName] = useState("")
   const [countryCode, setCountryCode] = useState("+91")
@@ -40,6 +40,10 @@ export function QuickEnrollModal({ open, onOpenChange }) {
 
   function handleSubmit() {
     if (!firstName || !contactNumber) return
+    const fullName = `${firstName} ${lastName}`.trim()
+    if (onEnroll) {
+      onEnroll(fullName)
+    }
     onOpenChange(false)
     setFirstName("")
     setLastName("")
@@ -47,6 +51,13 @@ export function QuickEnrollModal({ open, onOpenChange }) {
     setLocation("Dwarka Niwas, Jaipur")
     setRemarks("")
     setPhotoFileName("")
+  }
+
+  function handleSaveDraft() {
+    const draftData = { firstName, lastName, countryCode, contactNumber, location, department, type, remarks, isDraft: true }
+    console.log("Draft saved:", draftData)
+    // TODO: Send draft data to backend or save to localStorage
+    onOpenChange(false)
   }
 
   return (
@@ -210,13 +221,21 @@ export function QuickEnrollModal({ open, onOpenChange }) {
             />
           </div>
 
-          {/* Enroll Button */}
-          <Button
-            className="bg-gradient-to-r from-slate-800 to-slate-700 hover:from-slate-900 hover:to-slate-800 text-white font-bold h-9 text-sm w-full mt-2 transition shadow-md"
-            onClick={handleSubmit}
-          >
-            ENROLL
-          </Button>
+          {/* Buttons Container */}
+          <div className="flex gap-2 mt-2">
+            <Button
+              className="flex-1 h-9 bg-gray-500 hover:bg-gray-600 text-white font-bold text-sm rounded transition shadow-md"
+              onClick={handleSaveDraft}
+            >
+              Save as Draft
+            </Button>
+            <Button
+              className="flex-1 bg-gradient-to-r from-slate-800 to-slate-700 hover:from-slate-900 hover:to-slate-800 text-white font-bold h-9 text-sm rounded transition shadow-md"
+              onClick={handleSubmit}
+            >
+              ENROLL
+            </Button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>

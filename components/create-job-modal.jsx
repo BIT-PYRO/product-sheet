@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -33,6 +33,13 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
   const [isPrintVoucherModalOpen, setIsPrintVoucherModalOpen] = useState(false)
   const [printVoucherData, setPrintVoucherData] = useState(null)
   const [activeTab, setActiveTab] = useState("stone")
+  const [enrolledPeople, setEnrolledPeople] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('enrolledPeople')
+      return stored ? JSON.parse(stored) : []
+    }
+    return []
+  })
   const [rows, setRows] = useState([
     { id: 1, sku: "", category: "", issuedQty: "", unit1: "", issuedWeight: "", unit2: "" },
     { id: 2, sku: "", category: "", issuedQty: "", unit1: "", issuedWeight: "", unit2: "" },
@@ -55,6 +62,15 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
   const [dieWeightRows, setDieWeightRows] = useState([
     { id: 1, dieNumber: "", quantity: "", weight: "", unit: "" },
   ])
+
+  // Refresh enrolled people from localStorage when modal opens
+  useEffect(() => {
+    if (open && typeof window !== 'undefined') {
+      const stored = localStorage.getItem('enrolledPeople')
+      const people = stored ? JSON.parse(stored) : []
+      setEnrolledPeople(people)
+    }
+  }, [open])
 
   function addRow() {
     setRows((prev) => [
@@ -101,11 +117,33 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
     setDieWeightRows((prev) => prev.map((r) => (r.id === id ? { ...r, [field]: value } : r)))
   }
 
+  function handleEnrollPerson(personName) {
+    // Add person if not already enrolled
+    if (!enrolledPeople.includes(personName)) {
+      const updatedList = [...enrolledPeople, personName]
+      setEnrolledPeople(updatedList)
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('enrolledPeople', JSON.stringify(updatedList))
+      }
+    }
+    // Set as issued to
+    setIssuedTo(personName)
+    // Close the modal
+    setIsQuickEnrollModalOpen(false)
+  }
+
   function handleSubmit() {
     const jobData = { date, issuedTo, deptFrom, deptTo, rows, voucherNo }
     setPrintVoucherData(jobData)
     setIsPrintVoucherModalOpen(true)
     onJobCreated(jobData)
+  }
+
+  function handleSaveDraft() {
+    const draftData = { date, issuedTo, deptFrom, deptTo, rows, voucherNo, isDraft: true }
+    console.log("Draft saved:", draftData)
+    // TODO: Send draft data to backend or save to localStorage
+    onOpenChange(false)
   }
 
   const jewelleryDepartments = [
@@ -208,6 +246,11 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
                   <SelectContent>
                     <SelectItem value="Existing Workforce / Vendor">Existing Workforce / Vendor</SelectItem>
                     <SelectItem value="New Workforce / Vendor">New Workforce / Vendor</SelectItem>
+                    {enrolledPeople.map((person) => (
+                      <SelectItem key={person} value={person}>
+                        {person}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -515,13 +558,21 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
             </div>
           </div>
 
-          {/* Issue Job Button */}
-          <Button
-            className="w-full h-7 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded mt-0.5 mb-1.5"
-            onClick={handleSubmit}
-          >
-            Issue Job
-          </Button>
+          {/* Buttons Container */}
+          <div className="flex gap-2 mt-0.5 mb-1.5">
+            <Button
+              className="flex-1 h-7 bg-gray-500 hover:bg-gray-600 text-white font-bold text-xs rounded"
+              onClick={handleSaveDraft}
+            >
+              Save as Draft
+            </Button>
+            <Button
+              className="flex-1 h-7 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded"
+              onClick={handleSubmit}
+            >
+              Issue Job
+            </Button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>
@@ -529,6 +580,7 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
     <QuickEnrollModal 
       open={isQuickEnrollModalOpen}
       onOpenChange={setIsQuickEnrollModalOpen}
+      onEnroll={handleEnrollPerson}
     />
 
     <PrintVoucherModal
