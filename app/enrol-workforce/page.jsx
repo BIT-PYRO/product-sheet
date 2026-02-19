@@ -1,8 +1,20 @@
 'use client';
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { X } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { useDrafts, useDraftLoader } from "@/components/drafts-manager";
 
-export function EnrolWorkforceForm() {
-  const [editMode, setEditMode] = useState(false);
+const PENDING_DRAFT_KEY = 'pending_enroll_workforce_draft'
+
+export function EnrolWorkforceForm({ onEnroll, onClose, open = true, draftData = null }) {
+  const { saveDraft } = useDrafts()
+  const loadedDraft = useDraftLoader()
+  const [isOpen, setIsOpen] = useState(open)
   const [form, setForm] = useState({
     fullName: "Jatin",
     dob: "2005-05-07",
@@ -34,6 +46,35 @@ export function EnrolWorkforceForm() {
   const [documents, setDocuments] = useState({ aadhaar: null, pan: null, gst: null });
   const [profilePhoto, setProfilePhoto] = useState(null);
 
+  // Load draft data passed as prop (from DraftsManager)
+  useEffect(() => {
+    if (draftData) {
+      setForm(draftData)
+    }
+  }, [draftData])
+
+  // Load pending draft on component mount
+  useEffect(() => {
+    const pendingDraft = localStorage.getItem(PENDING_DRAFT_KEY)
+    if (pendingDraft) {
+      try {
+        const draftData = JSON.parse(pendingDraft)
+        setForm(draftData)
+        localStorage.removeItem(PENDING_DRAFT_KEY)
+      } catch (e) {
+        console.error('Failed to load pending draft:', e)
+      }
+    }
+  }, [])
+
+  // Handle draft loading from useDraftLoader (for other pages navigating here)
+  useEffect(() => {
+    if (loadedDraft && loadedDraft.section === 'Enroll Workforce') {
+      const draft = loadedDraft.data
+      setForm(draft)
+    }
+  }, [loadedDraft])
+
   // Handle address autofill
   const handleSameAsCurrent = (checked) => {
     setForm((prev) => ({
@@ -41,6 +82,38 @@ export function EnrolWorkforceForm() {
       sameAsCurrent: checked,
       permanentAddress: checked ? { ...prev.currentAddress } : { line1: "", line2: "", city: "", state: "", pincode: "", details: "" }
     }));
+  };
+
+  // Handle submit
+  const handleSubmit = () => {
+    if (onEnroll && form.fullName) {
+      onEnroll(form.fullName);
+    }
+    if (onClose) {
+      onClose();
+    }
+    console.log("Workforce enrolled:", form);
+    // TODO: Send form data to backend
+  };
+
+  // Handle save draft
+  const handleSaveDraft = () => {
+    const draftData = {
+      ...form,
+      title: form.fullName || 'Enroll Workforce Draft',
+    }
+    saveDraft('Enroll Workforce', `draft_enroll_${Date.now()}`, draftData)
+    if (typeof window !== 'undefined') {
+      alert('Draft saved successfully!')
+    }
+    handleClose()
+  };
+
+  const handleClose = () => {
+    setIsOpen(false)
+    if (onClose) {
+      onClose()
+    }
   };
 
   // Handle input changes
@@ -75,62 +148,26 @@ export function EnrolWorkforceForm() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-5xl mx-auto">
-        <div className="bg-indigo-400 rounded-t-lg p-6 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="relative w-20 h-20">
-              <input
-                id="profile-photo-input"
-                type="file"
-                accept=".jpg,.jpeg,.png"
-                className="hidden"
-                onChange={e => setProfilePhoto(e.target.files[0])}
-                disabled={!editMode}
-              />
-              <div
-                className={`w-20 h-20 rounded-full bg-white flex items-center justify-center text-3xl font-bold text-indigo-500 cursor-pointer border-2 border-indigo-300 ${editMode ? 'hover:ring-2 hover:ring-indigo-400' : ''}`}
-                onClick={() => editMode && document.getElementById('profile-photo-input').click()}
-                style={{ overflow: 'hidden' }}
-              >
-                {profilePhoto ? (
-                  <img src={URL.createObjectURL(profilePhoto)} alt="Profile" className="object-cover w-full h-full" />
-                ) : (
-                  form.fullName?.[0] || 'J'
-                )}
-              </div>
-            </div>
-            <div>
-              <h2 className="text-2xl font-bold text-white">{form.fullName}</h2>
-              <div className="flex items-center gap-2 text-white/90">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M16 12a4 4 0 01-8 0 4 4 0 018 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M12 14v7m0 0H9m3 0h3" /></svg>
-                <span>{form.email}</span>
-              </div>
-            </div>
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-gradient-to-br from-slate-50 to-slate-100 text-slate-900 p-0 gap-0 [&>button]:hidden">
+        {/* Header */}
+        <DialogHeader className="px-5 pt-4 pb-3 border-b border-slate-200 bg-gradient-to-r from-slate-800 to-slate-700 relative">
+          <div className="flex items-center justify-center">
+            <DialogTitle className="text-lg font-bold text-white">
+              ENROLL WORKFORCE
+            </DialogTitle>
           </div>
           <button
-            className={`bg-white text-indigo-500 px-4 py-2 rounded font-semibold shadow hover:bg-indigo-50 ${editMode ? 'ring-2 ring-indigo-400' : ''}`}
-            onClick={() => setEditMode((e) => !e)}
+            onClick={handleClose}
+            className="absolute right-5 top-4 text-slate-200 hover:text-white"
+            aria-label="Close"
           >
-            {editMode ? 'SAVE' : 'EDIT PROFILE'}
+            <X className="h-5 w-5" />
           </button>
-        </div>
+        </DialogHeader>
 
-        <div className="bg-white rounded-b-lg p-6">
-          <div className="space-y-6">
-            <div>
-              <h3 className="text-lg font-bold flex items-center gap-2">
-                <span className="text-blue-600">
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M5.121 17.804A13.937 13.937 0 0112 15c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0z" />
-                  </svg>
-                </span>
-                Personal Information
-              </h3>
-              <p className="text-gray-500 text-sm">Update your personal details</p>
-            </div>
-
-            <form className="space-y-4">
+        <div className="px-5 pb-5 flex flex-col gap-2">
+          <form className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium">Full Name *</label>
@@ -302,10 +339,9 @@ export function EnrolWorkforceForm() {
                 />
               </div>
             </form>
-          </div>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 

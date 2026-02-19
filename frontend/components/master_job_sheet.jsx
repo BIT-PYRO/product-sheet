@@ -37,6 +37,9 @@ export default function MasterJobSheet() {
   const [isPrintVoucherOpen, setIsPrintVoucherOpen] = useState(false);
   const [selectedVoucherForPrint, setSelectedVoucherForPrint] = useState(null);
   const [isPrintSheetOpen, setIsPrintSheetOpen] = useState(false);
+  const [isReceiveJobOpen, setIsReceiveJobOpen] = useState(false);
+  const [selectedVoucherForReceive, setSelectedVoucherForReceive] = useState(null);
+  const [shouldPrintReceiveJob, setShouldPrintReceiveJob] = useState(false);
   const [isQuickEnrollOpen, setIsQuickEnrollOpen] = useState(false);
   const [isEnrollWorkforceOpen, setIsEnrollWorkforceOpen] = useState(false);
   const [editingRowIds, setEditingRowIds] = useState(new Set());
@@ -460,6 +463,13 @@ export default function MasterJobSheet() {
         </DialogContent>
       </Dialog>
 
+      <ReceiveJobModal
+        open={isReceiveJobOpen}
+        onOpenChange={setIsReceiveJobOpen}
+        onJobReceived={() => {}}
+        voucherData={selectedVoucherForReceive}
+      />
+
       {/* Print Sheet Dialog */}
       <Dialog open={isPrintSheetOpen} onOpenChange={setIsPrintSheetOpen}>
         <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
@@ -578,7 +588,7 @@ export default function MasterJobSheet() {
         </h1>
 
         {/* Action Buttons */}
-        <div className="flex flex-wrap gap-2 md:gap-4 justify-end mb-6">
+        <div className="flex flex-wrap gap-2 md:gap-4 justify-end mb-6 items-center">
           <Button 
             onClick={handleCreateJob}
             className="bg-green-500 hover:bg-green-600 text-white rounded-full px-6"
@@ -904,13 +914,25 @@ export default function MasterJobSheet() {
                       />
                     </td>
                     <td className={`border border-gray-400 p-1 sticky left-8 z-10 border-r-2 border-r-gray-400`} style={{boxShadow: 'inset -2px 0 0 0 rgb(209, 213, 219)', backgroundColor: isEditing ? '#eff6ff' : 'white'}}>
-                      <Input
-                        type="text"
-                        value={row.voucherNo}
-                        onChange={(e) => handleCellChange(row.id, 'voucherNo', e.target.value)}
-                        className="border-0 p-1 text-xs h-8"
-                        disabled={!canEdit}
-                      />
+                      {isEditing ? (
+                        <Input
+                          type="text"
+                          value={row.voucherNo}
+                          onChange={(e) => handleCellChange(row.id, 'voucherNo', e.target.value)}
+                          className="border-0 p-1 text-xs h-8"
+                          disabled={!canEdit}
+                        />
+                      ) : (
+                        <div 
+                          onClick={() => {
+                            setSelectedVoucherForReceive(row);
+                            setIsReceiveJobOpen(true);
+                          }}
+                          className="cursor-pointer p-1 text-xs font-medium text-blue-600 hover:text-blue-800 hover:underline"
+                        >
+                          {row.voucherNo || '—'}
+                        </div>
+                      )}
                     </td>
                     {columns.map((column) =>
                       visibleColumns.has(column.id) && (

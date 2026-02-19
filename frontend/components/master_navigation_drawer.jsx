@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { LayoutDashboard, X } from 'lucide-react';
+import { DraftsManager } from '@/components/drafts-manager';
 
 const NAV_LINKS = [
   { href: '/', label: 'Product Sheet', className: 'bg-green-600 hover:bg-green-700' },
@@ -58,6 +59,11 @@ export default function MasterNavigationDrawer() {
               {item.label}
             </Link>
           ))}
+
+          {/* Drafts Button */}
+          <div className="w-full mt-8 pt-6 border-t border-gray-200">
+            <DraftsManager />
+          </div>
         </div>
       </div>
     </>
