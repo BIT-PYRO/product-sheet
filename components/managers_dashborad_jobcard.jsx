@@ -21,6 +21,7 @@ import {
 } from '@/components/ui/dialog';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
 import { CreateJobModal } from '@/components/create-job-modal';
+import { CompanyKYCForm } from '@/components/company-kyc-form';
 
 export default function ManagersDashboard() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -29,6 +30,7 @@ export default function ManagersDashboard() {
   const [isManageColumnsOpen, setIsManageColumnsOpen] = useState(false);
   const [selectedColumnsForAction, setSelectedColumnsForAction] = useState(new Set());
   const [isCreateJobModalOpen, setIsCreateJobModalOpen] = useState(false);
+  const [isKYCModalOpen, setIsKYCModalOpen] = useState(false);
   
   // Filter states
   const [statusFilter, setStatusFilter] = useState('');
@@ -330,6 +332,12 @@ export default function ManagersDashboard() {
             >
               Manage Columns
             </Button>
+            <Button 
+              onClick={() => setIsKYCModalOpen(true)}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-full px-6"
+            >
+              Company KYC
+            </Button>
           </div>
         </div>
 
@@ -578,6 +586,13 @@ export default function ManagersDashboard() {
         open={isCreateJobModalOpen}
         onOpenChange={setIsCreateJobModalOpen}
       />
+
+      {/* Company KYC Modal */}
+      <Dialog open={isKYCModalOpen} onOpenChange={setIsKYCModalOpen}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden p-0">
+          <CompanyKYCForm onClose={() => setIsKYCModalOpen(false)} />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
