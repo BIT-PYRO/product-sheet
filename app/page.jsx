@@ -1758,6 +1758,11 @@ export default function ProductSheet() {
           <a href="/managers-dashboard" className="w-full mb-6 px-4 py-3 text-sm bg-blue-500 text-white font-semibold rounded hover:bg-blue-600 transition-colors block text-center">
             Managers Dashboard
           </a>
+
+          {/* Company KYC Button */}
+          <a href="/company-kyc" className="w-full mb-6 px-4 py-3 text-sm bg-indigo-600 text-white font-semibold rounded hover:bg-indigo-700 transition-colors block text-center">
+            Company KYC
+          </a>
         </div>
       </div>
 
