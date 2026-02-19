@@ -1,9 +1,7 @@
-
-
 'use client';
 import React, { useState } from "react";
 
-export default function EnrolWorkforce() {
+export function EnrolWorkforceForm() {
   const [editMode, setEditMode] = useState(false);
   const [form, setForm] = useState({
     fullName: "",
@@ -308,4 +306,8 @@ export default function EnrolWorkforce() {
       </div>
     </div>
   );
+}
+
+export default function EnrolWorkforcePage() {
+  return <EnrolWorkforceForm />;
 }

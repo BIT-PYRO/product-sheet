@@ -26,6 +26,8 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
+import { QuickEnrollModal } from '@/components/quick-enroll-modal';
+import { EnrolWorkforceForm } from '@/app/enrol-workforce/page';
 
 export default function MasterWorkforceSheet() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -37,6 +39,8 @@ export default function MasterWorkforceSheet() {
   const [isPrintSheetOpen, setIsPrintSheetOpen] = useState(false);
   const [editingRowIds, setEditingRowIds] = useState(new Set());
   const [archivedRows, setArchivedRows] = useState(new Set());
+  const [isQuickEnrollOpen, setIsQuickEnrollOpen] = useState(false);
+  const [isEnrollWorkforceOpen, setIsEnrollWorkforceOpen] = useState(false);
   
   // Column definitions for workforce
   const columns = [
@@ -182,11 +186,11 @@ export default function MasterWorkforceSheet() {
   };
 
   const handleQuickEnroll = () => {
-    console.log('Quick enroll');
+    setIsQuickEnrollOpen(true);
   };
 
   const handleEnrollWorkforce = () => {
-    console.log('Enroll workforce');
+    setIsEnrollWorkforceOpen(true);
   };
 
   const handleManageColumns = () => {
@@ -520,13 +524,13 @@ export default function MasterWorkforceSheet() {
         <div className="flex flex-wrap gap-2 md:gap-4 justify-end mb-6">
           <Button 
             onClick={handleQuickEnroll}
-            className="bg-green-500 hover:bg-green-600 text-white rounded-full px-6"
+            className="bg-blue-500 hover:bg-blue-600 text-white rounded-full px-6"
           >
             Quick Enroll
           </Button>
           <Button 
             onClick={handleEnrollWorkforce}
-            className="bg-green-500 hover:bg-green-600 text-white rounded-full px-6"
+            className="bg-blue-500 hover:bg-blue-600 text-white rounded-full px-6"
           >
             Enroll Workforce
           </Button>
@@ -760,6 +764,19 @@ export default function MasterWorkforceSheet() {
         <p>Archived Rows: {archivedRows.size}</p>
         {editingRowIds.size > 0 && <p className="text-blue-600 font-semibold">Editing {editingRowIds.size} row(s)</p>}
       </div>
+
+      {/* Quick Enroll Modal */}
+      <QuickEnrollModal open={isQuickEnrollOpen} onOpenChange={setIsQuickEnrollOpen} />
+      
+      {/* Enroll Workforce Modal */}
+      <Dialog open={isEnrollWorkforceOpen} onOpenChange={setIsEnrollWorkforceOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Enroll Workforce</DialogTitle>
+          </DialogHeader>
+          <EnrolWorkforceForm />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

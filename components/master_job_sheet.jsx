@@ -26,6 +26,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { QuickEnrollModal } from '@/components/quick-enroll-modal';
+import { EnrolWorkforceForm } from '@/app/enrol-workforce/page';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
 
 export default function MasterJobSheet() {
@@ -37,6 +38,7 @@ export default function MasterJobSheet() {
   const [selectedVoucherForPrint, setSelectedVoucherForPrint] = useState(null);
   const [isPrintSheetOpen, setIsPrintSheetOpen] = useState(false);
   const [isQuickEnrollOpen, setIsQuickEnrollOpen] = useState(false);
+  const [isEnrollWorkforceOpen, setIsEnrollWorkforceOpen] = useState(false);
   const [editingRowIds, setEditingRowIds] = useState(new Set());
   const [archivedRows, setArchivedRows] = useState(new Set());
   
@@ -210,6 +212,10 @@ export default function MasterJobSheet() {
 
   const handleQuickEnroll = () => {
     setIsQuickEnrollOpen(true);
+  };
+
+  const handleEnrollWorkforce = () => {
+    setIsEnrollWorkforceOpen(true);
   };
 
   const handleManageColumns = () => {
@@ -555,7 +561,7 @@ export default function MasterJobSheet() {
             Create a Job
           </Button>
           <Button 
-            onClick={() => window.location.href = '/enrol-workforce'}
+            onClick={handleEnrollWorkforce}
             className="bg-blue-500 hover:bg-blue-600 text-white rounded-full px-6"
           >
             Enroll Workforce
@@ -905,6 +911,16 @@ export default function MasterJobSheet() {
         open={isQuickEnrollOpen} 
         onOpenChange={setIsQuickEnrollOpen}
       />
+      
+      {/* Enroll Workforce Modal */}
+      <Dialog open={isEnrollWorkforceOpen} onOpenChange={setIsEnrollWorkforceOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Enroll Workforce</DialogTitle>
+          </DialogHeader>
+          <EnrolWorkforceForm />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
