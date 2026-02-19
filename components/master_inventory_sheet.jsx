@@ -6,6 +6,11 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
   Dialog,
   DialogContent,
   DialogFooter,
@@ -39,6 +44,54 @@ const STOCK_FILTER_OPTIONS = [
   { value: 'wip', label: 'WIP' },
   { value: 'location', label: 'Location' },
 ];
+
+const PRODUCT_SORT_FIELDS = [
+  { value: 'sku', label: 'SKU' },
+  { value: 'listingName', label: 'Listing Name' },
+  { value: 'material', label: 'Material' },
+  { value: 'weight', label: 'Weight' },
+  { value: 'category', label: 'Category' },
+  { value: 'collection', label: 'Collection' },
+  { value: 'settingType', label: 'Setting Type' },
+  { value: 'enamelType', label: 'Enamel Type' },
+  { value: 'activeChannels', label: 'Active Channels' },
+  { value: 'shopifyStatus', label: 'Shopify Status' },
+  { value: 'dieNumberFindings', label: 'Die Number/Findings' },
+  { value: 'masterSku', label: 'Master SKU' },
+  { value: 'color', label: 'Color' },
+  { value: 'enamel', label: 'Enamel' },
+  { value: 'stoneName', label: 'Stone Name' },
+  { value: 'stoneCut', label: 'Stone Cut' },
+  { value: 'stoneColor', label: 'Stone Color' },
+  { value: 'stoneSize', label: 'Stone Size' },
+  { value: 'stoneQuantity', label: 'Stone Quantity' },
+  { value: 'platingType', label: 'Plating Type' },
+  { value: 'platingColor', label: 'Plating Color' },
+  { value: 'notes', label: 'Notes' },
+  { value: 'images', label: 'Images' },
+];
+
+const FILTER_FIELDS = [
+  { key: 'material', label: 'Material' },
+  { key: 'category', label: 'Category' },
+  { key: 'collection', label: 'Collection' },
+  { key: 'weightUnit', label: 'Weight Unit' },
+  { key: 'settingType', label: 'Setting Type' },
+  { key: 'enamelType', label: 'Enamel Type' },
+  { key: 'shopifyStatus', label: 'Shopify Status' },
+  { key: 'activeChannels', label: 'Active Channels' },
+];
+
+const PRODUCT_FIELD_OPTIONS = {
+  material: ['Silver', 'Gold', 'Brass', 'Copper'],
+  category: ['Ring', 'Necklace', 'Bracelet', 'Earring', 'Pendant'],
+  collection: ['Classic', 'Modern', 'Vintage', 'Contemporary'],
+  weightUnit: ['kg', 'lbs', 'grams', 'oz'],
+  settingType: ['wax', 'hand'],
+  enamelType: ['yes', 'no'],
+  shopifyStatus: ['active', 'draft', 'unlisted'],
+  activeChannels: ['Amazon', 'eBay', 'Shopify', 'Etsy', 'Website', 'Wholesale', 'Retail Store'],
+};
 
 function formatFinalStockColumn(rows, key) {
   if (!Array.isArray(rows) || rows.length === 0) {
@@ -74,6 +127,30 @@ function buildInventoryRow(product, stockField) {
   };
 }
 
+function getProductSortValue(product, fieldKey) {
+  const value = product?.[fieldKey];
+  if (Array.isArray(value)) {
+    return value.join(', ').toLowerCase();
+  }
+  return String(value || '').toLowerCase();
+}
+
+function getProductWeightUnit(product) {
+  const weight = String(product?.weight || '').trim();
+  if (!weight) {
+    return '';
+  }
+  const parts = weight.split(/\s+/);
+  return parts.length > 1 ? parts[parts.length - 1] : '';
+}
+
+function getFilterValue(product, fieldKey) {
+  if (fieldKey === 'weightUnit') {
+    return getProductWeightUnit(product);
+  }
+  return product?.[fieldKey];
+}
+
 export default function MasterInventorySheet() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
@@ -84,6 +161,15 @@ export default function MasterInventorySheet() {
   const [stockField, setStockField] = useState('current');
   const [isManageColumnsOpen, setIsManageColumnsOpen] = useState(false);
   const [selectedRows, setSelectedRows] = useState(new Set());
+  const [sortField, setSortField] = useState('');
+  const [sortDirection, setSortDirection] = useState('asc');
+  const [filterSelections, setFilterSelections] = useState(() => {
+    const initial = {};
+    FILTER_FIELDS.forEach((field) => {
+      initial[field.key] = new Set();
+    });
+    return initial;
+  });
   const [visibleColumns, setVisibleColumns] = useState(
     new Set(INVENTORY_COLUMNS.map((column) => column.key))
   );
@@ -152,6 +238,32 @@ export default function MasterInventorySheet() {
     const normalizedSearch = effectiveSearch.toLowerCase();
 
     return products.filter((product) => {
+      const matchesFilters = FILTER_FIELDS.every((field) => {
+        const selected = filterSelections[field.key];
+        if (!selected || selected.size === 0) {
+          return true;
+        }
+
+        const rawValue = getFilterValue(product, field.key);
+        if (!rawValue) {
+          return false;
+        }
+
+        if (field.key === 'activeChannels') {
+          const values = String(rawValue)
+            .split(',')
+            .map((value) => value.trim())
+            .filter(Boolean);
+          return values.some((value) => selected.has(value));
+        }
+
+        return selected.has(String(rawValue).trim());
+      });
+
+      if (!matchesFilters) {
+        return false;
+      }
+
       if (selectedSku) {
         return String(product.sku || '').trim() === selectedSku;
       }
@@ -165,7 +277,23 @@ export default function MasterInventorySheet() {
         .toLowerCase()
         .includes(normalizedSearch);
     });
-  }, [products, effectiveSearch, selectedSku]);
+  }, [effectiveSearch, filterSelections, products, selectedSku]);
+
+  const sortedProducts = useMemo(() => {
+    if (!sortField) {
+      return filteredProducts;
+    }
+
+    const sorted = [...filteredProducts].sort((a, b) => {
+      const first = getProductSortValue(a, sortField);
+      const second = getProductSortValue(b, sortField);
+      if (first < second) return sortDirection === 'asc' ? -1 : 1;
+      if (first > second) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+
+    return sorted;
+  }, [filteredProducts, sortDirection, sortField]);
 
   const skuOptions = useMemo(() => {
     const seen = new Set();
@@ -232,9 +360,63 @@ export default function MasterInventorySheet() {
     [skuLabelBySku, skuOptions, skuValues]
   );
 
+  const filterOptionsByField = useMemo(() => {
+    const options = {};
+    FILTER_FIELDS.forEach((field) => {
+      options[field.key] = new Set(PRODUCT_FIELD_OPTIONS[field.key] || []);
+    });
+
+    products.forEach((product) => {
+      FILTER_FIELDS.forEach((field) => {
+        const rawValue = getFilterValue(product, field.key);
+        if (!rawValue) {
+          return;
+        }
+
+        if (field.key === 'activeChannels') {
+          String(rawValue)
+            .split(',')
+            .map((value) => value.trim())
+            .filter(Boolean)
+            .forEach((value) => options[field.key].add(value));
+          return;
+        }
+
+        options[field.key].add(String(rawValue).trim());
+      });
+    });
+
+    const sorted = {};
+    FILTER_FIELDS.forEach((field) => {
+      sorted[field.key] = Array.from(options[field.key]).sort((a, b) =>
+        a.localeCompare(b)
+      );
+    });
+
+    return sorted;
+  }, [products]);
+
+  const toggleFilterSelection = (fieldKey, value) => {
+    setFilterSelections((prev) => {
+      const next = { ...prev };
+      const nextSet = new Set(prev[fieldKey] || []);
+      if (nextSet.has(value)) {
+        nextSet.delete(value);
+      } else {
+        nextSet.add(value);
+      }
+      next[fieldKey] = nextSet;
+      return next;
+    });
+  };
+
+  const clearFilterSelection = (fieldKey) => {
+    setFilterSelections((prev) => ({ ...prev, [fieldKey]: new Set() }));
+  };
+
   const inventoryRows = useMemo(
-    () => filteredProducts.map((product) => buildInventoryRow(product, stockField)),
-    [filteredProducts, stockField]
+    () => sortedProducts.map((product) => buildInventoryRow(product, stockField)),
+    [sortedProducts, stockField]
   );
 
   const rowsToRender = useMemo(() => {
@@ -482,6 +664,48 @@ export default function MasterInventorySheet() {
             <Button variant="outline" onClick={handleExport}>Export</Button>
             <Button variant="outline" onClick={() => window.print()}>Print</Button>
           </div>
+        </div>
+
+        <div className="flex flex-wrap gap-2 mb-3">
+          {FILTER_FIELDS.map((field) => (
+            <DropdownMenu key={field.key}>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className="px-3 py-1 text-xs border rounded bg-blue-100 text-gray-800 border-blue-300"
+                >
+                  {field.label}
+                  {filterSelections[field.key]?.size > 0
+                    ? ` (${filterSelections[field.key].size})`
+                    : ''}
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-56 max-h-64 overflow-y-auto p-2">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-semibold">Select {field.label}</span>
+                  <button
+                    type="button"
+                    onClick={() => clearFilterSelection(field.key)}
+                    className="text-xs text-blue-600 hover:underline"
+                  >
+                    Clear
+                  </button>
+                </div>
+                {(filterOptionsByField[field.key] || []).map((option) => (
+                  <label key={option} className="flex items-center gap-2 py-1 text-xs">
+                    <Checkbox
+                      checked={filterSelections[field.key]?.has(option)}
+                      onCheckedChange={() => toggleFilterSelection(field.key, option)}
+                    />
+                    <span>{option}</span>
+                  </label>
+                ))}
+                {filterOptionsByField[field.key]?.length === 0 && (
+                  <p className="text-xs text-gray-500">No values</p>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ))}
         </div>
 
         <div className="overflow-x-auto border border-gray-300">
