@@ -10,6 +10,7 @@ import {
   DialogContent,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { QuickEnrollModal } from "@/components/quick-enroll-modal"
 import { PrintVoucherModal } from "@/components/print-voucher-modal"
 import {
@@ -31,10 +32,11 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
   const [isQuickEnrollModalOpen, setIsQuickEnrollModalOpen] = useState(false)
   const [isPrintVoucherModalOpen, setIsPrintVoucherModalOpen] = useState(false)
   const [printVoucherData, setPrintVoucherData] = useState(null)
+  const [activeTab, setActiveTab] = useState("stone")
   const [rows, setRows] = useState([
-    { id: 1, sku: "SKU-001", category: "Category", issuedQty: "0", unit1: "Pcs", issuedWeight: "0.00", unit2: "Kg" },
-    { id: 2, sku: "SKU-001", category: "Category", issuedQty: "0", unit1: "Pcs", issuedWeight: "0.00", unit2: "Kg" },
-    { id: 3, sku: "SKU-001", category: "Category", issuedQty: "0", unit1: "Pcs", issuedWeight: "0.00", unit2: "Kg" },
+    { id: 1, sku: "", category: "", issuedQty: "", unit1: "", issuedWeight: "", unit2: "" },
+    { id: 2, sku: "", category: "", issuedQty: "", unit1: "", issuedWeight: "", unit2: "" },
+    { id: 3, sku: "", category: "", issuedQty: "", unit1: "", issuedWeight: "", unit2: "" },
   ])
   const [date, setDate] = useState(new Date().toISOString().split("T")[0])
   const [scheduleFuture, setScheduleFuture] = useState("")
@@ -47,11 +49,17 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
   const [noteByIssuer, setNoteByIssuer] = useState("")
   const [issuedByName, setIssuedByName] = useState("")
   const [issuedByContact, setIssuedByContact] = useState("")
+  const [stoneRows, setStoneRows] = useState([
+    { id: 1, name: "", cut: "", color: "", size: "", quantity: "" },
+  ])
+  const [dieWeightRows, setDieWeightRows] = useState([
+    { id: 1, dieNumber: "", quantity: "", weight: "", unit: "" },
+  ])
 
   function addRow() {
     setRows((prev) => [
       ...prev,
-      { id: Date.now(), sku: "SKU-001", category: "Category", issuedQty: "0", unit1: "Pcs", issuedWeight: "0.00", unit2: "Kg" },
+      { id: Date.now(), sku: "", category: "", issuedQty: "", unit1: "", issuedWeight: "", unit2: "" },
     ])
   }
 
@@ -61,6 +69,36 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
 
   function updateRow(id, field, value) {
     setRows((prev) => prev.map((r) => (r.id === id ? { ...r, [field]: value } : r)))
+  }
+
+  function addStoneRow() {
+    setStoneRows((prev) => [
+      ...prev,
+      { id: Date.now(), name: "", cut: "", color: "", size: "", quantity: "" },
+    ])
+  }
+
+  function deleteStoneRow(id) {
+    setStoneRows((prev) => prev.filter((r) => r.id !== id))
+  }
+
+  function updateStoneRow(id, field, value) {
+    setStoneRows((prev) => prev.map((r) => (r.id === id ? { ...r, [field]: value } : r)))
+  }
+
+  function addDieWeightRow() {
+    setDieWeightRows((prev) => [
+      ...prev,
+      { id: Date.now(), dieNumber: "", quantity: "", weight: "", unit: "" },
+    ])
+  }
+
+  function deleteDieWeightRow(id) {
+    setDieWeightRows((prev) => prev.filter((r) => r.id !== id))
+  }
+
+  function updateDieWeightRow(id, field, value) {
+    setDieWeightRows((prev) => prev.map((r) => (r.id === id ? { ...r, [field]: value } : r)))
   }
 
   function handleSubmit() {
@@ -87,10 +125,10 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-[700px] w-[95vw] max-h-[95vh] overflow-y-auto bg-background text-foreground p-0 gap-0 [&>button]:hidden">
+        <DialogContent className="max-w-[700px] w-[95vw] max-h-[92vh] overflow-y-auto bg-background text-foreground p-0 gap-0 [&>button]:hidden">
         <DialogTitle className="sr-only">Create Job Modal</DialogTitle>
         {/* Close button only, no title */}
-        <div className="flex justify-end px-5 pt-0 pb-0">
+        <div className="flex justify-end px-4 pt-2 pb-0">
           <button
             onClick={() => onOpenChange(false)}
             className="text-muted-foreground hover:text-foreground transition-colors"
@@ -100,11 +138,11 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
           </button>
         </div>
 
-        <div className="px-5 pb-2 flex flex-col gap-2.5">
+        <div className="px-4 pb-1 flex flex-col gap-1.5">
           {/* Row 1: DATE & SCHEDULE on LEFT | VOUCHER TYPE & NO. on RIGHT */}
-          <div className="flex justify-between gap-3">
+          <div className="flex justify-between gap-2">
             {/* LEFT: DATE & SCHEDULE */}
-            <div className="flex gap-3">
+            <div className="flex gap-2">
               {/* DATE */}
               <div className="flex flex-col gap-0.5">
                 <Label className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Date</Label>
@@ -125,18 +163,18 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
                   type="date"
                   value={scheduleFuture}
                   onChange={(e) => setScheduleFuture(e.target.value)}
-                  className="h-8 pl-1 py-1 text-xs bg-background border-border !w-fit max-w-[13                  git push origin master                  git log --oneline -50px]"
+                  className="h-8 pl-1 py-1 text-xs bg-background border-border !w-fit max-w-[130px]"
                 />
               </div>
             </div>
 
             {/* RIGHT: TYPE & VOUCHER NO. */}
-            <div className="flex gap-3">
+            <div className="flex gap-2">
               {/* TYPE */}
               <div className="flex flex-col gap-0.5">
                 <Label className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Type</Label>
                 <Select value={voucherType} onValueChange={setVoucherType}>
-                  <SelectTrigger className="h-8 px-2 py-1 text-xs bg-background border-border">
+                  <SelectTrigger className="h-8 px-2 py-1 text-xs bg-background border-border focus:ring-0 focus:outline-none">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -159,12 +197,12 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
           </div>
 
           {/* ISSUED TO */}
-          <div className="border border-border rounded-md px-3 py-2">
-            <div className="grid grid-cols-[1fr_auto_1fr] gap-2 items-end">
+          <div className="border border-border rounded-md px-2.5 py-1.5">
+            <div className="grid grid-cols-[1fr_auto_1fr] gap-1.5 items-end">
               <div className="flex flex-col gap-0.5">
                 <Label className="text-[10px] font-medium text-muted-foreground">Issued To</Label>
                 <Select value={issuedTo} onValueChange={setIssuedTo}>
-                  <SelectTrigger className="h-9 text-xs bg-background border-border">
+                  <SelectTrigger className="h-8 text-xs bg-background border-border focus:ring-0 focus:outline-none">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -176,15 +214,15 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
               <button
                 type="button"
                 onClick={() => setIsQuickEnrollModalOpen(true)}
-                className="h-9 px-12 border-2 border-dashed border-blue-500 text-blue-600 rounded font-semibold text-xs hover:bg-blue-50 transition-colors flex items-center gap-1.5"
+                className="h-8 px-10 border-2 border-dashed border-blue-500 text-blue-600 rounded font-semibold text-xs hover:bg-blue-50 transition-colors flex items-center gap-1"
               >
-                <Plus className="h-3.5 w-3.5" />
+                <Plus className="h-3 w-3" />
                 Enroll
               </button>
               <div className="flex flex-col gap-0.5">
                 <Label className="text-[10px] font-medium text-muted-foreground">Work Type</Label>
                 <Select value={workType} onValueChange={setWorkType}>
-                  <SelectTrigger className="h-9 text-xs bg-background border-border">
+                  <SelectTrigger className="h-8 text-xs bg-background border-border focus:ring-0 focus:outline-none">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -198,12 +236,12 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
           </div>
 
           {/* DEPARTMENT TRANSFER */}
-          <div className="border border-border rounded-md px-3 py-2">
-            <div className="grid grid-cols-[1fr_auto_1fr] gap-2 items-end">
+          <div className="border border-border rounded-md px-2.5 py-1.5">
+            <div className="grid grid-cols-[1fr_auto_1fr] gap-1.5 items-end">
               <div className="flex flex-col gap-0.5">
                 <Label className="text-[10px] font-medium text-muted-foreground">From</Label>
                 <Select value={deptFrom} onValueChange={setDeptFrom}>
-                  <SelectTrigger className="h-9 text-xs bg-background border-border">
+                  <SelectTrigger className="h-8 text-xs bg-background border-border focus:ring-0 focus:outline-none">
                     <SelectValue placeholder="Select Department" />
                   </SelectTrigger>
                   <SelectContent>
@@ -213,13 +251,13 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
                   </SelectContent>
                 </Select>
               </div>
-              <div className="flex items-center justify-center h-9 px-3">
-                <ArrowRight className="h-5 w-8 text-blue-600" />
+              <div className="flex items-center justify-center h-8 px-2">
+                <ArrowRight className="h-4 w-6 text-blue-600" />
               </div>
               <div className="flex flex-col gap-0.5">
                 <Label className="text-[10px] font-medium text-muted-foreground">To</Label>
                 <Select value={deptTo} onValueChange={setDeptTo}>
-                  <SelectTrigger className="h-9 text-xs bg-background border-border">
+                  <SelectTrigger className="h-8 text-xs bg-background border-border focus:ring-0 focus:outline-none">
                     <SelectValue placeholder="Select Department" />
                   </SelectTrigger>
                   <SelectContent>
@@ -235,49 +273,49 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
           {/* SKU Table */}
           <div className="rounded-md overflow-hidden border border-border">
             {/* Table Header - blue */}
-            <div className="grid grid-cols-[1fr_1fr_0.8fr_60px_0.8fr_60px_32px] gap-0 bg-blue-600 text-white text-[10px] font-bold uppercase tracking-wider">
-              <div className="px-2 py-1.5">SKU</div>
-              <div className="px-2 py-1.5">Category</div>
-              <div className="px-2 py-1.5">Qty</div>
-              <div className="px-2 py-1.5"></div>
-              <div className="px-2 py-1.5">Weight</div>
-              <div className="px-2 py-1.5"></div>
-              <div className="px-2 py-1.5"></div>
+            <div className="grid grid-cols-[1fr_1fr_0.8fr_60px_0.8fr_60px_32px] gap-0 bg-blue-600 text-white text-[9px] font-bold uppercase tracking-wider">
+              <div className="px-1.5 py-2">SKU</div>
+              <div className="px-1.5 py-2">Category</div>
+              <div className="px-1.5 py-2">Qty</div>
+              <div className="px-1.5 py-2"></div>
+              <div className="px-1.5 py-2">Weight</div>
+              <div className="px-1.5 py-2"></div>
+              <div className="px-1.5 py-2"></div>
             </div>
             {rows.map((row) => (
               <div
                 key={row.id}
                 className="grid grid-cols-[1fr_1fr_0.8fr_60px_0.8fr_60px_32px] gap-0 border-t border-border items-center bg-background"
               >
-                <div className="px-1 py-1">
-                  <Input className="h-6 text-xs bg-background border-border" placeholder="SKU-001" value={row.sku} onChange={(e) => updateRow(row.id, "sku", e.target.value)} />
+                <div className="px-0.5 py-0.5">
+                  <Input className="h-6 text-xs bg-background border-border" placeholder="SKU" value={row.sku} onChange={(e) => updateRow(row.id, "sku", e.target.value)} />
                 </div>
-                <div className="px-1 py-1">
+                <div className="px-0.5 py-0.5">
                   <Input className="h-6 text-xs bg-background border-border" placeholder="Category" value={row.category} onChange={(e) => updateRow(row.id, "category", e.target.value)} />
                 </div>
-                <div className="px-1 py-1">
+                <div className="px-0.5 py-0.5">
                   <Input className="h-6 text-xs bg-background border-border" type="number" placeholder="0" value={row.issuedQty} onChange={(e) => updateRow(row.id, "issuedQty", e.target.value)} />
                 </div>
-                <div className="px-1 py-1">
+                <div className="px-0.5 py-0.5">
                   <Select value={row.unit1} onValueChange={(v) => updateRow(row.id, "unit1", v)}>
-                    <SelectTrigger className="h-6 text-[10px] bg-background border-border p-0.5"><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="h-6 text-[10px] bg-background border-border p-0.5 focus:ring-0 focus:outline-none"><SelectValue placeholder="Select" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="Pcs">Pcs</SelectItem>
                       <SelectItem value="Kg">Kg</SelectItem>
-                      <SelectItem value="Grams">Grams</SelectItem>
+                      <SelectItem value="g">g</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="px-1 py-1">
-                  <Input className="h-6 text-xs bg-background border-border" placeholder="0.00" value={row.issuedWeight} onChange={(e) => updateRow(row.id, "issuedWeight", e.target.value)} />
+                <div className="px-0.5 py-0.5">
+                  <Input className="h-6 text-xs bg-background border-border" placeholder="0" value={row.issuedWeight} onChange={(e) => updateRow(row.id, "issuedWeight", e.target.value)} />
                 </div>
-                <div className="px-1 py-1">
+                <div className="px-0.5 py-0.5">
                   <Select value={row.unit2} onValueChange={(v) => updateRow(row.id, "unit2", v)}>
-                    <SelectTrigger className="h-6 text-[10px] bg-background border-border p-0.5"><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="h-6 text-[10px] bg-background border-border p-0.5 focus:ring-0 focus:outline-none"><SelectValue placeholder="Select" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="Kg">Kg</SelectItem>
-                      <SelectItem value="Grams">Grams</SelectItem>
-                      <SelectItem value="Pcs">Pcs</SelectItem>
+                      <SelectItem value="g">g</SelectItem>
+                      <SelectItem value="lb">lb</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -310,23 +348,23 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
               
               return allUnits.map((unit, idx) => (
                 <div key={`total-${unit}`} className="grid grid-cols-[1fr_1fr_0.8fr_60px_0.8fr_60px_32px] gap-0 border-t border-border items-center bg-blue-50">
-                  <div className="px-2 py-1.5">
+                  <div className="px-1.5 py-0.5">
                     <div className="text-xs font-bold text-foreground">{idx === 0 ? "Total" : ""}</div>
                   </div>
-                  <div className="px-2 py-1.5"></div>
-                  <div className="px-2 py-1.5">
+                  <div className="px-1.5 py-0.5"></div>
+                  <div className="px-1.5 py-0.5">
                     <div className="text-xs font-bold text-foreground">{qtyByUnit[unit] ? qtyByUnit[unit].toFixed(2) : "-"}</div>
                   </div>
-                  <div className="px-2 py-1.5">
+                  <div className="px-1.5 py-0.5">
                     <div className="text-xs font-semibold text-foreground">{qtyByUnit[unit] ? unit : ""}</div>
                   </div>
-                  <div className="px-2 py-1.5">
+                  <div className="px-1.5 py-0.5">
                     <div className="text-xs font-bold text-foreground">{weightByUnit[unit] ? weightByUnit[unit].toFixed(2) : "-"}</div>
                   </div>
-                  <div className="px-2 py-1.5">
+                  <div className="px-1.5 py-0.5">
                     <div className="text-xs font-semibold text-foreground">{weightByUnit[unit] ? unit : ""}</div>
                   </div>
-                  <div className="px-2 py-1.5"></div>
+                  <div className="px-1.5 py-0.5"></div>
                 </div>
               ))
             })()}
@@ -340,35 +378,146 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
             </div>
           </div>
 
+          {/* STONE & FINDINGS TABS */}
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <TabsList className="grid w-full grid-cols-2 bg-blue-100">
+              <TabsTrigger value="stone" className="text-xs font-semibold">Stone</TabsTrigger>
+              <TabsTrigger value="die" className="text-xs font-semibold">Findings</TabsTrigger>
+            </TabsList>
+
+            {/* STONE AND FINDINGS TAB */}
+            <TabsContent value="stone" className="mt-2">
+              <div className="flex flex-col gap-1">
+                <div className="rounded-md overflow-hidden border border-border">
+                  <div className="grid grid-cols-[1fr_1fr_1fr_1fr_1fr_32px] gap-0 bg-blue-600 text-white text-[9px] font-bold uppercase tracking-wider">
+                    <div className="px-1.5 py-2">Name</div>
+                    <div className="px-1.5 py-2">Cut</div>
+                    <div className="px-1.5 py-2">Color</div>
+                    <div className="px-1.5 py-2">Size</div>
+                    <div className="px-1.5 py-2">Qty</div>
+                    <div className="px-1.5 py-2"></div>
+                  </div>
+                  {stoneRows.map((row) => (
+                    <div
+                      key={row.id}
+                      className="grid grid-cols-[1fr_1fr_1fr_1fr_1fr_32px] gap-0 border-t border-border items-center bg-background"
+                    >
+                      <div className="px-0.5 py-0.5">
+                        <Input className="h-6 text-xs bg-background border-border" placeholder="Stone name" value={row.name} onChange={(e) => updateStoneRow(row.id, "name", e.target.value)} />
+                      </div>
+                      <div className="px-0.5 py-0.5">
+                        <Input className="h-6 text-xs bg-background border-border" placeholder="Cut" value={row.cut} onChange={(e) => updateStoneRow(row.id, "cut", e.target.value)} />
+                      </div>
+                      <div className="px-0.5 py-0.5">
+                        <Input className="h-6 text-xs bg-background border-border" placeholder="Color" value={row.color} onChange={(e) => updateStoneRow(row.id, "color", e.target.value)} />
+                      </div>
+                      <div className="px-0.5 py-0.5">
+                        <Input className="h-6 text-xs bg-background border-border" placeholder="Size" value={row.size} onChange={(e) => updateStoneRow(row.id, "size", e.target.value)} />
+                      </div>
+                      <div className="px-0.5 py-0.5">
+                      <Input className="h-6 text-xs bg-background border-border" type="number" placeholder="0" value={row.quantity} onChange={(e) => updateStoneRow(row.id, "quantity", e.target.value)} />
+                      </div>
+                      <div className="flex items-center justify-center">
+                        <button type="button" onClick={() => deleteStoneRow(row.id)} className="text-red-500 hover:text-red-700 transition-colors" aria-label="Delete row">
+                          <Trash2 className="h-3 w-3" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                  <div className="border-t border-border bg-background">
+                    <button type="button" onClick={addStoneRow} className="w-full py-0.5 text-blue-600 hover:text-blue-700 text-xs font-semibold transition-colors">
+                      + Add Row
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </TabsContent>
+
+            {/* DIE NUMBER/WEIGHT TAB */}
+            <TabsContent value="die" className="mt-2">
+              <div className="flex flex-col gap-1">
+                <div className="rounded-md overflow-hidden border border-border">
+                  <div className="grid grid-cols-[1fr_1fr_1fr_1fr_32px] gap-0 bg-blue-600 text-white text-[9px] font-bold uppercase tracking-wider">
+                    <div className="px-1.5 py-2">Die Number</div>
+                    <div className="px-1.5 py-2">Qty</div>
+                    <div className="px-1.5 py-2">Weight</div>
+                    <div className="px-1.5 py-2">Unit</div>
+                    <div className="px-1.5 py-2"></div>
+                  </div>
+                  {dieWeightRows.map((row) => (
+                    <div
+                      key={row.id}
+                      className="grid grid-cols-[1fr_1fr_1fr_1fr_32px] gap-0 border-t border-border items-center bg-background"
+                    >
+                      <div className="px-0.5 py-0.5">
+                        <Input className="h-6 text-xs bg-background border-border" placeholder="Die Number" value={row.dieNumber} onChange={(e) => updateDieWeightRow(row.id, "dieNumber", e.target.value)} />
+                      </div>
+                      <div className="px-0.5 py-0.5">
+                        <Input className="h-6 text-xs bg-background border-border" type="number" placeholder="0" value={row.quantity} onChange={(e) => updateDieWeightRow(row.id, "quantity", e.target.value)} />
+                      </div>
+                      <div className="px-0.5 py-0.5">
+                        <Input className="h-6 text-xs bg-background border-border" type="number" step="0.01" placeholder="0" value={row.weight} onChange={(e) => updateDieWeightRow(row.id, "weight", e.target.value)} />
+                      </div>
+                      <div className="px-0.5 py-0.5">
+                        <Select value={row.unit} onValueChange={(value) => updateDieWeightRow(row.id, "unit", value)}>
+                          <SelectTrigger className="h-6 text-xs bg-background border-border focus:ring-0 focus:outline-none">
+                            <SelectValue placeholder="Select unit" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Kg">Kg</SelectItem>
+                            <SelectItem value="g">g</SelectItem>
+                            <SelectItem value="lb">lb</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="flex items-center justify-center">
+                        <button type="button" onClick={() => deleteDieWeightRow(row.id)} className="text-red-500 hover:text-red-700 transition-colors" aria-label="Delete row">
+                          <Trash2 className="h-3 w-3" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                  <div className="border-t border-border bg-background">
+                    <button type="button" onClick={addDieWeightRow} className="w-full py-0.5 text-blue-600 hover:text-blue-700 text-xs font-semibold transition-colors">
+                      + Add Row
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </TabsContent>
+          </Tabs>
+
           {/* ISSUED BY */}
-          <div className="border border-border rounded-md px-3 py-2">
-            <div className="grid grid-cols-[1fr_auto_1fr] gap-2 items-end">
+          <div className="border border-border rounded-md px-2.5 py-1.5">
+            <div className="grid grid-cols-[1fr_auto_1fr] gap-1.5 items-end">
               <div className="flex flex-col gap-0.5">
                 <Label className="text-[10px] font-medium text-muted-foreground">Issued By</Label>
-                <Input placeholder="Enter your name" value={issuedByName} onChange={(e) => setIssuedByName(e.target.value)} className="h-9 text-xs bg-background border-border focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-colors cursor-text" />
+                <Input placeholder="Enter your name" value={issuedByName} onChange={(e) => setIssuedByName(e.target.value)} className="h-8 text-xs bg-background border-border focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-colors cursor-text" />
               </div>
               <div className="hidden md:block" />
               <div className="flex flex-col gap-0.5">
                 <Label className="text-[10px] font-medium text-muted-foreground">Contact</Label>
-                <Input type="tel" placeholder="+91 XXXXX XXXXX" value={issuedByContact} onChange={(e) => setIssuedByContact(e.target.value)} className="h-9 text-xs bg-background border-border" />
+                <Input type="tel" placeholder="+91 XXXXX XXXXX" value={issuedByContact} onChange={(e) => setIssuedByContact(e.target.value)} className="h-8 text-xs bg-background border-border" />
               </div>
             </div>
           </div>
 
-          {/* NOTE BY ISSUER */}
-          <div className="flex flex-col gap-0.5">
-            <Label className="text-[10px] font-bold uppercase tracking-wide text-foreground">Note by Issuer</Label>
-            <Textarea
-              value={noteByIssuer}
-              onChange={(e) => setNoteByIssuer(e.target.value)}
-              placeholder="Enter notes..."
-              className="min-h-[35px] resize-none text-xs bg-background border-border p-1.5"
-            />
+          {/* ADD NOTE */}
+          <div className="border border-border rounded-md px-2.5 py-1.5">
+            <div className="flex flex-col gap-0.5">
+              <Label className="text-[10px] font-medium text-muted-foreground">Add Note</Label>
+              <Textarea
+                value={noteByIssuer}
+                onChange={(e) => setNoteByIssuer(e.target.value)}
+                placeholder="Enter notes..."
+                className="min-h-[32px] max-h-[32px] resize-none text-xs bg-background border-border p-1"
+              />
+            </div>
           </div>
 
           {/* Issue Job Button */}
           <Button
-            className="w-full h-8 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm rounded"
+            className="w-full h-7 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded mt-0.5 mb-1.5"
             onClick={handleSubmit}
           >
             Issue Job
