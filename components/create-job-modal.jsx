@@ -20,7 +20,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { CalendarIcon, Plus, Trash2, X, ArrowRight } from "lucide-react"
+import { CalendarIcon, Plus, Trash2, X, ArrowRight, FileText } from "lucide-react"
+import { useDrafts, useDraftLoader } from "@/components/drafts-manager"
 
 function generateVoucherNo() {
   const year = new Date().getFullYear()
@@ -29,6 +30,8 @@ function generateVoucherNo() {
 }
 
 export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated }) {
+  const { saveDraft } = useDrafts()
+  const loadedDraft = useDraftLoader()
   const [isQuickEnrollModalOpen, setIsQuickEnrollModalOpen] = useState(false)
   const [isPrintVoucherModalOpen, setIsPrintVoucherModalOpen] = useState(false)
   const [printVoucherData, setPrintVoucherData] = useState(null)
@@ -71,6 +74,27 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
       setEnrolledPeople(people)
     }
   }, [open])
+
+  // Handle draft loading
+  useEffect(() => {
+    if (loadedDraft && loadedDraft.section === 'Create Job') {
+      const draft = loadedDraft.data
+      // Restore all form fields from draft
+      if (draft.date) setDate(draft.date)
+      if (draft.issuedTo) setIssuedTo(draft.issuedTo)
+      if (draft.deptFrom) setDeptFrom(draft.deptFrom)
+      if (draft.deptTo) setDeptTo(draft.deptTo)
+      if (draft.rows) setRows(draft.rows)
+      if (draft.stoneRows) setStoneRows(draft.stoneRows)
+      if (draft.dieWeightRows) setDieWeightRows(draft.dieWeightRows)
+      if (draft.voucherType) setVoucherType(draft.voucherType)
+      if (draft.workType) setWorkType(draft.workType)
+      if (draft.noteByIssuer) setNoteByIssuer(draft.noteByIssuer)
+      if (draft.scheduleFuture) setScheduleFuture(draft.scheduleFuture)
+      // Open the modal
+      onOpenChange(true)
+    }
+  }, [loadedDraft, onOpenChange])
 
   function addRow() {
     setRows((prev) => [
@@ -140,9 +164,26 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
   }
 
   function handleSaveDraft() {
-    const draftData = { date, issuedTo, deptFrom, deptTo, rows, voucherNo, isDraft: true }
-    console.log("Draft saved:", draftData)
-    // TODO: Send draft data to backend or save to localStorage
+    const draftData = {
+      date,
+      issuedTo,
+      deptFrom,
+      deptTo,
+      rows,
+      stoneRows,
+      dieWeightRows,
+      voucherNo,
+      workType,
+      noteByIssuer,
+      scheduleFuture,
+      voucherType,
+      title: `Job ${voucherNo} - ${new Date(date).toLocaleDateString()}`,
+    }
+    saveDraft('Create Job', `draft_${voucherNo}`, draftData)
+    // Show toast notification
+    if (typeof window !== 'undefined') {
+      alert('Draft saved successfully!')
+    }
     onOpenChange(false)
   }
 

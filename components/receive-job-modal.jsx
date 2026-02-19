@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -27,7 +27,7 @@ const jewelleryDepartments = [
   { label: "Quality Check", value: "Quality Check" },
 ]
 
-export function ReceiveJobModal({ open, onOpenChange, onJobReceived }) {
+export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData }) {
   const [issueDate, setIssueDate] = useState("")
   const [voucherNo, setVoucherNo] = useState("")
   const [issuedTo, setIssuedTo] = useState("")
@@ -43,6 +43,39 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived }) {
   const [rows, setRows] = useState([
     { id: 1, sku: "", category: "", issuedQty: "", unit1: "Pcs", issuedWeight: "", unit2: "Kg", receivedQty: "", receivedWeight: "", lossQty: "", lossWeight: "", reissueQty: "", reissueWeight: "" },
   ])
+
+  // Pre-populate form with voucher data when it's selected
+  useEffect(() => {
+    if (voucherData && open) {
+      setVoucherNo(voucherData.voucherNo || "")
+      // Handle both master job sheet format (firstName) and managers dashboard format (name)
+      setIssuedTo(voucherData.firstName || voucherData.name || "")
+      setWorkType(voucherData.type || "")
+      setDeptFrom(voucherData.department || "")
+      setDeptTo(voucherData.deptTo || "")
+      // Initialize rows with issued quantities if available
+      // Handle both formats: master job sheet (issuedQty/issuedWeight) and managers dashboard (qty/weight)
+      if (voucherData.issuedQty || voucherData.issuedWeight || voucherData.qty || voucherData.weight) {
+        setRows([
+          {
+            id: 1,
+            sku: voucherData.sku || "",
+            category: voucherData.category || "",
+            issuedQty: voucherData.issuedQty || voucherData.qty || "",
+            unit1: "Pcs",
+            issuedWeight: voucherData.issuedWeight || voucherData.weight || "",
+            unit2: "Kg",
+            receivedQty: voucherData.receivedQty || "",
+            receivedWeight: voucherData.receivedWeight || "",
+            lossQty: voucherData.lossQty || "",
+            lossWeight: voucherData.lossWeight || "",
+            reissueQty: voucherData.reIssueQty || "",
+            reissueWeight: voucherData.reIssueWeight || "",
+          },
+        ])
+      }
+    }
+  }, [voucherData, open])
 
   const addRow = () => {
     const newRow = {

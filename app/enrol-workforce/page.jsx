@@ -1,7 +1,20 @@
 'use client';
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { X } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { useDrafts, useDraftLoader } from "@/components/drafts-manager";
 
-export function EnrolWorkforceForm({ onEnroll, onClose }) {
+const PENDING_DRAFT_KEY = 'pending_enroll_workforce_draft'
+
+export function EnrolWorkforceForm({ onEnroll, onClose, open = true, draftData = null }) {
+  const { saveDraft } = useDrafts()
+  const loadedDraft = useDraftLoader()
+  const [isOpen, setIsOpen] = useState(open)
   const [form, setForm] = useState({
     fullName: "",
     dob: "",
@@ -32,6 +45,35 @@ export function EnrolWorkforceForm({ onEnroll, onClose }) {
   });
   const [documents, setDocuments] = useState({ aadhaar: null, pan: null, gst: null });
 
+  // Load draft data passed as prop (from DraftsManager)
+  useEffect(() => {
+    if (draftData) {
+      setForm(draftData)
+    }
+  }, [draftData])
+
+  // Load pending draft on component mount
+  useEffect(() => {
+    const pendingDraft = localStorage.getItem(PENDING_DRAFT_KEY)
+    if (pendingDraft) {
+      try {
+        const draftData = JSON.parse(pendingDraft)
+        setForm(draftData)
+        localStorage.removeItem(PENDING_DRAFT_KEY)
+      } catch (e) {
+        console.error('Failed to load pending draft:', e)
+      }
+    }
+  }, [])
+
+  // Handle draft loading from useDraftLoader (for other pages navigating here)
+  useEffect(() => {
+    if (loadedDraft && loadedDraft.section === 'Enroll Workforce') {
+      const draft = loadedDraft.data
+      setForm(draft)
+    }
+  }, [loadedDraft])
+
   // Handle address autofill
   const handleSameAsCurrent = (checked) => {
     setForm((prev) => ({
@@ -55,9 +97,22 @@ export function EnrolWorkforceForm({ onEnroll, onClose }) {
 
   // Handle save draft
   const handleSaveDraft = () => {
-    const draftData = { ...form, isDraft: true };
-    console.log("Draft saved:", draftData);
-    // TODO: Send draft data to backend or save to localStorage
+    const draftData = {
+      ...form,
+      title: form.fullName || 'Enroll Workforce Draft',
+    }
+    saveDraft('Enroll Workforce', `draft_enroll_${Date.now()}`, draftData)
+    if (typeof window !== 'undefined') {
+      alert('Draft saved successfully!')
+    }
+    handleClose()
+  };
+
+  const handleClose = () => {
+    setIsOpen(false)
+    if (onClose) {
+      onClose()
+    }
   };
 
   // Handle input changes
@@ -92,11 +147,26 @@ export function EnrolWorkforceForm({ onEnroll, onClose }) {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6">
-      <div className="max-w-5xl mx-auto">
-        <div className="bg-white rounded-lg p-6 shadow-lg border border-slate-200">
-          <div className="space-y-6">
-            <form className="space-y-4">
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-gradient-to-br from-slate-50 to-slate-100 text-slate-900 p-0 gap-0 [&>button]:hidden">
+        {/* Header */}
+        <DialogHeader className="px-5 pt-4 pb-3 border-b border-slate-200 bg-gradient-to-r from-slate-800 to-slate-700 relative">
+          <div className="flex items-center justify-center">
+            <DialogTitle className="text-lg font-bold text-white">
+              ENROLL WORKFORCE
+            </DialogTitle>
+          </div>
+          <button
+            onClick={handleClose}
+            className="absolute right-5 top-4 text-slate-200 hover:text-white"
+            aria-label="Close"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </DialogHeader>
+
+        <div className="px-5 pb-5 flex flex-col gap-2">
+          <form className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 mb-2">Full Name *</label>
@@ -275,10 +345,9 @@ export function EnrolWorkforceForm({ onEnroll, onClose }) {
                 </button>
               </div>
             </form>
-          </div>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 

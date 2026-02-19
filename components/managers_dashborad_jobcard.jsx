@@ -22,11 +22,13 @@ import {
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
 import { CreateJobModal } from '@/components/create-job-modal';
 import { CompanyKYCForm } from '@/components/company-kyc-form';
+import { ReceiveJobModal } from '@/components/receive-job-modal';
 
 export default function ManagersDashboard() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCard, setSelectedCard] = useState(null);
-  const [isCardModalOpen, setIsCardModalOpen] = useState(false);
+  const [isReceiveJobOpen, setIsReceiveJobOpen] = useState(false);
+  const [selectedVoucherForReceive, setSelectedVoucherForReceive] = useState(null);
   const [isManageColumnsOpen, setIsManageColumnsOpen] = useState(false);
   const [selectedColumnsForAction, setSelectedColumnsForAction] = useState(new Set());
   const [isCreateJobModalOpen, setIsCreateJobModalOpen] = useState(false);
@@ -173,8 +175,8 @@ export default function ManagersDashboard() {
   });
 
   const handleCardClick = (card) => {
-    setSelectedCard(card);
-    setIsCardModalOpen(true);
+    setSelectedVoucherForReceive(card);
+    setIsReceiveJobOpen(true);
   };
 
   const handleCreateJob = () => {
@@ -256,49 +258,13 @@ export default function ManagersDashboard() {
         </DialogContent>
       </Dialog>
 
-      {/* Card Detail Modal */}
-      <Dialog open={isCardModalOpen} onOpenChange={setIsCardModalOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Voucher Details</DialogTitle>
-          </DialogHeader>
-          {selectedCard && (
-            <div className={`p-6 rounded-lg border-2 ${getStatusColor(selectedCard.status)}`}>
-              <div className="space-y-3">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm font-bold text-gray-700">Voucher No.</span>
-                  <span className="text-sm font-semibold">{selectedCard.voucherNo}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm font-bold text-gray-700">Name</span>
-                  <span className="text-sm">{selectedCard.name}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm font-bold text-gray-700">Category</span>
-                  <span className="text-sm">{selectedCard.category}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm font-bold text-gray-700">QTY</span>
-                  <span className="text-sm">{selectedCard.qty}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm font-bold text-gray-700">WT</span>
-                  <span className="text-sm">{selectedCard.weight}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm font-bold text-gray-700">Status</span>
-                  <span className="text-sm font-semibold">{selectedCard.status}</span>
-                </div>
-              </div>
-            </div>
-          )}
-          <DialogFooter>
-            <Button onClick={() => setIsCardModalOpen(false)} variant="outline">
-              Close
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Receive Job Modal */}
+      <ReceiveJobModal
+        open={isReceiveJobOpen}
+        onOpenChange={setIsReceiveJobOpen}
+        onJobReceived={() => {}}
+        voucherData={selectedVoucherForReceive}
+      />
 
       {/* Header Section */}
       <div className="mb-6">

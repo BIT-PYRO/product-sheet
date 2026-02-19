@@ -5,6 +5,7 @@ import { Trash2, LayoutDashboard, X } from 'lucide-react'
 
 import { useState, useRef, useEffect } from 'react'
 import { CreateJobModal } from '@/components/create-job-modal'
+import { DraftsManager } from '@/components/drafts-manager'
 
 const PRODUCT_SHEET_SYNC_KEY = 'product_sheet_updated_at'
 const PRODUCT_SHEET_SYNC_EVENT = 'product_sheet_sync'
@@ -1729,7 +1730,7 @@ export default function ProductSheet() {
             </button>
           </div>
 
-          {/* Master Job Sheet Button */}
+          {/* Product Sheet Button */}
           <a href="/" className="w-full mb-6 px-4 py-3 text-sm bg-green-600 text-white font-semibold rounded hover:bg-green-700 transition-colors block text-center">
             Product Sheet
           </a>
@@ -1763,6 +1764,11 @@ export default function ProductSheet() {
           <a href="/company-kyc" className="w-full mb-6 px-4 py-3 text-sm bg-indigo-600 text-white font-semibold rounded hover:bg-indigo-700 transition-colors block text-center">
             Company KYC
           </a>
+
+          {/* Drafts Button */}
+          <div className="w-full mb-6">
+            <DraftsManager />
+          </div>
         </div>
       </div>
 

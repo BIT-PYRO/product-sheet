@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -19,8 +19,11 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Upload, X } from "lucide-react"
+import { useDrafts, useDraftLoader } from "@/components/drafts-manager"
 
 export function QuickEnrollModal({ open, onOpenChange, onEnroll }) {
+  const { saveDraft } = useDrafts()
+  const loadedDraft = useDraftLoader()
   const [firstName, setFirstName] = useState("")
   const [lastName, setLastName] = useState("")
   const [countryCode, setCountryCode] = useState("+91")
@@ -54,11 +57,44 @@ export function QuickEnrollModal({ open, onOpenChange, onEnroll }) {
   }
 
   function handleSaveDraft() {
-    const draftData = { firstName, lastName, countryCode, contactNumber, location, department, type, remarks, isDraft: true }
-    console.log("Draft saved:", draftData)
-    // TODO: Send draft data to backend or save to localStorage
+    const draftData = {
+      firstName,
+      lastName,
+      countryCode,
+      contactNumber,
+      location,
+      department,
+      type,
+      remarks,
+      photoFileName,
+      title: `${firstName} ${lastName}`.trim() || 'Quick Enroll Draft',
+    }
+    saveDraft('Quick Enroll', `draft_${Date.now()}`, draftData)
+    // Show toast notification
+    if (typeof window !== 'undefined') {
+      alert('Draft saved successfully!')
+    }
     onOpenChange(false)
   }
+
+  // Handle draft loading
+  useEffect(() => {
+    if (loadedDraft && loadedDraft.section === 'Quick Enroll') {
+      const draft = loadedDraft.data
+      // Restore all form fields from draft
+      if (draft.firstName) setFirstName(draft.firstName)
+      if (draft.lastName) setLastName(draft.lastName)
+      if (draft.countryCode) setCountryCode(draft.countryCode)
+      if (draft.contactNumber) setContactNumber(draft.contactNumber)
+      if (draft.location) setLocation(draft.location)
+      if (draft.department) setDepartment(draft.department)
+      if (draft.type) setType(draft.type)
+      if (draft.remarks) setRemarks(draft.remarks)
+      if (draft.photoFileName) setPhotoFileName(draft.photoFileName)
+      // Open the modal
+      onOpenChange(true)
+    }
+  }, [loadedDraft, onOpenChange])
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
