@@ -75,7 +75,6 @@ const FILTER_FIELDS = [
   { key: 'material', label: 'Material' },
   { key: 'category', label: 'Category' },
   { key: 'collection', label: 'Collection' },
-  { key: 'weightUnit', label: 'Weight Unit' },
   { key: 'settingType', label: 'Setting Type' },
   { key: 'enamelType', label: 'Enamel Type' },
   { key: 'shopifyStatus', label: 'Shopify Status' },
@@ -86,7 +85,6 @@ const PRODUCT_FIELD_OPTIONS = {
   material: ['Silver', 'Gold', 'Brass', 'Copper'],
   category: ['Ring', 'Necklace', 'Bracelet', 'Earring', 'Pendant'],
   collection: ['Classic', 'Modern', 'Vintage', 'Contemporary'],
-  weightUnit: ['kg', 'lbs', 'grams', 'oz'],
   settingType: ['wax', 'hand'],
   enamelType: ['yes', 'no'],
   shopifyStatus: ['active', 'draft', 'unlisted'],
@@ -135,19 +133,7 @@ function getProductSortValue(product, fieldKey) {
   return String(value || '').toLowerCase();
 }
 
-function getProductWeightUnit(product) {
-  const weight = String(product?.weight || '').trim();
-  if (!weight) {
-    return '';
-  }
-  const parts = weight.split(/\s+/);
-  return parts.length > 1 ? parts[parts.length - 1] : '';
-}
-
 function getFilterValue(product, fieldKey) {
-  if (fieldKey === 'weightUnit') {
-    return getProductWeightUnit(product);
-  }
   return product?.[fieldKey];
 }
 
