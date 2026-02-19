@@ -40,6 +40,7 @@ export default function MasterProductSheet() {
   const [isPrintSheetOpen, setIsPrintSheetOpen] = useState(false);
   const [editingRowIds, setEditingRowIds] = useState(new Set());
   const [archivedRows, setArchivedRows] = useState(new Set());
+  const [viewMode, setViewMode] = useState('active');
   
   // Column definitions for products
   const columns = [
@@ -299,6 +300,10 @@ export default function MasterProductSheet() {
   };
 
   const handleArchiveRow = () => {
+    if (viewMode === 'archived') {
+      alert('Switch to active rows to archive');
+      return;
+    }
     if (selectedRows.size === 0) {
       alert('Please select at least one row to archive');
       return;
@@ -309,11 +314,31 @@ export default function MasterProductSheet() {
     setSelectedRows(new Set());
   };
 
+  const handleUnarchiveRows = () => {
+    if (selectedRows.size === 0) {
+      alert('Please select at least one row to unarchive');
+      return;
+    }
+    const newArchived = new Set(archivedRows);
+    selectedRows.forEach(id => newArchived.delete(id));
+    setArchivedRows(newArchived);
+    setSelectedRows(new Set());
+  };
+
+  const handleSetViewMode = (mode) => {
+    setViewMode(mode);
+    setSelectedRows(new Set());
+    setEditingRowIds(new Set());
+  };
+
   // Get active (non-archived) data
   const activeData = data.filter(row => !archivedRows.has(row.id));
+  const archivedData = data.filter(row => archivedRows.has(row.id));
+  const isArchivedView = viewMode === 'archived';
+  const baseData = isArchivedView ? archivedData : activeData;
 
   const filteredData = useMemo(() => {
-    return activeData.filter((row) => {
+    return baseData.filter((row) => {
       const searchLower = searchTerm.trim().toLowerCase();
 
       const matchesSearch =
@@ -342,7 +367,7 @@ export default function MasterProductSheet() {
       );
     });
   }, [
-    activeData,
+    baseData,
     searchTerm,
     skuFilter,
     materialFilter,
@@ -352,6 +377,8 @@ export default function MasterProductSheet() {
     enamelTypeFilter,
     shopifyStatusFilter,
   ]);
+
+  const displayedData = filteredData;
 
   return (
     <div className="w-full h-full bg-gray-50 p-4 md:p-6">
@@ -644,16 +671,40 @@ export default function MasterProductSheet() {
             onClick={handleEditRow}
             variant="outline"
             className="border-blue-600 text-blue-600 hover:bg-blue-50 rounded-full px-6"
+            disabled={isArchivedView}
           >
             Edit Row
           </Button>
-          <Button 
-            onClick={handleArchiveRow}
-            variant="outline"
-            className="border-orange-600 text-orange-600 hover:bg-orange-50 rounded-full px-6"
-          >
-            Archive Row
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button 
+                variant="outline"
+                className="border-orange-600 text-orange-600 hover:bg-orange-50 rounded-full px-6"
+              >
+                Archive
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              <DropdownMenuItem onClick={handleArchiveRow} disabled={isArchivedView}>
+                Archive Selected Rows
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => handleSetViewMode(isArchivedView ? 'active' : 'archived')}
+              >
+                {isArchivedView ? 'Show Active Rows' : 'Show Archived Rows'}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          {isArchivedView && (
+            <Button
+              onClick={handleUnarchiveRows}
+              variant="outline"
+              className="border-green-600 text-green-600 hover:bg-green-50 rounded-full px-6"
+              disabled={selectedRows.size === 0}
+            >
+              Unarchive Selected
+            </Button>
+          )}
           <Button 
             onClick={handleManageColumns}
             variant="outline"
@@ -846,7 +897,7 @@ export default function MasterProductSheet() {
             </thead>
 
             <tbody>
-              {filteredData.length === 0 && (
+              {displayedData.length === 0 && (
                 <tr>
                   <td
                     className="border border-gray-400 p-4 text-center text-sm text-gray-500"
@@ -857,10 +908,10 @@ export default function MasterProductSheet() {
                 </tr>
               )}
 
-              {filteredData.map((row, idx) => {
+              {displayedData.map((row, idx) => {
                 const isEditing = editingRowIds.has(row.id);
                 const isAnyRowEditing = editingRowIds.size > 0;
-                const canEdit = !isAnyRowEditing || isEditing;
+                const canEdit = !isArchivedView && (!isAnyRowEditing || isEditing);
                 
                 return (
                   <tr 
@@ -934,8 +985,9 @@ export default function MasterProductSheet() {
       {/* Footer Info */}
       <div className="mt-4 text-xs text-gray-600">
         <p>Selected Rows: {selectedRows.size}</p>
-        <p>Total Rows: {filteredData.length}</p>
+        <p>Visible Rows: {displayedData.length}</p>
         <p>Archived Rows: {archivedRows.size}</p>
+        <p>View: {isArchivedView ? 'Archived' : 'Active'}</p>
         {editingRowIds.size > 0 && <p className="text-blue-600 font-semibold">Editing {editingRowIds.size} row(s)</p>}
       </div>
     </div>

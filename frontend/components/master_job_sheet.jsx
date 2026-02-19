@@ -41,6 +41,7 @@ export default function MasterJobSheet() {
   const [isEnrollWorkforceOpen, setIsEnrollWorkforceOpen] = useState(false);
   const [editingRowIds, setEditingRowIds] = useState(new Set());
   const [archivedRows, setArchivedRows] = useState(new Set());
+  const [viewMode, setViewMode] = useState('active');
   
   // Column definitions
   const columns = [
@@ -266,6 +267,10 @@ export default function MasterJobSheet() {
   };
 
   const handleArchiveRow = () => {
+    if (viewMode === 'archived') {
+      alert('Switch to active rows to archive');
+      return;
+    }
     if (selectedRows.size === 0) {
       alert('Please select at least one row to archive');
       return;
@@ -276,8 +281,28 @@ export default function MasterJobSheet() {
     setSelectedRows(new Set());
   };
 
+  const handleUnarchiveRows = () => {
+    if (selectedRows.size === 0) {
+      alert('Please select at least one row to unarchive');
+      return;
+    }
+    const newArchived = new Set(archivedRows);
+    selectedRows.forEach(id => newArchived.delete(id));
+    setArchivedRows(newArchived);
+    setSelectedRows(new Set());
+  };
+
+  const handleSetViewMode = (mode) => {
+    setViewMode(mode);
+    setSelectedRows(new Set());
+    setEditingRowIds(new Set());
+  };
+
   // Get active (non-archived) data
   const activeData = data.filter(row => !archivedRows.has(row.id));
+  const archivedData = data.filter(row => archivedRows.has(row.id));
+  const isArchivedView = viewMode === 'archived';
+  const displayedData = isArchivedView ? archivedData : activeData;
 
   return (
     <div className="w-full h-full bg-gray-50 p-4 md:p-6">
@@ -574,6 +599,44 @@ export default function MasterJobSheet() {
             Archive Row
           </Button>
           <Button 
+            onClick={handleEditRow}
+            variant="outline"
+            className="border-blue-600 text-blue-600 hover:bg-blue-50 rounded-full px-6"
+            disabled={isArchivedView}
+          >
+            Edit Row
+          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button 
+                variant="outline"
+                className="border-orange-600 text-orange-600 hover:bg-orange-50 rounded-full px-6"
+              >
+                Archive
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              <DropdownMenuItem onClick={handleArchiveRow} disabled={isArchivedView}>
+                Archive Selected Rows
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => handleSetViewMode(isArchivedView ? 'active' : 'archived')}
+              >
+                {isArchivedView ? 'Show Active Rows' : 'Show Archived Rows'}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          {isArchivedView && (
+            <Button
+              onClick={handleUnarchiveRows}
+              variant="outline"
+              className="border-green-600 text-green-600 hover:bg-green-50 rounded-full px-6"
+              disabled={selectedRows.size === 0}
+            >
+              Unarchive Selected
+            </Button>
+          )}
+          <Button 
             onClick={handleManageColumns}
             variant="outline"
             className="border-gray-800 text-gray-800 rounded-full px-6"
@@ -792,10 +855,10 @@ export default function MasterJobSheet() {
               <tr className="text-gray-800 font-bold border-b-2 border-gray-400">
                 <th className="border border-gray-400 p-2 w-8 sticky left-0 bg-yellow-300 z-30">
                   <Checkbox
-                    checked={selectedRows.size === activeData.length && activeData.length > 0}
+                    checked={selectedRows.size === displayedData.length && displayedData.length > 0}
                     onCheckedChange={(checked) => {
                       if (checked) {
-                        setSelectedRows(new Set(activeData.map(row => row.id)));
+                        setSelectedRows(new Set(displayedData.map(row => row.id)));
                       } else {
                         setSelectedRows(new Set());
                       }
@@ -816,10 +879,10 @@ export default function MasterJobSheet() {
             </thead>
 
             <tbody>
-              {activeData.map((row) => {
+              {displayedData.map((row) => {
                 const isEditing = editingRowIds.has(row.id);
                 const isAnyRowEditing = editingRowIds.size > 0;
-                const canEdit = !isAnyRowEditing || isEditing;
+                const canEdit = !isArchivedView && (!isAnyRowEditing || isEditing);
                 
                 return (
                   <tr 
@@ -902,8 +965,9 @@ export default function MasterJobSheet() {
       {/* Footer Info */}
       <div className="mt-4 text-xs text-gray-600">
         <p>Selected Rows: {selectedRows.size}</p>
-        <p>Total Rows: {activeData.length}</p>
+        <p>Visible Rows: {displayedData.length}</p>
         <p>Archived Rows: {archivedRows.size}</p>
+        <p>View: {isArchivedView ? 'Archived' : 'Active'}</p>
         {editingRowIds.size > 0 && <p className="text-blue-600 font-semibold">Editing {editingRowIds.size} row(s)</p>}
       </div>
 
