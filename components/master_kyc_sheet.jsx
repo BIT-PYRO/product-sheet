@@ -200,159 +200,161 @@ export default function MasterKYCSheet() {
   });
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="mb-4 sticky top-0 z-30 bg-white/95 py-2 border-b border-gray-200 shadow-sm backdrop-blur">
-        <div className="px-4 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <MasterNavigationDrawer inHeader />
-            <h1 className="text-lg md:text-xl font-bold text-gray-900">
-              MASTER KYC SHEET
-            </h1>
-          </div>
-        </div>
-      </div>
-
-      <div className="p-6 max-w-full overflow-hidden">
-        {/* Search and Controls */}
-        <div className="bg-white p-4 rounded-lg shadow-sm mb-6">
-          <div className="flex flex-col lg:flex-row gap-4 mb-4">
-            <div className="flex-1">
-              <Input
-                placeholder="Search by company name or GST number..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full"
-              />
+    <div className="min-h-screen bg-gray-50 p-4 md:p-6">
+      <div className="max-w-[1400px] mx-auto border border-gray-300 bg-white p-4 md:p-6">
+        {/* Header */}
+        <div className="mb-4 sticky top-0 z-30 bg-white/95 py-2 border-b border-gray-200 shadow-sm backdrop-blur">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <MasterNavigationDrawer inHeader />
+              <h1 className="text-lg md:text-xl font-bold text-gray-900">
+                MASTER KYC SHEET
+              </h1>
             </div>
           </div>
-          <div className="flex flex-wrap gap-2 justify-start lg:justify-end">
-            <Button variant="outline" onClick={() => setIsManageColumnsOpen(true)}>
-              Manage Columns
-            </Button>
-            <Button variant="outline" onClick={handleExport}>
-              Export
-            </Button>
-            <Button variant="outline" onClick={() => window.print()}>
-              Print
-            </Button>
-          </div>
         </div>
 
-        {/* Table */}
-        <div className="bg-white rounded-lg shadow-sm overflow-x-auto">
-          <table className="w-full border-collapse">
-            <thead>
-              <tr className="bg-gray-100 border-b-2 border-gray-300">
-                <th className="p-2 text-center border border-gray-400 w-12">
-                  <Checkbox
-                    checked={selectedRows.size === (sortedProducts.length > 0 ? sortedProducts.length : emptyRowsData.length) && selectedRows.size > 0}
-                    onCheckedChange={handleSelectAll}
-                    className="rounded"
-                  />
-                </th>
-                {KYC_COLUMNS.filter((col) => visibleColumns.has(col.key) && col.key !== '__select__').map(
-                  (column) => (
-                    <th
-                      key={column.key}
-                      className={`p-3 text-left text-xs font-semibold text-gray-700 ${
-                        columnConfig[column.key]?.headerBg || 'bg-gray-100'
-                      } ${columnConfig[column.key]?.minWidth} cursor-pointer hover:opacity-80`}
-                      onClick={() => handleSort(column.key)}
-                    >
-                      <div className="flex items-center gap-2">
-                        {column.label}
-                        {sortField === column.key && (
-                          <span className="text-xs">
-                            {sortDirection === 'asc' ? '↑' : '↓'}
-                          </span>
-                        )}
-                      </div>
-                    </th>
-                  )
-                )}
-              </tr>
-            </thead>
-            <tbody>
-              {sortedProducts.length > 0 ? (
-                sortedProducts.map((row, index) => (
-                  <tr key={index} className="border-b border-gray-200 hover:bg-gray-50">
-                    <td className="p-1 text-center border border-gray-400 w-12 bg-gray-50 text-xs font-medium">
-                      <div className="flex items-center justify-center gap-1">
-                        <Checkbox
-                          checked={selectedRows.has(index)}
-                          onCheckedChange={(checked) => handleSelectRow(index, checked)}
-                          className="rounded"
-                        />
-                        <span>{index + 1}</span>
-                      </div>
-                    </td>
-                    {KYC_COLUMNS.filter((col) => visibleColumns.has(col.key) && col.key !== '__select__').map(
-                      (column) => (
-                        <td
-                          key={`${index}-${column.key}`}
-                          className={`p-3 text-xs text-gray-700 border border-gray-400 ${columnConfig[column.key]?.minWidth}`}
-                        >
-                          {row[column.key] ? String(row[column.key]).substring(0, 50) : ''}
-                        </td>
-                      )
-                    )}
-                  </tr>
-                ))
-              ) : (
-                emptyRowsData.map((_, index) => (
-                  <tr key={`empty-${index}`} className="border-b border-gray-200 hover:bg-gray-50">
-                    <td className="p-1 text-center border border-gray-400 w-12 bg-gray-50 text-xs font-medium">
-                      <div className="flex items-center justify-center gap-1">
-                        <Checkbox
-                          checked={selectedRows.has(index)}
-                          onCheckedChange={(checked) => handleSelectRow(index, checked)}
-                          className="rounded"
-                        />
-                        <span>{index + 1}</span>
-                      </div>
-                    </td>
-                    {KYC_COLUMNS.filter((col) => visibleColumns.has(col.key) && col.key !== '__select__').map(
-                      (column) => (
-                        <td
-                          key={`empty-${index}-${column.key}`}
-                          className={`p-1 text-xs border border-gray-400 ${columnConfig[column.key]?.minWidth}`}
-                        >
-                          <Input
-                            type="text"
-                            value={emptyRowsData[index]?.[column.key] || ''}
-                            onChange={(e) => handleEmptyRowChange(index, column.key, e.target.value)}
-                            placeholder=""
-                            className="border-0 p-1 h-7 text-xs"
+        <div className="p-6 max-w-full overflow-hidden">
+          {/* Search and Controls */}
+          <div className="bg-white p-4 rounded-lg shadow-sm mb-6">
+            <div className="flex flex-col lg:flex-row gap-4 mb-4">
+              <div className="flex-1">
+                <Input
+                  placeholder="Search by company name or GST number..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full"
+                />
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2 justify-start lg:justify-end">
+              <Button variant="outline" onClick={() => setIsManageColumnsOpen(true)}>
+                Manage Columns
+              </Button>
+              <Button variant="outline" onClick={handleExport}>
+                Export
+              </Button>
+              <Button variant="outline" onClick={() => window.print()}>
+                Print
+              </Button>
+            </div>
+          </div>
+
+          {/* Table */}
+          <div className="bg-white rounded-lg shadow-sm overflow-x-auto">
+            <table className="w-full border-collapse">
+              <thead>
+                <tr className="bg-gray-100 border-b-2 border-gray-300">
+                  <th className="p-2 text-center border border-gray-400 w-12">
+                    <Checkbox
+                      checked={selectedRows.size === (sortedProducts.length > 0 ? sortedProducts.length : emptyRowsData.length) && selectedRows.size > 0}
+                      onCheckedChange={handleSelectAll}
+                      className="rounded"
+                    />
+                  </th>
+                  {KYC_COLUMNS.filter((col) => visibleColumns.has(col.key) && col.key !== '__select__').map(
+                    (column) => (
+                      <th
+                        key={column.key}
+                        className={`p-3 text-left text-xs font-semibold text-gray-700 ${
+                          columnConfig[column.key]?.headerBg || 'bg-gray-100'
+                        } ${columnConfig[column.key]?.minWidth} cursor-pointer hover:opacity-80`}
+                        onClick={() => handleSort(column.key)}
+                      >
+                        <div className="flex items-center gap-2">
+                          {column.label}
+                          {sortField === column.key && (
+                            <span className="text-xs">
+                              {sortDirection === 'asc' ? '↑' : '↓'}
+                            </span>
+                          )}
+                        </div>
+                      </th>
+                    )
+                  )}
+                </tr>
+              </thead>
+              <tbody>
+                {sortedProducts.length > 0 ? (
+                  sortedProducts.map((row, index) => (
+                    <tr key={index} className="border-b border-gray-200 hover:bg-gray-50">
+                      <td className="p-1 text-center border border-gray-400 w-12 bg-gray-50 text-xs font-medium">
+                        <div className="flex items-center justify-center gap-1">
+                          <Checkbox
+                            checked={selectedRows.has(index)}
+                            onCheckedChange={(checked) => handleSelectRow(index, checked)}
+                            className="rounded"
                           />
-                        </td>
-                      )
-                    )}
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {isLoading && <p className="mt-2 text-xs text-gray-600">Loading KYC data...</p>}
-        {error && <p className="mt-2 text-xs text-red-600">{error}</p>}
-
-        {/* Add Row Button and Stats */}
-        <div className="mt-4 flex gap-2 items-center">
-          {sortedProducts.length === 0 && (
-            <Button
-              onClick={handleAddEmptyRow}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2"
-            >
-              + Add Row
-            </Button>
-          )}
-          <div className="flex gap-6 text-xs text-gray-600 ml-2">
-            <span>Selected Rows: {selectedRows.size}</span>
-            <span>Visible Rows: {sortedProducts.length || emptyRowsData.length}</span>
+                          <span>{index + 1}</span>
+                        </div>
+                      </td>
+                      {KYC_COLUMNS.filter((col) => visibleColumns.has(col.key) && col.key !== '__select__').map(
+                        (column) => (
+                          <td
+                            key={`${index}-${column.key}`}
+                            className={`p-3 text-xs text-gray-700 border border-gray-400 ${columnConfig[column.key]?.minWidth}`}
+                          >
+                            {row[column.key] ? String(row[column.key]).substring(0, 50) : ''}
+                          </td>
+                        )
+                      )}
+                    </tr>
+                  ))
+                ) : (
+                  emptyRowsData.map((_, index) => (
+                    <tr key={`empty-${index}`} className="border-b border-gray-200 hover:bg-gray-50">
+                      <td className="p-1 text-center border border-gray-400 w-12 bg-gray-50 text-xs font-medium">
+                        <div className="flex items-center justify-center gap-1">
+                          <Checkbox
+                            checked={selectedRows.has(index)}
+                            onCheckedChange={(checked) => handleSelectRow(index, checked)}
+                            className="rounded"
+                          />
+                          <span>{index + 1}</span>
+                        </div>
+                      </td>
+                      {KYC_COLUMNS.filter((col) => visibleColumns.has(col.key) && col.key !== '__select__').map(
+                        (column) => (
+                          <td
+                            key={`empty-${index}-${column.key}`}
+                            className={`p-1 text-xs border border-gray-400 ${columnConfig[column.key]?.minWidth}`}
+                          >
+                            <Input
+                              type="text"
+                              value={emptyRowsData[index]?.[column.key] || ''}
+                              onChange={(e) => handleEmptyRowChange(index, column.key, e.target.value)}
+                              placeholder=""
+                              className="border-0 p-1 h-7 text-xs"
+                            />
+                          </td>
+                        )
+                      )}
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
           </div>
-        </div>
+
+          {isLoading && <p className="mt-2 text-xs text-gray-600">Loading KYC data...</p>}
+          {error && <p className="mt-2 text-xs text-red-600">{error}</p>}
+
+          {/* Add Row Button and Stats */}
+          <div className="mt-4 flex gap-2 items-center">
+            {sortedProducts.length === 0 && (
+              <Button
+                onClick={handleAddEmptyRow}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2"
+              >
+                + Add Row
+              </Button>
+            )}
+            <div className="flex gap-6 text-xs text-gray-600 ml-2">
+              <span>Selected Rows: {selectedRows.size}</span>
+              <span>Visible Rows: {sortedProducts.length || emptyRowsData.length}</span>
+            </div>
+          </div>
+      </div>
       </div>
 
       {/* Manage Columns Dialog */}

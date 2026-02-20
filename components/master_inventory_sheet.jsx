@@ -19,6 +19,21 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 
+// Component to render composite WIP vs Current Stock values
+function CompositeStockDisplay({ value }) {
+  if (!value?.isComposite) {
+    return <span>{value}</span>;
+  }
+
+  return (
+    <div className="flex items-center justify-center gap-0.5">
+      <span className="text-orange-600 font-medium">{value.wip || '-'}</span>
+      <span className="text-gray-400">/</span>
+      <span className="text-green-600 font-medium">{value.current || '-'}</span>
+    </div>
+  );
+}
+
 const PRODUCT_SHEET_SYNC_KEY = 'product_sheet_updated_at';
 const PRODUCT_SHEET_SYNC_EVENT = 'product_sheet_sync';
 
@@ -44,6 +59,7 @@ const STOCK_FILTER_OPTIONS = [
   { value: 'current', label: 'Current Stock' },
   { value: 'wip', label: 'WIP' },
   { value: 'location', label: 'Location' },
+  { value: 'wip-vs-current', label: 'WIP vs Current Stock' },
 ];
 
 const PRODUCT_SORT_FIELDS = [
@@ -105,6 +121,25 @@ function formatFinalStockColumn(rows, key) {
 
 function getLiveStockValue(liveStock, stockField, keys) {
   const normalizedField = stockField || 'current';
+
+  // Handle WIP vs Current Stock special case
+  if (normalizedField === 'wip-vs-current') {
+    let wipValue = '';
+    let currentValue = '';
+
+    for (const key of keys) {
+      if (!wipValue) wipValue = liveStock?.[key]?.['wip'] || '';
+      if (!currentValue) currentValue = liveStock?.[key]?.['current'] || '';
+      
+      if (wipValue && currentValue) break;
+    }
+
+    return {
+      isComposite: true,
+      wip: wipValue,
+      current: currentValue,
+    };
+  }
 
   for (const key of keys) {
     const value = liveStock?.[key]?.[normalizedField];
@@ -582,7 +617,7 @@ export default function MasterInventorySheet() {
         </DialogContent>
       </Dialog>
 
-      <div className="max-w-[1400px] mx-auto border border-gray-300 bg-white p-4 md:p-6">
+      <div className="max-w-[1600px] mx-auto border border-gray-300 bg-white p-4 md:p-6">
         <div className="mb-4 sticky top-0 z-30 bg-white/95 py-2 border-b border-gray-200 shadow-sm backdrop-blur">
           <div className="flex items-center gap-3 mb-4">
             <MasterNavigationDrawer inHeader />
@@ -709,56 +744,89 @@ export default function MasterInventorySheet() {
           ))}
         </div>
 
-        <div className="overflow-x-auto border border-gray-300">
-          <table className="w-full min-w-[1200px] border-collapse text-xs">
-            <thead>
-              <tr>
-                {visibleColumnList.map((column) => (
-                  <th
-                    key={column.key}
-                    className="border border-gray-400 bg-yellow-300 px-2 py-2 text-center font-semibold"
-                  >
-                    {column.key === '__select__' ? (
-                      <Checkbox
-                        checked={allRowsSelected}
-                        onCheckedChange={toggleSelectAll}
-                        aria-label="Select all rows"
-                      />
-                    ) : (
-                      column.label
-                    )}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {rowsToRender.map((row) => (
-                <tr key={row.id}>
-                  {visibleColumnList.map((column) => (
-                    <td key={`${row.id}-${column.key}`} className="border border-gray-300 px-2 py-2 h-9 text-center">
-                      {column.key === '__select__' ? (
-                        row.isEmpty ? null : (
+        <div className="flex flex-col xl:flex-row gap-4">
+          <div className="xl:w-[85%]">
+            <div className="overflow-x-auto border border-gray-300">
+              <table className="w-full min-w-[1200px] border-collapse text-xs">
+                <thead>
+                  <tr>
+                    {visibleColumnList.map((column) => (
+                      <th
+                        key={column.key}
+                        className="border border-gray-400 bg-yellow-300 px-2 py-2 text-center font-semibold"
+                      >
+                        {column.key === '__select__' ? (
                           <Checkbox
-                            checked={selectedRows.has(row.id)}
-                            onCheckedChange={() => toggleRowSelection(row.id)}
+                            checked={allRowsSelected}
+                            onCheckedChange={toggleSelectAll}
+                            aria-label="Select all rows"
                           />
-                        )
-                      ) : (
-                        row.isEmpty ? '' : row[column.key] || ''
-                      )}
-                    </td>
+                        ) : (
+                          column.label
+                        )}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {rowsToRender.map((row) => (
+                    <tr key={row.id}>
+                      {visibleColumnList.map((column) => (
+                        <td key={`${row.id}-${column.key}`} className="border border-gray-300 px-2 py-2 h-9 text-center">
+                          {column.key === '__select__' ? (
+                            row.isEmpty ? null : (
+                              <Checkbox
+                                checked={selectedRows.has(row.id)}
+                                onCheckedChange={() => toggleRowSelection(row.id)}
+                              />
+                            )
+                          ) : row.isEmpty ? (
+                            ''
+                          ) : (
+                            <CompositeStockDisplay value={row[column.key]} />
+                          )}
+                        </td>
+                      ))}
+                    </tr>
                   ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                </tbody>
+              </table>
+            </div>
 
-        {isLoading && <p className="mt-2 text-xs text-gray-600">Loading live stock data...</p>}
-        {error && <p className="mt-2 text-xs text-red-600">{error}</p>}
-        {!isLoading && !error && filteredProducts.length === 0 && (
-          <p className="mt-2 text-xs text-gray-600">No inventory data found.</p>
-        )}
+            {isLoading && <p className="mt-2 text-xs text-gray-600">Loading live stock data...</p>}
+            {error && <p className="mt-2 text-xs text-red-600">{error}</p>}
+            {!isLoading && !error && filteredProducts.length === 0 && (
+              <p className="mt-2 text-xs text-gray-600">No inventory data found.</p>
+            )}
+          </div>
+
+          <div className="xl:w-[15%] self-start">
+            <div className="border border-gray-300 bg-white p-0">
+              <div className="h-9 border-b border-gray-300 bg-yellow-300 text-xs font-semibold text-slate-900 flex items-center justify-center">
+                ORDER PICK LIST
+              </div>
+              {rowsToRender.length === 0 ? (
+                <div className="rounded-md border border-dashed border-gray-300 p-3 text-xs text-gray-500">
+                  No incoming orders yet.
+                </div>
+              ) : (
+                <div className="grid gap-0">
+                  {rowsToRender.map((row, index) => {
+                    const product = filteredProducts[index];
+                    return (
+                      <div
+                        key={`${row.id}-order`}
+                        className="flex items-center border-b border-gray-200 px-2 text-xs text-slate-900 h-9"
+                      >
+                        {product?.sku || ''}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
 
       <CreateJobModal

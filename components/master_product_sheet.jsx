@@ -644,11 +644,13 @@ export default function MasterProductSheet() {
         </DialogContent>
       </Dialog>
 
-      {/* Header Section */}
-      <div className="mb-4 sticky top-0 z-30 bg-white/95 py-2 border-b border-gray-200 shadow-sm backdrop-blur">
-        <div className="flex items-center gap-3 mb-4">
-          <MasterNavigationDrawer inHeader />
-          <h1 className="text-xl font-bold tracking-tight text-slate-900">MASTER PRODUCT SHEET</h1>
+      <div className="max-w-[1400px] mx-auto border border-gray-300 bg-white p-4 md:p-6">
+        {/* Header Section */}
+        <div className="mb-4 sticky top-0 z-30 bg-white/95 py-2 border-b border-gray-200 shadow-sm backdrop-blur">
+          <div className="flex items-center gap-3 mb-4">
+            <MasterNavigationDrawer inHeader />
+            <h1 className="text-xl font-bold tracking-tight text-slate-900">MASTER PRODUCT SHEET</h1>
+          </div>
         </div>
 
         {/* Action Buttons */}
@@ -754,7 +756,6 @@ export default function MasterProductSheet() {
             />
           </div>
         </div>
-      </div>
 
       {/* Filter Row */}
       <div className="border border-gray-300 rounded-lg mb-4 bg-blue-50 p-4">
@@ -987,13 +988,14 @@ export default function MasterProductSheet() {
         )}
       </div>
 
-      {/* Footer Info */}
-      <div className="mt-4 text-xs text-gray-600">
-        <p>Selected Rows: {selectedRows.size}</p>
-        <p>Visible Rows: {displayedData.length}</p>
-        <p>Archived Rows: {archivedRows.size}</p>
-        <p>View: {isArchivedView ? 'Archived' : 'Active'}</p>
-        {editingRowIds.size > 0 && <p className="text-blue-600 font-semibold">Editing {editingRowIds.size} row(s)</p>}
+        {/* Footer Info */}
+        <div className="mt-4 text-xs text-gray-600">
+          <p>Selected Rows: {selectedRows.size}</p>
+          <p>Visible Rows: {displayedData.length}</p>
+          <p>Archived Rows: {archivedRows.size}</p>
+          <p>View: {isArchivedView ? 'Archived' : 'Active'}</p>
+          {editingRowIds.size > 0 && <p className="text-blue-600 font-semibold">Editing {editingRowIds.size} row(s)</p>}
+        </div>
       </div>
     </div>
   );
