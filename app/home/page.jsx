@@ -11,6 +11,7 @@ const SHEET_BLOCKS = [
   { href: '/master-inventory-sheet', title: 'Master Inventory Sheet', subtitle: 'Live stock and final stock' },
   { href: '/master-job-sheet', title: 'Master Job Sheet', subtitle: 'Job master data' },
   { href: '/master-workforce-sheet', title: 'Master Workforce Sheet', subtitle: 'Workforce records' },
+  { href: '/master-kyc-sheet', title: 'Master KYC Sheet', subtitle: 'Company KYC records' },
   { href: '/managers-dashboard', title: 'Managers Dashboard', subtitle: 'Manager view and job cards' },
   { href: '/enrol-workforce', title: 'Enrol Workforce', subtitle: 'Workforce onboarding form' },
 ];
