@@ -5,7 +5,6 @@ import { Trash2, LayoutDashboard, House, X } from 'lucide-react'
 
 import { useState, useRef, useEffect } from 'react'
 import { CreateJobModal } from '@/components/create-job-modal'
-import { DraftsManager } from '@/components/drafts-manager'
 
 const PRODUCT_SHEET_SYNC_KEY = 'product_sheet_updated_at'
 const PRODUCT_SHEET_SYNC_EVENT = 'product_sheet_sync'
@@ -136,6 +135,24 @@ export default function ProductSheet() {
   ])
   const [isSaving, setIsSaving] = useState(false)
   const [saveStatus, setSaveStatus] = useState(null)
+
+  useEffect(() => {
+    const pendingDraft = localStorage.getItem('pending_draft_load')
+    if (!pendingDraft) return
+
+    try {
+      const parsed = JSON.parse(pendingDraft)
+      window.dispatchEvent(
+        new CustomEvent('draftLoad', {
+          detail: parsed,
+        })
+      )
+    } catch (error) {
+      console.error('Failed to load pending draft:', error)
+    } finally {
+      localStorage.removeItem('pending_draft_load')
+    }
+  }, [])
 
   useEffect(() => {
     return () => {
@@ -1773,9 +1790,9 @@ export default function ProductSheet() {
           </a>
 
           {/* Drafts Button */}
-          <div className="w-full mb-6">
-            <DraftsManager />
-          </div>
+          <a href="/drafts" className="w-full mb-6 px-4 py-3 text-sm bg-purple-600 text-white font-semibold rounded hover:bg-purple-700 transition-colors block text-center">
+            Drafts
+          </a>
         </div>
       </div>
 
