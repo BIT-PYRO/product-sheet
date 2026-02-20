@@ -201,14 +201,19 @@ export default function MasterKYCSheet() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <MasterNavigationDrawer currentPage="master-kyc-sheet" />
-      <div className="p-6 max-w-full overflow-hidden">
-        {/* Header Section */}
-        <div className="mb-6 text-center">
-          <h1 className="text-3xl font-bold text-gray-800 mb-2">Master KYC Sheet</h1>
-          <p className="text-gray-600">Manage and track company KYC verification data</p>
+      {/* Header */}
+      <div className="mb-4 sticky top-0 z-30 bg-white/95 py-2 border-b border-gray-200 shadow-sm backdrop-blur">
+        <div className="px-4 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <MasterNavigationDrawer inHeader />
+            <h1 className="text-lg md:text-xl font-bold text-gray-900">
+              MASTER KYC SHEET
+            </h1>
+          </div>
         </div>
+      </div>
 
+      <div className="p-6 max-w-full overflow-hidden">
         {/* Search and Controls */}
         <div className="bg-white p-4 rounded-lg shadow-sm mb-6">
           <div className="flex flex-col lg:flex-row gap-4 mb-4">
