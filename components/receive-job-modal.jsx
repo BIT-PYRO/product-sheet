@@ -41,7 +41,7 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
   const [ratingScore, setRatingScore] = useState(5)
   const [noteForReissue, setNoteForReissue] = useState("")
   const [rows, setRows] = useState([
-    { id: 1, sku: "", category: "", issuedQty: "", unit1: "Pcs", issuedWeight: "", unit2: "Kg", receivedQty: "", receivedWeight: "", lossQty: "", lossWeight: "", reissueQty: "", reissueWeight: "" },
+    { id: 1, sku: "", category: "", metal: "", issuedQty: "", unit1: "Pcs", issuedWeight: "", unit2: "Kg", receivedQty: "", receivedWeight: "", lossQty: "", lossWeight: "", reissueQty: "", reissueWeight: "" },
   ])
 
   // Pre-populate form with voucher data when it's selected
@@ -82,6 +82,7 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
       id: Math.max(...rows.map(r => r.id), 0) + 1,
       sku: "",
       category: "",
+      metal: "",
       issuedQty: "",
       unit1: "Pcs",
       issuedWeight: "",
@@ -292,9 +293,10 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
           {/* SKU Table with all 18 columns */}
           <div className="rounded-md overflow-hidden border border-border text-xs">
             <div className="w-full scale-[1.0] origin-top-left">
-              <div className="grid gap-0 bg-blue-600 text-white font-bold uppercase tracking-wider px-1 text-center" style={{ gridTemplateColumns: "0.6fr 0.65fr 0.48fr 0.32fr 0.48fr 0.32fr 0.48fr 0.32fr 0.48fr 0.32fr 0.48fr 0.32fr 0.48fr 0.32fr 0.48fr 0.32fr 0.48fr 0.32fr 24px" }}>
+              <div className="grid gap-0 bg-blue-600 text-white font-bold uppercase tracking-wider px-1 text-center" style={{ gridTemplateColumns: "0.6fr 0.65fr 0.65fr 0.48fr 0.32fr 0.48fr 0.32fr 0.48fr 0.32fr 0.48fr 0.32fr 0.48fr 0.32fr 0.48fr 0.32fr 0.48fr 0.32fr 0.48fr 0.32fr 24px" }}>
                 <div className="py-1">SKU</div>
                 <div className="py-1">Category</div>
+                <div className="py-1">Metal</div>
                 <div className="py-1 leading-tight"><span>Issued</span><span className="block">Qty</span></div>
                 <div className="py-1"></div>
                 <div className="py-1 leading-tight"><span>Issued</span><span className="block">WT</span></div>
@@ -314,12 +316,15 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
                 <div className="py-1"></div>
               </div>
               {rows.map((row, i) => (
-                <div key={row.id} className={`grid gap-0 border-t border-border items-center px-1 ${i % 2 === 0 ? "bg-background" : "bg-muted"}`} style={{ gridTemplateColumns: "0.6fr 0.65fr 0.48fr 0.32fr 0.48fr 0.32fr 0.48fr 0.32fr 0.48fr 0.32fr 0.48fr 0.32fr 0.48fr 0.32fr 0.48fr 0.32fr 0.48fr 0.32fr 24px" }}>
+                <div key={row.id} className={`grid gap-0 border-t border-border items-center px-1 ${i % 2 === 0 ? "bg-background" : "bg-muted"}`} style={{ gridTemplateColumns: "0.6fr 0.65fr 0.65fr 0.48fr 0.32fr 0.48fr 0.32fr 0.48fr 0.32fr 0.48fr 0.32fr 0.48fr 0.32fr 0.48fr 0.32fr 0.48fr 0.32fr 0.48fr 0.32fr 24px" }}>
                   <div className="py-0.5">
                     <Input className="h-6 text-xs border-border" placeholder="SKU" value={row.sku} onChange={(e) => updateRow(row.id, "sku", e.target.value)} />
                   </div>
                   <div className="py-0.5">
                     <Input className="h-6 text-xs border-border" placeholder="Cat" value={row.category} onChange={(e) => updateRow(row.id, "category", e.target.value)} />
+                  </div>
+                  <div className="py-0.5">
+                    <Input className="h-6 text-xs border-border" placeholder="Metal" value={row.metal} onChange={(e) => updateRow(row.id, "metal", e.target.value)} />
                   </div>
                   <div className="py-0.5">
                     <Input className="h-6 text-xs border-border" type="number" placeholder="0" value={row.issuedQty} onChange={(e) => updateRow(row.id, "issuedQty", e.target.value)} />

@@ -44,9 +44,9 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
     return []
   })
   const [rows, setRows] = useState([
-    { id: 1, sku: "", category: "", issuedQty: "", unit1: "", issuedWeight: "", unit2: "" },
-    { id: 2, sku: "", category: "", issuedQty: "", unit1: "", issuedWeight: "", unit2: "" },
-    { id: 3, sku: "", category: "", issuedQty: "", unit1: "", issuedWeight: "", unit2: "" },
+    { id: 1, sku: "", category: "", metal: "", issuedQty: "", unit1: "", issuedWeight: "", unit2: "" },
+    { id: 2, sku: "", category: "", metal: "", issuedQty: "", unit1: "", issuedWeight: "", unit2: "" },
+    { id: 3, sku: "", category: "", metal: "", issuedQty: "", unit1: "", issuedWeight: "", unit2: "" },
   ])
   const [date, setDate] = useState(new Date().toISOString().split("T")[0])
   const [scheduleFuture, setScheduleFuture] = useState("")
@@ -99,7 +99,7 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
   function addRow() {
     setRows((prev) => [
       ...prev,
-      { id: Date.now(), sku: "", category: "", issuedQty: "", unit1: "", issuedWeight: "", unit2: "" },
+      { id: Date.now(), sku: "", category: "", metal: "", issuedQty: "", unit1: "", issuedWeight: "", unit2: "" },
     ])
   }
 
@@ -357,9 +357,10 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
           {/* SKU Table */}
           <div className="rounded-md overflow-hidden border border-border">
             {/* Table Header - blue */}
-            <div className="grid grid-cols-[1fr_1fr_0.8fr_60px_0.8fr_60px_32px] gap-0 bg-blue-600 text-white text-[9px] font-bold uppercase tracking-wider">
+            <div className="grid grid-cols-[1fr_1fr_1fr_0.8fr_60px_0.8fr_60px_32px] gap-0 bg-blue-600 text-white text-[9px] font-bold uppercase tracking-wider">
               <div className="px-1.5 py-2">SKU</div>
               <div className="px-1.5 py-2">Category</div>
+              <div className="px-1.5 py-2">Metal</div>
               <div className="px-1.5 py-2">Qty</div>
               <div className="px-1.5 py-2"></div>
               <div className="px-1.5 py-2">Weight</div>
@@ -369,13 +370,16 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
             {rows.map((row) => (
               <div
                 key={row.id}
-                className="grid grid-cols-[1fr_1fr_0.8fr_60px_0.8fr_60px_32px] gap-0 border-t border-border items-center bg-background"
+                className="grid grid-cols-[1fr_1fr_1fr_0.8fr_60px_0.8fr_60px_32px] gap-0 border-t border-border items-center bg-background"
               >
                 <div className="px-0.5 py-0.5">
                   <Input className="h-6 text-xs bg-background border-border" placeholder="SKU" value={row.sku} onChange={(e) => updateRow(row.id, "sku", e.target.value)} />
                 </div>
                 <div className="px-0.5 py-0.5">
                   <Input className="h-6 text-xs bg-background border-border" placeholder="Category" value={row.category} onChange={(e) => updateRow(row.id, "category", e.target.value)} />
+                </div>
+                <div className="px-0.5 py-0.5">
+                  <Input className="h-6 text-xs bg-background border-border" placeholder="Metal" value={row.metal} onChange={(e) => updateRow(row.id, "metal", e.target.value)} />
                 </div>
                 <div className="px-0.5 py-0.5">
                   <Input className="h-6 text-xs bg-background border-border" type="number" placeholder="0" value={row.issuedQty} onChange={(e) => updateRow(row.id, "issuedQty", e.target.value)} />
