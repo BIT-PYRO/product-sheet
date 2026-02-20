@@ -637,49 +637,58 @@ export default function MasterInventorySheet() {
           <DialogHeader>
             <DialogTitle>Manage Columns</DialogTitle>
           </DialogHeader>
-          <div className="space-y-3 max-h-[380px] overflow-y-auto py-2">
+          <div className="space-y-3 max-h-[400px] overflow-y-auto py-4">
             {/* Select All Checkbox */}
-            <div className="flex items-center justify-between gap-3 pb-3 border-b border-gray-200 mb-2">
-              <div className="flex items-center gap-2">
+            <div className="flex items-center justify-between gap-3 pb-3 border-b border-gray-200 mb-3">
+              <div className="flex items-center gap-3 flex-1">
                 <Checkbox
                   id="select-all-columns"
                   checked={selectedColumnsForAction.size === visibleColumnList.length && visibleColumnList.length > 0}
                   onCheckedChange={toggleSelectAllColumns}
+                  className="cursor-pointer"
                 />
-                <label htmlFor="select-all-columns" className="text-sm font-semibold">
+                <label htmlFor="select-all-columns" className="text-sm font-semibold cursor-pointer">
                   Select All
                 </label>
               </div>
             </div>
             {INVENTORY_COLUMNS.filter((column) => column.key !== '__select__').map((column) => (
               <div key={column.key} className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-3 flex-1">
                   <Checkbox
                     id={column.key}
                     checked={selectedColumnsForAction.has(column.key)}
                     onCheckedChange={() => toggleColumnSelection(column.key)}
+                    className="cursor-pointer"
                   />
-                  <label htmlFor={column.key} className="text-sm">
+                  <label htmlFor={column.key} className="text-sm cursor-pointer">
                     {column.label}
                   </label>
                 </div>
-                <span className="text-xs font-medium px-2 py-1 rounded bg-gray-100">
-                  {visibleColumns.has(column.key) ? 'Visible' : 'Hidden'}
-                </span>
+                <div className="text-xs font-semibold px-2 py-1 rounded">
+                  {!visibleColumns.has(column.key) ? (
+                    <span className="bg-red-100 text-red-700 px-2 py-1 rounded-full text-xs">Hidden</span>
+                  ) : (
+                    <span className="bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs">Visible</span>
+                  )}
+                </div>
               </div>
             ))}
           </div>
-          <DialogFooter className="gap-2">
+          <DialogFooter className="flex gap-2">
             <Button
-              variant="outline"
               onClick={handleHideColumns}
               disabled={selectedColumnsForAction.size === 0}
+              variant="outline"
+              className="text-red-600 border-red-300 hover:bg-red-50"
             >
               Hide
             </Button>
             <Button
               onClick={handleShowColumns}
               disabled={selectedColumnsForAction.size === 0}
+              variant="outline"
+              className="text-green-600 border-green-300 hover:bg-green-50"
             >
               Show
             </Button>
