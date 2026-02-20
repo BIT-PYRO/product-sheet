@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
+import { CreateJobModal } from '@/components/create-job-modal';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
@@ -146,6 +147,7 @@ export default function MasterInventorySheet() {
   const [isSkuDropdownOpen, setIsSkuDropdownOpen] = useState(false);
   const [stockField, setStockField] = useState('current');
   const [isManageColumnsOpen, setIsManageColumnsOpen] = useState(false);
+  const [isCreateJobModalOpen, setIsCreateJobModalOpen] = useState(false);
   const [selectedRows, setSelectedRows] = useState(new Set());
   const [sortField, setSortField] = useState('');
   const [sortDirection, setSortDirection] = useState('asc');
@@ -640,7 +642,7 @@ export default function MasterInventorySheet() {
           <div className="flex flex-wrap gap-2 justify-start lg:justify-end">
             <Button
               className="bg-green-600 hover:bg-green-700"
-              onClick={() => (window.location.href = '/')}
+              onClick={() => setIsCreateJobModalOpen(true)}
             >
               Create a Job
             </Button>
@@ -745,6 +747,17 @@ export default function MasterInventorySheet() {
           <p className="mt-2 text-xs text-gray-600">No inventory data found.</p>
         )}
       </div>
+
+      <CreateJobModal
+        open={isCreateJobModalOpen}
+        onOpenChange={setIsCreateJobModalOpen}
+        onQuickEnroll={() => {
+          console.log('Quick enroll clicked');
+        }}
+        onJobCreated={(data) => {
+          console.log('Job created:', data);
+        }}
+      />
     </div>
   );
 }
