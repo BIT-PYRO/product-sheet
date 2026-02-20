@@ -100,6 +100,15 @@ export default function MasterJobSheet() {
     }
     setSelectedColumnsForAction(newSelected);
   };
+
+  // Toggle select all columns
+  const toggleSelectAllColumns = () => {
+    if (selectedColumnsForAction.size === columns.length) {
+      setSelectedColumnsForAction(new Set());
+    } else {
+      setSelectedColumnsForAction(new Set(columns.map(col => col.id)));
+    }
+  };
   
   // Hide selected columns
   const handleHideColumns = () => {
@@ -316,6 +325,20 @@ export default function MasterJobSheet() {
             <DialogTitle>Manage Columns</DialogTitle>
           </DialogHeader>
           <div className="space-y-3 max-h-[400px] overflow-y-auto py-4">
+            {/* Select All Checkbox */}
+            <div className="flex items-center justify-between gap-3 pb-3 border-b border-gray-200 mb-3">
+              <div className="flex items-center gap-3 flex-1">
+                <Checkbox
+                  id="select-all-columns"
+                  checked={selectedColumnsForAction.size === columns.length && columns.length > 0}
+                  onCheckedChange={toggleSelectAllColumns}
+                  className="cursor-pointer"
+                />
+                <label htmlFor="select-all-columns" className="text-sm font-semibold cursor-pointer">
+                  Select All
+                </label>
+              </div>
+            </div>
             {columns.map((column) => (
               <div key={column.id} className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3 flex-1">
