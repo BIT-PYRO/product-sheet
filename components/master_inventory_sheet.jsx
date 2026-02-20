@@ -540,8 +540,6 @@ export default function MasterInventorySheet() {
 
   return (
     <div className="w-full min-h-screen bg-gray-50 p-4 md:p-6">
-      <MasterNavigationDrawer />
-
       <Dialog open={isManageColumnsOpen} onOpenChange={setIsManageColumnsOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
@@ -585,11 +583,13 @@ export default function MasterInventorySheet() {
       </Dialog>
 
       <div className="max-w-[1400px] mx-auto border border-gray-300 bg-white p-4 md:p-6">
-        <h1 className="text-center text-xs md:text-sm font-semibold tracking-wide text-yellow-700 mb-4">
-          MASTER INVENTORY SHEET
-        </h1>
+        <div className="mb-4 sticky top-0 z-30 bg-white/95 py-2 border-b border-gray-200 shadow-sm backdrop-blur">
+          <div className="flex items-center gap-3 mb-4">
+            <MasterNavigationDrawer inHeader />
+            <h1 className="text-xl font-bold tracking-tight text-slate-900">MASTER INVENTORY SHEET</h1>
+          </div>
 
-        <div className="flex flex-col lg:flex-row gap-3 lg:items-center lg:justify-between mb-4">
+          <div className="flex flex-col lg:flex-row gap-3 lg:items-center lg:justify-between mb-2">
           <div className="flex flex-col md:flex-row gap-3 md:items-center">
             <div className="w-full md:max-w-[360px] relative">
               <Input
@@ -664,6 +664,7 @@ export default function MasterInventorySheet() {
             <Button variant="outline" onClick={handleExport}>Export</Button>
             <Button variant="outline" onClick={() => window.print()}>Print</Button>
           </div>
+        </div>
         </div>
 
         <div className="flex flex-wrap gap-2 mb-3">

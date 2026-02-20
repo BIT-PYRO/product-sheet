@@ -206,7 +206,6 @@ export default function ManagersDashboard() {
 
   return (
     <div className="w-full h-full bg-gray-50 p-4 md:p-6">
-      <MasterNavigationDrawer />
       {/* Manage Columns Dialog */}
       <Dialog open={isManageColumnsOpen} onOpenChange={setIsManageColumnsOpen}>
         <DialogContent className="max-w-md">
@@ -267,13 +266,14 @@ export default function ManagersDashboard() {
       />
 
       {/* Header Section */}
-      <div className="mb-6">
-        <h1 className="text-2xl md:text-3xl font-bold text-center text-gray-800 mb-6 bg-yellow-200 py-3 rounded">
-          MANAGERS DASHBOARD FOR VOUCHERS/JOB CARDS
-        </h1>
+      <div className="mb-4 sticky top-0 z-30 bg-white/95 py-2 border-b border-gray-200 shadow-sm backdrop-blur">
+        <div className="flex items-center gap-3 mb-4">
+          <MasterNavigationDrawer inHeader />
+          <h1 className="text-xl font-bold tracking-tight text-slate-900">MANAGERS DASHBOARD FOR VOUCHERS/JOB CARDS</h1>
+        </div>
 
         {/* Search Bar and Buttons */}
-        <div className="flex flex-wrap gap-4 items-center justify-between mb-6">
+        <div className="flex flex-wrap gap-4 items-center justify-between mb-4">
           <div className="relative max-w-[250px]">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
             <Input
