@@ -185,10 +185,45 @@ function getFilterValue(product, fieldKey) {
   return product?.[fieldKey];
 }
 
+function generatePicklists(products) {
+  // Generate sample picklists based on product count
+  // In a real app, this would come from the backend
+  if (!Array.isArray(products) || products.length === 0) {
+    return [];
+  }
+
+  const picklists = [];
+  const itemsPerPicklist = Math.ceil(products.length / 3); // Divide into 3 picklists for demo
+
+  for (let i = 1; i <= 3; i++) {
+    const createdDate = new Date(2026, 1, 20 - (3 - i), 9 + i, 30 + i * 15);
+    const startIndex = (i - 1) * itemsPerPicklist;
+    const endIndex = Math.min(i * itemsPerPicklist, products.length);
+    const picklistProducts = products.slice(startIndex, endIndex);
+
+    if (picklistProducts.length > 0) {
+      picklists.push({
+        id: `picklist-${i}`,
+        name: `PickList-${i}`,
+        createdAt: createdDate.toISOString(),
+        createdAtFormatted: createdDate.toLocaleString(),
+        orderCount: picklistProducts.length,
+        productSkus: picklistProducts.map((p) => p.sku || p.masterSku),
+      });
+    }
+  }
+
+  return picklists;
+}
+
+
 export default function MasterInventorySheet() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [products, setProducts] = useState([]);
+  const [picklists, setPicklists] = useState([]);
+  const [selectedPicklist, setSelectedPicklist] = useState(null);
+  const [isPicklistDropdownOpen, setIsPicklistDropdownOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSku, setSelectedSku] = useState('');
   const [isSkuDropdownOpen, setIsSkuDropdownOpen] = useState(false);
@@ -229,9 +264,14 @@ export default function MasterInventorySheet() {
       const nextProducts = Array.isArray(result.products) ? result.products : [];
       setProducts(nextProducts);
 
+      // Generate picklists from products or create sample picklists
+      const generatedPicklists = generatePicklists(nextProducts);
+      setPicklists(generatedPicklists);
+
     } catch (fetchError) {
       setError(fetchError.message || 'Failed to load inventory data');
       setProducts([]);
+      setPicklists([]);
     } finally {
       setIsLoading(false);
     }
@@ -273,6 +313,15 @@ export default function MasterInventorySheet() {
     const normalizedSearch = effectiveSearch.toLowerCase();
 
     return products.filter((product) => {
+      // Filter by picklist if one is selected
+      if (selectedPicklist) {
+        const currentPicklist = picklists.find((p) => p.id === selectedPicklist);
+        const productSku = product.sku || product.masterSku;
+        if (currentPicklist && !currentPicklist.productSkus.includes(productSku)) {
+          return false;
+        }
+      }
+
       const matchesFilters = FILTER_FIELDS.every((field) => {
         const selected = filterSelections[field.key];
         if (!selected || selected.size === 0) {
@@ -312,7 +361,7 @@ export default function MasterInventorySheet() {
         .toLowerCase()
         .includes(normalizedSearch);
     });
-  }, [effectiveSearch, filterSelections, products, selectedSku]);
+  }, [effectiveSearch, filterSelections, products, selectedSku, selectedPicklist, picklists]);
 
   const sortedProducts = useMemo(() => {
     if (!sortField) {
@@ -802,8 +851,61 @@ export default function MasterInventorySheet() {
 
           <div className="xl:w-[15%] self-start">
             <div className="border border-gray-300 bg-white p-0">
-              <div className="h-9 border-b border-gray-300 bg-yellow-300 text-xs font-semibold text-slate-900 flex items-center justify-center">
-                ORDER PICK LIST
+              <div className="h-9 border-b border-gray-300 bg-yellow-300 text-xs font-semibold text-slate-900 flex items-center justify-between px-2 relative">
+                <div className="flex-1">
+                  {picklists.length > 0 ? (
+                    <div className="relative">
+                      <button
+                        onClick={() => setIsPicklistDropdownOpen(!isPicklistDropdownOpen)}
+                        className="w-full text-left py-1 px-2 rounded hover:bg-yellow-200 transition-colors truncate"
+                      >
+                        {selectedPicklist === null
+                          ? 'VIEW ALL PRODUCTS'
+                          : selectedPicklist
+                          ? picklists.find((p) => p.id === selectedPicklist)?.name || 'Select'
+                          : 'SELECT PICKLIST'}
+                      </button>
+                      {isPicklistDropdownOpen && (
+                        <div className="absolute left-0 right-0 top-full mt-0 bg-white border border-gray-300 rounded shadow-lg z-20 max-h-48 overflow-y-auto">
+                          <button
+                            onClick={() => {
+                              setSelectedPicklist(null);
+                              setIsPicklistDropdownOpen(false);
+                            }}
+                            className={`w-full text-left px-3 py-2 text-xs border-b border-gray-300 hover:bg-green-50 transition-colors font-semibold ${
+                              selectedPicklist === null ? 'bg-green-100' : ''
+                            }`}
+                          >
+                            <div className="text-green-700">VIEW ALL PRODUCTS</div>
+                            <div className="text-gray-500 text-xs">Show all {products.length} products</div>
+                          </button>
+                          {picklists.map((picklist) => (
+                            <button
+                              key={picklist.id}
+                              onClick={() => {
+                                setSelectedPicklist(picklist.id);
+                                setIsPicklistDropdownOpen(false);
+                              }}
+                              className={`w-full text-left px-3 py-2 text-xs border-b border-gray-200 hover:bg-blue-50 transition-colors ${
+                                selectedPicklist === picklist.id ? 'bg-blue-100 font-semibold' : ''
+                              }`}
+                            >
+                              <div className="font-medium">{picklist.name}</div>
+                              <div className="text-gray-600 text-xs">
+                                {new Date(picklist.createdAt).toLocaleString()}
+                              </div>
+                              <div className="text-gray-500 text-xs">
+                                {picklist.orderCount} order{picklist.orderCount !== 1 ? 's' : ''}
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <span>ORDER PICK LIST</span>
+                  )}
+                </div>
               </div>
               {rowsToRender.length === 0 ? (
                 <div className="rounded-md border border-dashed border-gray-300 p-3 text-xs text-gray-500">
