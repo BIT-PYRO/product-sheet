@@ -17,6 +17,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Search, X, Download, Printer } from 'lucide-react';
 
 const KYC_COLUMNS = [
   { key: '__select__', label: '' },
@@ -24,7 +25,11 @@ const KYC_COLUMNS = [
   { key: 'businessType', label: 'Business Type' },
   { key: 'gstNumber', label: 'GST Number' },
   { key: 'panNumber', label: 'PAN Number' },
-  { key: 'address', label: 'Registered Address' },
+  { key: 'addressLine1', label: 'Address Line 1' },
+  { key: 'addressLine2', label: 'Address Line 2' },
+  { key: 'city', label: 'City' },
+  { key: 'state', label: 'State' },
+  { key: 'pinCode', label: 'PIN Code' },
   { key: 'authorizedPersonName', label: 'Authorized Person' },
   { key: 'designation', label: 'Designation' },
   { key: 'mobile', label: 'Mobile' },
@@ -33,10 +38,6 @@ const KYC_COLUMNS = [
   { key: 'bankName', label: 'Bank Name' },
   { key: 'accountNumber', label: 'Account Number' },
   { key: 'ifsc', label: 'IFSC Code' },
-  { key: 'gstCertificate', label: 'GST Certificate' },
-  { key: 'panCard', label: 'PAN Card' },
-  { key: 'idProof', label: 'ID Proof' },
-  { key: 'cancelledCheque', label: 'Cancelled Cheque' },
   { key: 'status', label: 'Status' },
 ];
 
@@ -45,7 +46,11 @@ const columnConfig = {
   businessType: { minWidth: 'min-w-[100px]', headerBg: 'bg-indigo-200' },
   gstNumber: { minWidth: 'min-w-[120px]', headerBg: 'bg-indigo-200' },
   panNumber: { minWidth: 'min-w-[110px]', headerBg: 'bg-indigo-200' },
-  address: { minWidth: 'min-w-[150px]', headerBg: 'bg-indigo-200' },
+  addressLine1: { minWidth: 'min-w-[120px]', headerBg: 'bg-indigo-200' },
+  addressLine2: { minWidth: 'min-w-[120px]', headerBg: 'bg-indigo-200' },
+  city: { minWidth: 'min-w-[100px]', headerBg: 'bg-indigo-200' },
+  state: { minWidth: 'min-w-[100px]', headerBg: 'bg-indigo-200' },
+  pinCode: { minWidth: 'min-w-[100px]', headerBg: 'bg-indigo-200' },
   authorizedPersonName: { minWidth: 'min-w-[130px]', headerBg: 'bg-indigo-200' },
   designation: { minWidth: 'min-w-[100px]', headerBg: 'bg-indigo-200' },
   mobile: { minWidth: 'min-w-[110px]', headerBg: 'bg-indigo-200' },
@@ -54,10 +59,6 @@ const columnConfig = {
   bankName: { minWidth: 'min-w-[100px]', headerBg: 'bg-indigo-200' },
   accountNumber: { minWidth: 'min-w-[120px]', headerBg: 'bg-indigo-200' },
   ifsc: { minWidth: 'min-w-[100px]', headerBg: 'bg-indigo-200' },
-  gstCertificate: { minWidth: 'min-w-[100px]', headerBg: 'bg-indigo-200' },
-  panCard: { minWidth: 'min-w-[100px]', headerBg: 'bg-indigo-200' },
-  idProof: { minWidth: 'min-w-[100px]', headerBg: 'bg-indigo-200' },
-  cancelledCheque: { minWidth: 'min-w-[120px]', headerBg: 'bg-indigo-200' },
   status: { minWidth: 'min-w-[100px]', headerBg: 'bg-indigo-200' },
 };
 
@@ -210,27 +211,60 @@ export default function MasterKYCSheet() {
         </div>
 
         {/* Search and Controls */}
-        <div className="bg-white p-4 rounded-lg shadow-sm mb-6">
-          <div className="flex flex-col lg:flex-row gap-4 mb-4">
-            <div className="flex-1">
+        <div className="bg-white p-4 rounded-lg shadow-sm mb-6 border border-gray-200">
+          <div className="flex flex-wrap gap-3 items-center justify-between">
+            {/* Search Bar */}
+            <div className="relative flex items-center flex-1 min-w-[250px] max-w-[400px]">
+              <Search className="absolute left-3 h-4 w-4 text-gray-400" />
               <Input
-                placeholder="Search by company name or GST number..."
+                placeholder="Search companies or GST numbers..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full"
+                className="w-full pl-10 pr-10 rounded-md border-gray-300 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
               />
+              {searchTerm && (
+                <button
+                  onClick={() => setSearchTerm('')}
+                  className="absolute right-3 text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
             </div>
-          </div>
-          <div className="flex flex-wrap gap-2 justify-start lg:justify-end">
-            <Button variant="outline" onClick={() => setIsManageColumnsOpen(true)}>
-              Manage Columns
-            </Button>
-            <Button variant="outline" onClick={handleExport}>
-              Export
-            </Button>
-            <Button variant="outline" onClick={() => window.print()}>
-              Print
-            </Button>
+
+            {/* Result Counter */}
+            {searchTerm && (
+              <p className="text-sm text-gray-600">
+                Found {filteredProducts.length}
+              </p>
+            )}
+
+            {/* Control Buttons */}
+            <div className="flex gap-2">
+              <Button 
+                variant="outline" 
+                onClick={() => setIsManageColumnsOpen(true)}
+                className="gap-2 border-gray-300 hover:bg-gray-50 whitespace-nowrap"
+              >
+                Manage Columns
+              </Button>
+              <Button 
+                variant="outline" 
+                onClick={handleExport}
+                className="gap-2 border-gray-300 hover:bg-gray-50"
+              >
+                <Download className="h-4 w-4" />
+                Export
+              </Button>
+              <Button 
+                variant="outline" 
+                onClick={() => window.print()}
+                className="gap-2 border-gray-300 hover:bg-gray-50"
+              >
+                <Printer className="h-4 w-4" />
+                Print
+              </Button>
+            </div>
           </div>
         </div>
 
