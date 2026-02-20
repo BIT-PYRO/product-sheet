@@ -911,7 +911,7 @@ export default function MasterProductSheet() {
               {displayedData.map((row, idx) => {
                 const isEditing = editingRowIds.has(row.id);
                 const isAnyRowEditing = editingRowIds.size > 0;
-                const canEdit = !isArchivedView && (!isAnyRowEditing || isEditing);
+                const canEdit = !isArchivedView && isEditing;
                 
                 return (
                   <tr 
@@ -935,13 +935,18 @@ export default function MasterProductSheet() {
                     {columns.map((column) =>
                       visibleColumns.has(column.id) && (
                         <td key={column.id} className={`border border-gray-400 p-1 ${columnConfig[column.id].cellBg || ''}`} style={isEditing ? {backgroundColor: '#eff6ff'} : {}}>
-                          <Input
-                            type="text"
-                            value={row[column.id]}
-                            onChange={(e) => handleCellChange(row.id, column.id, e.target.value)}
-                            className="border-0 p-1 text-xs h-8"
-                            disabled={!canEdit}
-                          />
+                          {canEdit ? (
+                            <Input
+                              type="text"
+                              value={row[column.id]}
+                              onChange={(e) => handleCellChange(row.id, column.id, e.target.value)}
+                              className="border-0 p-1 text-xs h-8"
+                            />
+                          ) : (
+                            <div className="min-h-8 px-1 py-1 text-xs whitespace-pre-wrap break-words leading-4">
+                              {row[column.id] || ''}
+                            </div>
+                          )}
                         </td>
                       )
                     )}

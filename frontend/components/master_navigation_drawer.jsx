@@ -2,10 +2,11 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { LayoutDashboard, X } from 'lucide-react';
+import { House, LayoutDashboard, X } from 'lucide-react';
 import { DraftsManager } from '@/components/drafts-manager';
 
 const NAV_LINKS = [
+  { href: '/home', label: 'Home', className: 'bg-slate-700 hover:bg-slate-800' },
   { href: '/', label: 'Product Sheet', className: 'bg-green-600 hover:bg-green-700' },
   { href: '/master-job-sheet', label: 'Master Job Sheet', className: 'bg-yellow-500 hover:bg-yellow-600' },
   { href: '/master-product-sheet', label: 'Master Product Sheet', className: 'bg-teal-500 hover:bg-teal-600' },
@@ -22,6 +23,15 @@ export default function MasterNavigationDrawer() {
 
   return (
     <>
+      <Link
+        href="/home"
+        className="fixed top-4 left-16 z-50 inline-flex items-center gap-2 border-2 border-black bg-white rounded px-3 py-2 text-sm font-semibold text-black hover:bg-gray-100 transition-colors"
+        aria-label="Go to home"
+      >
+        <House className="h-4 w-4" />
+        Home
+      </Link>
+
       <button
         onClick={() => setIsOpen(true)}
         className="fixed top-4 left-4 z-50 p-2 border-2 border-black bg-white rounded hover:bg-gray-100 transition-colors"
