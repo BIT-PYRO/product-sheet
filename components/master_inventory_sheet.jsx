@@ -103,23 +103,35 @@ function formatFinalStockColumn(rows, key) {
     .join(' | ');
 }
 
+function getLiveStockValue(liveStock, stockField, keys) {
+  const normalizedField = stockField || 'current';
+
+  for (const key of keys) {
+    const value = liveStock?.[key]?.[normalizedField];
+    if (String(value || '').trim() !== '') {
+      return value;
+    }
+  }
+
+  return '';
+}
+
 function buildInventoryRow(product, stockField) {
   const liveStock = product?.liveStock || {};
   const finalStock = Array.isArray(product?.finalStock) ? product.finalStock : [];
-  const safeStockField = stockField || 'current';
 
   return {
     id: product.id,
     sku: product.sku || product.masterSku || '',
-    waxPiece: liveStock?.rawMaterial?.[safeStockField] || '',
-    waxSetting: liveStock?.rawSetting?.[safeStockField] || '',
-    casting: liveStock?.wipLiquidCasting?.[safeStockField] || '',
-    finalCasting: liveStock?.postCasting?.[safeStockField] || '',
-    filling: liveStock?.filing?.[safeStockField] || '',
-    prePolish: liveStock?.packing?.[safeStockField] || '',
-    setting: liveStock?.setting?.[safeStockField] || '',
-    finalPolish: liveStock?.finalPolish?.[safeStockField] || '',
-    readyForPlating: liveStock?.readyForPlacing?.[safeStockField] || '',
+    waxPiece: getLiveStockValue(liveStock, stockField, ['rawMaterial', 'waxPiece']),
+    waxSetting: getLiveStockValue(liveStock, stockField, ['rawSetting', 'waxSetting']),
+    casting: getLiveStockValue(liveStock, stockField, ['wipLiquidCasting', 'casting', 'tyre']),
+    finalCasting: getLiveStockValue(liveStock, stockField, ['postCasting', 'finalCasting', 'dustunuing']),
+    filling: getLiveStockValue(liveStock, stockField, ['filing', 'filling']),
+    prePolish: getLiveStockValue(liveStock, stockField, ['packing', 'prePolish']),
+    setting: getLiveStockValue(liveStock, stockField, ['setting']),
+    finalPolish: getLiveStockValue(liveStock, stockField, ['finalPolish']),
+    readyForPlating: getLiveStockValue(liveStock, stockField, ['readyForPlacing', 'readyForPlating']),
     finalStockSku: formatFinalStockColumn(finalStock, 'sku'),
     finalStockValue: formatFinalStockColumn(finalStock, 'value'),
     finalStockUnit: formatFinalStockColumn(finalStock, 'unit'),
@@ -145,7 +157,7 @@ export default function MasterInventorySheet() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSku, setSelectedSku] = useState('');
   const [isSkuDropdownOpen, setIsSkuDropdownOpen] = useState(false);
-  const [stockField, setStockField] = useState('current');
+  const [stockField, setStockField] = useState('min');
   const [isManageColumnsOpen, setIsManageColumnsOpen] = useState(false);
   const [isCreateJobModalOpen, setIsCreateJobModalOpen] = useState(false);
   const [selectedRows, setSelectedRows] = useState(new Set());

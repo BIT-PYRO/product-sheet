@@ -1,7 +1,7 @@
 'use client'
 
 import React from "react"
-import { Trash2, LayoutDashboard, X } from 'lucide-react'
+import { Trash2, LayoutDashboard, House, X } from 'lucide-react'
 
 import { useState, useRef, useEffect } from 'react'
 import { CreateJobModal } from '@/components/create-job-modal'
@@ -498,6 +498,13 @@ export default function ProductSheet() {
           <button onClick={() => setIsDashboardOpen(!isDashboardOpen)} className="p-2 border-2 border-black bg-white rounded hover:bg-gray-100 transition-colors shadow-sm">
             <LayoutDashboard className="h-5 w-5 text-black" />
           </button>
+          <a
+            href="/home"
+            className="inline-flex items-center gap-2 px-3 py-2 border-2 border-black bg-white rounded text-sm font-semibold text-black hover:bg-gray-100 transition-colors shadow-sm"
+          >
+            <House className="h-4 w-4" />
+            Home
+          </a>
           <h1 className="text-xl font-bold tracking-tight text-slate-900">PRODUCT SHEET</h1>
         </div>
         <div className="flex gap-2 items-center">
