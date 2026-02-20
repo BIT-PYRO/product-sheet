@@ -130,8 +130,7 @@ export function DraftsManager({ openOnMount = false }) {
     <>
       <Button
         onClick={() => setIsDraftsOpen(true)}
-        variant="outline"
-        className="border-purple-600 text-purple-600 hover:bg-purple-50 rounded-full px-6 flex items-center gap-2"
+        className="bg-purple-600 hover:bg-purple-700 text-white rounded-full px-6 flex items-center gap-2"
       >
         <FileText className="h-4 w-4" />
         Drafts {totalDrafts > 0 && `(${totalDrafts})`}

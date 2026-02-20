@@ -260,7 +260,7 @@ export function QuickEnrollModal({ open, onOpenChange, onEnroll }) {
           {/* Buttons Container */}
           <div className="flex gap-2 mt-2">
             <Button
-              className="flex-1 h-9 bg-gray-500 hover:bg-gray-600 text-white font-bold text-sm rounded transition shadow-md"
+              className="flex-1 h-9 bg-purple-600 hover:bg-purple-700 text-white font-bold text-sm rounded transition shadow-md"
               onClick={handleSaveDraft}
             >
               Save as Draft

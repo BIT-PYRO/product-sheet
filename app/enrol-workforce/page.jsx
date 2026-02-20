@@ -332,7 +332,7 @@ export function EnrolWorkforceForm({ onEnroll, onClose, open = true, draftData =
                 <button
                   type="button"
                   onClick={handleSaveDraft}
-                  className="flex-1 h-10 bg-gray-500 hover:bg-gray-600 text-white font-bold text-sm rounded transition shadow-md"
+                  className="flex-1 h-10 bg-purple-600 hover:bg-purple-700 text-white font-bold text-sm rounded transition shadow-md"
                 >
                   Save as Draft
                 </button>
