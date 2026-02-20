@@ -870,7 +870,10 @@ export default function MasterInventorySheet() {
             )}
           </div>
 
-          <div className="xl:w-[15%] self-start">
+          <div className="xl:w-[15%] self-start relative">
+            <div className="absolute -top-6 left-0 text-xs font-semibold text-slate-900 tracking-wide">
+              ORDER LIST
+            </div>
             <div className="border border-gray-300 bg-white p-0">
               <div className="h-9 border-b border-gray-300 bg-yellow-300 text-xs font-semibold text-slate-900 flex items-center justify-between px-2 relative">
                 <div className="flex-1">
