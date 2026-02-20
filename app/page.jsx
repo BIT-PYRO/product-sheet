@@ -1760,11 +1760,6 @@ export default function ProductSheet() {
             Managers Dashboard
           </a>
 
-          {/* Company KYC Button */}
-          <a href="/company-kyc" className="w-full mb-6 px-4 py-3 text-sm bg-indigo-600 text-white font-semibold rounded hover:bg-indigo-700 transition-colors block text-center">
-            Company KYC
-          </a>
-
           {/* Drafts Button */}
           <div className="w-full mb-6">
             <DraftsManager />
