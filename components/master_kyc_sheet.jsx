@@ -144,6 +144,14 @@ export default function MasterKYCSheet() {
     setSelectedColumnsForAction(newSelected);
   };
 
+  const toggleSelectAllColumns = () => {
+    if (selectedColumnsForAction.size === KYC_COLUMNS.length) {
+      setSelectedColumnsForAction(new Set());
+    } else {
+      setSelectedColumnsForAction(new Set(KYC_COLUMNS.map(col => col.key)));
+    }
+  };
+
   const handleApplyColumns = () => {
     setVisibleColumns(new Set(selectedColumnsForAction));
     setIsManageColumnsOpen(false);
@@ -364,6 +372,17 @@ export default function MasterKYCSheet() {
             <DialogTitle>Manage Columns</DialogTitle>
           </DialogHeader>
           <div className="space-y-3 max-h-80 overflow-y-auto">
+            {/* Select All Checkbox */}
+            <div className="flex items-center gap-3 pb-3 border-b border-gray-200 mb-2">
+              <Checkbox
+                id="select-all-columns"
+                checked={selectedColumnsForAction.size === KYC_COLUMNS.filter((col) => col.key !== '__select__').length && KYC_COLUMNS.filter((col) => col.key !== '__select__').length > 0}
+                onCheckedChange={toggleSelectAllColumns}
+              />
+              <label htmlFor="select-all-columns" className="text-sm font-semibold cursor-pointer">
+                Select All
+              </label>
+            </div>
             {KYC_COLUMNS.filter((col) => col.key !== '__select__').map((column) => (
               <div key={column.key} className="flex items-center gap-3">
                 <Checkbox

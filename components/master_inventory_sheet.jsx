@@ -570,6 +570,14 @@ export default function MasterInventorySheet() {
     });
   };
 
+  const toggleSelectAllColumns = () => {
+    if (selectedColumnsForAction.size === visibleColumnList.length) {
+      setSelectedColumnsForAction(new Set());
+    } else {
+      setSelectedColumnsForAction(new Set(visibleColumnList.map(col => col.key)));
+    }
+  };
+
   const handleHideColumns = () => {
     setVisibleColumns((prev) => {
       const next = new Set(prev);
@@ -630,6 +638,19 @@ export default function MasterInventorySheet() {
             <DialogTitle>Manage Columns</DialogTitle>
           </DialogHeader>
           <div className="space-y-3 max-h-[380px] overflow-y-auto py-2">
+            {/* Select All Checkbox */}
+            <div className="flex items-center justify-between gap-3 pb-3 border-b border-gray-200 mb-2">
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="select-all-columns"
+                  checked={selectedColumnsForAction.size === visibleColumnList.length && visibleColumnList.length > 0}
+                  onCheckedChange={toggleSelectAllColumns}
+                />
+                <label htmlFor="select-all-columns" className="text-sm font-semibold">
+                  Select All
+                </label>
+              </div>
+            </div>
             {INVENTORY_COLUMNS.filter((column) => column.key !== '__select__').map((column) => (
               <div key={column.key} className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2">
