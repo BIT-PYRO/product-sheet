@@ -440,7 +440,7 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
           {/* SKU Table */}
           <div className="rounded-md overflow-hidden border border-border">
             {/* Table Header - blue */}
-            <div className="grid grid-cols-[1fr_1fr_1fr_0.8fr_60px_0.8fr_60px_32px] gap-0 bg-trust-blue text-white text-[9px] font-bold uppercase tracking-wider">
+            <div className="grid grid-cols-[1fr_1fr_1fr_0.8fr_60px_0.8fr_60px_32px] gap-0 bg-blue-600 text-white text-[9px] font-bold uppercase tracking-wider">
               <div className="px-1.5 py-2">SKU</div>
               <div className="px-1.5 py-2">Category</div>
               <div className="px-1.5 py-2">Metal</div>
@@ -462,10 +462,10 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
                   <Input className="h-6 text-sm bg-background border-border" placeholder="Category" value={row.category} onChange={(e) => updateRow(row.id, "category", e.target.value)} />
                 </div>
                 <div className="px-0.5 py-0.5">
-                  <Input className="h-6 text-sm bg-background border-border" placeholder="Metal" value={row.metal} onChange={(e) => updateRow(row.id, "metal", e.target.value)} />
+                  <Input className="h-6 text-xs bg-background border-border" placeholder="Metal" value={row.metal} onChange={(e) => updateRow(row.id, "metal", e.target.value)} />
                 </div>
                 <div className="px-0.5 py-0.5">
-                  <Input className="h-6 text-sm bg-background border-border" type="number" placeholder="0" value={row.issuedQty} onChange={(e) => updateRow(row.id, "issuedQty", e.target.value)} />
+                  <Input className="h-6 text-xs bg-background border-border" type="number" placeholder="0" value={row.issuedQty} onChange={(e) => updateRow(row.id, "issuedQty", e.target.value)} />
                 </div>
                 <div className="px-0.5 py-0.5">
                   <Select value={row.unit1} onValueChange={(v) => updateRow(row.id, "unit1", v)}>

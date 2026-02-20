@@ -293,7 +293,7 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
           {/* SKU Table with all 18 columns */}
           <div className="rounded-md overflow-hidden border border-border text-sm">
             <div className="w-full scale-[1.0] origin-top-left">
-              <div className="grid gap-0 bg-trust-blue text-white font-bold uppercase tracking-wider px-1 text-center" style={{ gridTemplateColumns: "0.6fr 0.65fr 0.65fr 0.48fr 0.32fr 0.48fr 0.32fr 0.48fr 0.32fr 0.48fr 0.32fr 0.48fr 0.32fr 0.48fr 0.32fr 0.48fr 0.32fr 0.48fr 0.32fr 24px" }}>
+              <div className="grid gap-0 bg-blue-600 text-white font-bold uppercase tracking-wider px-1 text-center" style={{ gridTemplateColumns: "0.6fr 0.65fr 0.65fr 0.48fr 0.32fr 0.48fr 0.32fr 0.48fr 0.32fr 0.48fr 0.32fr 0.48fr 0.32fr 0.48fr 0.32fr 0.48fr 0.32fr 0.48fr 0.32fr 24px" }}>
                 <div className="py-1">SKU</div>
                 <div className="py-1">Category</div>
                 <div className="py-1">Metal</div>
@@ -324,10 +324,10 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
                     <Input className="h-6 text-sm border-border" placeholder="Cat" value={row.category} onChange={(e) => updateRow(row.id, "category", e.target.value)} />
                   </div>
                   <div className="py-0.5">
-                    <Input className="h-6 text-sm border-border" placeholder="Metal" value={row.metal} onChange={(e) => updateRow(row.id, "metal", e.target.value)} />
+                    <Input className="h-6 text-xs border-border" placeholder="Metal" value={row.metal} onChange={(e) => updateRow(row.id, "metal", e.target.value)} />
                   </div>
                   <div className="py-0.5">
-                    <Input className="h-6 text-sm border-border" type="number" placeholder="0" value={row.issuedQty} onChange={(e) => updateRow(row.id, "issuedQty", e.target.value)} />
+                    <Input className="h-6 text-xs border-border" type="number" placeholder="0" value={row.issuedQty} onChange={(e) => updateRow(row.id, "issuedQty", e.target.value)} />
                   </div>
                   <div className="py-0.5">
                     <Select value={row.unit1} onValueChange={(v) => updateRow(row.id, "unit1", v)}>
