@@ -11,6 +11,7 @@ const NAV_LINKS = [
   { href: '/master-product-sheet', label: 'Master Product Sheet', className: 'bg-teal-500 hover:bg-teal-600' },
   { href: '/master-inventory-sheet', label: 'Master Inventory Sheet', className: 'bg-lime-600 hover:bg-lime-700' },
   { href: '/master-workforce-sheet', label: 'Master Workforce Sheet', className: 'bg-orange-500 hover:bg-orange-600' },
+  { href: '/master-kyc-sheet', label: 'Master KYC Sheet', className: 'bg-indigo-600 hover:bg-indigo-700' },
   { href: '/managers-dashboard', label: 'Managers Dashboard', className: 'bg-blue-500 hover:bg-blue-600' },
 ];
 
@@ -54,7 +55,7 @@ export default function MasterNavigationDrawer() {
               key={item.href}
               href={item.href}
               onClick={handleClose}
-              className={`w-full mb-4 px-4 py-3 text-sm text-white font-semibold rounded transition-colors block text-center ${item.className}`}
+              className={`w-full mb-6 px-4 py-3 text-sm text-white font-semibold rounded transition-colors block text-center ${item.className}`}
             >
               {item.label}
             </Link>

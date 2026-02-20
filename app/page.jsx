@@ -1719,7 +1719,7 @@ export default function ProductSheet() {
       {isDashboardOpen && (
         <div className="fixed inset-0 z-30 bg-black bg-opacity-50 top-16" onClick={() => setIsDashboardOpen(false)}></div>
       )}
-      <div className={`fixed top-16 left-0 h-[calc(100vh-64px)] w-80 bg-white border-r-2 border-gray-300 shadow-lg transform transition-transform duration-300 z-40 overflow-y-auto ${
+      <div className={`fixed top-16 left-0 h-[calc(100vh-64px)] w-80 bg-white border-r-2 border-gray-300 shadow-lg transform transition-transform duration-300 z-50 overflow-y-scroll ${
         isDashboardOpen ? 'translate-x-0' : '-translate-x-full'
       }`}>
         <div className="p-4">
@@ -1753,6 +1753,11 @@ export default function ProductSheet() {
           {/* Master Workforce Sheet Button */}
           <a href="/master-workforce-sheet" className="w-full mb-6 px-4 py-3 text-sm bg-orange-500 text-white font-semibold rounded hover:bg-orange-600 transition-colors block text-center">
             Master Workforce Sheet
+          </a>
+
+          {/* Master KYC Sheet Button */}
+          <a href="/master-kyc-sheet" className="w-full mb-6 px-4 py-3 text-sm bg-indigo-600 text-white font-semibold rounded hover:bg-indigo-700 transition-colors block text-center">
+            Master KYC Sheet
           </a>
 
           {/* Managers Dashboard Button */}
