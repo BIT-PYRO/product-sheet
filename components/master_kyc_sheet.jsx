@@ -24,7 +24,11 @@ const KYC_COLUMNS = [
   { key: 'businessType', label: 'Business Type' },
   { key: 'gstNumber', label: 'GST Number' },
   { key: 'panNumber', label: 'PAN Number' },
-  { key: 'address', label: 'Registered Address' },
+  { key: 'addressLine1', label: 'Address Line 1' },
+  { key: 'addressLine2', label: 'Address Line 2' },
+  { key: 'city', label: 'City' },
+  { key: 'state', label: 'State' },
+  { key: 'pinCode', label: 'PIN Code' },
   { key: 'authorizedPersonName', label: 'Authorized Person' },
   { key: 'designation', label: 'Designation' },
   { key: 'mobile', label: 'Mobile' },
@@ -45,7 +49,11 @@ const columnConfig = {
   businessType: { minWidth: 'min-w-[100px]', headerBg: 'bg-indigo-200' },
   gstNumber: { minWidth: 'min-w-[120px]', headerBg: 'bg-indigo-200' },
   panNumber: { minWidth: 'min-w-[110px]', headerBg: 'bg-indigo-200' },
-  address: { minWidth: 'min-w-[150px]', headerBg: 'bg-indigo-200' },
+  addressLine1: { minWidth: 'min-w-[130px]', headerBg: 'bg-indigo-200' },
+  addressLine2: { minWidth: 'min-w-[130px]', headerBg: 'bg-indigo-200' },
+  city: { minWidth: 'min-w-[100px]', headerBg: 'bg-indigo-200' },
+  state: { minWidth: 'min-w-[100px]', headerBg: 'bg-indigo-200' },
+  pinCode: { minWidth: 'min-w-[100px]', headerBg: 'bg-indigo-200' },
   authorizedPersonName: { minWidth: 'min-w-[130px]', headerBg: 'bg-indigo-200' },
   designation: { minWidth: 'min-w-[100px]', headerBg: 'bg-indigo-200' },
   mobile: { minWidth: 'min-w-[110px]', headerBg: 'bg-indigo-200' },
@@ -144,8 +152,28 @@ export default function MasterKYCSheet() {
     setSelectedColumnsForAction(newSelected);
   };
 
-  const handleApplyColumns = () => {
-    setVisibleColumns(new Set(selectedColumnsForAction));
+  const handleSelectAllColumns = (checked) => {
+    if (checked) {
+      const allColumnIds = KYC_COLUMNS.filter((col) => col.key !== '__select__').map((col) => col.key);
+      setSelectedColumnsForAction(new Set(allColumnIds));
+    } else {
+      setSelectedColumnsForAction(new Set());
+    }
+  };
+
+  const handleHideColumns = () => {
+    const newVisible = new Set(visibleColumns);
+    selectedColumnsForAction.forEach(col => newVisible.delete(col));
+    setVisibleColumns(newVisible);
+    setSelectedColumnsForAction(new Set());
+    setIsManageColumnsOpen(false);
+  };
+
+  const handleShowColumns = () => {
+    const newVisible = new Set(visibleColumns);
+    selectedColumnsForAction.forEach(col => newVisible.add(col));
+    setVisibleColumns(newVisible);
+    setSelectedColumnsForAction(new Set());
     setIsManageColumnsOpen(false);
   };
 
@@ -160,10 +188,6 @@ export default function MasterKYCSheet() {
 
   const handleAddEmptyRow = () => {
     setEmptyRowsData([...emptyRowsData, {}]);
-  };
-
-  const handleResetColumns = () => {
-    setSelectedColumnsForAction(new Set(KYC_COLUMNS.map((col) => col.key)));
   };
 
   const handleExport = () => {
@@ -285,7 +309,6 @@ export default function MasterKYCSheet() {
                             onCheckedChange={(checked) => handleSelectRow(index, checked)}
                             className="rounded"
                           />
-                          <span>{index + 1}</span>
                         </div>
                       </td>
                       {KYC_COLUMNS.filter((col) => visibleColumns.has(col.key) && col.key !== '__select__').map(
@@ -310,7 +333,6 @@ export default function MasterKYCSheet() {
                             onCheckedChange={(checked) => handleSelectRow(index, checked)}
                             className="rounded"
                           />
-                          <span>{index + 1}</span>
                         </div>
                       </td>
                       {KYC_COLUMNS.filter((col) => visibleColumns.has(col.key) && col.key !== '__select__').map(
@@ -359,37 +381,63 @@ export default function MasterKYCSheet() {
 
       {/* Manage Columns Dialog */}
       <Dialog open={isManageColumnsOpen} onOpenChange={setIsManageColumnsOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Manage Columns</DialogTitle>
           </DialogHeader>
-          <div className="space-y-3 max-h-80 overflow-y-auto">
-            {KYC_COLUMNS.filter((col) => col.key !== '__select__').map((column) => (
-              <div key={column.key} className="flex items-center gap-3">
+          <div className="space-y-3 max-h-[400px] overflow-y-auto py-4">
+            <div className="flex items-center justify-between gap-3 pb-3 border-b border-gray-300">
+              <div className="flex items-center gap-3 flex-1">
                 <Checkbox
-                  id={column.key}
-                  checked={selectedColumnsForAction.has(column.key)}
-                  onCheckedChange={() => toggleColumnSelection(column.key)}
+                  id="select-all-columns"
+                  checked={selectedColumnsForAction.size === KYC_COLUMNS.filter((col) => col.key !== '__select__').length && selectedColumnsForAction.size > 0}
+                  onCheckedChange={handleSelectAllColumns}
+                  className="cursor-pointer"
                 />
-                <label htmlFor={column.key} className="text-sm font-medium cursor-pointer">
-                  {column.label}
+                <label htmlFor="select-all-columns" className="text-sm font-semibold cursor-pointer">
+                  Select All
                 </label>
+              </div>
+            </div>
+            {KYC_COLUMNS.filter((col) => col.key !== '__select__').map((column) => (
+              <div key={column.key} className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 flex-1">
+                  <Checkbox
+                    id={column.key}
+                    checked={selectedColumnsForAction.has(column.key)}
+                    onCheckedChange={() => toggleColumnSelection(column.key)}
+                    className="cursor-pointer"
+                  />
+                  <label htmlFor={column.key} className="text-sm cursor-pointer">
+                    {column.label}
+                  </label>
+                </div>
+                <div className="text-xs font-semibold px-2 py-1 rounded">
+                  {!visibleColumns.has(column.key) ? (
+                    <span className="bg-red-100 text-red-700 px-2 py-1 rounded-full text-xs">Hidden</span>
+                  ) : (
+                    <span className="bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs">Visible</span>
+                  )}
+                </div>
               </div>
             ))}
           </div>
           <DialogFooter className="flex gap-2">
             <Button
-              onClick={handleResetColumns}
+              onClick={handleHideColumns}
+              disabled={selectedColumnsForAction.size === 0}
               variant="outline"
-              className="flex-1"
+              className="text-red-600 border-red-300 hover:bg-red-50"
             >
-              Reset
+              Hide
             </Button>
             <Button
-              onClick={handleApplyColumns}
-              className="flex-1 bg-blue-600 hover:bg-blue-700"
+              onClick={handleShowColumns}
+              disabled={selectedColumnsForAction.size === 0}
+              variant="outline"
+              className="text-green-600 border-green-300 hover:bg-green-50"
             >
-              Apply
+              Show
             </Button>
           </DialogFooter>
         </DialogContent>
