@@ -265,11 +265,13 @@ export default function ManagersDashboard() {
         voucherData={selectedVoucherForReceive}
       />
 
-      {/* Header Section */}
-      <div className="mb-4 sticky top-0 z-30 bg-white/95 py-2 border-b border-gray-200 shadow-sm backdrop-blur">
-        <div className="flex items-center gap-3 mb-4">
-          <MasterNavigationDrawer inHeader />
-          <h1 className="text-xl font-bold tracking-tight text-slate-900">MANAGERS DASHBOARD FOR VOUCHERS/JOB CARDS</h1>
+      <div className="max-w-[1400px] mx-auto border border-gray-300 bg-white p-4 md:p-6">
+        {/* Header Section */}
+        <div className="mb-4 sticky top-0 z-30 bg-white/95 py-2 border-b border-gray-200 shadow-sm backdrop-blur">
+          <div className="flex items-center gap-3 mb-4">
+            <MasterNavigationDrawer inHeader />
+            <h1 className="text-xl font-bold tracking-tight text-slate-900">MANAGERS DASHBOARD FOR VOUCHERS/JOB CARDS</h1>
+          </div>
         </div>
 
         {/* Search Bar and Buttons */}
@@ -438,10 +440,9 @@ export default function ManagersDashboard() {
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Dashboard Table */}
-      <div className="border-2 border-gray-300 rounded-lg bg-white overflow-x-auto">
+        {/* Dashboard Table */}
+        <div className="border-2 border-gray-300 rounded-lg bg-white overflow-x-auto">
         <table className="w-full border-collapse text-xs">
           <thead>
             <tr className="bg-gray-300 border-b-2 border-gray-400">
@@ -546,7 +547,8 @@ export default function ManagersDashboard() {
               )}
             </tr>
           </tbody>
-        </table>
+          </table>
+        </div>
       </div>
       <CreateJobModal
         open={isCreateJobModalOpen}
