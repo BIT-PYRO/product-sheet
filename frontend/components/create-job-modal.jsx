@@ -689,7 +689,7 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
           {/* Buttons Container */}
           <div className="flex gap-2 mt-0.5 mb-1.5">
             <Button
-              className="flex-1 h-7 bg-trust-blue hover:bg-deep-blue text-white font-bold text-sm rounded"
+              className="flex-1 h-7 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded"
               onClick={handleSaveDraft}
             >
               Save as Draft

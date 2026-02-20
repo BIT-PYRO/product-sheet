@@ -338,6 +338,24 @@ export function EnrolWorkforceForm({ onEnroll, onClose, open = true, draftData =
                   placeholder="Enter your notes here..."
                 />
               </div>
+
+              {/* Buttons Container */}
+              <div className="flex gap-2 mt-8">
+                <button
+                  type="button"
+                  onClick={handleSaveDraft}
+                  className="flex-1 h-10 bg-purple-600 hover:bg-purple-700 text-white font-bold text-sm rounded transition shadow-md"
+                >
+                  Save as Draft
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSubmit}
+                  className="flex-1 h-10 bg-gradient-to-r from-slate-800 to-slate-700 hover:from-slate-900 hover:to-slate-800 text-white font-bold text-sm rounded transition shadow-md"
+                >
+                  ENROLL
+                </button>
+              </div>
             </form>
         </div>
       </DialogContent>

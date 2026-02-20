@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { createPortal } from 'react-dom';
 import { House, LayoutDashboard, X } from 'lucide-react';
-import { DraftsManager } from '@/components/drafts-manager';
 
 const NAV_LINKS = [
   { href: '/home', label: 'Home', className: 'bg-slate-700 hover:bg-slate-800' },
@@ -15,6 +14,7 @@ const NAV_LINKS = [
   { href: '/master-workforce-sheet', label: 'Master Workforce Sheet', className: 'bg-orange-500 hover:bg-orange-600' },
   { href: '/master-kyc-sheet', label: 'Master KYC Sheet', className: 'bg-indigo-600 hover:bg-indigo-700' },
   { href: '/managers-dashboard', label: 'Managers Dashboard', className: 'bg-blue-500 hover:bg-blue-600' },
+  { href: '/drafts', label: 'Drafts', className: 'bg-purple-600 hover:bg-purple-700' },
 ];
 
 export default function MasterNavigationDrawer({ inHeader = false }) {
@@ -94,10 +94,6 @@ export default function MasterNavigationDrawer({ inHeader = false }) {
                   {item.label}
                 </Link>
               ))}
-
-              <div className="w-full mt-8 pt-6 border-t border-gray-200">
-                <DraftsManager />
-              </div>
             </div>
           </div>
         </>,
