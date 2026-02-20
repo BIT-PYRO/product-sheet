@@ -103,23 +103,35 @@ function formatFinalStockColumn(rows, key) {
     .join(' | ');
 }
 
+function getLiveStockValue(liveStock, stockField, keys) {
+  const normalizedField = stockField || 'current';
+
+  for (const key of keys) {
+    const value = liveStock?.[key]?.[normalizedField];
+    if (String(value || '').trim() !== '') {
+      return value;
+    }
+  }
+
+  return '';
+}
+
 function buildInventoryRow(product, stockField) {
   const liveStock = product?.liveStock || {};
   const finalStock = Array.isArray(product?.finalStock) ? product.finalStock : [];
-  const safeStockField = stockField || 'current';
 
   return {
     id: product.id,
     sku: product.sku || product.masterSku || '',
-    waxPiece: liveStock?.rawMaterial?.[safeStockField] || '',
-    waxSetting: liveStock?.rawSetting?.[safeStockField] || '',
-    casting: liveStock?.wipLiquidCasting?.[safeStockField] || '',
-    finalCasting: liveStock?.postCasting?.[safeStockField] || '',
-    filling: liveStock?.filing?.[safeStockField] || '',
-    prePolish: liveStock?.packing?.[safeStockField] || '',
-    setting: liveStock?.setting?.[safeStockField] || '',
-    finalPolish: liveStock?.finalPolish?.[safeStockField] || '',
-    readyForPlating: liveStock?.readyForPlacing?.[safeStockField] || '',
+    waxPiece: getLiveStockValue(liveStock, stockField, ['rawMaterial', 'waxPiece']),
+    waxSetting: getLiveStockValue(liveStock, stockField, ['rawSetting', 'waxSetting']),
+    casting: getLiveStockValue(liveStock, stockField, ['wipLiquidCasting', 'casting', 'tyre']),
+    finalCasting: getLiveStockValue(liveStock, stockField, ['postCasting', 'finalCasting', 'dustunuing']),
+    filling: getLiveStockValue(liveStock, stockField, ['filing', 'filling']),
+    prePolish: getLiveStockValue(liveStock, stockField, ['packing', 'prePolish']),
+    setting: getLiveStockValue(liveStock, stockField, ['setting']),
+    finalPolish: getLiveStockValue(liveStock, stockField, ['finalPolish']),
+    readyForPlating: getLiveStockValue(liveStock, stockField, ['readyForPlacing', 'readyForPlating']),
     finalStockSku: formatFinalStockColumn(finalStock, 'sku'),
     finalStockValue: formatFinalStockColumn(finalStock, 'value'),
     finalStockUnit: formatFinalStockColumn(finalStock, 'unit'),
@@ -145,7 +157,7 @@ export default function MasterInventorySheet() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSku, setSelectedSku] = useState('');
   const [isSkuDropdownOpen, setIsSkuDropdownOpen] = useState(false);
-  const [stockField, setStockField] = useState('current');
+  const [stockField, setStockField] = useState('min');
   const [isManageColumnsOpen, setIsManageColumnsOpen] = useState(false);
   const [isCreateJobModalOpen, setIsCreateJobModalOpen] = useState(false);
   const [selectedRows, setSelectedRows] = useState(new Set());
@@ -528,8 +540,6 @@ export default function MasterInventorySheet() {
 
   return (
     <div className="w-full min-h-screen bg-gray-50 p-4 md:p-6">
-      <MasterNavigationDrawer />
-
       <Dialog open={isManageColumnsOpen} onOpenChange={setIsManageColumnsOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
@@ -573,11 +583,13 @@ export default function MasterInventorySheet() {
       </Dialog>
 
       <div className="max-w-[1400px] mx-auto border border-gray-300 bg-white p-4 md:p-6">
-        <h1 className="text-center text-xs md:text-sm font-semibold tracking-wide text-yellow-700 mb-4">
-          MASTER INVENTORY SHEET
-        </h1>
+        <div className="mb-4 sticky top-0 z-30 bg-white/95 py-2 border-b border-gray-200 shadow-sm backdrop-blur">
+          <div className="flex items-center gap-3 mb-4">
+            <MasterNavigationDrawer inHeader />
+            <h1 className="text-xl font-bold tracking-tight text-slate-900">MASTER INVENTORY SHEET</h1>
+          </div>
 
-        <div className="flex flex-col lg:flex-row gap-3 lg:items-center lg:justify-between mb-4">
+          <div className="flex flex-col lg:flex-row gap-3 lg:items-center lg:justify-between mb-2">
           <div className="flex flex-col md:flex-row gap-3 md:items-center">
             <div className="w-full md:max-w-[360px] relative">
               <Input
@@ -652,6 +664,7 @@ export default function MasterInventorySheet() {
             <Button variant="outline" onClick={handleExport}>Export</Button>
             <Button variant="outline" onClick={() => window.print()}>Print</Button>
           </div>
+        </div>
         </div>
 
         <div className="flex flex-wrap gap-2 mb-3">

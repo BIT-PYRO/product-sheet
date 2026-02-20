@@ -382,7 +382,6 @@ export default function MasterProductSheet() {
 
   return (
     <div className="w-full h-full bg-gray-50 p-4 md:p-6">
-      <MasterNavigationDrawer />
       {/* Manage Columns Dialog */}
       <Dialog open={isManageColumnsOpen} onOpenChange={setIsManageColumnsOpen}>
         <DialogContent className="max-w-md">
@@ -646,13 +645,14 @@ export default function MasterProductSheet() {
       </Dialog>
 
       {/* Header Section */}
-      <div className="mb-6">
-        <h1 className="text-3xl md:text-4xl font-bold text-center text-gray-800 mb-6">
-          MASTER PRODUCT SHEET
-        </h1>
+      <div className="mb-4 sticky top-0 z-30 bg-white/95 py-2 border-b border-gray-200 shadow-sm backdrop-blur">
+        <div className="flex items-center gap-3 mb-4">
+          <MasterNavigationDrawer inHeader />
+          <h1 className="text-xl font-bold tracking-tight text-slate-900">MASTER PRODUCT SHEET</h1>
+        </div>
 
         {/* Action Buttons */}
-        <div className="flex flex-wrap gap-2 md:gap-4 justify-end mb-6">
+        <div className="flex flex-wrap gap-2 md:gap-4 justify-end mb-4">
           <Button
             onClick={loadProducts}
             variant="outline"
@@ -742,7 +742,7 @@ export default function MasterProductSheet() {
         </div>
 
         {/* Search Bar */}
-        <div className="flex gap-2 mb-6 max-w-md mx-auto md:mx-0">
+        <div className="flex gap-2 mb-2 max-w-md mx-auto md:mx-0">
           <div className="flex-1 relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
             <Input
@@ -911,7 +911,7 @@ export default function MasterProductSheet() {
               {displayedData.map((row, idx) => {
                 const isEditing = editingRowIds.has(row.id);
                 const isAnyRowEditing = editingRowIds.size > 0;
-                const canEdit = !isArchivedView && (!isAnyRowEditing || isEditing);
+                const canEdit = !isArchivedView && isEditing;
                 
                 return (
                   <tr 
@@ -935,13 +935,18 @@ export default function MasterProductSheet() {
                     {columns.map((column) =>
                       visibleColumns.has(column.id) && (
                         <td key={column.id} className={`border border-gray-400 p-1 ${columnConfig[column.id].cellBg || ''}`} style={isEditing ? {backgroundColor: '#eff6ff'} : {}}>
-                          <Input
-                            type="text"
-                            value={row[column.id]}
-                            onChange={(e) => handleCellChange(row.id, column.id, e.target.value)}
-                            className="border-0 p-1 text-xs h-8"
-                            disabled={!canEdit}
-                          />
+                          {canEdit ? (
+                            <Input
+                              type="text"
+                              value={row[column.id]}
+                              onChange={(e) => handleCellChange(row.id, column.id, e.target.value)}
+                              className="border-0 p-1 text-xs h-8"
+                            />
+                          ) : (
+                            <div className="min-h-8 px-1 py-1 text-xs whitespace-pre-wrap break-words leading-4">
+                              {row[column.id] || ''}
+                            </div>
+                          )}
                         </td>
                       )
                     )}

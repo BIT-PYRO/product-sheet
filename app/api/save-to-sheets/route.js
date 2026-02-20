@@ -43,6 +43,43 @@ const DEFAULT_LIVE_STOCK = {
   readyForPlacing: { min: '', current: '', wip: '', location: '' },
 };
 
+function normalizeLiveStockKeys(rawStock = {}) {
+  const normalized = {
+    ...DEFAULT_LIVE_STOCK,
+    ...rawStock,
+  };
+
+  const aliases = [
+    ['filing', ['filling']],
+    ['packing', ['prePolish']],
+    ['wipLiquidCasting', ['casting', 'tyre']],
+    ['postCasting', ['finalCasting', 'dustunuing']],
+    ['readyForPlacing', ['readyForPlating']],
+  ];
+
+  aliases.forEach(([targetKey, sourceKeys]) => {
+    if (
+      normalized[targetKey] &&
+      Object.values(normalized[targetKey]).some((value) => String(value || '').trim() !== '')
+    ) {
+      return;
+    }
+
+    const match = sourceKeys
+      .map((key) => normalized[key])
+      .find((value) => value && typeof value === 'object');
+
+    if (match) {
+      normalized[targetKey] = {
+        ...DEFAULT_LIVE_STOCK[targetKey],
+        ...match,
+      };
+    }
+  });
+
+  return normalized;
+}
+
 function safeParseJson(value, fallback) {
   if (!value || typeof value !== 'string') {
     return fallback;
@@ -59,10 +96,53 @@ function safeParseJson(value, fallback) {
 function mapLiveStockData(rawValue) {
   const parsed = safeParseJson(rawValue, {});
 
-  return {
-    ...DEFAULT_LIVE_STOCK,
-    ...parsed,
-  };
+  return normalizeLiveStockKeys(parsed);
+}
+
+async function getSheetIdByTitle(sheets, spreadsheetId, title) {
+  const metadata = await sheets.spreadsheets.get({
+    spreadsheetId,
+    fields: 'sheets(properties(sheetId,title))',
+  });
+
+  const sheet = (metadata.data.sheets || []).find(
+    (entry) => entry.properties?.title === title
+  );
+
+  return sheet?.properties?.sheetId;
+}
+
+async function applyMasterProductWrapping(sheets, spreadsheetId, sheetTitle = 'Sheet1') {
+  const sheetId = await getSheetIdByTitle(sheets, spreadsheetId, sheetTitle);
+
+  if (typeof sheetId !== 'number') {
+    return;
+  }
+
+  await sheets.spreadsheets.batchUpdate({
+    spreadsheetId,
+    resource: {
+      requests: [
+        {
+          repeatCell: {
+            range: {
+              sheetId,
+              startRowIndex: 0,
+              startColumnIndex: 0,
+              endColumnIndex: PRODUCT_HEADERS.length,
+            },
+            cell: {
+              userEnteredFormat: {
+                wrapStrategy: 'WRAP',
+                verticalAlignment: 'TOP',
+              },
+            },
+            fields: 'userEnteredFormat.wrapStrategy,userEnteredFormat.verticalAlignment',
+          },
+        },
+      ],
+    },
+  });
 }
 
 function getCredentials() {
@@ -246,7 +326,7 @@ export async function POST(request) {
       data.platingType?.map(p => p.col2 || '').join('; ') || '',  // Plating Color from col2
       manufacturingNotes,
       manufacturingImages,
-      JSON.stringify(data.liveStock || DEFAULT_LIVE_STOCK),
+      JSON.stringify(normalizeLiveStockKeys(data.liveStock || DEFAULT_LIVE_STOCK)),
       JSON.stringify(data.finalStock || []),
     ];
 
@@ -262,6 +342,8 @@ export async function POST(request) {
         values: headerValues,
       },
     });
+
+    await applyMasterProductWrapping(sheets, spreadsheetId, 'Sheet1');
 
     // Get all existing data (starting from row 2 to skip header)
     const getResponse = await sheets.spreadsheets.values.get({
