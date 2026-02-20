@@ -27,6 +27,24 @@
 				"$nextjs"
 			],
 			"group": "build"
+		},
+		{
+			"label": "Git pull",
+			"type": "shell",
+			"command": "git",
+			"args": [
+				"pull"
+			],
+			"group": "build"
+		},
+		{
+			"label": "Git push",
+			"type": "shell",
+			"command": "git",
+			"args": [
+				"push"
+			],
+			"group": "build"
 		}
 	]
 }
