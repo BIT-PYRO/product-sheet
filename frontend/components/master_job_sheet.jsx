@@ -309,7 +309,6 @@ export default function MasterJobSheet() {
 
   return (
     <div className="w-full h-full bg-gray-50 p-4 md:p-6">
-      <MasterNavigationDrawer />
       {/* Manage Columns Dialog */}
       <Dialog open={isManageColumnsOpen} onOpenChange={setIsManageColumnsOpen}>
         <DialogContent className="max-w-md">
@@ -582,13 +581,14 @@ export default function MasterJobSheet() {
       </Dialog>
 
       {/* Header Section */}
-      <div className="mb-6">
-        <h1 className="text-3xl md:text-4xl font-bold text-center text-gray-800 mb-6">
-          MASTER WIP/JOB SHEET
-        </h1>
+      <div className="mb-4 sticky top-0 z-30 bg-white/95 py-2 border-b border-gray-200 shadow-sm backdrop-blur">
+        <div className="flex items-center gap-3 mb-4">
+          <MasterNavigationDrawer inHeader />
+          <h1 className="text-xl font-bold tracking-tight text-slate-900">MASTER WIP/JOB SHEET</h1>
+        </div>
 
         {/* Action Buttons */}
-        <div className="flex flex-wrap gap-2 md:gap-4 justify-end mb-6 items-center">
+        <div className="flex flex-wrap gap-2 md:gap-4 justify-end mb-4 items-center">
           <Button 
             onClick={handleCreateJob}
             className="bg-green-500 hover:bg-green-600 text-white rounded-full px-6"
@@ -683,7 +683,7 @@ export default function MasterJobSheet() {
         </div>
 
         {/* Search Bar */}
-        <div className="flex gap-2 mb-6 max-w-md mx-auto md:mx-0">
+        <div className="flex gap-2 mb-2 max-w-md mx-auto md:mx-0">
           <div className="flex-1 relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
             <Input
