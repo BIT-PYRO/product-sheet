@@ -45,7 +45,6 @@ export default function MasterWorkforceSheet() {
   
   // Column definitions for workforce
   const columns = [
-    { id: 'sNo', label: 'S No' },
     { id: 'department', label: 'Department' },
     { id: 'firstName', label: 'First Name' },
     { id: 'lastName', label: 'Last Name' },
@@ -62,7 +61,6 @@ export default function MasterWorkforceSheet() {
   
   // Column configuration with styling
   const columnConfig = {
-    sNo: { minWidth: 'min-w-[50px]', headerBg: 'bg-yellow-400' },
     department: { minWidth: 'min-w-[100px]', headerBg: 'bg-yellow-400' },
     firstName: { minWidth: 'min-w-[100px]', headerBg: 'bg-yellow-400' },
     lastName: { minWidth: 'min-w-[100px]', headerBg: 'bg-yellow-400' },
@@ -79,7 +77,6 @@ export default function MasterWorkforceSheet() {
   
   // Set default visible columns to prevent horizontal scrolling
   const [visibleColumns, setVisibleColumns] = useState(new Set([
-    'sNo',
     'department',
     'firstName',
     'lastName',
@@ -97,6 +94,15 @@ export default function MasterWorkforceSheet() {
       newSelected.add(columnId);
     }
     setSelectedColumnsForAction(newSelected);
+  };
+
+  // Toggle select all columns
+  const toggleSelectAllColumns = () => {
+    if (selectedColumnsForAction.size === columns.length) {
+      setSelectedColumnsForAction(new Set());
+    } else {
+      setSelectedColumnsForAction(new Set(columns.map(col => col.id)));
+    }
   };
   
   // Hide selected columns
@@ -309,6 +315,20 @@ export default function MasterWorkforceSheet() {
             <DialogTitle>Manage Columns</DialogTitle>
           </DialogHeader>
           <div className="space-y-3 max-h-[400px] overflow-y-auto py-4">
+            {/* Select All Checkbox */}
+            <div className="flex items-center justify-between gap-3 pb-3 border-b border-gray-200 mb-3">
+              <div className="flex items-center gap-3 flex-1">
+                <Checkbox
+                  id="select-all-columns"
+                  checked={selectedColumnsForAction.size === columns.length && columns.length > 0}
+                  onCheckedChange={toggleSelectAllColumns}
+                  className="cursor-pointer"
+                />
+                <label htmlFor="select-all-columns" className="text-sm font-semibold cursor-pointer">
+                  Select All
+                </label>
+              </div>
+            </div>
             {columns.map((column) => (
               <div key={column.id} className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3 flex-1">
@@ -496,7 +516,6 @@ export default function MasterWorkforceSheet() {
               <table className="w-full border-collapse text-xs">
                 <thead>
                   <tr className="bg-gray-900 text-white">
-                    <th className="border border-gray-400 p-2 text-left">S No</th>
                     <th className="border border-gray-400 p-2 text-left">Department</th>
                     <th className="border border-gray-400 p-2 text-left">First Name</th>
                     <th className="border border-gray-400 p-2 text-left">Last Name</th>
@@ -511,7 +530,6 @@ export default function MasterWorkforceSheet() {
                 <tbody>
                   {data.map((row, index) => (
                     <tr key={row.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                      <td className="border border-gray-400 p-2">{row.sNo || '—'}</td>
                       <td className="border border-gray-400 p-2">{row.department || '—'}</td>
                       <td className="border border-gray-400 p-2">{row.firstName || '—'}</td>
                       <td className="border border-gray-400 p-2">{row.lastName || '—'}</td>

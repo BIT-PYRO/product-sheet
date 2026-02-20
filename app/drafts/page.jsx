@@ -1,0 +1,230 @@
+'use client'
+
+import { useEffect, useMemo, useState } from 'react'
+import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import { Button } from '@/components/ui/button'
+
+const DRAFTS_STORAGE_KEY = 'form_drafts'
+const PENDING_DRAFT_KEY = 'pending_draft_load'
+const PENDING_ENROLL_WORKFORCE_DRAFT_KEY = 'pending_enroll_workforce_draft'
+
+const SECTIONS = ['Create Job', 'Enroll Workforce', 'Quick Enroll']
+
+const getAddressText = (address) => {
+  if (!address) return ''
+  return [address.line1, address.line2, address.city, address.state, address.pincode]
+    .filter(Boolean)
+    .join(', ')
+}
+
+const formatValue = (value) => {
+  if (value === null || value === undefined || value === '') return ''
+  if (Array.isArray(value)) {
+    if (value.length === 0) return ''
+    return `${value.length} item${value.length === 1 ? '' : 's'}`
+  }
+  if (typeof value === 'boolean') return value ? 'Yes' : 'No'
+  return String(value)
+}
+
+const TABLE_CONFIG = {
+  'Create Job': [
+    { key: 'title', label: 'Title', getValue: (draft) => draft.title },
+    { key: 'date', label: 'Date', getValue: (draft) => draft.date },
+    { key: 'scheduleFuture', label: 'Schedule', getValue: (draft) => draft.scheduleFuture },
+    { key: 'voucherType', label: 'Voucher Type', getValue: (draft) => draft.voucherType },
+    { key: 'voucherNo', label: 'Voucher No.', getValue: (draft) => draft.voucherNo },
+    { key: 'issuedTo', label: 'Issued To', getValue: (draft) => draft.issuedTo },
+    { key: 'workType', label: 'Work Type', getValue: (draft) => draft.workType },
+    { key: 'deptFrom', label: 'Dept From', getValue: (draft) => draft.deptFrom },
+    { key: 'deptTo', label: 'Dept To', getValue: (draft) => draft.deptTo },
+    { key: 'rows', label: 'Item Rows', getValue: (draft) => draft.rows },
+    { key: 'stoneRows', label: 'Stone Rows', getValue: (draft) => draft.stoneRows },
+    { key: 'dieWeightRows', label: 'Die/Weight Rows', getValue: (draft) => draft.dieWeightRows },
+    { key: 'noteByIssuer', label: 'Note', getValue: (draft) => draft.noteByIssuer },
+    { key: 'savedAt', label: 'Saved At', getValue: (draft) => draft.savedAt },
+  ],
+  'Enroll Workforce': [
+    { key: 'title', label: 'Title', getValue: (draft) => draft.title },
+    { key: 'fullName', label: 'Full Name', getValue: (draft) => draft.fullName },
+    { key: 'dob', label: 'DOB', getValue: (draft) => draft.dob },
+    { key: 'gender', label: 'Gender', getValue: (draft) => draft.gender },
+    { key: 'email', label: 'Email', getValue: (draft) => draft.email },
+    { key: 'contact', label: 'Contact', getValue: (draft) => draft.contact },
+    { key: 'whatsapp', label: 'WhatsApp', getValue: (draft) => draft.whatsapp },
+    { key: 'currentLocation', label: 'Current Location', getValue: (draft) => draft.currentLocation },
+    { key: 'gstNumber', label: 'GST Number', getValue: (draft) => draft.gstNumber },
+    { key: 'firstLang', label: 'First Language', getValue: (draft) => draft.firstLang },
+    { key: 'secondLang', label: 'Second Language', getValue: (draft) => draft.secondLang },
+    { key: 'sameAsCurrent', label: 'Same As Current', getValue: (draft) => draft.sameAsCurrent },
+    { key: 'currentAddress', label: 'Current Address', getValue: (draft) => getAddressText(draft.currentAddress) },
+    { key: 'permanentAddress', label: 'Permanent Address', getValue: (draft) => getAddressText(draft.permanentAddress) },
+    { key: 'notes', label: 'Notes', getValue: (draft) => draft.notes },
+    { key: 'savedAt', label: 'Saved At', getValue: (draft) => draft.savedAt },
+  ],
+  'Quick Enroll': [
+    { key: 'title', label: 'Title', getValue: (draft) => draft.title },
+    { key: 'firstName', label: 'First Name', getValue: (draft) => draft.firstName },
+    { key: 'lastName', label: 'Last Name', getValue: (draft) => draft.lastName },
+    { key: 'countryCode', label: 'Code', getValue: (draft) => draft.countryCode },
+    { key: 'contactNumber', label: 'Contact Number', getValue: (draft) => draft.contactNumber },
+    { key: 'location', label: 'Location', getValue: (draft) => draft.location },
+    { key: 'department', label: 'Department', getValue: (draft) => draft.department },
+    { key: 'type', label: 'Type', getValue: (draft) => draft.type },
+    { key: 'remarks', label: 'Remarks', getValue: (draft) => draft.remarks },
+    { key: 'photoFileName', label: 'Photo File', getValue: (draft) => draft.photoFileName },
+    { key: 'savedAt', label: 'Saved At', getValue: (draft) => draft.savedAt },
+  ],
+}
+
+export default function DraftsPage() {
+  const router = useRouter()
+  const [drafts, setDrafts] = useState({})
+  const [activeSection, setActiveSection] = useState(null)
+
+  useEffect(() => {
+    const stored = localStorage.getItem(DRAFTS_STORAGE_KEY)
+    if (!stored) {
+      setDrafts({})
+      return
+    }
+
+    try {
+      const parsed = JSON.parse(stored)
+      setDrafts(parsed)
+    } catch (error) {
+      console.error('Failed to parse drafts:', error)
+      setDrafts({})
+    }
+  }, [])
+
+  const totalDrafts = useMemo(
+    () => Object.values(drafts).reduce((sum, sectionDrafts) => sum + sectionDrafts.length, 0),
+    [drafts]
+  )
+
+  const activeDrafts = activeSection ? (drafts[activeSection] || []) : []
+  const activeColumns = activeSection ? (TABLE_CONFIG[activeSection] || []) : []
+
+  const clearAllDrafts = () => {
+    localStorage.removeItem(DRAFTS_STORAGE_KEY)
+    setDrafts({})
+  }
+
+  const handleContinueDraft = (section, draft) => {
+    if (section === 'Enroll Workforce') {
+      localStorage.setItem(PENDING_ENROLL_WORKFORCE_DRAFT_KEY, JSON.stringify(draft))
+      router.push('/enrol-workforce')
+      return
+    }
+
+    localStorage.setItem(
+      PENDING_DRAFT_KEY,
+      JSON.stringify({
+        section,
+        data: draft,
+      })
+    )
+    router.push('/')
+  }
+
+  return (
+    <main className="min-h-screen bg-slate-50 p-4 md:p-8">
+      <div className="max-w-6xl mx-auto">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-6">
+          <div>
+            <h1 className="text-2xl md:text-3xl font-bold text-slate-900">Drafts</h1>
+            <p className="text-sm text-slate-600 mt-1">Saved drafts grouped by section</p>
+          </div>
+          <div className="flex items-center gap-2">
+            {totalDrafts > 0 && (
+              <Button
+                onClick={clearAllDrafts}
+                variant="outline"
+                className="text-red-600 border-red-200 hover:bg-red-50"
+              >
+                Clear All Drafts
+              </Button>
+            )}
+            <Button asChild variant="outline">
+              <Link href="/home">Back to Home</Link>
+            </Button>
+          </div>
+        </div>
+
+        <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+          {SECTIONS.map((section) => {
+            const count = (drafts[section] || []).length
+            const isActive = activeSection === section
+
+            return (
+              <button
+                key={section}
+                onClick={() => setActiveSection(section)}
+                className={`text-left rounded-xl border bg-white p-5 transition ${
+                  isActive
+                    ? 'border-slate-400 shadow-sm'
+                    : 'border-slate-200 hover:border-slate-300 hover:shadow-sm'
+                }`}
+              >
+                <h2 className="text-base font-semibold text-slate-900">{section}</h2>
+                <p className="text-sm text-slate-600 mt-2">{count} saved draft{count === 1 ? '' : 's'}</p>
+              </button>
+            )
+          })}
+        </section>
+
+        {activeSection && (
+          <section className="rounded-xl border border-slate-200 bg-white p-5">
+            <h3 className="text-base font-semibold text-slate-900 mb-4">{activeSection} Drafts</h3>
+
+            {activeDrafts.length === 0 ? (
+              <p className="text-sm text-slate-500">No drafts available in this section.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[980px] border-collapse">
+                  <thead>
+                    <tr className="bg-slate-100">
+                      {activeColumns.map((column) => (
+                        <th
+                          key={column.key}
+                          className="text-left text-xs font-semibold text-slate-700 px-3 py-2 border border-slate-200"
+                        >
+                          {column.label}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {activeDrafts.map((draft) => (
+                      <tr key={draft.id} className="hover:bg-slate-50">
+                        {activeColumns.map((column) => (
+                          <td
+                            key={`${draft.id}-${column.key}`}
+                            className="text-sm text-slate-700 px-3 py-2 border border-slate-200 align-top"
+                          >
+                            {column.key === 'title' ? (
+                              <button
+                                onClick={() => handleContinueDraft(activeSection, draft)}
+                                className="text-left text-blue-700 hover:text-blue-800 hover:underline font-medium"
+                              >
+                                {formatValue(column.getValue(draft)) || 'Continue Draft'}
+                              </button>
+                            ) : (
+                              formatValue(column.getValue(draft))
+                            )}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+        )}
+      </div>
+    </main>
+  )
+}

@@ -23,13 +23,19 @@ const DRAFTS_STORAGE_KEY = 'form_drafts'
 // Create context for draft loading
 export const DraftLoaderContext = createContext(null)
 
-export function DraftsManager() {
+export function DraftsManager({ openOnMount = false }) {
   const [isDraftsOpen, setIsDraftsOpen] = useState(false)
   const [drafts, setDrafts] = useState({})
   const [expandedSection, setExpandedSection] = useState(null)
   const [loadingDraft, setLoadingDraft] = useState(null)
   const [isEnrollWorkforceOpen, setIsEnrollWorkforceOpen] = useState(false)
   const [workforceDraftData, setWorkforceDraftData] = useState(null)
+
+  useEffect(() => {
+    if (openOnMount) {
+      setIsDraftsOpen(true)
+    }
+  }, [openOnMount])
 
   // Load drafts from localStorage on mount
   useEffect(() => {
