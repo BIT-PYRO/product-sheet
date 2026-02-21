@@ -317,7 +317,7 @@ export default function MasterJobSheet() {
   const displayedData = isArchivedView ? archivedData : activeData;
 
   return (
-    <div className="w-full h-full bg-gray-50 p-4 md:p-6">
+    <div className="w-full min-h-screen bg-gray-50 p-4 md:p-6">
       {/* Manage Columns Dialog */}
       <Dialog open={isManageColumnsOpen} onOpenChange={setIsManageColumnsOpen}>
         <DialogContent className="max-w-md">
@@ -603,7 +603,7 @@ export default function MasterJobSheet() {
         </DialogContent>
       </Dialog>
 
-      <div className="max-w-[1400px] mx-auto border border-gray-300 bg-white p-4 md:p-6">
+      <div className="max-w-[1600px] mx-auto border border-gray-300 bg-white p-4 md:p-6">
         {/* Header Section */}
         <div className="mb-4 sticky top-0 z-30 bg-white/95 py-2 border-b border-gray-200 shadow-sm backdrop-blur">
           <div className="flex items-center gap-3 mb-4">
