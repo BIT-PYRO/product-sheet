@@ -119,6 +119,36 @@ function formatFinalStockColumn(rows, key) {
     .join(' | ');
 }
 
+function parseNumericValue(value) {
+  if (value === null || value === undefined) {
+    return 0;
+  }
+
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : 0;
+  }
+
+  if (typeof value === 'object') {
+    if (value.isComposite) {
+      const current = parseNumericValue(value.current);
+      if (current > 0) {
+        return current;
+      }
+      return parseNumericValue(value.wip);
+    }
+    return 0;
+  }
+
+  const matches = String(value)
+    .match(/-?\d+(?:\.\d+)?/g);
+
+  if (!matches) {
+    return 0;
+  }
+
+  return matches.reduce((sum, entry) => sum + (Number.parseFloat(entry) || 0), 0);
+}
+
 function getLiveStockValue(liveStock, stockField, keys) {
   const normalizedField = stockField || 'current';
 
@@ -503,6 +533,53 @@ export default function MasterInventorySheet() {
     [sortedProducts, stockField]
   );
 
+  const requiredQtyBySku = useMemo(() => {
+    const map = new Map();
+
+    if (selectedPicklist) {
+      const currentPicklist = picklists.find((picklist) => picklist.id === selectedPicklist);
+      (currentPicklist?.productSkus || []).forEach((sku) => {
+        const normalizedSku = String(sku || '').trim();
+        if (!normalizedSku) {
+          return;
+        }
+        map.set(normalizedSku, (map.get(normalizedSku) || 0) + 1);
+      });
+      return map;
+    }
+
+    sortedProducts.forEach((product) => {
+      const sku = String(product?.sku || product?.masterSku || '').trim();
+      if (!sku) {
+        return;
+      }
+      map.set(sku, (map.get(sku) || 0) + 1);
+    });
+
+    return map;
+  }, [picklists, selectedPicklist, sortedProducts]);
+
+  const totalInDemandByRowId = useMemo(() => {
+    const map = new Map();
+
+    inventoryRows.forEach((row) => {
+      const sku = String(row?.sku || '').trim();
+      if (!sku) {
+        map.set(row.id, '');
+        return;
+      }
+
+      const requiredQty = requiredQtyBySku.get(sku) || 0;
+      const finalStockUnits = parseNumericValue(row.finalStockUnit);
+      const readyForPlatingUnits = parseNumericValue(row.readyForPlating);
+
+      const demandValue = Math.max(0, requiredQty - (finalStockUnits + readyForPlatingUnits));
+      map.set(row.id, demandValue);
+    });
+
+    return map;
+  }, [inventoryRows, requiredQtyBySku]);
+
   const rowsToRender = useMemo(() => {
     const minRows = 16;
     if (inventoryRows.length >= minRows) {
@@ -824,7 +901,7 @@ export default function MasterInventorySheet() {
         </div>
 
         <div className="flex flex-col xl:flex-row gap-4">
-          <div className="xl:w-[85%]">
+          <div className="xl:w-[75%]">
             <div className="overflow-x-auto border border-gray-300">
               <table className="w-full min-w-[1200px] border-collapse text-xs">
                 <thead>
@@ -832,7 +909,9 @@ export default function MasterInventorySheet() {
                     {visibleColumnList.map((column) => (
                       <th
                         key={column.key}
-                        className="border border-gray-400 bg-yellow-300 px-2 py-2 text-center font-semibold"
+                        className={`border border-gray-400 bg-yellow-300 px-2 py-2 text-center font-semibold ${
+                          column.key === '__select__' ? 'sticky left-0 z-20' : ''
+                        }`}
                       >
                         {column.key === '__select__' ? (
                           <Checkbox
@@ -851,7 +930,12 @@ export default function MasterInventorySheet() {
                   {rowsToRender.map((row) => (
                     <tr key={row.id}>
                       {visibleColumnList.map((column) => (
-                        <td key={`${row.id}-${column.key}`} className="border border-gray-300 px-2 py-2 h-9 text-center">
+                        <td
+                          key={`${row.id}-${column.key}`}
+                          className={`border border-gray-300 px-2 py-2 h-9 text-center ${
+                            column.key === '__select__' ? 'sticky left-0 z-10 bg-white' : ''
+                          }`}
+                        >
                           {column.key === '__select__' ? (
                             row.isEmpty ? null : (
                               <Checkbox
@@ -877,6 +961,36 @@ export default function MasterInventorySheet() {
             {!isLoading && !error && filteredProducts.length === 0 && (
               <p className="mt-2 text-xs text-gray-600">No inventory data found.</p>
             )}
+          </div>
+
+          <div className="xl:w-[10%] self-start relative">
+            <div className="absolute -top-6 left-0 text-xs font-semibold text-slate-900 tracking-wide">
+              TOTAL IN DEMAND
+            </div>
+            <div className="border border-gray-300 bg-white p-0">
+              <div className="h-9 border-b border-gray-300 bg-yellow-300 text-xs font-semibold text-slate-900 flex items-center justify-center px-2">
+                TOTAL IN DEMAND
+              </div>
+              {rowsToRender.length === 0 ? (
+                <div className="rounded-md border border-dashed border-gray-300 p-3 text-xs text-gray-500">
+                  No demand data.
+                </div>
+              ) : (
+                <div className="grid gap-0">
+                  {rowsToRender.map((row) => {
+                    const totalDemand = row.isEmpty ? '' : (totalInDemandByRowId.get(row.id) ?? '');
+                    return (
+                      <div
+                        key={`${row.id}-total-demand`}
+                        className="flex items-center justify-center border-b border-gray-200 px-2 text-xs text-slate-900 h-9"
+                      >
+                        {totalDemand}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="xl:w-[15%] self-start relative">
@@ -947,7 +1061,7 @@ export default function MasterInventorySheet() {
               ) : (
                 <div className="grid gap-0">
                   {rowsToRender.map((row, index) => {
-                    const product = filteredProducts[index];
+                    const product = sortedProducts[index];
                     return (
                       <div
                         key={`${row.id}-order`}
