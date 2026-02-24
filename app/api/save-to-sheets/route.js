@@ -216,6 +216,7 @@ function mapSheetRowsToProducts(rows) {
         images: getValue(23),
         liveStock: mapLiveStockData(getValue(24)),
         finalStock: safeParseJson(getValue(25), []),
+        totalInDemand: getValue(26),
       };
     })
     .filter(Boolean);
@@ -228,7 +229,7 @@ export async function GET() {
 
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId,
-      range: 'Sheet1!A:Z',
+      range: 'Sheet1!A:AA',
     });
 
     const rows = response.data.values || [];
