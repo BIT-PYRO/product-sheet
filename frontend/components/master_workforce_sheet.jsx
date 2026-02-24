@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -26,86 +26,63 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
+import { QuickEnrollModal } from '@/components/quick-enroll-modal';
+import { EnrolWorkforceForm } from '@/app/frontend/enrol-workforce/page';
 
-export default function MasterProductSheet() {
-  const PRODUCT_SHEET_SYNC_KEY = 'product_sheet_updated_at';
+export default function MasterWorkforceSheet() {
   const [searchTerm, setSearchTerm] = useState('');
-  const [isLoading, setIsLoading] = useState(true);
-  const [fetchError, setFetchError] = useState('');
   const [selectedRows, setSelectedRows] = useState(new Set());
   const [isManageColumnsOpen, setIsManageColumnsOpen] = useState(false);
   const [selectedColumnsForAction, setSelectedColumnsForAction] = useState(new Set());
-  const [isPrintProductOpen, setIsPrintProductOpen] = useState(false);
-  const [selectedProductForPrint, setSelectedProductForPrint] = useState(null);
+  const [isPrintEmployeeOpen, setIsPrintEmployeeOpen] = useState(false);
+  const [selectedEmployeeForPrint, setSelectedEmployeeForPrint] = useState(null);
   const [isPrintSheetOpen, setIsPrintSheetOpen] = useState(false);
   const [editingRowIds, setEditingRowIds] = useState(new Set());
   const [archivedRows, setArchivedRows] = useState(new Set());
+  const [isQuickEnrollOpen, setIsQuickEnrollOpen] = useState(false);
+  const [isEnrollWorkforceOpen, setIsEnrollWorkforceOpen] = useState(false);
   const [viewMode, setViewMode] = useState('active');
   
-  // Column definitions for products
+  // Column definitions for workforce
   const columns = [
-    { id: 'sku', label: 'SKU' },
-    { id: 'listingName', label: 'Listing Name' },
-    { id: 'material', label: 'Material' },
-    { id: 'weight', label: 'Weight' },
-    { id: 'category', label: 'Category' },
-    { id: 'collection', label: 'Collection' },
-    { id: 'settingType', label: 'Setting Type' },
-    { id: 'enamelType', label: 'Enamel Type' },
-    { id: 'activeChannels', label: 'Active Channels' },
-    { id: 'shopifyStatus', label: 'Shopify Status' },
-    { id: 'dieNumberFindings', label: 'Die Number/Findings' },
-    { id: 'masterSku', label: 'Master SKU' },
-    { id: 'color', label: 'Color' },
-    { id: 'enamel', label: 'Enamel' },
-    { id: 'stoneName', label: 'Stone Name' },
-    { id: 'stoneCut', label: 'Stone Cut' },
-    { id: 'stoneColor', label: 'Stone Color' },
-    { id: 'stoneSize', label: 'Stone Size' },
-    { id: 'stoneQuantity', label: 'Stone Quantity' },
-    { id: 'platingType', label: 'Plating Type' },
-    { id: 'platingColor', label: 'Plating Color' },
-    { id: 'notes', label: 'Notes' },
-    { id: 'images', label: 'Images' },
+    { id: 'department', label: 'Department' },
+    { id: 'firstName', label: 'First Name' },
+    { id: 'lastName', label: 'Last Name' },
+    { id: 'contactNumber', label: 'Contact Number' },
+    { id: 'type', label: 'Type' },
+    { id: 'aadharCard', label: 'Aadhar Card' },
+    { id: 'paymentType', label: 'Payment Type' },
+    { id: 'origin', label: 'Origin' },
+    { id: 'bankAccount', label: 'Bank A/C' },
+    { id: 'ifsc', label: 'IFSC' },
+    { id: 'bank', label: 'Bank' },
+    { id: 'branch', label: 'Branch' },
   ];
   
   // Column configuration with styling
   const columnConfig = {
-    sku: { minWidth: 'min-w-[80px]', headerBg: 'bg-indigo-300' },
-    listingName: { minWidth: 'min-w-[100px]', headerBg: 'bg-indigo-300' },
-    material: { minWidth: 'min-w-[80px]', headerBg: 'bg-indigo-300' },
-    weight: { minWidth: 'min-w-[70px]', headerBg: 'bg-indigo-300' },
-    category: { minWidth: 'min-w-[80px]', headerBg: 'bg-indigo-300' },
-    collection: { minWidth: 'min-w-[90px]', headerBg: 'bg-indigo-300' },
-    settingType: { minWidth: 'min-w-[80px]', headerBg: 'bg-sky-200', cellBg: 'bg-sky-50' },
-    enamelType: { minWidth: 'min-w-[75px]', headerBg: 'bg-sky-200', cellBg: 'bg-sky-50' },
-    activeChannels: { minWidth: 'min-w-[100px]', headerBg: 'bg-indigo-300' },
-    shopifyStatus: { minWidth: 'min-w-[90px]', headerBg: 'bg-indigo-300' },
-    dieNumberFindings: { minWidth: 'min-w-[100px]', headerBg: 'bg-indigo-300' },
-    masterSku: { minWidth: 'min-w-[85px]', headerBg: 'bg-indigo-300' },
-    color: { minWidth: 'min-w-[70px]', headerBg: 'bg-purple-200', cellBg: 'bg-purple-50' },
-    enamel: { minWidth: 'min-w-[70px]', headerBg: 'bg-purple-200', cellBg: 'bg-purple-50' },
-    stoneName: { minWidth: 'min-w-[80px]', headerBg: 'bg-pink-200', cellBg: 'bg-pink-50' },
-    stoneCut: { minWidth: 'min-w-[75px]', headerBg: 'bg-pink-200', cellBg: 'bg-pink-50' },
-    stoneColor: { minWidth: 'min-w-[80px]', headerBg: 'bg-pink-200', cellBg: 'bg-pink-50' },
-    stoneSize: { minWidth: 'min-w-[70px]', headerBg: 'bg-pink-200', cellBg: 'bg-pink-50' },
-    stoneQuantity: { minWidth: 'min-w-[80px]', headerBg: 'bg-pink-200', cellBg: 'bg-pink-50' },
-    platingType: { minWidth: 'min-w-[85px]', headerBg: 'bg-amber-200', cellBg: 'bg-amber-50' },
-    platingColor: { minWidth: 'min-w-[85px]', headerBg: 'bg-amber-200', cellBg: 'bg-amber-50' },
-    notes: { minWidth: 'min-w-[100px]', headerBg: 'bg-indigo-300' },
-    images: { minWidth: 'min-w-[80px]', headerBg: 'bg-indigo-300' },
+    department: { minWidth: 'min-w-[100px]', headerBg: 'bg-yellow-400' },
+    firstName: { minWidth: 'min-w-[100px]', headerBg: 'bg-yellow-400' },
+    lastName: { minWidth: 'min-w-[100px]', headerBg: 'bg-yellow-400' },
+    contactNumber: { minWidth: 'min-w-[120px]', headerBg: 'bg-yellow-400' },
+    type: { minWidth: 'min-w-[80px]', headerBg: 'bg-yellow-400' },
+    aadharCard: { minWidth: 'min-w-[120px]', headerBg: 'bg-yellow-400' },
+    paymentType: { minWidth: 'min-w-[100px]', headerBg: 'bg-yellow-400' },
+    origin: { minWidth: 'min-w-[80px]', headerBg: 'bg-yellow-400' },
+    bankAccount: { minWidth: 'min-w-[120px]', headerBg: 'bg-yellow-400' },
+    ifsc: { minWidth: 'min-w-[80px]', headerBg: 'bg-yellow-400' },
+    bank: { minWidth: 'min-w-[100px]', headerBg: 'bg-yellow-400' },
+    branch: { minWidth: 'min-w-[100px]', headerBg: 'bg-yellow-400' },
   };
   
   // Set default visible columns to prevent horizontal scrolling
   const [visibleColumns, setVisibleColumns] = useState(new Set([
-    'sku',
-    'listingName',
-    'material',
-    'category',
-    'settingType',
-    'enamelType',
-    'shopifyStatus',
-    'activeChannels',
+    'department',
+    'firstName',
+    'lastName',
+    'contactNumber',
+    'type',
+    'paymentType',
   ]));
   
   // Toggle column selection in the manage columns dialog
@@ -150,66 +127,35 @@ export default function MasterProductSheet() {
   const hiddenColumns = columns.filter(col => !visibleColumns.has(col.id));
   
   // Filter states
-  const [skuFilter, setSKUFilter] = useState('');
-  const [materialFilter, setMaterialFilter] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('');
-  const [collectionFilter, setCollectionFilter] = useState('');
-  const [settingTypeFilter, setSettingTypeFilter] = useState('');
-  const [enamelTypeFilter, setEnamelTypeFilter] = useState('');
-  const [shopifyStatusFilter, setShopifyStatusFilter] = useState('');
+  const [departmentFilter, setDepartmentFilter] = useState('');
+  const [typeFilter, setTypeFilter] = useState('');
+  const [originFilter, setOriginFilter] = useState('');
+  const [paymentTypeFilter, setPaymentTypeFilter] = useState('');
   
   // Sample data for dropdowns
-  const materialOptions = ['Gold', 'Silver', 'Brass', 'Copper', 'Mixed Metal'];
-  const categoryOptions = ['Earrings', 'Rings', 'Pendants', 'Bracelets', 'Necklaces'];
-  const collectionOptions = ['Collection 1', 'Collection 2', 'Collection 3', 'Collection 4'];
-  const settingTypeOptions = ['Wax', 'Hand'];
-  const enamelTypeOptions = ['Yes', 'No'];
-  const shopifyStatusOptions = ['Active', 'Inactive', 'Draft'];
+  const departmentOptions = ['HR', 'Operations', 'Sales', 'Finance', 'IT', 'Manufacturing'];
+  const typeOptions = ['Full-time', 'Part-time', 'Contract', 'Intern'];
+  const originOptions = ['Local', 'Permanent', 'Temporary'];
+  const paymentTypeOptions = ['Salary', 'Hourly', 'Contract', 'Commission'];
 
-  const [data, setData] = useState([]);
-
-  const loadProducts = useCallback(async () => {
-    setIsLoading(true);
-    setFetchError('');
-
-    try {
-      const response = await fetch('/api/save-to-sheets', {
-        method: 'GET',
-        cache: 'no-store',
-      });
-
-      const result = await response.json();
-
-      if (!response.ok || !result.success) {
-        throw new Error(result.message || 'Failed to fetch product data');
-      }
-
-      setData(Array.isArray(result.products) ? result.products : []);
-    } catch (error) {
-      setFetchError(error.message || 'Failed to load products');
-      setData([]);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadProducts();
-  }, [loadProducts]);
-
-  useEffect(() => {
-    const handleStorageSync = (event) => {
-      if (event.key === PRODUCT_SHEET_SYNC_KEY) {
-        loadProducts();
-      }
-    };
-
-    window.addEventListener('storage', handleStorageSync);
-
-    return () => {
-      window.removeEventListener('storage', handleStorageSync);
-    };
-  }, [loadProducts]);
+  const [data, setData] = useState(
+    Array(15).fill(null).map((_, i) => ({
+      id: i,
+      sNo: i + 1,
+      department: '',
+      firstName: '',
+      lastName: '',
+      contactNumber: '',
+      type: '',
+      aadharCard: '',
+      paymentType: '',
+      origin: '',
+      bankAccount: '',
+      ifsc: '',
+      bank: '',
+      branch: '',
+    }))
+  );
 
   const toggleRowSelection = (id) => {
     const newSelected = new Set(selectedRows);
@@ -227,19 +173,15 @@ export default function MasterProductSheet() {
     ));
   };
 
-  const handlePrint = () => {
-    window.print();
-  };
-
-  const handlePrintProducts = () => {
+  const handlePrintEmployees = () => {
     if (selectedRows.size === 0) {
-      alert('Please select a product to print');
+      alert('Please select an employee to print');
       return;
     }
-    const productId = Array.from(selectedRows)[0];
-    const product = data.find(row => row.id === productId);
-    setSelectedProductForPrint(product);
-    setIsPrintProductOpen(true);
+    const employeeId = Array.from(selectedRows)[0];
+    const employee = data.find(row => row.id === employeeId);
+    setSelectedEmployeeForPrint(employee);
+    setIsPrintEmployeeOpen(true);
   };
 
   const handlePrintSheet = () => {
@@ -247,13 +189,41 @@ export default function MasterProductSheet() {
   };
 
   const handleExport = () => {
-    // Export functionality
     console.log('Export data:', data);
   };
 
-  const handleCreateProduct = () => {
-    // Create product functionality
-    console.log('Create new product');
+  const handleQuickEnroll = () => {
+    setIsQuickEnrollOpen(true);
+  };
+
+  const handleQuickEnrollComplete = (personName) => {
+    // Save to localStorage
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('enrolledPeople');
+      const enrolledPeople = stored ? JSON.parse(stored) : [];
+      if (!enrolledPeople.includes(personName)) {
+        enrolledPeople.push(personName);
+        localStorage.setItem('enrolledPeople', JSON.stringify(enrolledPeople));
+      }
+    }
+    setIsQuickEnrollOpen(false);
+  };
+
+  const handleEnrollWorkforce = () => {
+    setIsEnrollWorkforceOpen(true);
+  };
+
+  const handleEnrollWorkforceComplete = (personName) => {
+    // Save to localStorage
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('enrolledPeople');
+      const enrolledPeople = stored ? JSON.parse(stored) : [];
+      if (!enrolledPeople.includes(personName)) {
+        enrolledPeople.push(personName);
+        localStorage.setItem('enrolledPeople', JSON.stringify(enrolledPeople));
+      }
+    }
+    setIsEnrollWorkforceOpen(false);
   };
 
   const handleManageColumns = () => {
@@ -264,29 +234,19 @@ export default function MasterProductSheet() {
     const newId = Math.max(...data.map(row => row.id), -1) + 1;
     const newRow = {
       id: newId,
-      sku: '',
-      listingName: '',
-      material: '',
-      weight: '',
-      category: '',
-      collection: '',
-      settingType: '',
-      enamelType: '',
-      activeChannels: '',
-      shopifyStatus: '',
-      dieNumberFindings: '',
-      masterSku: '',
-      color: '',
-      enamel: '',
-      stoneName: '',
-      stoneCut: '',
-      stoneColor: '',
-      stoneSize: '',
-      stoneQuantity: '',
-      platingType: '',
-      platingColor: '',
-      notes: '',
-      images: '',
+      sNo: data.length + 1,
+      department: '',
+      firstName: '',
+      lastName: '',
+      contactNumber: '',
+      type: '',
+      aadharCard: '',
+      paymentType: '',
+      origin: '',
+      bankAccount: '',
+      ifsc: '',
+      bank: '',
+      branch: '',
     };
     setData([...data, newRow]);
   };
@@ -344,50 +304,7 @@ export default function MasterProductSheet() {
   const activeData = data.filter(row => !archivedRows.has(row.id));
   const archivedData = data.filter(row => archivedRows.has(row.id));
   const isArchivedView = viewMode === 'archived';
-  const baseData = isArchivedView ? archivedData : activeData;
-
-  const filteredData = useMemo(() => {
-    return baseData.filter((row) => {
-      const searchLower = searchTerm.trim().toLowerCase();
-
-      const matchesSearch =
-        !searchLower ||
-        row.sku?.toLowerCase().includes(searchLower) ||
-        row.listingName?.toLowerCase().includes(searchLower) ||
-        row.material?.toLowerCase().includes(searchLower);
-
-      const matchesSku = !skuFilter || row.sku?.toLowerCase().includes(skuFilter.toLowerCase());
-      const matchesMaterial = !materialFilter || row.material === materialFilter;
-      const matchesCategory = !categoryFilter || row.category === categoryFilter;
-      const matchesCollection = !collectionFilter || row.collection === collectionFilter;
-      const matchesSettingType = !settingTypeFilter || row.settingType === settingTypeFilter;
-      const matchesEnamelType = !enamelTypeFilter || row.enamelType === enamelTypeFilter;
-      const matchesShopifyStatus = !shopifyStatusFilter || row.shopifyStatus === shopifyStatusFilter;
-
-      return (
-        matchesSearch &&
-        matchesSku &&
-        matchesMaterial &&
-        matchesCategory &&
-        matchesCollection &&
-        matchesSettingType &&
-        matchesEnamelType &&
-        matchesShopifyStatus
-      );
-    });
-  }, [
-    baseData,
-    searchTerm,
-    skuFilter,
-    materialFilter,
-    categoryFilter,
-    collectionFilter,
-    settingTypeFilter,
-    enamelTypeFilter,
-    shopifyStatusFilter,
-  ]);
-
-  const displayedData = filteredData;
+  const displayedData = isArchivedView ? archivedData : activeData;
 
   return (
     <div className="w-full min-h-screen bg-gray-50 p-4 md:p-6">
@@ -456,72 +373,72 @@ export default function MasterProductSheet() {
         </DialogContent>
       </Dialog>
 
-      {/* Print Product Dialog */}
-      <Dialog open={isPrintProductOpen} onOpenChange={setIsPrintProductOpen}>
+      {/* Print Employee Dialog */}
+      <Dialog open={isPrintEmployeeOpen} onOpenChange={setIsPrintEmployeeOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader className="border-b pb-4">
-            <DialogTitle>Print Product Details</DialogTitle>
+            <DialogTitle>Print Employee Details</DialogTitle>
           </DialogHeader>
           
-          {selectedProductForPrint && (
+          {selectedEmployeeForPrint && (
             <div className="space-y-6 py-4">
-              {/* Product Header */}
+              {/* Employee Header */}
               <div className="border-2 border-gray-900 p-6 bg-white">
-                <h2 className="text-2xl font-bold text-center mb-6">PRODUCT DETAILS</h2>
+                <h2 className="text-2xl font-bold text-center mb-6">EMPLOYEE DETAILS</h2>
                 
                 {/* Top Section */}
                 <div className="grid grid-cols-3 gap-4 mb-6 border-b-2 border-gray-900 pb-4">
                   <div className="border-r-2 border-gray-900 pr-4">
-                    <p className="text-xs font-bold text-gray-700 mb-1">SKU</p>
-                    <p className="text-sm">{selectedProductForPrint.sku || '—'}</p>
+                    <p className="text-xs font-bold text-gray-700 mb-1">S NO</p>
+                    <p className="text-sm">{selectedEmployeeForPrint.sNo || '—'}</p>
                   </div>
                   <div className="border-r-2 border-gray-900 pr-4">
-                    <p className="text-xs font-bold text-gray-700 mb-1">LISTING NAME</p>
-                    <p className="text-sm">{selectedProductForPrint.listingName || '—'}</p>
+                    <p className="text-xs font-bold text-gray-700 mb-1">NAME</p>
+                    <p className="text-sm">{selectedEmployeeForPrint.firstName || '—'} {selectedEmployeeForPrint.lastName || '—'}</p>
                   </div>
                   <div>
-                    <p className="text-xs font-bold text-gray-700 mb-1">SHOPIFY STATUS</p>
-                    <p className="text-sm">{selectedProductForPrint.shopifyStatus || '—'}</p>
+                    <p className="text-xs font-bold text-gray-700 mb-1">DEPARTMENT</p>
+                    <p className="text-sm">{selectedEmployeeForPrint.department || '—'}</p>
                   </div>
                 </div>
 
                 {/* Details Section */}
                 <div className="grid grid-cols-2 gap-4 mb-6 border-b-2 border-gray-900 pb-4">
                   <div>
-                    <p className="text-xs font-bold text-gray-700 mb-1">MATERIAL</p>
-                    <p className="text-sm">{selectedProductForPrint.material || '—'}</p>
+                    <p className="text-xs font-bold text-gray-700 mb-1">CONTACT NUMBER</p>
+                    <p className="text-sm">{selectedEmployeeForPrint.contactNumber || '—'}</p>
                   </div>
                   <div>
-                    <p className="text-xs font-bold text-gray-700 mb-1">WEIGHT</p>
-                    <p className="text-sm">{selectedProductForPrint.weight || '—'}</p>
+                    <p className="text-xs font-bold text-gray-700 mb-1">TYPE</p>
+                    <p className="text-sm">{selectedEmployeeForPrint.type || '—'}</p>
                   </div>
                   <div>
-                    <p className="text-xs font-bold text-gray-700 mb-1">CATEGORY</p>
-                    <p className="text-sm">{selectedProductForPrint.category || '—'}</p>
+                    <p className="text-xs font-bold text-gray-700 mb-1">AADHAR CARD</p>
+                    <p className="text-sm">{selectedEmployeeForPrint.aadharCard || '—'}</p>
                   </div>
                   <div>
-                    <p className="text-xs font-bold text-gray-700 mb-1">COLLECTION</p>
-                    <p className="text-sm">{selectedProductForPrint.collection || '—'}</p>
+                    <p className="text-xs font-bold text-gray-700 mb-1">PAYMENT TYPE</p>
+                    <p className="text-sm">{selectedEmployeeForPrint.paymentType || '—'}</p>
                   </div>
                 </div>
 
-                {/* Product Information */}
+                {/* Bank Information */}
                 <div className="mb-6">
-                  <table className="w-full border-collapse border-2 border-gray-900 break-words">
+                  <table className="w-full border-collapse border-2 border-gray-900">
                     <thead>
                       <tr className="bg-gray-900 text-white">
-                        <th className="border-2 border-gray-900 p-2 text-xs font-bold text-left break-words">SETTING TYPE</th>
-                        <th className="border-2 border-gray-900 p-2 text-xs font-bold text-left break-words">ENAMEL TYPE</th>
-                        <th className="border-2 border-gray-900 p-2 text-xs font-bold text-left break-words">ACTIVE CHANNELS</th>
-                        <th className="border-2 border-gray-900 p-2 text-xs font-bold text-left break-words">MASTER SKU</th>
+                        <th className="border-2 border-gray-900 p-2 text-xs font-bold text-left">ORIGIN</th>
+                        <th className="border-2 border-gray-900 p-2 text-xs font-bold text-left">BANK A/C</th>
+                        <th className="border-2 border-gray-900 p-2 text-xs font-bold text-left">IFSC</th>
+                        <th className="border-2 border-gray-900 p-2 text-xs font-bold text-left">BANK</th>
                       </tr>
                     </thead>
                     <tbody>
                       <tr>
-                        <td className="border-2 border-gray-900 p-2 text-sm break-words">{selectedProductForPrint.settingType || '—'}</td>
-                        <td className="border-2 border-gray-900 p-2 text-sm break-words">{selectedProductForPrint.enamelType || '—'}</td>
-                        <td className="border-2 border-gray-900 p-2 text-sm break-words">{selectedProductForPrint.activeChannels || '—'}</td>
-                        <td className="border-2 border-gray-900 p-2 text-sm break-words">{selectedProductForPrint.masterSku || '—'}</td>
+                        <td className="border-2 border-gray-900 p-2 text-sm">{selectedEmployeeForPrint.origin || '—'}</td>
+                        <td className="border-2 border-gray-900 p-2 text-sm">{selectedEmployeeForPrint.bankAccount || '—'}</td>
+                        <td className="border-2 border-gray-900 p-2 text-sm">{selectedEmployeeForPrint.ifsc || '—'}</td>
+                        <td className="border-2 border-gray-900 p-2 text-sm">{selectedEmployeeForPrint.bank || '—'}</td>
                       </tr>
                     </tbody>
                   </table>
@@ -549,7 +466,7 @@ export default function MasterProductSheet() {
                   Print
                 </Button>
                 <Button
-                  onClick={() => setIsPrintProductOpen(false)}
+                  onClick={() => setIsPrintEmployeeOpen(false)}
                   variant="outline"
                 >
                   Close
@@ -564,66 +481,64 @@ export default function MasterProductSheet() {
       <Dialog open={isPrintSheetOpen} onOpenChange={setIsPrintSheetOpen}>
         <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
           <DialogHeader className="border-b pb-4">
-            <DialogTitle>Print Master Product Sheet</DialogTitle>
+            <DialogTitle>Print Work Force Master Sheet</DialogTitle>
           </DialogHeader>
           
           <div className="space-y-4 py-4">
             {/* Sheet Header */}
             <div className="text-center border-b-2 border-gray-900 pb-4 mb-6">
-              <h2 className="text-2xl font-bold mb-2">MASTER PRODUCT SHEET</h2>
+              <h2 className="text-2xl font-bold mb-2">WORK FORCE MASTER SHEET</h2>
               <p className="text-sm text-gray-600">Date: {new Date().toISOString().split('T')[0]}</p>
             </div>
 
             {/* Sheet Details Summary */}
             <div className="grid grid-cols-4 gap-4 mb-6 p-4 bg-gray-50 rounded-lg border border-gray-300">
               <div>
-                <p className="text-xs font-bold text-gray-700 mb-1">Total Products</p>
-                <p className="text-lg font-bold">{filteredData.length}</p>
+                <p className="text-xs font-bold text-gray-700 mb-1">Total Employees</p>
+                <p className="text-lg font-bold">{data.length}</p>
               </div>
               <div>
-                <p className="text-xs font-bold text-gray-700 mb-1">Selected Products</p>
+                <p className="text-xs font-bold text-gray-700 mb-1">Selected Employees</p>
                 <p className="text-lg font-bold">{selectedRows.size}</p>
               </div>
               <div>
-                <p className="text-xs font-bold text-gray-700 mb-1">Total SKUs</p>
-                <p className="text-lg font-bold">{filteredData.filter(row => row.sku).length}</p>
+                <p className="text-xs font-bold text-gray-700 mb-1">Full-time</p>
+                <p className="text-lg font-bold">{data.filter(row => row.type === 'Full-time').length}</p>
               </div>
               <div>
-                <p className="text-xs font-bold text-gray-700 mb-1">Active Listings</p>
-                <p className="text-lg font-bold">{filteredData.filter(row => row.shopifyStatus?.toLowerCase() === 'active').length}</p>
+                <p className="text-xs font-bold text-gray-700 mb-1">Active Employees</p>
+                <p className="text-lg font-bold">{activeData.length}</p>
               </div>
             </div>
 
             {/* Data Table */}
             <div className="border-2 border-gray-900 rounded overflow-x-auto">
-              <table className="w-full border-collapse text-xs break-words">
+              <table className="w-full border-collapse text-xs">
                 <thead>
                   <tr className="bg-gray-900 text-white">
-                    <th className="border border-gray-400 p-2 text-left break-words">SKU</th>
-                    <th className="border border-gray-400 p-2 text-left break-words">Listing Name</th>
-                    <th className="border border-gray-400 p-2 text-left break-words">Material</th>
-                    <th className="border border-gray-400 p-2 text-left break-words">Category</th>
-                    <th className="border border-gray-400 p-2 text-left break-words">Collection</th>
-                    <th className="border border-gray-400 p-2 text-left break-words">Setting Type</th>
-                    <th className="border border-gray-400 p-2 text-left break-words">Enamel Type</th>
-                    <th className="border border-gray-400 p-2 text-left break-words">Shopify Status</th>
-                    <th className="border border-gray-400 p-2 text-left break-words">Active Channels</th>
-                    <th className="border border-gray-400 p-2 text-left break-words">Master SKU</th>
+                    <th className="border border-gray-400 p-2 text-left">Department</th>
+                    <th className="border border-gray-400 p-2 text-left">First Name</th>
+                    <th className="border border-gray-400 p-2 text-left">Last Name</th>
+                    <th className="border border-gray-400 p-2 text-left">Contact Number</th>
+                    <th className="border border-gray-400 p-2 text-left">Type</th>
+                    <th className="border border-gray-400 p-2 text-left">Aadhar Card</th>
+                    <th className="border border-gray-400 p-2 text-left">Payment Type</th>
+                    <th className="border border-gray-400 p-2 text-left">Origin</th>
+                    <th className="border border-gray-400 p-2 text-left">Bank A/C</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredData.map((row, index) => (
+                  {data.map((row, index) => (
                     <tr key={row.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                      <td className="border border-gray-400 p-2 break-words">{row.sku || '—'}</td>
-                      <td className="border border-gray-400 p-2 break-words">{row.listingName || '—'}</td>
-                      <td className="border border-gray-400 p-2 break-words">{row.material || '—'}</td>
-                      <td className="border border-gray-400 p-2 break-words">{row.category || '—'}</td>
-                      <td className="border border-gray-400 p-2 break-words">{row.collection || '—'}</td>
-                      <td className="border border-gray-400 p-2 break-words">{row.settingType || '—'}</td>
-                      <td className="border border-gray-400 p-2 break-words">{row.enamelType || '—'}</td>
-                      <td className="border border-gray-400 p-2 break-words">{row.shopifyStatus || '—'}</td>
-                      <td className="border border-gray-400 p-2 break-words">{row.activeChannels || '—'}</td>
-                      <td className="border border-gray-400 p-2 break-words">{row.masterSku || '—'}</td>
+                      <td className="border border-gray-400 p-2">{row.department || '—'}</td>
+                      <td className="border border-gray-400 p-2">{row.firstName || '—'}</td>
+                      <td className="border border-gray-400 p-2">{row.lastName || '—'}</td>
+                      <td className="border border-gray-400 p-2">{row.contactNumber || '—'}</td>
+                      <td className="border border-gray-400 p-2">{row.type || '—'}</td>
+                      <td className="border border-gray-400 p-2">{row.aadharCard || '—'}</td>
+                      <td className="border border-gray-400 p-2">{row.paymentType || '—'}</td>
+                      <td className="border border-gray-400 p-2">{row.origin || '—'}</td>
+                      <td className="border border-gray-400 p-2">{row.bankAccount || '—'}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -672,25 +587,23 @@ export default function MasterProductSheet() {
         <div className="mb-4 sticky top-0 z-30 bg-white/95 py-2 border-b border-gray-200 shadow-sm backdrop-blur">
           <div className="flex items-center gap-3 mb-4">
             <MasterNavigationDrawer inHeader />
-            <h1 className="text-xl font-bold tracking-tight text-slate-900">MASTER PRODUCT SHEET</h1>
+            <h1 className="text-xl font-bold tracking-tight text-slate-900">WORK FORCE MASTER SHEET</h1>
           </div>
         </div>
 
         {/* Action Buttons */}
         <div className="flex flex-wrap gap-2 md:gap-4 justify-end mb-4">
-          <Button
-            onClick={loadProducts}
-            variant="outline"
-            className="border-gray-800 text-gray-800 rounded-full px-6"
-            disabled={isLoading}
+          <Button 
+            onClick={handleQuickEnroll}
+            className="bg-blue-500 hover:bg-blue-600 text-white rounded-full px-6"
           >
-            {isLoading ? 'Refreshing...' : 'Refresh'}
+            Quick Enroll
           </Button>
           <Button 
-            onClick={handleCreateProduct}
-            className="bg-green-500 hover:bg-green-600 text-white rounded-full px-6"
+            onClick={handleEnrollWorkforce}
+            className="bg-blue-500 hover:bg-blue-600 text-white rounded-full px-6"
           >
-            Add Product
+            Enroll Workforce
           </Button>
           <Button 
             onClick={handleEditRow}
@@ -756,8 +669,8 @@ export default function MasterProductSheet() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent>
-              <DropdownMenuItem onClick={handlePrintProducts}>
-                Product Details
+              <DropdownMenuItem onClick={handlePrintEmployees}>
+                Employee Details
               </DropdownMenuItem>
               <DropdownMenuItem onClick={handlePrintSheet}>
                 Sheet
@@ -782,103 +695,61 @@ export default function MasterProductSheet() {
 
       {/* Filter Row */}
       <div className="border border-gray-300 rounded-lg mb-4 bg-blue-50 p-4">
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-8 gap-2">
-          {/* SKU Search */}
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2">
+          {/* Department Filter */}
           <div>
-            <label className="text-xs font-semibold text-gray-700 block mb-1">SKU</label>
-            <Input
-              type="text"
-              placeholder="Enter SKU"
-              value={skuFilter}
-              onChange={(e) => setSKUFilter(e.target.value)}
-              className="h-8 text-xs p-1"
-            />
-          </div>
-
-          {/* Material Filter */}
-          <div>
-            <label className="text-xs font-semibold text-gray-700 block mb-1">MATERIAL</label>
-            <Select value={materialFilter} onValueChange={setMaterialFilter}>
+            <label className="text-xs font-semibold text-gray-700 block mb-1">DEPARTMENT</label>
+            <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
               <SelectTrigger className="h-8 text-xs">
-                <SelectValue placeholder="Select Material" />
+                <SelectValue placeholder="Select Department" />
               </SelectTrigger>
               <SelectContent>
-                {materialOptions.map(option => (
+                {departmentOptions.map(option => (
                   <SelectItem key={option} value={option}>{option}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
 
-          {/* Category Filter */}
+          {/* Type Filter */}
           <div>
-            <label className="text-xs font-semibold text-gray-700 block mb-1">CATEGORY</label>
-            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+            <label className="text-xs font-semibold text-gray-700 block mb-1">TYPE</label>
+            <Select value={typeFilter} onValueChange={setTypeFilter}>
               <SelectTrigger className="h-8 text-xs">
-                <SelectValue placeholder="Select Category" />
+                <SelectValue placeholder="Select Type" />
               </SelectTrigger>
               <SelectContent>
-                {categoryOptions.map(option => (
+                {typeOptions.map(option => (
                   <SelectItem key={option} value={option}>{option}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
 
-          {/* Collection Filter */}
+          {/* Origin Filter */}
           <div>
-            <label className="text-xs font-semibold text-gray-700 block mb-1">COLLECTION</label>
-            <Select value={collectionFilter} onValueChange={setCollectionFilter}>
+            <label className="text-xs font-semibold text-gray-700 block mb-1">ORIGIN</label>
+            <Select value={originFilter} onValueChange={setOriginFilter}>
               <SelectTrigger className="h-8 text-xs">
-                <SelectValue placeholder="Select Collection" />
+                <SelectValue placeholder="Select Origin" />
               </SelectTrigger>
               <SelectContent>
-                {collectionOptions.map(option => (
+                {originOptions.map(option => (
                   <SelectItem key={option} value={option}>{option}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
 
-          {/* Setting Type Filter */}
+          {/* Payment Type Filter */}
           <div>
-            <label className="text-xs font-semibold text-gray-700 block mb-1">SETTING TYPE</label>
-            <Select value={settingTypeFilter} onValueChange={setSettingTypeFilter}>
+            <label className="text-xs font-semibold text-gray-700 block mb-1">PAYMENT TYPE</label>
+            <Select value={paymentTypeFilter} onValueChange={setPaymentTypeFilter}>
               <SelectTrigger className="h-8 text-xs">
-                <SelectValue placeholder="Select Setting" />
+                <SelectValue placeholder="Select Payment Type" />
               </SelectTrigger>
               <SelectContent>
-                {settingTypeOptions.map(option => (
-                  <SelectItem key={option} value={option}>{option}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Enamel Type Filter */}
-          <div>
-            <label className="text-xs font-semibold text-gray-700 block mb-1">ENAMEL TYPE</label>
-            <Select value={enamelTypeFilter} onValueChange={setEnamelTypeFilter}>
-              <SelectTrigger className="h-8 text-xs">
-                <SelectValue placeholder="Select Enamel" />
-              </SelectTrigger>
-              <SelectContent>
-                {enamelTypeOptions.map(option => (
-                  <SelectItem key={option} value={option}>{option}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Shopify Status Filter */}
-          <div>
-            <label className="text-xs font-semibold text-gray-700 block mb-1">SHOPIFY STATUS</label>
-            <Select value={shopifyStatusFilter} onValueChange={setShopifyStatusFilter}>
-              <SelectTrigger className="h-8 text-xs">
-                <SelectValue placeholder="Select Status" />
-              </SelectTrigger>
-              <SelectContent>
-                {shopifyStatusOptions.map(option => (
+                {paymentTypeOptions.map(option => (
                   <SelectItem key={option} value={option}>{option}</SelectItem>
                 ))}
               </SelectContent>
@@ -887,29 +758,14 @@ export default function MasterProductSheet() {
         </div>
       </div>
 
-      {isLoading && (
-        <div className="mb-4 rounded-md border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">
-          Loading products from Google Sheets...
-        </div>
-      )}
-
-      {!isLoading && fetchError && (
-        <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700 flex items-center justify-between gap-3">
-          <span>{fetchError}</span>
-          <Button onClick={loadProducts} variant="outline" className="h-8 px-3 border-red-300 text-red-700 hover:bg-red-100">
-            Retry
-          </Button>
-        </div>
-      )}
-
       {/* Table Section */}
       <div className="border border-gray-300 rounded-lg bg-white overflow-hidden">
         {/* Table wrapper with vertical scrolling only */}
         <div className="overflow-y-auto max-h-[500px]">
           <table className="w-full border-collapse text-xs">
-            <thead className="sticky top-0 z-20 bg-indigo-300">
+            <thead className="sticky top-0 z-20 bg-yellow-400">
               <tr className="text-gray-800 font-bold border-b-2 border-gray-400">
-                <th className="border border-gray-400 p-2 w-8 sticky left-0 bg-indigo-300 z-30"></th>
+                <th className="border border-gray-400 p-2 w-8 sticky left-0 bg-yellow-400 z-30"></th>
                 {columns.map((column) => 
                   visibleColumns.has(column.id) && (
                     <th key={column.id} className={`border border-gray-400 p-2 ${columnConfig[column.id].headerBg} ${columnConfig[column.id].minWidth}`}>
@@ -921,21 +777,10 @@ export default function MasterProductSheet() {
             </thead>
 
             <tbody>
-              {displayedData.length === 0 && (
-                <tr>
-                  <td
-                    className="border border-gray-400 p-4 text-center text-sm text-gray-500"
-                    colSpan={visibleColumns.size + 1}
-                  >
-                    No products found. Add a product from Product Sheet, then click Refresh.
-                  </td>
-                </tr>
-              )}
-
               {displayedData.map((row, idx) => {
                 const isEditing = editingRowIds.has(row.id);
                 const isAnyRowEditing = editingRowIds.size > 0;
-                const canEdit = !isArchivedView && isEditing;
+                const canEdit = !isArchivedView && (!isAnyRowEditing || isEditing);
                 
                 return (
                   <tr 
@@ -959,18 +804,13 @@ export default function MasterProductSheet() {
                     {columns.map((column) =>
                       visibleColumns.has(column.id) && (
                         <td key={column.id} className={`border border-gray-400 p-1 ${columnConfig[column.id].cellBg || ''}`} style={isEditing ? {backgroundColor: '#eff6ff'} : {}}>
-                          {canEdit ? (
-                            <Input
-                              type="text"
-                              value={row[column.id]}
-                              onChange={(e) => handleCellChange(row.id, column.id, e.target.value)}
-                              className="border-0 p-1 text-xs h-8"
-                            />
-                          ) : (
-                            <div className="min-h-8 px-1 py-1 text-xs whitespace-pre-wrap break-words leading-4">
-                              {row[column.id] || ''}
-                            </div>
-                          )}
+                          <Input
+                            type="text"
+                            value={row[column.id]}
+                            onChange={(e) => handleCellChange(row.id, column.id, e.target.value)}
+                            className="border-0 p-1 text-xs h-8"
+                            disabled={!canEdit}
+                          />
                         </td>
                       )
                     )}
@@ -1020,6 +860,19 @@ export default function MasterProductSheet() {
           {editingRowIds.size > 0 && <p className="text-blue-600 font-semibold">Editing {editingRowIds.size} row(s)</p>}
         </div>
       </div>
+
+      {/* Quick Enroll Modal */}
+      <QuickEnrollModal open={isQuickEnrollOpen} onOpenChange={setIsQuickEnrollOpen} onEnroll={handleQuickEnrollComplete} />
+      
+      {/* Enroll Workforce Modal */}
+      <Dialog open={isEnrollWorkforceOpen} onOpenChange={setIsEnrollWorkforceOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Enroll Workforce</DialogTitle>
+          </DialogHeader>
+          <EnrolWorkforceForm onEnroll={handleEnrollWorkforceComplete} onClose={() => setIsEnrollWorkforceOpen(false)} />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

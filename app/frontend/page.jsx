@@ -3,13 +3,17 @@
 import React from "react"
 import { Trash2, LayoutDashboard, House, X } from 'lucide-react'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { CreateJobModal } from '@/components/create-job-modal'
 
 const PRODUCT_SHEET_SYNC_KEY = 'product_sheet_updated_at'
 const PRODUCT_SHEET_SYNC_EVENT = 'product_sheet_sync'
 
 export default function ProductSheet() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const newProductToken = searchParams.get('new')
   const fileInputRef = useRef(null)
   const manufacturingImagesRef = useRef(null)
   const autoSaveTimeoutRef = useRef(null)
@@ -135,6 +139,84 @@ export default function ProductSheet() {
   ])
   const [isSaving, setIsSaving] = useState(false)
   const [saveStatus, setSaveStatus] = useState(null)
+  const [showViewSheetButton, setShowViewSheetButton] = useState(false)
+
+  const resetProductForm = useCallback(() => {
+    setProductImage(null)
+    setSku('')
+    setListingName('')
+    setMaterial('')
+    setMaterialSku('')
+    setDropdown1('')
+    setWeightValue('')
+    setWeightUnit('')
+    setDropdown2('')
+    setDropdown3('')
+    setSettingType('')
+    setEnamelType('')
+    setActiveChannels([])
+    setIsChannelDropdownOpen(false)
+    setShopifyStatus('active')
+    setIsStatusDropdownOpen(false)
+    setPlatingType([
+      { id: 1, col1: '', col2: '', col3: '' },
+      { id: 2, col1: '', col2: '', col3: '' },
+      { id: 3, col1: '', col2: '', col3: '' },
+    ])
+    setManufacturing({
+      dieNumbers: [
+        { id: 1, dieNumber: '', quantity: '' },
+        { id: 2, dieNumber: '', quantity: '' },
+        { id: 3, dieNumber: '', quantity: '' },
+      ],
+      images: [],
+      notes: '',
+    })
+    setOthers([
+      { id: 1, key: '', value: '' },
+      { id: 2, key: '', value: '' },
+      { id: 3, key: '', value: '' },
+      { id: 4, key: '', value: '' },
+      { id: 5, key: '', value: '' },
+    ])
+    setVariations([
+      { id: 1, label: '', col1: '', col2: '' },
+      { id: 2, label: '', col1: '', col2: '' },
+    ])
+    setColorCodeByColor({})
+    setStoneInfo([
+      { id: 1, name: '', cut: '', color: '', size: '', quantity: '' },
+      { id: 2, name: '', cut: '', color: '', size: '', quantity: '' },
+      { id: 3, name: '', cut: '', color: '', size: '', quantity: '' },
+    ])
+    setLiveStock({
+      rawMaterial: { min: '', current: '', wip: '', location: '' },
+      rawSetting: { min: '', current: '', wip: '', location: '' },
+      tyre: { min: '', current: '', wip: '', location: '' },
+      dustunuing: { min: '', current: '', wip: '', location: '' },
+      wipLiquidCasting: { min: '', current: '', wip: '', location: '' },
+      postCasting: { min: '', current: '', wip: '', location: '' },
+      filing: { min: '', current: '', wip: '', location: '' },
+      packing: { min: '', current: '', wip: '', location: '' },
+      setting: { min: '', current: '', wip: '', location: '' },
+      finalPolish: { min: '', current: '', wip: '', location: '' },
+      readyForPlacing: { min: '', current: '', wip: '', location: '' },
+    })
+    setFinalStock([{ id: 1, sku: '', value: '', unit: '' }])
+    setIsModalOpen(false)
+    setSaveStatus(null)
+    setShowViewSheetButton(false)
+  }, [])
+
+  const handleAddProduct = () => {
+    resetProductForm()
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  useEffect(() => {
+    if (!newProductToken) return
+    resetProductForm()
+  }, [newProductToken, resetProductForm])
 
   useEffect(() => {
     const pendingDraft = localStorage.getItem('pending_draft_load')
@@ -210,6 +292,7 @@ export default function ProductSheet() {
 
     if (isAutoSave) {
       setSaveStatus({ success: true, message: '✓ Auto-saved' })
+      setShowViewSheetButton(false)
       setTimeout(() => setSaveStatus(null), 1500)
       return
     }
@@ -218,6 +301,7 @@ export default function ProductSheet() {
       ? `✓ Product updated in Google Sheets (${result.message})`
       : '✓ New product added to Google Sheets'
     setSaveStatus({ success: true, message })
+    setShowViewSheetButton(true)
     setTimeout(() => setSaveStatus(null), 4000)
   }
 
@@ -483,6 +567,7 @@ export default function ProductSheet() {
         
         if (result.success) {
           setSaveStatus({ success: true, message: result.message });
+          setShowViewSheetButton(false)
           localStorage.setItem(PRODUCT_SHEET_SYNC_KEY, Date.now().toString());
           setTimeout(() => setSaveStatus(null), 4000);
           
@@ -504,10 +589,15 @@ export default function ProductSheet() {
         }
       } catch (error) {
         setSaveStatus({ success: false, message: `Error: ${error.message}` });
+        setShowViewSheetButton(false)
       } finally {
         setIsSaving(false);
       }
     };
+
+    const handleViewProductSheet = () => {
+      router.push('/master-product-sheet')
+    }
     
     return (<div className="min-h-screen bg-slate-50 p-3 md:p-4 flex flex-col text-slate-900">
       <div className="flex justify-between items-center mb-2 sticky top-0 z-50 bg-white/95 py-2 border-b border-gray-200 shadow-sm backdrop-blur">
@@ -525,13 +615,21 @@ export default function ProductSheet() {
           <h1 className="text-xl font-bold tracking-tight text-slate-900">PRODUCT SHEET</h1>
         </div>
         <div className="flex gap-2 items-center">
-          <button onClick={() => setIsModalOpen(true)} className="w-fit px-3 py-1 text-xs bg-blue-600 text-white font-semibold rounded-md shadow-sm hover:bg-blue-700">+ ADD PRODUCT</button>
+          <button onClick={handleAddProduct} className="w-fit px-3 py-1 text-xs bg-blue-600 text-white font-semibold rounded-md shadow-sm hover:bg-blue-700">+ ADD PRODUCT</button>
           <button onClick={handleSaveToGoogleSheets} disabled={isSaving} className="w-fit px-3 py-1 text-xs bg-green-600 text-white font-semibold rounded-md shadow-sm hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed">{isSaving ? 'Saving...' : 'SAVE'}</button>
           <button onClick={handleDeleteFromGoogleSheets} disabled={isSaving} className="w-fit px-3 py-1 text-xs bg-red-600 text-white font-semibold rounded-md shadow-sm hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed">DELETE</button>
           {saveStatus && (
             <div className={`text-xs px-2 py-1 rounded-md ${saveStatus.success ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
               {saveStatus.message}
             </div>
+          )}
+          {showViewSheetButton && saveStatus?.success && (
+            <button
+              onClick={handleViewProductSheet}
+              className="w-fit px-3 py-1 text-xs bg-slate-900 text-white font-semibold rounded-md shadow-sm hover:bg-slate-800"
+            >
+              VIEW PRODUCT SHEET
+            </button>
           )}
         </div>
       </div>

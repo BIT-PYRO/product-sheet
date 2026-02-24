@@ -16,7 +16,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Trash2, FileText, ChevronDown } from 'lucide-react'
-import { EnrolWorkforceForm } from '@/app/enrol-workforce/page'
+import { EnrolWorkforceForm } from '@/app/frontend/enrol-workforce/page'
 
 const DRAFTS_STORAGE_KEY = 'form_drafts'
 
