@@ -10,3 +10,9 @@ node_modules/
 .next/
 .env*.local
 .DS_Store
+
+# SSH keys (never commit)
+id_ed25519_bit_pyro
+id_ed25519_bit_pyro.pub
+*.pem
+*.key
