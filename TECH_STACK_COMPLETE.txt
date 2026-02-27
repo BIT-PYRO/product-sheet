@@ -1,0 +1,137 @@
+PRODUCT-SHEET-DESIGN: COMPLETE TECH STACK (CURRENT + PLANNED)
+Date: 25-Feb-2026
+
+============================================================
+1) FRONTEND STACK (CURRENTLY USED)
+============================================================
+- Framework: Next.js 16.1.6 (App Router, React Server Components enabled)
+- UI Library: React 19 + React DOM 19
+- Language Setup:
+  - Main codebase is mostly JavaScript/JSX
+  - TypeScript tooling is enabled (tsconfig present, strict mode enabled)
+- Styling:
+  - Tailwind CSS 3.4.17
+  - PostCSS
+  - tailwindcss-animate
+  - CSS variables based theming
+- Component System:
+  - shadcn/ui configuration present (components.json)
+  - Radix UI primitives (@radix-ui/* packages)
+  - Lucide icons (lucide-react)
+  - Utility for variants: class-variance-authority
+  - Class utilities: clsx + tailwind-merge
+- Forms and Validation:
+  - react-hook-form
+  - @hookform/resolvers
+  - zod
+- Charts / Data UI:
+  - recharts
+- Date handling:
+  - date-fns
+  - react-day-picker
+- UX helpers:
+  - sonner (toasts)
+  - cmdk
+  - embla-carousel-react
+  - vaul
+  - input-otp
+  - react-resizable-panels
+
+============================================================
+2) FRONTEND ROUTING + MIDDLEWARE (CURRENTLY USED)
+============================================================
+- Next.js rewrites in next.config.mjs:
+  - /api/* -> /frontend/api/*
+  - multiple app routes rewritten to /frontend/* pages
+- Middleware:
+  - next/server middleware for auth gatekeeping
+  - Protects private routes and redirects unauthenticated users to /login
+  - Skips static/public asset paths
+
+============================================================
+3) BACKEND / API LAYER (CURRENTLY USED)
+============================================================
+- Runtime for API endpoints: Next.js Route Handlers (Node environment)
+- API structure:
+  - app/frontend/api/auth/login/route.js
+  - app/frontend/api/auth/logout/route.js
+  - app/frontend/api/auth/session/route.js
+  - app/frontend/api/save-to-sheets/route.js
+- Auth model currently implemented:
+  - Cookie-based session (httpOnly cookie: psd-session)
+  - Fixed user list in frontend/lib/auth.js
+  - Session validation via middleware + session endpoint
+- Data layer currently implemented:
+  - No local SQL/NoSQL database configured yet in this repo
+  - Primary data operations for product data are handled via Google Sheets API
+
+============================================================
+4) THIRD-PARTY INTEGRATIONS (CURRENTLY USED)
+============================================================
+- Google APIs (googleapis package)
+- Google Sheets API v4:
+  - Read/write product sheet data
+  - Uses service-account style credentials from environment variables
+  - Spreadsheet ID and credential fields consumed from process.env
+
+============================================================
+5) PLANNED BACKEND STACK (FROM DJANGO_BACKEND_EXECUTION_PLAN.txt)
+============================================================
+Planned architecture for migration/expansion beyond current Next.js-only API layer:
+
+- Core backend:
+  - Python 3.12
+  - Django 5.x
+  - Django REST Framework (DRF)
+  - DRF SimpleJWT
+  - PostgreSQL 16+
+- Async + background jobs:
+  - Redis 7+
+  - Celery 5.x
+  - celery-beat
+- API quality/security:
+  - drf-spectacular
+  - django-filter
+  - django-cors-headers
+  - django-environ
+  - psycopg[binary]
+- Dev quality/testing:
+  - pytest + pytest-django
+  - factory-boy
+  - black, isort, flake8, mypy
+  - pre-commit
+- Deployment (planned):
+  - Gunicorn
+  - Nginx
+  - Docker + Docker Compose
+  - GitHub Actions (CI/CD)
+
+============================================================
+6) BUILD, TOOLING, AND PROJECT CONFIG (CURRENTLY USED)
+============================================================
+- Package managers available in project workflows:
+  - pnpm (lockfile present)
+  - npm (script/task available)
+- Build scripts:
+  - dev: next dev
+  - build: next build
+  - start: next start
+  - lint: eslint .
+- Config files present:
+  - next.config.mjs
+  - tailwind.config.ts
+  - postcss.config.mjs
+  - tsconfig.json
+  - middleware.js
+
+============================================================
+7) SUMMARY (AS-IS STATE)
+============================================================
+Current production code is a Next.js full-stack app (frontend + internal API routes) with:
+- React + Tailwind + shadcn/Radix UI for frontend
+- Cookie-based auth in Next middleware/route handlers
+- Google Sheets API as external data integration
+
+Planned evolution (documented in project plan):
+- Introduce dedicated Django + DRF backend with PostgreSQL, Redis/Celery,
+  stronger auth/roles, and CI/CD-oriented deployment stack.
