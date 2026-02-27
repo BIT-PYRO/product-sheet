@@ -1,9 +1,7 @@
 from datetime import timedelta
 from pathlib import Path
 
-import dj_database_url
 import environ
-from celery.schedules import crontab
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
@@ -15,9 +13,6 @@ environ.Env.read_env(BASE_DIR / '.env')
 SECRET_KEY = env('SECRET_KEY', default=env('DJANGO_SECRET_KEY', default='django-insecure-change-me'))
 DEBUG = env.bool('DEBUG', default=env.bool('DJANGO_DEBUG', default=False))
 ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=env.list('DJANGO_ALLOWED_HOSTS', default=['127.0.0.1', 'localhost']))
-RENDER_EXTERNAL_HOSTNAME = env('RENDER_EXTERNAL_HOSTNAME', default='').strip()
-if RENDER_EXTERNAL_HOSTNAME and RENDER_EXTERNAL_HOSTNAME not in ALLOWED_HOSTS:
-    ALLOWED_HOSTS.append(RENDER_EXTERNAL_HOSTNAME)
 
 
 INSTALLED_APPS = [
@@ -40,10 +35,6 @@ INSTALLED_APPS = [
     'workforce',
     'kyc',
     'drafts',
-    'orders',
-    'customers',
-    'designers',
-    'findings',
 ]
 
 MIDDLEWARE = [
@@ -78,29 +69,17 @@ WSGI_APPLICATION = 'config.wsgi.application'
 ASGI_APPLICATION = 'config.asgi.application'
 
 
-DATABASE_URL = env('DATABASE_URL', default='').strip()
-DATABASE_CONN_MAX_AGE = env.int('POSTGRES_CONN_MAX_AGE', default=60)
-
-if DATABASE_URL:
-    DATABASES = {
-        'default': dj_database_url.parse(
-            DATABASE_URL,
-            conn_max_age=DATABASE_CONN_MAX_AGE,
-            ssl_require=env.bool('DATABASE_SSL_REQUIRE', default=not DEBUG),
-        )
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': env('DB_NAME', default=env('POSTGRES_DB', default='product_sheet_design')),
+        'USER': env('DB_USER', default=env('POSTGRES_USER', default='postgres')),
+        'PASSWORD': env('DB_PASSWORD', default=env('POSTGRES_PASSWORD', default='postgres')),
+        'HOST': env('DB_HOST', default=env('POSTGRES_HOST', default='127.0.0.1')),
+        'PORT': env('DB_PORT', default=env('POSTGRES_PORT', default='5432')),
+        'CONN_MAX_AGE': env.int('POSTGRES_CONN_MAX_AGE', default=60),
     }
-else:
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.postgresql',
-            'NAME': env('DB_NAME', default=env('POSTGRES_DB', default='product_sheet_design')),
-            'USER': env('DB_USER', default=env('POSTGRES_USER', default='postgres')),
-            'PASSWORD': env('DB_PASSWORD', default=env('POSTGRES_PASSWORD', default='postgres')),
-            'HOST': env('DB_HOST', default=env('POSTGRES_HOST', default='127.0.0.1')),
-            'PORT': env('DB_PORT', default=env('POSTGRES_PORT', default='5432')),
-            'CONN_MAX_AGE': DATABASE_CONN_MAX_AGE,
-        }
-    }
+}
 
 
 REST_FRAMEWORK = {
@@ -113,7 +92,6 @@ REST_FRAMEWORK = {
         'rest_framework.filters.OrderingFilter',
     ),
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
-    'EXCEPTION_HANDLER': 'common.api.exception_handler',
 }
 
 SPECTACULAR_SETTINGS = {
@@ -124,7 +102,6 @@ SPECTACULAR_SETTINGS = {
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(minutes=env.int('ACCESS_TOKEN_MINUTES', default=30)),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=env.int('REFRESH_TOKEN_DAYS', default=7)),
-    'SIGNING_KEY': env('JWT_SIGNING_KEY', default='please-change-this-jwt-signing-key-32b'),
 }
 
 CORS_ALLOWED_ORIGINS = env.list('CORS_ALLOWED_ORIGINS', default=['http://localhost:3000'])
@@ -154,28 +131,4 @@ USE_TZ = True
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
-MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media'
-
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
-
-AUTH_USER_MODEL = 'accounts.User'
-
-
-CELERY_BROKER_URL = env('CELERY_BROKER_URL', default='redis://127.0.0.1:6379/0')
-CELERY_RESULT_BACKEND = env('CELERY_RESULT_BACKEND', default=CELERY_BROKER_URL)
-CELERY_ACCEPT_CONTENT = ['json']
-CELERY_TASK_SERIALIZER = 'json'
-CELERY_RESULT_SERIALIZER = 'json'
-CELERY_TIMEZONE = TIME_ZONE
-CELERY_TASK_TRACK_STARTED = True
-CELERY_BEAT_SCHEDULE = {
-    'day10-ping-health-task': {
-        'task': 'common.tasks.ping_task',
-        'schedule': 300.0,
-    },
-    'day10-operations-summary-task': {
-        'task': 'common.tasks.generate_operations_summary_task',
-        'schedule': crontab(minute='0', hour='9'),
-    },
-}
