@@ -12,10 +12,10 @@ frontend/node_modules/
 frontend/.next/
 .env.local
 .env*.local
+.env
+backend/.env
+backend/.venv/
+backend/db.sqlite3
+**/__pycache__/
+*.pyc
 .DS_Store
-
-# SSH keys (never commit)
-id_ed25519_bit_pyro
-id_ed25519_bit_pyro.pub
-*.pem
-*.key

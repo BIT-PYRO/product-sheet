@@ -14,37 +14,9 @@ Including another URLconf
     1. Import the include() function: from django.urls import include, path
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
-from django.conf import settings
-from django.conf.urls.static import static
 from django.contrib import admin
-from django.http import JsonResponse
-from django.urls import include, path
-from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
-
-
-def root_status(_request):
-	return JsonResponse({
-		'success': True,
-		'message': 'Product Sheet backend is running.',
-		'docs': '/api/docs/swagger/',
-	})
+from django.urls import path
 
 urlpatterns = [
-	path('', root_status, name='root-status'),
-	path('admin/', admin.site.urls),
-	path('api/schema/', SpectacularAPIView.as_view(), name='api-schema'),
-	path('api/docs/swagger/', SpectacularSwaggerView.as_view(url_name='api-schema'), name='swagger-ui'),
-	path('api/docs/redoc/', SpectacularRedocView.as_view(url_name='api-schema'), name='redoc'),
-	path('api/v1/auth/', include('accounts.urls')),
-	path('api/v1/products/', include('products.urls')),
-	path('api/v1/inventory/', include('inventory.urls')),
-	path('api/v1/jobs/', include('jobs.urls')),
-	path('api/v1/workforce/', include('workforce.urls')),
-	path('api/v1/kyc/', include('kyc.urls')),
-	path('api/v1/drafts/', include('drafts.urls')),
-	path('api/v1/orders/', include('orders.urls')),
-	path('api/v1/common/', include('common.urls')),
-    path('api/v1/customers/', include('customers.urls')),
-    path('api/v1/designers/', include('designers.urls')),
-    path('api/v1/findings/', include('findings.urls')),
-] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+    path('admin/', admin.site.urls),
+]
