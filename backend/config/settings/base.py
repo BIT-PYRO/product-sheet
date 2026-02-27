@@ -1,18 +1,18 @@
-from pathlib import Path
 from datetime import timedelta
+from pathlib import Path
 
 import environ
 
 
-BASE_DIR = Path(__file__).resolve().parent.parent
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
 env = environ.Env()
 environ.Env.read_env(BASE_DIR / '.env')
 
 
-SECRET_KEY = env('DJANGO_SECRET_KEY', default='django-insecure-change-me')
-DEBUG = env.bool('DJANGO_DEBUG', default=True)
-ALLOWED_HOSTS = env.list('DJANGO_ALLOWED_HOSTS', default=['127.0.0.1', 'localhost'])
+SECRET_KEY = env('SECRET_KEY', default=env('DJANGO_SECRET_KEY', default='django-insecure-change-me'))
+DEBUG = env.bool('DEBUG', default=env.bool('DJANGO_DEBUG', default=False))
+ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=env.list('DJANGO_ALLOWED_HOSTS', default=['127.0.0.1', 'localhost']))
 
 
 INSTALLED_APPS = [
@@ -72,11 +72,11 @@ ASGI_APPLICATION = 'config.asgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': env('POSTGRES_DB', default='product_sheet_design'),
-        'USER': env('POSTGRES_USER', default='postgres'),
-        'PASSWORD': env('POSTGRES_PASSWORD', default='postgres'),
-        'HOST': env('POSTGRES_HOST', default='127.0.0.1'),
-        'PORT': env('POSTGRES_PORT', default='5432'),
+        'NAME': env('DB_NAME', default=env('POSTGRES_DB', default='product_sheet_design')),
+        'USER': env('DB_USER', default=env('POSTGRES_USER', default='postgres')),
+        'PASSWORD': env('DB_PASSWORD', default=env('POSTGRES_PASSWORD', default='postgres')),
+        'HOST': env('DB_HOST', default=env('POSTGRES_HOST', default='127.0.0.1')),
+        'PORT': env('DB_PORT', default=env('POSTGRES_PORT', default='5432')),
         'CONN_MAX_AGE': env.int('POSTGRES_CONN_MAX_AGE', default=60),
     }
 }
@@ -124,7 +124,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 
 LANGUAGE_CODE = 'en-us'
-TIME_ZONE = env('DJANGO_TIME_ZONE', default='UTC')
+TIME_ZONE = env('TIME_ZONE', default=env('DJANGO_TIME_ZONE', default='UTC'))
 USE_I18N = True
 USE_TZ = True
 
