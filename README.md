@@ -5,6 +5,19 @@ Product Sheet Design Application
 
 Backend lives in `backend/` and is configured to use PostgreSQL via environment variables.
 
+### Team-safe env rule (important)
+
+- Keep personal/local credentials only in `backend/.env` (private per device).
+- Never commit `backend/.env`.
+- Keep only placeholders in `backend/.env.example` for team sharing.
+- If password contains special chars (like `#`), wrap it in double quotes.
+
+Quick pre-commit safety check (PowerShell):
+
+```powershell
+if (git diff --cached --name-only | Select-String '^backend/.env$') { Write-Error 'Remove backend/.env from staging before commit'; exit 1 } else { 'OK: backend/.env is not staged' }
+```
+
 ### 1) Configure environment
 
 - Copy `backend/.env.example` to `backend/.env` (already added for local development).

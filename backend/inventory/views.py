@@ -1,3 +1,11 @@
-from django.shortcuts import render
+from rest_framework.viewsets import ModelViewSet
 
-# Create your views here.
+from .models import InventoryTransaction
+from .serializers import InventoryTransactionSerializer
+
+
+class InventoryTransactionViewSet(ModelViewSet):
+	queryset = InventoryTransaction.objects.all().order_by('-created_at')
+	serializer_class = InventoryTransactionSerializer
+	filterset_fields = ['product', 'txn_type']
+	search_fields = ['remark']
