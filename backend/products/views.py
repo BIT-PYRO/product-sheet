@@ -1,3 +1,11 @@
-from django.shortcuts import render
+from rest_framework.viewsets import ModelViewSet
 
-# Create your views here.
+from .models import Product
+from .serializers import ProductSerializer
+
+
+class ProductViewSet(ModelViewSet):
+	queryset = Product.objects.all().order_by('-created_at')
+	serializer_class = ProductSerializer
+	filterset_fields = ['is_active', 'category']
+	search_fields = ['sku', 'name']
