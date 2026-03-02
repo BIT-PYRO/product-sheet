@@ -67,7 +67,39 @@ Design decisions prioritize readability, clarity, and low cognitive load.
 - Dark Alert Red (Error Text): #B91C1C
 - Soft Error Red (Error Background): #FEE2E2
 
-## 4) Color Usage Rules
+## 4) Color Palette Tiles (Quick Visual)
+
+Use these tiles during design handoff and reviews so everyone picks the same approved color.
+
+### Neutrals and Text
+
+| Color Name | Hex | Use |
+| Midnight Ink | #111827 | Primary text |
+| Slate Text | #374151 | Secondary text |
+| Cool Gray | #6B7280 | Muted/helper text |
+| White | #FFFFFF | Card bg / text on dark |
+| Cloud Gray | #F9FAFB | Page background |
+| Soft Border Gray | #E5E7EB | Borders/dividers |
+
+### Brand and Actions
+
+| Color Name | Hex | Use |
+| Trust Blue | #2563EB | Primary action |
+| Deep Blue | #1D4ED8 | Primary hover |
+| Sky Blue | #0EA5E9 | Info/highlight |
+
+### Status Colors
+
+| Color Name | Hex | Use |
+| Success Green | #16A34A | Approved/success |
+| Dark Success Green | #166534 | Success text |
+| Warning Amber | #D97706 | Pending/attention |
+| Soft Warning Amber | #FEF3C7 | Warning background |
+| Alert Red | #DC2626 | Error/delete |
+| Dark Alert Red | #B91C1C | Error text |
+| Soft Error Red | #FEE2E2 | Error background |
+
+## 5) Color Usage Rules
 
 - Primary button: Trust Blue background, White text.
 - Danger action: Alert Red background, White text.
@@ -76,7 +108,7 @@ Design decisions prioritize readability, clarity, and low cognitive load.
 - Error alerts: Dark Alert Red text on Soft Error Red background.
 - Do not use color as the only signal; add text labels/icons.
 
-## 5) Layout and Spacing
+## 6) Layout and Spacing
 
 - Use one-column forms for data entry screens.
 - Group related fields in clearly titled sections.
@@ -84,7 +116,7 @@ Design decisions prioritize readability, clarity, and low cognitive load.
 - Minimum button/input height: 44px.
 - Keep important actions visible without scrolling when possible.
 
-## 6) Form and Interaction Guidelines
+## 7) Form and Interaction Guidelines
 
 - Always show field labels above inputs.
 - Mark required fields clearly with simple wording.
@@ -92,7 +124,7 @@ Design decisions prioritize readability, clarity, and low cognitive load.
 - Use plain-language error text (example: "Phone number is required").
 - Primary action button label should be specific ("Save Product", not "Submit").
 
-## 7) Accessibility Requirements
+## 8) Accessibility Requirements
 
 - Maintain WCAG AA contrast (at least 4.5:1 for normal text).
 - Keyboard navigable forms and actions.
@@ -100,7 +132,7 @@ Design decisions prioritize readability, clarity, and low cognitive load.
 - Never use text below 14px.
 - Avoid dense tables on small screens; use card/list fallback where possible.
 
-## 8) Recommended UI Patterns for This Product
+## 9) Recommended UI Patterns for This Product
 
 - Dashboard cards with clear counts and one action each.
 - Step-based forms for long workflows.
@@ -108,7 +140,7 @@ Design decisions prioritize readability, clarity, and low cognitive load.
 - Confirmation prompts only for destructive actions.
 - Toast/snackbar for quick success feedback.
 
-## 9) Do / Don’t
+## 10) Do / Don’t
 
 ### Do
 
@@ -124,7 +156,7 @@ Design decisions prioritize readability, clarity, and low cognitive load.
 - Don’t hide important actions inside deep menus.
 - Don’t rely only on color to explain meaning.
 
-## 10) Quick Reference Token Mapping
+## 11) Quick Reference Token Mapping
 
 - text-primary: #111827
 - text-secondary: #374151
