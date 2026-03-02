@@ -13,6 +13,7 @@ const NAV_LINKS = [
   { href: '/master-inventory-sheet', label: 'Master Inventory Sheet', className: 'bg-lime-600 hover:bg-lime-700' },
   { href: '/master-workforce-sheet', label: 'Master Workforce Sheet', className: 'bg-orange-500 hover:bg-orange-600' },
   { href: '/master-kyc-sheet', label: 'Master KYC Sheet', className: 'bg-indigo-600 hover:bg-indigo-700' },
+  { href: '/master-customer-sheet', label: 'Master Customer Sheet', className: 'bg-cyan-600 hover:bg-cyan-700' },
   { href: '/managers-dashboard', label: 'Managers Dashboard', className: 'bg-blue-500 hover:bg-blue-600' },
   { href: '/drafts', label: 'Drafts', className: 'bg-purple-600 hover:bg-purple-700' },
 ];
