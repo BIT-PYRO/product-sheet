@@ -22,13 +22,13 @@ export function StockSection({ onCreateJob }) {
         <Table>
           <TableHeader>
             <TableRow className="bg-muted">
-              <TableHead className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">SKU</TableHead>
-              <TableHead className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Category</TableHead>
-              <TableHead className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Opening Stock</TableHead>
-              <TableHead className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Issued Qty</TableHead>
-              <TableHead className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Received Qty</TableHead>
-              <TableHead className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Current Stock</TableHead>
-              <TableHead className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Weight (gm)</TableHead>
+              <TableHead className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">SKU</TableHead>
+              <TableHead className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Category</TableHead>
+              <TableHead className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Opening Stock</TableHead>
+              <TableHead className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Issued Qty</TableHead>
+              <TableHead className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Received Qty</TableHead>
+              <TableHead className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Current Stock</TableHead>
+              <TableHead className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Weight (gm)</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -56,7 +56,7 @@ export function StockSection({ onCreateJob }) {
 
       <Button
         onClick={onCreateJob}
-        className="mt-5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-8"
+        className="mt-5 bg-success hover:bg-success text-white font-semibold px-8"
       >
         Create a Job
       </Button>

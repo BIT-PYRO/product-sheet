@@ -11,6 +11,20 @@ const config: Config = {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ['Inter', 'Segoe UI', 'Roboto', 'Arial', 'sans-serif'],
+      },
+      fontSize: {
+        /* Enforce UI Guidelines minimum 14px */
+        xs: ['0.875rem', { lineHeight: '1.5' }],   /* 14px — upgraded from 12px */
+        sm: ['0.875rem', { lineHeight: '1.5' }],   /* 14px helper text */
+        base: ['1rem', { lineHeight: '1.5' }],     /* 16px body / labels */
+        lg: ['1.125rem', { lineHeight: '1.4' }],   /* 18px card titles */
+        xl: ['1.25rem', { lineHeight: '1.4' }],    /* 20px */
+        '2xl': ['1.5rem', { lineHeight: '1.35' }], /* 24px section headings */
+        '3xl': ['1.875rem', { lineHeight: '1.3' }],/* 30px page titles */
+        '4xl': ['2rem', { lineHeight: '1.3' }],    /* 32px large titles */
+      },
       colors: {
         background: 'hsl(var(--background))',
         foreground: 'hsl(var(--foreground))',
@@ -62,11 +76,30 @@ const config: Config = {
           border: 'hsl(var(--sidebar-border))',
           ring: 'hsl(var(--sidebar-ring))',
         },
+        /* ── UI Guidelines semantic tokens ── */
+        'midnight-ink': '#111827',
+        'slate-text': '#374151',
+        'cool-gray': '#6B7280',
+        'cloud-gray': '#F9FAFB',
+        'soft-border': '#E5E7EB',
+        'trust-blue': '#2563EB',
+        'deep-blue': '#1D4ED8',
+        'sky-info': '#0EA5E9',
+        'success': '#16A34A',
+        'success-dark': '#166534',
+        'warning': '#D97706',
+        'warning-soft': '#FEF3C7',
+        'danger': '#DC2626',
+        'danger-dark': '#B91C1C',
+        'danger-soft': '#FEE2E2',
       },
       borderRadius: {
         lg: 'var(--radius)',
         md: 'calc(var(--radius) - 2px)',
         sm: 'calc(var(--radius) - 4px)',
+      },
+      minHeight: {
+        'touch': '44px', /* UI Guidelines min interactive height */
       },
       keyframes: {
         'accordion-down': {

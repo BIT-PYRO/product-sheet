@@ -9,16 +9,16 @@ function DataBlock({ title, rows: initialRows }) {
   const [rows, setRows] = useState(initialRows)
 
   return (
-    <div className="border border-slate-300 rounded overflow-hidden bg-white">
-      <div className="bg-slate-900 text-white px-3 py-1.5">
-        <h2 className="text-xs font-bold uppercase tracking-wider">{title}</h2>
+    <div className="border border-soft-border rounded overflow-hidden bg-white">
+      <div className="bg-midnight-ink text-white px-3 py-1.5">
+        <h2 className="text-sm font-bold uppercase tracking-wider">{title}</h2>
       </div>
 
       <div>
         {Array.from({ length: rows }).map((_, i) => (
-          <div key={i} className={`border-b border-slate-300 last:border-b-0 px-3 py-1 ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50'}`}>
+          <div key={i} className={`border-b border-soft-border last:border-b-0 px-3 py-1 ${i % 2 === 0 ? 'bg-white' : 'bg-cloud-gray'}`}>
             <Input
-              className="border-0 bg-transparent p-0 h-7 text-sm focus-visible:ring-0 placeholder:text-slate-400"
+              className="border-0 bg-transparent p-0 h-7 text-sm focus-visible:ring-0 placeholder:text-cool-gray"
               placeholder={`Enter ${title.toLowerCase()} item...`}
             />
           </div>
@@ -27,7 +27,7 @@ function DataBlock({ title, rows: initialRows }) {
 
       <Button
         variant="ghost"
-        className="w-full justify-start text-slate-600 hover:text-slate-900 hover:bg-slate-50 font-semibold h-7 text-xs border-t border-slate-300 rounded-none"
+        className="w-full justify-start text-cool-gray hover:text-midnight-ink hover:bg-cloud-gray font-semibold h-7 text-sm border-t border-soft-border rounded-none"
         onClick={() => setRows((r) => r + 1)}
       >
         <Plus className="mr-1 h-3 w-3" />

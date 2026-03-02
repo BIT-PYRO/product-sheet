@@ -18,6 +18,7 @@ const nextConfig = {
       { source: '/master-inventory-sheet', destination: '/frontend/master-inventory-sheet' },
       { source: '/master-job-sheet', destination: '/frontend/master-job-sheet' },
       { source: '/master-kyc-sheet', destination: '/frontend/master-kyc-sheet' },
+      { source: '/master-customer-sheet', destination: '/frontend/master-customer-sheet' },
       { source: '/master-product-sheet', destination: '/frontend/master-product-sheet' },
       { source: '/master-product-sheet/:path*', destination: '/frontend/master-product-sheet/:path*' },
       { source: '/master-workforce-sheet', destination: '/frontend/master-workforce-sheet' },

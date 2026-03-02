@@ -130,19 +130,19 @@ export default function DraftsPage() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-50 p-4 md:p-8">
+    <main className="min-h-screen bg-cloud-gray p-4 md:p-8">
       <div className="max-w-6xl mx-auto">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-6">
           <div>
-            <h1 className="text-2xl md:text-3xl font-bold text-slate-900">Drafts</h1>
-            <p className="text-sm text-slate-600 mt-1">Saved drafts grouped by section</p>
+            <h1 className="text-2xl md:text-3xl font-bold text-midnight-ink">Drafts</h1>
+            <p className="text-sm text-cool-gray mt-1">Saved drafts grouped by section</p>
           </div>
           <div className="flex items-center gap-2">
             {totalDrafts > 0 && (
               <Button
                 onClick={clearAllDrafts}
                 variant="outline"
-                className="text-red-600 border-red-200 hover:bg-red-50"
+                className="text-danger border-danger/30 hover:bg-danger/10"
               >
                 Clear All Drafts
               </Button>
@@ -164,32 +164,32 @@ export default function DraftsPage() {
                 onClick={() => setActiveSection(section)}
                 className={`text-left rounded-xl border bg-white p-5 transition ${
                   isActive
-                    ? 'border-slate-400 shadow-sm'
-                    : 'border-slate-200 hover:border-slate-300 hover:shadow-sm'
+                    ? 'border-soft-border shadow-sm'
+                    : 'border-soft-border hover:border-soft-border hover:shadow-md'
                 }`}
               >
-                <h2 className="text-base font-semibold text-slate-900">{section}</h2>
-                <p className="text-sm text-slate-600 mt-2">{count} saved draft{count === 1 ? '' : 's'}</p>
+                <h2 className="text-base font-semibold text-midnight-ink">{section}</h2>
+                <p className="text-sm text-cool-gray mt-2">{count} saved draft{count === 1 ? '' : 's'}</p>
               </button>
             )
           })}
         </section>
 
         {activeSection && (
-          <section className="rounded-xl border border-slate-200 bg-white p-5">
-            <h3 className="text-base font-semibold text-slate-900 mb-4">{activeSection} Drafts</h3>
+          <section className="rounded-xl border border-soft-border bg-white p-5">
+            <h3 className="text-base font-semibold text-midnight-ink mb-4">{activeSection} Drafts</h3>
 
             {activeDrafts.length === 0 ? (
-              <p className="text-sm text-slate-500">No drafts available in this section.</p>
+              <p className="text-sm text-cool-gray">No drafts available in this section.</p>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[980px] border-collapse">
                   <thead>
-                    <tr className="bg-slate-100">
+                    <tr className="bg-cloud-gray">
                       {activeColumns.map((column) => (
                         <th
                           key={column.key}
-                          className="text-left text-xs font-semibold text-slate-700 px-3 py-2 border border-slate-200"
+                          className="text-left text-sm font-semibold text-slate-text px-3 py-2 border border-soft-border"
                         >
                           {column.label}
                         </th>
@@ -198,16 +198,16 @@ export default function DraftsPage() {
                   </thead>
                   <tbody>
                     {activeDrafts.map((draft) => (
-                      <tr key={draft.id} className="hover:bg-slate-50">
+                      <tr key={draft.id} className="hover:bg-cloud-gray">
                         {activeColumns.map((column) => (
                           <td
                             key={`${draft.id}-${column.key}`}
-                            className="text-sm text-slate-700 px-3 py-2 border border-slate-200 align-top"
+                            className="text-sm text-slate-text px-3 py-2 border border-soft-border align-top"
                           >
                             {column.key === 'title' ? (
                               <button
                                 onClick={() => handleContinueDraft(activeSection, draft)}
-                                className="text-left text-blue-700 hover:text-blue-800 hover:underline font-medium"
+                                className="text-left text-deep-blue hover:text-deep-blue hover:underline font-medium"
                               >
                                 {formatValue(column.getValue(draft)) || 'Continue Draft'}
                               </button>

@@ -224,25 +224,25 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
             <div className="flex gap-2">
               {/* DATE */}
               <div className="flex flex-col gap-0.5">
-                <Label className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Date</Label>
+                <Label className="text-sm font-bold uppercase tracking-wide text-muted-foreground">Date</Label>
                 <div className="relative flex items-center">
                   <Input
                     type="date"
                     value={date}
                     onChange={(e) => setDate(e.target.value)}
-                    className="pl-1 h-8 py-1 text-xs bg-background border-border !w-fit max-w-[130px]"
+                    className="pl-1 h-8 py-1 text-sm bg-background border-border !w-fit max-w-[130px]"
                   />
                 </div>
               </div>
 
               {/* SCHEDULE */}
               <div className="flex flex-col gap-0.5">
-                <Label className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Schedule</Label>
+                <Label className="text-sm font-bold uppercase tracking-wide text-muted-foreground">Schedule</Label>
                 <Input
                   type="date"
                   value={scheduleFuture}
                   onChange={(e) => setScheduleFuture(e.target.value)}
-                  className="h-8 pl-1 py-1 text-xs bg-background border-border !w-fit max-w-[130px]"
+                  className="h-8 pl-1 py-1 text-sm bg-background border-border !w-fit max-w-[130px]"
                 />
               </div>
             </div>
@@ -251,9 +251,9 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
             <div className="flex gap-2">
               {/* TYPE */}
               <div className="flex flex-col gap-0.5">
-                <Label className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Type</Label>
+                <Label className="text-sm font-bold uppercase tracking-wide text-muted-foreground">Type</Label>
                 <Select value={voucherType} onValueChange={setVoucherType}>
-                  <SelectTrigger className="h-8 px-2 py-1 text-xs bg-background border-border focus:ring-0 focus:outline-none">
+                  <SelectTrigger className="h-8 px-2 py-1 text-sm bg-background border-border focus:ring-0 focus:outline-none">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -265,11 +265,11 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
 
               {/* VOUCHER NO. */}
               <div className="flex flex-col gap-0.5">
-                <Label className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Voucher No.</Label>
+                <Label className="text-sm font-bold uppercase tracking-wide text-muted-foreground">Voucher No.</Label>
                 <Input
                   value={voucherNo}
                   readOnly
-                  className="h-8 px-2 py-1 text-xs bg-muted border-border font-semibold text-foreground !w-fit max-w-[120px]"
+                  className="h-8 px-2 py-1 text-sm bg-muted border-border font-semibold text-foreground !w-fit max-w-[120px]"
                 />
               </div>
             </div>
@@ -279,9 +279,9 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
           <div className="border border-border rounded-md px-2.5 py-1.5">
             <div className="grid grid-cols-[1fr_auto_1fr] gap-1.5 items-end">
               <div className="flex flex-col gap-0.5">
-                <Label className="text-[10px] font-medium text-muted-foreground">Issued To</Label>
+                <Label className="text-sm font-medium text-muted-foreground">Issued To</Label>
                 <Select value={issuedTo} onValueChange={setIssuedTo}>
-                  <SelectTrigger className="h-8 text-xs bg-background border-border focus:ring-0 focus:outline-none">
+                  <SelectTrigger className="h-8 text-sm bg-background border-border focus:ring-0 focus:outline-none">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -298,15 +298,15 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
               <button
                 type="button"
                 onClick={() => setIsQuickEnrollModalOpen(true)}
-                className="h-8 px-10 border-2 border-dashed border-blue-500 text-blue-600 rounded font-semibold text-xs hover:bg-blue-50 transition-colors flex items-center gap-1"
+                className="h-8 px-10 border-2 border-dashed border-trust-blue text-trust-blue rounded font-semibold text-sm hover:bg-trust-blue/10 transition-colors flex items-center gap-1"
               >
                 <Plus className="h-3 w-3" />
                 Enroll
               </button>
               <div className="flex flex-col gap-0.5">
-                <Label className="text-[10px] font-medium text-muted-foreground">Work Type</Label>
+                <Label className="text-sm font-medium text-muted-foreground">Work Type</Label>
                 <Select value={workType} onValueChange={setWorkType}>
-                  <SelectTrigger className="h-8 text-xs bg-background border-border focus:ring-0 focus:outline-none">
+                  <SelectTrigger className="h-8 text-sm bg-background border-border focus:ring-0 focus:outline-none">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -323,9 +323,9 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
           <div className="border border-border rounded-md px-2.5 py-1.5">
             <div className="grid grid-cols-[1fr_auto_1fr] gap-1.5 items-end">
               <div className="flex flex-col gap-0.5">
-                <Label className="text-[10px] font-medium text-muted-foreground">From</Label>
+                <Label className="text-sm font-medium text-muted-foreground">From</Label>
                 <Select value={deptFrom} onValueChange={setDeptFrom}>
-                  <SelectTrigger className="h-8 text-xs bg-background border-border focus:ring-0 focus:outline-none">
+                  <SelectTrigger className="h-8 text-sm bg-background border-border focus:ring-0 focus:outline-none">
                     <SelectValue placeholder="Select Department" />
                   </SelectTrigger>
                   <SelectContent>
@@ -336,12 +336,12 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
                 </Select>
               </div>
               <div className="flex items-center justify-center h-8 px-2">
-                <ArrowRight className="h-4 w-6 text-blue-600" />
+                <ArrowRight className="h-4 w-6 text-trust-blue" />
               </div>
               <div className="flex flex-col gap-0.5">
-                <Label className="text-[10px] font-medium text-muted-foreground">To</Label>
+                <Label className="text-sm font-medium text-muted-foreground">To</Label>
                 <Select value={deptTo} onValueChange={setDeptTo}>
-                  <SelectTrigger className="h-8 text-xs bg-background border-border focus:ring-0 focus:outline-none">
+                  <SelectTrigger className="h-8 text-sm bg-background border-border focus:ring-0 focus:outline-none">
                     <SelectValue placeholder="Select Department" />
                   </SelectTrigger>
                   <SelectContent>
@@ -357,7 +357,7 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
           {/* SKU Table */}
           <div className="rounded-md overflow-hidden border border-border">
             {/* Table Header - blue */}
-            <div className="grid grid-cols-[1fr_1fr_1fr_0.8fr_60px_0.8fr_60px_32px] gap-0 bg-blue-600 text-white text-[9px] font-bold uppercase tracking-wider">
+            <div className="grid grid-cols-[1fr_1fr_1fr_0.8fr_60px_0.8fr_60px_32px] gap-0 bg-trust-blue text-white text-[9px] font-bold uppercase tracking-wider">
               <div className="px-1.5 py-2">SKU</div>
               <div className="px-1.5 py-2">Category</div>
               <div className="px-1.5 py-2">Metal</div>
@@ -373,20 +373,20 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
                 className="grid grid-cols-[1fr_1fr_1fr_0.8fr_60px_0.8fr_60px_32px] gap-0 border-t border-border items-center bg-background"
               >
                 <div className="px-0.5 py-0.5">
-                  <Input className="h-6 text-xs bg-background border-border" placeholder="SKU" value={row.sku} onChange={(e) => updateRow(row.id, "sku", e.target.value)} />
+                  <Input className="h-6 text-sm bg-background border-border" placeholder="SKU" value={row.sku} onChange={(e) => updateRow(row.id, "sku", e.target.value)} />
                 </div>
                 <div className="px-0.5 py-0.5">
-                  <Input className="h-6 text-xs bg-background border-border" placeholder="Category" value={row.category} onChange={(e) => updateRow(row.id, "category", e.target.value)} />
+                  <Input className="h-6 text-sm bg-background border-border" placeholder="Category" value={row.category} onChange={(e) => updateRow(row.id, "category", e.target.value)} />
                 </div>
                 <div className="px-0.5 py-0.5">
-                  <Input className="h-6 text-xs bg-background border-border" placeholder="Metal" value={row.metal} onChange={(e) => updateRow(row.id, "metal", e.target.value)} />
+                  <Input className="h-6 text-sm bg-background border-border" placeholder="Metal" value={row.metal} onChange={(e) => updateRow(row.id, "metal", e.target.value)} />
                 </div>
                 <div className="px-0.5 py-0.5">
-                  <Input className="h-6 text-xs bg-background border-border" type="number" placeholder="0" value={row.issuedQty} onChange={(e) => updateRow(row.id, "issuedQty", e.target.value)} />
+                  <Input className="h-6 text-sm bg-background border-border" type="number" placeholder="0" value={row.issuedQty} onChange={(e) => updateRow(row.id, "issuedQty", e.target.value)} />
                 </div>
                 <div className="px-0.5 py-0.5">
                   <Select value={row.unit1} onValueChange={(v) => updateRow(row.id, "unit1", v)}>
-                    <SelectTrigger className="h-6 text-[10px] bg-background border-border p-0.5 focus:ring-0 focus:outline-none"><SelectValue placeholder="Select" /></SelectTrigger>
+                    <SelectTrigger className="h-6 text-sm bg-background border-border p-0.5 focus:ring-0 focus:outline-none"><SelectValue placeholder="Select" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="Pcs">Pcs</SelectItem>
                       <SelectItem value="Kg">Kg</SelectItem>
@@ -395,11 +395,11 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
                   </Select>
                 </div>
                 <div className="px-0.5 py-0.5">
-                  <Input className="h-6 text-xs bg-background border-border" placeholder="0" value={row.issuedWeight} onChange={(e) => updateRow(row.id, "issuedWeight", e.target.value)} />
+                  <Input className="h-6 text-sm bg-background border-border" placeholder="0" value={row.issuedWeight} onChange={(e) => updateRow(row.id, "issuedWeight", e.target.value)} />
                 </div>
                 <div className="px-0.5 py-0.5">
                   <Select value={row.unit2} onValueChange={(v) => updateRow(row.id, "unit2", v)}>
-                    <SelectTrigger className="h-6 text-[10px] bg-background border-border p-0.5 focus:ring-0 focus:outline-none"><SelectValue placeholder="Select" /></SelectTrigger>
+                    <SelectTrigger className="h-6 text-sm bg-background border-border p-0.5 focus:ring-0 focus:outline-none"><SelectValue placeholder="Select" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="Kg">Kg</SelectItem>
                       <SelectItem value="g">g</SelectItem>
@@ -408,7 +408,7 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
                   </Select>
                 </div>
                 <div className="flex items-center justify-center">
-                  <button type="button" onClick={() => deleteRow(row.id)} className="text-red-500 hover:text-red-700 transition-colors" aria-label="Delete row">
+                  <button type="button" onClick={() => deleteRow(row.id)} className="text-danger hover:text-danger-dark transition-colors" aria-label="Delete row">
                     <Trash2 className="h-3 w-3" />
                   </button>
                 </div>
@@ -435,32 +435,32 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
               const allUnits = [...new Set([...qtyUnits, ...weightUnits])]
               
               return allUnits.map((unit, idx) => (
-                <div key={`total-${unit}`} className="grid grid-cols-[1fr_1fr_0.8fr_60px_0.8fr_60px_32px] gap-0 border-t border-border items-center bg-blue-50">
+                <div key={`total-${unit}`} className="grid grid-cols-[1fr_1fr_0.8fr_60px_0.8fr_60px_32px] gap-0 border-t border-border items-center bg-trust-blue/10">
                   <div className="px-1.5 py-0.5">
-                    <div className="text-xs font-bold text-foreground">{idx === 0 ? "Total" : ""}</div>
+                    <div className="text-sm font-bold text-foreground">{idx === 0 ? "Total" : ""}</div>
                   </div>
                   <div className="px-1.5 py-0.5"></div>
                   <div className="px-1.5 py-0.5">
-                    <div className="text-xs font-bold text-foreground">{qtyByUnit[unit] ? qtyByUnit[unit].toFixed(2) : "-"}</div>
+                    <div className="text-sm font-bold text-foreground">{qtyByUnit[unit] ? qtyByUnit[unit].toFixed(2) : "-"}</div>
                   </div>
                   <div className="px-1.5 py-0.5">
-                    <div className="text-xs font-semibold text-foreground">{qtyByUnit[unit] ? unit : ""}</div>
+                    <div className="text-sm font-semibold text-foreground">{qtyByUnit[unit] ? unit : ""}</div>
                   </div>
                   <div className="px-1.5 py-0.5">
-                    <div className="text-xs font-bold text-foreground">{weightByUnit[unit] ? weightByUnit[unit].toFixed(2) : "-"}</div>
+                    <div className="text-sm font-bold text-foreground">{weightByUnit[unit] ? weightByUnit[unit].toFixed(2) : "-"}</div>
                   </div>
                   <div className="px-1.5 py-0.5">
-                    <div className="text-xs font-semibold text-foreground">{weightByUnit[unit] ? unit : ""}</div>
+                    <div className="text-sm font-semibold text-foreground">{weightByUnit[unit] ? unit : ""}</div>
                   </div>
                   <div className="px-1.5 py-0.5"></div>
                 </div>
               ))
             })()}
             <div className="border-t border-border bg-background flex gap-2">
-              <button type="button" className="flex-1 py-1 text-blue-600 hover:text-blue-700 text-xs font-semibold transition-colors" onClick={addRow}>
+              <button type="button" className="flex-1 py-1 text-trust-blue hover:text-deep-blue text-sm font-semibold transition-colors" onClick={addRow}>
                 + Add Row
               </button>
-              <button type="button" className="flex-1 py-1 text-blue-600 hover:text-blue-700 text-xs font-semibold transition-colors border-l border-border" disabled>
+              <button type="button" className="flex-1 py-1 text-trust-blue hover:text-deep-blue text-sm font-semibold transition-colors border-l border-border" disabled>
                 + Add Column
               </button>
             </div>
@@ -468,16 +468,16 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
 
           {/* STONE & FINDINGS TABS */}
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-2 bg-blue-100">
-              <TabsTrigger value="stone" className="text-xs font-semibold">Stone</TabsTrigger>
-              <TabsTrigger value="die" className="text-xs font-semibold">Findings</TabsTrigger>
+            <TabsList className="grid w-full grid-cols-2 bg-trust-blue/10">
+              <TabsTrigger value="stone" className="text-sm font-semibold">Stone</TabsTrigger>
+              <TabsTrigger value="die" className="text-sm font-semibold">Findings</TabsTrigger>
             </TabsList>
 
             {/* STONE AND FINDINGS TAB */}
             <TabsContent value="stone" className="mt-2">
               <div className="flex flex-col gap-1">
                 <div className="rounded-md overflow-hidden border border-border">
-                  <div className="grid grid-cols-[1fr_1fr_1fr_1fr_1fr_32px] gap-0 bg-blue-600 text-white text-[9px] font-bold uppercase tracking-wider">
+                  <div className="grid grid-cols-[1fr_1fr_1fr_1fr_1fr_32px] gap-0 bg-trust-blue text-white text-[9px] font-bold uppercase tracking-wider">
                     <div className="px-1.5 py-2">Name</div>
                     <div className="px-1.5 py-2">Cut</div>
                     <div className="px-1.5 py-2">Color</div>
@@ -491,29 +491,29 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
                       className="grid grid-cols-[1fr_1fr_1fr_1fr_1fr_32px] gap-0 border-t border-border items-center bg-background"
                     >
                       <div className="px-0.5 py-0.5">
-                        <Input className="h-6 text-xs bg-background border-border" placeholder="Stone name" value={row.name} onChange={(e) => updateStoneRow(row.id, "name", e.target.value)} />
+                        <Input className="h-6 text-sm bg-background border-border" placeholder="Stone name" value={row.name} onChange={(e) => updateStoneRow(row.id, "name", e.target.value)} />
                       </div>
                       <div className="px-0.5 py-0.5">
-                        <Input className="h-6 text-xs bg-background border-border" placeholder="Cut" value={row.cut} onChange={(e) => updateStoneRow(row.id, "cut", e.target.value)} />
+                        <Input className="h-6 text-sm bg-background border-border" placeholder="Cut" value={row.cut} onChange={(e) => updateStoneRow(row.id, "cut", e.target.value)} />
                       </div>
                       <div className="px-0.5 py-0.5">
-                        <Input className="h-6 text-xs bg-background border-border" placeholder="Color" value={row.color} onChange={(e) => updateStoneRow(row.id, "color", e.target.value)} />
+                        <Input className="h-6 text-sm bg-background border-border" placeholder="Color" value={row.color} onChange={(e) => updateStoneRow(row.id, "color", e.target.value)} />
                       </div>
                       <div className="px-0.5 py-0.5">
-                        <Input className="h-6 text-xs bg-background border-border" placeholder="Size" value={row.size} onChange={(e) => updateStoneRow(row.id, "size", e.target.value)} />
+                        <Input className="h-6 text-sm bg-background border-border" placeholder="Size" value={row.size} onChange={(e) => updateStoneRow(row.id, "size", e.target.value)} />
                       </div>
                       <div className="px-0.5 py-0.5">
-                      <Input className="h-6 text-xs bg-background border-border" type="number" placeholder="0" value={row.quantity} onChange={(e) => updateStoneRow(row.id, "quantity", e.target.value)} />
+                      <Input className="h-6 text-sm bg-background border-border" type="number" placeholder="0" value={row.quantity} onChange={(e) => updateStoneRow(row.id, "quantity", e.target.value)} />
                       </div>
                       <div className="flex items-center justify-center">
-                        <button type="button" onClick={() => deleteStoneRow(row.id)} className="text-red-500 hover:text-red-700 transition-colors" aria-label="Delete row">
+                        <button type="button" onClick={() => deleteStoneRow(row.id)} className="text-danger hover:text-danger-dark transition-colors" aria-label="Delete row">
                           <Trash2 className="h-3 w-3" />
                         </button>
                       </div>
                     </div>
                   ))}
                   <div className="border-t border-border bg-background">
-                    <button type="button" onClick={addStoneRow} className="w-full py-0.5 text-blue-600 hover:text-blue-700 text-xs font-semibold transition-colors">
+                    <button type="button" onClick={addStoneRow} className="w-full py-0.5 text-trust-blue hover:text-deep-blue text-sm font-semibold transition-colors">
                       + Add Row
                     </button>
                   </div>
@@ -525,7 +525,7 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
             <TabsContent value="die" className="mt-2">
               <div className="flex flex-col gap-1">
                 <div className="rounded-md overflow-hidden border border-border">
-                  <div className="grid grid-cols-[1fr_1fr_1fr_1fr_32px] gap-0 bg-blue-600 text-white text-[9px] font-bold uppercase tracking-wider">
+                  <div className="grid grid-cols-[1fr_1fr_1fr_1fr_32px] gap-0 bg-trust-blue text-white text-[9px] font-bold uppercase tracking-wider">
                     <div className="px-1.5 py-2">Die Number</div>
                     <div className="px-1.5 py-2">Qty</div>
                     <div className="px-1.5 py-2">Weight</div>
@@ -538,17 +538,17 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
                       className="grid grid-cols-[1fr_1fr_1fr_1fr_32px] gap-0 border-t border-border items-center bg-background"
                     >
                       <div className="px-0.5 py-0.5">
-                        <Input className="h-6 text-xs bg-background border-border" placeholder="Die Number" value={row.dieNumber} onChange={(e) => updateDieWeightRow(row.id, "dieNumber", e.target.value)} />
+                        <Input className="h-6 text-sm bg-background border-border" placeholder="Die Number" value={row.dieNumber} onChange={(e) => updateDieWeightRow(row.id, "dieNumber", e.target.value)} />
                       </div>
                       <div className="px-0.5 py-0.5">
-                        <Input className="h-6 text-xs bg-background border-border" type="number" placeholder="0" value={row.quantity} onChange={(e) => updateDieWeightRow(row.id, "quantity", e.target.value)} />
+                        <Input className="h-6 text-sm bg-background border-border" type="number" placeholder="0" value={row.quantity} onChange={(e) => updateDieWeightRow(row.id, "quantity", e.target.value)} />
                       </div>
                       <div className="px-0.5 py-0.5">
-                        <Input className="h-6 text-xs bg-background border-border" type="number" step="0.01" placeholder="0" value={row.weight} onChange={(e) => updateDieWeightRow(row.id, "weight", e.target.value)} />
+                        <Input className="h-6 text-sm bg-background border-border" type="number" step="0.01" placeholder="0" value={row.weight} onChange={(e) => updateDieWeightRow(row.id, "weight", e.target.value)} />
                       </div>
                       <div className="px-0.5 py-0.5">
                         <Select value={row.unit} onValueChange={(value) => updateDieWeightRow(row.id, "unit", value)}>
-                          <SelectTrigger className="h-6 text-xs bg-background border-border focus:ring-0 focus:outline-none">
+                          <SelectTrigger className="h-6 text-sm bg-background border-border focus:ring-0 focus:outline-none">
                             <SelectValue placeholder="Select unit" />
                           </SelectTrigger>
                           <SelectContent>
@@ -559,14 +559,14 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
                         </Select>
                       </div>
                       <div className="flex items-center justify-center">
-                        <button type="button" onClick={() => deleteDieWeightRow(row.id)} className="text-red-500 hover:text-red-700 transition-colors" aria-label="Delete row">
+                        <button type="button" onClick={() => deleteDieWeightRow(row.id)} className="text-danger hover:text-danger-dark transition-colors" aria-label="Delete row">
                           <Trash2 className="h-3 w-3" />
                         </button>
                       </div>
                     </div>
                   ))}
                   <div className="border-t border-border bg-background">
-                    <button type="button" onClick={addDieWeightRow} className="w-full py-0.5 text-blue-600 hover:text-blue-700 text-xs font-semibold transition-colors">
+                    <button type="button" onClick={addDieWeightRow} className="w-full py-0.5 text-trust-blue hover:text-deep-blue text-sm font-semibold transition-colors">
                       + Add Row
                     </button>
                   </div>
@@ -579,13 +579,13 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
           <div className="border border-border rounded-md px-2.5 py-1.5">
             <div className="grid grid-cols-[1fr_auto_1fr] gap-1.5 items-end">
               <div className="flex flex-col gap-0.5">
-                <Label className="text-[10px] font-medium text-muted-foreground">Issued By</Label>
-                <Input placeholder="Enter your name" value={issuedByName} onChange={(e) => setIssuedByName(e.target.value)} className="h-8 text-xs bg-background border-border focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-colors cursor-text" />
+                <Label className="text-sm font-medium text-muted-foreground">Issued By</Label>
+                <Input placeholder="Enter your name" value={issuedByName} onChange={(e) => setIssuedByName(e.target.value)} className="h-8 text-sm bg-background border-border focus:ring-1 focus:ring-trust-blue focus:border-trust-blue transition-colors cursor-text" />
               </div>
               <div className="hidden md:block" />
               <div className="flex flex-col gap-0.5">
-                <Label className="text-[10px] font-medium text-muted-foreground">Contact</Label>
-                <Input type="tel" placeholder="+91 XXXXX XXXXX" value={issuedByContact} onChange={(e) => setIssuedByContact(e.target.value)} className="h-8 text-xs bg-background border-border" />
+                <Label className="text-sm font-medium text-muted-foreground">Contact</Label>
+                <Input type="tel" placeholder="+91 XXXXX XXXXX" value={issuedByContact} onChange={(e) => setIssuedByContact(e.target.value)} className="h-8 text-sm bg-background border-border" />
               </div>
             </div>
           </div>
@@ -593,12 +593,12 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
           {/* ADD NOTE */}
           <div className="border border-border rounded-md px-2.5 py-1.5">
             <div className="flex flex-col gap-0.5">
-              <Label className="text-[10px] font-medium text-muted-foreground">Add Note</Label>
+              <Label className="text-sm font-medium text-muted-foreground">Add Note</Label>
               <Textarea
                 value={noteByIssuer}
                 onChange={(e) => setNoteByIssuer(e.target.value)}
                 placeholder="Enter notes..."
-                className="min-h-[32px] max-h-[32px] resize-none text-xs bg-background border-border p-1"
+                className="min-h-[32px] max-h-[32px] resize-none text-sm bg-background border-border p-1"
               />
             </div>
           </div>
@@ -606,13 +606,13 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
           {/* Buttons Container */}
           <div className="flex gap-2 mt-0.5 mb-1.5">
             <Button
-              className="flex-1 h-7 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded"
+              className="flex-1 h-7 bg-trust-blue hover:bg-deep-blue text-white font-bold text-sm rounded"
               onClick={handleSaveDraft}
             >
               Save as Draft
             </Button>
             <Button
-              className="flex-1 h-7 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded"
+              className="flex-1 h-7 bg-success hover:bg-success text-white font-bold text-sm rounded"
               onClick={handleSubmit}
             >
               Issue Job

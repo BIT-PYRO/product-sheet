@@ -52,14 +52,14 @@ export default function HomePage() {
   };
 
   return (
-    <main className="min-h-screen bg-slate-50 p-4 md:p-8">
+    <main className="min-h-screen bg-cloud-gray p-4 md:p-8">
       <div className="max-w-6xl mx-auto">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-6">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-8">
           <div>
-            <h1 className="text-2xl md:text-3xl font-bold text-slate-900">Home</h1>
-            <p className="text-sm text-slate-600 mt-1">Welcome, {username}</p>
+            <h1 className="text-3xl font-bold text-midnight-ink">Home</h1>
+            <p className="text-base text-cool-gray mt-2">Welcome, {username}</p>
           </div>
-          <Button variant="outline" onClick={handleLogout}>Logout</Button>
+          <Button variant="outline" onClick={handleLogout} className="h-11 text-base font-semibold">Logout</Button>
         </div>
 
         <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -67,10 +67,10 @@ export default function HomePage() {
             <Link
               key={block.href}
               href={block.href}
-              className="block rounded-xl border border-slate-200 bg-white p-5 hover:border-slate-300 hover:shadow-sm transition"
+              className="block rounded-xl border border-soft-border bg-white p-6 hover:border-trust-blue hover:shadow-md transition"
             >
-              <h2 className="text-base font-semibold text-slate-900">{block.title}</h2>
-              <p className="text-sm text-slate-600 mt-2">{block.subtitle}</p>
+              <h2 className="text-lg font-semibold text-midnight-ink">{block.title}</h2>
+              <p className="text-sm text-cool-gray mt-2">{block.subtitle}</p>
             </Link>
           ))}
         </section>

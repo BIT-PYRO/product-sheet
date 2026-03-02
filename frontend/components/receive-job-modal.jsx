@@ -172,22 +172,22 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
           {/* Header: Issue Date, Voucher Type, Voucher No. */}
           <div className="flex items-end justify-between gap-6">
             <div className="flex flex-col gap-0.5">
-              <Label className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Issue Date</Label>
+              <Label className="text-sm font-bold uppercase tracking-wide text-muted-foreground">Issue Date</Label>
               <div className="relative">
                 <CalendarIcon className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground pointer-events-none" />
                 <Input
                   type="date"
                   value={issueDate}
                   onChange={(e) => setIssueDate(e.target.value)}
-                  className="pl-7 h-7 text-[10px] bg-background border-border"
+                  className="pl-7 h-7 text-sm bg-background border-border"
                 />
               </div>
             </div>
             <div className="flex items-end gap-6">
               <div className="flex flex-col gap-0.5">
-                <Label className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Voucher Type</Label>
+                <Label className="text-sm font-bold uppercase tracking-wide text-muted-foreground">Voucher Type</Label>
                 <Select defaultValue="New">
-                  <SelectTrigger className="h-7 text-[10px] bg-background border-border">
+                  <SelectTrigger className="h-7 text-sm bg-background border-border">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -197,12 +197,12 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
                 </Select>
               </div>
               <div className="flex flex-col gap-0.5">
-                <Label className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Voucher No.</Label>
+                <Label className="text-sm font-bold uppercase tracking-wide text-muted-foreground">Voucher No.</Label>
                 <Input
                   value={voucherNo}
                   onChange={(e) => setVoucherNo(e.target.value)}
                   placeholder="JW-2026-XXXX"
-                  className="h-7 text-[10px] bg-background border-border"
+                  className="h-7 text-sm bg-background border-border"
                 />
               </div>
             </div>
@@ -212,9 +212,9 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
           <div className="border border-border rounded-md px-3 py-2">
             <div className="grid grid-cols-[minmax(200px,260px)_1fr_minmax(200px,240px)] gap-5 items-end">
               <div className="flex flex-col gap-0.5">
-                <Label className="text-[10px] font-medium text-muted-foreground">Issued To</Label>
+                <Label className="text-sm font-medium text-muted-foreground">Issued To</Label>
                 <Select value={issuedTo} onValueChange={setIssuedTo}>
-                  <SelectTrigger className="h-7 text-[10px] bg-background border-border">
+                  <SelectTrigger className="h-7 text-sm bg-background border-border">
                     <SelectValue placeholder="Select" />
                   </SelectTrigger>
                   <SelectContent>
@@ -225,9 +225,9 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
               </div>
               <div className="flex items-center justify-center text-sm text-muted-foreground px-6">—</div>
               <div className="flex flex-col gap-0.5">
-                <Label className="text-[10px] font-medium text-muted-foreground">Work Type</Label>
+                <Label className="text-sm font-medium text-muted-foreground">Work Type</Label>
                 <Select value={workType} onValueChange={setWorkType}>
-                  <SelectTrigger className="h-7 text-[10px] bg-background border-border">
+                  <SelectTrigger className="h-7 text-sm bg-background border-border">
                     <SelectValue placeholder="Select" />
                   </SelectTrigger>
                   <SelectContent>
@@ -244,9 +244,9 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
           <div className="border border-border rounded-md px-3 py-2">
             <div className="grid grid-cols-[minmax(200px,260px)_1fr_minmax(200px,260px)] gap-5 items-end">
               <div className="flex flex-col gap-0.5">
-                <Label className="text-[10px] font-medium text-muted-foreground">From</Label>
+                <Label className="text-sm font-medium text-muted-foreground">From</Label>
                 <Select value={deptFrom} onValueChange={setDeptFrom}>
-                  <SelectTrigger className="h-7 text-[10px] bg-background border-border">
+                  <SelectTrigger className="h-7 text-sm bg-background border-border">
                     <SelectValue placeholder="Select Department" />
                   </SelectTrigger>
                   <SelectContent>
@@ -257,12 +257,12 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
                 </Select>
               </div>
               <div className="flex items-center justify-center h-7 px-3">
-                <ArrowRight className="h-5 w-8 text-blue-600" />
+                <ArrowRight className="h-5 w-8 text-trust-blue" />
               </div>
               <div className="flex flex-col gap-0.5">
-                <Label className="text-[10px] font-medium text-muted-foreground">To</Label>
+                <Label className="text-sm font-medium text-muted-foreground">To</Label>
                 <Select value={deptTo} onValueChange={setDeptTo}>
-                  <SelectTrigger className="h-7 text-[10px] bg-background border-border">
+                  <SelectTrigger className="h-7 text-sm bg-background border-border">
                     <SelectValue placeholder="Select Department" />
                   </SelectTrigger>
                   <SelectContent>
@@ -279,21 +279,21 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
           <div className="border border-border rounded-md px-3 py-2">
             <div className="grid grid-cols-[minmax(220px,320px)_1fr_minmax(220px,320px)] gap-4">
               <div className="flex flex-col gap-0.5">
-                <Label className="text-[10px] font-medium text-muted-foreground">Issued By</Label>
-                <Input placeholder="User Name" value={issuedByName} onChange={(e) => setIssuedByName(e.target.value)} className="h-7 text-[10px] bg-background border-border focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-colors cursor-text" />
+                <Label className="text-sm font-medium text-muted-foreground">Issued By</Label>
+                <Input placeholder="User Name" value={issuedByName} onChange={(e) => setIssuedByName(e.target.value)} className="h-7 text-sm bg-background border-border focus:ring-1 focus:ring-trust-blue focus:border-trust-blue transition-colors cursor-text" />
               </div>
               <div className="hidden md:block" />
               <div className="flex flex-col gap-0.5">
-                <Label className="text-[10px] font-medium text-muted-foreground">Contact</Label>
-                <Input type="tel" placeholder="Contact Number" value={issuedByContact} onChange={(e) => setIssuedByContact(e.target.value)} className="h-7 text-[10px] bg-background border-border" />
+                <Label className="text-sm font-medium text-muted-foreground">Contact</Label>
+                <Input type="tel" placeholder="Contact Number" value={issuedByContact} onChange={(e) => setIssuedByContact(e.target.value)} className="h-7 text-sm bg-background border-border" />
               </div>
             </div>
           </div>
 
           {/* SKU Table with all 18 columns */}
-          <div className="rounded-md overflow-hidden border border-border text-xs">
+          <div className="rounded-md overflow-hidden border border-border text-sm">
             <div className="w-full scale-[1.0] origin-top-left">
-              <div className="grid gap-0 bg-blue-600 text-white font-bold uppercase tracking-wider px-1 text-center" style={{ gridTemplateColumns: "0.6fr 0.65fr 0.65fr 0.48fr 0.32fr 0.48fr 0.32fr 0.48fr 0.32fr 0.48fr 0.32fr 0.48fr 0.32fr 0.48fr 0.32fr 0.48fr 0.32fr 0.48fr 0.32fr 24px" }}>
+              <div className="grid gap-0 bg-trust-blue text-white font-bold uppercase tracking-wider px-1 text-center" style={{ gridTemplateColumns: "0.6fr 0.65fr 0.65fr 0.48fr 0.32fr 0.48fr 0.32fr 0.48fr 0.32fr 0.48fr 0.32fr 0.48fr 0.32fr 0.48fr 0.32fr 0.48fr 0.32fr 0.48fr 0.32fr 24px" }}>
                 <div className="py-1">SKU</div>
                 <div className="py-1">Category</div>
                 <div className="py-1">Metal</div>
@@ -301,37 +301,37 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
                 <div className="py-1"></div>
                 <div className="py-1 leading-tight"><span>Issued</span><span className="block">WT</span></div>
                 <div className="py-1"></div>
-                <div className="py-1 bg-emerald-700 leading-tight"><span>Received</span><span className="block">Qty</span></div>
-                <div className="py-1 bg-emerald-700"></div>
-                <div className="py-1 bg-emerald-700 leading-tight"><span>Received</span><span className="block">WT</span></div>
-                <div className="py-1 bg-emerald-700"></div>
-                <div className="py-1 bg-red-600 leading-tight"><span>Loss</span><span className="block">Qty</span></div>
-                <div className="py-1 bg-red-600"></div>
-                <div className="py-1 bg-red-600 leading-tight"><span>Loss</span><span className="block">WT</span></div>
-                <div className="py-1 bg-red-600"></div>
-                <div className="py-1 bg-orange-500 leading-tight"><span>Re-Issue</span><span className="block">Qty</span></div>
-                <div className="py-1 bg-orange-500"></div>
-                <div className="py-1 bg-orange-500 leading-tight"><span>Re-Issue</span><span className="block">WT</span></div>
-                <div className="py-1 bg-orange-500"></div>
+                <div className="py-1 bg-success leading-tight"><span>Received</span><span className="block">Qty</span></div>
+                <div className="py-1 bg-success"></div>
+                <div className="py-1 bg-success leading-tight"><span>Received</span><span className="block">WT</span></div>
+                <div className="py-1 bg-success"></div>
+                <div className="py-1 bg-danger leading-tight"><span>Loss</span><span className="block">Qty</span></div>
+                <div className="py-1 bg-danger"></div>
+                <div className="py-1 bg-danger leading-tight"><span>Loss</span><span className="block">WT</span></div>
+                <div className="py-1 bg-danger"></div>
+                <div className="py-1 bg-warning leading-tight"><span>Re-Issue</span><span className="block">Qty</span></div>
+                <div className="py-1 bg-warning"></div>
+                <div className="py-1 bg-warning leading-tight"><span>Re-Issue</span><span className="block">WT</span></div>
+                <div className="py-1 bg-warning"></div>
                 <div className="py-1"></div>
               </div>
               {rows.map((row, i) => (
                 <div key={row.id} className={`grid gap-0 border-t border-border items-center px-1 ${i % 2 === 0 ? "bg-background" : "bg-muted"}`} style={{ gridTemplateColumns: "0.6fr 0.65fr 0.65fr 0.48fr 0.32fr 0.48fr 0.32fr 0.48fr 0.32fr 0.48fr 0.32fr 0.48fr 0.32fr 0.48fr 0.32fr 0.48fr 0.32fr 0.48fr 0.32fr 24px" }}>
                   <div className="py-0.5">
-                    <Input className="h-6 text-xs border-border" placeholder="SKU" value={row.sku} onChange={(e) => updateRow(row.id, "sku", e.target.value)} />
+                    <Input className="h-6 text-sm border-border" placeholder="SKU" value={row.sku} onChange={(e) => updateRow(row.id, "sku", e.target.value)} />
                   </div>
                   <div className="py-0.5">
-                    <Input className="h-6 text-xs border-border" placeholder="Cat" value={row.category} onChange={(e) => updateRow(row.id, "category", e.target.value)} />
+                    <Input className="h-6 text-sm border-border" placeholder="Cat" value={row.category} onChange={(e) => updateRow(row.id, "category", e.target.value)} />
                   </div>
                   <div className="py-0.5">
-                    <Input className="h-6 text-xs border-border" placeholder="Metal" value={row.metal} onChange={(e) => updateRow(row.id, "metal", e.target.value)} />
+                    <Input className="h-6 text-sm border-border" placeholder="Metal" value={row.metal} onChange={(e) => updateRow(row.id, "metal", e.target.value)} />
                   </div>
                   <div className="py-0.5">
-                    <Input className="h-6 text-xs border-border" type="number" placeholder="0" value={row.issuedQty} onChange={(e) => updateRow(row.id, "issuedQty", e.target.value)} />
+                    <Input className="h-6 text-sm border-border" type="number" placeholder="0" value={row.issuedQty} onChange={(e) => updateRow(row.id, "issuedQty", e.target.value)} />
                   </div>
                   <div className="py-0.5">
                     <Select value={row.unit1} onValueChange={(v) => updateRow(row.id, "unit1", v)}>
-                      <SelectTrigger className="h-6 text-[10px] border-border p-0.5"><SelectValue /></SelectTrigger>
+                      <SelectTrigger className="h-6 text-sm border-border p-0.5"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="Pcs">Pcs</SelectItem>
                         <SelectItem value="Kg">Kg</SelectItem>
@@ -340,11 +340,11 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
                     </Select>
                   </div>
                   <div className="py-0.5">
-                    <Input className="h-6 text-xs border-border" placeholder="0.00" value={row.issuedWeight} onChange={(e) => updateRow(row.id, "issuedWeight", e.target.value)} />
+                    <Input className="h-6 text-sm border-border" placeholder="0.00" value={row.issuedWeight} onChange={(e) => updateRow(row.id, "issuedWeight", e.target.value)} />
                   </div>
                   <div className="py-0.5">
                     <Select value={row.unit2} onValueChange={(v) => updateRow(row.id, "unit2", v)}>
-                      <SelectTrigger className="h-6 text-[10px] border-border p-0.5"><SelectValue /></SelectTrigger>
+                      <SelectTrigger className="h-6 text-sm border-border p-0.5"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="Kg">Kg</SelectItem>
                         <SelectItem value="Grams">Grams</SelectItem>
@@ -352,72 +352,72 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="py-0.5 bg-emerald-50">
-                    <Input className="h-6 text-xs border-border bg-emerald-50" placeholder="0" value={row.receivedQty} onChange={(e) => updateRow(row.id, "receivedQty", e.target.value)} />
+                  <div className="py-0.5 bg-success/10">
+                    <Input className="h-6 text-sm border-border bg-success/10" placeholder="0" value={row.receivedQty} onChange={(e) => updateRow(row.id, "receivedQty", e.target.value)} />
                   </div>
-                  <div className="py-0.5 bg-emerald-50">
+                  <div className="py-0.5 bg-success/10">
                     <Select value={row.unit3 || "Pcs"} onValueChange={(v) => updateRow(row.id, "unit3", v)}>
-                      <SelectTrigger className="h-6 text-[10px] border-border bg-emerald-50 p-0.5"><SelectValue /></SelectTrigger>
+                      <SelectTrigger className="h-6 text-sm border-border bg-success/10 p-0.5"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="Pcs">Pcs</SelectItem>
                         <SelectItem value="Kg">Kg</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="py-0.5 bg-emerald-50">
-                    <Input className="h-6 text-xs border-border bg-emerald-50" placeholder="0.00" value={row.receivedWeight} onChange={(e) => updateRow(row.id, "receivedWeight", e.target.value)} />
+                  <div className="py-0.5 bg-success/10">
+                    <Input className="h-6 text-sm border-border bg-success/10" placeholder="0.00" value={row.receivedWeight} onChange={(e) => updateRow(row.id, "receivedWeight", e.target.value)} />
                   </div>
-                  <div className="py-0.5 bg-emerald-50">
+                  <div className="py-0.5 bg-success/10">
                     <Select value={row.unit4 || "Kg"} onValueChange={(v) => updateRow(row.id, "unit4", v)}>
-                      <SelectTrigger className="h-6 text-[10px] border-border bg-emerald-50 p-0.5"><SelectValue /></SelectTrigger>
+                      <SelectTrigger className="h-6 text-sm border-border bg-success/10 p-0.5"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="Kg">Kg</SelectItem>
                         <SelectItem value="Grams">Grams</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="py-0.5 bg-red-50">
-                    <Input className="h-6 text-xs border-border bg-red-50" placeholder="0" value={row.lossQty} onChange={(e) => updateRow(row.id, "lossQty", e.target.value)} />
+                  <div className="py-0.5 bg-danger/10">
+                    <Input className="h-6 text-sm border-border bg-danger/10" placeholder="0" value={row.lossQty} onChange={(e) => updateRow(row.id, "lossQty", e.target.value)} />
                   </div>
-                  <div className="py-0.5 bg-red-50">
+                  <div className="py-0.5 bg-danger/10">
                     <Select value={row.unit5 || "Pcs"} onValueChange={(v) => updateRow(row.id, "unit5", v)}>
-                      <SelectTrigger className="h-6 text-[10px] border-border bg-red-50 p-0.5"><SelectValue /></SelectTrigger>
+                      <SelectTrigger className="h-6 text-sm border-border bg-danger/10 p-0.5"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="Pcs">Pcs</SelectItem>
                         <SelectItem value="Kg">Kg</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="py-0.5 bg-red-50">
-                    <Input className="h-6 text-xs border-border bg-red-50" placeholder="0.00" value={row.lossWeight} onChange={(e) => updateRow(row.id, "lossWeight", e.target.value)} />
+                  <div className="py-0.5 bg-danger/10">
+                    <Input className="h-6 text-sm border-border bg-danger/10" placeholder="0.00" value={row.lossWeight} onChange={(e) => updateRow(row.id, "lossWeight", e.target.value)} />
                   </div>
-                  <div className="py-0.5 bg-red-50">
+                  <div className="py-0.5 bg-danger/10">
                     <Select value={row.unit6 || "Kg"} onValueChange={(v) => updateRow(row.id, "unit6", v)}>
-                      <SelectTrigger className="h-6 text-[10px] border-border bg-red-50 p-0.5"><SelectValue /></SelectTrigger>
+                      <SelectTrigger className="h-6 text-sm border-border bg-danger/10 p-0.5"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="Kg">Kg</SelectItem>
                         <SelectItem value="Grams">Grams</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="py-0.5 bg-orange-50">
-                    <Input className="h-6 text-xs border-border bg-orange-50" placeholder="0" value={row.reissueQty} onChange={(e) => updateRow(row.id, "reissueQty", e.target.value)} />
+                  <div className="py-0.5 bg-warning/10">
+                    <Input className="h-6 text-sm border-border bg-warning/10" placeholder="0" value={row.reissueQty} onChange={(e) => updateRow(row.id, "reissueQty", e.target.value)} />
                   </div>
-                  <div className="py-0.5 bg-orange-50">
+                  <div className="py-0.5 bg-warning/10">
                     <Select value={row.unit7 || "Pcs"} onValueChange={(v) => updateRow(row.id, "unit7", v)}>
-                      <SelectTrigger className="h-6 text-[10px] border-border bg-orange-50 p-0.5"><SelectValue /></SelectTrigger>
+                      <SelectTrigger className="h-6 text-sm border-border bg-warning/10 p-0.5"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="Pcs">Pcs</SelectItem>
                         <SelectItem value="Kg">Kg</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="py-0.5 bg-orange-50">
-                    <Input className="h-6 text-xs border-border bg-orange-50" placeholder="0.00" value={row.reissueWeight} onChange={(e) => updateRow(row.id, "reissueWeight", e.target.value)} />
+                  <div className="py-0.5 bg-warning/10">
+                    <Input className="h-6 text-sm border-border bg-warning/10" placeholder="0.00" value={row.reissueWeight} onChange={(e) => updateRow(row.id, "reissueWeight", e.target.value)} />
                   </div>
-                  <div className="py-0.5 bg-orange-50">
+                  <div className="py-0.5 bg-warning/10">
                     <Select value={row.unit8 || "Kg"} onValueChange={(v) => updateRow(row.id, "unit8", v)}>
-                      <SelectTrigger className="h-6 text-[10px] border-border bg-orange-50 p-0.5"><SelectValue /></SelectTrigger>
+                      <SelectTrigger className="h-6 text-sm border-border bg-warning/10 p-0.5"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="Kg">Kg</SelectItem>
                         <SelectItem value="Grams">Grams</SelectItem>
@@ -425,14 +425,14 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
                     </Select>
                   </div>
                   <div className="flex items-center justify-center">
-                    <button type="button" onClick={() => deleteRow(row.id)} className="text-red-500 hover:text-red-700 transition-colors">
+                    <button type="button" onClick={() => deleteRow(row.id)} className="text-danger hover:text-danger-dark transition-colors">
                       <Trash2 className="h-3 w-3" />
                     </button>
                   </div>
                 </div>
               ))}
               <div className="border-t border-border bg-background">
-                <button type="button" className="w-full py-1 text-blue-600 hover:text-blue-700 text-xs font-semibold transition-colors" onClick={addRow}>
+                <button type="button" className="w-full py-1 text-trust-blue hover:text-deep-blue text-sm font-semibold transition-colors" onClick={addRow}>
                   + Add Row
                 </button>
               </div>
@@ -441,13 +441,13 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
 
           {/* Action Buttons Row */}
           <div className="grid grid-cols-3 gap-1.5">
-            <Button className="h-7 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] rounded">
+            <Button className="h-7 bg-success hover:bg-success text-white font-bold text-sm rounded">
               Update Inventory
             </Button>
-            <Button className="h-7 bg-yellow-500 hover:bg-yellow-600 text-white font-bold text-[10px] rounded">
+            <Button className="h-7 bg-warning hover:bg-warning/90 text-white font-bold text-sm rounded">
               Partial Update
             </Button>
-            <Button className="h-7 bg-orange-500 hover:bg-orange-600 text-white font-bold text-[10px] rounded">
+            <Button className="h-7 bg-warning hover:bg-warning/90 text-white font-bold text-sm rounded">
               Re-Issue for Improvement
             </Button>
           </div>
@@ -456,24 +456,24 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
           <div className="border border-border rounded-md px-3 py-2">
             <div className="grid grid-cols-[minmax(220px,320px)_minmax(220px,320px)_minmax(180px,220px)] gap-4 items-end justify-start">
               <div className="flex flex-col gap-0.5">
-                <Label className="text-[10px] font-medium text-muted-foreground">Received By</Label>
-                <Input placeholder="User Name" value={receivedByName} onChange={(e) => setReceivedByName(e.target.value)} className="h-7 text-[10px] bg-background border-border focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-colors cursor-text" />
+                <Label className="text-sm font-medium text-muted-foreground">Received By</Label>
+                <Input placeholder="User Name" value={receivedByName} onChange={(e) => setReceivedByName(e.target.value)} className="h-7 text-sm bg-background border-border focus:ring-1 focus:ring-trust-blue focus:border-trust-blue transition-colors cursor-text" />
               </div>
               <div className="flex flex-col gap-0.5">
-                <Label className="text-[10px] font-medium text-muted-foreground">Contact</Label>
-                <Input type="tel" placeholder="Contact Number" value={receivedByContact} onChange={(e) => setReceivedByContact(e.target.value)} className="h-7 text-[10px] bg-background border-border" />
+                <Label className="text-sm font-medium text-muted-foreground">Contact</Label>
+                <Input type="tel" placeholder="Contact Number" value={receivedByContact} onChange={(e) => setReceivedByContact(e.target.value)} className="h-7 text-sm bg-background border-border" />
               </div>
               <div className="flex flex-col gap-0.5">
-                <Label className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Rate Workmanship</Label>
+                <Label className="text-sm font-bold uppercase tracking-wide text-muted-foreground">Rate Workmanship</Label>
                 <div className="flex gap-1">
                   {Array.from({ length: 10 }, (_, i) => i + 1).map((num) => (
                     <button
                       key={num}
                       onClick={() => setRatingScore(num)}
-                      className={`h-6 w-6 rounded-full border text-[10px] font-semibold transition-colors ${
+                      className={`h-6 w-6 rounded-full border text-sm font-semibold transition-colors ${
                         ratingScore >= num
-                          ? "border-orange-500 bg-orange-400 text-white"
-                          : "border-orange-500 text-orange-600"
+                          ? "border-warning bg-warning text-white"
+                          : "border-warning text-warning"
                       }`}
                       title={`Rating ${num}`}
                       type="button"
@@ -488,12 +488,12 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
 
           {/* Note For Reissue Voucher */}
           <div className="flex flex-col gap-0.5">
-            <Label className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Note For Reissue Voucher</Label>
+            <Label className="text-sm font-bold uppercase tracking-wide text-muted-foreground">Note For Reissue Voucher</Label>
             <Textarea
               value={noteForReissue}
               onChange={(e) => setNoteForReissue(e.target.value)}
               placeholder="Enter notes..."
-              className="min-h-[35px] text-xs resize-none bg-background border-border p-1.5"
+              className="min-h-[35px] text-sm resize-none bg-background border-border p-1.5"
             />
           </div>
         </div>

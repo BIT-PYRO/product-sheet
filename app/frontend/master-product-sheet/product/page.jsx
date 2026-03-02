@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -25,7 +25,7 @@ const LIVE_STOCK_COLUMNS = [
   ['Ready for Plating', 'readyForPlacing'],
 ];
 
-export default function ProductDetailPage() {
+function ProductDetailContent() {
   const searchParams = useSearchParams();
   const sku = (searchParams.get('sku') || '').trim();
 
@@ -76,22 +76,22 @@ export default function ProductDetailPage() {
   const finalStockRows = Array.isArray(product?.finalStock) ? product.finalStock : [];
 
   return (
-    <div className="w-full min-h-screen bg-gray-50 p-4 md:p-6">
-      <div className="max-w-[1600px] mx-auto border border-gray-300 bg-white p-4 md:p-6">
-        <div className="mb-4 sticky top-0 z-30 bg-white/95 py-2 border-b border-gray-200 shadow-sm backdrop-blur">
+    <div className="w-full min-h-screen bg-cloud-gray p-4 md:p-6">
+      <div className="max-w-[1600px] mx-auto border border-soft-border bg-white p-4 md:p-6">
+        <div className="mb-4 sticky top-0 z-30 bg-white/95 py-2 border-b border-soft-border shadow-sm backdrop-blur">
           <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
             <div className="flex items-center gap-3">
               <MasterNavigationDrawer inHeader />
-              <h1 className="text-xl font-bold tracking-tight text-slate-900">PRODUCT SHEET DETAILS</h1>
+              <h1 className="text-xl font-bold tracking-tight text-midnight-ink">PRODUCT SHEET DETAILS</h1>
             </div>
-            <Button asChild variant="outline" className="border-gray-800 text-gray-800 rounded-full px-6">
+            <Button asChild variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-6">
               <Link href="/master-product-sheet">Back to Product Sheet</Link>
             </Button>
           </div>
         </div>
 
         {isLoading && (
-          <div className="mb-4 rounded-md border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">
+          <div className="mb-4 rounded-md border border-trust-blue/30 bg-blue-50 px-4 py-2 text-sm text-deep-blue">
             Loading product details...
           </div>
         )}
@@ -103,13 +103,13 @@ export default function ProductDetailPage() {
         )}
 
         {!isLoading && !fetchError && !sku && (
-          <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-700">
+          <div className="mb-4 rounded-md border border-warning/30 bg-warning-soft px-4 py-2 text-sm text-warning">
             SKU is missing. Please open this page by clicking an SKU in the product sheet.
           </div>
         )}
 
         {!isLoading && !fetchError && sku && !product && (
-          <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-700">
+          <div className="mb-4 rounded-md border border-warning/30 bg-warning-soft px-4 py-2 text-sm text-warning">
             Product with SKU "{sku}" was not found.
           </div>
         )}
@@ -148,33 +148,33 @@ export default function ProductDetailPage() {
               <InfoCard label="IMAGES" value={product.images} />
             </div>
 
-            <div className="mb-4 border border-gray-300 rounded-lg bg-white overflow-hidden">
-              <div className="px-3 py-2 bg-indigo-300 font-bold text-sm text-gray-800 border-b border-gray-400">
+            <div className="mb-4 border border-soft-border rounded-lg bg-white overflow-hidden">
+              <div className="px-3 py-2 bg-trust-blue/40 font-bold text-sm text-midnight-ink border-b border-soft-border">
                 NOTES
               </div>
               <div className="p-3 text-sm whitespace-pre-wrap break-words min-h-[48px]">{product.notes || '—'}</div>
             </div>
 
-            <div className="mb-4 border border-gray-300 rounded-lg bg-white overflow-hidden">
-              <div className="px-3 py-2 bg-indigo-300 font-bold text-sm text-gray-800 border-b border-gray-400">
+            <div className="mb-4 border border-soft-border rounded-lg bg-white overflow-hidden">
+              <div className="px-3 py-2 bg-trust-blue/40 font-bold text-sm text-midnight-ink border-b border-soft-border">
                 LIVE STOCK SITUATION
               </div>
               <div className="overflow-x-auto">
-                <table className="w-full border-collapse text-xs">
+                <table className="w-full border-collapse text-sm">
                   <thead>
-                    <tr className="bg-indigo-300 text-gray-800 font-bold border-b-2 border-gray-400">
-                      <th className="border border-gray-400 p-2 min-w-[140px]">Metric</th>
+                    <tr className="bg-trust-blue/40 text-midnight-ink font-bold border-b-2 border-soft-border">
+                      <th className="border border-soft-border p-2 min-w-[140px]">Metric</th>
                       {LIVE_STOCK_COLUMNS.map(([label]) => (
-                        <th key={label} className="border border-gray-400 p-2 min-w-[110px]">{label}</th>
+                        <th key={label} className="border border-soft-border p-2 min-w-[110px]">{label}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
                     {LIVE_STOCK_ROWS.map(([rowLabel, field]) => (
-                      <tr key={rowLabel} className="border-b border-gray-300">
-                        <td className="border border-gray-400 p-2 font-semibold bg-gray-50">{rowLabel}</td>
+                      <tr key={rowLabel} className="border-b border-soft-border">
+                        <td className="border border-soft-border p-2 font-semibold bg-cloud-gray">{rowLabel}</td>
                         {LIVE_STOCK_COLUMNS.map(([, key]) => (
-                          <td key={`${rowLabel}-${key}`} className="border border-gray-400 p-2">
+                          <td key={`${rowLabel}-${key}`} className="border border-soft-border p-2">
                             {product.liveStock?.[key]?.[field] || '—'}
                           </td>
                         ))}
@@ -185,32 +185,32 @@ export default function ProductDetailPage() {
               </div>
             </div>
 
-            <div className="border border-gray-300 rounded-lg bg-white overflow-hidden">
-              <div className="px-3 py-2 bg-indigo-300 font-bold text-sm text-gray-800 border-b border-gray-400">
+            <div className="border border-soft-border rounded-lg bg-white overflow-hidden">
+              <div className="px-3 py-2 bg-trust-blue/40 font-bold text-sm text-midnight-ink border-b border-soft-border">
                 FINAL STOCK DATA
               </div>
               <div className="overflow-x-auto">
-                <table className="w-full border-collapse text-xs">
+                <table className="w-full border-collapse text-sm">
                   <thead>
-                    <tr className="bg-indigo-300 text-gray-800 font-bold border-b-2 border-gray-400">
-                      <th className="border border-gray-400 p-2 min-w-[140px]">SKU</th>
-                      <th className="border border-gray-400 p-2 min-w-[140px]">Value</th>
-                      <th className="border border-gray-400 p-2 min-w-[120px]">Unit</th>
+                    <tr className="bg-trust-blue/40 text-midnight-ink font-bold border-b-2 border-soft-border">
+                      <th className="border border-soft-border p-2 min-w-[140px]">SKU</th>
+                      <th className="border border-soft-border p-2 min-w-[140px]">Value</th>
+                      <th className="border border-soft-border p-2 min-w-[120px]">Unit</th>
                     </tr>
                   </thead>
                   <tbody>
                     {finalStockRows.length === 0 && (
                       <tr>
-                        <td className="border border-gray-400 p-3 text-center text-sm text-gray-500" colSpan={3}>
+                        <td className="border border-soft-border p-3 text-center text-sm text-cool-gray" colSpan={3}>
                           No final stock rows available.
                         </td>
                       </tr>
                     )}
                     {finalStockRows.map((row, index) => (
-                      <tr key={`${row?.id || index}-${row?.sku || ''}`} className="border-b border-gray-300">
-                        <td className="border border-gray-400 p-2">{row?.sku || '—'}</td>
-                        <td className="border border-gray-400 p-2">{row?.value || '—'}</td>
-                        <td className="border border-gray-400 p-2">{row?.unit || '—'}</td>
+                      <tr key={`${row?.id || index}-${row?.sku || ''}`} className="border-b border-soft-border">
+                        <td className="border border-soft-border p-2">{row?.sku || '—'}</td>
+                        <td className="border border-soft-border p-2">{row?.value || '—'}</td>
+                        <td className="border border-soft-border p-2">{row?.unit || '—'}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -224,10 +224,18 @@ export default function ProductDetailPage() {
   );
 }
 
+export default function ProductDetailPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-cloud-gray flex items-center justify-center"><p className="text-base text-cool-gray">Loading product…</p></div>}>
+      <ProductDetailContent />
+    </Suspense>
+  );
+}
+
 function InfoCard({ label, value }) {
   return (
-    <div className="border border-gray-300 rounded-lg bg-white overflow-hidden">
-      <div className="px-3 py-2 bg-indigo-300 font-bold text-xs text-gray-800 border-b border-gray-400">{label}</div>
+    <div className="border border-soft-border rounded-lg bg-white overflow-hidden">
+      <div className="px-3 py-2 bg-trust-blue/40 font-bold text-sm text-midnight-ink border-b border-soft-border">{label}</div>
       <div className="px-3 py-2 text-sm min-h-[44px] whitespace-pre-wrap break-words">{value || '—'}</div>
     </div>
   );

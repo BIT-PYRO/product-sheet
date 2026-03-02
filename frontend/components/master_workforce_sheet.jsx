@@ -61,18 +61,18 @@ export default function MasterWorkforceSheet() {
   
   // Column configuration with styling
   const columnConfig = {
-    department: { minWidth: 'min-w-[100px]', headerBg: 'bg-yellow-400' },
-    firstName: { minWidth: 'min-w-[100px]', headerBg: 'bg-yellow-400' },
-    lastName: { minWidth: 'min-w-[100px]', headerBg: 'bg-yellow-400' },
-    contactNumber: { minWidth: 'min-w-[120px]', headerBg: 'bg-yellow-400' },
-    type: { minWidth: 'min-w-[80px]', headerBg: 'bg-yellow-400' },
-    aadharCard: { minWidth: 'min-w-[120px]', headerBg: 'bg-yellow-400' },
-    paymentType: { minWidth: 'min-w-[100px]', headerBg: 'bg-yellow-400' },
-    origin: { minWidth: 'min-w-[80px]', headerBg: 'bg-yellow-400' },
-    bankAccount: { minWidth: 'min-w-[120px]', headerBg: 'bg-yellow-400' },
-    ifsc: { minWidth: 'min-w-[80px]', headerBg: 'bg-yellow-400' },
-    bank: { minWidth: 'min-w-[100px]', headerBg: 'bg-yellow-400' },
-    branch: { minWidth: 'min-w-[100px]', headerBg: 'bg-yellow-400' },
+    department: { minWidth: 'min-w-[100px]', headerBg: 'bg-warning' },
+    firstName: { minWidth: 'min-w-[100px]', headerBg: 'bg-warning' },
+    lastName: { minWidth: 'min-w-[100px]', headerBg: 'bg-warning' },
+    contactNumber: { minWidth: 'min-w-[120px]', headerBg: 'bg-warning' },
+    type: { minWidth: 'min-w-[80px]', headerBg: 'bg-warning' },
+    aadharCard: { minWidth: 'min-w-[120px]', headerBg: 'bg-warning' },
+    paymentType: { minWidth: 'min-w-[100px]', headerBg: 'bg-warning' },
+    origin: { minWidth: 'min-w-[80px]', headerBg: 'bg-warning' },
+    bankAccount: { minWidth: 'min-w-[120px]', headerBg: 'bg-warning' },
+    ifsc: { minWidth: 'min-w-[80px]', headerBg: 'bg-warning' },
+    bank: { minWidth: 'min-w-[100px]', headerBg: 'bg-warning' },
+    branch: { minWidth: 'min-w-[100px]', headerBg: 'bg-warning' },
   };
   
   // Set default visible columns to prevent horizontal scrolling
@@ -307,7 +307,7 @@ export default function MasterWorkforceSheet() {
   const displayedData = isArchivedView ? archivedData : activeData;
 
   return (
-    <div className="w-full min-h-screen bg-gray-50 p-4 md:p-6">
+    <div className="w-full min-h-screen bg-cloud-gray p-4 md:p-6">
       {/* Manage Columns Dialog */}
       <Dialog open={isManageColumnsOpen} onOpenChange={setIsManageColumnsOpen}>
         <DialogContent className="max-w-md">
@@ -316,7 +316,7 @@ export default function MasterWorkforceSheet() {
           </DialogHeader>
           <div className="space-y-3 max-h-[400px] overflow-y-auto py-4">
             {/* Select All Checkbox */}
-            <div className="flex items-center justify-between gap-3 pb-3 border-b border-gray-200 mb-3">
+            <div className="flex items-center justify-between gap-3 pb-3 border-b border-soft-border mb-3">
               <div className="flex items-center gap-3 flex-1">
                 <Checkbox
                   id="select-all-columns"
@@ -342,11 +342,11 @@ export default function MasterWorkforceSheet() {
                     {column.label}
                   </label>
                 </div>
-                <div className="text-xs font-semibold px-2 py-1 rounded">
+                <div className="text-sm font-semibold px-2 py-1 rounded">
                   {!visibleColumns.has(column.id) ? (
-                    <span className="bg-red-100 text-red-700 px-2 py-1 rounded-full text-xs">Hidden</span>
+                    <span className="bg-danger/10 text-danger-dark px-2 py-1 rounded-full text-sm">Hidden</span>
                   ) : (
-                    <span className="bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs">Visible</span>
+                    <span className="bg-success/10 text-success-dark px-2 py-1 rounded-full text-sm">Visible</span>
                   )}
                 </div>
               </div>
@@ -357,7 +357,7 @@ export default function MasterWorkforceSheet() {
               onClick={handleHideColumns}
               disabled={selectedColumnsForAction.size === 0}
               variant="outline"
-              className="text-red-600 border-red-300 hover:bg-red-50"
+              className="text-danger border-danger/40 hover:bg-danger/10"
             >
               Hide
             </Button>
@@ -365,7 +365,7 @@ export default function MasterWorkforceSheet() {
               onClick={handleShowColumns}
               disabled={selectedColumnsForAction.size === 0}
               variant="outline"
-              className="text-green-600 border-green-300 hover:bg-green-50"
+              className="text-success border-green-300 hover:bg-success/10"
             >
               Show
             </Button>
@@ -383,62 +383,62 @@ export default function MasterWorkforceSheet() {
           {selectedEmployeeForPrint && (
             <div className="space-y-6 py-4">
               {/* Employee Header */}
-              <div className="border-2 border-gray-900 p-6 bg-white">
+              <div className="border-2 border-midnight-ink p-6 bg-white">
                 <h2 className="text-2xl font-bold text-center mb-6">EMPLOYEE DETAILS</h2>
                 
                 {/* Top Section */}
-                <div className="grid grid-cols-3 gap-4 mb-6 border-b-2 border-gray-900 pb-4">
-                  <div className="border-r-2 border-gray-900 pr-4">
-                    <p className="text-xs font-bold text-gray-700 mb-1">S NO</p>
+                <div className="grid grid-cols-3 gap-4 mb-6 border-b-2 border-midnight-ink pb-4">
+                  <div className="border-r-2 border-midnight-ink pr-4">
+                    <p className="text-sm font-bold text-slate-text mb-1">S NO</p>
                     <p className="text-sm">{selectedEmployeeForPrint.sNo || '—'}</p>
                   </div>
-                  <div className="border-r-2 border-gray-900 pr-4">
-                    <p className="text-xs font-bold text-gray-700 mb-1">NAME</p>
+                  <div className="border-r-2 border-midnight-ink pr-4">
+                    <p className="text-sm font-bold text-slate-text mb-1">NAME</p>
                     <p className="text-sm">{selectedEmployeeForPrint.firstName || '—'} {selectedEmployeeForPrint.lastName || '—'}</p>
                   </div>
                   <div>
-                    <p className="text-xs font-bold text-gray-700 mb-1">DEPARTMENT</p>
+                    <p className="text-sm font-bold text-slate-text mb-1">DEPARTMENT</p>
                     <p className="text-sm">{selectedEmployeeForPrint.department || '—'}</p>
                   </div>
                 </div>
 
                 {/* Details Section */}
-                <div className="grid grid-cols-2 gap-4 mb-6 border-b-2 border-gray-900 pb-4">
+                <div className="grid grid-cols-2 gap-4 mb-6 border-b-2 border-midnight-ink pb-4">
                   <div>
-                    <p className="text-xs font-bold text-gray-700 mb-1">CONTACT NUMBER</p>
+                    <p className="text-sm font-bold text-slate-text mb-1">CONTACT NUMBER</p>
                     <p className="text-sm">{selectedEmployeeForPrint.contactNumber || '—'}</p>
                   </div>
                   <div>
-                    <p className="text-xs font-bold text-gray-700 mb-1">TYPE</p>
+                    <p className="text-sm font-bold text-slate-text mb-1">TYPE</p>
                     <p className="text-sm">{selectedEmployeeForPrint.type || '—'}</p>
                   </div>
                   <div>
-                    <p className="text-xs font-bold text-gray-700 mb-1">AADHAR CARD</p>
+                    <p className="text-sm font-bold text-slate-text mb-1">AADHAR CARD</p>
                     <p className="text-sm">{selectedEmployeeForPrint.aadharCard || '—'}</p>
                   </div>
                   <div>
-                    <p className="text-xs font-bold text-gray-700 mb-1">PAYMENT TYPE</p>
+                    <p className="text-sm font-bold text-slate-text mb-1">PAYMENT TYPE</p>
                     <p className="text-sm">{selectedEmployeeForPrint.paymentType || '—'}</p>
                   </div>
                 </div>
 
                 {/* Bank Information */}
                 <div className="mb-6">
-                  <table className="w-full border-collapse border-2 border-gray-900">
+                  <table className="w-full border-collapse border-2 border-midnight-ink">
                     <thead>
                       <tr className="bg-gray-900 text-white">
-                        <th className="border-2 border-gray-900 p-2 text-xs font-bold text-left">ORIGIN</th>
-                        <th className="border-2 border-gray-900 p-2 text-xs font-bold text-left">BANK A/C</th>
-                        <th className="border-2 border-gray-900 p-2 text-xs font-bold text-left">IFSC</th>
-                        <th className="border-2 border-gray-900 p-2 text-xs font-bold text-left">BANK</th>
+                        <th className="border-2 border-midnight-ink p-2 text-sm font-bold text-left">ORIGIN</th>
+                        <th className="border-2 border-midnight-ink p-2 text-sm font-bold text-left">BANK A/C</th>
+                        <th className="border-2 border-midnight-ink p-2 text-sm font-bold text-left">IFSC</th>
+                        <th className="border-2 border-midnight-ink p-2 text-sm font-bold text-left">BANK</th>
                       </tr>
                     </thead>
                     <tbody>
                       <tr>
-                        <td className="border-2 border-gray-900 p-2 text-sm">{selectedEmployeeForPrint.origin || '—'}</td>
-                        <td className="border-2 border-gray-900 p-2 text-sm">{selectedEmployeeForPrint.bankAccount || '—'}</td>
-                        <td className="border-2 border-gray-900 p-2 text-sm">{selectedEmployeeForPrint.ifsc || '—'}</td>
-                        <td className="border-2 border-gray-900 p-2 text-sm">{selectedEmployeeForPrint.bank || '—'}</td>
+                        <td className="border-2 border-midnight-ink p-2 text-sm">{selectedEmployeeForPrint.origin || '—'}</td>
+                        <td className="border-2 border-midnight-ink p-2 text-sm">{selectedEmployeeForPrint.bankAccount || '—'}</td>
+                        <td className="border-2 border-midnight-ink p-2 text-sm">{selectedEmployeeForPrint.ifsc || '—'}</td>
+                        <td className="border-2 border-midnight-ink p-2 text-sm">{selectedEmployeeForPrint.bank || '—'}</td>
                       </tr>
                     </tbody>
                   </table>
@@ -447,11 +447,11 @@ export default function MasterWorkforceSheet() {
                 {/* Footer Section */}
                 <div className="grid grid-cols-2 gap-8 pt-4">
                   <div>
-                    <p className="text-xs font-bold text-gray-700 mb-8">Verified By</p>
-                    <div className="border-t-2 border-gray-900 w-24"></div>
+                    <p className="text-sm font-bold text-slate-text mb-8">Verified By</p>
+                    <div className="border-t-2 border-midnight-ink w-24"></div>
                   </div>
                   <div>
-                    <p className="text-xs font-bold text-gray-700 mb-8">Date</p>
+                    <p className="text-sm font-bold text-slate-text mb-8">Date</p>
                     <p className="text-sm">{new Date().toISOString().split('T')[0]}</p>
                   </div>
                 </div>
@@ -461,7 +461,7 @@ export default function MasterWorkforceSheet() {
               <div className="flex gap-4 justify-end">
                 <Button
                   onClick={() => window.print()}
-                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                  className="bg-trust-blue hover:bg-deep-blue text-white"
                 >
                   Print
                 </Button>
@@ -486,59 +486,59 @@ export default function MasterWorkforceSheet() {
           
           <div className="space-y-4 py-4">
             {/* Sheet Header */}
-            <div className="text-center border-b-2 border-gray-900 pb-4 mb-6">
+            <div className="text-center border-b-2 border-midnight-ink pb-4 mb-6">
               <h2 className="text-2xl font-bold mb-2">WORK FORCE MASTER SHEET</h2>
-              <p className="text-sm text-gray-600">Date: {new Date().toISOString().split('T')[0]}</p>
+              <p className="text-sm text-cool-gray">Date: {new Date().toISOString().split('T')[0]}</p>
             </div>
 
             {/* Sheet Details Summary */}
-            <div className="grid grid-cols-4 gap-4 mb-6 p-4 bg-gray-50 rounded-lg border border-gray-300">
+            <div className="grid grid-cols-4 gap-4 mb-6 p-4 bg-cloud-gray rounded-lg border border-soft-border">
               <div>
-                <p className="text-xs font-bold text-gray-700 mb-1">Total Employees</p>
+                <p className="text-sm font-bold text-slate-text mb-1">Total Employees</p>
                 <p className="text-lg font-bold">{data.length}</p>
               </div>
               <div>
-                <p className="text-xs font-bold text-gray-700 mb-1">Selected Employees</p>
+                <p className="text-sm font-bold text-slate-text mb-1">Selected Employees</p>
                 <p className="text-lg font-bold">{selectedRows.size}</p>
               </div>
               <div>
-                <p className="text-xs font-bold text-gray-700 mb-1">Full-time</p>
+                <p className="text-sm font-bold text-slate-text mb-1">Full-time</p>
                 <p className="text-lg font-bold">{data.filter(row => row.type === 'Full-time').length}</p>
               </div>
               <div>
-                <p className="text-xs font-bold text-gray-700 mb-1">Active Employees</p>
+                <p className="text-sm font-bold text-slate-text mb-1">Active Employees</p>
                 <p className="text-lg font-bold">{activeData.length}</p>
               </div>
             </div>
 
             {/* Data Table */}
-            <div className="border-2 border-gray-900 rounded overflow-x-auto">
-              <table className="w-full border-collapse text-xs">
+            <div className="border-2 border-midnight-ink rounded overflow-x-auto">
+              <table className="w-full border-collapse text-sm">
                 <thead>
                   <tr className="bg-gray-900 text-white">
-                    <th className="border border-gray-400 p-2 text-left">Department</th>
-                    <th className="border border-gray-400 p-2 text-left">First Name</th>
-                    <th className="border border-gray-400 p-2 text-left">Last Name</th>
-                    <th className="border border-gray-400 p-2 text-left">Contact Number</th>
-                    <th className="border border-gray-400 p-2 text-left">Type</th>
-                    <th className="border border-gray-400 p-2 text-left">Aadhar Card</th>
-                    <th className="border border-gray-400 p-2 text-left">Payment Type</th>
-                    <th className="border border-gray-400 p-2 text-left">Origin</th>
-                    <th className="border border-gray-400 p-2 text-left">Bank A/C</th>
+                    <th className="border border-soft-border p-2 text-left">Department</th>
+                    <th className="border border-soft-border p-2 text-left">First Name</th>
+                    <th className="border border-soft-border p-2 text-left">Last Name</th>
+                    <th className="border border-soft-border p-2 text-left">Contact Number</th>
+                    <th className="border border-soft-border p-2 text-left">Type</th>
+                    <th className="border border-soft-border p-2 text-left">Aadhar Card</th>
+                    <th className="border border-soft-border p-2 text-left">Payment Type</th>
+                    <th className="border border-soft-border p-2 text-left">Origin</th>
+                    <th className="border border-soft-border p-2 text-left">Bank A/C</th>
                   </tr>
                 </thead>
                 <tbody>
                   {data.map((row, index) => (
-                    <tr key={row.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                      <td className="border border-gray-400 p-2">{row.department || '—'}</td>
-                      <td className="border border-gray-400 p-2">{row.firstName || '—'}</td>
-                      <td className="border border-gray-400 p-2">{row.lastName || '—'}</td>
-                      <td className="border border-gray-400 p-2">{row.contactNumber || '—'}</td>
-                      <td className="border border-gray-400 p-2">{row.type || '—'}</td>
-                      <td className="border border-gray-400 p-2">{row.aadharCard || '—'}</td>
-                      <td className="border border-gray-400 p-2">{row.paymentType || '—'}</td>
-                      <td className="border border-gray-400 p-2">{row.origin || '—'}</td>
-                      <td className="border border-gray-400 p-2">{row.bankAccount || '—'}</td>
+                    <tr key={row.id} className={index % 2 === 0 ? 'bg-white' : 'bg-cloud-gray'}>
+                      <td className="border border-soft-border p-2">{row.department || '—'}</td>
+                      <td className="border border-soft-border p-2">{row.firstName || '—'}</td>
+                      <td className="border border-soft-border p-2">{row.lastName || '—'}</td>
+                      <td className="border border-soft-border p-2">{row.contactNumber || '—'}</td>
+                      <td className="border border-soft-border p-2">{row.type || '—'}</td>
+                      <td className="border border-soft-border p-2">{row.aadharCard || '—'}</td>
+                      <td className="border border-soft-border p-2">{row.paymentType || '—'}</td>
+                      <td className="border border-soft-border p-2">{row.origin || '—'}</td>
+                      <td className="border border-soft-border p-2">{row.bankAccount || '—'}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -546,19 +546,19 @@ export default function MasterWorkforceSheet() {
             </div>
 
             {/* Summary Footer */}
-            <div className="border-t-2 border-gray-900 pt-4 mt-6">
+            <div className="border-t-2 border-midnight-ink pt-4 mt-6">
               <div className="grid grid-cols-3 gap-8">
                 <div>
-                  <p className="text-xs font-bold text-gray-700 mb-8">Prepared By</p>
-                  <div className="border-t-2 border-gray-900 w-32"></div>
+                  <p className="text-sm font-bold text-slate-text mb-8">Prepared By</p>
+                  <div className="border-t-2 border-midnight-ink w-32"></div>
                 </div>
                 <div>
-                  <p className="text-xs font-bold text-gray-700 mb-8">Reviewed By</p>
-                  <div className="border-t-2 border-gray-900 w-32"></div>
+                  <p className="text-sm font-bold text-slate-text mb-8">Reviewed By</p>
+                  <div className="border-t-2 border-midnight-ink w-32"></div>
                 </div>
                 <div>
-                  <p className="text-xs font-bold text-gray-700 mb-8">Approved By</p>
-                  <div className="border-t-2 border-gray-900 w-32"></div>
+                  <p className="text-sm font-bold text-slate-text mb-8">Approved By</p>
+                  <div className="border-t-2 border-midnight-ink w-32"></div>
                 </div>
               </div>
             </div>
@@ -567,7 +567,7 @@ export default function MasterWorkforceSheet() {
             <div className="flex gap-4 justify-end pt-4">
               <Button
                 onClick={() => window.print()}
-                className="bg-blue-600 hover:bg-blue-700 text-white"
+                className="bg-trust-blue hover:bg-deep-blue text-white"
               >
                 Print Sheet
               </Button>
@@ -582,12 +582,12 @@ export default function MasterWorkforceSheet() {
         </DialogContent>
       </Dialog>
 
-      <div className="max-w-[1600px] mx-auto border border-gray-300 bg-white p-4 md:p-6">
+      <div className="max-w-[1600px] mx-auto border border-soft-border bg-white p-4 md:p-6">
         {/* Header Section */}
-        <div className="mb-4 sticky top-0 z-30 bg-white/95 py-2 border-b border-gray-200 shadow-sm backdrop-blur">
+        <div className="mb-4 sticky top-0 z-30 bg-white/95 py-2 border-b border-soft-border shadow-sm backdrop-blur">
           <div className="flex items-center gap-3 mb-4">
             <MasterNavigationDrawer inHeader />
-            <h1 className="text-xl font-bold tracking-tight text-slate-900">WORK FORCE MASTER SHEET</h1>
+            <h1 className="text-xl font-bold tracking-tight text-midnight-ink">WORK FORCE MASTER SHEET</h1>
           </div>
         </div>
 
@@ -595,20 +595,20 @@ export default function MasterWorkforceSheet() {
         <div className="flex flex-wrap gap-2 md:gap-4 justify-end mb-4">
           <Button 
             onClick={handleQuickEnroll}
-            className="bg-blue-500 hover:bg-blue-600 text-white rounded-full px-6"
+            className="bg-trust-blue hover:bg-trust-blue text-white rounded-full px-6"
           >
             Quick Enroll
           </Button>
           <Button 
             onClick={handleEnrollWorkforce}
-            className="bg-blue-500 hover:bg-blue-600 text-white rounded-full px-6"
+            className="bg-trust-blue hover:bg-trust-blue text-white rounded-full px-6"
           >
             Enroll Workforce
           </Button>
           <Button 
             onClick={handleEditRow}
             variant="outline"
-            className="border-blue-600 text-blue-600 hover:bg-blue-50 rounded-full px-6"
+            className="border-trust-blue text-trust-blue hover:bg-trust-blue/10 rounded-full px-6"
             disabled={isArchivedView}
           >
             Edit Row
@@ -617,7 +617,7 @@ export default function MasterWorkforceSheet() {
             <DropdownMenuTrigger asChild>
               <Button 
                 variant="outline"
-                className="border-orange-600 text-orange-600 hover:bg-orange-50 rounded-full px-6"
+                className="border-warning text-warning hover:bg-warning/10 rounded-full px-6"
               >
                 Archive
               </Button>
@@ -637,7 +637,7 @@ export default function MasterWorkforceSheet() {
             <Button
               onClick={handleUnarchiveRows}
               variant="outline"
-              className="border-green-600 text-green-600 hover:bg-green-50 rounded-full px-6"
+              className="border-green-600 text-success hover:bg-success/10 rounded-full px-6"
               disabled={selectedRows.size === 0}
             >
               Unarchive Selected
@@ -646,14 +646,14 @@ export default function MasterWorkforceSheet() {
           <Button 
             onClick={handleManageColumns}
             variant="outline"
-            className="border-gray-800 text-gray-800 rounded-full px-6"
+            className="border-midnight-ink text-midnight-ink rounded-full px-6"
           >
             Manage Columns
           </Button>
           <Button 
             onClick={handleExport}
             variant="outline"
-            className="border-gray-800 text-gray-800 rounded-full px-6"
+            className="border-midnight-ink text-midnight-ink rounded-full px-6"
           >
             Export
           </Button>
@@ -663,7 +663,7 @@ export default function MasterWorkforceSheet() {
             <DropdownMenuTrigger asChild>
               <Button 
                 variant="outline"
-                className="border-gray-800 text-gray-800 rounded-full px-6"
+                className="border-midnight-ink text-midnight-ink rounded-full px-6"
               >
                 Print
               </Button>
@@ -682,25 +682,25 @@ export default function MasterWorkforceSheet() {
         {/* Search Bar */}
         <div className="flex gap-2 mb-2 max-w-md mx-auto md:mx-0">
           <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-cool-gray w-5 h-5" />
             <Input
               type="text"
               placeholder="SEARCH BAR"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="flex-1 border-2 border-gray-400 rounded-lg px-4 py-2 pl-10"
+              className="flex-1 border-2 border-soft-border rounded-lg px-4 py-2 pl-10"
             />
           </div>
         </div>
 
       {/* Filter Row */}
-      <div className="border border-gray-300 rounded-lg mb-4 bg-blue-50 p-4">
+      <div className="border border-soft-border rounded-lg mb-4 bg-trust-blue/10 p-4">
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2">
           {/* Department Filter */}
           <div>
-            <label className="text-xs font-semibold text-gray-700 block mb-1">DEPARTMENT</label>
+            <label className="text-sm font-semibold text-slate-text block mb-1">DEPARTMENT</label>
             <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
-              <SelectTrigger className="h-8 text-xs">
+              <SelectTrigger className="h-8 text-sm">
                 <SelectValue placeholder="Select Department" />
               </SelectTrigger>
               <SelectContent>
@@ -713,9 +713,9 @@ export default function MasterWorkforceSheet() {
 
           {/* Type Filter */}
           <div>
-            <label className="text-xs font-semibold text-gray-700 block mb-1">TYPE</label>
+            <label className="text-sm font-semibold text-slate-text block mb-1">TYPE</label>
             <Select value={typeFilter} onValueChange={setTypeFilter}>
-              <SelectTrigger className="h-8 text-xs">
+              <SelectTrigger className="h-8 text-sm">
                 <SelectValue placeholder="Select Type" />
               </SelectTrigger>
               <SelectContent>
@@ -728,9 +728,9 @@ export default function MasterWorkforceSheet() {
 
           {/* Origin Filter */}
           <div>
-            <label className="text-xs font-semibold text-gray-700 block mb-1">ORIGIN</label>
+            <label className="text-sm font-semibold text-slate-text block mb-1">ORIGIN</label>
             <Select value={originFilter} onValueChange={setOriginFilter}>
-              <SelectTrigger className="h-8 text-xs">
+              <SelectTrigger className="h-8 text-sm">
                 <SelectValue placeholder="Select Origin" />
               </SelectTrigger>
               <SelectContent>
@@ -743,9 +743,9 @@ export default function MasterWorkforceSheet() {
 
           {/* Payment Type Filter */}
           <div>
-            <label className="text-xs font-semibold text-gray-700 block mb-1">PAYMENT TYPE</label>
+            <label className="text-sm font-semibold text-slate-text block mb-1">PAYMENT TYPE</label>
             <Select value={paymentTypeFilter} onValueChange={setPaymentTypeFilter}>
-              <SelectTrigger className="h-8 text-xs">
+              <SelectTrigger className="h-8 text-sm">
                 <SelectValue placeholder="Select Payment Type" />
               </SelectTrigger>
               <SelectContent>
@@ -759,16 +759,16 @@ export default function MasterWorkforceSheet() {
       </div>
 
       {/* Table Section */}
-      <div className="border border-gray-300 rounded-lg bg-white overflow-hidden">
+      <div className="border border-soft-border rounded-lg bg-white overflow-hidden">
         {/* Table wrapper with vertical scrolling only */}
         <div className="overflow-y-auto max-h-[500px]">
-          <table className="w-full border-collapse text-xs">
-            <thead className="sticky top-0 z-20 bg-yellow-400">
-              <tr className="text-gray-800 font-bold border-b-2 border-gray-400">
-                <th className="border border-gray-400 p-2 w-8 sticky left-0 bg-yellow-400 z-30"></th>
+          <table className="w-full border-collapse text-sm">
+            <thead className="sticky top-0 z-20 bg-warning">
+              <tr className="text-midnight-ink font-bold border-b-2 border-soft-border">
+                <th className="border border-soft-border p-2 w-8 sticky left-0 bg-warning z-30"></th>
                 {columns.map((column) => 
                   visibleColumns.has(column.id) && (
-                    <th key={column.id} className={`border border-gray-400 p-2 ${columnConfig[column.id].headerBg} ${columnConfig[column.id].minWidth}`}>
+                    <th key={column.id} className={`border border-soft-border p-2 ${columnConfig[column.id].headerBg} ${columnConfig[column.id].minWidth}`}>
                       {column.label}
                     </th>
                   )
@@ -785,14 +785,14 @@ export default function MasterWorkforceSheet() {
                 return (
                   <tr 
                     key={row.id} 
-                    className={`border-b border-gray-400 ${
+                    className={`border-b border-soft-border ${
                       isEditing 
-                        ? 'bg-blue-50 hover:bg-blue-50' 
-                        : 'hover:bg-gray-50'
+                        ? 'bg-trust-blue/10 hover:bg-trust-blue/10' 
+                        : 'hover:bg-cloud-gray'
                     }`}
                   >
-                    <td className={`border border-gray-400 p-2 text-center sticky left-0 z-10 ${
-                      isEditing ? 'bg-blue-50' : 'bg-white'
+                    <td className={`border border-soft-border p-2 text-center sticky left-0 z-10 ${
+                      isEditing ? 'bg-trust-blue/10' : 'bg-white'
                     }`}>
                       <Checkbox
                         checked={selectedRows.has(row.id)}
@@ -803,12 +803,12 @@ export default function MasterWorkforceSheet() {
                     </td>
                     {columns.map((column) =>
                       visibleColumns.has(column.id) && (
-                        <td key={column.id} className={`border border-gray-400 p-1 ${columnConfig[column.id].cellBg || ''}`} style={isEditing ? {backgroundColor: '#eff6ff'} : {}}>
+                        <td key={column.id} className={`border border-soft-border p-1 ${columnConfig[column.id].cellBg || ''}`} style={isEditing ? {backgroundColor: '#eff6ff'} : {}}>
                           <Input
                             type="text"
                             value={row[column.id]}
                             onChange={(e) => handleCellChange(row.id, column.id, e.target.value)}
-                            className="border-0 p-1 text-xs h-8"
+                            className="border-0 p-1 text-sm h-8"
                             disabled={!canEdit}
                           />
                         </td>
@@ -826,7 +826,7 @@ export default function MasterWorkforceSheet() {
       <div className="mt-4 flex gap-2 items-center">
         <Button 
           onClick={handleAddRow}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-6"
+          className="bg-trust-blue hover:bg-deep-blue text-white px-6"
           disabled={editingRowIds.size > 0}
         >
           + Add Row
@@ -836,14 +836,14 @@ export default function MasterWorkforceSheet() {
           <div className="flex gap-2 ml-4">
             <Button 
               onClick={handleSaveEdit}
-              className="bg-green-600 hover:bg-green-700 text-white px-6"
+              className="bg-success hover:bg-success/90 text-white px-6"
             >
               Save Changes
             </Button>
             <Button 
               onClick={handleCancelEdit}
               variant="outline"
-              className="border-red-600 text-red-600 hover:bg-red-50 px-6"
+              className="border-red-600 text-danger hover:bg-danger/10 px-6"
             >
               Cancel Edit
             </Button>
@@ -852,12 +852,12 @@ export default function MasterWorkforceSheet() {
       </div>
 
         {/* Footer Info */}
-        <div className="mt-4 text-xs text-gray-600">
+        <div className="mt-4 text-sm text-cool-gray">
           <p>Selected Rows: {selectedRows.size}</p>
           <p>Visible Rows: {displayedData.length}</p>
           <p>Archived Rows: {archivedRows.size}</p>
           <p>View: {isArchivedView ? 'Archived' : 'Active'}</p>
-          {editingRowIds.size > 0 && <p className="text-blue-600 font-semibold">Editing {editingRowIds.size} row(s)</p>}
+          {editingRowIds.size > 0 && <p className="text-trust-blue font-semibold">Editing {editingRowIds.size} row(s)</p>}
         </div>
       </div>
 

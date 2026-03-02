@@ -72,23 +72,23 @@ export default function MasterJobSheet() {
   
   // Column configuration with styling
   const columnConfig = {
-    issued: { minWidth: 'min-w-[80px]', headerBg: 'bg-yellow-300' },
-    department: { minWidth: 'min-w-[100px]', headerBg: 'bg-yellow-300' },
-    category: { minWidth: 'min-w-[80px]', headerBg: 'bg-yellow-300' },
-    firstName: { minWidth: 'min-w-[100px]', headerBg: 'bg-yellow-300' },
-    status: { minWidth: 'min-w-[80px]', headerBg: 'bg-yellow-300' },
-    newReissue: { minWidth: 'min-w-[100px]', headerBg: 'bg-yellow-300' },
-    type: { minWidth: 'min-w-[70px]', headerBg: 'bg-yellow-300' },
-    receiver: { minWidth: 'min-w-[80px]', headerBg: 'bg-yellow-300' },
-    dayCondition: { minWidth: 'min-w-[100px]', headerBg: 'bg-orange-200', cellBg: 'bg-orange-50' },
-    issuedQty: { minWidth: 'min-w-[70px]', headerBg: 'bg-yellow-300' },
-    issuedWeight: { minWidth: 'min-w-[80px]', headerBg: 'bg-yellow-300' },
-    receivedQty: { minWidth: 'min-w-[80px]', headerBg: 'bg-green-100', cellBg: 'bg-green-50' },
-    receivedWeight: { minWidth: 'min-w-[100px]', headerBg: 'bg-green-100', cellBg: 'bg-green-50' },
-    lossQty: { minWidth: 'min-w-[70px]', headerBg: 'bg-red-100', cellBg: 'bg-red-50' },
-    lossWeight: { minWidth: 'min-w-[80px]', headerBg: 'bg-red-100', cellBg: 'bg-red-50' },
-    reIssueQty: { minWidth: 'min-w-[80px]', headerBg: 'bg-orange-100', cellBg: 'bg-orange-50' },
-    reIssueWeight: { minWidth: 'min-w-[100px]', headerBg: 'bg-orange-100', cellBg: 'bg-orange-50' },
+    issued: { minWidth: 'min-w-[80px]', headerBg: 'bg-warning' },
+    department: { minWidth: 'min-w-[100px]', headerBg: 'bg-warning' },
+    category: { minWidth: 'min-w-[80px]', headerBg: 'bg-warning' },
+    firstName: { minWidth: 'min-w-[100px]', headerBg: 'bg-warning' },
+    status: { minWidth: 'min-w-[80px]', headerBg: 'bg-warning' },
+    newReissue: { minWidth: 'min-w-[100px]', headerBg: 'bg-warning' },
+    type: { minWidth: 'min-w-[70px]', headerBg: 'bg-warning' },
+    receiver: { minWidth: 'min-w-[80px]', headerBg: 'bg-warning' },
+    dayCondition: { minWidth: 'min-w-[100px]', headerBg: 'bg-warning/20', cellBg: 'bg-warning/10' },
+    issuedQty: { minWidth: 'min-w-[70px]', headerBg: 'bg-warning' },
+    issuedWeight: { minWidth: 'min-w-[80px]', headerBg: 'bg-warning' },
+    receivedQty: { minWidth: 'min-w-[80px]', headerBg: 'bg-success/10', cellBg: 'bg-success/10' },
+    receivedWeight: { minWidth: 'min-w-[100px]', headerBg: 'bg-success/10', cellBg: 'bg-success/10' },
+    lossQty: { minWidth: 'min-w-[70px]', headerBg: 'bg-danger/10', cellBg: 'bg-danger/10' },
+    lossWeight: { minWidth: 'min-w-[80px]', headerBg: 'bg-danger/10', cellBg: 'bg-danger/10' },
+    reIssueQty: { minWidth: 'min-w-[80px]', headerBg: 'bg-warning/10', cellBg: 'bg-warning/10' },
+    reIssueWeight: { minWidth: 'min-w-[100px]', headerBg: 'bg-warning/10', cellBg: 'bg-warning/10' },
   };
   
   const [visibleColumns, setVisibleColumns] = useState(new Set(columns.map(col => col.id)));
@@ -352,7 +352,7 @@ export default function MasterJobSheet() {
   const displayedData = isArchivedView ? archivedData : activeData;
 
   return (
-    <div className="w-full min-h-screen bg-gray-50 p-4 md:p-6">
+    <div className="w-full min-h-screen bg-cloud-gray p-4 md:p-6">
       {/* Manage Columns Dialog */}
       <Dialog open={isManageColumnsOpen} onOpenChange={setIsManageColumnsOpen}>
         <DialogContent className="max-w-md">
@@ -361,7 +361,7 @@ export default function MasterJobSheet() {
           </DialogHeader>
           <div className="space-y-3 max-h-[400px] overflow-y-auto py-4">
             {/* Select All Checkbox */}
-            <div className="flex items-center justify-between gap-3 pb-3 border-b border-gray-200 mb-3">
+            <div className="flex items-center justify-between gap-3 pb-3 border-b border-soft-border mb-3">
               <div className="flex items-center gap-3 flex-1">
                 <Checkbox
                   id="select-all-columns"
@@ -387,11 +387,11 @@ export default function MasterJobSheet() {
                     {column.label}
                   </label>
                 </div>
-                <div className="text-xs font-semibold px-2 py-1 rounded">
+                <div className="text-sm font-semibold px-2 py-1 rounded">
                   {!visibleColumns.has(column.id) ? (
-                    <span className="bg-red-100 text-red-700 px-2 py-1 rounded-full text-xs">Hidden</span>
+                    <span className="bg-danger/10 text-danger-dark px-2 py-1 rounded-full text-sm">Hidden</span>
                   ) : (
-                    <span className="bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs">Visible</span>
+                    <span className="bg-success/10 text-success-dark px-2 py-1 rounded-full text-sm">Visible</span>
                   )}
                 </div>
               </div>
@@ -402,7 +402,7 @@ export default function MasterJobSheet() {
               onClick={handleHideColumns}
               disabled={selectedColumnsForAction.size === 0}
               variant="outline"
-              className="text-red-600 border-red-300 hover:bg-red-50"
+              className="text-danger border-danger/40 hover:bg-danger/10"
             >
               Hide
             </Button>
@@ -410,7 +410,7 @@ export default function MasterJobSheet() {
               onClick={handleShowColumns}
               disabled={selectedColumnsForAction.size === 0}
               variant="outline"
-              className="text-green-600 border-green-300 hover:bg-green-50"
+              className="text-success border-green-300 hover:bg-success/10"
             >
               Show
             </Button>
@@ -428,60 +428,60 @@ export default function MasterJobSheet() {
           {selectedVoucherForPrint && (
             <div className="space-y-6 py-4">
               {/* Voucher Header */}
-              <div className="border-2 border-gray-900 p-6 bg-white">
+              <div className="border-2 border-midnight-ink p-6 bg-white">
                 <h2 className="text-2xl font-bold text-center mb-6">VOUCHER</h2>
                 
                 {/* Top Section */}
-                <div className="grid grid-cols-4 gap-4 mb-6 border-b-2 border-gray-900 pb-4">
-                  <div className="border-r-2 border-gray-900 pr-4">
-                    <p className="text-xs font-bold text-gray-700 mb-1">DATE</p>
+                <div className="grid grid-cols-4 gap-4 mb-6 border-b-2 border-midnight-ink pb-4">
+                  <div className="border-r-2 border-midnight-ink pr-4">
+                    <p className="text-sm font-bold text-slate-text mb-1">DATE</p>
                     <p className="text-sm">{new Date().toISOString().split('T')[0]}</p>
                   </div>
-                  <div className="border-r-2 border-gray-900 pr-4">
-                    <p className="text-xs font-bold text-gray-700 mb-1">SCHEDULE FOR FUTURE</p>
+                  <div className="border-r-2 border-midnight-ink pr-4">
+                    <p className="text-sm font-bold text-slate-text mb-1">SCHEDULE FOR FUTURE</p>
                     <p className="text-sm">—</p>
                   </div>
-                  <div className="border-r-2 border-gray-900 pr-4">
-                    <p className="text-xs font-bold text-gray-700 mb-1">VOUCHER TYPE</p>
+                  <div className="border-r-2 border-midnight-ink pr-4">
+                    <p className="text-sm font-bold text-slate-text mb-1">VOUCHER TYPE</p>
                     <p className="text-sm">{selectedVoucherForPrint.newReissue || 'New'}</p>
                   </div>
                   <div>
-                    <p className="text-xs font-bold text-gray-700 mb-1">VOUCHER NO.</p>
+                    <p className="text-sm font-bold text-slate-text mb-1">VOUCHER NO.</p>
                     <p className="text-sm font-bold">{selectedVoucherForPrint.voucherNo || '—'}</p>
                   </div>
                 </div>
 
                 {/* Issued To Section */}
-                <div className="grid grid-cols-2 gap-4 mb-6 border-b-2 border-gray-900 pb-4">
+                <div className="grid grid-cols-2 gap-4 mb-6 border-b-2 border-midnight-ink pb-4">
                   <div>
-                    <p className="text-xs font-bold text-gray-700 mb-1">ISSUED TO</p>
+                    <p className="text-sm font-bold text-slate-text mb-1">ISSUED TO</p>
                     <p className="text-sm">{selectedVoucherForPrint.firstName || '—'}</p>
                   </div>
                   <div>
-                    <p className="text-xs font-bold text-gray-700 mb-1">DEPARTMENT</p>
+                    <p className="text-sm font-bold text-slate-text mb-1">DEPARTMENT</p>
                     <p className="text-sm">{selectedVoucherForPrint.department || '—'}</p>
                   </div>
                 </div>
 
                 {/* Items Table */}
                 <div className="mb-6">
-                  <table className="w-full border-collapse border-2 border-gray-900">
+                  <table className="w-full border-collapse border-2 border-midnight-ink">
                     <thead>
                       <tr className="bg-gray-900 text-white">
-                        <th className="border-2 border-gray-900 p-2 text-xs font-bold text-left">ISSUED QTY</th>
-                        <th className="border-2 border-gray-900 p-2 text-xs font-bold text-left">ISSUED WEIGHT</th>
-                        <th className="border-2 border-gray-900 p-2 text-xs font-bold text-left">RECEIVED QTY</th>
-                        <th className="border-2 border-gray-900 p-2 text-xs font-bold text-left">RECEIVED WEIGHT</th>
-                        <th className="border-2 border-gray-900 p-2 text-xs font-bold text-left">STATUS</th>
+                        <th className="border-2 border-midnight-ink p-2 text-sm font-bold text-left">ISSUED QTY</th>
+                        <th className="border-2 border-midnight-ink p-2 text-sm font-bold text-left">ISSUED WEIGHT</th>
+                        <th className="border-2 border-midnight-ink p-2 text-sm font-bold text-left">RECEIVED QTY</th>
+                        <th className="border-2 border-midnight-ink p-2 text-sm font-bold text-left">RECEIVED WEIGHT</th>
+                        <th className="border-2 border-midnight-ink p-2 text-sm font-bold text-left">STATUS</th>
                       </tr>
                     </thead>
                     <tbody>
                       <tr>
-                        <td className="border-2 border-gray-900 p-2 text-sm">{selectedVoucherForPrint.issuedQty || '—'}</td>
-                        <td className="border-2 border-gray-900 p-2 text-sm">{selectedVoucherForPrint.issuedWeight || '—'}</td>
-                        <td className="border-2 border-gray-900 p-2 text-sm">{selectedVoucherForPrint.receivedQty || '—'}</td>
-                        <td className="border-2 border-gray-900 p-2 text-sm">{selectedVoucherForPrint.receivedWeight || '—'}</td>
-                        <td className="border-2 border-gray-900 p-2 text-sm">{selectedVoucherForPrint.status || '—'}</td>
+                        <td className="border-2 border-midnight-ink p-2 text-sm">{selectedVoucherForPrint.issuedQty || '—'}</td>
+                        <td className="border-2 border-midnight-ink p-2 text-sm">{selectedVoucherForPrint.issuedWeight || '—'}</td>
+                        <td className="border-2 border-midnight-ink p-2 text-sm">{selectedVoucherForPrint.receivedQty || '—'}</td>
+                        <td className="border-2 border-midnight-ink p-2 text-sm">{selectedVoucherForPrint.receivedWeight || '—'}</td>
+                        <td className="border-2 border-midnight-ink p-2 text-sm">{selectedVoucherForPrint.status || '—'}</td>
                       </tr>
                     </tbody>
                   </table>
@@ -490,12 +490,12 @@ export default function MasterJobSheet() {
                 {/* Footer Section */}
                 <div className="grid grid-cols-2 gap-8 pt-4">
                   <div>
-                    <p className="text-xs font-bold text-gray-700 mb-8">Issued By</p>
-                    <div className="border-t-2 border-gray-900 w-24"></div>
+                    <p className="text-sm font-bold text-slate-text mb-8">Issued By</p>
+                    <div className="border-t-2 border-midnight-ink w-24"></div>
                   </div>
                   <div>
-                    <p className="text-xs font-bold text-gray-700 mb-8">Received By</p>
-                    <div className="border-t-2 border-gray-900 w-24"></div>
+                    <p className="text-sm font-bold text-slate-text mb-8">Received By</p>
+                    <div className="border-t-2 border-midnight-ink w-24"></div>
                   </div>
                 </div>
               </div>
@@ -504,7 +504,7 @@ export default function MasterJobSheet() {
               <div className="flex gap-4 justify-end">
                 <Button
                   onClick={() => window.print()}
-                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                  className="bg-trust-blue hover:bg-deep-blue text-white"
                 >
                   Print
                 </Button>
@@ -536,65 +536,65 @@ export default function MasterJobSheet() {
           
           <div className="space-y-4 py-4">
             {/* Sheet Header */}
-            <div className="text-center border-b-2 border-gray-900 pb-4 mb-6">
+            <div className="text-center border-b-2 border-midnight-ink pb-4 mb-6">
               <h2 className="text-2xl font-bold mb-2">MASTER WIP/JOB SHEET</h2>
-              <p className="text-sm text-gray-600">Date: {new Date().toISOString().split('T')[0]}</p>
+              <p className="text-sm text-cool-gray">Date: {new Date().toISOString().split('T')[0]}</p>
             </div>
 
             {/* Sheet Details Summary */}
-            <div className="grid grid-cols-4 gap-4 mb-6 p-4 bg-gray-50 rounded-lg border border-gray-300">
+            <div className="grid grid-cols-4 gap-4 mb-6 p-4 bg-cloud-gray rounded-lg border border-soft-border">
               <div>
-                <p className="text-xs font-bold text-gray-700 mb-1">Total Vouchers</p>
+                <p className="text-sm font-bold text-slate-text mb-1">Total Vouchers</p>
                 <p className="text-lg font-bold">{data.length}</p>
               </div>
               <div>
-                <p className="text-xs font-bold text-gray-700 mb-1">Selected Rows</p>
+                <p className="text-sm font-bold text-slate-text mb-1">Selected Rows</p>
                 <p className="text-lg font-bold">{selectedRows.size}</p>
               </div>
               <div>
-                <p className="text-xs font-bold text-gray-700 mb-1">Total Issued Qty</p>
+                <p className="text-sm font-bold text-slate-text mb-1">Total Issued Qty</p>
                 <p className="text-lg font-bold">{data.reduce((sum, row) => sum + (parseInt(row.issuedQty) || 0), 0)}</p>
               </div>
               <div>
-                <p className="text-xs font-bold text-gray-700 mb-1">Total Received Qty</p>
+                <p className="text-sm font-bold text-slate-text mb-1">Total Received Qty</p>
                 <p className="text-lg font-bold">{data.reduce((sum, row) => sum + (parseInt(row.receivedQty) || 0), 0)}</p>
               </div>
             </div>
 
             {/* Data Table */}
-            <div className="border-2 border-gray-900 rounded overflow-x-auto">
-              <table className="w-full border-collapse text-xs">
+            <div className="border-2 border-midnight-ink rounded overflow-x-auto">
+              <table className="w-full border-collapse text-sm">
                 <thead>
                   <tr className="bg-gray-900 text-white">
-                    <th className="border border-gray-400 p-2 text-left">Voucher No.</th>
-                    <th className="border border-gray-400 p-2 text-left">Issued</th>
-                    <th className="border border-gray-400 p-2 text-left">Department</th>
-                    <th className="border border-gray-400 p-2 text-left">Category</th>
-                    <th className="border border-gray-400 p-2 text-left">First Name</th>
-                    <th className="border border-gray-400 p-2 text-left">Status</th>
-                    <th className="border border-gray-400 p-2 text-left">Issued Qty</th>
-                    <th className="border border-gray-400 p-2 text-left">Issued Weight</th>
-                    <th className="border border-gray-400 p-2 text-left">Received Qty</th>
-                    <th className="border border-gray-400 p-2 text-left">Received Weight</th>
-                    <th className="border border-gray-400 p-2 text-left">Loss Qty</th>
-                    <th className="border border-gray-400 p-2 text-left">Loss Weight</th>
+                    <th className="border border-soft-border p-2 text-left">Voucher No.</th>
+                    <th className="border border-soft-border p-2 text-left">Issued</th>
+                    <th className="border border-soft-border p-2 text-left">Department</th>
+                    <th className="border border-soft-border p-2 text-left">Category</th>
+                    <th className="border border-soft-border p-2 text-left">First Name</th>
+                    <th className="border border-soft-border p-2 text-left">Status</th>
+                    <th className="border border-soft-border p-2 text-left">Issued Qty</th>
+                    <th className="border border-soft-border p-2 text-left">Issued Weight</th>
+                    <th className="border border-soft-border p-2 text-left">Received Qty</th>
+                    <th className="border border-soft-border p-2 text-left">Received Weight</th>
+                    <th className="border border-soft-border p-2 text-left">Loss Qty</th>
+                    <th className="border border-soft-border p-2 text-left">Loss Weight</th>
                   </tr>
                 </thead>
                 <tbody>
                   {data.map((row, index) => (
-                    <tr key={row.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                      <td className="border border-gray-400 p-2">{row.voucherNo || '—'}</td>
-                      <td className="border border-gray-400 p-2">{row.issued || '—'}</td>
-                      <td className="border border-gray-400 p-2">{row.department || '—'}</td>
-                      <td className="border border-gray-400 p-2">{row.category || '—'}</td>
-                      <td className="border border-gray-400 p-2">{row.firstName || '—'}</td>
-                      <td className="border border-gray-400 p-2">{row.status || '—'}</td>
-                      <td className="border border-gray-400 p-2 text-center">{row.issuedQty || '—'}</td>
-                      <td className="border border-gray-400 p-2 text-center">{row.issuedWeight || '—'}</td>
-                      <td className="border border-gray-400 p-2 text-center">{row.receivedQty || '—'}</td>
-                      <td className="border border-gray-400 p-2 text-center">{row.receivedWeight || '—'}</td>
-                      <td className="border border-gray-400 p-2 text-center">{row.lossQty || '—'}</td>
-                      <td className="border border-gray-400 p-2 text-center">{row.lossWeight || '—'}</td>
+                    <tr key={row.id} className={index % 2 === 0 ? 'bg-white' : 'bg-cloud-gray'}>
+                      <td className="border border-soft-border p-2">{row.voucherNo || '—'}</td>
+                      <td className="border border-soft-border p-2">{row.issued || '—'}</td>
+                      <td className="border border-soft-border p-2">{row.department || '—'}</td>
+                      <td className="border border-soft-border p-2">{row.category || '—'}</td>
+                      <td className="border border-soft-border p-2">{row.firstName || '—'}</td>
+                      <td className="border border-soft-border p-2">{row.status || '—'}</td>
+                      <td className="border border-soft-border p-2 text-center">{row.issuedQty || '—'}</td>
+                      <td className="border border-soft-border p-2 text-center">{row.issuedWeight || '—'}</td>
+                      <td className="border border-soft-border p-2 text-center">{row.receivedQty || '—'}</td>
+                      <td className="border border-soft-border p-2 text-center">{row.receivedWeight || '—'}</td>
+                      <td className="border border-soft-border p-2 text-center">{row.lossQty || '—'}</td>
+                      <td className="border border-soft-border p-2 text-center">{row.lossWeight || '—'}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -602,19 +602,19 @@ export default function MasterJobSheet() {
             </div>
 
             {/* Summary Footer */}
-            <div className="border-t-2 border-gray-900 pt-4 mt-6">
+            <div className="border-t-2 border-midnight-ink pt-4 mt-6">
               <div className="grid grid-cols-3 gap-8">
                 <div>
-                  <p className="text-xs font-bold text-gray-700 mb-8">Prepared By</p>
-                  <div className="border-t-2 border-gray-900 w-32"></div>
+                  <p className="text-sm font-bold text-slate-text mb-8">Prepared By</p>
+                  <div className="border-t-2 border-midnight-ink w-32"></div>
                 </div>
                 <div>
-                  <p className="text-xs font-bold text-gray-700 mb-8">Reviewed By</p>
-                  <div className="border-t-2 border-gray-900 w-32"></div>
+                  <p className="text-sm font-bold text-slate-text mb-8">Reviewed By</p>
+                  <div className="border-t-2 border-midnight-ink w-32"></div>
                 </div>
                 <div>
-                  <p className="text-xs font-bold text-gray-700 mb-8">Approved By</p>
-                  <div className="border-t-2 border-gray-900 w-32"></div>
+                  <p className="text-sm font-bold text-slate-text mb-8">Approved By</p>
+                  <div className="border-t-2 border-midnight-ink w-32"></div>
                 </div>
               </div>
             </div>
@@ -623,7 +623,7 @@ export default function MasterJobSheet() {
             <div className="flex gap-4 justify-end pt-4">
               <Button
                 onClick={() => window.print()}
-                className="bg-blue-600 hover:bg-blue-700 text-white"
+                className="bg-trust-blue hover:bg-deep-blue text-white"
               >
                 Print Sheet
               </Button>
@@ -638,12 +638,12 @@ export default function MasterJobSheet() {
         </DialogContent>
       </Dialog>
 
-      <div className="max-w-[1600px] mx-auto border border-gray-300 bg-white p-4 md:p-6">
+      <div className="max-w-[1600px] mx-auto border border-soft-border bg-white p-4 md:p-6">
         {/* Header Section */}
-        <div className="mb-4 sticky top-0 z-30 bg-white/95 py-2 border-b border-gray-200 shadow-sm backdrop-blur">
+        <div className="mb-4 sticky top-0 z-30 bg-white/95 py-2 border-b border-soft-border shadow-sm backdrop-blur">
           <div className="flex items-center gap-3 mb-4">
             <MasterNavigationDrawer inHeader />
-            <h1 className="text-xl font-bold tracking-tight text-slate-900">MASTER WIP/JOB SHEET</h1>
+            <h1 className="text-xl font-bold tracking-tight text-midnight-ink">MASTER WIP/JOB SHEET</h1>
           </div>
         </div>
 
@@ -651,26 +651,26 @@ export default function MasterJobSheet() {
         <div className="flex flex-wrap gap-2 md:gap-4 justify-end mb-4 items-center">
           <Button 
             onClick={handleCreateJob}
-            className="bg-green-500 hover:bg-green-600 text-white rounded-full px-6"
+            className="bg-success hover:bg-success text-white rounded-full px-6"
           >
             Create a Job
           </Button>
           <Button 
             onClick={handleEnrollWorkforce}
-            className="bg-blue-500 hover:bg-blue-600 text-white rounded-full px-6"
+            className="bg-trust-blue hover:bg-trust-blue text-white rounded-full px-6"
           >
             Enroll Workforce
           </Button>
           <Button 
             onClick={handleQuickEnroll}
-            className="bg-blue-500 hover:bg-blue-600 text-white rounded-full px-6"
+            className="bg-trust-blue hover:bg-trust-blue text-white rounded-full px-6"
           >
             Quick Enroll
           </Button>
           <Button 
             onClick={handleEditRow}
             variant="outline"
-            className="border-blue-600 text-blue-600 hover:bg-blue-50 rounded-full px-6"
+            className="border-trust-blue text-trust-blue hover:bg-trust-blue/10 rounded-full px-6"
             disabled={isArchivedView}
           >
             Edit Row
@@ -679,7 +679,7 @@ export default function MasterJobSheet() {
             <DropdownMenuTrigger asChild>
               <Button 
                 variant="outline"
-                className="border-orange-600 text-orange-600 hover:bg-orange-50 rounded-full px-6"
+                className="border-warning text-warning hover:bg-warning/10 rounded-full px-6"
               >
                 Archive
               </Button>
@@ -699,7 +699,7 @@ export default function MasterJobSheet() {
             <Button
               onClick={handleUnarchiveRows}
               variant="outline"
-              className="border-green-600 text-green-600 hover:bg-green-50 rounded-full px-6"
+              className="border-green-600 text-success hover:bg-success/10 rounded-full px-6"
               disabled={selectedRows.size === 0}
             >
               Unarchive Selected
@@ -708,14 +708,14 @@ export default function MasterJobSheet() {
           <Button 
             onClick={handleManageColumns}
             variant="outline"
-            className="border-gray-800 text-gray-800 rounded-full px-6"
+            className="border-midnight-ink text-midnight-ink rounded-full px-6"
           >
             Manage Columns
           </Button>
           <Button 
             onClick={handleExport}
             variant="outline"
-            className="border-gray-800 text-gray-800 rounded-full px-6"
+            className="border-midnight-ink text-midnight-ink rounded-full px-6"
           >
             Export
           </Button>
@@ -725,7 +725,7 @@ export default function MasterJobSheet() {
             <DropdownMenuTrigger asChild>
               <Button 
                 variant="outline"
-                className="border-gray-800 text-gray-800 rounded-full px-6"
+                className="border-midnight-ink text-midnight-ink rounded-full px-6"
               >
                 Print
               </Button>
@@ -744,25 +744,25 @@ export default function MasterJobSheet() {
         {/* Search Bar */}
         <div className="flex gap-2 mb-2 max-w-md mx-auto md:mx-0">
           <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-cool-gray w-5 h-5" />
             <Input
               type="text"
               placeholder="SEARCH BAR"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="flex-1 border-2 border-gray-400 rounded-lg px-4 py-2 pl-10"
+              className="flex-1 border-2 border-soft-border rounded-lg px-4 py-2 pl-10"
             />
           </div>
         </div>
 
       {/* Filter Row */}
-      <div className="border border-gray-300 rounded-lg mb-4 bg-blue-50 p-4">
+      <div className="border border-soft-border rounded-lg mb-4 bg-trust-blue/10 p-4">
         <div className="grid grid-cols-2 md:grid-cols-6 lg:grid-cols-11 gap-2">
           {/* Status/Pending WIP Completion */}
           <div>
-            <label className="text-xs font-semibold text-gray-700 block mb-1">STATUS</label>
+            <label className="text-sm font-semibold text-slate-text block mb-1">STATUS</label>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="h-8 text-xs">
+              <SelectTrigger className="h-8 text-sm">
                 <SelectValue placeholder="Select Status" />
               </SelectTrigger>
               <SelectContent>
@@ -775,31 +775,31 @@ export default function MasterJobSheet() {
 
           {/* Date From */}
           <div>
-            <label className="text-xs font-semibold text-gray-700 block mb-1">DATE FROM</label>
+            <label className="text-sm font-semibold text-slate-text block mb-1">DATE FROM</label>
             <Input
               type="date"
               value={dateFromFilter}
               onChange={(e) => setDateFromFilter(e.target.value)}
-              className="h-8 text-xs p-1"
+              className="h-8 text-sm p-1"
             />
           </div>
 
           {/* Date To */}
           <div>
-            <label className="text-xs font-semibold text-gray-700 block mb-1">DATE TO</label>
+            <label className="text-sm font-semibold text-slate-text block mb-1">DATE TO</label>
             <Input
               type="date"
               value={dateToFilter}
               onChange={(e) => setDateToFilter(e.target.value)}
-              className="h-8 text-xs p-1"
+              className="h-8 text-sm p-1"
             />
           </div>
 
           {/* New/Reissue */}
           <div>
-            <label className="text-xs font-semibold text-gray-700 block mb-1">NEW/RE-ISSUE</label>
+            <label className="text-sm font-semibold text-slate-text block mb-1">NEW/RE-ISSUE</label>
             <Select value={newReissueFilter} onValueChange={setNewReissueFilter}>
-              <SelectTrigger className="h-8 text-xs">
+              <SelectTrigger className="h-8 text-sm">
                 <SelectValue placeholder="Select" />
               </SelectTrigger>
               <SelectContent>
@@ -812,9 +812,9 @@ export default function MasterJobSheet() {
 
           {/* Name */}
           <div>
-            <label className="text-xs font-semibold text-gray-700 block mb-1">NAME</label>
+            <label className="text-sm font-semibold text-slate-text block mb-1">NAME</label>
             <Select value={nameFilter} onValueChange={setNameFilter}>
-              <SelectTrigger className="h-8 text-xs">
+              <SelectTrigger className="h-8 text-sm">
                 <SelectValue placeholder="Select Name" />
               </SelectTrigger>
               <SelectContent>
@@ -827,9 +827,9 @@ export default function MasterJobSheet() {
 
           {/* Issuer */}
           <div>
-            <label className="text-xs font-semibold text-gray-700 block mb-1">ISSUER</label>
+            <label className="text-sm font-semibold text-slate-text block mb-1">ISSUER</label>
             <Select value={issuerFilter} onValueChange={setIssuerFilter}>
-              <SelectTrigger className="h-8 text-xs">
+              <SelectTrigger className="h-8 text-sm">
                 <SelectValue placeholder="Select Issuer" />
               </SelectTrigger>
               <SelectContent>
@@ -842,9 +842,9 @@ export default function MasterJobSheet() {
 
           {/* Department */}
           <div>
-            <label className="text-xs font-semibold text-gray-700 block mb-1">DEPARTMENT</label>
+            <label className="text-sm font-semibold text-slate-text block mb-1">DEPARTMENT</label>
             <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
-              <SelectTrigger className="h-8 text-xs">
+              <SelectTrigger className="h-8 text-sm">
                 <SelectValue placeholder="Select Dept" />
               </SelectTrigger>
               <SelectContent>
@@ -857,9 +857,9 @@ export default function MasterJobSheet() {
 
           {/* Type */}
           <div>
-            <label className="text-xs font-semibold text-gray-700 block mb-1">TYPE</label>
+            <label className="text-sm font-semibold text-slate-text block mb-1">TYPE</label>
             <Select value={typeFilter} onValueChange={setTypeFilter}>
-              <SelectTrigger className="h-8 text-xs">
+              <SelectTrigger className="h-8 text-sm">
                 <SelectValue placeholder="Select Type" />
               </SelectTrigger>
               <SelectContent>
@@ -872,9 +872,9 @@ export default function MasterJobSheet() {
 
           {/* Category */}
           <div>
-            <label className="text-xs font-semibold text-gray-700 block mb-1">CATEGORY</label>
+            <label className="text-sm font-semibold text-slate-text block mb-1">CATEGORY</label>
             <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-              <SelectTrigger className="h-8 text-xs">
+              <SelectTrigger className="h-8 text-sm">
                 <SelectValue placeholder="Select Category" />
               </SelectTrigger>
               <SelectContent>
@@ -887,9 +887,9 @@ export default function MasterJobSheet() {
 
           {/* Receiver */}
           <div>
-            <label className="text-xs font-semibold text-gray-700 block mb-1">RECEIVER</label>
+            <label className="text-sm font-semibold text-slate-text block mb-1">RECEIVER</label>
             <Select value={receiverFilter} onValueChange={setReceiverFilter}>
-              <SelectTrigger className="h-8 text-xs">
+              <SelectTrigger className="h-8 text-sm">
                 <SelectValue placeholder="Select Receiver" />
               </SelectTrigger>
               <SelectContent>
@@ -902,26 +902,26 @@ export default function MasterJobSheet() {
 
           {/* SKU Search */}
           <div>
-            <label className="text-xs font-semibold text-gray-700 block mb-1">SKU</label>
+            <label className="text-sm font-semibold text-slate-text block mb-1">SKU</label>
             <Input
               type="text"
               placeholder="Enter SKU"
               value={skuFilter}
               onChange={(e) => setSKUFilter(e.target.value)}
-              className="h-8 text-xs p-1"
+              className="h-8 text-sm p-1"
             />
           </div>
         </div>
       </div>
 
       {/* Table Section */}
-      <div className="border border-gray-300 rounded-lg bg-white overflow-hidden">
+      <div className="border border-soft-border rounded-lg bg-white overflow-hidden">
         {/* Table wrapper with vertical and horizontal scrolling */}
         <div className="overflow-y-auto overflow-x-auto max-h-[500px]">
-          <table className="w-full border-collapse text-xs">
-            <thead className="sticky top-0 z-20 bg-yellow-300">
-              <tr className="text-gray-800 font-bold border-b-2 border-gray-400">
-                <th className="border border-gray-400 p-2 w-8 sticky left-0 bg-yellow-300 z-30">
+          <table className="w-full border-collapse text-sm">
+            <thead className="sticky top-0 z-20 bg-warning">
+              <tr className="text-midnight-ink font-bold border-b-2 border-soft-border">
+                <th className="border border-soft-border p-2 w-8 sticky left-0 bg-warning z-30">
                   <Checkbox
                     checked={selectedRows.size === displayedData.length && displayedData.length > 0}
                     onCheckedChange={(checked) => {
@@ -935,10 +935,10 @@ export default function MasterJobSheet() {
                     disabled={editingRowIds.size > 0}
                   />
                 </th>
-                <th className="border border-gray-400 p-2 bg-yellow-300 min-w-[100px] sticky left-8 z-30 border-r-2 border-r-gray-400" style={{boxShadow: 'inset -2px 0 0 0 rgb(209, 213, 219)'}}>Voucher No.</th>
+                <th className="border border-soft-border p-2 bg-warning min-w-[100px] sticky left-8 z-30 border-r-2 border-r-gray-400" style={{boxShadow: 'inset -2px 0 0 0 rgb(209, 213, 219)'}}>Voucher No.</th>
                 {columns.map((column) => 
                   visibleColumns.has(column.id) && (
-                    <th key={column.id} className={`border border-gray-400 p-2 ${columnConfig[column.id].headerBg} ${columnConfig[column.id].minWidth}`}>
+                    <th key={column.id} className={`border border-soft-border p-2 ${columnConfig[column.id].headerBg} ${columnConfig[column.id].minWidth}`}>
                       {column.label}
                     </th>
                   )
@@ -955,14 +955,14 @@ export default function MasterJobSheet() {
                 return (
                   <tr 
                     key={row.id} 
-                    className={`border-b border-gray-400 ${
+                    className={`border-b border-soft-border ${
                       isEditing 
-                        ? 'bg-blue-50 hover:bg-blue-50' 
-                        : 'hover:bg-gray-50'
+                        ? 'bg-trust-blue/10 hover:bg-trust-blue/10' 
+                        : 'hover:bg-cloud-gray'
                     }`}
                   >
-                    <td className={`border border-gray-400 p-2 text-center sticky left-0 z-10 ${
-                      isEditing ? 'bg-blue-50' : 'bg-white'
+                    <td className={`border border-soft-border p-2 text-center sticky left-0 z-10 ${
+                      isEditing ? 'bg-trust-blue/10' : 'bg-white'
                     }`}>
                       <Checkbox
                         checked={selectedRows.has(row.id)}
@@ -971,13 +971,13 @@ export default function MasterJobSheet() {
                         disabled={isAnyRowEditing}
                       />
                     </td>
-                    <td className={`border border-gray-400 p-1 sticky left-8 z-10 border-r-2 border-r-gray-400`} style={{boxShadow: 'inset -2px 0 0 0 rgb(209, 213, 219)', backgroundColor: isEditing ? '#eff6ff' : 'white'}}>
+                    <td className={`border border-soft-border p-1 sticky left-8 z-10 border-r-2 border-r-gray-400`} style={{boxShadow: 'inset -2px 0 0 0 rgb(209, 213, 219)', backgroundColor: isEditing ? '#eff6ff' : 'white'}}>
                       {isEditing ? (
                         <Input
                           type="text"
                           value={row.voucherNo}
                           onChange={(e) => handleCellChange(row.id, 'voucherNo', e.target.value)}
-                          className="border-0 p-1 text-xs h-8"
+                          className="border-0 p-1 text-sm h-8"
                           disabled={!canEdit}
                         />
                       ) : (
@@ -986,7 +986,7 @@ export default function MasterJobSheet() {
                             setSelectedVoucherForReceive(row);
                             setIsReceiveJobOpen(true);
                           }}
-                          className="cursor-pointer p-1 text-xs font-medium text-blue-600 hover:text-blue-800 hover:underline"
+                          className="cursor-pointer p-1 text-sm font-medium text-trust-blue hover:text-deep-blue hover:underline"
                         >
                           {row.voucherNo || '—'}
                         </div>
@@ -994,12 +994,12 @@ export default function MasterJobSheet() {
                     </td>
                     {columns.map((column) =>
                       visibleColumns.has(column.id) && (
-                        <td key={column.id} className={`border border-gray-400 p-1 ${columnConfig[column.id].cellBg || ''}`} style={isEditing ? {backgroundColor: '#eff6ff'} : {}}>
+                        <td key={column.id} className={`border border-soft-border p-1 ${columnConfig[column.id].cellBg || ''}`} style={isEditing ? {backgroundColor: '#eff6ff'} : {}}>
                           <Input
                             type="text"
                             value={row[column.id]}
                             onChange={(e) => handleCellChange(row.id, column.id, e.target.value)}
-                            className="border-0 p-1 text-xs h-8"
+                            className="border-0 p-1 text-sm h-8"
                             disabled={!canEdit}
                           />
                         </td>
@@ -1017,7 +1017,7 @@ export default function MasterJobSheet() {
       <div className="mt-4 flex gap-2 items-center">
         <Button 
           onClick={handleAddRow}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-6"
+          className="bg-trust-blue hover:bg-deep-blue text-white px-6"
           disabled={editingRowIds.size > 0}
         >
           + Add Row
@@ -1027,14 +1027,14 @@ export default function MasterJobSheet() {
           <div className="flex gap-2 ml-4">
             <Button 
               onClick={handleSaveEdit}
-              className="bg-green-600 hover:bg-green-700 text-white px-6"
+              className="bg-success hover:bg-success/90 text-white px-6"
             >
               Save Changes
             </Button>
             <Button 
               onClick={handleCancelEdit}
               variant="outline"
-              className="border-red-600 text-red-600 hover:bg-red-50 px-6"
+              className="border-red-600 text-danger hover:bg-danger/10 px-6"
             >
               Cancel Edit
             </Button>
@@ -1043,12 +1043,12 @@ export default function MasterJobSheet() {
       </div>
 
         {/* Footer Info */}
-        <div className="mt-4 text-xs text-gray-600">
+        <div className="mt-4 text-sm text-cool-gray">
           <p>Selected Rows: {selectedRows.size}</p>
           <p>Visible Rows: {displayedData.length}</p>
           <p>Archived Rows: {archivedRows.size}</p>
           <p>View: {isArchivedView ? 'Archived' : 'Active'}</p>
-          {editingRowIds.size > 0 && <p className="text-blue-600 font-semibold">Editing {editingRowIds.size} row(s)</p>}
+          {editingRowIds.size > 0 && <p className="text-trust-blue font-semibold">Editing {editingRowIds.size} row(s)</p>}
         </div>
       </div>
 

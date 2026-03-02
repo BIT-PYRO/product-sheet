@@ -199,13 +199,13 @@ export default function ManagersDashboard() {
   const getStatusColor = (status) => {
     switch (status) {
       case 'New':
-        return 'bg-yellow-200 border-yellow-400';
+        return 'bg-warning-soft border-warning';
       case 'Work in Progress':
-        return 'bg-orange-200 border-orange-400';
+        return 'bg-warning/20 border-warning';
       case 'Completed':
-        return 'bg-green-200 border-green-400';
+        return 'bg-success/20 border-success';
       default:
-        return 'bg-gray-200 border-gray-400';
+        return 'bg-cloud-gray border-soft-border';
     }
   };
 
@@ -214,7 +214,7 @@ export default function ManagersDashboard() {
   };
 
   return (
-    <div className="w-full min-h-screen bg-gray-50 p-4 md:p-6">
+    <div className="w-full min-h-screen bg-cloud-gray p-4 md:p-6">
       {/* Manage Columns Dialog */}
       <Dialog open={isManageColumnsOpen} onOpenChange={setIsManageColumnsOpen}>
         <DialogContent className="max-w-md">
@@ -223,7 +223,7 @@ export default function ManagersDashboard() {
           </DialogHeader>
           <div className="space-y-3 max-h-[400px] overflow-y-auto py-4">
             {/* Select All Checkbox */}
-            <div className="flex items-center justify-between gap-3 pb-3 border-b border-gray-200 mb-3">
+            <div className="flex items-center justify-between gap-3 pb-3 border-b border-soft-border mb-3">
               <div className="flex items-center gap-3 flex-1">
                 <Checkbox
                   id="select-all-columns"
@@ -249,11 +249,11 @@ export default function ManagersDashboard() {
                     {column}
                   </label>
                 </div>
-                <div className="text-xs font-semibold px-2 py-1 rounded">
+                <div className="text-sm font-semibold px-2 py-1 rounded">
                   {!visibleColumns.has(column) ? (
-                    <span className="bg-red-100 text-red-700 px-2 py-1 rounded-full text-xs">Hidden</span>
+                    <span className="bg-danger/10 text-danger-dark px-2 py-1 rounded-full text-sm">Hidden</span>
                   ) : (
-                    <span className="bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs">Visible</span>
+                    <span className="bg-success/10 text-success-dark px-2 py-1 rounded-full text-sm">Visible</span>
                   )}
                 </div>
               </div>
@@ -264,7 +264,7 @@ export default function ManagersDashboard() {
               onClick={handleHideColumns}
               disabled={selectedColumnsForAction.size === 0}
               variant="outline"
-              className="text-red-600 border-red-300 hover:bg-red-50"
+              className="text-danger border-danger/40 hover:bg-danger/10"
             >
               Hide
             </Button>
@@ -272,7 +272,7 @@ export default function ManagersDashboard() {
               onClick={handleShowColumns}
               disabled={selectedColumnsForAction.size === 0}
               variant="outline"
-              className="text-green-600 border-green-300 hover:bg-green-50"
+              className="text-success border-success/40 hover:bg-success/10"
             >
               Show
             </Button>
@@ -288,44 +288,44 @@ export default function ManagersDashboard() {
         voucherData={selectedVoucherForReceive}
       />
 
-      <div className="max-w-[1600px] mx-auto border border-gray-300 bg-white p-4 md:p-6">
+      <div className="max-w-[1600px] mx-auto border border-soft-border bg-white p-4 md:p-6">
         {/* Header Section */}
-        <div className="mb-4 sticky top-0 z-30 bg-white/95 py-2 border-b border-gray-200 shadow-sm backdrop-blur">
+        <div className="mb-4 sticky top-0 z-30 bg-white/95 py-2 border-b border-soft-border shadow-sm backdrop-blur">
           <div className="flex items-center gap-3 mb-4">
             <MasterNavigationDrawer inHeader />
-            <h1 className="text-xl font-bold tracking-tight text-slate-900">MANAGERS DASHBOARD FOR VOUCHERS/JOB CARDS</h1>
+            <h1 className="text-xl font-bold tracking-tight text-midnight-ink">MANAGERS DASHBOARD FOR VOUCHERS/JOB CARDS</h1>
           </div>
         </div>
 
         {/* Search Bar and Buttons */}
         <div className="flex flex-wrap gap-4 items-center justify-between mb-4">
           <div className="relative max-w-[250px]">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-cool-gray w-5 h-5" />
             <Input
               type="text"
               placeholder="SEARCH BAR"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="border-2 border-gray-400 rounded-lg px-4 py-2 pl-10"
+              className="border-2 border-soft-border rounded-lg px-4 py-2 pl-10"
             />
           </div>
           <div className="flex gap-2">
             <Button 
               onClick={handleCreateJob}
-              className="bg-green-500 hover:bg-green-600 text-white rounded-full px-6"
+              className="bg-success hover:bg-success text-white rounded-full px-6"
             >
               Create a Job
             </Button>
             <Button 
               onClick={handleManageColumns}
               variant="outline"
-              className="border-gray-800 text-gray-800 rounded-full px-6"
+              className="border-midnight-ink text-midnight-ink rounded-full px-6"
             >
               Manage Columns
             </Button>
             <Button 
               onClick={() => setIsKYCModalOpen(true)}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-full px-6"
+              className="bg-trust-blue hover:bg-deep-blue text-white rounded-full px-6"
             >
               Company KYC
             </Button>
@@ -333,13 +333,13 @@ export default function ManagersDashboard() {
         </div>
 
         {/* Filter Row */}
-        <div className="border-2 border-blue-400 rounded-lg mb-6 bg-blue-50 p-4">
+        <div className="border-2 border-trust-blue rounded-lg mb-6 bg-trust-blue/10 p-4">
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-9 gap-3">
             {/* Status */}
             <div>
-              <label className="text-xs font-semibold text-gray-700 block mb-1">STATUS</label>
+              <label className="text-sm font-semibold text-slate-text block mb-1">STATUS</label>
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="h-9 text-xs bg-white">
+                <SelectTrigger className="h-9 text-sm bg-white">
                   <SelectValue placeholder="Select" />
                 </SelectTrigger>
                 <SelectContent>
@@ -352,31 +352,31 @@ export default function ManagersDashboard() {
 
             {/* Date From */}
             <div>
-              <label className="text-xs font-semibold text-gray-700 block mb-1">DATE FROM</label>
+              <label className="text-sm font-semibold text-slate-text block mb-1">DATE FROM</label>
               <Input
                 type="date"
                 value={dateFromFilter}
                 onChange={(e) => setDateFromFilter(e.target.value)}
-                className="h-9 text-xs p-2 bg-white"
+                className="h-9 text-sm p-2 bg-white"
               />
             </div>
 
             {/* Date To */}
             <div>
-              <label className="text-xs font-semibold text-gray-700 block mb-1">DATE TO</label>
+              <label className="text-sm font-semibold text-slate-text block mb-1">DATE TO</label>
               <Input
                 type="date"
                 value={dateToFilter}
                 onChange={(e) => setDateToFilter(e.target.value)}
-                className="h-9 text-xs p-2 bg-white"
+                className="h-9 text-sm p-2 bg-white"
               />
             </div>
 
             {/* New/Reissue */}
             <div>
-              <label className="text-xs font-semibold text-gray-700 block mb-1">NEW/REISSUE</label>
+              <label className="text-sm font-semibold text-slate-text block mb-1">NEW/REISSUE</label>
               <Select value={newReissueFilter} onValueChange={setNewReissueFilter}>
-                <SelectTrigger className="h-9 text-xs bg-white">
+                <SelectTrigger className="h-9 text-sm bg-white">
                   <SelectValue placeholder="Select" />
                 </SelectTrigger>
                 <SelectContent>
@@ -389,9 +389,9 @@ export default function ManagersDashboard() {
 
             {/* Name */}
             <div>
-              <label className="text-xs font-semibold text-gray-700 block mb-1">NAME</label>
+              <label className="text-sm font-semibold text-slate-text block mb-1">NAME</label>
               <Select value={nameFilter} onValueChange={setNameFilter}>
-                <SelectTrigger className="h-9 text-xs bg-white">
+                <SelectTrigger className="h-9 text-sm bg-white">
                   <SelectValue placeholder="Select Name" />
                 </SelectTrigger>
                 <SelectContent>
@@ -404,9 +404,9 @@ export default function ManagersDashboard() {
 
             {/* Issuer */}
             <div>
-              <label className="text-xs font-semibold text-gray-700 block mb-1">ISSUER</label>
+              <label className="text-sm font-semibold text-slate-text block mb-1">ISSUER</label>
               <Select value={issuerFilter} onValueChange={setIssuerFilter}>
-                <SelectTrigger className="h-9 text-xs bg-white">
+                <SelectTrigger className="h-9 text-sm bg-white">
                   <SelectValue placeholder="Select Issuer" />
                 </SelectTrigger>
                 <SelectContent>
@@ -419,9 +419,9 @@ export default function ManagersDashboard() {
 
             {/* Department */}
             <div>
-              <label className="text-xs font-semibold text-gray-700 block mb-1">DEPARTMENT</label>
+              <label className="text-sm font-semibold text-slate-text block mb-1">DEPARTMENT</label>
               <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
-                <SelectTrigger className="h-9 text-xs bg-white">
+                <SelectTrigger className="h-9 text-sm bg-white">
                   <SelectValue placeholder="Select Dept" />
                 </SelectTrigger>
                 <SelectContent>
@@ -434,9 +434,9 @@ export default function ManagersDashboard() {
 
             {/* Type */}
             <div>
-              <label className="text-xs font-semibold text-gray-700 block mb-1">TYPE</label>
+              <label className="text-sm font-semibold text-slate-text block mb-1">TYPE</label>
               <Select value={typeFilter} onValueChange={setTypeFilter}>
-                <SelectTrigger className="h-9 text-xs bg-white">
+                <SelectTrigger className="h-9 text-sm bg-white">
                   <SelectValue placeholder="Select Type" />
                 </SelectTrigger>
                 <SelectContent>
@@ -449,9 +449,9 @@ export default function ManagersDashboard() {
 
             {/* Category */}
             <div>
-              <label className="text-xs font-semibold text-gray-700 block mb-1">CATEGORY</label>
+              <label className="text-sm font-semibold text-slate-text block mb-1">CATEGORY</label>
               <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                <SelectTrigger className="h-9 text-xs bg-white">
+                <SelectTrigger className="h-9 text-sm bg-white">
                   <SelectValue placeholder="Select Category" />
                 </SelectTrigger>
                 <SelectContent>
@@ -465,22 +465,22 @@ export default function ManagersDashboard() {
         </div>
 
         {/* Dashboard Table */}
-        <div className="border-2 border-gray-300 rounded-lg bg-white overflow-x-auto">
-        <table className="w-full border-collapse text-xs">
+        <div className="border-2 border-soft-border rounded-lg bg-white overflow-x-auto">
+        <table className="w-full border-collapse text-sm">
           <thead>
-            <tr className="bg-gray-300 border-b-2 border-gray-400">
+            <tr className="bg-cloud-gray border-b-2 border-soft-border">
               {processColumns.map((column) => 
                 visibleColumns.has(column) && (
-                  <th key={column} className="border-2 border-gray-400 p-3 text-center font-bold text-sm min-w-[200px]">
+                  <th key={column} className="border-2 border-soft-border p-3 text-center font-bold text-sm min-w-[200px]">
                     {column}
                   </th>
                 )
               )}
             </tr>
-            <tr className="bg-gray-200 border-b-2 border-gray-400">
+            <tr className="bg-cloud-gray border-b-2 border-soft-border">
               {processColumns.map((column) => 
                 visibleColumns.has(column) && (
-                  <th key={column} className="border-2 border-gray-400 p-2 text-center font-bold text-xs">
+                  <th key={column} className="border-2 border-soft-border p-2 text-center font-bold text-sm">
                     Total: {calculateTotal(jobCardsData[column])}
                   </th>
                 )
@@ -491,27 +491,27 @@ export default function ManagersDashboard() {
             <tr>
               {processColumns.map((column) => 
                 visibleColumns.has(column) && (
-                  <td key={column} className="border-2 border-gray-400 p-3 align-top min-h-[400px]">
+                  <td key={column} className="border-2 border-soft-border p-3 align-top min-h-[400px]">
                   <div className="space-y-3">
                     {/* New Cards */}
                     {jobCardsData[column].new.map((card, idx) => (
                       <div
                         key={`new-${idx}`}
                         onClick={() => handleCardClick(card)}
-                        className="bg-yellow-200 border-2 border-yellow-400 rounded-lg p-3 cursor-pointer hover:shadow-lg transition-shadow"
+                        className="bg-warning-soft border-2 border-warning rounded-lg p-3 cursor-pointer hover:shadow-lg transition-shadow"
                       >
                         <div className="space-y-1">
                           <div className="flex items-center gap-1">
-                            <span className="text-[10px] font-bold text-gray-700">Voucher No.</span>
+                            <span className="text-sm font-bold text-slate-text">Voucher No.</span>
                           </div>
                           <div className="flex items-center gap-1">
-                            <span className="text-[10px] font-bold text-gray-700">Name</span>
+                            <span className="text-sm font-bold text-slate-text">Name</span>
                           </div>
                           <div className="flex items-center gap-1">
-                            <span className="text-[10px] font-bold text-gray-700">Category</span>
+                            <span className="text-sm font-bold text-slate-text">Category</span>
                           </div>
                           <div className="flex items-center gap-1">
-                            <span className="text-[10px] font-bold text-gray-700">Total Qty & Weight</span>
+                            <span className="text-sm font-bold text-slate-text">Total Qty & Weight</span>
                           </div>
                         </div>
                       </div>
@@ -522,20 +522,20 @@ export default function ManagersDashboard() {
                       <div
                         key={`wip-${idx}`}
                         onClick={() => handleCardClick(card)}
-                        className="bg-orange-200 border-2 border-orange-400 rounded-lg p-3 cursor-pointer hover:shadow-lg transition-shadow"
+                        className="bg-warning/20 border-2 border-warning rounded-lg p-3 cursor-pointer hover:shadow-lg transition-shadow"
                       >
                         <div className="space-y-1">
                           <div className="flex items-center gap-1">
-                            <span className="text-[10px] font-bold text-gray-700">Voucher No.</span>
+                            <span className="text-sm font-bold text-slate-text">Voucher No.</span>
                           </div>
                           <div className="flex items-center gap-1">
-                            <span className="text-[10px] font-bold text-gray-700">Name</span>
+                            <span className="text-sm font-bold text-slate-text">Name</span>
                           </div>
                           <div className="flex items-center gap-1">
-                            <span className="text-[10px] font-bold text-gray-700">Category</span>
+                            <span className="text-sm font-bold text-slate-text">Category</span>
                           </div>
                           <div className="flex items-center gap-1">
-                            <span className="text-[10px] font-bold text-gray-700">Total Qty & Weight</span>
+                            <span className="text-sm font-bold text-slate-text">Total Qty & Weight</span>
                           </div>
                         </div>
                       </div>
@@ -550,16 +550,16 @@ export default function ManagersDashboard() {
                       >
                         <div className="space-y-1">
                           <div className="flex items-center gap-1">
-                            <span className="text-[10px] font-bold text-gray-700">Voucher No.</span>
+                            <span className="text-sm font-bold text-slate-text">Voucher No.</span>
                           </div>
                           <div className="flex items-center gap-1">
-                            <span className="text-[10px] font-bold text-gray-700">Name</span>
+                            <span className="text-sm font-bold text-slate-text">Name</span>
                           </div>
                           <div className="flex items-center gap-1">
-                            <span className="text-[10px] font-bold text-gray-700">Category</span>
+                            <span className="text-sm font-bold text-slate-text">Category</span>
                           </div>
                           <div className="flex items-center gap-1">
-                            <span className="text-[10px] font-bold text-gray-700">Total Qty & Weight</span>
+                            <span className="text-sm font-bold text-slate-text">Total Qty & Weight</span>
                           </div>
                         </div>
                       </div>
