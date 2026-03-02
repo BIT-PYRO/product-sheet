@@ -27,9 +27,9 @@ function CompositeStockDisplay({ value }) {
 
   return (
     <div className="flex items-center justify-center gap-0.5">
-      <span className="text-orange-600 font-medium">{value.wip || '-'}</span>
-      <span className="text-gray-400">/</span>
-      <span className="text-green-600 font-medium">{value.current || '-'}</span>
+      <span className="text-warning font-medium">{value.wip || '-'}</span>
+      <span className="text-cool-gray">/</span>
+      <span className="text-success font-medium">{value.current || '-'}</span>
     </div>
   );
 }
@@ -708,7 +708,7 @@ export default function MasterInventorySheet() {
   };
 
   return (
-    <div className="w-full min-h-screen bg-gray-50 p-4 md:p-6">
+    <div className="w-full min-h-screen bg-cloud-gray p-4 md:p-6">
       <Dialog open={isManageColumnsOpen} onOpenChange={setIsManageColumnsOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
@@ -716,7 +716,7 @@ export default function MasterInventorySheet() {
           </DialogHeader>
           <div className="space-y-3 max-h-[400px] overflow-y-auto py-4">
             {/* Select All Checkbox */}
-            <div className="flex items-center justify-between gap-3 pb-3 border-b border-gray-200 mb-3">
+            <div className="flex items-center justify-between gap-3 pb-3 border-b border-soft-border mb-3">
               <div className="flex items-center gap-3 flex-1">
                 <Checkbox
                   id="select-all-columns"
@@ -742,11 +742,11 @@ export default function MasterInventorySheet() {
                     {column.label}
                   </label>
                 </div>
-                <div className="text-xs font-semibold px-2 py-1 rounded">
+                <div className="text-sm font-semibold px-2 py-1 rounded">
                   {!visibleColumns.has(column.key) ? (
-                    <span className="bg-red-100 text-red-700 px-2 py-1 rounded-full text-xs">Hidden</span>
+                    <span className="bg-danger/10 text-danger-dark px-2 py-1 rounded-full text-sm">Hidden</span>
                   ) : (
-                    <span className="bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs">Visible</span>
+                    <span className="bg-success/10 text-success-dark px-2 py-1 rounded-full text-sm">Visible</span>
                   )}
                 </div>
               </div>
@@ -757,7 +757,7 @@ export default function MasterInventorySheet() {
               onClick={handleHideColumns}
               disabled={selectedColumnsForAction.size === 0}
               variant="outline"
-              className="text-red-600 border-red-300 hover:bg-red-50"
+              className="text-danger border-danger/40 hover:bg-danger/10"
             >
               Hide
             </Button>
@@ -765,7 +765,7 @@ export default function MasterInventorySheet() {
               onClick={handleShowColumns}
               disabled={selectedColumnsForAction.size === 0}
               variant="outline"
-              className="text-green-600 border-green-300 hover:bg-green-50"
+              className="text-success border-green-300 hover:bg-success/10"
             >
               Show
             </Button>
@@ -773,11 +773,11 @@ export default function MasterInventorySheet() {
         </DialogContent>
       </Dialog>
 
-      <div className="max-w-[1600px] mx-auto border border-gray-300 bg-white p-4 md:p-6">
-        <div className="mb-4 sticky top-0 z-30 bg-white/95 py-2 border-b border-gray-200 shadow-sm backdrop-blur">
+      <div className="max-w-[1600px] mx-auto border border-soft-border bg-white p-4 md:p-6">
+        <div className="mb-4 sticky top-0 z-30 bg-white/95 py-2 border-b border-soft-border shadow-sm backdrop-blur">
           <div className="flex items-center gap-3 mb-4">
             <MasterNavigationDrawer inHeader />
-            <h1 className="text-xl font-bold tracking-tight text-slate-900">MASTER INVENTORY SHEET</h1>
+            <h1 className="text-xl font-bold tracking-tight text-midnight-ink">MASTER INVENTORY SHEET</h1>
           </div>
 
           <div className="flex flex-col lg:flex-row gap-3 lg:items-center lg:justify-between mb-2">
@@ -805,7 +805,7 @@ export default function MasterInventorySheet() {
               />
               {isSkuDropdownOpen && skuSearchOptions.length > 0 && (
                 <div
-                  className="absolute z-10 mt-1 w-full max-h-60 overflow-auto rounded-md border border-gray-200 bg-white shadow-lg"
+                  className="absolute z-10 mt-1 w-full max-h-60 overflow-auto rounded-md border border-soft-border bg-white shadow-lg"
                   onMouseDown={(event) => event.preventDefault()}
                 >
                   {skuSearchOptions.map((option) => {
@@ -814,7 +814,7 @@ export default function MasterInventorySheet() {
                       <button
                         key={option.sku}
                         type="button"
-                        className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100"
+                        className="w-full text-left px-3 py-2 text-sm hover:bg-cloud-gray"
                         onClick={() => {
                           setSelectedSku(option.sku);
                           setSearchTerm(label);
@@ -832,7 +832,7 @@ export default function MasterInventorySheet() {
               <select
                 value={stockField}
                 onChange={(event) => setStockField(event.target.value)}
-                className="w-full h-10 rounded-md border border-gray-300 px-3 text-sm bg-white"
+                className="w-full h-10 rounded-md border border-soft-border px-3 text-sm bg-white"
               >
                 {STOCK_FILTER_OPTIONS.map((option) => (
                   <option key={option.value} value={option.value}>
@@ -844,7 +844,7 @@ export default function MasterInventorySheet() {
           </div>
           <div className="flex flex-wrap gap-2 justify-start lg:justify-end">
             <Button
-              className="bg-green-600 hover:bg-green-700"
+              className="bg-success hover:bg-success/90"
               onClick={() => setIsCreateJobModalOpen(true)}
             >
               Create a Job
@@ -864,7 +864,7 @@ export default function MasterInventorySheet() {
               <DropdownMenuTrigger asChild>
                 <button
                   type="button"
-                  className="px-3 py-1 text-xs border rounded bg-blue-100 text-gray-800 border-blue-300"
+                  className="px-3 py-1 text-sm border rounded bg-trust-blue/10 text-midnight-ink border-trust-blue/40"
                 >
                   {field.label}
                   {filterSelections[field.key]?.size > 0
@@ -874,17 +874,17 @@ export default function MasterInventorySheet() {
               </DropdownMenuTrigger>
               <DropdownMenuContent className="w-56 max-h-64 overflow-y-auto p-2">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-semibold">Select {field.label}</span>
+                  <span className="text-sm font-semibold">Select {field.label}</span>
                   <button
                     type="button"
                     onClick={() => clearFilterSelection(field.key)}
-                    className="text-xs text-blue-600 hover:underline"
+                    className="text-sm text-trust-blue hover:underline"
                   >
                     Clear
                   </button>
                 </div>
                 {(filterOptionsByField[field.key] || []).map((option) => (
-                  <label key={option} className="flex items-center gap-2 py-1 text-xs">
+                  <label key={option} className="flex items-center gap-2 py-1 text-sm">
                     <Checkbox
                       checked={filterSelections[field.key]?.has(option)}
                       onCheckedChange={() => toggleFilterSelection(field.key, option)}
@@ -893,7 +893,7 @@ export default function MasterInventorySheet() {
                   </label>
                 ))}
                 {filterOptionsByField[field.key]?.length === 0 && (
-                  <p className="text-xs text-gray-500">No values</p>
+                  <p className="text-sm text-cool-gray">No values</p>
                 )}
               </DropdownMenuContent>
             </DropdownMenu>
@@ -902,14 +902,14 @@ export default function MasterInventorySheet() {
 
         <div className="flex flex-col xl:flex-row gap-4">
           <div className="xl:w-[75%]">
-            <div className="overflow-x-auto border border-gray-300">
-              <table className="w-full min-w-[1200px] border-collapse text-xs">
+            <div className="overflow-x-auto border border-soft-border">
+              <table className="w-full min-w-[1200px] border-collapse text-sm">
                 <thead>
                   <tr>
                     {visibleColumnList.map((column) => (
                       <th
                         key={column.key}
-                        className={`border border-gray-400 bg-yellow-300 px-2 py-2 text-center font-semibold ${
+                        className={`border border-soft-border bg-warning px-2 py-2 text-center font-semibold ${
                           column.key === '__select__' ? 'sticky left-0 z-20' : ''
                         }`}
                       >
@@ -932,7 +932,7 @@ export default function MasterInventorySheet() {
                       {visibleColumnList.map((column) => (
                         <td
                           key={`${row.id}-${column.key}`}
-                          className={`border border-gray-300 px-2 py-2 h-9 text-center ${
+                          className={`border border-soft-border px-2 py-2 h-9 text-center ${
                             column.key === '__select__' ? 'sticky left-0 z-10 bg-white' : ''
                           }`}
                         >
@@ -956,23 +956,23 @@ export default function MasterInventorySheet() {
               </table>
             </div>
 
-            {isLoading && <p className="mt-2 text-xs text-gray-600">Loading live stock data...</p>}
-            {error && <p className="mt-2 text-xs text-red-600">{error}</p>}
+            {isLoading && <p className="mt-2 text-sm text-cool-gray">Loading live stock data...</p>}
+            {error && <p className="mt-2 text-sm text-danger">{error}</p>}
             {!isLoading && !error && filteredProducts.length === 0 && (
-              <p className="mt-2 text-xs text-gray-600">No inventory data found.</p>
+              <p className="mt-2 text-sm text-cool-gray">No inventory data found.</p>
             )}
           </div>
 
           <div className="xl:w-[10%] self-start relative">
-            <div className="absolute -top-6 left-0 text-xs font-semibold text-slate-900 tracking-wide">
+            <div className="absolute -top-6 left-0 text-sm font-semibold text-midnight-ink tracking-wide">
               TOTAL IN DEMAND
             </div>
-            <div className="border border-gray-300 bg-white p-0">
-              <div className="h-9 border-b border-gray-300 bg-yellow-300 text-xs font-semibold text-slate-900 flex items-center justify-center px-2">
+            <div className="border border-soft-border bg-white p-0">
+              <div className="h-9 border-b border-soft-border bg-warning text-sm font-semibold text-midnight-ink flex items-center justify-center px-2">
                 TOTAL IN DEMAND
               </div>
               {rowsToRender.length === 0 ? (
-                <div className="rounded-md border border-dashed border-gray-300 p-3 text-xs text-gray-500">
+                <div className="rounded-md border border-dashed border-soft-border p-3 text-sm text-cool-gray">
                   No demand data.
                 </div>
               ) : (
@@ -982,7 +982,7 @@ export default function MasterInventorySheet() {
                     return (
                       <div
                         key={`${row.id}-total-demand`}
-                        className="flex items-center justify-center border-b border-gray-200 px-2 text-xs text-slate-900 h-9"
+                        className="flex items-center justify-center border-b border-soft-border px-2 text-sm text-midnight-ink h-9"
                       >
                         {totalDemand}
                       </div>
@@ -994,17 +994,17 @@ export default function MasterInventorySheet() {
           </div>
 
           <div className="xl:w-[15%] self-start relative">
-            <div className="absolute -top-6 left-0 text-xs font-semibold text-slate-900 tracking-wide">
+            <div className="absolute -top-6 left-0 text-sm font-semibold text-midnight-ink tracking-wide">
               ORDER LIST
             </div>
-            <div className="border border-gray-300 bg-white p-0">
-              <div className="h-9 border-b border-gray-300 bg-yellow-300 text-xs font-semibold text-slate-900 flex items-center justify-between px-2 relative">
+            <div className="border border-soft-border bg-white p-0">
+              <div className="h-9 border-b border-soft-border bg-warning text-sm font-semibold text-midnight-ink flex items-center justify-between px-2 relative">
                 <div className="flex-1">
                   {picklists.length > 0 ? (
                     <div className="relative">
                       <button
                         onClick={() => setIsPicklistDropdownOpen(!isPicklistDropdownOpen)}
-                        className="w-full text-left py-1 px-2 rounded hover:bg-yellow-200 transition-colors truncate"
+                        className="w-full text-left py-1 px-2 rounded hover:bg-warning-soft transition-colors truncate"
                       >
                         {selectedPicklist === null
                           ? 'VIEW ALL PRODUCTS'
@@ -1013,18 +1013,18 @@ export default function MasterInventorySheet() {
                           : 'SELECT PICKLIST'}
                       </button>
                       {isPicklistDropdownOpen && (
-                        <div className="absolute left-0 right-0 top-full mt-0 bg-white border border-gray-300 rounded shadow-lg z-20 max-h-48 overflow-y-auto">
+                        <div className="absolute left-0 right-0 top-full mt-0 bg-white border border-soft-border rounded shadow-lg z-20 max-h-48 overflow-y-auto">
                           <button
                             onClick={() => {
                               setSelectedPicklist(null);
                               setIsPicklistDropdownOpen(false);
                             }}
-                            className={`w-full text-left px-3 py-2 text-xs border-b border-gray-300 hover:bg-green-50 transition-colors font-semibold ${
-                              selectedPicklist === null ? 'bg-green-100' : ''
+                            className={`w-full text-left px-3 py-2 text-sm border-b border-soft-border hover:bg-success/10 transition-colors font-semibold ${
+                              selectedPicklist === null ? 'bg-success/10' : ''
                             }`}
                           >
-                            <div className="text-green-700">VIEW ALL PRODUCTS</div>
-                            <div className="text-gray-500 text-xs">Show all {products.length} products</div>
+                            <div className="text-success-dark">VIEW ALL PRODUCTS</div>
+                            <div className="text-cool-gray text-sm">Show all {products.length} products</div>
                           </button>
                           {picklists.map((picklist) => (
                             <button
@@ -1033,15 +1033,15 @@ export default function MasterInventorySheet() {
                                 setSelectedPicklist(picklist.id);
                                 setIsPicklistDropdownOpen(false);
                               }}
-                              className={`w-full text-left px-3 py-2 text-xs border-b border-gray-200 hover:bg-blue-50 transition-colors ${
-                                selectedPicklist === picklist.id ? 'bg-blue-100 font-semibold' : ''
+                              className={`w-full text-left px-3 py-2 text-sm border-b border-soft-border hover:bg-trust-blue/10 transition-colors ${
+                                selectedPicklist === picklist.id ? 'bg-trust-blue/10 font-semibold' : ''
                               }`}
                             >
                               <div className="font-medium">{picklist.name}</div>
-                              <div className="text-gray-600 text-xs">
+                              <div className="text-cool-gray text-sm">
                                 {new Date(picklist.createdAt).toLocaleString()}
                               </div>
-                              <div className="text-gray-500 text-xs">
+                              <div className="text-cool-gray text-sm">
                                 {picklist.orderCount} order{picklist.orderCount !== 1 ? 's' : ''}
                               </div>
                             </button>
@@ -1055,7 +1055,7 @@ export default function MasterInventorySheet() {
                 </div>
               </div>
               {rowsToRender.length === 0 ? (
-                <div className="rounded-md border border-dashed border-gray-300 p-3 text-xs text-gray-500">
+                <div className="rounded-md border border-dashed border-soft-border p-3 text-sm text-cool-gray">
                   No incoming orders yet.
                 </div>
               ) : (
@@ -1065,7 +1065,7 @@ export default function MasterInventorySheet() {
                     return (
                       <div
                         key={`${row.id}-order`}
-                        className="flex items-center border-b border-gray-200 px-2 text-xs text-slate-900 h-9"
+                        className="flex items-center border-b border-soft-border px-2 text-sm text-midnight-ink h-9"
                       >
                         {product?.sku || ''}
                       </div>

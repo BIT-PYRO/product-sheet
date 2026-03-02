@@ -306,11 +306,7 @@ export default function DraftsPage() {
             <h3 className="text-base font-semibold text-midnight-ink mb-4">{activeSection} Drafts</h3>
 
             {activeDrafts.length === 0 ? (
-              <p className="text-sm text-cool-gray">
-                {activeSection === 'Create Order' && backendCreateOrderLoading
-                  ? 'Loading drafts...'
-                  : 'No drafts available in this section.'}
-              </p>
+              <p className="text-sm text-cool-gray">No drafts available in this section.</p>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[980px] border-collapse">

@@ -42,24 +42,28 @@ const KYC_COLUMNS = [
 ];
 
 const columnConfig = {
-  companyName: { minWidth: 'min-w-[120px]', headerBg: 'bg-indigo-200' },
-  businessType: { minWidth: 'min-w-[100px]', headerBg: 'bg-indigo-200' },
-  gstNumber: { minWidth: 'min-w-[120px]', headerBg: 'bg-indigo-200' },
-  panNumber: { minWidth: 'min-w-[110px]', headerBg: 'bg-indigo-200' },
-  addressLine1: { minWidth: 'min-w-[130px]', headerBg: 'bg-indigo-200' },
-  addressLine2: { minWidth: 'min-w-[130px]', headerBg: 'bg-indigo-200' },
-  city: { minWidth: 'min-w-[100px]', headerBg: 'bg-indigo-200' },
-  state: { minWidth: 'min-w-[100px]', headerBg: 'bg-indigo-200' },
-  pinCode: { minWidth: 'min-w-[100px]', headerBg: 'bg-indigo-200' },
-  authorizedPersonName: { minWidth: 'min-w-[130px]', headerBg: 'bg-indigo-200' },
-  designation: { minWidth: 'min-w-[100px]', headerBg: 'bg-indigo-200' },
-  mobile: { minWidth: 'min-w-[110px]', headerBg: 'bg-indigo-200' },
-  email: { minWidth: 'min-w-[140px]', headerBg: 'bg-indigo-200' },
-  accountName: { minWidth: 'min-w-[120px]', headerBg: 'bg-indigo-200' },
-  bankName: { minWidth: 'min-w-[100px]', headerBg: 'bg-indigo-200' },
-  accountNumber: { minWidth: 'min-w-[120px]', headerBg: 'bg-indigo-200' },
-  ifsc: { minWidth: 'min-w-[100px]', headerBg: 'bg-indigo-200' },
-  status: { minWidth: 'min-w-[100px]', headerBg: 'bg-indigo-200' },
+  companyName: { minWidth: 'min-w-[120px]', headerBg: 'bg-trust-blue/20' },
+  businessType: { minWidth: 'min-w-[100px]', headerBg: 'bg-trust-blue/20' },
+  gstNumber: { minWidth: 'min-w-[120px]', headerBg: 'bg-trust-blue/20' },
+  panNumber: { minWidth: 'min-w-[110px]', headerBg: 'bg-trust-blue/20' },
+  addressLine1: { minWidth: 'min-w-[130px]', headerBg: 'bg-trust-blue/20' },
+  addressLine2: { minWidth: 'min-w-[130px]', headerBg: 'bg-trust-blue/20' },
+  city: { minWidth: 'min-w-[100px]', headerBg: 'bg-trust-blue/20' },
+  state: { minWidth: 'min-w-[100px]', headerBg: 'bg-trust-blue/20' },
+  pinCode: { minWidth: 'min-w-[100px]', headerBg: 'bg-trust-blue/20' },
+  authorizedPersonName: { minWidth: 'min-w-[130px]', headerBg: 'bg-trust-blue/20' },
+  designation: { minWidth: 'min-w-[100px]', headerBg: 'bg-trust-blue/20' },
+  mobile: { minWidth: 'min-w-[110px]', headerBg: 'bg-trust-blue/20' },
+  email: { minWidth: 'min-w-[140px]', headerBg: 'bg-trust-blue/20' },
+  accountName: { minWidth: 'min-w-[120px]', headerBg: 'bg-trust-blue/20' },
+  bankName: { minWidth: 'min-w-[100px]', headerBg: 'bg-trust-blue/20' },
+  accountNumber: { minWidth: 'min-w-[120px]', headerBg: 'bg-trust-blue/20' },
+  ifsc: { minWidth: 'min-w-[100px]', headerBg: 'bg-trust-blue/20' },
+  gstCertificate: { minWidth: 'min-w-[100px]', headerBg: 'bg-trust-blue/20' },
+  panCard: { minWidth: 'min-w-[100px]', headerBg: 'bg-trust-blue/20' },
+  idProof: { minWidth: 'min-w-[100px]', headerBg: 'bg-trust-blue/20' },
+  cancelledCheque: { minWidth: 'min-w-[120px]', headerBg: 'bg-trust-blue/20' },
+  status: { minWidth: 'min-w-[100px]', headerBg: 'bg-trust-blue/20' },
 };
 
 export default function MasterKYCSheet() {
@@ -217,14 +221,14 @@ export default function MasterKYCSheet() {
   });
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 md:p-6">
-      <div className="max-w-[1600px] mx-auto border border-gray-300 bg-white p-4 md:p-6">
+    <div className="min-h-screen bg-cloud-gray p-4 md:p-6">
+      <div className="max-w-[1600px] mx-auto border border-soft-border bg-white p-4 md:p-6">
         {/* Header */}
-        <div className="mb-4 sticky top-0 z-30 bg-white/95 py-2 border-b border-gray-200 shadow-sm backdrop-blur">
+        <div className="mb-4 sticky top-0 z-30 bg-white/95 py-2 border-b border-soft-border shadow-sm backdrop-blur">
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-3">
               <MasterNavigationDrawer inHeader />
-              <h1 className="text-lg md:text-xl font-bold text-gray-900">
+              <h1 className="text-lg md:text-xl font-bold text-midnight-ink">
                 MASTER KYC SHEET
               </h1>
             </div>
@@ -261,8 +265,8 @@ export default function MasterKYCSheet() {
           <div className="bg-white rounded-lg shadow-sm overflow-x-auto">
             <table className="w-full border-collapse">
               <thead>
-                <tr className="bg-gray-100 border-b-2 border-gray-300">
-                  <th className="p-2 text-center border border-gray-400 w-12">
+                <tr className="bg-cloud-gray border-b-2 border-soft-border">
+                  <th className="p-2 text-center border border-soft-border w-12">
                     <Checkbox
                       checked={selectedRows.size === (sortedProducts.length > 0 ? sortedProducts.length : emptyRowsData.length) && selectedRows.size > 0}
                       onCheckedChange={handleSelectAll}
@@ -273,15 +277,15 @@ export default function MasterKYCSheet() {
                     (column) => (
                       <th
                         key={column.key}
-                        className={`p-3 text-left text-xs font-semibold text-gray-700 ${
-                          columnConfig[column.key]?.headerBg || 'bg-gray-100'
+                        className={`p-3 text-left text-sm font-semibold text-slate-text ${
+                          columnConfig[column.key]?.headerBg || 'bg-cloud-gray'
                         } ${columnConfig[column.key]?.minWidth} cursor-pointer hover:opacity-80`}
                         onClick={() => handleSort(column.key)}
                       >
                         <div className="flex items-center gap-2">
                           {column.label}
                           {sortField === column.key && (
-                            <span className="text-xs">
+                            <span className="text-sm">
                               {sortDirection === 'asc' ? '↑' : '↓'}
                             </span>
                           )}
@@ -294,8 +298,8 @@ export default function MasterKYCSheet() {
               <tbody>
                 {sortedProducts.length > 0 ? (
                   sortedProducts.map((row, index) => (
-                    <tr key={index} className="border-b border-gray-200 hover:bg-gray-50">
-                      <td className="p-1 text-center border border-gray-400 w-12 bg-gray-50 text-xs font-medium">
+                    <tr key={index} className="border-b border-soft-border hover:bg-cloud-gray">
+                      <td className="p-1 text-center border border-soft-border w-12 bg-cloud-gray text-sm font-medium">
                         <div className="flex items-center justify-center gap-1">
                           <Checkbox
                             checked={selectedRows.has(index)}
@@ -308,7 +312,7 @@ export default function MasterKYCSheet() {
                         (column) => (
                           <td
                             key={`${index}-${column.key}`}
-                            className={`p-3 text-xs text-gray-700 border border-gray-400 ${columnConfig[column.key]?.minWidth}`}
+                            className={`p-3 text-sm text-slate-text border border-soft-border ${columnConfig[column.key]?.minWidth}`}
                           >
                             {row[column.key] ? String(row[column.key]).substring(0, 50) : ''}
                           </td>
@@ -318,8 +322,8 @@ export default function MasterKYCSheet() {
                   ))
                 ) : (
                   emptyRowsData.map((_, index) => (
-                    <tr key={`empty-${index}`} className="border-b border-gray-200 hover:bg-gray-50">
-                      <td className="p-1 text-center border border-gray-400 w-12 bg-gray-50 text-xs font-medium">
+                    <tr key={`empty-${index}`} className="border-b border-soft-border hover:bg-cloud-gray">
+                      <td className="p-1 text-center border border-soft-border w-12 bg-cloud-gray text-sm font-medium">
                         <div className="flex items-center justify-center gap-1">
                           <Checkbox
                             checked={selectedRows.has(index)}
@@ -332,14 +336,14 @@ export default function MasterKYCSheet() {
                         (column) => (
                           <td
                             key={`empty-${index}-${column.key}`}
-                            className={`p-1 text-xs border border-gray-400 ${columnConfig[column.key]?.minWidth}`}
+                            className={`p-1 text-sm border border-soft-border ${columnConfig[column.key]?.minWidth}`}
                           >
                             <Input
                               type="text"
                               value={emptyRowsData[index]?.[column.key] || ''}
                               onChange={(e) => handleEmptyRowChange(index, column.key, e.target.value)}
                               placeholder=""
-                              className="border-0 p-1 h-7 text-xs"
+                              className="border-0 p-1 h-7 text-sm"
                             />
                           </td>
                         )
@@ -351,20 +355,20 @@ export default function MasterKYCSheet() {
             </table>
           </div>
 
-          {isLoading && <p className="mt-2 text-xs text-gray-600">Loading KYC data...</p>}
-          {error && <p className="mt-2 text-xs text-red-600">{error}</p>}
+          {isLoading && <p className="mt-2 text-sm text-cool-gray">Loading KYC data...</p>}
+          {error && <p className="mt-2 text-sm text-danger">{error}</p>}
 
           {/* Add Row Button and Stats */}
           <div className="mt-4 flex gap-2 items-center">
             {sortedProducts.length === 0 && (
               <Button
                 onClick={handleAddEmptyRow}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2"
+                className="bg-trust-blue hover:bg-deep-blue text-white px-4 py-2"
               >
                 + Add Row
               </Button>
             )}
-            <div className="flex gap-6 text-xs text-gray-600 ml-2">
+            <div className="flex gap-6 text-sm text-cool-gray ml-2">
               <span>Selected Rows: {selectedRows.size}</span>
               <span>Visible Rows: {sortedProducts.length || emptyRowsData.length}</span>
             </div>
@@ -379,7 +383,7 @@ export default function MasterKYCSheet() {
             <DialogTitle>Manage Columns</DialogTitle>
           </DialogHeader>
           <div className="space-y-3 max-h-[400px] overflow-y-auto py-4">
-            <div className="flex items-center justify-between gap-3 pb-3 border-b border-gray-300">
+            <div className="flex items-center justify-between gap-3 pb-3 border-b border-soft-border">
               <div className="flex items-center gap-3 flex-1">
                 <Checkbox
                   id="select-all-columns"
@@ -405,11 +409,11 @@ export default function MasterKYCSheet() {
                     {column.label}
                   </label>
                 </div>
-                <div className="text-xs font-semibold px-2 py-1 rounded">
+                <div className="text-sm font-semibold px-2 py-1 rounded">
                   {!visibleColumns.has(column.key) ? (
-                    <span className="bg-red-100 text-red-700 px-2 py-1 rounded-full text-xs">Hidden</span>
+                    <span className="bg-danger/10 text-danger-dark px-2 py-1 rounded-full text-sm">Hidden</span>
                   ) : (
-                    <span className="bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs">Visible</span>
+                    <span className="bg-success/10 text-success-dark px-2 py-1 rounded-full text-sm">Visible</span>
                   )}
                 </div>
               </div>
@@ -420,7 +424,7 @@ export default function MasterKYCSheet() {
               onClick={handleHideColumns}
               disabled={selectedColumnsForAction.size === 0}
               variant="outline"
-              className="text-red-600 border-red-300 hover:bg-red-50"
+              className="text-danger border-danger/40 hover:bg-danger/10"
             >
               Hide
             </Button>
@@ -428,7 +432,7 @@ export default function MasterKYCSheet() {
               onClick={handleShowColumns}
               disabled={selectedColumnsForAction.size === 0}
               variant="outline"
-              className="text-green-600 border-green-300 hover:bg-green-50"
+              className="text-success border-green-300 hover:bg-success/10"
             >
               Show
             </Button>

@@ -124,7 +124,7 @@ export function DraftsManager() {
     <>
       <Button
         onClick={() => setIsDraftsOpen(true)}
-        className="bg-purple-600 hover:bg-purple-700 text-white rounded-full px-6 flex items-center gap-2"
+        className="bg-trust-blue hover:bg-deep-blue text-white rounded-full px-6 flex items-center gap-2"
       >
         <FileText className="h-4 w-4" />
         Drafts {totalDrafts > 0 && `(${totalDrafts})`}
@@ -138,8 +138,8 @@ export function DraftsManager() {
 
           {totalDrafts === 0 ? (
             <div className="flex flex-col items-center justify-center py-12">
-              <FileText className="h-12 w-12 text-gray-300 mb-4" />
-              <p className="text-gray-500 text-center">No saved drafts yet</p>
+              <FileText className="h-12 w-12 text-cool-gray mb-4" />
+              <p className="text-cool-gray text-center">No saved drafts yet</p>
             </div>
           ) : (
             <div className="space-y-4">
@@ -147,11 +147,11 @@ export function DraftsManager() {
                 <div key={section} className="border rounded-lg">
                   <button
                     onClick={() => setExpandedSection(expandedSection === section ? null : section)}
-                    className="w-full px-4 py-3 flex items-center justify-between hover:bg-gray-50"
+                    className="w-full px-4 py-3 flex items-center justify-between hover:bg-cloud-gray"
                   >
-                    <h3 className="font-semibold text-gray-700">{section}</h3>
+                    <h3 className="font-semibold text-slate-text">{section}</h3>
                     <div className="flex items-center gap-2">
-                      <span className="text-sm text-gray-500">({sectionDrafts.length})</span>
+                      <span className="text-sm text-cool-gray">({sectionDrafts.length})</span>
                       <ChevronDown
                         className={`h-4 w-4 transition-transform ${
                           expandedSection === section ? 'rotate-180' : ''
@@ -161,18 +161,18 @@ export function DraftsManager() {
                   </button>
 
                   {expandedSection === section && (
-                    <div className="border-t bg-gray-50">
+                    <div className="border-t bg-cloud-gray">
                       <div className="space-y-2 p-4">
                         {sectionDrafts.map((draft) => (
-                          <div key={draft.id} className="flex items-center justify-between bg-white p-3 rounded border hover:border-blue-400 hover:bg-blue-50 transition-colors cursor-pointer group">
+                          <div key={draft.id} className="flex items-center justify-between bg-white p-3 rounded border hover:border-blue-400 hover:bg-trust-blue/10 transition-colors cursor-pointer group">
                             <button
                               onClick={() => handleLoadDraft(section, draft)}
                               className="flex-1 text-left"
                             >
-                              <p className="text-sm font-medium text-gray-700 group-hover:text-blue-700">
+                              <p className="text-sm font-medium text-slate-text group-hover:text-deep-blue">
                                 {draft.title || `Draft from ${new Date(draft.savedAt).toLocaleDateString()}`}
                               </p>
-                              <p className="text-xs text-gray-500">
+                              <p className="text-sm text-cool-gray">
                                 Saved: {new Date(draft.savedAt).toLocaleString()}
                               </p>
                             </button>
@@ -183,7 +183,7 @@ export function DraftsManager() {
                                 e.stopPropagation()
                                 deleteDraft(section, draft.id)
                               }}
-                              className="text-red-500 hover:text-red-700 hover:bg-red-50 shrink-0"
+                              className="text-danger hover:text-danger-dark hover:bg-danger/10 shrink-0"
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
@@ -202,7 +202,7 @@ export function DraftsManager() {
               <Button
                 onClick={clearAllDrafts}
                 variant="outline"
-                className="text-red-600 border-red-200 hover:bg-red-50"
+                className="text-danger border-danger/30 hover:bg-danger/10"
               >
                 Clear All Drafts
               </Button>

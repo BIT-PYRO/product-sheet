@@ -156,9 +156,9 @@ export function QuickEnrollModal({ open, onOpenChange, onEnroll }) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[640px] bg-white text-midnight-ink p-0 gap-0 [&>button]:hidden rounded-xl shadow-xl overflow-hidden">
+      <DialogContent className="max-w-[750px] max-h-[70vh] overflow-y-auto bg-gradient-to-br from-cloud-gray to-cloud-gray text-midnight-ink p-0 gap-0 [&>button]:hidden">
         {/* Header */}
-        <DialogHeader className="px-5 py-3 border-b border-soft-border bg-midnight-ink relative">
+        <DialogHeader className="px-5 pt-4 pb-3 border-b border-soft-border bg-gradient-to-r from-midnight-ink to-midnight-ink/90 relative">
           <div className="flex items-center justify-center">
             <DialogTitle className="text-sm font-bold tracking-widest text-white">
               QUICK ENROLMENT
@@ -166,7 +166,7 @@ export function QuickEnrollModal({ open, onOpenChange, onEnroll }) {
           </div>
           <button
             onClick={() => onOpenChange(false)}
-            className="absolute right-4 top-3 text-white/50 hover:text-white transition"
+            className="absolute right-5 top-4 text-cool-gray hover:text-white"
             aria-label="Close"
           >
             <X className="h-4 w-4" />
@@ -181,37 +181,58 @@ export function QuickEnrollModal({ open, onOpenChange, onEnroll }) {
               <button
                 type="button"
                 onClick={() => photoInputRef.current?.click()}
-                className="w-[88px] h-[110px] border border-dashed border-soft-border rounded-lg flex flex-col items-center justify-center gap-1.5 hover:border-trust-blue hover:bg-blue-50/30 transition cursor-pointer bg-cloud-gray group"
+                className="w-full aspect-[4/5] border border-soft-border rounded-xl flex items-center justify-center hover:bg-cloud-gray transition-all cursor-pointer bg-white shadow-sm hover:shadow-md group"
               >
-                <Upload className="h-4 w-4 text-cool-gray group-hover:text-trust-blue transition" />
-                <span className="text-[10px] font-medium text-cool-gray group-hover:text-trust-blue leading-tight text-center">Upload<br/>Photo</span>
+                <div className="flex flex-col items-center gap-2">
+                  <div className="p-2 rounded-lg bg-cloud-gray group-hover:bg-cloud-gray transition">
+                    <Upload className="h-5 w-5 text-cool-gray group-hover:text-slate-text" />
+                  </div>
+                  <div className="flex flex-col items-center gap-0.5">
+                    <span className="text-sm font-semibold text-slate-text">Upload Photo</span>
+                  </div>
+                </div>
               </button>
               {photoFileName && (
-                <p className="text-[9px] text-slate-text truncate w-[88px] text-center">{photoFileName}</p>
+                <div className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg bg-cloud-gray border border-soft-border">
+                  <div className="w-4 h-4 rounded bg-cool-gray flex items-center justify-center">
+                    <span className="text-sm text-white font-bold">✓</span>
+                  </div>
+                  <p className="text-sm text-slate-text font-medium truncate flex-1">{photoFileName}</p>
+                </div>
               )}
               <input ref={photoInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoChange} />
             </div>
 
-            {/* Form Fields */}
-            <div className="flex-1 flex flex-col gap-2.5">
-              {/* First Name & Last Name */}
-              <div className="grid grid-cols-2 gap-2">
-                <div className="flex flex-col">
-                  <label className={fieldLabel}>First Name <span className="text-danger">*</span></label>
-                  <Input placeholder="First Name" value={firstName} onChange={(e) => setFirstName(e.target.value)} className={inputCls} />
+            {/* Form Fields on Right */}
+            <div className="flex flex-col gap-2">
+              {/* First Name & Last Name in one row */}
+              <div className="grid grid-cols-2 gap-2 mt-5">
+                <div className="flex flex-col gap-0.5">
+                  <Label className="text-sm font-semibold text-slate-text">FIRST NAME<span className="text-danger">*</span></Label>
+                  <Input
+                    placeholder="First Name"
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                    className="h-9 text-sm bg-cloud-gray border border-soft-border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-trust-blue focus:border-transparent placeholder-slate-400 transition"
+                  />
                 </div>
-                <div className="flex flex-col">
-                  <label className={fieldLabel}>Last Name</label>
-                  <Input placeholder="Last Name" value={lastName} onChange={(e) => setLastName(e.target.value)} className={inputCls} />
+                <div className="flex flex-col gap-0.5">
+                  <Label className="text-sm font-semibold text-slate-text">LAST NAME</Label>
+                  <Input
+                    placeholder="Last Name"
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                    className="h-9 text-sm bg-cloud-gray border border-soft-border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-trust-blue focus:border-transparent placeholder-slate-400 transition"
+                  />
                 </div>
               </div>
 
-              {/* Code + Phone + Location */}
-              <div className="grid grid-cols-[56px_130px_1fr] gap-2">
-                <div className="flex flex-col">
-                  <label className={fieldLabel}>Code</label>
+              {/* Phone (Code + Phone) and Location in one row */}
+              <div className="grid grid-cols-[65px_150px_1fr] gap-2">
+                <div className="flex flex-col gap-0.5">
+                  <Label className="text-sm font-semibold text-slate-text">CODE</Label>
                   <Select value={countryCode} onValueChange={setCountryCode}>
-                    <SelectTrigger className={selectTriggerCls + " w-full"}>
+                    <SelectTrigger className="h-9 text-sm bg-cloud-gray border border-soft-border rounded-lg focus:outline-none focus:ring-2 focus:ring-trust-blue focus:border-transparent w-full">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -221,22 +242,34 @@ export function QuickEnrollModal({ open, onOpenChange, onEnroll }) {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="flex flex-col">
-                  <label className={fieldLabel}>Phone <span className="text-danger">*</span></label>
-                  <Input type="tel" maxLength={12} placeholder="XXXXXXXXXX" value={contactNumber} onChange={(e) => setContactNumber(e.target.value.slice(0, 12))} className={inputCls} />
+                <div className="flex flex-col gap-0.5">
+                  <Label className="text-sm font-semibold text-slate-text">PHONE<span className="text-danger">*</span></Label>
+                  <Input
+                    type="tel"
+                    maxLength={12}
+                    placeholder="XXXXXXXXXX"
+                    value={contactNumber}
+                    onChange={(e) => setContactNumber(e.target.value.slice(0, 12))}
+                    className="h-9 text-sm bg-cloud-gray border border-soft-border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-trust-blue focus:border-transparent placeholder-slate-400 transition"
+                  />
                 </div>
-                <div className="flex flex-col">
-                  <label className={fieldLabel}>Location</label>
-                  <Input placeholder="City, State" value={location} onChange={(e) => setLocation(e.target.value)} className={inputCls} />
+                <div className="flex flex-col gap-0.5">
+                  <Label className="text-sm font-semibold text-slate-text">LOCATION</Label>
+                  <Input
+                    placeholder="Dwarka Niwas, Jaipur"
+                    value={location}
+                    onChange={(e) => setLocation(e.target.value)}
+                    className="h-9 text-sm bg-cloud-gray border border-soft-border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-trust-blue focus:border-transparent placeholder-slate-400 transition"
+                  />
                 </div>
               </div>
 
               {/* Department + Type */}
               <div className="grid grid-cols-2 gap-2">
-                <div className="flex flex-col">
-                  <label className={fieldLabel}>Department</label>
+                <div className="flex flex-col gap-0.5">
+                  <Label className="text-sm font-semibold text-slate-text">DEPARTMENT</Label>
                   <Select value={department} onValueChange={setDepartment}>
-                    <SelectTrigger className={selectTriggerCls}>
+                    <SelectTrigger className="h-9 text-sm bg-cloud-gray border border-soft-border rounded-lg focus:outline-none focus:ring-2 focus:ring-trust-blue focus:border-transparent">
                       <SelectValue placeholder="Select" />
                     </SelectTrigger>
                     <SelectContent>
@@ -248,10 +281,10 @@ export function QuickEnrollModal({ open, onOpenChange, onEnroll }) {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="flex flex-col">
-                  <label className={fieldLabel}>Type</label>
+                <div className="flex flex-col gap-0.5">
+                  <Label className="text-sm font-semibold text-slate-text">TYPE</Label>
                   <Select value={type} onValueChange={setType}>
-                    <SelectTrigger className={selectTriggerCls}>
+                    <SelectTrigger className="h-9 text-sm bg-cloud-gray border border-soft-border rounded-lg focus:outline-none focus:ring-2 focus:ring-trust-blue focus:border-transparent">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -265,50 +298,29 @@ export function QuickEnrollModal({ open, onOpenChange, onEnroll }) {
             </div>
           </div>
 
-          {/* Designation row */}
-          <div className="grid grid-cols-2 gap-2">
-            <div className="flex flex-col">
-              <label className={fieldLabel}>Designation</label>
-              <Select value={designation} onValueChange={(val) => { setDesignation(val); if (val !== 'Other') setDesignationOther('') }}>
-                <SelectTrigger className={selectTriggerCls}>
-                  <SelectValue placeholder="Select" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Intern">Intern</SelectItem>
-                  <SelectItem value="Worker">Worker</SelectItem>
-                  <SelectItem value="Labour">Labour</SelectItem>
-                  <SelectItem value="HR">HR</SelectItem>
-                  <SelectItem value="Supervisor">Supervisor</SelectItem>
-                  <SelectItem value="Manager">Manager</SelectItem>
-                  <SelectItem value="Other">Other</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            {designation === 'Other' && (
-              <div className="flex flex-col">
-                <label className={fieldLabel}>Specify Designation</label>
-                <Input placeholder="Enter designation" value={designationOther} onChange={(e) => setDesignationOther(e.target.value)} className={inputCls} />
-              </div>
-            )}
-          </div>
-
-          {/* Remarks */}
-          <div className="flex flex-col">
-            <label className={fieldLabel}>Remarks</label>
+          {/* Remarks Section */}
+          <div className="flex flex-col gap-0.5">
+            <Label className="text-sm font-semibold text-slate-text">REMARKS</Label>
             <Textarea
               value={remarks}
               onChange={(e) => setRemarks(e.target.value)}
               placeholder="Any additional notes..."
-              className="min-h-[52px] text-xs resize-none bg-white border border-soft-border rounded px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-trust-blue focus:border-transparent placeholder-slate-300 transition"
+              className="min-h-[60px] text-sm resize-none bg-cloud-gray border border-soft-border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-trust-blue focus:border-transparent placeholder-slate-400 transition"
             />
           </div>
 
-          {/* Buttons */}
-          <div className="flex gap-2 pt-1">
-            <Button className="flex-1 h-9 bg-trust-blue hover:bg-deep-blue text-white font-semibold text-xs rounded transition" onClick={handleSaveDraft}>
+          {/* Buttons Container */}
+          <div className="flex gap-2 mt-2">
+            <Button
+              className="flex-1 h-9 bg-trust-blue hover:bg-deep-blue text-white font-bold text-sm rounded transition shadow-md"
+              onClick={handleSaveDraft}
+            >
               Save as Draft
             </Button>
-            <Button className="flex-1 h-9 bg-midnight-ink hover:bg-midnight-ink/90 text-white font-bold text-xs tracking-widest rounded transition" onClick={handleSubmit}>
+            <Button
+              className="flex-1 bg-gradient-to-r from-midnight-ink to-midnight-ink/90 hover:from-midnight-ink hover:to-midnight-ink text-white font-bold h-9 text-sm rounded transition shadow-md"
+              onClick={handleSubmit}
+            >
               ENROLL
             </Button>
           </div>
