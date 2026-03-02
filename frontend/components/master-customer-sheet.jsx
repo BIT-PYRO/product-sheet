@@ -1,9 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Search } from 'lucide-react';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
-import GlobalSearchBar from '@/components/global-search-bar';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
@@ -14,16 +12,6 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from '@/components/ui/dialog';
-import DateTimeStamp from '@/components/date-time-stamp';
-import { EnrollCustomerForm } from '@/components/enroll-customer';
-import BulkUploadButton from '@/components/bulk-upload-button';
-import LastUpdatedFooter from '@/components/last-updated-footer';
-import {
-	DropdownMenu,
-	DropdownMenuContent,
-	DropdownMenuItem,
-	DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 
 const CUSTOMER_COLUMNS = [
 	{ key: '__select__', label: '' },
@@ -48,59 +36,34 @@ const CUSTOMER_COLUMNS = [
 ];
 
 const columnConfig = {
-	companyName: { minWidth: 'min-w-[140px]', headerBg: 'bg-trust-blue/20' },
-	businessType: { minWidth: 'min-w-[120px]', headerBg: 'bg-trust-blue/20' },
-	gstNumber: { minWidth: 'min-w-[130px]', headerBg: 'bg-trust-blue/20' },
-	panNumber: { minWidth: 'min-w-[120px]', headerBg: 'bg-trust-blue/20' },
-	addressLine1: { minWidth: 'min-w-[150px]', headerBg: 'bg-trust-blue/20' },
-	addressLine2: { minWidth: 'min-w-[150px]', headerBg: 'bg-trust-blue/20' },
-	city: { minWidth: 'min-w-[110px]', headerBg: 'bg-trust-blue/20' },
-	state: { minWidth: 'min-w-[110px]', headerBg: 'bg-trust-blue/20' },
-	pinCode: { minWidth: 'min-w-[100px]', headerBg: 'bg-trust-blue/20' },
-	authorizedPersonName: { minWidth: 'min-w-[150px]', headerBg: 'bg-trust-blue/20' },
-	designation: { minWidth: 'min-w-[120px]', headerBg: 'bg-trust-blue/20' },
-	mobile: { minWidth: 'min-w-[120px]', headerBg: 'bg-trust-blue/20' },
-	email: { minWidth: 'min-w-[170px]', headerBg: 'bg-trust-blue/20' },
-	accountName: { minWidth: 'min-w-[140px]', headerBg: 'bg-trust-blue/20' },
-	bankName: { minWidth: 'min-w-[130px]', headerBg: 'bg-trust-blue/20' },
-	accountNumber: { minWidth: 'min-w-[140px]', headerBg: 'bg-trust-blue/20' },
-	ifsc: { minWidth: 'min-w-[110px]', headerBg: 'bg-trust-blue/20' },
-	status: { minWidth: 'min-w-[110px]', headerBg: 'bg-trust-blue/20' },
+	companyName: { minWidth: 'min-w-[140px]', headerBg: 'bg-indigo-200' },
+	businessType: { minWidth: 'min-w-[120px]', headerBg: 'bg-indigo-200' },
+	gstNumber: { minWidth: 'min-w-[130px]', headerBg: 'bg-indigo-200' },
+	panNumber: { minWidth: 'min-w-[120px]', headerBg: 'bg-indigo-200' },
+	addressLine1: { minWidth: 'min-w-[150px]', headerBg: 'bg-indigo-200' },
+	addressLine2: { minWidth: 'min-w-[150px]', headerBg: 'bg-indigo-200' },
+	city: { minWidth: 'min-w-[110px]', headerBg: 'bg-indigo-200' },
+	state: { minWidth: 'min-w-[110px]', headerBg: 'bg-indigo-200' },
+	pinCode: { minWidth: 'min-w-[100px]', headerBg: 'bg-indigo-200' },
+	authorizedPersonName: { minWidth: 'min-w-[150px]', headerBg: 'bg-indigo-200' },
+	designation: { minWidth: 'min-w-[120px]', headerBg: 'bg-indigo-200' },
+	mobile: { minWidth: 'min-w-[120px]', headerBg: 'bg-indigo-200' },
+	email: { minWidth: 'min-w-[170px]', headerBg: 'bg-indigo-200' },
+	accountName: { minWidth: 'min-w-[140px]', headerBg: 'bg-indigo-200' },
+	bankName: { minWidth: 'min-w-[130px]', headerBg: 'bg-indigo-200' },
+	accountNumber: { minWidth: 'min-w-[140px]', headerBg: 'bg-indigo-200' },
+	ifsc: { minWidth: 'min-w-[110px]', headerBg: 'bg-indigo-200' },
+	status: { minWidth: 'min-w-[110px]', headerBg: 'bg-indigo-200' },
 };
 
 function normalizeCustomerRows(payload = {}) {
-	const rows = Array.isArray(payload.data)
-		? payload.data
-		: Array.isArray(payload.data?.results)
-			? payload.data.results
-			: [];
-
-	return rows.map((row) => ({
-		id: row.id,
-		companyName: row.company_name || '',
-		businessType: row.business_type || '',
-		gstNumber: row.gst_number || '',
-		panNumber: row.pan_number || '',
-		addressLine1: row.address_line1 || '',
-		addressLine2: row.address_line2 || '',
-		city: row.city || '',
-		state: row.state || '',
-		pinCode: row.pin_code || '',
-		authorizedPersonName: row.authorized_person_name || '',
-		designation: row.designation || '',
-		mobile: row.mobile || '',
-		email: row.email || '',
-		accountName: row.account_name || '',
-		bankName: row.bank_name || '',
-		accountNumber: row.account_number || '',
-		ifsc: row.ifsc || '',
-		status: row.status || '',
-	}));
+	if (Array.isArray(payload.customerData)) return payload.customerData;
+	if (Array.isArray(payload.kycData)) return payload.kycData;
+	if (Array.isArray(payload.products)) return payload.products;
+	return [];
 }
 
 export default function MasterCustomerSheet() {
-	const [lastUpdated, setLastUpdated] = useState(null);
-	const [currentUsername, setCurrentUsername] = useState('');
 	const [isLoading, setIsLoading] = useState(true);
 	const [error, setError] = useState('');
 	const [customers, setCustomers] = useState([]);
@@ -116,29 +79,20 @@ export default function MasterCustomerSheet() {
 	const [emptyRowsData, setEmptyRowsData] = useState(
 		Array.from({ length: 10 }).map(() => ({}))
 	);
-	const [isEnrollCustomerOpen, setIsEnrollCustomerOpen] = useState(false);
-
-	const [archivedRows, setArchivedRows] = useState(new Set());
-	const [isArchivedView, setIsArchivedView] = useState(false);
-	const [rowsPerPage, setRowsPerPage] = useState(25);
-	const [currentPage, setCurrentPage] = useState(1);
-
-	useEffect(() => {
-		fetch('/api/auth/session').then(r => r.json()).then(d => { if (d?.user?.username) setCurrentUsername(d.user.username); }).catch(() => {});
-	}, []);
 
 	const loadCustomerData = useCallback(async () => {
 		setIsLoading(true);
 		setError('');
 
 		try {
-			const response = await fetch('/api/customers', {
+			const response = await fetch('/api/save-to-sheets', {
 				method: 'GET',
 			});
 
-			const data = await response.json().catch(() => null);
-			if (response.ok && data?.success) {
-				setCustomers(normalizeCustomerRows(data));			setLastUpdated(new Date());			} else {
+			if (response.ok) {
+				const data = await response.json();
+				setCustomers(normalizeCustomerRows(data));
+			} else {
 				setError('Failed to load customer data');
 			}
 		} catch (err) {
@@ -170,10 +124,6 @@ export default function MasterCustomerSheet() {
 		const comparison = String(aValue).localeCompare(String(bValue));
 		return sortDirection === 'asc' ? comparison : -comparison;
 	});
-
-	const totalPages = Math.max(1, Math.ceil(sortedCustomers.length / rowsPerPage));
-	const safePage = Math.min(currentPage, totalPages);
-	const paginatedCustomers = sortedCustomers.slice((safePage - 1) * rowsPerPage, safePage * rowsPerPage);
 
 	const handleSelectAll = (checked) => {
 		if (checked) {
@@ -249,14 +199,6 @@ export default function MasterCustomerSheet() {
 		setEmptyRowsData(newEmptyRows);
 	};
 
-	const handleArchiveRow = () => {
-		if (selectedRows.size === 0) { alert('Please select at least one row to archive'); return; }
-		const newArchived = new Set(archivedRows);
-		selectedRows.forEach(id => newArchived.add(id));
-		setArchivedRows(newArchived);
-		setSelectedRows(new Set());
-	};
-
 	const handleAddEmptyRow = () => {
 		setEmptyRowsData([...emptyRowsData, {}]);
 	};
@@ -283,75 +225,47 @@ export default function MasterCustomerSheet() {
 	};
 
 	return (
-		<>
-		<div className="min-h-screen bg-cloud-gray">
-			<div className="pt-16 px-3 md:px-4 pb-16">
-				<div className="transition-[left,width] duration-300 ease-in-out fixed top-0 left-0 right-0 z-[60] bg-white/95 py-2 border-b border-soft-border shadow-sm backdrop-blur px-3 md:px-4">
+		<div className="min-h-screen bg-gray-50 p-4 md:p-6">
+			<div className="max-w-[1600px] mx-auto border border-gray-300 bg-white p-4 md:p-6">
+				<div className="mb-4 sticky top-0 z-30 bg-white/95 py-2 border-b border-gray-200 shadow-sm backdrop-blur">
 					<div className="flex items-center justify-between gap-4">
-						<div className="flex items-center gap-3 shrink-0">
+						<div className="flex items-center gap-3">
 							<MasterNavigationDrawer inHeader />
-							<h1 className="text-xl font-bold tracking-tight text-midnight-ink">MASTER CUSTOMER SHEET</h1>
+							<h1 className="text-lg md:text-xl font-bold text-gray-900">MASTER CUSTOMER SHEET</h1>
 						</div>
-						<GlobalSearchBar />
-						<DateTimeStamp />
 					</div>
 				</div>
 
 				<div className="max-w-full overflow-hidden">
-				{/* Action Buttons */}
-					<div className="flex flex-wrap gap-2 md:gap-4 justify-end mb-4 items-center">
-						<div className="relative mr-auto">
-							<Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-cool-gray w-4 h-4" />
-							<Input
-								type="text"
-								placeholder="Search by company name, GST, mobile, or email..."
-								value={searchTerm}
-								onChange={(e) => setSearchTerm(e.target.value)}
-								className="border border-soft-border rounded-lg pl-9 pr-4 h-9 w-64 text-sm"
-							/>
+					<div className="bg-white p-4 rounded-lg shadow-sm mb-6">
+						<div className="flex flex-col lg:flex-row gap-4 mb-4">
+							<div className="flex-1">
+								<Input
+									placeholder="Search by company name, GST, mobile, or email..."
+									value={searchTerm}
+									onChange={(e) => setSearchTerm(e.target.value)}
+									className="w-full"
+								/>
+							</div>
 						</div>
-						<Button onClick={loadCustomerData} variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8" disabled={isLoading}>
-							{isLoading ? 'Refreshing...' : 'Refresh'}
-						</Button>
-						<BulkUploadButton sheetType="customers" onComplete={loadCustomerData} />
-						<Button onClick={handleAddEmptyRow} className="bg-success hover:bg-success text-white rounded-full px-4 text-sm h-8">
-							Add Customer
-						</Button>
-						<Button onClick={() => setIsEnrollCustomerOpen(true)} className="bg-midnight-ink hover:bg-midnight-ink/90 text-white rounded-full px-4 text-sm h-8">
-							Enroll Customer
-						</Button>
-						<Button variant="outline" className="border-trust-blue text-trust-blue hover:bg-trust-blue/10 rounded-full px-4 text-sm h-8">
-							Edit Row
-						</Button>
-						<DropdownMenu>
-							<DropdownMenuTrigger asChild>
-								<Button variant="outline" className="border-warning text-warning hover:bg-warning/10 rounded-full px-4 text-sm h-8">
-									Archive
-								</Button>
-							</DropdownMenuTrigger>
-							<DropdownMenuContent>
-								<DropdownMenuItem onClick={handleArchiveRow} disabled={isArchivedView}>Archive Selected Rows</DropdownMenuItem>
-								<DropdownMenuItem onClick={() => setIsArchivedView(!isArchivedView)}>
-									{isArchivedView ? 'Show Active Rows' : 'Show Archived Rows'}
-								</DropdownMenuItem>
-							</DropdownMenuContent>
-						</DropdownMenu>
-						<Button onClick={() => setIsManageColumnsOpen(true)} variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8">
-							Manage Columns
-						</Button>
-						<Button onClick={handleExport} variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8">
-							Export
-						</Button>
-						<Button onClick={() => window.print()} variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8">
-							Print
-						</Button>
+						<div className="flex flex-wrap gap-2 justify-start lg:justify-end">
+							<Button variant="outline" onClick={() => setIsManageColumnsOpen(true)}>
+								Manage Columns
+							</Button>
+							<Button variant="outline" onClick={handleExport}>
+								Export
+							</Button>
+							<Button variant="outline" onClick={() => window.print()}>
+								Print
+							</Button>
+						</div>
 					</div>
 
 					<div className="bg-white rounded-lg shadow-sm overflow-x-auto">
 						<table className="w-full border-collapse">
 							<thead>
-								<tr className="bg-cloud-gray border-b-2 border-soft-border">
-									<th className="sticky left-0 z-20 p-2 text-center border-t border-b border-r border-soft-border w-12 bg-cloud-gray">
+								<tr className="bg-gray-100 border-b-2 border-gray-300">
+									<th className="p-2 text-center border border-gray-400 w-12">
 										<Checkbox
 											checked={
 												selectedRows.size ===
@@ -367,15 +281,15 @@ export default function MasterCustomerSheet() {
 									).map((column) => (
 										<th
 											key={column.key}
-										className={`p-3 text-left text-sm font-semibold text-midnight-ink ${
-												columnConfig[column.key]?.headerBg || 'bg-cloud-gray'
+											className={`p-3 text-left text-xs font-semibold text-gray-700 ${
+												columnConfig[column.key]?.headerBg || 'bg-gray-100'
 											} ${columnConfig[column.key]?.minWidth} cursor-pointer hover:opacity-80`}
 											onClick={() => handleSort(column.key)}
 										>
 											<div className="flex items-center gap-2">
 												{column.label}
 												{sortField === column.key && (
-													<span className="text-sm">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+													<span className="text-xs">{sortDirection === 'asc' ? '↑' : '↓'}</span>
 												)}
 											</div>
 										</th>
@@ -384,50 +298,54 @@ export default function MasterCustomerSheet() {
 							</thead>
 							<tbody>
 								{sortedCustomers.length > 0 ? (
-									paginatedCustomers.map((row, index) => (
-										<tr key={index} className="border-b border-soft-border hover:bg-cloud-gray">
-											<td className="sticky left-0 z-10 p-1 text-center border-b border-r border-soft-border w-12 bg-white text-sm font-medium">												<div className="flex items-center justify-center gap-1">
+									sortedCustomers.map((row, index) => (
+										<tr key={index} className="border-b border-gray-200 hover:bg-gray-50">
+											<td className="p-1 text-center border border-gray-400 w-12 bg-gray-50 text-xs font-medium">
+												<div className="flex items-center justify-center gap-1">
 													<Checkbox
 														checked={selectedRows.has(index)}
 														onCheckedChange={(checked) => handleSelectRow(index, checked)}
 														className="rounded"
 													/>
 												</div>
-										</td>
-										{CUSTOMER_COLUMNS.filter(
-											(column) => visibleColumns.has(column.key) && column.key !== '__select__'
-										).map((column) => (
-											<td
-												key={`${index}-${column.key}`}
-												className={`p-3 text-sm text-slate-text border border-soft-border ${columnConfig[column.key]?.minWidth}`}
-											>													{row[column.key] ? String(row[column.key]).substring(0, 50) : ''}
+											</td>
+											{CUSTOMER_COLUMNS.filter(
+												(column) => visibleColumns.has(column.key) && column.key !== '__select__'
+											).map((column) => (
+												<td
+													key={`${index}-${column.key}`}
+													className={`p-3 text-xs text-gray-700 border border-gray-400 ${columnConfig[column.key]?.minWidth}`}
+												>
+													{row[column.key] ? String(row[column.key]).substring(0, 50) : ''}
 												</td>
 											))}
 										</tr>
 									))
 								) : (
 									emptyRowsData.map((_, index) => (
-										<tr key={`empty-${index}`} className="border-b border-soft-border hover:bg-cloud-gray">
-											<td className="sticky left-0 z-10 p-1 text-center border-b border-r border-soft-border w-12 bg-white text-sm font-medium">												<div className="flex items-center justify-center gap-1">
+										<tr key={`empty-${index}`} className="border-b border-gray-200 hover:bg-gray-50">
+											<td className="p-1 text-center border border-gray-400 w-12 bg-gray-50 text-xs font-medium">
+												<div className="flex items-center justify-center gap-1">
 													<Checkbox
 														checked={selectedRows.has(index)}
 														onCheckedChange={(checked) => handleSelectRow(index, checked)}
 														className="rounded"
 													/>
 												</div>
-										</td>
-										{CUSTOMER_COLUMNS.filter(
-											(column) => visibleColumns.has(column.key) && column.key !== '__select__'
-										).map((column) => (
-											<td
-												key={`empty-${index}-${column.key}`}
-												className={`p-1 text-sm border border-soft-border ${columnConfig[column.key]?.minWidth}`}
-											>													<Input
+											</td>
+											{CUSTOMER_COLUMNS.filter(
+												(column) => visibleColumns.has(column.key) && column.key !== '__select__'
+											).map((column) => (
+												<td
+													key={`empty-${index}-${column.key}`}
+													className={`p-1 text-xs border border-gray-400 ${columnConfig[column.key]?.minWidth}`}
+												>
+													<Input
 														type="text"
 														value={emptyRowsData[index]?.[column.key] || ''}
 														onChange={(e) => handleEmptyRowChange(index, column.key, e.target.value)}
 														placeholder=""
-														className="border-0 p-1 h-7 text-sm"
+														className="border-0 p-1 h-7 text-xs"
 													/>
 												</td>
 											))}
@@ -438,45 +356,24 @@ export default function MasterCustomerSheet() {
 						</table>
 					</div>
 
-					{isLoading && <p className="mt-2 text-sm text-cool-gray">Loading customer data...</p>}
-					{error && <p className="mt-2 text-sm text-danger">{error}</p>}
+					{isLoading && <p className="mt-2 text-xs text-gray-600">Loading customer data...</p>}
+					{error && <p className="mt-2 text-xs text-red-600">{error}</p>}
 
 					<div className="mt-4 flex gap-2 items-center">
 						{sortedCustomers.length === 0 && (
 							<Button
 								onClick={handleAddEmptyRow}
-								className="bg-trust-blue hover:bg-deep-blue text-white px-4 py-2"
+								className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2"
 							>
 								+ Add Row
 							</Button>
 						)}
+						<div className="flex gap-6 text-xs text-gray-600 ml-2">
+							<span>Selected Rows: {selectedRows.size}</span>
+							<span>Visible Rows: {sortedCustomers.length || emptyRowsData.length}</span>
+						</div>
 					</div>
 				</div>
-			</div>
-
-			{/* Fixed Footer */}
-			<div className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-soft-border shadow-lg px-4 py-2 flex flex-wrap items-center justify-between gap-3 text-sm text-cool-gray">
-				<div className="flex items-center gap-2">
-					<span>Rows per page:</span>
-					<select
-						value={rowsPerPage}
-						onChange={(e) => { setRowsPerPage(Number(e.target.value)); setCurrentPage(1); }}
-						className="border border-soft-border rounded px-2 py-1 text-sm text-midnight-ink bg-white"
-					>
-						{[25, 50, 75, 100].map((n) => <option key={n} value={n}>{n}</option>)}
-					</select>
-				</div>
-				<div className="flex items-center gap-3">
-					<span>{sortedCustomers.length === 0 ? '0' : `${(safePage - 1) * rowsPerPage + 1}-${Math.min(safePage * rowsPerPage, sortedCustomers.length)}`} of {sortedCustomers.length}</span>
-					<button onClick={() => setCurrentPage((p) => Math.max(1, p - 1))} disabled={safePage <= 1} className="px-2 py-1 border border-soft-border rounded disabled:opacity-40 hover:bg-cloud-gray">&lsaquo;</button>
-					<span>{safePage} / {totalPages}</span>
-					<button onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))} disabled={safePage >= totalPages} className="px-2 py-1 border border-soft-border rounded disabled:opacity-40 hover:bg-cloud-gray">&rsaquo;</button>
-				</div>
-				<div className="flex gap-4">
-					<span>Selected Rows: {selectedRows.size}</span>
-					<span>Visible Rows: {sortedCustomers.length || emptyRowsData.length}</span>
-				</div>
-				<LastUpdatedFooter timestamp={lastUpdated} username={currentUsername} compact />
 			</div>
 
 			<Dialog open={isManageColumnsOpen} onOpenChange={setIsManageColumnsOpen}>
@@ -485,7 +382,7 @@ export default function MasterCustomerSheet() {
 						<DialogTitle>Manage Columns</DialogTitle>
 					</DialogHeader>
 					<div className="space-y-3 max-h-[400px] overflow-y-auto py-4">
-						<div className="flex items-center justify-between gap-3 pb-3 border-b border-soft-border">
+						<div className="flex items-center justify-between gap-3 pb-3 border-b border-gray-300">
 							<div className="flex items-center gap-3 flex-1">
 								<Checkbox
 									id="select-all-columns"
@@ -515,11 +412,11 @@ export default function MasterCustomerSheet() {
 										{column.label}
 									</label>
 								</div>
-								<div className="text-sm font-semibold px-2 py-1 rounded">
+								<div className="text-xs font-semibold px-2 py-1 rounded">
 									{!visibleColumns.has(column.key) ? (
-										<span className="bg-danger/10 text-danger-dark px-2 py-1 rounded-full text-sm">Hidden</span>
+										<span className="bg-red-100 text-red-700 px-2 py-1 rounded-full text-xs">Hidden</span>
 									) : (
-										<span className="bg-success/10 text-success-dark px-2 py-1 rounded-full text-sm">Visible</span>
+										<span className="bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs">Visible</span>
 									)}
 								</div>
 							</div>
@@ -530,7 +427,7 @@ export default function MasterCustomerSheet() {
 							onClick={handleHideColumns}
 							disabled={selectedColumnsForAction.size === 0}
 							variant="outline"
-							className="text-danger border-danger/40 hover:bg-danger/10"
+							className="text-red-600 border-red-300 hover:bg-red-50"
 						>
 							Hide
 						</Button>
@@ -538,7 +435,7 @@ export default function MasterCustomerSheet() {
 							onClick={handleShowColumns}
 							disabled={selectedColumnsForAction.size === 0}
 							variant="outline"
-							className="text-success border-green-300 hover:bg-success/10"
+							className="text-green-600 border-green-300 hover:bg-green-50"
 						>
 							Show
 						</Button>
@@ -546,17 +443,5 @@ export default function MasterCustomerSheet() {
 				</DialogContent>
 			</Dialog>
 		</div>
-
-		{isEnrollCustomerOpen && (
-			<EnrollCustomerForm
-				open={isEnrollCustomerOpen}
-				onClose={() => setIsEnrollCustomerOpen(false)}
-				onEnroll={() => {
-					setIsEnrollCustomerOpen(false);
-					loadCustomerData();
-				}}
-			/>
-		)}
-		</>
 	);
 }

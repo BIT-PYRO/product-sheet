@@ -9,6 +9,8 @@ const SHEET_BLOCKS = [
   { href: '/', title: 'Product Sheet', subtitle: 'Product entry and live stock form' },
   { href: '/master-product-sheet', title: 'Master Product Sheet', subtitle: 'All product records' },
   { href: '/master-inventory-sheet', title: 'Master Inventory Sheet', subtitle: 'Live stock and final stock' },
+  {href: '/customer-form', title: 'Customer Form', subtitle: 'Customer entry form' },
+  { href: '/master-customer-sheet', title: 'Master Customer Sheet', subtitle: 'Customer records and details' },
   { href: '/master-job-sheet', title: 'Master Job Sheet', subtitle: 'Job master data' },
   { href: '/master-workforce-sheet', title: 'Master Workforce Sheet', subtitle: 'Workforce records' },
   { href: '/master-kyc-sheet', title: 'Master KYC Sheet', subtitle: 'Company KYC records' },
