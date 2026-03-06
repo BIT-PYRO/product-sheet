@@ -188,7 +188,7 @@ export function QuickEnrollModal({ open, onOpenChange, onEnroll }) {
                     <Upload className="h-5 w-5 text-cool-gray group-hover:text-slate-text" />
                   </div>
                   <div className="flex flex-col items-center gap-0.5">
-                    <span className="text-sm font-semibold text-slate-text">Upload Photo</span>
+                    <span className="text-base font-semibold text-slate-text">Upload Photo</span>
                   </div>
                 </div>
               </button>
@@ -197,7 +197,7 @@ export function QuickEnrollModal({ open, onOpenChange, onEnroll }) {
                   <div className="w-4 h-4 rounded bg-cool-gray flex items-center justify-center">
                     <span className="text-sm text-white font-bold">✓</span>
                   </div>
-                  <p className="text-sm text-slate-text font-medium truncate flex-1">{photoFileName}</p>
+                  <p className="text-base text-slate-text font-medium truncate flex-1">{photoFileName}</p>
                 </div>
               )}
               <input ref={photoInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoChange} />
@@ -208,21 +208,21 @@ export function QuickEnrollModal({ open, onOpenChange, onEnroll }) {
               {/* First Name & Last Name in one row */}
               <div className="grid grid-cols-2 gap-2 mt-5">
                 <div className="flex flex-col gap-0.5">
-                  <Label className="text-sm font-semibold text-slate-text">FIRST NAME<span className="text-danger">*</span></Label>
+                  <Label>FIRST NAME<span className="text-danger">*</span></Label>
                   <Input
                     placeholder="First Name"
                     value={firstName}
                     onChange={(e) => setFirstName(e.target.value)}
-                    className="h-9 text-sm bg-cloud-gray border border-soft-border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-trust-blue focus:border-transparent placeholder-slate-400 transition"
+                    className="h-11 text-base bg-cloud-gray border border-soft-border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-trust-blue focus:border-transparent placeholder-slate-400 transition"
                   />
                 </div>
                 <div className="flex flex-col gap-0.5">
-                  <Label className="text-sm font-semibold text-slate-text">LAST NAME</Label>
+                  <Label>LAST NAME</Label>
                   <Input
                     placeholder="Last Name"
                     value={lastName}
                     onChange={(e) => setLastName(e.target.value)}
-                    className="h-9 text-sm bg-cloud-gray border border-soft-border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-trust-blue focus:border-transparent placeholder-slate-400 transition"
+                    className="h-11 text-base bg-cloud-gray border border-soft-border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-trust-blue focus:border-transparent placeholder-slate-400 transition"
                   />
                 </div>
               </div>
@@ -230,9 +230,9 @@ export function QuickEnrollModal({ open, onOpenChange, onEnroll }) {
               {/* Phone (Code + Phone) and Location in one row */}
               <div className="grid grid-cols-[65px_150px_1fr] gap-2">
                 <div className="flex flex-col gap-0.5">
-                  <Label className="text-sm font-semibold text-slate-text">CODE</Label>
+                  <Label>CODE</Label>
                   <Select value={countryCode} onValueChange={setCountryCode}>
-                    <SelectTrigger className="h-9 text-sm bg-cloud-gray border border-soft-border rounded-lg focus:outline-none focus:ring-2 focus:ring-trust-blue focus:border-transparent w-full">
+                    <SelectTrigger className="h-11 text-base bg-cloud-gray border border-soft-border rounded-lg focus:outline-none focus:ring-2 focus:ring-trust-blue focus:border-transparent w-full">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -243,23 +243,23 @@ export function QuickEnrollModal({ open, onOpenChange, onEnroll }) {
                   </Select>
                 </div>
                 <div className="flex flex-col gap-0.5">
-                  <Label className="text-sm font-semibold text-slate-text">PHONE<span className="text-danger">*</span></Label>
+                  <Label>PHONE<span className="text-danger">*</span></Label>
                   <Input
                     type="tel"
                     maxLength={12}
                     placeholder="XXXXXXXXXX"
                     value={contactNumber}
                     onChange={(e) => setContactNumber(e.target.value.slice(0, 12))}
-                    className="h-9 text-sm bg-cloud-gray border border-soft-border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-trust-blue focus:border-transparent placeholder-slate-400 transition"
+                    className="h-11 text-base bg-cloud-gray border border-soft-border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-trust-blue focus:border-transparent placeholder-slate-400 transition"
                   />
                 </div>
                 <div className="flex flex-col gap-0.5">
-                  <Label className="text-sm font-semibold text-slate-text">LOCATION</Label>
+                  <Label>LOCATION</Label>
                   <Input
                     placeholder="Dwarka Niwas, Jaipur"
                     value={location}
                     onChange={(e) => setLocation(e.target.value)}
-                    className="h-9 text-sm bg-cloud-gray border border-soft-border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-trust-blue focus:border-transparent placeholder-slate-400 transition"
+                    className="h-11 text-base bg-cloud-gray border border-soft-border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-trust-blue focus:border-transparent placeholder-slate-400 transition"
                   />
                 </div>
               </div>
@@ -267,9 +267,9 @@ export function QuickEnrollModal({ open, onOpenChange, onEnroll }) {
               {/* Department + Type */}
               <div className="grid grid-cols-2 gap-2">
                 <div className="flex flex-col gap-0.5">
-                  <Label className="text-sm font-semibold text-slate-text">DEPARTMENT</Label>
+                  <Label>DEPARTMENT</Label>
                   <Select value={department} onValueChange={setDepartment}>
-                    <SelectTrigger className="h-9 text-sm bg-cloud-gray border border-soft-border rounded-lg focus:outline-none focus:ring-2 focus:ring-trust-blue focus:border-transparent">
+                    <SelectTrigger className="h-11 text-base bg-cloud-gray border border-soft-border rounded-lg focus:outline-none focus:ring-2 focus:ring-trust-blue focus:border-transparent">
                       <SelectValue placeholder="Select" />
                     </SelectTrigger>
                     <SelectContent>
@@ -282,9 +282,9 @@ export function QuickEnrollModal({ open, onOpenChange, onEnroll }) {
                   </Select>
                 </div>
                 <div className="flex flex-col gap-0.5">
-                  <Label className="text-sm font-semibold text-slate-text">TYPE</Label>
+                  <Label>TYPE</Label>
                   <Select value={type} onValueChange={setType}>
-                    <SelectTrigger className="h-9 text-sm bg-cloud-gray border border-soft-border rounded-lg focus:outline-none focus:ring-2 focus:ring-trust-blue focus:border-transparent">
+                    <SelectTrigger className="h-11 text-base bg-cloud-gray border border-soft-border rounded-lg focus:outline-none focus:ring-2 focus:ring-trust-blue focus:border-transparent">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -300,25 +300,25 @@ export function QuickEnrollModal({ open, onOpenChange, onEnroll }) {
 
           {/* Remarks Section */}
           <div className="flex flex-col gap-0.5">
-            <Label className="text-sm font-semibold text-slate-text">REMARKS</Label>
+            <Label>REMARKS</Label>
             <Textarea
               value={remarks}
               onChange={(e) => setRemarks(e.target.value)}
               placeholder="Any additional notes..."
-              className="min-h-[60px] text-sm resize-none bg-cloud-gray border border-soft-border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-trust-blue focus:border-transparent placeholder-slate-400 transition"
+              className="min-h-[60px] text-base resize-none bg-cloud-gray border border-soft-border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-trust-blue focus:border-transparent placeholder-slate-400 transition"
             />
           </div>
 
           {/* Buttons Container */}
           <div className="flex gap-2 mt-2">
             <Button
-              className="flex-1 h-9 bg-trust-blue hover:bg-deep-blue text-white font-bold text-sm rounded transition shadow-md"
+              className="flex-1 h-11 bg-trust-blue hover:bg-deep-blue text-white font-bold text-base rounded transition shadow-md"
               onClick={handleSaveDraft}
             >
               Save as Draft
             </Button>
             <Button
-              className="flex-1 bg-gradient-to-r from-midnight-ink to-midnight-ink/90 hover:from-midnight-ink hover:to-midnight-ink text-white font-bold h-9 text-sm rounded transition shadow-md"
+              className="flex-1 bg-gradient-to-r from-midnight-ink to-midnight-ink/90 hover:from-midnight-ink hover:to-midnight-ink text-white font-bold h-11 text-base rounded transition shadow-md"
               onClick={handleSubmit}
             >
               ENROLL

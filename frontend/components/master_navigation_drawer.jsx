@@ -6,16 +6,16 @@ import { createPortal } from 'react-dom';
 import { House, LayoutDashboard, X } from 'lucide-react';
 
 const NAV_LINKS = [
-  { href: '/home', label: 'Home', className: 'bg-midnight-ink hover:bg-midnight-ink/90' },
-  { href: '/', label: 'Product Sheet', className: 'bg-trust-blue hover:bg-deep-blue' },
-  { href: '/master-job-sheet', label: 'Master Job Sheet', className: 'bg-trust-blue hover:bg-deep-blue' },
-  { href: '/master-product-sheet', label: 'Master Product Sheet', className: 'bg-trust-blue hover:bg-deep-blue' },
-  { href: '/master-inventory-sheet', label: 'Master Inventory Sheet', className: 'bg-trust-blue hover:bg-deep-blue' },
-  { href: '/master-workforce-sheet', label: 'Master Workforce Sheet', className: 'bg-trust-blue hover:bg-deep-blue' },
-  { href: '/master-kyc-sheet', label: 'Master KYC Sheet', className: 'bg-trust-blue hover:bg-deep-blue' },
-  { href: '/master-customer-sheet', label: 'Master Customer Sheet', className: 'bg-trust-blue hover:bg-deep-blue' },
-  { href: '/managers-dashboard', label: 'Managers Dashboard', className: 'bg-trust-blue hover:bg-deep-blue' },
-  { href: '/drafts', label: 'Drafts', className: 'bg-trust-blue hover:bg-deep-blue' },
+  { href: '/home', label: 'Home', className: 'bg-trust-blue/10 border border-trust-blue text-deep-blue hover:bg-trust-blue/20' },
+  { href: '/', label: 'Product Sheet', className: 'bg-trust-blue/10 border border-trust-blue text-deep-blue hover:bg-trust-blue/20' },
+  { href: '/master-job-sheet', label: 'Master Job Sheet', className: 'bg-trust-blue/10 border border-trust-blue text-deep-blue hover:bg-trust-blue/20' },
+  { href: '/master-product-sheet', label: 'Master Product Sheet', className: 'bg-trust-blue/10 border border-trust-blue text-deep-blue hover:bg-trust-blue/20' },
+  { href: '/master-inventory-sheet', label: 'Master Inventory Sheet', className: 'bg-trust-blue/10 border border-trust-blue text-deep-blue hover:bg-trust-blue/20' },
+  { href: '/master-workforce-sheet', label: 'Master Workforce Sheet', className: 'bg-trust-blue/10 border border-trust-blue text-deep-blue hover:bg-trust-blue/20' },
+  { href: '/master-kyc-sheet', label: 'Master KYC Sheet', className: 'bg-trust-blue/10 border border-trust-blue text-deep-blue hover:bg-trust-blue/20' },
+  { href: '/master-customer-sheet', label: 'Master Customer Sheet', className: 'bg-trust-blue/10 border border-trust-blue text-deep-blue hover:bg-trust-blue/20' },
+  { href: '/managers-dashboard', label: 'Managers Dashboard', className: 'bg-trust-blue/10 border border-trust-blue text-deep-blue hover:bg-trust-blue/20' },
+  { href: '/drafts', label: 'Drafts', className: 'bg-trust-blue/10 border border-trust-blue text-deep-blue hover:bg-trust-blue/20' },
 ];
 
 export default function MasterNavigationDrawer({ inHeader = false }) {
@@ -90,7 +90,7 @@ export default function MasterNavigationDrawer({ inHeader = false }) {
                   key={item.href}
                   href={item.href}
                   onClick={handleClose}
-                  className={`w-full mb-4 px-4 py-3 text-sm text-white font-semibold rounded transition-colors block text-center ${item.className}`}
+                  className={`w-full mb-4 px-4 py-3 text-base font-semibold rounded transition-colors block text-center ${item.className}`}
                 >
                   {item.label}
                 </Link>

@@ -98,14 +98,14 @@ export function PrintVoucherModal({ open, onOpenChange, onEdit, onOpenReceiveMod
           <div className="grid grid-cols-3 gap-2 mt-3 print-hide">
             <Button
               variant="outline"
-              className="h-8 font-semibold text-slate-text border-soft-border text-sm"
+              className="h-11 font-semibold text-slate-text border-soft-border text-base"
               onClick={handlePrint}
             >
               <Printer className="mr-1 h-3.5 w-3.5" />
               Print
             </Button>
             <Button
-              className="h-8 bg-midnight-ink hover:bg-midnight-ink text-white font-semibold text-sm"
+              className="h-11 bg-midnight-ink hover:bg-midnight-ink/90 text-white font-semibold text-base"
               onClick={() => alert("PDF download feature coming soon")}
             >
               <Download className="mr-1 h-3.5 w-3.5" />
@@ -113,7 +113,7 @@ export function PrintVoucherModal({ open, onOpenChange, onEdit, onOpenReceiveMod
             </Button>
             <Button
               variant="outline"
-              className="h-8 font-semibold text-slate-text border-soft-border text-sm"
+              className="h-11 font-semibold text-slate-text border-soft-border text-base"
               onClick={() => onOpenChange(false)}
             >
               <X className="mr-1 h-3.5 w-3.5" />

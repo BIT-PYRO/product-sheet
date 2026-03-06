@@ -69,23 +69,23 @@ export default function MasterJobSheet() {
   
   // Column configuration with styling
   const columnConfig = {
-    issued: { minWidth: 'min-w-[80px]', headerBg: 'bg-warning' },
-    department: { minWidth: 'min-w-[100px]', headerBg: 'bg-warning' },
-    category: { minWidth: 'min-w-[80px]', headerBg: 'bg-warning' },
-    firstName: { minWidth: 'min-w-[100px]', headerBg: 'bg-warning' },
-    status: { minWidth: 'min-w-[80px]', headerBg: 'bg-warning' },
-    newReissue: { minWidth: 'min-w-[100px]', headerBg: 'bg-warning' },
-    type: { minWidth: 'min-w-[70px]', headerBg: 'bg-warning' },
-    receiver: { minWidth: 'min-w-[80px]', headerBg: 'bg-warning' },
-    dayCondition: { minWidth: 'min-w-[100px]', headerBg: 'bg-warning/20', cellBg: 'bg-warning/10' },
-    issuedQty: { minWidth: 'min-w-[70px]', headerBg: 'bg-warning' },
-    issuedWeight: { minWidth: 'min-w-[80px]', headerBg: 'bg-warning' },
+    issued: { minWidth: 'min-w-[80px]', headerBg: 'bg-trust-blue/15' },
+    department: { minWidth: 'min-w-[100px]', headerBg: 'bg-trust-blue/15' },
+    category: { minWidth: 'min-w-[80px]', headerBg: 'bg-trust-blue/15' },
+    firstName: { minWidth: 'min-w-[100px]', headerBg: 'bg-trust-blue/15' },
+    status: { minWidth: 'min-w-[80px]', headerBg: 'bg-trust-blue/15' },
+    newReissue: { minWidth: 'min-w-[100px]', headerBg: 'bg-trust-blue/15' },
+    type: { minWidth: 'min-w-[70px]', headerBg: 'bg-trust-blue/15' },
+    receiver: { minWidth: 'min-w-[80px]', headerBg: 'bg-trust-blue/15' },
+    dayCondition: { minWidth: 'min-w-[100px]', headerBg: 'bg-trust-blue/15', cellBg: 'bg-trust-blue/10' },
+    issuedQty: { minWidth: 'min-w-[70px]', headerBg: 'bg-trust-blue/15' },
+    issuedWeight: { minWidth: 'min-w-[80px]', headerBg: 'bg-trust-blue/15' },
     receivedQty: { minWidth: 'min-w-[80px]', headerBg: 'bg-success/10', cellBg: 'bg-success/10' },
     receivedWeight: { minWidth: 'min-w-[100px]', headerBg: 'bg-success/10', cellBg: 'bg-success/10' },
     lossQty: { minWidth: 'min-w-[70px]', headerBg: 'bg-danger/10', cellBg: 'bg-danger/10' },
     lossWeight: { minWidth: 'min-w-[80px]', headerBg: 'bg-danger/10', cellBg: 'bg-danger/10' },
-    reIssueQty: { minWidth: 'min-w-[80px]', headerBg: 'bg-warning/10', cellBg: 'bg-warning/10' },
-    reIssueWeight: { minWidth: 'min-w-[100px]', headerBg: 'bg-warning/10', cellBg: 'bg-warning/10' },
+    reIssueQty: { minWidth: 'min-w-[80px]', headerBg: 'bg-trust-blue/15', cellBg: 'bg-trust-blue/10' },
+    reIssueWeight: { minWidth: 'min-w-[100px]', headerBg: 'bg-trust-blue/15', cellBg: 'bg-trust-blue/10' },
   };
   
   const [visibleColumns, setVisibleColumns] = useState(new Set(columns.map(col => col.id)));
@@ -644,7 +644,7 @@ export default function MasterJobSheet() {
             <DropdownMenuTrigger asChild>
               <Button 
                 variant="outline"
-                className="border-warning text-warning hover:bg-warning/10 rounded-full px-6"
+                className="border-trust-blue text-trust-blue hover:bg-trust-blue/10 rounded-full px-6"
               >
                 Archive
               </Button>
@@ -884,9 +884,9 @@ export default function MasterJobSheet() {
         {/* Table wrapper with vertical and horizontal scrolling */}
         <div className="overflow-y-auto overflow-x-auto max-h-[500px]">
           <table className="w-full border-collapse text-sm">
-            <thead className="sticky top-0 z-20 bg-warning">
+            <thead className="sticky top-0 z-20 bg-trust-blue/15">
               <tr className="text-midnight-ink font-bold border-b-2 border-soft-border">
-                <th className="border border-soft-border p-2 w-8 sticky left-0 bg-warning z-30">
+                <th className="border border-soft-border p-2 w-8 sticky left-0 bg-trust-blue/15 z-30">
                   <Checkbox
                     checked={selectedRows.size === displayedData.length && displayedData.length > 0}
                     onCheckedChange={(checked) => {
@@ -900,7 +900,7 @@ export default function MasterJobSheet() {
                     disabled={editingRowIds.size > 0}
                   />
                 </th>
-                <th className="border border-soft-border p-2 bg-warning min-w-[100px] sticky left-8 z-30 border-r-2 border-r-gray-400" style={{boxShadow: 'inset -2px 0 0 0 rgb(209, 213, 219)'}}>Voucher No.</th>
+                <th className="border border-soft-border p-2 bg-trust-blue/15 min-w-[100px] sticky left-8 z-30 border-r-2 border-r-soft-border" style={{boxShadow: 'inset -2px 0 0 0 rgb(229, 231, 235)'}}>Voucher No.</th>
                 {columns.map((column) => 
                   visibleColumns.has(column.id) && (
                     <th key={column.id} className={`border border-soft-border p-2 ${columnConfig[column.id].headerBg} ${columnConfig[column.id].minWidth}`}>

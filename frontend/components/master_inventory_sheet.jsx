@@ -27,7 +27,7 @@ function CompositeStockDisplay({ value }) {
 
   return (
     <div className="flex items-center justify-center gap-0.5">
-      <span className="text-warning font-medium">{value.wip || '-'}</span>
+      <span className="text-trust-blue font-medium">{value.wip || '-'}</span>
       <span className="text-cool-gray">/</span>
       <span className="text-success font-medium">{value.current || '-'}</span>
     </div>
@@ -909,7 +909,7 @@ export default function MasterInventorySheet() {
                     {visibleColumnList.map((column) => (
                       <th
                         key={column.key}
-                        className={`border border-soft-border bg-warning px-2 py-2 text-center font-semibold ${
+                        className={`border border-soft-border bg-trust-blue/15 px-2 py-2 text-center font-semibold text-deep-blue ${
                           column.key === '__select__' ? 'sticky left-0 z-20' : ''
                         }`}
                       >
@@ -964,11 +964,8 @@ export default function MasterInventorySheet() {
           </div>
 
           <div className="xl:w-[10%] self-start relative">
-            <div className="absolute -top-6 left-0 text-sm font-semibold text-midnight-ink tracking-wide">
-              TOTAL IN DEMAND
-            </div>
             <div className="border border-soft-border bg-white p-0">
-              <div className="h-9 border-b border-soft-border bg-warning text-sm font-semibold text-midnight-ink flex items-center justify-center px-2">
+              <div className="h-9 border-b border-soft-border bg-trust-blue/15 text-xs font-semibold text-deep-blue flex items-center justify-center px-2 tracking-wide whitespace-nowrap">
                 TOTAL IN DEMAND
               </div>
               {rowsToRender.length === 0 ? (
@@ -994,17 +991,14 @@ export default function MasterInventorySheet() {
           </div>
 
           <div className="xl:w-[15%] self-start relative">
-            <div className="absolute -top-6 left-0 text-sm font-semibold text-midnight-ink tracking-wide">
-              ORDER LIST
-            </div>
             <div className="border border-soft-border bg-white p-0">
-              <div className="h-9 border-b border-soft-border bg-warning text-sm font-semibold text-midnight-ink flex items-center justify-between px-2 relative">
+              <div className="h-9 border-b border-soft-border bg-trust-blue/15 text-xs font-semibold text-deep-blue flex items-center justify-between px-2 relative tracking-wide">
                 <div className="flex-1">
                   {picklists.length > 0 ? (
                     <div className="relative">
                       <button
                         onClick={() => setIsPicklistDropdownOpen(!isPicklistDropdownOpen)}
-                        className="w-full text-left py-1 px-2 rounded hover:bg-warning-soft transition-colors truncate"
+                        className="w-full text-left py-1 px-2 rounded hover:bg-trust-blue/10 transition-colors truncate"
                       >
                         {selectedPicklist === null
                           ? 'VIEW ALL PRODUCTS'
@@ -1019,11 +1013,11 @@ export default function MasterInventorySheet() {
                               setSelectedPicklist(null);
                               setIsPicklistDropdownOpen(false);
                             }}
-                            className={`w-full text-left px-3 py-2 text-sm border-b border-soft-border hover:bg-success/10 transition-colors font-semibold ${
-                              selectedPicklist === null ? 'bg-success/10' : ''
+                            className={`w-full text-left px-3 py-2 text-sm border-b border-soft-border hover:bg-trust-blue/10 transition-colors font-semibold ${
+                              selectedPicklist === null ? 'bg-trust-blue/10' : ''
                             }`}
                           >
-                            <div className="text-success-dark">VIEW ALL PRODUCTS</div>
+                            <div className="text-deep-blue">VIEW ALL PRODUCTS</div>
                             <div className="text-cool-gray text-sm">Show all {products.length} products</div>
                           </button>
                           {picklists.map((picklist) => (
