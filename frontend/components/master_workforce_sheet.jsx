@@ -61,18 +61,18 @@ export default function MasterWorkforceSheet() {
   
   // Column configuration with styling
   const columnConfig = {
-    department: { minWidth: 'min-w-[100px]', headerBg: 'bg-warning' },
-    firstName: { minWidth: 'min-w-[100px]', headerBg: 'bg-warning' },
-    lastName: { minWidth: 'min-w-[100px]', headerBg: 'bg-warning' },
-    contactNumber: { minWidth: 'min-w-[120px]', headerBg: 'bg-warning' },
-    type: { minWidth: 'min-w-[80px]', headerBg: 'bg-warning' },
-    aadharCard: { minWidth: 'min-w-[120px]', headerBg: 'bg-warning' },
-    paymentType: { minWidth: 'min-w-[100px]', headerBg: 'bg-warning' },
-    origin: { minWidth: 'min-w-[80px]', headerBg: 'bg-warning' },
-    bankAccount: { minWidth: 'min-w-[120px]', headerBg: 'bg-warning' },
-    ifsc: { minWidth: 'min-w-[80px]', headerBg: 'bg-warning' },
-    bank: { minWidth: 'min-w-[100px]', headerBg: 'bg-warning' },
-    branch: { minWidth: 'min-w-[100px]', headerBg: 'bg-warning' },
+    department: { minWidth: 'min-w-[100px]', headerBg: 'bg-trust-blue/15' },
+    firstName: { minWidth: 'min-w-[100px]', headerBg: 'bg-trust-blue/15' },
+    lastName: { minWidth: 'min-w-[100px]', headerBg: 'bg-trust-blue/15' },
+    contactNumber: { minWidth: 'min-w-[120px]', headerBg: 'bg-trust-blue/15' },
+    type: { minWidth: 'min-w-[80px]', headerBg: 'bg-trust-blue/15' },
+    aadharCard: { minWidth: 'min-w-[120px]', headerBg: 'bg-trust-blue/15' },
+    paymentType: { minWidth: 'min-w-[100px]', headerBg: 'bg-trust-blue/15' },
+    origin: { minWidth: 'min-w-[80px]', headerBg: 'bg-trust-blue/15' },
+    bankAccount: { minWidth: 'min-w-[120px]', headerBg: 'bg-trust-blue/15' },
+    ifsc: { minWidth: 'min-w-[80px]', headerBg: 'bg-trust-blue/15' },
+    bank: { minWidth: 'min-w-[100px]', headerBg: 'bg-trust-blue/15' },
+    branch: { minWidth: 'min-w-[100px]', headerBg: 'bg-trust-blue/15' },
   };
   
   // Set default visible columns to prevent horizontal scrolling
@@ -426,7 +426,7 @@ export default function MasterWorkforceSheet() {
                 <div className="mb-6">
                   <table className="w-full border-collapse border-2 border-midnight-ink">
                     <thead>
-                      <tr className="bg-gray-900 text-white">
+                      <tr className="bg-midnight-ink text-white">
                         <th className="border-2 border-midnight-ink p-2 text-sm font-bold text-left">ORIGIN</th>
                         <th className="border-2 border-midnight-ink p-2 text-sm font-bold text-left">BANK A/C</th>
                         <th className="border-2 border-midnight-ink p-2 text-sm font-bold text-left">IFSC</th>
@@ -617,7 +617,7 @@ export default function MasterWorkforceSheet() {
             <DropdownMenuTrigger asChild>
               <Button 
                 variant="outline"
-                className="border-warning text-warning hover:bg-warning/10 rounded-full px-6"
+                className="border-trust-blue text-trust-blue hover:bg-trust-blue/10 rounded-full px-6"
               >
                 Archive
               </Button>
@@ -763,9 +763,9 @@ export default function MasterWorkforceSheet() {
         {/* Table wrapper with vertical scrolling only */}
         <div className="overflow-y-auto max-h-[500px]">
           <table className="w-full border-collapse text-sm">
-            <thead className="sticky top-0 z-20 bg-warning">
+            <thead className="sticky top-0 z-20 bg-trust-blue/15">
               <tr className="text-midnight-ink font-bold border-b-2 border-soft-border">
-                <th className="border border-soft-border p-2 w-8 sticky left-0 bg-warning z-30"></th>
+                <th className="border border-soft-border p-2 w-8 sticky left-0 bg-trust-blue/15 z-30"></th>
                 {columns.map((column) => 
                   visibleColumns.has(column.id) && (
                     <th key={column.id} className={`border border-soft-border p-2 ${columnConfig[column.id].headerBg} ${columnConfig[column.id].minWidth}`}>

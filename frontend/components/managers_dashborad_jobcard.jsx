@@ -199,11 +199,11 @@ export default function ManagersDashboard() {
   const getStatusColor = (status) => {
     switch (status) {
       case 'New':
-        return 'bg-warning-soft border-warning';
+        return 'bg-trust-blue/10 border-trust-blue/60';
       case 'Work in Progress':
-        return 'bg-warning/20 border-warning';
+        return 'bg-trust-blue/20 border-trust-blue';
       case 'Completed':
-        return 'bg-success/20 border-success';
+        return 'bg-success/10 border-success';
       default:
         return 'bg-cloud-gray border-soft-border';
     }
@@ -498,7 +498,7 @@ export default function ManagersDashboard() {
                       <div
                         key={`new-${idx}`}
                         onClick={() => handleCardClick(card)}
-                        className="bg-warning-soft border-2 border-warning rounded-lg p-3 cursor-pointer hover:shadow-lg transition-shadow"
+                        className="bg-trust-blue/10 border-2 border-trust-blue/60 rounded-lg p-3 cursor-pointer hover:shadow-lg transition-shadow"
                       >
                         <div className="space-y-1">
                           <div className="flex items-center gap-1">
@@ -522,7 +522,7 @@ export default function ManagersDashboard() {
                       <div
                         key={`wip-${idx}`}
                         onClick={() => handleCardClick(card)}
-                        className="bg-warning/20 border-2 border-warning rounded-lg p-3 cursor-pointer hover:shadow-lg transition-shadow"
+                        className="bg-trust-blue/20 border-2 border-trust-blue rounded-lg p-3 cursor-pointer hover:shadow-lg transition-shadow"
                       >
                         <div className="space-y-1">
                           <div className="flex items-center gap-1">
@@ -546,7 +546,7 @@ export default function ManagersDashboard() {
                       <div
                         key={`completed-${idx}`}
                         onClick={() => handleCardClick(card)}
-                        className="bg-green-200 border-2 border-green-400 rounded-lg p-3 cursor-pointer hover:shadow-lg transition-shadow"
+                        className="bg-success/10 border-2 border-success rounded-lg p-3 cursor-pointer hover:shadow-lg transition-shadow"
                       >
                         <div className="space-y-1">
                           <div className="flex items-center gap-1">
