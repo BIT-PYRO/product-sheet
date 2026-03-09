@@ -94,7 +94,6 @@ export function EnrolWorkforceForm({ onEnroll, onClose, open = true, draftData =
     const fullName = String(form.fullName || '').trim();
     if (!fullName) {
       setSubmitStatus({ success: false, message: 'Full Name is required to enroll.' })
-      formScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
       return;
     }
 
@@ -110,31 +109,6 @@ export function EnrolWorkforceForm({ onEnroll, onClose, open = true, draftData =
         body: JSON.stringify({
           full_name: fullName,
           phone: String(form.contact || '').trim(),
-          whatsapp: String(form.whatsapp || '').trim(),
-          email: String(form.email || '').trim(),
-          dob: String(form.dob || '').trim() || null,
-          gender: String(form.gender || '').trim(),
-          department: String(form.department === 'Other' ? (form.departmentOther || '') : (form.department || '')).trim(),
-          designation: String(form.designation || '').trim(),
-          current_address: {
-            line1: String(form.currentAddress?.line1 || '').trim(),
-            line2: String(form.currentAddress?.line2 || '').trim(),
-            city: String(form.currentAddress?.city || '').trim(),
-            state: String(form.currentAddress?.state || '').trim(),
-            pincode: String(form.currentAddress?.pincode || '').trim(),
-          },
-          permanent_address: {
-            line1: String(form.permanentAddress?.line1 || '').trim(),
-            line2: String(form.permanentAddress?.line2 || '').trim(),
-            city: String(form.permanentAddress?.city || '').trim(),
-            state: String(form.permanentAddress?.state || '').trim(),
-            pincode: String(form.permanentAddress?.pincode || '').trim(),
-          },
-          gst_number: String(form.gstNumber || '').trim(),
-          current_location: String(form.currentLocation || '').trim(),
-          first_language: String(form.firstLang || '').trim(),
-          second_language: String(form.secondLang || '').trim(),
-          notes: String(form.notes || '').trim(),
           active: true,
         }),
       });
@@ -143,12 +117,10 @@ export function EnrolWorkforceForm({ onEnroll, onClose, open = true, draftData =
       if (!response.ok || !result?.success) {
         const message = result?.error?.message || result?.message || 'Unable to enroll workforce member.';
         setSubmitStatus({ success: false, message })
-        formScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
         return;
       }
 
       setSubmitStatus({ success: true, message: `${fullName} enrolled successfully.` })
-      formScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
 
       if (onEnroll) {
         onEnroll(fullName);
@@ -158,7 +130,6 @@ export function EnrolWorkforceForm({ onEnroll, onClose, open = true, draftData =
       }
     } catch {
       setSubmitStatus({ success: false, message: 'Unable to enroll workforce member. Please try again.' })
-      formScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
     } finally {
       setIsSubmitting(false)
     }
@@ -504,6 +475,11 @@ export function EnrolWorkforceForm({ onEnroll, onClose, open = true, draftData =
                   {isSubmitting ? 'ENROLLING...' : 'ENROLL'}
                 </button>
               </div>
+              {submitStatus && (
+                <div className={`mt-2 text-sm font-medium ${submitStatus.success ? 'text-success-dark' : 'text-danger-dark'}`}>
+                  {submitStatus.message}
+                </div>
+              )}
             </form>
         </div>
       </DialogContent>

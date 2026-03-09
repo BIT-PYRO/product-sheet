@@ -280,7 +280,7 @@ export default function MasterInventorySheet() {
     setError('');
 
     try {
-      const response = await fetch('/api/save-to-sheets', {
+      const response = await fetch('/api/inventory-summary', {
         method: 'GET',
         cache: 'no-store',
       });

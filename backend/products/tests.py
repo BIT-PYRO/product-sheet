@@ -29,8 +29,29 @@ class ProductApiTests(APITestCase):
 		)
 
 		self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+		self.assertTrue(response.data['success'])
+		self.assertIn('data', response.data)
 		self.assertEqual(Product.objects.count(), 1)
 		self.assertEqual(Product.objects.first().sku, 'SKU-1001')
+
+	def test_create_product_validation_error_has_standard_shape(self):
+		response = self.client.post(
+			'/api/v1/products/',
+			{
+				'sku': 'SKU-ERR-1',
+				'name': 'Invalid Product',
+				'category': 'General',
+				'selling_price': '100.00',
+				'cost_price': '150.00',
+				'is_active': True,
+			},
+			format='json',
+		)
+
+		self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+		self.assertFalse(response.data['success'])
+		self.assertEqual(response.data['error']['code'], 'validation_error')
+		self.assertIn('details', response.data['error'])
 
 	def test_list_products(self):
 		Product.objects.create(
@@ -46,5 +67,6 @@ class ProductApiTests(APITestCase):
 		response = self.client.get('/api/v1/products/')
 
 		self.assertEqual(response.status_code, status.HTTP_200_OK)
-		self.assertEqual(len(response.data), 1)
-		self.assertEqual(response.data[0]['sku'], 'SKU-2001')
+		self.assertTrue(response.data['success'])
+		self.assertEqual(len(response.data['data']), 1)
+		self.assertEqual(response.data['data'][0]['sku'], 'SKU-2001')

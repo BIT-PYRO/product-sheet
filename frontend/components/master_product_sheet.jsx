@@ -173,7 +173,7 @@ export default function MasterProductSheet() {
     setFetchError('');
 
     try {
-      const response = await fetch('/api/save-to-sheets', {
+      const response = await fetch('/api/products', {
         method: 'GET',
         cache: 'no-store',
       });
@@ -184,7 +184,38 @@ export default function MasterProductSheet() {
         throw new Error(result.message || 'Failed to fetch product data');
       }
 
-      setData(Array.isArray(result.products) ? result.products : []);
+      const rows = Array.isArray(result.data)
+        ? result.data
+        : (Array.isArray(result?.data?.results) ? result.data.results : []);
+
+      const mappedRows = rows.map((product) => ({
+        id: product.id,
+        sku: product.sku || '',
+        listingName: product.name || '',
+        material: '',
+        weight: '',
+        category: product.category || '',
+        collection: '',
+        settingType: '',
+        enamelType: '',
+        activeChannels: '',
+        shopifyStatus: product.is_active ? 'active' : 'inactive',
+        dieNumberFindings: '',
+        masterSku: product.sku || '',
+        color: '',
+        enamel: '',
+        stoneName: '',
+        stoneCut: '',
+        stoneColor: '',
+        stoneSize: '',
+        stoneQuantity: '',
+        platingType: '',
+        platingColor: '',
+        notes: '',
+        images: '',
+      }));
+
+      setData(mappedRows);
     } catch (error) {
       setFetchError(error.message || 'Failed to load products');
       setData([]);

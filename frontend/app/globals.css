@@ -132,3 +132,10 @@
     @apply bg-background text-foreground text-base leading-normal;
   }
 }
+
+/* Keep all sheet table headers opaque so sticky headers don't visually overlap rows */
+table thead th {
+  --tw-bg-opacity: 1 !important;
+  backdrop-filter: none !important;
+  opacity: 1 !important;
+}

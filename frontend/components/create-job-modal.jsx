@@ -78,11 +78,6 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
     }
   }
 
-  // Generate voucher number on client mount (localStorage is not available on server)
-  useEffect(() => {
-    setVoucherNo(generateVoucherNo())
-  }, [])
-
   // Refresh enrolled people from backend when modal opens
   useEffect(() => {
     if (open) {

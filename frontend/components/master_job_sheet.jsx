@@ -69,23 +69,23 @@ export default function MasterJobSheet() {
   
   // Column configuration with styling
   const columnConfig = {
-    issued: { minWidth: 'min-w-[80px]', headerBg: 'bg-trust-blue/15' },
-    department: { minWidth: 'min-w-[100px]', headerBg: 'bg-trust-blue/15' },
-    category: { minWidth: 'min-w-[80px]', headerBg: 'bg-trust-blue/15' },
-    firstName: { minWidth: 'min-w-[100px]', headerBg: 'bg-trust-blue/15' },
-    status: { minWidth: 'min-w-[80px]', headerBg: 'bg-trust-blue/15' },
-    newReissue: { minWidth: 'min-w-[100px]', headerBg: 'bg-trust-blue/15' },
-    type: { minWidth: 'min-w-[70px]', headerBg: 'bg-trust-blue/15' },
-    receiver: { minWidth: 'min-w-[80px]', headerBg: 'bg-trust-blue/15' },
-    dayCondition: { minWidth: 'min-w-[100px]', headerBg: 'bg-trust-blue/15', cellBg: 'bg-trust-blue/10' },
-    issuedQty: { minWidth: 'min-w-[70px]', headerBg: 'bg-trust-blue/15' },
-    issuedWeight: { minWidth: 'min-w-[80px]', headerBg: 'bg-trust-blue/15' },
+    issued: { minWidth: 'min-w-[80px]', headerBg: 'bg-[#dbeafe]' },
+    department: { minWidth: 'min-w-[100px]', headerBg: 'bg-[#dbeafe]' },
+    category: { minWidth: 'min-w-[80px]', headerBg: 'bg-[#dbeafe]' },
+    firstName: { minWidth: 'min-w-[100px]', headerBg: 'bg-[#dbeafe]' },
+    status: { minWidth: 'min-w-[80px]', headerBg: 'bg-[#dbeafe]' },
+    newReissue: { minWidth: 'min-w-[100px]', headerBg: 'bg-[#dbeafe]' },
+    type: { minWidth: 'min-w-[70px]', headerBg: 'bg-[#dbeafe]' },
+    receiver: { minWidth: 'min-w-[80px]', headerBg: 'bg-[#dbeafe]' },
+    dayCondition: { minWidth: 'min-w-[100px]', headerBg: 'bg-[#dbeafe]', cellBg: 'bg-trust-blue/10' },
+    issuedQty: { minWidth: 'min-w-[70px]', headerBg: 'bg-[#dbeafe]' },
+    issuedWeight: { minWidth: 'min-w-[80px]', headerBg: 'bg-[#dbeafe]' },
     receivedQty: { minWidth: 'min-w-[80px]', headerBg: 'bg-success/10', cellBg: 'bg-success/10' },
     receivedWeight: { minWidth: 'min-w-[100px]', headerBg: 'bg-success/10', cellBg: 'bg-success/10' },
     lossQty: { minWidth: 'min-w-[70px]', headerBg: 'bg-danger/10', cellBg: 'bg-danger/10' },
     lossWeight: { minWidth: 'min-w-[80px]', headerBg: 'bg-danger/10', cellBg: 'bg-danger/10' },
-    reIssueQty: { minWidth: 'min-w-[80px]', headerBg: 'bg-trust-blue/15', cellBg: 'bg-trust-blue/10' },
-    reIssueWeight: { minWidth: 'min-w-[100px]', headerBg: 'bg-trust-blue/15', cellBg: 'bg-trust-blue/10' },
+    reIssueQty: { minWidth: 'min-w-[80px]', headerBg: 'bg-[#dbeafe]', cellBg: 'bg-trust-blue/10' },
+    reIssueWeight: { minWidth: 'min-w-[100px]', headerBg: 'bg-[#dbeafe]', cellBg: 'bg-trust-blue/10' },
   };
   
   const [visibleColumns, setVisibleColumns] = useState(new Set(columns.map(col => col.id)));
@@ -154,29 +154,48 @@ export default function MasterJobSheet() {
   const categoryOptions = ['C1', 'C2', 'C3', 'C4'];
   const receiverOptions = ['Receiver 1', 'Receiver 2', 'Receiver 3'];
 
-  const [data, setData] = useState(
-    Array(15).fill(null).map((_, i) => ({
-      id: i,
-      voucherNo: '',
-      issued: '',
-      department: '',
-      category: '',
-      firstName: '',
-      status: '',
-      newReissue: '',
-      type: '',
-      receiver: '',
-      dayCondition: '',
-      issuedQty: '',
-      issuedWeight: '',
-      receivedQty: '',
-      receivedWeight: '',
-      lossQty: '',
-      lossWeight: '',
-      reIssueQty: '',
-      reIssueWeight: '',
-    }))
-  );
+  const [data, setData] = useState([]);
+
+  useEffect(() => {
+    const loadJobs = async () => {
+      try {
+        const response = await fetch('/api/jobs', { cache: 'no-store' });
+        const result = await response.json().catch(() => null);
+        if (!response.ok || !result?.success) {
+          return;
+        }
+
+        const jobs = Array.isArray(result?.data) ? result.data : (result?.data?.results || []);
+        const mappedRows = jobs.map((job) => ({
+          id: job.id,
+          voucherNo: `JOB-${job.id}`,
+          issued: job.created_at ? new Date(job.created_at).toLocaleDateString() : '',
+          department: '',
+          category: job.title || '',
+          firstName: job.assignee || '',
+          status: job.status || '',
+          newReissue: 'New',
+          type: '',
+          receiver: '',
+          dayCondition: '',
+          issuedQty: '',
+          issuedWeight: '',
+          receivedQty: '',
+          receivedWeight: '',
+          lossQty: '',
+          lossWeight: '',
+          reIssueQty: '',
+          reIssueWeight: '',
+        }));
+
+        setData(mappedRows);
+      } catch {
+        // Keep editable local table if backend load fails.
+      }
+    };
+
+    loadJobs();
+  }, []);
 
   const toggleRowSelection = (id) => {
     const newSelected = new Set(selectedRows);
@@ -227,8 +246,59 @@ export default function MasterJobSheet() {
     setIsQuickEnrollOpen(true);
   };
 
+  useEffect(() => {
+    if (!isReceiveJobOpen || !shouldPrintReceiveJob) {
+      return;
+    }
+
+    const timeoutId = setTimeout(() => {
+      window.print();
+      setShouldPrintReceiveJob(false);
+    }, 300);
+
+    return () => clearTimeout(timeoutId);
+  }, [isReceiveJobOpen, shouldPrintReceiveJob]);
+
+  const handleQuickEnrollComplete = async (personName) => {
+    try {
+      await fetch('/api/workforce', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          full_name: String(personName || '').trim(),
+          phone: '',
+          active: true,
+        }),
+      });
+    } catch {
+      // Non-blocking: close modal even if API call fails.
+    }
+    setIsQuickEnrollOpen(false);
+  };
+
   const handleEnrollWorkforce = () => {
     setIsEnrollWorkforceOpen(true);
+  };
+
+  const handleWorkforceEnrolled = async (personName) => {
+    try {
+      await fetch('/api/workforce', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          full_name: String(personName || '').trim(),
+          phone: '',
+          active: true,
+        }),
+      });
+    } catch {
+      // Non-blocking: close modal even if API call fails.
+    }
+    setIsEnrollWorkforceOpen(false);
   };
 
   const handleManageColumns = () => {
@@ -883,10 +953,10 @@ export default function MasterJobSheet() {
       <div className="border border-soft-border rounded-lg bg-white overflow-hidden">
         {/* Table wrapper with vertical and horizontal scrolling */}
         <div className="overflow-y-auto overflow-x-auto max-h-[500px]">
-          <table className="w-full border-collapse text-sm">
-            <thead className="sticky top-0 z-20 bg-trust-blue/15">
+          <table className="w-full border-separate border-spacing-0 text-sm">
+            <thead className="sticky top-0 z-40 bg-[#dbeafe]">
               <tr className="text-midnight-ink font-bold border-b-2 border-soft-border">
-                <th className="border border-soft-border p-2 w-8 sticky left-0 bg-trust-blue/15 z-30">
+                <th className="border border-soft-border p-2 w-8 sticky left-0 bg-[#dbeafe] z-50">
                   <Checkbox
                     checked={selectedRows.size === displayedData.length && displayedData.length > 0}
                     onCheckedChange={(checked) => {
@@ -900,7 +970,7 @@ export default function MasterJobSheet() {
                     disabled={editingRowIds.size > 0}
                   />
                 </th>
-                <th className="border border-soft-border p-2 bg-trust-blue/15 min-w-[100px] sticky left-8 z-30 border-r-2 border-r-soft-border" style={{boxShadow: 'inset -2px 0 0 0 rgb(229, 231, 235)'}}>Voucher No.</th>
+                <th className="border border-soft-border p-2 bg-[#dbeafe] min-w-[100px] sticky left-8 z-50 border-r-2 border-r-soft-border" style={{boxShadow: 'inset -2px 0 0 0 rgb(229, 231, 235)'}}>Voucher No.</th>
                 {columns.map((column) => 
                   visibleColumns.has(column.id) && (
                     <th key={column.id} className={`border border-soft-border p-2 ${columnConfig[column.id].headerBg} ${columnConfig[column.id].minWidth}`}>
@@ -926,7 +996,7 @@ export default function MasterJobSheet() {
                         : 'hover:bg-cloud-gray'
                     }`}
                   >
-                    <td className={`border border-soft-border p-2 text-center sticky left-0 z-10 ${
+                    <td className={`border border-soft-border p-2 text-center sticky left-0 z-20 ${
                       isEditing ? 'bg-trust-blue/10' : 'bg-white'
                     }`}>
                       <Checkbox
@@ -936,7 +1006,7 @@ export default function MasterJobSheet() {
                         disabled={isAnyRowEditing}
                       />
                     </td>
-                    <td className={`border border-soft-border p-1 sticky left-8 z-10 border-r-2 border-r-gray-400`} style={{boxShadow: 'inset -2px 0 0 0 rgb(209, 213, 219)', backgroundColor: isEditing ? '#eff6ff' : 'white'}}>
+                    <td className={`border border-soft-border p-1 sticky left-8 z-20 border-r-2 border-r-gray-400`} style={{boxShadow: 'inset -2px 0 0 0 rgb(209, 213, 219)', backgroundColor: isEditing ? '#eff6ff' : 'white'}}>
                       {isEditing ? (
                         <Input
                           type="text"
