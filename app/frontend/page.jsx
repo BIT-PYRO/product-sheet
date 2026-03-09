@@ -297,9 +297,9 @@ function ProductSheetContent() {
       return
     }
 
-    const message = result.isUpdate 
-      ? `✓ Product updated in Google Sheets (${result.message})`
-      : '✓ New product added to Google Sheets'
+    const message = result.isUpdate
+      ? `✓ Product updated (${result.message})`
+      : '✓ New product added'
     setSaveStatus({ success: true, message })
     setShowViewSheetButton(true)
     setTimeout(() => setSaveStatus(null), 4000)
@@ -525,7 +525,7 @@ function ProductSheetContent() {
         setStoneInfo(stoneInfo.filter(row => row.id !== id));
     };
     
-    // Handle saving to Google Sheets
+    // Handle saving product data
     const handleSaveToGoogleSheets = async () => {
       setIsSaving(true);
       setSaveStatus(null);
@@ -540,7 +540,7 @@ function ProductSheetContent() {
       }
     };
     
-    // Handle deleting from Google Sheets
+    // Handle deleting product data
     const handleDeleteFromGoogleSheets = async () => {
       if (!sku) {
         setSaveStatus({ success: false, message: 'Please enter a SKU to delete' });

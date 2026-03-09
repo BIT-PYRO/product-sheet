@@ -44,6 +44,8 @@ export function EnrolWorkforceForm({ onEnroll, onClose, open = true, draftData =
     notes: "",
   });
   const [documents, setDocuments] = useState({ aadhaar: null, pan: null, gst: null });
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [submitStatus, setSubmitStatus] = useState(null)
 
   // Load draft data passed as prop (from DraftsManager)
   useEffect(() => {
@@ -84,15 +86,49 @@ export function EnrolWorkforceForm({ onEnroll, onClose, open = true, draftData =
   };
 
   // Handle submit
-  const handleSubmit = () => {
-    if (onEnroll && form.fullName) {
-      onEnroll(form.fullName);
+  const handleSubmit = async () => {
+    const fullName = String(form.fullName || '').trim();
+    if (!fullName) {
+      setSubmitStatus({ success: false, message: 'Full Name is required to enroll.' })
+      return;
     }
-    if (onClose) {
-      onClose();
+
+    setIsSubmitting(true)
+    setSubmitStatus(null)
+
+    try {
+      const response = await fetch('/api/workforce', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          full_name: fullName,
+          phone: String(form.contact || '').trim(),
+          active: true,
+        }),
+      });
+
+      const result = await response.json().catch(() => null);
+      if (!response.ok || !result?.success) {
+        const message = result?.error?.message || result?.message || 'Unable to enroll workforce member.';
+        setSubmitStatus({ success: false, message })
+        return;
+      }
+
+      setSubmitStatus({ success: true, message: `${fullName} enrolled successfully.` })
+
+      if (onEnroll) {
+        onEnroll(fullName);
+      }
+      if (onClose) {
+        onClose();
+      }
+    } catch {
+      setSubmitStatus({ success: false, message: 'Unable to enroll workforce member. Please try again.' })
+    } finally {
+      setIsSubmitting(false)
     }
-    console.log("Workforce enrolled:", form);
-    // TODO: Send form data to backend
   };
 
   // Handle save draft
@@ -339,11 +375,17 @@ export function EnrolWorkforceForm({ onEnroll, onClose, open = true, draftData =
                 <button
                   type="button"
                   onClick={handleSubmit}
+                  disabled={isSubmitting}
                   className="flex-1 h-10 bg-gradient-to-r from-midnight-ink to-midnight-ink/90 hover:from-midnight-ink hover:to-midnight-ink text-white font-bold text-sm rounded transition shadow-md"
                 >
-                  ENROLL
+                  {isSubmitting ? 'ENROLLING...' : 'ENROLL'}
                 </button>
               </div>
+              {submitStatus && (
+                <div className={`mt-2 text-sm font-medium ${submitStatus.success ? 'text-success-dark' : 'text-danger-dark'}`}>
+                  {submitStatus.message}
+                </div>
+              )}
             </form>
         </div>
       </DialogContent>

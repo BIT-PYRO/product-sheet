@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
-import { getUserById } from '@/lib/auth';
 
-const SESSION_COOKIE = 'psd-session';
+const ACCESS_COOKIE = 'psd-access-token';
+const REFRESH_COOKIE = 'psd-refresh-token';
 
 function isPublicAsset(pathname) {
   return /\.[^/]+$/.test(pathname);
@@ -9,8 +9,9 @@ function isPublicAsset(pathname) {
 
 export function middleware(request) {
   const { pathname, search } = request.nextUrl;
-  const sessionUserId = request.cookies.get(SESSION_COOKIE)?.value || '';
-  const isAuthenticated = Boolean(getUserById(sessionUserId));
+  const hasAccessToken = Boolean(request.cookies.get(ACCESS_COOKIE)?.value);
+  const hasRefreshToken = Boolean(request.cookies.get(REFRESH_COOKIE)?.value);
+  const isAuthenticated = hasAccessToken || hasRefreshToken;
 
   if (isPublicAsset(pathname)) {
     return NextResponse.next();

@@ -155,3 +155,10 @@ input[type="number"] {
     min-height: 44px;
   }
 }
+
+/* Keep all sheet table headers opaque so sticky headers don't visually overlap rows */
+table thead th {
+  --tw-bg-opacity: 1 !important;
+  backdrop-filter: none !important;
+  opacity: 1 !important;
+}

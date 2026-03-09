@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -33,6 +33,8 @@ export default function ManagersDashboard() {
   const [selectedColumnsForAction, setSelectedColumnsForAction] = useState(new Set());
   const [isCreateJobModalOpen, setIsCreateJobModalOpen] = useState(false);
   const [isKYCModalOpen, setIsKYCModalOpen] = useState(false);
+  const [isLoadingJobs, setIsLoadingJobs] = useState(false);
+  const [jobsError, setJobsError] = useState('');
   
   // Filter states
   const [statusFilter, setStatusFilter] = useState('');
@@ -84,10 +86,10 @@ export default function ManagersDashboard() {
 
   // Toggle select all columns
   const toggleSelectAllColumns = () => {
-    if (selectedColumnsForAction.size === columns.length) {
+    if (selectedColumnsForAction.size === processColumns.length) {
       setSelectedColumnsForAction(new Set());
     } else {
-      setSelectedColumnsForAction(new Set(columns.map(col => col.name)));
+      setSelectedColumnsForAction(new Set(processColumns));
     }
   };
 
@@ -109,79 +111,80 @@ export default function ManagersDashboard() {
     setIsManageColumnsOpen(false);
   };
 
-  // Sample job cards data
-  const [jobCardsData] = useState({
+  const emptyJobCardsData = {
     '3D Print': {
-      new: [
-        { voucherNo: 'V001', name: 'John Doe', category: 'Gold Ring', qty: 5, weight: '15g', status: 'New' },
-        { voucherNo: 'V002', name: 'Jane Smith', category: 'Silver Bracelet', qty: 3, weight: '12g', status: 'New' }
-      ],
-      wip: [
-        { voucherNo: 'V003', name: 'Bob Johnson', category: 'Diamond Ring', qty: 2, weight: '8g', status: 'Work in Progress' }
-      ],
-      completed: [
-        { voucherNo: 'V004', name: 'Alice Brown', category: 'Gold Necklace', qty: 1, weight: '20g', status: 'Completed' }
-      ]
-    },
-    'DIE': {
-      new: [
-        { voucherNo: 'V005', name: 'Charlie Davis', category: 'Platinum Ring', qty: 4, weight: '10g', status: 'New' }
-      ],
-      wip: [
-        { voucherNo: 'V006', name: 'Diana Evans', category: 'Silver Earrings', qty: 6, weight: '5g', status: 'Work in Progress' }
-      ],
+      new: [],
+      wip: [],
       completed: []
     },
+    'DIE': { new: [], wip: [], completed: [] },
     'WAX': {
       new: [],
-      wip: [
-        { voucherNo: 'V007', name: 'Frank Green', category: 'Gold Pendant', qty: 3, weight: '7g', status: 'Work in Progress' }
-      ],
-      completed: [
-        { voucherNo: 'V008', name: 'Grace Hill', category: 'Diamond Bracelet', qty: 2, weight: '18g', status: 'Completed' }
-      ]
-    },
-    'SETTING': {
-      new: [],
       wip: [],
       completed: []
     },
-    'CASTING': {
-      new: [],
-      wip: [],
-      completed: []
-    },
-    'FILING': {
-      new: [],
-      wip: [],
-      completed: []
-    },
-    'PRE POLISH': {
-      new: [],
-      wip: [],
-      completed: []
-    },
-    'HAND SETTING': {
-      new: [],
-      wip: [],
-      completed: []
-    },
-    'FINAL POLISH': {
-      new: [],
-      wip: [],
-      completed: []
-    },
-    'PLATING': {
-      new: [],
-      wip: [],
-      completed: []
-    },
-    'Others': {
-      new: [],
-      wip: [],
-      completed: []
+    'SETTING': { new: [], wip: [], completed: [] },
+    'CASTING': { new: [], wip: [], completed: [] },
+    'FILING': { new: [], wip: [], completed: [] },
+    'PRE POLISH': { new: [], wip: [], completed: [] },
+    'HAND SETTING': { new: [], wip: [], completed: [] },
+    'FINAL POLISH': { new: [], wip: [], completed: [] },
+    'PLATING': { new: [], wip: [], completed: [] },
+    'Others': { new: [], wip: [], completed: [] },
+  };
+
+  const [jobCardsData, setJobCardsData] = useState(emptyJobCardsData);
+
+  const mapBackendStatusToBucket = (status) => {
+    if (status === 'completed') return 'completed';
+    if (status === 'in_progress') return 'wip';
+    return 'new';
+  };
+
+  const loadJobs = useCallback(async () => {
+    setIsLoadingJobs(true);
+    setJobsError('');
+
+    try {
+      const response = await fetch('/api/jobs', { cache: 'no-store' });
+      const result = await response.json().catch(() => null);
+
+      if (!response.ok || !result?.success) {
+        setJobsError(result?.error?.message || result?.message || 'Failed to load jobs.');
+        setJobCardsData(emptyJobCardsData);
+        return;
+      }
+
+      const jobs = Array.isArray(result?.data) ? result.data : (result?.data?.results || []);
+      const nextData = {
+        ...emptyJobCardsData,
+        '3D Print': { new: [], wip: [], completed: [] },
+      };
+
+      jobs.forEach((job) => {
+        const bucket = mapBackendStatusToBucket(job.status);
+        nextData['3D Print'][bucket].push({
+          id: job.id,
+          voucherNo: `JOB-${job.id}`,
+          name: job.assignee || 'Unassigned',
+          category: job.title,
+          qtyWeight: '-',
+          status: job.status,
+        });
+      });
+
+      setJobCardsData(nextData);
+    } catch {
+      setJobsError('Failed to load jobs.');
+      setJobCardsData(emptyJobCardsData);
+    } finally {
+      setIsLoadingJobs(false);
     }
-  });
+  }, []);
+
+  useEffect(() => {
+    loadJobs();
+  }, [loadJobs]);
 
   const handleCardClick = (card) => {
     setSelectedVoucherForReceive(card);
@@ -331,6 +334,8 @@ export default function ManagersDashboard() {
             </Button>
           </div>
         </div>
+        {isLoadingJobs && <p className="text-sm text-cool-gray mb-3">Loading live jobs...</p>}
+        {jobsError && <p className="text-sm text-danger-dark mb-3">{jobsError}</p>}
 
         {/* Filter Row */}
         <div className="border-2 border-trust-blue rounded-lg mb-6 bg-trust-blue/10 p-4">
@@ -502,16 +507,16 @@ export default function ManagersDashboard() {
                       >
                         <div className="space-y-1">
                           <div className="flex items-center gap-1">
-                            <span className="text-sm font-bold text-slate-text">Voucher No.</span>
+                            <span className="text-sm font-bold text-slate-text">Voucher No.: {card.voucherNo}</span>
                           </div>
                           <div className="flex items-center gap-1">
-                            <span className="text-sm font-bold text-slate-text">Name</span>
+                            <span className="text-sm font-bold text-slate-text">Name: {card.name}</span>
                           </div>
                           <div className="flex items-center gap-1">
-                            <span className="text-sm font-bold text-slate-text">Category</span>
+                            <span className="text-sm font-bold text-slate-text">Title: {card.category}</span>
                           </div>
                           <div className="flex items-center gap-1">
-                            <span className="text-sm font-bold text-slate-text">Total Qty & Weight</span>
+                            <span className="text-sm font-bold text-slate-text">Total Qty & Weight: {card.qtyWeight}</span>
                           </div>
                         </div>
                       </div>
@@ -526,16 +531,16 @@ export default function ManagersDashboard() {
                       >
                         <div className="space-y-1">
                           <div className="flex items-center gap-1">
-                            <span className="text-sm font-bold text-slate-text">Voucher No.</span>
+                            <span className="text-sm font-bold text-slate-text">Voucher No.: {card.voucherNo}</span>
                           </div>
                           <div className="flex items-center gap-1">
-                            <span className="text-sm font-bold text-slate-text">Name</span>
+                            <span className="text-sm font-bold text-slate-text">Name: {card.name}</span>
                           </div>
                           <div className="flex items-center gap-1">
-                            <span className="text-sm font-bold text-slate-text">Category</span>
+                            <span className="text-sm font-bold text-slate-text">Title: {card.category}</span>
                           </div>
                           <div className="flex items-center gap-1">
-                            <span className="text-sm font-bold text-slate-text">Total Qty & Weight</span>
+                            <span className="text-sm font-bold text-slate-text">Total Qty & Weight: {card.qtyWeight}</span>
                           </div>
                         </div>
                       </div>
@@ -550,16 +555,16 @@ export default function ManagersDashboard() {
                       >
                         <div className="space-y-1">
                           <div className="flex items-center gap-1">
-                            <span className="text-sm font-bold text-slate-text">Voucher No.</span>
+                            <span className="text-sm font-bold text-slate-text">Voucher No.: {card.voucherNo}</span>
                           </div>
                           <div className="flex items-center gap-1">
-                            <span className="text-sm font-bold text-slate-text">Name</span>
+                            <span className="text-sm font-bold text-slate-text">Name: {card.name}</span>
                           </div>
                           <div className="flex items-center gap-1">
-                            <span className="text-sm font-bold text-slate-text">Category</span>
+                            <span className="text-sm font-bold text-slate-text">Title: {card.category}</span>
                           </div>
                           <div className="flex items-center gap-1">
-                            <span className="text-sm font-bold text-slate-text">Total Qty & Weight</span>
+                            <span className="text-sm font-bold text-slate-text">Total Qty & Weight: {card.qtyWeight}</span>
                           </div>
                         </div>
                       </div>
@@ -576,6 +581,7 @@ export default function ManagersDashboard() {
       <CreateJobModal
         open={isCreateJobModalOpen}
         onOpenChange={setIsCreateJobModalOpen}
+        onJobCreated={loadJobs}
       />
 
       {/* Company KYC Modal */}

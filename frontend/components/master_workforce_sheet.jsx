@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -61,18 +61,18 @@ export default function MasterWorkforceSheet() {
   
   // Column configuration with styling
   const columnConfig = {
-    department: { minWidth: 'min-w-[100px]', headerBg: 'bg-trust-blue/15' },
-    firstName: { minWidth: 'min-w-[100px]', headerBg: 'bg-trust-blue/15' },
-    lastName: { minWidth: 'min-w-[100px]', headerBg: 'bg-trust-blue/15' },
-    contactNumber: { minWidth: 'min-w-[120px]', headerBg: 'bg-trust-blue/15' },
-    type: { minWidth: 'min-w-[80px]', headerBg: 'bg-trust-blue/15' },
-    aadharCard: { minWidth: 'min-w-[120px]', headerBg: 'bg-trust-blue/15' },
-    paymentType: { minWidth: 'min-w-[100px]', headerBg: 'bg-trust-blue/15' },
-    origin: { minWidth: 'min-w-[80px]', headerBg: 'bg-trust-blue/15' },
-    bankAccount: { minWidth: 'min-w-[120px]', headerBg: 'bg-trust-blue/15' },
-    ifsc: { minWidth: 'min-w-[80px]', headerBg: 'bg-trust-blue/15' },
-    bank: { minWidth: 'min-w-[100px]', headerBg: 'bg-trust-blue/15' },
-    branch: { minWidth: 'min-w-[100px]', headerBg: 'bg-trust-blue/15' },
+    department: { minWidth: 'min-w-[100px]', headerBg: 'bg-[#dbeafe]' },
+    firstName: { minWidth: 'min-w-[100px]', headerBg: 'bg-[#dbeafe]' },
+    lastName: { minWidth: 'min-w-[100px]', headerBg: 'bg-[#dbeafe]' },
+    contactNumber: { minWidth: 'min-w-[120px]', headerBg: 'bg-[#dbeafe]' },
+    type: { minWidth: 'min-w-[80px]', headerBg: 'bg-[#dbeafe]' },
+    aadharCard: { minWidth: 'min-w-[120px]', headerBg: 'bg-[#dbeafe]' },
+    paymentType: { minWidth: 'min-w-[100px]', headerBg: 'bg-[#dbeafe]' },
+    origin: { minWidth: 'min-w-[80px]', headerBg: 'bg-[#dbeafe]' },
+    bankAccount: { minWidth: 'min-w-[120px]', headerBg: 'bg-[#dbeafe]' },
+    ifsc: { minWidth: 'min-w-[80px]', headerBg: 'bg-[#dbeafe]' },
+    bank: { minWidth: 'min-w-[100px]', headerBg: 'bg-[#dbeafe]' },
+    branch: { minWidth: 'min-w-[100px]', headerBg: 'bg-[#dbeafe]' },
   };
   
   // Set default visible columns to prevent horizontal scrolling
@@ -138,24 +138,50 @@ export default function MasterWorkforceSheet() {
   const originOptions = ['Local', 'Permanent', 'Temporary'];
   const paymentTypeOptions = ['Salary', 'Hourly', 'Contract', 'Commission'];
 
-  const [data, setData] = useState(
-    Array(15).fill(null).map((_, i) => ({
-      id: i,
-      sNo: i + 1,
-      department: '',
-      firstName: '',
-      lastName: '',
-      contactNumber: '',
-      type: '',
-      aadharCard: '',
-      paymentType: '',
-      origin: '',
-      bankAccount: '',
-      ifsc: '',
-      bank: '',
-      branch: '',
-    }))
-  );
+  const [data, setData] = useState([]);
+
+  useEffect(() => {
+    const loadWorkforce = async () => {
+      try {
+        const response = await fetch('/api/workforce', { cache: 'no-store' });
+        const result = await response.json().catch(() => null);
+        if (!response.ok || !result?.success) {
+          return;
+        }
+
+        const workforceRows = Array.isArray(result?.data) ? result.data : (result?.data?.results || []);
+        const mappedRows = workforceRows.map((row, index) => {
+          const parts = String(row.full_name || '').trim().split(/\s+/);
+          const firstName = parts[0] || '';
+          const lastName = parts.slice(1).join(' ');
+
+          return {
+            id: row.id,
+            hasBackendRecord: true,
+            sNo: index + 1,
+            department: '',
+            firstName,
+            lastName,
+            contactNumber: row.phone || '',
+            type: row.active ? 'Active' : 'Inactive',
+            aadharCard: '',
+            paymentType: '',
+            origin: '',
+            bankAccount: '',
+            ifsc: '',
+            bank: '',
+            branch: '',
+          };
+        });
+
+        setData(mappedRows);
+      } catch {
+        // Keep table editable with local rows when backend load fails.
+      }
+    };
+
+    loadWorkforce();
+  }, []);
 
   const toggleRowSelection = (id) => {
     const newSelected = new Set(selectedRows);
@@ -196,15 +222,21 @@ export default function MasterWorkforceSheet() {
     setIsQuickEnrollOpen(true);
   };
 
-  const handleQuickEnrollComplete = (personName) => {
-    // Save to localStorage
-    if (typeof window !== 'undefined') {
-      const stored = localStorage.getItem('enrolledPeople');
-      const enrolledPeople = stored ? JSON.parse(stored) : [];
-      if (!enrolledPeople.includes(personName)) {
-        enrolledPeople.push(personName);
-        localStorage.setItem('enrolledPeople', JSON.stringify(enrolledPeople));
-      }
+  const handleQuickEnrollComplete = async (personName) => {
+    try {
+      await fetch('/api/workforce', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          full_name: String(personName || '').trim(),
+          phone: '',
+          active: true,
+        }),
+      });
+    } catch {
+      // Non-blocking: close modal even if API call fails.
     }
     setIsQuickEnrollOpen(false);
   };
@@ -213,15 +245,21 @@ export default function MasterWorkforceSheet() {
     setIsEnrollWorkforceOpen(true);
   };
 
-  const handleEnrollWorkforceComplete = (personName) => {
-    // Save to localStorage
-    if (typeof window !== 'undefined') {
-      const stored = localStorage.getItem('enrolledPeople');
-      const enrolledPeople = stored ? JSON.parse(stored) : [];
-      if (!enrolledPeople.includes(personName)) {
-        enrolledPeople.push(personName);
-        localStorage.setItem('enrolledPeople', JSON.stringify(enrolledPeople));
-      }
+  const handleEnrollWorkforceComplete = async (personName) => {
+    try {
+      await fetch('/api/workforce', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          full_name: String(personName || '').trim(),
+          phone: '',
+          active: true,
+        }),
+      });
+    } catch {
+      // Non-blocking: close modal even if API call fails.
     }
     setIsEnrollWorkforceOpen(false);
   };
@@ -234,6 +272,7 @@ export default function MasterWorkforceSheet() {
     const newId = Math.max(...data.map(row => row.id), -1) + 1;
     const newRow = {
       id: newId,
+      hasBackendRecord: false,
       sNo: data.length + 1,
       department: '',
       firstName: '',
@@ -249,6 +288,67 @@ export default function MasterWorkforceSheet() {
       branch: '',
     };
     setData([...data, newRow]);
+  };
+
+  const handleDeleteSelectedRows = async () => {
+    if (selectedRows.size === 0) {
+      alert('Please select at least one row to delete');
+      return;
+    }
+
+    const confirmed = window.confirm('Delete selected worker row(s)? This action cannot be undone.');
+    if (!confirmed) {
+      return;
+    }
+
+    const selectedRowIds = Array.from(selectedRows);
+    const rowsToDelete = data.filter((row) => selectedRows.has(row.id));
+    const backendRows = rowsToDelete.filter((row) => row.hasBackendRecord);
+
+    if (backendRows.length > 0) {
+      const deleteResults = await Promise.all(
+        backendRows.map(async (row) => {
+          try {
+            const response = await fetch(`/api/workforce/${row.id}`, {
+              method: 'DELETE',
+            });
+
+            if (!response.ok) {
+              return false;
+            }
+
+            const result = await response.json().catch(() => null);
+            return result == null || result.success !== false;
+          } catch {
+            return false;
+          }
+        })
+      );
+
+      if (deleteResults.some((ok) => !ok)) {
+        alert('One or more selected workers could not be deleted. Please retry.');
+        return;
+      }
+    }
+
+    const remainingRows = data.filter((row) => !selectedRows.has(row.id));
+    const normalizedRows = remainingRows.map((row, index) => ({
+      ...row,
+      sNo: index + 1,
+    }));
+
+    setData(normalizedRows);
+
+    const nextArchived = new Set(archivedRows);
+    selectedRowIds.forEach((id) => nextArchived.delete(id));
+    setArchivedRows(nextArchived);
+
+    const nextEditing = new Set(editingRowIds);
+    selectedRowIds.forEach((id) => nextEditing.delete(id));
+    setEditingRowIds(nextEditing);
+
+    setSelectedRows(new Set());
+    alert('Selected worker row(s) deleted successfully.');
   };
 
   const handleEditRow = () => {
@@ -305,6 +405,22 @@ export default function MasterWorkforceSheet() {
   const archivedData = data.filter(row => archivedRows.has(row.id));
   const isArchivedView = viewMode === 'archived';
   const displayedData = isArchivedView ? archivedData : activeData;
+  const displayedRowIds = displayedData.map((row) => row.id);
+  const allDisplayedRowsSelected =
+    displayedRowIds.length > 0 && displayedRowIds.every((id) => selectedRows.has(id));
+
+  const handleToggleSelectAllRows = () => {
+    if (editingRowIds.size > 0) {
+      return;
+    }
+
+    if (allDisplayedRowsSelected) {
+      setSelectedRows(new Set());
+      return;
+    }
+
+    setSelectedRows(new Set(displayedRowIds));
+  };
 
   return (
     <div className="w-full min-h-screen bg-cloud-gray p-4 md:p-6">
@@ -613,6 +729,14 @@ export default function MasterWorkforceSheet() {
           >
             Edit Row
           </Button>
+          <Button
+            onClick={handleDeleteSelectedRows}
+            variant="outline"
+            className="border-red-600 text-danger hover:bg-danger/10 rounded-full px-6"
+            disabled={selectedRows.size === 0 || editingRowIds.size > 0}
+          >
+            Delete Selected
+          </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button 
@@ -762,10 +886,17 @@ export default function MasterWorkforceSheet() {
       <div className="border border-soft-border rounded-lg bg-white overflow-hidden">
         {/* Table wrapper with vertical scrolling only */}
         <div className="overflow-y-auto max-h-[500px]">
-          <table className="w-full border-collapse text-sm">
-            <thead className="sticky top-0 z-20 bg-trust-blue/15">
+          <table className="w-full border-separate border-spacing-0 text-sm">
+            <thead className="sticky top-0 z-40 bg-[#dbeafe]">
               <tr className="text-midnight-ink font-bold border-b-2 border-soft-border">
-                <th className="border border-soft-border p-2 w-8 sticky left-0 bg-trust-blue/15 z-30"></th>
+                <th className="border border-soft-border p-2 w-8 sticky left-0 bg-[#dbeafe] z-50">
+                  <Checkbox
+                    checked={allDisplayedRowsSelected}
+                    onCheckedChange={handleToggleSelectAllRows}
+                    className="cursor-pointer"
+                    disabled={displayedRowIds.length === 0 || editingRowIds.size > 0}
+                  />
+                </th>
                 {columns.map((column) => 
                   visibleColumns.has(column.id) && (
                     <th key={column.id} className={`border border-soft-border p-2 ${columnConfig[column.id].headerBg} ${columnConfig[column.id].minWidth}`}>
@@ -791,7 +922,7 @@ export default function MasterWorkforceSheet() {
                         : 'hover:bg-cloud-gray'
                     }`}
                   >
-                    <td className={`border border-soft-border p-2 text-center sticky left-0 z-10 ${
+                    <td className={`border border-soft-border p-2 text-center sticky left-0 z-20 ${
                       isEditing ? 'bg-trust-blue/10' : 'bg-white'
                     }`}>
                       <Checkbox

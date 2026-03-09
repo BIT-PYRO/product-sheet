@@ -1,34 +1,3 @@
-import { google } from 'googleapis';
-
-const PRODUCT_HEADERS = [
-  'Last Updated',
-  'SKU',
-  'Listing Name',
-  'Material',
-  'Weight',
-  'Category',
-  'Collection',
-  'Setting Type',
-  'Enamel Type',
-  'Active Channels',
-  'Shopify Status',
-  'Die Number/Findings',
-  'Master SKU',
-  'Color',
-  'Enamel',
-  'Stone Name',
-  'Stone Cut',
-  'Stone Color',
-  'Stone Size',
-  'Stone Quantity',
-  'Plating Type',
-  'Plating Color',
-  'Notes',
-  'Images',
-  'Live Stock Data',
-  'Final Stock Data',
-];
-
 const DEFAULT_LIVE_STOCK = {
   rawMaterial: { min: '', current: '', wip: '', location: '' },
   rawSetting: { min: '', current: '', wip: '', location: '' },
@@ -58,10 +27,12 @@ function normalizeLiveStockKeys(rawStock = {}) {
   ];
 
   aliases.forEach(([targetKey, sourceKeys]) => {
-    if (
-      normalized[targetKey] &&
-      Object.values(normalized[targetKey]).some((value) => String(value || '').trim() !== '')
-    ) {
+    const targetValue = normalized[targetKey];
+    const hasTargetData =
+      targetValue &&
+      Object.values(targetValue).some((value) => String(value || '').trim() !== '');
+
+    if (hasTargetData) {
       return;
     }
 
@@ -80,172 +51,200 @@ function normalizeLiveStockKeys(rawStock = {}) {
   return normalized;
 }
 
-function safeParseJson(value, fallback) {
-  if (!value || typeof value !== 'string') {
-    return fallback;
+function asArray(payloadData) {
+  if (Array.isArray(payloadData)) return payloadData;
+  if (Array.isArray(payloadData?.results)) return payloadData.results;
+  return [];
+}
+
+function toNumber(value) {
+  if (value === null || value === undefined || value === '') return 0;
+  if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
+  const parsed = Number.parseFloat(String(value).replace(/[^0-9.-]/g, ''));
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function parseWeightToNumber(weightValue, weightUnit) {
+  const baseValue = toNumber(weightValue);
+  if (!baseValue) return 0;
+
+  const normalizedUnit = String(weightUnit || '').trim().toLowerCase();
+  if (normalizedUnit === 'kg' || normalizedUnit === 'kgs') {
+    return baseValue * 1000;
   }
 
-  try {
-    const parsed = JSON.parse(value);
-    return parsed ?? fallback;
-  } catch {
-    return fallback;
-  }
+  return baseValue;
 }
 
-function mapLiveStockData(rawValue) {
-  const parsed = safeParseJson(rawValue, {});
+function mapIncomingToProductPayload(data) {
+  const listingName = String(data?.listingName || '').trim();
+  const sku = String(data?.sku || '').trim();
+  const weightAsPrice = parseWeightToNumber(data?.weightValue, data?.weightUnit);
 
-  return normalizeLiveStockKeys(parsed);
-}
-
-async function getSheetIdByTitle(sheets, spreadsheetId, title) {
-  const metadata = await sheets.spreadsheets.get({
-    spreadsheetId,
-    fields: 'sheets(properties(sheetId,title))',
-  });
-
-  const sheet = (metadata.data.sheets || []).find(
-    (entry) => entry.properties?.title === title
-  );
-
-  return sheet?.properties?.sheetId;
-}
-
-async function applyMasterProductWrapping(sheets, spreadsheetId, sheetTitle = 'Sheet1') {
-  const sheetId = await getSheetIdByTitle(sheets, spreadsheetId, sheetTitle);
-
-  if (typeof sheetId !== 'number') {
-    return;
-  }
-
-  await sheets.spreadsheets.batchUpdate({
-    spreadsheetId,
-    resource: {
-      requests: [
-        {
-          repeatCell: {
-            range: {
-              sheetId,
-              startRowIndex: 0,
-              startColumnIndex: 0,
-              endColumnIndex: PRODUCT_HEADERS.length,
-            },
-            cell: {
-              userEnteredFormat: {
-                wrapStrategy: 'WRAP',
-                verticalAlignment: 'TOP',
-              },
-            },
-            fields: 'userEnteredFormat.wrapStrategy,userEnteredFormat.verticalAlignment',
-          },
-        },
-      ],
-    },
-  });
-}
-
-function getCredentials() {
   return {
-    type: process.env.GOOGLE_TYPE,
-    project_id: process.env.GOOGLE_PROJECT_ID,
-    private_key_id: process.env.GOOGLE_PRIVATE_KEY_ID,
-    private_key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-    client_email: process.env.GOOGLE_CLIENT_EMAIL,
-    client_id: process.env.GOOGLE_CLIENT_ID,
-    auth_uri: process.env.GOOGLE_AUTH_URI,
-    token_uri: process.env.GOOGLE_TOKEN_URI,
-    auth_provider_x509_cert_url: process.env.GOOGLE_AUTH_PROVIDER_CERT_URL,
-    client_x509_cert_url: process.env.GOOGLE_CLIENT_CERT_URL,
+    sku,
+    name: listingName || sku,
+    category: String(data?.dropdown2 || '').trim(),
+    selling_price: weightAsPrice,
+    cost_price: weightAsPrice,
+    is_active: String(data?.shopifyStatus || '').toLowerCase() !== 'inactive',
   };
 }
 
-function getSheetsClient() {
-  return google.sheets({
-    version: 'v4',
-    auth: new google.auth.GoogleAuth({
-      credentials: getCredentials(),
-      scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+function mapProductSummaryRows(products = [], inventorySummaryRows = []) {
+  const bySku = new Map(
+    inventorySummaryRows
+      .filter((row) => row && row.sku)
+      .map((row) => [String(row.sku).trim(), row])
+  );
+
+  return products.map((product, index) => {
+    const sku = String(product?.sku || '').trim();
+    const summary = bySku.get(sku) || null;
+
+    return {
+      id: product?.id ?? index,
+      lastUpdated: product?.updated_at || product?.created_at || '',
+      sku,
+      listingName: product?.name || '',
+      material: '',
+      weight: '',
+      category: product?.category || '',
+      collection: '',
+      settingType: '',
+      enamelType: '',
+      activeChannels: '',
+      shopifyStatus: product?.is_active ? 'active' : 'inactive',
+      dieNumberFindings: '',
+      masterSku: sku,
+      color: '',
+      enamel: '',
+      stoneName: '',
+      stoneCut: '',
+      stoneColor: '',
+      stoneSize: '',
+      stoneQuantity: '',
+      platingType: '',
+      platingColor: '',
+      notes: '',
+      images: '',
+      liveStock: normalizeLiveStockKeys(summary?.liveStock || DEFAULT_LIVE_STOCK),
+      finalStock: Array.isArray(summary?.finalStock)
+        ? summary.finalStock
+        : [{ sku, value: '0', unit: 'pcs' }],
+      totalInDemand: '',
+    };
+  });
+}
+
+async function fetchJsonWithSession(request, path, init = {}) {
+  const origin = request.nextUrl.origin;
+  const headers = new Headers(init.headers || {});
+
+  if (!headers.has('cookie')) {
+    headers.set('cookie', request.headers.get('cookie') || '');
+  }
+
+  const response = await fetch(`${origin}${path}`, {
+    ...init,
+    headers,
+    cache: 'no-store',
+  });
+
+  const payload = await response.json().catch(() => null);
+  return { response, payload };
+}
+
+async function resolveProductBySku(request, sku) {
+  const encoded = encodeURIComponent(sku);
+  const { response, payload } = await fetchJsonWithSession(request, `/api/products?search=${encoded}`);
+
+  if (!response.ok || !payload?.success) {
+    const message = payload?.message || 'Failed to search product.';
+    throw new Error(message);
+  }
+
+  const rows = asArray(payload.data);
+  return rows.find((item) => String(item?.sku || '').trim().toLowerCase() === sku.toLowerCase()) || null;
+}
+
+async function syncInventoryToFinalStock(request, productId, sku, finalStock) {
+  const desiredQuantity = (Array.isArray(finalStock) ? finalStock : []).reduce(
+    (sum, row) => sum + toNumber(row?.value),
+    0
+  );
+
+  const { response, payload } = await fetchJsonWithSession(
+    request,
+    `/api/inventory?product=${encodeURIComponent(productId)}`
+  );
+
+  if (!response.ok || !payload?.success) {
+    return;
+  }
+
+  const transactions = asArray(payload.data);
+  const currentStock = transactions.reduce((sum, txn) => {
+    const quantity = toNumber(txn?.quantity);
+    if (String(txn?.txn_type || '').toLowerCase() === 'out') {
+      return sum - quantity;
+    }
+    return sum + quantity;
+  }, 0);
+
+  const delta = Math.round(desiredQuantity - currentStock);
+  if (delta === 0) {
+    return;
+  }
+
+  await fetchJsonWithSession(request, '/api/inventory', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      product: productId,
+      txn_type: 'adjust',
+      quantity: delta,
+      remark: `Product sheet sync for ${sku}`,
     }),
   });
 }
 
-function mapSheetRowsToProducts(rows) {
-  if (!rows || rows.length === 0) {
-    return [];
-  }
-
-  const firstRow = rows[0] || [];
-  const hasHeader = String(firstRow[1] || '').trim().toLowerCase() === 'sku';
-  const dataRows = hasHeader ? rows.slice(1) : rows;
-
-  return dataRows
-    .map((row, index) => {
-      const getValue = (columnIndex) => row[columnIndex] || '';
-      const hasAnyValue = row.some((cell) => String(cell || '').trim() !== '');
-
-      if (!hasAnyValue) {
-        return null;
-      }
-
-      return {
-        id: index,
-        lastUpdated: getValue(0),
-        sku: getValue(1),
-        listingName: getValue(2),
-        material: getValue(3),
-        weight: getValue(4),
-        category: getValue(5),
-        collection: getValue(6),
-        settingType: getValue(7),
-        enamelType: getValue(8),
-        activeChannels: getValue(9),
-        shopifyStatus: getValue(10),
-        dieNumberFindings: getValue(11),
-        masterSku: getValue(12),
-        color: getValue(13),
-        enamel: getValue(14),
-        stoneName: getValue(15),
-        stoneCut: getValue(16),
-        stoneColor: getValue(17),
-        stoneSize: getValue(18),
-        stoneQuantity: getValue(19),
-        platingType: getValue(20),
-        platingColor: getValue(21),
-        notes: getValue(22),
-        images: getValue(23),
-        liveStock: mapLiveStockData(getValue(24)),
-        finalStock: safeParseJson(getValue(25), []),
-        totalInDemand: getValue(26),
-      };
-    })
-    .filter(Boolean);
-}
-
-export async function GET() {
+export async function GET(request) {
   try {
-    const spreadsheetId = process.env.GOOGLE_SHEET_ID;
-    const sheets = getSheetsClient();
+    const [productsResult, summaryResult] = await Promise.all([
+      fetchJsonWithSession(request, '/api/products'),
+      fetchJsonWithSession(request, '/api/inventory-summary'),
+    ]);
 
-    const response = await sheets.spreadsheets.values.get({
-      spreadsheetId,
-      range: 'Sheet1!A:AA',
-    });
+    if (!productsResult.response.ok || !productsResult.payload?.success) {
+      return Response.json(
+        {
+          success: false,
+          message: productsResult.payload?.message || 'Failed to fetch products.',
+        },
+        { status: productsResult.response.status || 500 }
+      );
+    }
 
-    const rows = response.data.values || [];
-    const products = mapSheetRowsToProducts(rows);
+    const products = asArray(productsResult.payload.data);
+    const summaryRows =
+      summaryResult.response.ok && summaryResult.payload?.success
+        ? summaryResult.payload.products || []
+        : [];
 
     return Response.json({
       success: true,
-      products,
-      total: products.length,
+      products: mapProductSummaryRows(products, summaryRows),
+      customerData: [],
+      kycData: [],
     });
   } catch (error) {
-    console.error('Error fetching from Google Sheets:', error);
     return Response.json(
       {
         success: false,
-        message: 'Failed to fetch from Google Sheets',
+        message: 'Failed to fetch products.',
         error: error.message,
       },
       { status: 500 }
@@ -256,153 +255,82 @@ export async function GET() {
 export async function POST(request) {
   try {
     const data = await request.json();
-    
-    // Get credentials from environment variables
-    const sheets = getSheetsClient();
+    const sku = String(data?.sku || '').trim();
 
-    const spreadsheetId = process.env.GOOGLE_SHEET_ID;
+    if (!sku) {
+      return Response.json(
+        {
+          success: false,
+          message: 'SKU is required',
+        },
+        { status: 400 }
+      );
+    }
 
-    // Format all the detailed data
-    const dieNumberDetails = data.manufacturing?.dieNumbers?.filter(d => d.dieNumber).map(d => `${d.dieNumber} (Qty: ${d.quantity})`).join('; ') || '';
-    
-    const stoneInfoDetails = data.stoneInfo?.filter(s => s.name).map(s => 
-      `Name: ${s.name}, Cut: ${s.cut || ''}, Color: ${s.color || ''}, Size: ${s.size || ''}, Qty: ${s.quantity || ''}`
-    ).join('; ') || '';
-    
-    const platingTypeDetails = data.platingType?.filter(p => p.col1 || p.col2).map(p => 
-      `Type: ${p.col1 || ''}, Color: ${p.col2 || ''}`
-    ).join('; ') || '';
+    const productPayload = mapIncomingToProductPayload(data);
+    const existing = await resolveProductBySku(request, sku);
 
-    const manufacturingNotes = data.manufacturing?.notes || '';
-    
-    const manufacturingImages = data.manufacturing?.images?.length > 0 ? `${data.manufacturing.images.length} image(s) uploaded` : '';
-    
-    // Extract color and enamel from variations (support multiple rows per field)
-    const formatVariationEntry = (left, right) => {
-      const leftValue = String(left || '').trim();
-      const rightValue = String(right || '').trim();
+    let savedProduct = null;
+    let isUpdate = false;
 
-      if (leftValue && rightValue) {
-        return `${leftValue} (${rightValue})`;
+    if (existing) {
+      const patchResult = await fetchJsonWithSession(request, `/api/products/${existing.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(productPayload),
+      });
+
+      if (!patchResult.response.ok || !patchResult.payload?.success) {
+        return Response.json(
+          {
+            success: false,
+            message: patchResult.payload?.message || 'Failed to update product.',
+          },
+          { status: patchResult.response.status || 500 }
+        );
       }
 
-      return leftValue || rightValue || '';
-    };
-
-    const colorValue = (data.variations || [])
-      .filter((v) => String(v.label || '').toUpperCase() === 'COLOR')
-      .map((v) => formatVariationEntry(v.col1, v.col2))
-      .filter(Boolean)
-      .join('; ');
-
-    const enamelValue = (data.variations || [])
-      .filter((v) => String(v.label || '').toUpperCase() === 'ENAMEL')
-      .map((v) => formatVariationEntry(v.col1, v.col2))
-      .filter(Boolean)
-      .join('; ');
-
-    // Prepare the complete row data matching your form fields exactly
-    const rowData = [
-      new Date().toLocaleString(),
-      data.sku || '',
-      data.listingName || '',
-      data.dropdown1 || '',  // Material
-      data.weightValue && data.weightUnit ? `${data.weightValue} ${data.weightUnit}` : '',
-      data.dropdown2 || '',  // Category
-      data.dropdown3 || '',  // Collection
-      data.settingType || '',
-      data.enamelType || '',
-      data.activeChannels?.join(', ') || '',
-      data.shopifyStatus || '',
-      dieNumberDetails,
-      data.materialSku || '',  // Master SKU
-      colorValue,  // Color from variations
-      enamelValue,  // Enamel from variations
-      data.stoneInfo?.map(s => s.name || '').join('; ') || '',
-      data.stoneInfo?.map(s => s.cut || '').join('; ') || '',
-      data.stoneInfo?.map(s => s.color || '').join('; ') || '',
-      data.stoneInfo?.map(s => s.size || '').join('; ') || '',
-      data.stoneInfo?.map(s => s.quantity || '').join('; ') || '',
-      data.platingType?.map(p => p.col1 || '').join('; ') || '',  // Plating Type from col1
-      data.platingType?.map(p => p.col2 || '').join('; ') || '',  // Plating Color from col2
-      manufacturingNotes,
-      manufacturingImages,
-      JSON.stringify(normalizeLiveStockKeys(data.liveStock || DEFAULT_LIVE_STOCK)),
-      JSON.stringify(data.finalStock || []),
-    ];
-
-    // Define comprehensive headers matching your fields
-    const headerValues = [PRODUCT_HEADERS];
-
-    // Always update headers to ensure they match the current structure
-    await sheets.spreadsheets.values.update({
-      spreadsheetId,
-      range: 'Sheet1!A1',
-      valueInputOption: 'RAW',
-      resource: {
-        values: headerValues,
-      },
-    });
-
-    await applyMasterProductWrapping(sheets, spreadsheetId, 'Sheet1');
-
-    // Get all existing data (starting from row 2 to skip header)
-    const getResponse = await sheets.spreadsheets.values.get({
-      spreadsheetId,
-      range: 'Sheet1!A:B',
-    });
-
-    const existingRows = getResponse.data.values || [];
-
-    // Find if SKU already exists
-    const skuIndex = existingRows.findIndex((row, index) => {
-      if (index === 0) return false; // Skip header
-      return row[1] === data.sku; // Column B is SKU
-    });
-
-    if (skuIndex > 0) {
-      // Update existing row
-      const rowNumber = skuIndex + 1;
-      const colEnd = String.fromCharCode(64 + headerValues[0].length); // Convert number to column letter
-      await sheets.spreadsheets.values.update({
-        spreadsheetId,
-        range: `Sheet1!A${rowNumber}:${colEnd}${rowNumber}`,
-        valueInputOption: 'RAW',
-        resource: {
-          values: [rowData],
-        },
-      });
-
-      return Response.json({
-        success: true,
-        message: `Product updated successfully in row ${rowNumber}`,
-        isUpdate: true,
-      });
+      savedProduct = patchResult.payload?.data || existing;
+      isUpdate = true;
     } else {
-      // Append new row
-      const colEnd = String.fromCharCode(64 + headerValues[0].length);
-      const response = await sheets.spreadsheets.values.append({
-        spreadsheetId,
-        range: `Sheet1!A:${colEnd}`,
-        valueInputOption: 'RAW',
-        resource: {
-          values: [rowData],
+      const createResult = await fetchJsonWithSession(request, '/api/products', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
         },
+        body: JSON.stringify(productPayload),
       });
 
-      return Response.json({
-        success: true,
-        message: 'Product added successfully to Google Sheets',
-        isUpdate: false,
-        response: response.data,
-      });
+      if (!createResult.response.ok || !createResult.payload?.success) {
+        return Response.json(
+          {
+            success: false,
+            message: createResult.payload?.message || 'Failed to create product.',
+          },
+          { status: createResult.response.status || 500 }
+        );
+      }
+
+      savedProduct = createResult.payload?.data;
+      isUpdate = false;
     }
+
+    if (savedProduct?.id) {
+      await syncInventoryToFinalStock(request, savedProduct.id, sku, data?.finalStock);
+    }
+
+    return Response.json({
+      success: true,
+      message: isUpdate ? 'Product updated successfully.' : 'Product added successfully.',
+      isUpdate,
+    });
   } catch (error) {
-    console.error('Error saving to Google Sheets:', error);
     return Response.json(
       {
         success: false,
-        message: 'Failed to save to Google Sheets',
+        message: 'Failed to save product.',
         error: error.message,
       },
       { status: 500 }
@@ -411,76 +339,103 @@ export async function POST(request) {
 }
 
 export async function DELETE(request) {
+  let normalizedSku = '';
+
   try {
-    const { sku } = await request.json();
-    
-    if (!sku) {
-      return Response.json(
-        { success: false, message: 'SKU is required' },
-        { status: 400 }
-      );
-    }
-    
-    // Get credentials from environment variables
-    const sheets = getSheetsClient();
-
-    const spreadsheetId = process.env.GOOGLE_SHEET_ID;
-
-    // Get all data to find the SKU
-    const getResponse = await sheets.spreadsheets.values.get({
-      spreadsheetId,
-      range: 'Sheet1!A:B',
-    });
-
-    const rows = getResponse.data.values || [];
-    
-    // Find the row with matching SKU (Column B)
-    const rowIndex = rows.findIndex((row, index) => {
-      if (index === 0) return false; // Skip header
-      return row[1] === sku; // Column B is SKU
-    });
-
-    if (rowIndex === -1) {
-      return Response.json(
-        { success: false, message: `Product with SKU "${sku}" not found` },
-        { status: 404 }
-      );
-    }
-
-    // Delete the row (rowIndex is 0-based, but sheet rows are 1-based)
-    const rowNumber = rowIndex + 1;
-    
-    await sheets.spreadsheets.batchUpdate({
-      spreadsheetId,
-      resource: {
-        requests: [
-          {
-            deleteDimension: {
-              range: {
-                sheetId: 0, // First sheet
-                dimension: 'ROWS',
-                startIndex: rowIndex,
-                endIndex: rowIndex + 1,
-              },
-            },
-          },
-        ],
-      },
-    });
-
-    return Response.json({
-      success: true,
-      message: `Product with SKU "${sku}" deleted successfully`,
-    });
-  } catch (error) {
-    console.error('Error deleting from Google Sheets:', error);
+    const body = await request.json();
+    normalizedSku = String(body?.sku || '').trim();
+  } catch {
     return Response.json(
       {
         success: false,
-        message: 'Failed to delete from Google Sheets',
-        error: error.message,
+        message: 'SKU is required',
+      },
+      { status: 400 }
+    );
+  }
+
+  if (!normalizedSku) {
+    return Response.json(
+      {
+        success: false,
+        message: 'SKU is required',
+      },
+      { status: 400 }
+    );
+  }
+
+  let existing = null;
+  try {
+    existing = await resolveProductBySku(request, normalizedSku);
+  } catch (error) {
+    return Response.json(
+      {
+        success: false,
+        message: error.message || 'Failed to delete product.',
       },
       { status: 500 }
     );
   }
+
+  if (!existing?.id) {
+    return Response.json(
+      {
+        success: false,
+        message: `Product with SKU "${normalizedSku}" not found`,
+      },
+      { status: 404 }
+    );
+  }
+
+  try {
+    const relatedInventory = await fetchJsonWithSession(
+      request,
+      `/api/inventory?product=${encodeURIComponent(existing.id)}`
+    );
+
+    if (relatedInventory.response.ok && relatedInventory.payload?.success) {
+      const transactions = asArray(relatedInventory.payload.data);
+      for (const txn of transactions) {
+        const txnId = txn?.id;
+        if (!txnId) continue;
+        try {
+          await fetchJsonWithSession(request, `/api/inventory/${txnId}`, {
+            method: 'DELETE',
+          });
+        } catch {
+          // Best effort cleanup before product delete.
+        }
+      }
+    }
+  } catch {
+    // Continue and let final existence check determine result.
+  }
+
+  try {
+    await fetchJsonWithSession(request, `/api/products/${existing.id}`, {
+      method: 'DELETE',
+    });
+  } catch {
+    // Ignore and verify with a follow-up lookup.
+  }
+
+  try {
+    const stillExists = await resolveProductBySku(request, normalizedSku);
+    if (!stillExists) {
+      return Response.json({
+        success: true,
+        message: `Product with SKU "${normalizedSku}" deleted successfully`,
+      });
+    }
+  } catch {
+    // Fall through to generic failure response below.
+  }
+
+  return Response.json(
+    {
+      success: false,
+      message: 'Failed to delete product.',
+    },
+    { status: 500 }
+  );
 }

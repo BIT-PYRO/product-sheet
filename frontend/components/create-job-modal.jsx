@@ -36,13 +36,7 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
   const [isPrintVoucherModalOpen, setIsPrintVoucherModalOpen] = useState(false)
   const [printVoucherData, setPrintVoucherData] = useState(null)
   const [activeTab, setActiveTab] = useState("stone")
-  const [enrolledPeople, setEnrolledPeople] = useState(() => {
-    if (typeof window !== 'undefined') {
-      const stored = localStorage.getItem('enrolledPeople')
-      return stored ? JSON.parse(stored) : []
-    }
-    return []
-  })
+  const [enrolledPeople, setEnrolledPeople] = useState([])
   const [rows, setRows] = useState([
     { id: 1, sku: "", category: "", metal: "", issuedQty: "", unit1: "", issuedWeight: "", unit2: "" },
     { id: 2, sku: "", category: "", metal: "", issuedQty: "", unit1: "", issuedWeight: "", unit2: "" },
@@ -66,12 +60,24 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
     { id: 1, dieNumber: "", quantity: "", weight: "", unit: "" },
   ])
 
-  // Refresh enrolled people from localStorage when modal opens
+  async function loadWorkforceMembers() {
+    try {
+      const response = await fetch('/api/workforce', { cache: 'no-store' })
+      const result = await response.json().catch(() => null)
+      if (!response.ok || !result?.success) {
+        return
+      }
+      const rowsData = Array.isArray(result?.data) ? result.data : (result?.data?.results || [])
+      setEnrolledPeople(rowsData)
+    } catch {
+      // Keep form usable even if workforce list fails.
+    }
+  }
+
+  // Refresh enrolled people from backend when modal opens
   useEffect(() => {
-    if (open && typeof window !== 'undefined') {
-      const stored = localStorage.getItem('enrolledPeople')
-      const people = stored ? JSON.parse(stored) : []
-      setEnrolledPeople(people)
+    if (open) {
+      loadWorkforceMembers()
     }
   }, [open])
 
@@ -141,26 +147,94 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
     setDieWeightRows((prev) => prev.map((r) => (r.id === id ? { ...r, [field]: value } : r)))
   }
 
-  function handleEnrollPerson(personName) {
-    // Add person if not already enrolled
-    if (!enrolledPeople.includes(personName)) {
-      const updatedList = [...enrolledPeople, personName]
-      setEnrolledPeople(updatedList)
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('enrolledPeople', JSON.stringify(updatedList))
-      }
+  async function handleEnrollPerson(personName) {
+    const normalizedName = String(personName || '').trim()
+    if (!normalizedName) {
+      return
     }
-    // Set as issued to
-    setIssuedTo(personName)
-    // Close the modal
-    setIsQuickEnrollModalOpen(false)
+
+    try {
+      const exists = enrolledPeople.some(
+        (entry) => String(entry.full_name || '').toLowerCase() === normalizedName.toLowerCase()
+      )
+
+      if (!exists) {
+        await fetch('/api/workforce', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            full_name: normalizedName,
+            phone: '',
+            active: true,
+          }),
+        })
+      }
+
+      await loadWorkforceMembers()
+      setIssuedTo(normalizedName)
+      setIsQuickEnrollModalOpen(false)
+    } catch {
+      alert('Unable to enroll workforce member right now.')
+    }
   }
 
-  function handleSubmit() {
-    const jobData = { date, issuedTo, deptFrom, deptTo, rows, voucherNo }
-    setPrintVoucherData(jobData)
-    setIsPrintVoucherModalOpen(true)
-    onJobCreated(jobData)
+  async function handleSubmit() {
+    const primarySku = String(rows.find((entry) => String(entry.sku || '').trim())?.sku || '').trim()
+    if (!primarySku) {
+      alert('Please enter at least one SKU row before issuing job.')
+      return
+    }
+
+    try {
+      const productsResponse = await fetch(`/api/products?search=${encodeURIComponent(primarySku)}`, {
+        cache: 'no-store',
+      })
+      const productsResult = await productsResponse.json().catch(() => null)
+      const productsData = Array.isArray(productsResult?.data)
+        ? productsResult.data
+        : (productsResult?.data?.results || [])
+
+      if (!productsResponse.ok || !productsResult?.success || !productsData.length) {
+        alert(`No product found for SKU: ${primarySku}. Create the product first.`)
+        return
+      }
+
+      const selectedProduct =
+        productsData.find((item) => String(item.sku || '').toLowerCase() === primarySku.toLowerCase()) ||
+        productsData[0]
+
+      const title = `${voucherNo} - ${issuedTo || 'Unassigned'} - ${primarySku}`
+      const createResponse = await fetch('/api/jobs', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          title,
+          product: selectedProduct.id,
+          status: 'created',
+        }),
+      })
+
+      const createResult = await createResponse.json().catch(() => null)
+      if (!createResponse.ok || !createResult?.success) {
+        const message = createResult?.error?.message || createResult?.message || 'Unable to create job.'
+        alert(message)
+        return
+      }
+
+      const createdJob = createResult?.data || null
+      const jobData = { date, issuedTo, deptFrom, deptTo, rows, voucherNo, createdJob }
+      setPrintVoucherData(jobData)
+      setIsPrintVoucherModalOpen(true)
+      if (onJobCreated) {
+        onJobCreated(createdJob)
+      }
+    } catch {
+      alert('Unable to create job right now. Please try again.')
+    }
   }
 
   function handleSaveDraft() {
@@ -288,8 +362,8 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
                     <SelectItem value="Existing Workforce / Vendor">Existing Workforce / Vendor</SelectItem>
                     <SelectItem value="New Workforce / Vendor">New Workforce / Vendor</SelectItem>
                     {enrolledPeople.map((person) => (
-                      <SelectItem key={person} value={person}>
-                        {person}
+                      <SelectItem key={person.id} value={person.full_name}>
+                        {person.full_name}
                       </SelectItem>
                     ))}
                   </SelectContent>
