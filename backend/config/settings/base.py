@@ -1,6 +1,7 @@
 from datetime import timedelta
 from pathlib import Path
 
+import dj_database_url
 import environ
 from celery.schedules import crontab
 
@@ -70,17 +71,29 @@ WSGI_APPLICATION = 'config.wsgi.application'
 ASGI_APPLICATION = 'config.asgi.application'
 
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': env('DB_NAME', default=env('POSTGRES_DB', default='product_sheet_design')),
-        'USER': env('DB_USER', default=env('POSTGRES_USER', default='postgres')),
-        'PASSWORD': env('DB_PASSWORD', default=env('POSTGRES_PASSWORD', default='postgres')),
-        'HOST': env('DB_HOST', default=env('POSTGRES_HOST', default='127.0.0.1')),
-        'PORT': env('DB_PORT', default=env('POSTGRES_PORT', default='5432')),
-        'CONN_MAX_AGE': env.int('POSTGRES_CONN_MAX_AGE', default=60),
+DATABASE_URL = env('DATABASE_URL', default='').strip()
+DATABASE_CONN_MAX_AGE = env.int('POSTGRES_CONN_MAX_AGE', default=60)
+
+if DATABASE_URL:
+    DATABASES = {
+        'default': dj_database_url.parse(
+            DATABASE_URL,
+            conn_max_age=DATABASE_CONN_MAX_AGE,
+            ssl_require=env.bool('DATABASE_SSL_REQUIRE', default=not DEBUG),
+        )
     }
-}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': env('DB_NAME', default=env('POSTGRES_DB', default='product_sheet_design')),
+            'USER': env('DB_USER', default=env('POSTGRES_USER', default='postgres')),
+            'PASSWORD': env('DB_PASSWORD', default=env('POSTGRES_PASSWORD', default='postgres')),
+            'HOST': env('DB_HOST', default=env('POSTGRES_HOST', default='127.0.0.1')),
+            'PORT': env('DB_PORT', default=env('POSTGRES_PORT', default='5432')),
+            'CONN_MAX_AGE': DATABASE_CONN_MAX_AGE,
+        }
+    }
 
 
 REST_FRAMEWORK = {
