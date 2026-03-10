@@ -15,6 +15,9 @@ environ.Env.read_env(BASE_DIR / '.env')
 SECRET_KEY = env('SECRET_KEY', default=env('DJANGO_SECRET_KEY', default='django-insecure-change-me'))
 DEBUG = env.bool('DEBUG', default=env.bool('DJANGO_DEBUG', default=False))
 ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=env.list('DJANGO_ALLOWED_HOSTS', default=['127.0.0.1', 'localhost']))
+RENDER_EXTERNAL_HOSTNAME = env('RENDER_EXTERNAL_HOSTNAME', default='').strip()
+if RENDER_EXTERNAL_HOSTNAME and RENDER_EXTERNAL_HOSTNAME not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append(RENDER_EXTERNAL_HOSTNAME)
 
 
 INSTALLED_APPS = [
