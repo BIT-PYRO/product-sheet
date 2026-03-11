@@ -6,6 +6,7 @@ import { Trash2, LayoutDashboard, House, X } from 'lucide-react'
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { CreateJobModal } from '@/components/create-job-modal'
+import DateTimeStamp from '@/components/date-time-stamp'
 
 const PRODUCT_SHEET_SYNC_KEY = 'product_sheet_updated_at'
 const PRODUCT_SHEET_SYNC_EVENT = 'product_sheet_sync'
@@ -600,7 +601,7 @@ function ProductSheetContent() {
     }
     
     return (<div className="relative min-h-screen bg-cloud-gray flex flex-col text-midnight-ink overflow-x-hidden">
-      <div className="flex justify-between items-center mb-2 bg-white py-2 px-3 md:px-4 border-b border-soft-border">
+      <div className="sheet-fixed-header fixed top-0 left-0 right-0 z-[70] flex justify-between items-center bg-white/95 backdrop-blur py-2 px-3 md:px-4 border-b border-soft-border shadow-sm transition-all duration-300">
         <div className="flex items-center gap-3">
           <button onClick={() => setIsDashboardOpen(!isDashboardOpen)} className="h-11 w-11 border-2 border-midnight-ink bg-white rounded hover:bg-cloud-gray transition-colors shadow-sm inline-flex items-center justify-center">
             <LayoutDashboard className="h-5 w-5 text-midnight-ink" />
@@ -615,9 +616,10 @@ function ProductSheetContent() {
           <h1 className="text-xl font-bold tracking-tight text-midnight-ink">PRODUCT SHEET</h1>
         </div>
         <div className="flex gap-2 items-center">
-          <button onClick={handleAddProduct} className="w-fit px-4 h-11 text-base bg-trust-blue text-white font-semibold rounded-md shadow-sm hover:bg-deep-blue">+ ADD PRODUCT</button>
-          <button onClick={handleSaveToGoogleSheets} disabled={isSaving} className="w-fit px-4 h-11 text-base bg-success text-white font-semibold rounded-md shadow-sm hover:bg-success/90 disabled:opacity-50 disabled:cursor-not-allowed">{isSaving ? 'Saving...' : 'SAVE'}</button>
-          <button onClick={handleDeleteFromGoogleSheets} disabled={isSaving} className="w-fit px-4 h-11 text-base bg-danger text-white font-semibold rounded-md shadow-sm hover:bg-danger/90 disabled:opacity-50 disabled:cursor-not-allowed">DELETE</button>
+          <DateTimeStamp className="mr-2 text-xs md:text-sm" />
+          <button onClick={handleAddProduct} className="w-fit px-5 h-11 text-base bg-trust-blue text-white font-semibold rounded-full shadow-sm hover:bg-deep-blue">+ ADD PRODUCT</button>
+          <button onClick={handleSaveToGoogleSheets} disabled={isSaving} className="w-fit px-5 h-11 text-base bg-success text-white font-semibold rounded-full shadow-sm hover:bg-success/90 disabled:opacity-50 disabled:cursor-not-allowed">{isSaving ? 'Saving...' : 'SAVE'}</button>
+          <button onClick={handleDeleteFromGoogleSheets} disabled={isSaving} className="w-fit px-5 h-11 text-base bg-danger text-white font-semibold rounded-full shadow-sm hover:bg-danger/90 disabled:opacity-50 disabled:cursor-not-allowed">DELETE</button>
           {saveStatus && (
             <div className={`text-sm px-2 py-1 rounded-md ${saveStatus.success ? 'bg-success/10 text-success-dark border border-success/30' : 'bg-danger/10 text-danger-dark border border-danger/30'}`}>
               {saveStatus.message}
@@ -626,7 +628,7 @@ function ProductSheetContent() {
           {showViewSheetButton && saveStatus?.success && (
             <button
               onClick={handleViewProductSheet}
-              className="w-fit px-4 h-11 text-base bg-midnight-ink text-white font-semibold rounded-md shadow-sm hover:bg-midnight-ink/90"
+              className="w-fit px-5 h-11 text-base bg-midnight-ink text-white font-semibold rounded-full shadow-sm hover:bg-midnight-ink/90"
             >
               VIEW PRODUCT SHEET
             </button>
@@ -634,7 +636,7 @@ function ProductSheetContent() {
         </div>
       </div>
 
-      <div className={`flex-1 px-3 md:px-4 pb-3 md:pb-4 transition-all duration-300 ${isDashboardOpen ? 'ml-80' : ''}`}>
+      <div className="flex-1 pt-16 px-3 md:px-4 pb-3 md:pb-4 transition-all duration-300">
       {/* Top Section - Product Details & Variations Combined */}
       <div className="bg-cloud-gray p-2 rounded-xl mb-2 border border-soft-border shadow-sm">
         <div className="flex gap-3 h-auto">
@@ -1839,9 +1841,9 @@ function ProductSheetContent() {
 
       {/* Dashboard Panel */}
       {isDashboardOpen && (
-        <div className="fixed inset-0 z-30 bg-black bg-opacity-50" onClick={() => setIsDashboardOpen(false)}></div>
+        <div className="fixed top-16 left-0 right-0 bottom-0 z-40 bg-black bg-opacity-50" onClick={() => setIsDashboardOpen(false)}></div>
       )}
-      <div className={`fixed top-0 left-0 h-screen w-80 bg-white border-r-2 border-soft-border shadow-lg transform transition-transform duration-300 z-40 overflow-y-scroll ${
+      <div className={`fixed top-16 left-0 h-[calc(100vh-4rem)] w-80 bg-white border-r-2 border-soft-border shadow-lg transform transition-transform duration-300 z-50 overflow-y-scroll ${
         isDashboardOpen ? 'translate-x-0' : '-translate-x-full'
       }`}>
         <div className="p-4">
@@ -1912,6 +1914,20 @@ function ProductSheetContent() {
 }
 
 export default function ProductSheet() {
+  const [isHydrated, setIsHydrated] = useState(false)
+
+  useEffect(() => {
+    setIsHydrated(true)
+  }, [])
+
+  if (!isHydrated) {
+    return (
+      <div className="min-h-screen bg-cloud-gray flex items-center justify-center">
+        <p className="text-base text-cool-gray">Loading...</p>
+      </div>
+    )
+  }
+
   return (
     <Suspense fallback={<div className="min-h-screen bg-cloud-gray flex items-center justify-center"><p className="text-base text-cool-gray">Loading…</p></div>}>
       <ProductSheetContent />

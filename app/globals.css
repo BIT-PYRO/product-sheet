@@ -162,3 +162,8 @@ table thead th {
   backdrop-filter: none !important;
   opacity: 1 !important;
 }
+
+/* Keep fixed sheet headers visible when the left navigation drawer is open */
+.sheet-fixed-header {
+  transition: left 0.3s ease, width 0.3s ease;
+}

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
+import DateTimeStamp from '@/components/date-time-stamp';
 
 const LIVE_STOCK_ROWS = [
   ['Minimum Suggested', 'min'],
@@ -76,17 +77,20 @@ function ProductDetailContent() {
   const finalStockRows = Array.isArray(product?.finalStock) ? product.finalStock : [];
 
   return (
-    <div className="w-full min-h-screen bg-cloud-gray p-4 md:p-6">
-      <div className="max-w-[1600px] mx-auto border border-soft-border bg-white p-4 md:p-6">
-        <div className="mb-4 sticky top-0 z-30 bg-white/95 py-2 border-b border-soft-border shadow-sm backdrop-blur">
-          <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
+    <div className="w-full min-h-screen bg-cloud-gray">
+      <div className="pt-16 px-3 md:px-4 pb-3 md:pb-4">
+        <div className="sheet-fixed-header fixed top-0 left-0 right-0 z-[60] bg-white/95 py-2 border-b border-soft-border shadow-sm backdrop-blur px-3 md:px-4">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
             <div className="flex items-center gap-3">
               <MasterNavigationDrawer inHeader />
               <h1 className="text-xl font-bold tracking-tight text-midnight-ink">PRODUCT SHEET DETAILS</h1>
             </div>
-            <Button asChild variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-6">
-              <Link href="/master-product-sheet">Back to Product Sheet</Link>
-            </Button>
+            <div className="flex items-center gap-3 ml-auto">
+              <DateTimeStamp />
+              <Button asChild variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-6">
+                <Link href="/master-product-sheet">Back to Product Sheet</Link>
+              </Button>
+            </div>
           </div>
         </div>
 

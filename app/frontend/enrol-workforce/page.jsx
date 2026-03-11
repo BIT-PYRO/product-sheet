@@ -1,6 +1,7 @@
 'use client';
 import React, { useState, useEffect } from "react";
 import { X } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import {
   Dialog,
   DialogContent,
@@ -14,7 +15,7 @@ const PENDING_DRAFT_KEY = 'pending_enroll_workforce_draft'
 export function EnrolWorkforceForm({ onEnroll, onClose, open = true, draftData = null }) {
   const { saveDraft } = useDrafts()
   const loadedDraft = useDraftLoader()
-  const [isOpen, setIsOpen] = useState(open)
+  const formScrollRef = React.useRef(null)
   const [form, setForm] = useState({
     fullName: "",
     dob: "",
@@ -90,6 +91,7 @@ export function EnrolWorkforceForm({ onEnroll, onClose, open = true, draftData =
     const fullName = String(form.fullName || '').trim();
     if (!fullName) {
       setSubmitStatus({ success: false, message: 'Full Name is required to enroll.' })
+      formScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
       return;
     }
 
@@ -113,10 +115,12 @@ export function EnrolWorkforceForm({ onEnroll, onClose, open = true, draftData =
       if (!response.ok || !result?.success) {
         const message = result?.error?.message || result?.message || 'Unable to enroll workforce member.';
         setSubmitStatus({ success: false, message })
+        formScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
         return;
       }
 
       setSubmitStatus({ success: true, message: `${fullName} enrolled successfully.` })
+      formScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
 
       if (onEnroll) {
         onEnroll(fullName);
@@ -126,6 +130,7 @@ export function EnrolWorkforceForm({ onEnroll, onClose, open = true, draftData =
       }
     } catch {
       setSubmitStatus({ success: false, message: 'Unable to enroll workforce member. Please try again.' })
+      formScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
     } finally {
       setIsSubmitting(false)
     }
@@ -145,11 +150,16 @@ export function EnrolWorkforceForm({ onEnroll, onClose, open = true, draftData =
   };
 
   const handleClose = () => {
-    setIsOpen(false)
     if (onClose) {
       onClose()
     }
   };
+
+  const handleDialogOpenChange = (nextOpen) => {
+    if (!nextOpen) {
+      handleClose()
+    }
+  }
 
   // Handle input changes
   const handleInput = (e, section, field) => {
@@ -183,8 +193,8 @@ export function EnrolWorkforceForm({ onEnroll, onClose, open = true, draftData =
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-gradient-to-br from-cloud-gray to-cloud-gray text-midnight-ink p-0 gap-0 [&>button]:hidden">
+    <Dialog open={open} onOpenChange={handleDialogOpenChange}>
+      <DialogContent ref={formScrollRef} className="max-w-4xl max-h-[90vh] overflow-y-auto bg-gradient-to-br from-cloud-gray to-cloud-gray text-midnight-ink p-0 gap-0 [&>button]:hidden">
         {/* Header */}
         <DialogHeader className="px-5 pt-4 pb-3 border-b border-soft-border bg-gradient-to-r from-midnight-ink to-midnight-ink/90 relative">
           <div className="flex items-center justify-center">
@@ -200,6 +210,14 @@ export function EnrolWorkforceForm({ onEnroll, onClose, open = true, draftData =
             <X className="h-5 w-5" />
           </button>
         </DialogHeader>
+
+        {submitStatus && (
+          <div className="sticky top-0 z-10 px-5 pt-3 bg-cloud-gray/95 backdrop-blur-sm border-b border-soft-border">
+            <div className={`rounded-md px-3 py-2 text-sm font-medium ${submitStatus.success ? 'bg-success/10 text-success-dark border border-success/30' : 'bg-danger/10 text-danger-dark border border-danger/30'}`}>
+              {submitStatus.message}
+            </div>
+          </div>
+        )}
 
         <div className="px-5 pb-5 flex flex-col gap-2">
           <form className="space-y-4">
@@ -381,11 +399,6 @@ export function EnrolWorkforceForm({ onEnroll, onClose, open = true, draftData =
                   {isSubmitting ? 'ENROLLING...' : 'ENROLL'}
                 </button>
               </div>
-              {submitStatus && (
-                <div className={`mt-2 text-sm font-medium ${submitStatus.success ? 'text-success-dark' : 'text-danger-dark'}`}>
-                  {submitStatus.message}
-                </div>
-              )}
             </form>
         </div>
       </DialogContent>
@@ -394,5 +407,12 @@ export function EnrolWorkforceForm({ onEnroll, onClose, open = true, draftData =
 }
 
 export default function EnrolWorkforcePage() {
-  return <EnrolWorkforceForm />;
+  const router = useRouter();
+
+  return (
+    <EnrolWorkforceForm
+      open
+      onClose={() => router.push('/home')}
+    />
+  );
 }

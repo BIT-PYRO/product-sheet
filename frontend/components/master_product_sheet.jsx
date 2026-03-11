@@ -27,6 +27,7 @@ import {
 } from '@/components/ui/dialog';
 import Link from 'next/link';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
+import DateTimeStamp from '@/components/date-time-stamp';
 
 export default function MasterProductSheet() {
   const PRODUCT_SHEET_SYNC_KEY = 'product_sheet_updated_at';
@@ -705,12 +706,15 @@ export default function MasterProductSheet() {
         </DialogContent>
       </Dialog>
 
-      <div className="flex-1 px-3 md:px-4 pb-3 md:pb-4">
+      <div className="flex-1 pt-16 px-3 md:px-4 pb-3 md:pb-4">
         {/* Header Section */}
-        <div className="mb-4 sticky top-0 z-30 bg-white/95 py-2 border-b border-soft-border shadow-sm backdrop-blur">
-          <div className="flex items-center gap-3 mb-4">
-            <MasterNavigationDrawer inHeader />
-            <h1 className="text-xl font-bold tracking-tight text-midnight-ink">MASTER PRODUCT SHEET</h1>
+        <div className="sheet-fixed-header fixed top-0 left-0 right-0 z-[60] bg-white/95 py-2 border-b border-soft-border shadow-sm backdrop-blur px-3 md:px-4">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <MasterNavigationDrawer inHeader />
+              <h1 className="text-xl font-bold tracking-tight text-midnight-ink">MASTER PRODUCT SHEET</h1>
+            </div>
+            <DateTimeStamp />
           </div>
         </div>
 
