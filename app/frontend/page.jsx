@@ -601,25 +601,25 @@ function ProductSheetContent() {
     }
     
     return (<div className="relative min-h-screen bg-cloud-gray flex flex-col text-midnight-ink overflow-x-hidden">
-      <div className="sheet-fixed-header fixed top-0 left-0 right-0 z-[70] flex justify-between items-center bg-white/95 backdrop-blur py-2 px-3 md:px-4 border-b border-soft-border shadow-sm transition-all duration-300">
-        <div className="flex items-center gap-3">
-          <button onClick={() => setIsDashboardOpen(!isDashboardOpen)} className="h-11 w-11 border-2 border-midnight-ink bg-white rounded hover:bg-cloud-gray transition-colors shadow-sm inline-flex items-center justify-center">
-            <LayoutDashboard className="h-5 w-5 text-midnight-ink" />
+      <div className="sheet-fixed-header fixed top-0 left-0 right-0 z-[70] flex justify-between items-center bg-white/95 backdrop-blur py-1 px-2 md:px-3 border-b border-soft-border shadow-sm transition-all duration-300">
+        <div className="flex items-center gap-2">
+          <button onClick={() => setIsDashboardOpen(!isDashboardOpen)} className="h-8 w-8 border-2 border-midnight-ink bg-white rounded hover:bg-cloud-gray transition-colors shadow-sm inline-flex items-center justify-center">
+            <LayoutDashboard className="h-4 w-4 text-midnight-ink" />
           </button>
           <a
             href="/home"
-            className="inline-flex h-11 items-center gap-2 px-4 border-2 border-midnight-ink bg-white rounded text-base font-semibold text-midnight-ink hover:bg-cloud-gray transition-colors shadow-sm"
+            className="inline-flex h-8 items-center gap-1.5 px-3 border-2 border-midnight-ink bg-white rounded text-sm font-semibold text-midnight-ink hover:bg-cloud-gray transition-colors shadow-sm"
           >
-            <House className="h-4 w-4" />
+            <House className="h-3.5 w-3.5" />
             Home
           </a>
-          <h1 className="text-xl font-bold tracking-tight text-midnight-ink">PRODUCT SHEET</h1>
+          <h1 className="text-base font-bold tracking-tight text-midnight-ink">PRODUCT SHEET</h1>
         </div>
-        <div className="flex gap-2 items-center">
-          <DateTimeStamp className="mr-2 text-xs md:text-sm" />
-          <button onClick={handleAddProduct} className="w-fit px-5 h-11 text-base bg-trust-blue text-white font-semibold rounded-full shadow-sm hover:bg-deep-blue">+ ADD PRODUCT</button>
-          <button onClick={handleSaveToGoogleSheets} disabled={isSaving} className="w-fit px-5 h-11 text-base bg-success text-white font-semibold rounded-full shadow-sm hover:bg-success/90 disabled:opacity-50 disabled:cursor-not-allowed">{isSaving ? 'Saving...' : 'SAVE'}</button>
-          <button onClick={handleDeleteFromGoogleSheets} disabled={isSaving} className="w-fit px-5 h-11 text-base bg-danger text-white font-semibold rounded-full shadow-sm hover:bg-danger/90 disabled:opacity-50 disabled:cursor-not-allowed">DELETE</button>
+        <div className="flex gap-1.5 items-center">
+          <DateTimeStamp className="mr-1 text-xs" />
+          <button onClick={handleAddProduct} className="w-fit px-3 h-8 text-sm bg-trust-blue text-white font-semibold rounded-full shadow-sm hover:bg-deep-blue">+ ADD PRODUCT</button>
+          <button onClick={handleSaveToGoogleSheets} disabled={isSaving} className="w-fit px-3 h-8 text-sm bg-success text-white font-semibold rounded-full shadow-sm hover:bg-success/90 disabled:opacity-50 disabled:cursor-not-allowed">{isSaving ? 'Saving...' : 'SAVE'}</button>
+          <button onClick={handleDeleteFromGoogleSheets} disabled={isSaving} className="w-fit px-3 h-8 text-sm bg-danger text-white font-semibold rounded-full shadow-sm hover:bg-danger/90 disabled:opacity-50 disabled:cursor-not-allowed">DELETE</button>
           {saveStatus && (
             <div className={`text-sm px-2 py-1 rounded-md ${saveStatus.success ? 'bg-success/10 text-success-dark border border-success/30' : 'bg-danger/10 text-danger-dark border border-danger/30'}`}>
               {saveStatus.message}
@@ -628,7 +628,7 @@ function ProductSheetContent() {
           {showViewSheetButton && saveStatus?.success && (
             <button
               onClick={handleViewProductSheet}
-              className="w-fit px-5 h-11 text-base bg-midnight-ink text-white font-semibold rounded-full shadow-sm hover:bg-midnight-ink/90"
+              className="w-fit px-3 h-8 text-sm bg-midnight-ink text-white font-semibold rounded-full shadow-sm hover:bg-midnight-ink/90"
             >
               VIEW PRODUCT SHEET
             </button>
@@ -636,79 +636,83 @@ function ProductSheetContent() {
         </div>
       </div>
 
-      <div className="flex-1 pt-16 px-3 md:px-4 pb-3 md:pb-4 transition-all duration-300">
+      <div className="flex-1 pt-11 px-2 pb-2 transition-all duration-300">
       {/* Top Section - Product Details & Variations Combined */}
-      <div className="bg-cloud-gray p-2 rounded-xl mb-2 border border-soft-border shadow-sm">
-        <div className="flex gap-3 h-auto">
+      <div className="bg-cloud-gray p-1.5 rounded-xl mb-2 border border-soft-border shadow-sm">
+        <div className="flex gap-2 h-auto">
           {/* Product Image - Left Side - 1/4 width */}
-          <div className="w-1/4 h-[27rem] bg-white border-2 border-soft-border rounded-xl shadow-sm ring-1 ring-soft-border flex items-center justify-center flex-shrink-0 cursor-pointer hover:bg-cloud-gray relative overflow-hidden" onClick={() => fileInputRef.current?.click()}>
+          <div className="w-1/5 h-[25.5rem] bg-white border-2 border-soft-border rounded-xl shadow-sm ring-1 ring-soft-border flex items-center justify-center flex-shrink-0 cursor-pointer hover:bg-cloud-gray relative overflow-hidden" onClick={() => fileInputRef.current?.click()}>
             {productImage ? (<img src={productImage || "/placeholder.svg"} alt="Product" className="w-full h-full object-cover"/>) : (<span className="text-cool-gray text-center text-sm font-semibold">
                 PRODUCT<br />IMAGE
               </span>)}
             <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageUpload} className="hidden"/>
           </div>
 
-          {/* Product Details & Variations - Right Side - 3/4 width */}
-          <div className="w-3/4 flex flex-col gap-2">
+          {/* Product Details & Variations - Right Side - 4/5 width */}
+          <div className="w-4/5 flex flex-col gap-1.5">
             {/* SKU Table */}
-            <div className="bg-white border-2 border-soft-border rounded-xl shadow-sm">
-              <div className="flex border-b border-soft-border">
-                <div className="flex-1 px-2 py-1 border-r-2 border-soft-border">
-                  <div className="font-semibold text-sm mb-1">SKU</div>
-                  <input type="text" value={sku} onChange={(e) => setSku(e.target.value)} className="w-full bg-transparent outline-none text-sm"/>
-                </div>
-                <div className="flex-1 px-2 py-1">
-                  <div className="font-semibold text-sm mb-1">LISTING NAME</div>
-                  <input type="text" value={listingName} onChange={(e) => setListingName(e.target.value)} className="w-full bg-transparent outline-none text-sm"/>
-                </div>
+            <div className="flex gap-2 h-auto">
+              <div className="flex-1 bg-white border-2 border-soft-border rounded-xl shadow-sm px-2 py-1">
+                <div className="font-semibold text-sm mb-0.5">SKU</div>
+                <input type="text" value={sku} onChange={(e) => setSku(e.target.value)} className="w-full bg-transparent outline-none text-sm border border-soft-border rounded px-2 py-0"/>
+              </div>
+              <div className="flex-1 bg-white border-2 border-soft-border rounded-xl shadow-sm px-2 py-1">
+                <div className="font-semibold text-sm mb-0.5">LISTING NAME</div>
+                <input type="text" value={listingName} onChange={(e) => setListingName(e.target.value)} className="w-full bg-transparent outline-none text-sm border border-soft-border rounded px-2 py-0"/>
               </div>
             </div>
 
-            {/* Dropdowns Table */}
+            {/* Dropdowns Table - 50/50 split matching SKU/Listing Name */}
             <div className="flex gap-2">
-              <div className="flex-1 bg-white border-2 border-soft-border rounded-xl shadow-sm px-2 py-1">
-                <div className="font-semibold text-sm mb-1">Material</div>
-                <select value={dropdown1} onChange={(e) => setDropdown1(e.target.value)} className="w-full bg-transparent outline-none text-sm border border-soft-border rounded px-2 py-1">
-                  <option value="">Select...</option>
-                  <option value="Silver">Silver</option>
-                  <option value="Gold">Gold</option>
-                  <option value="Brass">Brass</option>
-                  <option value="Copper">Copper</option>
-                </select>
-              </div>
-              <div className="flex-1 bg-white border-2 border-soft-border rounded-xl shadow-sm px-2 py-1">
-                <div className="font-semibold text-sm mb-1">Weight</div>
-                <div className="flex gap-1">
-                  <input type="text" placeholder="Value" value={weightValue} onChange={(e) => setWeightValue(e.target.value)} className="flex-1 bg-transparent outline-none text-sm border border-soft-border rounded px-2 py-1"/>
-                  <select value={weightUnit} onChange={(e) => setWeightUnit(e.target.value)} className="flex-1 bg-transparent outline-none text-sm border border-soft-border rounded px-2 py-1">
-                    <option value="">Unit</option>
-                    <option value="kg">kg</option>
-                    <option value="lbs">lbs</option>
-                    <option value="grams">grams</option>
-                    <option value="oz">oz</option>
+              {/* Left half: Material + Weight (under SKU) */}
+              <div className="flex-1 flex gap-2">
+                <div className="flex-1 bg-white border-2 border-soft-border rounded-xl shadow-sm px-2 py-1">
+                  <div className="font-semibold text-sm mb-1">Material</div>
+                  <select value={dropdown1} onChange={(e) => setDropdown1(e.target.value)} className="w-full bg-transparent outline-none text-sm border border-soft-border rounded px-2 py-1">
+                    <option value="">Select...</option>
+                    <option value="Silver">Silver</option>
+                    <option value="Gold">Gold</option>
+                    <option value="Brass">Brass</option>
+                    <option value="Copper">Copper</option>
                   </select>
                 </div>
+                <div className="flex-1 bg-white border-2 border-soft-border rounded-xl shadow-sm px-2 py-1">
+                  <div className="font-semibold text-sm mb-1">Weight</div>
+                  <div className="flex gap-1">
+                    <input type="text" placeholder="Value" value={weightValue} onChange={(e) => setWeightValue(e.target.value)} className="flex-1 bg-transparent outline-none text-sm border border-soft-border rounded px-2 py-1"/>
+                    <select value={weightUnit} onChange={(e) => setWeightUnit(e.target.value)} className="flex-1 bg-transparent outline-none text-sm border border-soft-border rounded px-2 py-1">
+                      <option value="">Unit</option>
+                      <option value="kg">kg</option>
+                      <option value="lbs">lbs</option>
+                      <option value="grams">grams</option>
+                      <option value="oz">oz</option>
+                    </select>
+                  </div>
+                </div>
               </div>
-              <div className="flex-1 bg-white border-2 border-soft-border rounded-xl shadow-sm px-2 py-1">
-                <div className="font-semibold text-sm mb-1">Category</div>
-                <select value={dropdown2} onChange={(e) => setDropdown2(e.target.value)} className="w-full bg-transparent outline-none text-sm border border-soft-border rounded px-2 py-1">
-                  <option value="">Select...</option>
-                  <option value="Ring">Ring</option>
-                  <option value="Necklace">Necklace</option>
-                  <option value="Bracelet">Bracelet</option>
-                  <option value="Earring">Earring</option>
-                  <option value="Pendant">Pendant</option>
-                </select>
-              </div>
-              <div className="flex-1 bg-white border-2 border-soft-border rounded-xl shadow-sm px-2 py-1">
-                <div className="font-semibold text-sm mb-1">Collection</div>
-                <select value={dropdown3} onChange={(e) => setDropdown3(e.target.value)} className="w-full bg-transparent outline-none text-sm border border-soft-border rounded px-2 py-1">
-                  <option value="">Select...</option>
-                  <option value="Classic">Classic</option>
-                  <option value="Modern">Modern</option>
-                  <option value="Vintage">Vintage</option>
-                  <option value="Contemporary">Contemporary</option>
-                </select>
+              {/* Right half: Category + Collection (under Listing Name) */}
+              <div className="flex-1 flex gap-2">
+                <div className="flex-1 bg-white border-2 border-soft-border rounded-xl shadow-sm px-2 py-1">
+                  <div className="font-semibold text-sm mb-1">Category</div>
+                  <select value={dropdown2} onChange={(e) => setDropdown2(e.target.value)} className="w-full bg-transparent outline-none text-sm border border-soft-border rounded px-2 py-1">
+                    <option value="">Select...</option>
+                    <option value="Ring">Ring</option>
+                    <option value="Necklace">Necklace</option>
+                    <option value="Bracelet">Bracelet</option>
+                    <option value="Earring">Earring</option>
+                    <option value="Pendant">Pendant</option>
+                  </select>
+                </div>
+                <div className="flex-1 bg-white border-2 border-soft-border rounded-xl shadow-sm px-2 py-1">
+                  <div className="font-semibold text-sm mb-1">Collection</div>
+                  <select value={dropdown3} onChange={(e) => setDropdown3(e.target.value)} className="w-full bg-transparent outline-none text-sm border border-soft-border rounded px-2 py-1">
+                    <option value="">Select...</option>
+                    <option value="Classic">Classic</option>
+                    <option value="Modern">Modern</option>
+                    <option value="Vintage">Vintage</option>
+                    <option value="Contemporary">Contemporary</option>
+                  </select>
+                </div>
               </div>
             </div>
 
@@ -810,17 +814,17 @@ function ProductSheetContent() {
                   </div>
                 </div>
 
-                <div className="bg-white border-2 border-soft-border rounded-xl shadow-sm max-h-[8rem] overflow-y-auto">
+                <div className="bg-white border-2 border-soft-border rounded-xl shadow-sm max-h-[6rem] overflow-y-auto">
                   <div className="flex flex-col">
                     {manufacturing.dieNumbers.map((row, index) => (
                       <div key={row.id} className={`flex items-center ${index > 0 ? 'border-t border-soft-border' : ''}`}>
-                        <div className="flex-1 px-2 py-1 border-r-2 border-soft-border">
+                        <div className="flex-1 px-2 py-0.2 border-r-2 border-soft-border">
                           <input type="text" placeholder="DIE NUMBER/FINDINGS" value={row.dieNumber} onChange={(e) => updateDieNumber(row.id, 'dieNumber', e.target.value)} className="w-full bg-transparent outline-none text-sm placeholder-cool-gray"/>
                         </div>
-                        <div className="flex-1 px-2 py-1 border-r-2 border-soft-border">
+                        <div className="flex-1 px-2 py-0.2 border-r-2 border-soft-border">
                           <input type="text" placeholder="QUANTITY" value={row.quantity} onChange={(e) => updateDieNumber(row.id, 'quantity', e.target.value)} className="w-full bg-transparent outline-none text-sm placeholder-cool-gray"/>
                         </div>
-                        <button type="button" onClick={() => deleteDieNumber(row.id)} className="px-2 py-1 text-danger hover:text-danger-dark transition-colors flex-shrink-0">
+                        <button type="button" onClick={() => deleteDieNumber(row.id)} className="px-2 py-0.2 text-danger hover:text-danger-dark transition-colors flex-shrink-0">
                           <Trash2 className="h-3 w-3" />
                         </button>
                       </div>
@@ -889,20 +893,20 @@ function ProductSheetContent() {
                   </div>
                 </div>
 
-                <div className="bg-white border-2 border-soft-border rounded-xl shadow-sm">
-                  <div className="flex border-b border-soft-border">
-                    <div className="w-32 px-2 py-1 border-r-2 border-soft-border font-semibold text-sm flex items-center flex-shrink-0">
+                <div className="bg-white border-2 border-soft-border rounded-xl shadow-sm max-h-[6rem] flex flex-col">
+                  <div className="flex border-b border-soft-border flex-shrink-0">
+                    <div className="w-32 px-2 py-0.2 border-r-2 border-soft-border font-semibold text-sm flex items-center flex-shrink-0">
                       MASTER SKU
                     </div>
-                    <div className="flex-1 px-2 py-1">
+                    <div className="flex-1 px-2 py-0.2">
                       <input type="text" value={materialSku} onChange={(e) => setMaterialSku(e.target.value)} className="w-full bg-transparent outline-none text-sm"/>
                     </div>
                   </div>
 
-                  <div className="max-h-[5.5rem] overflow-y-auto">
+                  <div className="overflow-y-auto flex-1">
                     {variations.map((variation, index) => (
                       <div key={variation.id} className={`flex items-center ${index < variations.length - 1 ? 'border-b border-soft-border' : ''}`}>
-                        <div className="w-32 px-2 py-1 border-r-2 border-soft-border font-semibold text-sm flex items-center flex-shrink-0">
+                        <div className="w-32 px-2 py-0.2 border-r-2 border-soft-border font-semibold text-sm flex items-center flex-shrink-0">
                           <select
                             value={variation.label}
                             onChange={(e) => updateVariationLabel(variation.id, e.target.value)}
@@ -916,7 +920,7 @@ function ProductSheetContent() {
                         </div>
                         {variation.label === 'COLOR' ? (
                           <>
-                            <div className="flex-1 px-2 py-1 border-r-2 border-soft-border">
+                            <div className="flex-1 px-2 py-0.2 border-r-2 border-soft-border">
                               <select
                                 value={variation.col1}
                                 onChange={(e) => updateColorVariationColor(variation.id, e.target.value)}
@@ -928,7 +932,7 @@ function ProductSheetContent() {
                                 ))}
                               </select>
                             </div>
-                            <div className="flex-1 px-2 py-1 border-r-2 border-soft-border">
+                            <div className="flex-1 px-2 py-0.2 border-r-2 border-soft-border">
                               <input
                                 type="text"
                                 value={variation.col2}
@@ -940,15 +944,15 @@ function ProductSheetContent() {
                           </>
                         ) : (
                           <>
-                            <div className="flex-1 px-2 py-1 border-r-2 border-soft-border">
+                            <div className="flex-1 px-2 py-0.2 border-r-2 border-soft-border">
                               <input type="text" value={variation.col1} onChange={(e) => updateVariation(variation.id, 'col1', e.target.value)} className="w-full bg-transparent outline-none text-sm"/>
                             </div>
-                            <div className="flex-1 px-2 py-1 border-r-2 border-soft-border">
+                            <div className="flex-1 px-2 py-0.2 border-r-2 border-soft-border">
                               <input type="text" value={variation.col2} onChange={(e) => updateVariation(variation.id, 'col2', e.target.value)} className="w-full bg-transparent outline-none text-sm"/>
                             </div>
                           </>
                         )}
-                        <button type="button" onClick={() => deleteVariation(variation.id)} className="px-2 py-1 text-danger hover:text-danger-dark transition-colors flex-shrink-0">
+                        <button type="button" onClick={() => deleteVariation(variation.id)} className="px-2 py-0.2 text-danger hover:text-danger-dark transition-colors flex-shrink-0">
                           <Trash2 className="h-3 w-3" />
                         </button>
                       </div>
@@ -965,110 +969,105 @@ function ProductSheetContent() {
       </div>
 
       {/* Live Stock Situation Panel (tabular view) */}
-      <div className="bg-cloud-gray p-3 rounded-xl mb-2 border border-soft-border shadow-sm">
-        <h2 className="text-sm font-semibold mb-2 text-center text-warning">LIVE STOCK SITUATION</h2>
-        <div className="flex gap-2">
+      <div className="bg-cloud-gray p-2 rounded-xl mb-2 border border-soft-border shadow-sm">
+        <h2 className="text-sm font-semibold mb-1.5 text-center text-warning">LIVE STOCK SITUATION</h2>
+        <div className="flex gap-2 items-start">
           {/* Main Live Stock Table - 80% */}
-          <div className="flex-shrink-0 bg-white border-2 border-soft-border rounded-xl shadow-sm p-2 overflow-auto" style={{width: '80%'}}>
-            <div className="w-full overflow-hidden">
-              <table className="w-full table-fixed text-sm border-collapse text-center break-words">
-                <thead>
-                  <tr>
-                    <th className="w-36 px-1 py-0.5 text-center font-semibold break-words"></th>
-                    <th className="w-20 px-0.5 py-0.5 break-words">Wax Piece</th>
-                    <th className="w-20 px-0.5 py-0.5 break-words">Wax Setting</th>
-                    <th className="w-24 px-0.5 py-0.5 break-words">Casting</th>
-                    <th className="w-20 px-0.5 py-0.5 break-words">Final Casting</th>
-                    <th className="w-20 px-0.5 py-0.5 break-words">Filling</th>
-                    <th className="w-20 px-0.5 py-0.5 break-words">Pre Polish</th>
-                    <th className="w-20 px-0.5 py-0.5 break-words">Setting</th>
-                    <th className="w-20 px-0.5 py-0.5 break-words">Final Polish</th>
-                    <th className="w-24 px-0.5 py-0.5 break-words">Ready for Plating</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr className="border-t">
-                    <td className="px-1 py-0.5 font-semibold text-center break-words">Minimum Suggested</td>
-                    <td className="px-0.5 py-0.5 break-words"><input className="w-full text-sm px-0.5 py-0.5 border rounded" value={liveStock.rawMaterial.min} onChange={(e) => updateLiveStock('rawMaterial','min', e.target.value)} /></td>
-                    <td className="px-0.5 py-0.5"><input className="w-full text-sm px-0.5 py-0.5 border rounded" value={liveStock.rawSetting.min} onChange={(e) => updateLiveStock('rawSetting','min', e.target.value)} /></td>
-                    <td className="px-0.5 py-0.5"><input className="w-full text-sm px-0.5 py-0.5 border rounded" value={liveStock.wipLiquidCasting.min} onChange={(e) => updateLiveStock('wipLiquidCasting','min', e.target.value)} /></td>
-                    <td className="px-0.5 py-0.5"><input className="w-full text-sm px-0.5 py-0.5 border rounded" value={liveStock.postCasting.min} onChange={(e) => updateLiveStock('postCasting','min', e.target.value)} /></td>
-                    <td className="px-0.5 py-0.5"><input className="w-full text-sm px-0.5 py-0.5 border rounded" value={liveStock.filing.min} onChange={(e) => updateLiveStock('filing','min', e.target.value)} /></td>
-                    <td className="px-0.5 py-0.5"><input className="w-full text-sm px-0.5 py-0.5 border rounded" value={liveStock.packing.min} onChange={(e) => updateLiveStock('packing','min', e.target.value)} /></td>
-                    <td className="px-0.5 py-0.5"><input className="w-full text-sm px-0.5 py-0.5 border rounded" value={liveStock.setting.min} onChange={(e) => updateLiveStock('setting','min', e.target.value)} /></td>
-                    <td className="px-0.5 py-0.5"><input className="w-full text-sm px-0.5 py-0.5 border rounded" value={liveStock.finalPolish.min} onChange={(e) => updateLiveStock('finalPolish','min', e.target.value)} /></td>
-                    <td className="px-0.5 py-0.5"><input className="w-full text-sm px-0.5 py-0.5 border rounded" value={liveStock.readyForPlacing.min} onChange={(e) => updateLiveStock('readyForPlacing','min', e.target.value)} /></td>
-                  </tr>
-                  <tr className="border-t">
-                    <td className="px-1 py-0.5 font-semibold text-center">Current Stock</td>
-                    <td className="px-0.5 py-0.5"><input className="w-full text-sm px-0.5 py-0.5 border rounded" value={liveStock.rawMaterial.current} onChange={(e) => updateLiveStock('rawMaterial','current', e.target.value)} /></td>
-                    <td className="px-0.5 py-0.5"><input className="w-full text-sm px-0.5 py-0.5 border rounded" value={liveStock.rawSetting.current} onChange={(e) => updateLiveStock('rawSetting','current', e.target.value)} /></td>
-                    <td className="px-0.5 py-0.5"><input className="w-full text-sm px-0.5 py-0.5 border rounded" value={liveStock.wipLiquidCasting.current} onChange={(e) => updateLiveStock('wipLiquidCasting','current', e.target.value)} /></td>
-                    <td className="px-0.5 py-0.5"><input className="w-full text-sm px-0.5 py-0.5 border rounded" value={liveStock.postCasting.current} onChange={(e) => updateLiveStock('postCasting','current', e.target.value)} /></td>
-                    <td className="px-0.5 py-0.5"><input className="w-full text-sm px-0.5 py-0.5 border rounded" value={liveStock.filing.current} onChange={(e) => updateLiveStock('filing','current', e.target.value)} /></td>
-                    <td className="px-0.5 py-0.5"><input className="w-full text-sm px-0.5 py-0.5 border rounded" value={liveStock.packing.current} onChange={(e) => updateLiveStock('packing','current', e.target.value)} /></td>
-                    <td className="px-0.5 py-0.5"><input className="w-full text-sm px-0.5 py-0.5 border rounded" value={liveStock.setting.current} onChange={(e) => updateLiveStock('setting','current', e.target.value)} /></td>
-                    <td className="px-0.5 py-0.5"><input className="w-full text-sm px-0.5 py-0.5 border rounded" value={liveStock.finalPolish.current} onChange={(e) => updateLiveStock('finalPolish','current', e.target.value)} /></td>
-                    <td className="px-0.5 py-0.5"><input className="w-full text-sm px-0.5 py-0.5 border rounded" value={liveStock.readyForPlacing.current} onChange={(e) => updateLiveStock('readyForPlacing','current', e.target.value)} /></td>
-                  </tr>
-                  <tr className="border-t">
-                    <td className="px-1 py-0.5 font-semibold text-center">WIP</td>
-                    <td className="px-0.5 py-0.5"><input className="w-full text-sm px-0.5 py-0.5 border rounded" value={liveStock.rawMaterial.wip} onChange={(e) => updateLiveStock('rawMaterial','wip', e.target.value)} /></td>
-                    <td className="px-0.5 py-0.5"><input className="w-full text-sm px-0.5 py-0.5 border rounded" value={liveStock.rawSetting.wip} onChange={(e) => updateLiveStock('rawSetting','wip', e.target.value)} /></td>
-                    <td className="px-0.5 py-0.5"><input className="w-full text-sm px-0.5 py-0.5 border rounded" value={liveStock.wipLiquidCasting.wip} onChange={(e) => updateLiveStock('wipLiquidCasting','wip', e.target.value)} /></td>
-                    <td className="px-0.5 py-0.5"><input className="w-full text-sm px-0.5 py-0.5 border rounded" value={liveStock.postCasting.wip} onChange={(e) => updateLiveStock('postCasting','wip', e.target.value)} /></td>
-                    <td className="px-0.5 py-0.5"><input className="w-full text-sm px-0.5 py-0.5 border rounded" value={liveStock.filing.wip} onChange={(e) => updateLiveStock('filing','wip', e.target.value)} /></td>
-                    <td className="px-0.5 py-0.5"><input className="w-full text-sm px-0.5 py-0.5 border rounded" value={liveStock.packing.wip} onChange={(e) => updateLiveStock('packing','wip', e.target.value)} /></td>
-                    <td className="px-0.5 py-0.5"><input className="w-full text-sm px-0.5 py-0.5 border rounded" value={liveStock.setting.wip} onChange={(e) => updateLiveStock('setting','wip', e.target.value)} /></td>
-                    <td className="px-0.5 py-0.5"><input className="w-full text-sm px-0.5 py-0.5 border rounded" value={liveStock.finalPolish.wip} onChange={(e) => updateLiveStock('finalPolish','wip', e.target.value)} /></td>
-                    <td className="px-0.5 py-0.5"><input className="w-full text-sm px-0.5 py-0.5 border rounded" value={liveStock.readyForPlacing.wip} onChange={(e) => updateLiveStock('readyForPlacing','wip', e.target.value)} /></td>
-                  </tr>
-                  <tr className="border-t">
-                    <td className="px-1 py-0.5 font-semibold text-center">Location</td>
-                    <td className="px-0.5 py-0.5"><input className="w-full text-sm px-0.5 py-0.5 border rounded" value={liveStock.rawMaterial.location} onChange={(e) => updateLiveStock('rawMaterial','location', e.target.value)} /></td>
-                    <td className="px-0.5 py-0.5"><input className="w-full text-sm px-0.5 py-0.5 border rounded" value={liveStock.rawSetting.location} onChange={(e) => updateLiveStock('rawSetting','location', e.target.value)} /></td>
-                    <td className="px-0.5 py-0.5"><input className="w-full text-sm px-0.5 py-0.5 border rounded" value={liveStock.wipLiquidCasting.location} onChange={(e) => updateLiveStock('wipLiquidCasting','location', e.target.value)} /></td>
-                    <td className="px-0.5 py-0.5"><input className="w-full text-sm px-0.5 py-0.5 border rounded" value={liveStock.postCasting.location} onChange={(e) => updateLiveStock('postCasting','location', e.target.value)} /></td>
-                    <td className="px-0.5 py-0.5"><input className="w-full text-sm px-0.5 py-0.5 border rounded" value={liveStock.filing.location} onChange={(e) => updateLiveStock('filing','location', e.target.value)} /></td>
-                    <td className="px-0.5 py-0.5"><input className="w-full text-sm px-0.5 py-0.5 border rounded" value={liveStock.packing.location} onChange={(e) => updateLiveStock('packing','location', e.target.value)} /></td>
-                    <td className="px-0.5 py-0.5"><input className="w-full text-sm px-0.5 py-0.5 border rounded" value={liveStock.setting.location} onChange={(e) => updateLiveStock('setting','location', e.target.value)} /></td>
-                    <td className="px-0.5 py-0.5"><input className="w-full text-sm px-0.5 py-0.5 border rounded" value={liveStock.finalPolish.location} onChange={(e) => updateLiveStock('finalPolish','location', e.target.value)} /></td>
-                    <td className="px-0.5 py-0.5"><input className="w-full text-sm px-0.5 py-0.5 border rounded" value={liveStock.readyForPlacing.location} onChange={(e) => updateLiveStock('readyForPlacing','location', e.target.value)} /></td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
+          <div className="flex-shrink-0 bg-white border border-soft-border rounded-xl overflow-hidden" style={{width: '80%'}}>
+            <table className="w-full table-fixed text-sm border-collapse text-center">
+              <thead>
+                <tr className="bg-[#dce8f5]">
+                  <th className="border border-soft-border px-1 py-1 text-left font-semibold text-midnight-ink w-24"></th>
+                  <th className="border border-soft-border px-0.5 py-1 font-semibold text-midnight-ink">Wax Piece</th>
+                  <th className="border border-soft-border px-0.5 py-1 font-semibold text-midnight-ink">Wax Setting</th>
+                  <th className="border border-soft-border px-0.5 py-1 font-semibold text-midnight-ink">Casting</th>
+                  <th className="border border-soft-border px-0.5 py-1 font-semibold text-midnight-ink">Final Casting</th>
+                  <th className="border border-soft-border px-0.5 py-1 font-semibold text-midnight-ink">Filling</th>
+                  <th className="border border-soft-border px-0.5 py-1 font-semibold text-midnight-ink">Pre Polish</th>
+                  <th className="border border-soft-border px-0.5 py-1 font-semibold text-midnight-ink">Setting</th>
+                  <th className="border border-soft-border px-0.5 py-1 font-semibold text-midnight-ink">Final Polish</th>
+                  <th className="border border-soft-border px-0.5 py-1 font-semibold text-midnight-ink">Ready for Plating</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td className="border border-soft-border px-1 py-1 font-semibold text-left text-midnight-ink bg-[#f5f8fc]">Minimum Suggested</td>
+                  <td className="border border-soft-border p-0"><input className="w-full h-full px-1 py-1 text-sm bg-transparent outline-none text-center" value={liveStock.rawMaterial.min} onChange={(e) => updateLiveStock('rawMaterial','min', e.target.value)} /></td>
+                  <td className="border border-soft-border p-0"><input className="w-full h-full px-1 py-1 text-sm bg-transparent outline-none text-center" value={liveStock.rawSetting.min} onChange={(e) => updateLiveStock('rawSetting','min', e.target.value)} /></td>
+                  <td className="border border-soft-border p-0"><input className="w-full h-full px-1 py-1 text-sm bg-transparent outline-none text-center" value={liveStock.wipLiquidCasting.min} onChange={(e) => updateLiveStock('wipLiquidCasting','min', e.target.value)} /></td>
+                  <td className="border border-soft-border p-0"><input className="w-full h-full px-1 py-1 text-sm bg-transparent outline-none text-center" value={liveStock.postCasting.min} onChange={(e) => updateLiveStock('postCasting','min', e.target.value)} /></td>
+                  <td className="border border-soft-border p-0"><input className="w-full h-full px-1 py-1 text-sm bg-transparent outline-none text-center" value={liveStock.filing.min} onChange={(e) => updateLiveStock('filing','min', e.target.value)} /></td>
+                  <td className="border border-soft-border p-0"><input className="w-full h-full px-1 py-1 text-sm bg-transparent outline-none text-center" value={liveStock.packing.min} onChange={(e) => updateLiveStock('packing','min', e.target.value)} /></td>
+                  <td className="border border-soft-border p-0"><input className="w-full h-full px-1 py-1 text-sm bg-transparent outline-none text-center" value={liveStock.setting.min} onChange={(e) => updateLiveStock('setting','min', e.target.value)} /></td>
+                  <td className="border border-soft-border p-0"><input className="w-full h-full px-1 py-1 text-sm bg-transparent outline-none text-center" value={liveStock.finalPolish.min} onChange={(e) => updateLiveStock('finalPolish','min', e.target.value)} /></td>
+                  <td className="border border-soft-border p-0"><input className="w-full h-full px-1 py-1 text-sm bg-transparent outline-none text-center" value={liveStock.readyForPlacing.min} onChange={(e) => updateLiveStock('readyForPlacing','min', e.target.value)} /></td>
+                </tr>
+                <tr>
+                  <td className="border border-soft-border px-1 py-1 font-semibold text-left text-midnight-ink bg-[#f5f8fc]">Current Stock</td>
+                  <td className="border border-soft-border p-0"><input className="w-full h-full px-1 py-1 text-sm bg-transparent outline-none text-center" value={liveStock.rawMaterial.current} onChange={(e) => updateLiveStock('rawMaterial','current', e.target.value)} /></td>
+                  <td className="border border-soft-border p-0"><input className="w-full h-full px-1 py-1 text-sm bg-transparent outline-none text-center" value={liveStock.rawSetting.current} onChange={(e) => updateLiveStock('rawSetting','current', e.target.value)} /></td>
+                  <td className="border border-soft-border p-0"><input className="w-full h-full px-1 py-1 text-sm bg-transparent outline-none text-center" value={liveStock.wipLiquidCasting.current} onChange={(e) => updateLiveStock('wipLiquidCasting','current', e.target.value)} /></td>
+                  <td className="border border-soft-border p-0"><input className="w-full h-full px-1 py-1 text-sm bg-transparent outline-none text-center" value={liveStock.postCasting.current} onChange={(e) => updateLiveStock('postCasting','current', e.target.value)} /></td>
+                  <td className="border border-soft-border p-0"><input className="w-full h-full px-1 py-1 text-sm bg-transparent outline-none text-center" value={liveStock.filing.current} onChange={(e) => updateLiveStock('filing','current', e.target.value)} /></td>
+                  <td className="border border-soft-border p-0"><input className="w-full h-full px-1 py-1 text-sm bg-transparent outline-none text-center" value={liveStock.packing.current} onChange={(e) => updateLiveStock('packing','current', e.target.value)} /></td>
+                  <td className="border border-soft-border p-0"><input className="w-full h-full px-1 py-1 text-sm bg-transparent outline-none text-center" value={liveStock.setting.current} onChange={(e) => updateLiveStock('setting','current', e.target.value)} /></td>
+                  <td className="border border-soft-border p-0"><input className="w-full h-full px-1 py-1 text-sm bg-transparent outline-none text-center" value={liveStock.finalPolish.current} onChange={(e) => updateLiveStock('finalPolish','current', e.target.value)} /></td>
+                  <td className="border border-soft-border p-0"><input className="w-full h-full px-1 py-1 text-sm bg-transparent outline-none text-center" value={liveStock.readyForPlacing.current} onChange={(e) => updateLiveStock('readyForPlacing','current', e.target.value)} /></td>
+                </tr>
+                <tr>
+                  <td className="border border-soft-border px-1 py-1 font-semibold text-left text-midnight-ink bg-[#f5f8fc]">WIP</td>
+                  <td className="border border-soft-border p-0"><input className="w-full h-full px-1 py-1 text-sm bg-transparent outline-none text-center" value={liveStock.rawMaterial.wip} onChange={(e) => updateLiveStock('rawMaterial','wip', e.target.value)} /></td>
+                  <td className="border border-soft-border p-0"><input className="w-full h-full px-1 py-1 text-sm bg-transparent outline-none text-center" value={liveStock.rawSetting.wip} onChange={(e) => updateLiveStock('rawSetting','wip', e.target.value)} /></td>
+                  <td className="border border-soft-border p-0"><input className="w-full h-full px-1 py-1 text-sm bg-transparent outline-none text-center" value={liveStock.wipLiquidCasting.wip} onChange={(e) => updateLiveStock('wipLiquidCasting','wip', e.target.value)} /></td>
+                  <td className="border border-soft-border p-0"><input className="w-full h-full px-1 py-1 text-sm bg-transparent outline-none text-center" value={liveStock.postCasting.wip} onChange={(e) => updateLiveStock('postCasting','wip', e.target.value)} /></td>
+                  <td className="border border-soft-border p-0"><input className="w-full h-full px-1 py-1 text-sm bg-transparent outline-none text-center" value={liveStock.filing.wip} onChange={(e) => updateLiveStock('filing','wip', e.target.value)} /></td>
+                  <td className="border border-soft-border p-0"><input className="w-full h-full px-1 py-1 text-sm bg-transparent outline-none text-center" value={liveStock.packing.wip} onChange={(e) => updateLiveStock('packing','wip', e.target.value)} /></td>
+                  <td className="border border-soft-border p-0"><input className="w-full h-full px-1 py-1 text-sm bg-transparent outline-none text-center" value={liveStock.setting.wip} onChange={(e) => updateLiveStock('setting','wip', e.target.value)} /></td>
+                  <td className="border border-soft-border p-0"><input className="w-full h-full px-1 py-1 text-sm bg-transparent outline-none text-center" value={liveStock.finalPolish.wip} onChange={(e) => updateLiveStock('finalPolish','wip', e.target.value)} /></td>
+                  <td className="border border-soft-border p-0"><input className="w-full h-full px-1 py-1 text-sm bg-transparent outline-none text-center" value={liveStock.readyForPlacing.wip} onChange={(e) => updateLiveStock('readyForPlacing','wip', e.target.value)} /></td>
+                </tr>
+                <tr>
+                  <td className="border border-soft-border px-1 py-1 font-semibold text-left text-midnight-ink bg-[#f5f8fc]">Location</td>
+                  <td className="border border-soft-border p-0"><input className="w-full h-full px-1 py-1 text-sm bg-transparent outline-none text-center" value={liveStock.rawMaterial.location} onChange={(e) => updateLiveStock('rawMaterial','location', e.target.value)} /></td>
+                  <td className="border border-soft-border p-0"><input className="w-full h-full px-1 py-1 text-sm bg-transparent outline-none text-center" value={liveStock.rawSetting.location} onChange={(e) => updateLiveStock('rawSetting','location', e.target.value)} /></td>
+                  <td className="border border-soft-border p-0"><input className="w-full h-full px-1 py-1 text-sm bg-transparent outline-none text-center" value={liveStock.wipLiquidCasting.location} onChange={(e) => updateLiveStock('wipLiquidCasting','location', e.target.value)} /></td>
+                  <td className="border border-soft-border p-0"><input className="w-full h-full px-1 py-1 text-sm bg-transparent outline-none text-center" value={liveStock.postCasting.location} onChange={(e) => updateLiveStock('postCasting','location', e.target.value)} /></td>
+                  <td className="border border-soft-border p-0"><input className="w-full h-full px-1 py-1 text-sm bg-transparent outline-none text-center" value={liveStock.filing.location} onChange={(e) => updateLiveStock('filing','location', e.target.value)} /></td>
+                  <td className="border border-soft-border p-0"><input className="w-full h-full px-1 py-1 text-sm bg-transparent outline-none text-center" value={liveStock.packing.location} onChange={(e) => updateLiveStock('packing','location', e.target.value)} /></td>
+                  <td className="border border-soft-border p-0"><input className="w-full h-full px-1 py-1 text-sm bg-transparent outline-none text-center" value={liveStock.setting.location} onChange={(e) => updateLiveStock('setting','location', e.target.value)} /></td>
+                  <td className="border border-soft-border p-0"><input className="w-full h-full px-1 py-1 text-sm bg-transparent outline-none text-center" value={liveStock.finalPolish.location} onChange={(e) => updateLiveStock('finalPolish','location', e.target.value)} /></td>
+                  <td className="border border-soft-border p-0"><input className="w-full h-full px-1 py-1 text-sm bg-transparent outline-none text-center" value={liveStock.readyForPlacing.location} onChange={(e) => updateLiveStock('readyForPlacing','location', e.target.value)} /></td>
+                </tr>
+              </tbody>
+            </table>
           </div>
 
           {/* Final Stock Table - 20% */}
-          <div className="flex-shrink-0 bg-white border-2 border-soft-border rounded-xl shadow-sm p-1 flex flex-col" style={{width: '20%'}}>
-            <h3 className="text-sm font-semibold mb-1 text-center flex-shrink-0">FINAL STOCK</h3>
-            <div className="flex-1 overflow-auto">
-              <table className="w-full table-fixed text-sm border-collapse break-words">
-                <thead>
-                  <tr>
-                    <th className="px-0.5 py-0.5 text-center text-sm border-b flex-1 break-words">SKU</th>
-                    <th className="px-0.5 py-0.5 text-center text-sm border-b flex-1 break-words">Value</th>
-                    <th className="px-0.5 py-0.5 text-center text-sm border-b flex-1 break-words">Unit</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {finalStock.map((row) => (
-                    <tr key={row.id} className="border-b">
-                      <td className="px-0.5 py-0.5 break-words"><input className="w-full text-sm px-0.5 py-0.5 border rounded" placeholder="SKU" value={row.sku} onChange={(e) => updateFinalStock(row.id, 'sku', e.target.value)} /></td>
-                      <td className="px-0.5 py-0.5 break-words"><input className="w-full text-sm px-0.5 py-0.5 border rounded" placeholder="Value" value={row.value} onChange={(e) => updateFinalStock(row.id, 'value', e.target.value)} /></td>
-                      <td className="px-0.5 py-0.5 break-words"><input className="w-full text-sm px-0.5 py-0.5 border rounded" placeholder="Unit" value={row.unit} onChange={(e) => updateFinalStock(row.id, 'unit', e.target.value)} /></td>
-                      <td className="px-0.5 py-0.5 text-center break-words">
-                        <button type="button" onClick={() => deleteFinalStock(row.id)} className="text-danger hover:text-danger-dark transition-colors">
-                          <Trash2 className="h-3 w-3" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+          <div className="flex-shrink-0 border border-soft-border rounded-xl overflow-hidden flex flex-col max-h-[170px]" style={{width: '20%'}}>
+            {/* Fixed header */}
+            <div className="flex flex-shrink-0 bg-[#dce8f5] border-b border-soft-border">
+              <div className="flex-1 border-r border-soft-border px-1 py-1 text-center text-sm font-semibold text-midnight-ink">SKU</div>
+              <div className="flex-1 border-r border-soft-border px-1 py-1 text-center text-sm font-semibold text-midnight-ink">Value</div>
+              <div className="flex-1 border-r border-soft-border px-1 py-1 text-center text-sm font-semibold text-midnight-ink">Unit</div>
+              <div className="w-6"></div>
             </div>
-            <button onClick={addFinalStockRow} className="w-full mt-1 px-1 py-0.5 bg-trust-blue text-white text-sm rounded hover:bg-trust-blue flex-shrink-0">+ Add Row</button>
+            {/* Scrollable body — constrained to left table's height */}
+            <div className="flex-1 overflow-y-auto min-h-0">
+              {finalStock.map((row) => (
+                <div key={row.id} className="flex border-b border-soft-border">
+                  <input className="flex-1 min-w-0 px-1 py-1 text-sm bg-transparent outline-none text-center border-r border-soft-border" placeholder="SKU" value={row.sku} onChange={(e) => updateFinalStock(row.id, 'sku', e.target.value)} />
+                  <input className="flex-1 min-w-0 px-1 py-1 text-sm bg-transparent outline-none text-center border-r border-soft-border" placeholder="Value" value={row.value} onChange={(e) => updateFinalStock(row.id, 'value', e.target.value)} />
+                  <input className="flex-1 min-w-0 px-1 py-1 text-sm bg-transparent outline-none text-center border-r border-soft-border" placeholder="Unit" value={row.unit} onChange={(e) => updateFinalStock(row.id, 'unit', e.target.value)} />
+                  <div className="w-6 flex items-center justify-center flex-shrink-0">
+                    <button type="button" onClick={() => deleteFinalStock(row.id)} className="text-danger hover:text-danger-dark transition-colors">
+                      <Trash2 className="h-3 w-3" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+            {/* Fixed Add Row button */}
+            <button onClick={addFinalStockRow} className="w-full px-1 py-1 bg-trust-blue text-white text-sm hover:bg-deep-blue flex-shrink-0">+ Add Row</button>
           </div>
         </div>
         <div className="mt-2 flex justify-center">
@@ -1078,8 +1077,8 @@ function ProductSheetContent() {
 
       {/* Stone Info and Plating Type - Side by Side */}
       <div className="flex gap-2 mb-2 items-stretch">
-        <div className="w-1/2 bg-cloud-gray p-2 rounded-xl border border-soft-border shadow-sm flex flex-col h-full">
-          <h2 className="text-sm font-semibold mb-2">STONE INFO</h2>
+        <div className="w-1/2 bg-cloud-gray p-1.5 rounded-xl border border-soft-border shadow-sm flex flex-col h-full">
+          <h2 className="text-sm font-semibold mb-1">STONE INFO</h2>
           <div className="bg-white flex-1 flex flex-col">
             <div className="max-h-36 overflow-y-auto">
               <table className="w-full border-2 border-soft-border table-fixed break-words">
@@ -1131,13 +1130,13 @@ function ProductSheetContent() {
             </table>
             </div>
           </div>
-          <button onClick={addStoneInfoRow} className="w-fit mt-2 px-2 py-1 text-sm bg-trust-blue text-white font-semibold rounded hover:bg-deep-blue">
+          <button onClick={addStoneInfoRow} className="w-fit mt-1.5 px-2 py-1 text-sm bg-trust-blue text-white font-semibold rounded hover:bg-deep-blue">
             +ADD ROW
           </button>
         </div>
 
-        <div className="w-1/2 bg-cloud-gray p-2 rounded-xl border border-soft-border shadow-sm flex flex-col h-full">
-          <h2 className="text-sm font-semibold mb-2">PLATING INFO</h2>
+        <div className="w-1/2 bg-cloud-gray p-1.5 rounded-xl border border-soft-border shadow-sm flex flex-col h-full">
+          <h2 className="text-sm font-semibold mb-1">PLATING INFO</h2>
           <div className="bg-white flex-1 flex flex-col">
             <div className="max-h-36 overflow-y-auto">
               <table className="w-full border-2 border-soft-border table-fixed break-words">
@@ -1181,21 +1180,21 @@ function ProductSheetContent() {
       </div>
 
       {/* Manufacturing Section */}
-      <div className="bg-cloud-gray p-3 rounded-xl mb-2 border border-soft-border shadow-sm">
-        <h2 className="text-sm font-semibold mb-2">MANUFACTURING</h2>
+      <div className="bg-cloud-gray p-2 rounded-xl mb-2 border border-soft-border shadow-sm">
+        <h2 className="text-sm font-semibold mb-1.5">MANUFACTURING</h2>
         <div className="bg-white rounded-xl">
           <div className="border-2 border-soft-border rounded-xl shadow-sm">
             <div className="flex border-b-2 border-soft-border">
-              <div className="w-24 p-3 border-r-2 border-soft-border font-semibold text-sm bg-white flex-shrink-0">
+              <div className="w-20 p-2 border-r-2 border-soft-border font-semibold text-sm bg-white flex-shrink-0">
                 NOTES
               </div>
-              <div className="flex-1 p-3 bg-white">
+              <div className="flex-1 p-2 bg-white">
                 <input type="text" value={manufacturing.notes ?? ''} onChange={(e) => setManufacturing({ ...manufacturing, notes: e.target.value })} className="w-full bg-transparent outline-none text-sm"/>
               </div>
             </div>
 
             <div className="flex">
-              <div className="w-24 p-3 border-r-2 border-soft-border font-semibold text-sm bg-white flex-shrink-0">
+              <div className="w-20 p-2 border-r-2 border-soft-border font-semibold text-sm bg-white flex-shrink-0">
                 IMAGES
               </div>
               <div className="flex-1 p-3 bg-white">
@@ -1252,64 +1251,68 @@ function ProductSheetContent() {
                   {/* Product Details & Variations - Right Side - 3/4 width */}
                   <div className="w-3/4 flex flex-col gap-2">
                     {/* SKU Table */}
-                    <div className="bg-white border-2 border-soft-border">
-                      <div className="flex border-b border-soft-border">
-                        <div className="flex-1 px-2 py-1 border-r-2 border-soft-border">
-                          <div className="font-semibold text-sm mb-1">SKU</div>
-                          <input type="text" value={sku} onChange={(e) => setSku(e.target.value)} className="w-full bg-transparent outline-none text-sm"/>
-                        </div>
-                        <div className="flex-1 px-2 py-1">
-                          <div className="font-semibold text-sm mb-1">LISTING NAME</div>
-                          <input type="text" value={listingName} onChange={(e) => setListingName(e.target.value)} className="w-full bg-transparent outline-none text-sm"/>
-                        </div>
+                    <div className="flex gap-2">
+                      <div className="flex-1 bg-white border-2 border-soft-border px-2 py-1">
+                        <div className="font-semibold text-sm mb-0.5">SKU</div>
+                        <input type="text" value={sku} onChange={(e) => setSku(e.target.value)} className="w-full bg-transparent outline-none text-sm border border-soft-border rounded px-2 py-0"/>
+                      </div>
+                      <div className="flex-1 bg-white border-2 border-soft-border px-2 py-1">
+                        <div className="font-semibold text-sm mb-0.5">LISTING NAME</div>
+                        <input type="text" value={listingName} onChange={(e) => setListingName(e.target.value)} className="w-full bg-transparent outline-none text-sm border border-soft-border rounded px-2 py-0"/>
                       </div>
                     </div>
 
-                    {/* Dropdowns Table */}
+                    {/* Dropdowns Table - 50/50 split matching SKU/Listing Name */}
                     <div className="flex gap-2">
-                      <div className="flex-1 bg-white border-2 border-soft-border px-2 py-1">
-                        <div className="font-semibold text-sm mb-1">Material</div>
-                        <select value={dropdown1} onChange={(e) => setDropdown1(e.target.value)} className="w-full bg-transparent outline-none text-sm border border-soft-border rounded px-2 py-1">
-                          <option value="">Select...</option>
-                          <option value="Silver">Silver</option>
-                          <option value="Gold">Gold</option>
-                          <option value="Brass">Brass</option>
-                          <option value="Copper">Copper</option>
-                        </select>
-                      </div>
-                      <div className="flex-1 bg-white border-2 border-soft-border px-2 py-1">
-                        <div className="font-semibold text-sm mb-1">Weight</div>
-                        <div className="flex gap-1">
-                          <input type="text" placeholder="Value" value={weightValue} onChange={(e) => setWeightValue(e.target.value)} className="flex-1 bg-transparent outline-none text-sm border border-soft-border rounded px-2 py-1"/>
-                          <select value={weightUnit} onChange={(e) => setWeightUnit(e.target.value)} className="flex-1 bg-transparent outline-none text-sm border border-soft-border rounded px-2 py-1">
-                            <option value="">Unit</option>
-                            <option value="kg">kg</option>
-                            <option value="lbs">lbs</option>
-                            <option value="grams">grams</option>
-                            <option value="oz">oz</option>
+                      {/* Left half: Material + Weight (under SKU) */}
+                      <div className="flex-1 flex gap-2">
+                        <div className="flex-1 bg-white border-2 border-soft-border px-2 py-1">
+                          <div className="font-semibold text-sm mb-1">Material</div>
+                          <select value={dropdown1} onChange={(e) => setDropdown1(e.target.value)} className="w-full bg-transparent outline-none text-sm border border-soft-border rounded px-2 py-1">
+                            <option value="">Select...</option>
+                            <option value="Silver">Silver</option>
+                            <option value="Gold">Gold</option>
+                            <option value="Brass">Brass</option>
+                            <option value="Copper">Copper</option>
                           </select>
                         </div>
+                        <div className="flex-1 bg-white border-2 border-soft-border px-2 py-1">
+                          <div className="font-semibold text-sm mb-1">Weight</div>
+                          <div className="flex gap-1">
+                            <input type="text" placeholder="Value" value={weightValue} onChange={(e) => setWeightValue(e.target.value)} className="flex-1 bg-transparent outline-none text-sm border border-soft-border rounded px-2 py-1"/>
+                            <select value={weightUnit} onChange={(e) => setWeightUnit(e.target.value)} className="flex-1 bg-transparent outline-none text-sm border border-soft-border rounded px-2 py-1">
+                              <option value="">Unit</option>
+                              <option value="kg">kg</option>
+                              <option value="lbs">lbs</option>
+                              <option value="grams">grams</option>
+                              <option value="oz">oz</option>
+                            </select>
+                          </div>
+                        </div>
                       </div>
-                      <div className="flex-1 bg-white border-2 border-soft-border px-2 py-1">
-                        <div className="font-semibold text-sm mb-1">Category</div>
-                        <select value={dropdown2} onChange={(e) => setDropdown2(e.target.value)} className="w-full bg-transparent outline-none text-sm border border-soft-border rounded px-2 py-1">
-                          <option value="">Select...</option>
-                          <option value="Ring">Ring</option>
-                          <option value="Necklace">Necklace</option>
-                          <option value="Bracelet">Bracelet</option>
-                          <option value="Earring">Earring</option>
-                          <option value="Pendant">Pendant</option>
-                        </select>
-                      </div>
-                      <div className="flex-1 bg-white border-2 border-soft-border px-2 py-1">
-                        <div className="font-semibold text-sm mb-1">Collection</div>
-                        <select value={dropdown3} onChange={(e) => setDropdown3(e.target.value)} className="w-full bg-transparent outline-none text-sm border border-soft-border rounded px-2 py-1">
-                          <option value="">Select...</option>
-                          <option value="Classic">Classic</option>
-                          <option value="Modern">Modern</option>
-                          <option value="Vintage">Vintage</option>
-                          <option value="Contemporary">Contemporary</option>
-                        </select>
+                      {/* Right half: Category + Collection (under Listing Name) */}
+                      <div className="flex-1 flex gap-2">
+                        <div className="flex-1 bg-white border-2 border-soft-border px-2 py-1">
+                          <div className="font-semibold text-sm mb-1">Category</div>
+                          <select value={dropdown2} onChange={(e) => setDropdown2(e.target.value)} className="w-full bg-transparent outline-none text-sm border border-soft-border rounded px-2 py-1">
+                            <option value="">Select...</option>
+                            <option value="Ring">Ring</option>
+                            <option value="Necklace">Necklace</option>
+                            <option value="Bracelet">Bracelet</option>
+                            <option value="Earring">Earring</option>
+                            <option value="Pendant">Pendant</option>
+                          </select>
+                        </div>
+                        <div className="flex-1 bg-white border-2 border-soft-border px-2 py-1">
+                          <div className="font-semibold text-sm mb-1">Collection</div>
+                          <select value={dropdown3} onChange={(e) => setDropdown3(e.target.value)} className="w-full bg-transparent outline-none text-sm border border-soft-border rounded px-2 py-1">
+                            <option value="">Select...</option>
+                            <option value="Classic">Classic</option>
+                            <option value="Modern">Modern</option>
+                            <option value="Vintage">Vintage</option>
+                            <option value="Contemporary">Contemporary</option>
+                          </select>
+                        </div>
                       </div>
                     </div>
 
@@ -1415,13 +1418,13 @@ function ProductSheetContent() {
                           <div className="flex flex-col">
                             {manufacturing.dieNumbers.map((row, index) => (
                               <div key={row.id} className={`flex items-center ${index > 0 ? 'border-t border-soft-border' : ''}`}>
-                                <div className="flex-1 px-2 py-1 border-r-2 border-soft-border">
+                                <div className="flex-1 px-2 py-0.2 border-r-2 border-soft-border">
                                   <input type="text" placeholder="DIE NUMBER" value={row.dieNumber} onChange={(e) => updateDieNumber(row.id, 'dieNumber', e.target.value)} className="w-full bg-transparent outline-none text-sm placeholder-cool-gray"/>
                                 </div>
-                                <div className="flex-1 px-2 py-1 border-r-2 border-soft-border">
+                                <div className="flex-1 px-2 py-0.2 border-r-2 border-soft-border">
                                   <input type="text" placeholder="QUANTITY" value={row.quantity} onChange={(e) => updateDieNumber(row.id, 'quantity', e.target.value)} className="w-full bg-transparent outline-none text-sm placeholder-cool-gray"/>
                                 </div>
-                                <button type="button" onClick={() => deleteDieNumber(row.id)} className="px-2 py-1 text-danger hover:text-danger-dark transition-colors flex-shrink-0">
+                                <button type="button" onClick={() => deleteDieNumber(row.id)} className="px-2 py-0.2 text-danger hover:text-danger-dark transition-colors flex-shrink-0">
                                   <Trash2 className="h-3 w-3" />
                                 </button>
                               </div>
@@ -1490,20 +1493,20 @@ function ProductSheetContent() {
                           </div>
                         </div>
 
-                        <div className="bg-white border-2 border-soft-border">
-                          <div className="flex border-b border-soft-border">
-                            <div className="w-32 px-2 py-1 border-r-2 border-soft-border font-semibold text-sm flex items-center flex-shrink-0">
+                        <div className="bg-white border-2 border-soft-border max-h-[6rem] flex flex-col">
+                          <div className="flex border-b border-soft-border flex-shrink-0">
+                            <div className="w-32 px-2 py-0.2 border-r-2 border-soft-border font-semibold text-sm flex items-center flex-shrink-0">
                               MASTER SKU
                             </div>
-                            <div className="flex-1 px-2 py-1">
+                            <div className="flex-1 px-2 py-0.2">
                               <input type="text" value={materialSku} onChange={(e) => setMaterialSku(e.target.value)} className="w-full bg-transparent outline-none text-sm"/>
                             </div>
                           </div>
 
-                          <div className="max-h-[5.5rem] overflow-y-auto">
+                          <div className="overflow-y-auto flex-1">
                             {variations.map((variation, index) => (
                               <div key={variation.id} className={`flex items-center ${index < variations.length - 1 ? 'border-b border-soft-border' : ''}`}>
-                                <div className="w-32 px-2 py-1 border-r-2 border-soft-border font-semibold text-sm flex items-center flex-shrink-0">
+                                <div className="w-32 px-2 py-0.2 border-r-2 border-soft-border font-semibold text-sm flex items-center flex-shrink-0">
                                   <select
                                     value={variation.label}
                                     onChange={(e) => updateVariationLabel(variation.id, e.target.value)}
@@ -1517,7 +1520,7 @@ function ProductSheetContent() {
                                 </div>
                                 {variation.label === 'COLOR' ? (
                                   <>
-                                    <div className="flex-1 px-2 py-1 border-r-2 border-soft-border">
+                                    <div className="flex-1 px-2 py-0.2 border-r-2 border-soft-border">
                                       <select
                                         value={variation.col1}
                                         onChange={(e) => updateColorVariationColor(variation.id, e.target.value)}
@@ -1529,7 +1532,7 @@ function ProductSheetContent() {
                                         ))}
                                       </select>
                                     </div>
-                                    <div className="flex-1 px-2 py-1 border-r-2 border-soft-border">
+                                    <div className="flex-1 px-2 py-0.2 border-r-2 border-soft-border">
                                       <input
                                         type="text"
                                         value={variation.col2}
@@ -1541,15 +1544,15 @@ function ProductSheetContent() {
                                   </>
                                 ) : (
                                   <>
-                                    <div className="flex-1 px-2 py-1 border-r-2 border-soft-border">
+                                    <div className="flex-1 px-2 py-0.2 border-r-2 border-soft-border">
                                       <input type="text" value={variation.col1} onChange={(e) => updateVariation(variation.id, 'col1', e.target.value)} className="w-full bg-transparent outline-none text-sm"/>
                                     </div>
-                                    <div className="flex-1 px-2 py-1 border-r-2 border-soft-border">
+                                    <div className="flex-1 px-2 py-0.2 border-r-2 border-soft-border">
                                       <input type="text" value={variation.col2} onChange={(e) => updateVariation(variation.id, 'col2', e.target.value)} className="w-full bg-transparent outline-none text-sm"/>
                                     </div>
                                   </>
                                 )}
-                                <button type="button" onClick={() => deleteVariation(variation.id)} className="px-2 py-1 text-danger hover:text-danger-dark transition-colors flex-shrink-0">
+                                <button type="button" onClick={() => deleteVariation(variation.id)} className="px-2 py-0.2 text-danger hover:text-danger-dark transition-colors flex-shrink-0">
                                   <Trash2 className="h-3 w-3" />
                                 </button>
                               </div>
@@ -1841,9 +1844,9 @@ function ProductSheetContent() {
 
       {/* Dashboard Panel */}
       {isDashboardOpen && (
-        <div className="fixed top-16 left-0 right-0 bottom-0 z-40 bg-black bg-opacity-50" onClick={() => setIsDashboardOpen(false)}></div>
+        <div className="fixed top-10 left-0 right-0 bottom-0 z-40 bg-black bg-opacity-50" onClick={() => setIsDashboardOpen(false)}></div>
       )}
-      <div className={`fixed top-16 left-0 h-[calc(100vh-4rem)] w-80 bg-white border-r-2 border-soft-border shadow-lg transform transition-transform duration-300 z-50 overflow-y-scroll ${
+      <div className={`fixed top-10 left-0 h-[calc(100vh-2.5rem)] w-80 bg-white border-r-2 border-soft-border shadow-lg transform transition-transform duration-300 z-50 overflow-y-scroll ${
         isDashboardOpen ? 'translate-x-0' : '-translate-x-full'
       }`}>
         <div className="p-4">
