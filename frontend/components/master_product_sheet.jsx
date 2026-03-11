@@ -72,29 +72,29 @@ export default function MasterProductSheet() {
   
   // Column configuration with styling
   const columnConfig = {
-    sku: { minWidth: 'min-w-[80px]', headerBg: 'bg-trust-blue/40' },
-    listingName: { minWidth: 'min-w-[100px]', headerBg: 'bg-trust-blue/40' },
-    material: { minWidth: 'min-w-[80px]', headerBg: 'bg-trust-blue/40' },
-    weight: { minWidth: 'min-w-[70px]', headerBg: 'bg-trust-blue/40' },
-    category: { minWidth: 'min-w-[80px]', headerBg: 'bg-trust-blue/40' },
-    collection: { minWidth: 'min-w-[90px]', headerBg: 'bg-trust-blue/40' },
-    settingType: { minWidth: 'min-w-[80px]', headerBg: 'bg-sky-info/20', cellBg: 'bg-sky-50' },
-    enamelType: { minWidth: 'min-w-[75px]', headerBg: 'bg-sky-info/20', cellBg: 'bg-sky-50' },
-    activeChannels: { minWidth: 'min-w-[100px]', headerBg: 'bg-trust-blue/40' },
-    shopifyStatus: { minWidth: 'min-w-[90px]', headerBg: 'bg-trust-blue/40' },
-    dieNumberFindings: { minWidth: 'min-w-[100px]', headerBg: 'bg-trust-blue/40' },
-    masterSku: { minWidth: 'min-w-[85px]', headerBg: 'bg-trust-blue/40' },
-    color: { minWidth: 'min-w-[70px]', headerBg: 'bg-trust-blue/20', cellBg: 'bg-trust-blue/10' },
-    enamel: { minWidth: 'min-w-[70px]', headerBg: 'bg-trust-blue/20', cellBg: 'bg-trust-blue/10' },
-    stoneName: { minWidth: 'min-w-[80px]', headerBg: 'bg-danger/20', cellBg: 'bg-danger/10' },
-    stoneCut: { minWidth: 'min-w-[75px]', headerBg: 'bg-danger/20', cellBg: 'bg-danger/10' },
-    stoneColor: { minWidth: 'min-w-[80px]', headerBg: 'bg-danger/20', cellBg: 'bg-danger/10' },
-    stoneSize: { minWidth: 'min-w-[70px]', headerBg: 'bg-danger/20', cellBg: 'bg-danger/10' },
-    stoneQuantity: { minWidth: 'min-w-[80px]', headerBg: 'bg-danger/20', cellBg: 'bg-danger/10' },
-    platingType: { minWidth: 'min-w-[85px]', headerBg: 'bg-warning/20', cellBg: 'bg-warning/10' },
-    platingColor: { minWidth: 'min-w-[85px]', headerBg: 'bg-warning/20', cellBg: 'bg-warning/10' },
-    notes: { minWidth: 'min-w-[100px]', headerBg: 'bg-trust-blue/40' },
-    images: { minWidth: 'min-w-[80px]', headerBg: 'bg-trust-blue/40' },
+    sku: { minWidth: 'min-w-[80px]', headerBg: 'bg-[#dbeafe]' },
+    listingName: { minWidth: 'min-w-[100px]', headerBg: 'bg-[#dbeafe]' },
+    material: { minWidth: 'min-w-[80px]', headerBg: 'bg-[#dbeafe]' },
+    weight: { minWidth: 'min-w-[70px]', headerBg: 'bg-[#dbeafe]' },
+    category: { minWidth: 'min-w-[80px]', headerBg: 'bg-[#dbeafe]' },
+    collection: { minWidth: 'min-w-[90px]', headerBg: 'bg-[#dbeafe]' },
+    settingType: { minWidth: 'min-w-[80px]', headerBg: 'bg-[#dbeafe]' },
+    enamelType: { minWidth: 'min-w-[75px]', headerBg: 'bg-[#dbeafe]' },
+    activeChannels: { minWidth: 'min-w-[100px]', headerBg: 'bg-[#dbeafe]' },
+    shopifyStatus: { minWidth: 'min-w-[90px]', headerBg: 'bg-[#dbeafe]' },
+    dieNumberFindings: { minWidth: 'min-w-[100px]', headerBg: 'bg-[#dbeafe]' },
+    masterSku: { minWidth: 'min-w-[85px]', headerBg: 'bg-[#dbeafe]' },
+    color: { minWidth: 'min-w-[70px]', headerBg: 'bg-[#dbeafe]' },
+    enamel: { minWidth: 'min-w-[70px]', headerBg: 'bg-[#dbeafe]' },
+    stoneName: { minWidth: 'min-w-[80px]', headerBg: 'bg-[#dbeafe]' },
+    stoneCut: { minWidth: 'min-w-[75px]', headerBg: 'bg-[#dbeafe]' },
+    stoneColor: { minWidth: 'min-w-[80px]', headerBg: 'bg-[#dbeafe]' },
+    stoneSize: { minWidth: 'min-w-[70px]', headerBg: 'bg-[#dbeafe]' },
+    stoneQuantity: { minWidth: 'min-w-[80px]', headerBg: 'bg-[#dbeafe]' },
+    platingType: { minWidth: 'min-w-[85px]', headerBg: 'bg-[#dbeafe]' },
+    platingColor: { minWidth: 'min-w-[85px]', headerBg: 'bg-[#dbeafe]' },
+    notes: { minWidth: 'min-w-[100px]', headerBg: 'bg-[#dbeafe]' },
+    images: { minWidth: 'min-w-[80px]', headerBg: 'bg-[#dbeafe]' },
   };
   
   // Set default visible columns to prevent horizontal scrolling
@@ -252,6 +252,7 @@ export default function MasterProductSheet() {
     }
     setSelectedRows(newSelected);
   };
+
 
   const handleCellChange = (id, field, value) => {
     setData(data.map(row => 
@@ -420,6 +421,15 @@ export default function MasterProductSheet() {
   ]);
 
   const displayedData = filteredData;
+
+  const allDisplayedRowsSelected = displayedData.length > 0 && displayedData.every(row => selectedRows.has(row.id));
+  const toggleSelectAllRows = (checked) => {
+    if (checked) {
+      setSelectedRows(new Set(displayedData.map(row => row.id)));
+    } else {
+      setSelectedRows(new Set());
+    }
+  };
 
   return (
     <div className="relative min-h-screen bg-cloud-gray flex flex-col text-midnight-ink overflow-x-hidden">
@@ -712,7 +722,18 @@ export default function MasterProductSheet() {
         </div>
 
         {/* Action Buttons */}
-        <div className="flex flex-wrap gap-2 md:gap-4 justify-end mb-4">
+        <div className="flex flex-wrap gap-2 md:gap-4 justify-end mb-4 items-center">
+          {/* Search Bar */}
+          <div className="relative mr-auto">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-cool-gray w-4 h-4" />
+            <Input
+              type="text"
+              placeholder="SEARCH BAR"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="border border-soft-border rounded-lg pl-9 pr-4 h-9 w-64 text-sm"
+            />
+          </div>
           <Button
             onClick={loadProducts}
             variant="outline"
@@ -801,19 +822,6 @@ export default function MasterProductSheet() {
           </DropdownMenu>
         </div>
 
-        {/* Search Bar */}
-        <div className="flex gap-2 mb-2 max-w-md mx-auto md:mx-0">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-cool-gray w-5 h-5" />
-            <Input
-              type="text"
-              placeholder="SEARCH BAR"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="flex-1 border-2 border-soft-border rounded-lg px-4 py-2 pl-10"
-            />
-          </div>
-        </div>
 
       {/* Filter Row */}
       <div className="border border-soft-border rounded-lg mb-4 bg-trust-blue/10 p-4">
@@ -939,12 +947,19 @@ export default function MasterProductSheet() {
 
       {/* Table Section */}
       <div className="border border-soft-border rounded-lg bg-white overflow-hidden">
-        {/* Table wrapper with vertical scrolling only */}
-        <div className="overflow-y-auto max-h-[500px]">
-          <table className="w-full border-collapse text-sm">
-            <thead className="sticky top-0 z-20 bg-trust-blue/40">
+        {/* Table wrapper with scroll */}
+        <div className="overflow-auto max-h-[500px]">
+          <table className="w-full border-separate border-spacing-0 text-sm">
+            <thead className="sticky top-0 z-20 bg-[#dbeafe]">
               <tr className="text-midnight-ink font-bold border-b-2 border-soft-border">
-                <th className="border border-soft-border p-2 w-8 sticky left-0 bg-trust-blue/40 z-30"></th>
+                <th className="border border-soft-border p-2 w-8 sticky left-0 bg-[#dbeafe] z-30 shadow-[2px_0_4px_-1px_rgba(0,0,0,0.08)]">
+                  <Checkbox
+                    checked={allDisplayedRowsSelected}
+                    onCheckedChange={toggleSelectAllRows}
+                    className="cursor-pointer"
+                    disabled={displayedData.length === 0 || editingRowIds.size > 0}
+                  />
+                </th>
                 {columns.map((column) => 
                   visibleColumns.has(column.id) && (
                     <th key={column.id} className={`border border-soft-border p-2 ${columnConfig[column.id].headerBg} ${columnConfig[column.id].minWidth}`}>
@@ -981,8 +996,8 @@ export default function MasterProductSheet() {
                         : 'hover:bg-cloud-gray'
                     }`}
                   >
-                    <td className={`border border-soft-border p-2 text-center sticky left-0 z-10 ${
-                      isEditing ? 'bg-trust-blue/10' : 'bg-white'
+                    <td className={`border border-soft-border p-2 text-center sticky left-0 z-10 shadow-[2px_0_4px_-1px_rgba(0,0,0,0.08)] ${
+                      isEditing ? 'bg-[#eff6ff]' : 'bg-white'
                     }`}>
                       <Checkbox
                         checked={selectedRows.has(row.id)}
