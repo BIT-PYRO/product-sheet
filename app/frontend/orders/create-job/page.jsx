@@ -89,7 +89,7 @@ export default function CreateJobPage() {
 
   // Custom item dialog
   const [isCustomItemOpen, setIsCustomItemOpen] = useState(false);
-  const [customItem, setCustomItem] = useState({ name: '', price: '', quantity: '1', taxable: true });
+  const [customItem, setCustomItem] = useState({ name: '', price: '', quantity: '1', taxable: true, images: [], note: '' });
 
   // Payment
   const [discount, setDiscount] = useState('');
@@ -98,6 +98,10 @@ export default function CreateJobPage() {
   // Notes
   const [notes, setNotes] = useState('');
   const [isEditingNotes, setIsEditingNotes] = useState(false);
+
+  // Create order
+  const [isCreatingOrder, setIsCreatingOrder] = useState(false);
+  const [orderMessage, setOrderMessage] = useState({ type: '', text: '' });
 
   // Customer
   const [customerSearch, setCustomerSearch] = useState('');
@@ -211,9 +215,11 @@ export default function CreateJobPage() {
         price: parseFloat(customItem.price) || 0,
         quantity: parseInt(customItem.quantity) || 1,
         taxable: customItem.taxable,
+        images: customItem.images,
+        note: customItem.note,
       },
     ]);
-    setCustomItem({ name: '', price: '', quantity: '1', taxable: true });
+    setCustomItem({ name: '', price: '', quantity: '1', taxable: true, images: [], note: '' });
     setIsCustomItemOpen(false);
   }
 
@@ -255,6 +261,57 @@ export default function CreateJobPage() {
     setSelectedCustomer(c);
     setCustomerSearch(c.companyName || c.authorizedPersonName || c.email || '');
     setCustomerDropdownOpen(false);
+  }
+
+  // Create order
+  async function handleCreateOrder() {
+    if (orderItems.length === 0) {
+      setOrderMessage({ type: 'error', text: 'Add at least one product to create an order' });
+      setTimeout(() => setOrderMessage({ type: '', text: '' }), 3000);
+      return;
+    }
+
+    setIsCreatingOrder(true);
+    setOrderMessage({ type: '', text: '' });
+
+    try {
+      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_BASE_URL || 'http://127.0.0.1:8000';
+      const response = await fetch(`${backendUrl}/api/v1/orders/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          customer: selectedCustomer?.id || null,
+          items: orderItems,
+          discount: parseFloat(discount) || 0,
+          shipping: parseFloat(shipping) || 0,
+          notes: notes,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Failed to create order');
+      }
+
+      setOrderMessage({ type: 'success', text: 'Order created successfully!' });
+      // Reset form after success
+      setTimeout(() => {
+        setOrderItems([]);
+        setSelectedCustomer(null);
+        setCustomerSearch('');
+        setNotes('');
+        setDiscount('');
+        setShipping('');
+        setOrderMessage({ type: '', text: '' });
+      }, 2000);
+    } catch (error) {
+      setOrderMessage({ type: 'error', text: error.message || 'Error creating order' });
+    } finally {
+      setIsCreatingOrder(false);
+    }
   }
 
   // ── Render ─────────────────────────────────────────────────────────────────
@@ -552,6 +609,30 @@ export default function CreateJobPage() {
       </div>
 
       {/* ═══════════════════════════════════════════════════════════════════
+          Create Order Button & Message
+      ════════════════════════════════════════════════════════════════════ */}
+      <div className="max-w-6xl mx-auto px-6 py-6">
+        {orderMessage.text && (
+          <div className={`mb-4 p-4 rounded-lg text-sm ${
+            orderMessage.type === 'success'
+              ? 'bg-green-50 border border-green-200 text-green-800'
+              : 'bg-red-50 border border-red-200 text-red-800'
+          }`}>
+            {orderMessage.text}
+          </div>
+        )}
+        <div className="flex justify-center">
+          <Button
+            onClick={handleCreateOrder}
+            disabled={isCreatingOrder || orderItems.length === 0}
+            className="px-8 py-2.5 font-semibold"
+          >
+            {isCreatingOrder ? 'Creating order...' : 'Create order'}
+          </Button>
+        </div>
+      </div>
+
+      {/* ═══════════════════════════════════════════════════════════════════
           Browse Products Dialog
       ════════════════════════════════════════════════════════════════════ */}
       <Dialog open={isBrowseOpen} onOpenChange={(open) => {
@@ -644,7 +725,7 @@ export default function CreateJobPage() {
           Add Custom Item Dialog
       ════════════════════════════════════════════════════════════════════ */}
       <Dialog open={isCustomItemOpen} onOpenChange={setIsCustomItemOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Add custom item</DialogTitle>
           </DialogHeader>
@@ -687,8 +768,79 @@ export default function CreateJobPage() {
               />
               Taxable
             </label>
+
+            {/* Reference Images */}
+            <div>
+              <label className="text-sm font-medium text-midnight-ink mb-1.5 block">Reference images</label>
+              <div className="relative border-2 border-dashed border-soft-border rounded-md p-4 flex flex-col items-center justify-center cursor-pointer hover:bg-gray-50 transition-colors">
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="absolute inset-0 opacity-0 cursor-pointer"
+                  onChange={(e) => {
+                    const files = e.target.files;
+                    if (files) {
+                      Array.from(files).forEach((file) => {
+                        const reader = new FileReader();
+                        reader.onload = (event) => {
+                          setCustomItem((v) => ({ ...v, images: [...v.images, event.target?.result] }));
+                        };
+                        reader.readAsDataURL(file);
+                      });
+                    }
+                  }}
+                />
+                {customItem.images.length > 0 ? (
+                  <div className="w-full">
+                    <div className="grid grid-cols-4 gap-3 mb-3">
+                      {customItem.images.map((img, idx) => (
+                        <div key={idx} className="relative">
+                          <img
+                            src={img}
+                            alt={`Preview ${idx + 1}`}
+                            className="h-24 w-24 object-cover rounded border border-soft-border"
+                          />
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setCustomItem((v) => ({
+                                ...v,
+                                images: v.images.filter((_, i) => i !== idx),
+                              }));
+                            }}
+                            className="absolute -top-2 -right-2 bg-red-500 hover:bg-red-600 text-white rounded-full p-1 transition-colors"
+                          >
+                            <X size={14} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="text-xs text-cool-gray text-center">Click to add more images</div>
+                  </div>
+                ) : (
+                  <div className="text-center">
+                    <div className="text-cool-gray text-sm mb-1">Click to upload</div>
+                    <div className="text-xs text-cool-gray">PNG, JPG up to 5MB (multiple allowed)</div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Note */}
+            <div>
+              <label className="text-sm font-medium text-midnight-ink mb-1.5 block">Note</label>
+              <textarea
+                rows={3}
+                className="w-full text-sm border border-input rounded-md px-3 py-2 resize-none bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                placeholder="Add any notes..."
+                value={customItem.note}
+                onChange={(e) => setCustomItem((v) => ({ ...v, note: e.target.value }))}
+              />
+            </div>
           </div>
-          <div className="flex justify-end gap-2 pt-2">
+          <div className="flex justify-end gap-2 pt-2 border-t border-soft-border">
             <Button variant="outline" onClick={() => setIsCustomItemOpen(false)}>Cancel</Button>
             <Button
               onClick={addCustomItem}
