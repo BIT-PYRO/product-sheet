@@ -22,6 +22,9 @@ const nextConfig = {
       { source: '/master-product-sheet', destination: '/frontend/master-product-sheet' },
       { source: '/master-product-sheet/:path*', destination: '/frontend/master-product-sheet/:path*' },
       { source: '/master-workforce-sheet', destination: '/frontend/master-workforce-sheet' },
+      { source: '/orders', destination: '/frontend/orders' },
+      { source: '/orders/create-job', destination: '/frontend/orders/create-job' },
+      { source: '/orders/job-sheet', destination: '/frontend/orders/job-sheet' },
     ]
   },
 }
