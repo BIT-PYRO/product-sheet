@@ -40,5 +40,6 @@ urlpatterns = [
 	path('api/v1/workforce/', include('workforce.urls')),
 	path('api/v1/kyc/', include('kyc.urls')),
 	path('api/v1/drafts/', include('drafts.urls')),
+	path('api/v1/orders/', include('orders.urls')),
 	path('api/v1/common/', include('common.urls')),
 ]

@@ -1,7 +1,7 @@
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
 
 from .models import Order, OrderItem
@@ -9,7 +9,7 @@ from .serializers import OrderDetailSerializer, OrderListSerializer
 
 
 class OrderViewSet(viewsets.ModelViewSet):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
     queryset = Order.objects.all()
 
     def get_serializer_class(self):
@@ -18,19 +18,16 @@ class OrderViewSet(viewsets.ModelViewSet):
         return OrderDetailSerializer
 
     def get_queryset(self):
-        """Return all orders so team members can view shared order details."""
-        return Order.objects.all().prefetch_related('items')
+        """Filter orders by user"""
+        return Order.objects.filter(created_by=self.request.user).prefetch_related('items')
 
     def create(self, request, *args, **kwargs):
         """Create a new order"""
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        # Set created_by to current user if authenticated
-        if request.user and request.user.is_authenticated:
-            serializer.save(created_by=request.user)
-        else:
-            serializer.save()
+        # Automatically set created_by to current user
+        serializer.save(created_by=request.user)
 
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
