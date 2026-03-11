@@ -27,7 +27,8 @@ import {
 } from '@/components/ui/dialog';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
 import { QuickEnrollModal } from '@/components/quick-enroll-modal';
-import { EnrolWorkforceForm } from '@/app/enrol-workforce/page';
+import { EnrolWorkforceForm } from '@/app/frontend/enrol-workforce/page';
+import DateTimeStamp from '@/components/date-time-stamp';
 
 export default function MasterWorkforceSheet() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -423,7 +424,7 @@ export default function MasterWorkforceSheet() {
   };
 
   return (
-    <div className="w-full min-h-screen bg-cloud-gray p-4 md:p-6">
+    <div className="w-full min-h-screen bg-cloud-gray">
       {/* Manage Columns Dialog */}
       <Dialog open={isManageColumnsOpen} onOpenChange={setIsManageColumnsOpen}>
         <DialogContent className="max-w-md">
@@ -698,12 +699,15 @@ export default function MasterWorkforceSheet() {
         </DialogContent>
       </Dialog>
 
-      <div className="max-w-[1600px] mx-auto border border-soft-border bg-white p-4 md:p-6">
+      <div className="pt-16 px-3 md:px-4 pb-3 md:pb-4">
         {/* Header Section */}
-        <div className="mb-4 sticky top-0 z-30 bg-white/95 py-2 border-b border-soft-border shadow-sm backdrop-blur">
-          <div className="flex items-center gap-3 mb-4">
-            <MasterNavigationDrawer inHeader />
-            <h1 className="text-xl font-bold tracking-tight text-midnight-ink">WORK FORCE MASTER SHEET</h1>
+        <div className="sheet-fixed-header fixed top-0 left-0 right-0 z-[60] bg-white/95 py-2 border-b border-soft-border shadow-sm backdrop-blur px-3 md:px-4">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <MasterNavigationDrawer inHeader />
+              <h1 className="text-xl font-bold tracking-tight text-midnight-ink">WORK FORCE MASTER SHEET</h1>
+            </div>
+            <DateTimeStamp />
           </div>
         </div>
 

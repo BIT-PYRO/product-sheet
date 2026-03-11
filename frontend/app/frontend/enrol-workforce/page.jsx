@@ -94,6 +94,7 @@ export function EnrolWorkforceForm({ onEnroll, onClose, open = true, draftData =
     const fullName = String(form.fullName || '').trim();
     if (!fullName) {
       setSubmitStatus({ success: false, message: 'Full Name is required to enroll.' })
+      formScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
       return;
     }
 
@@ -117,10 +118,12 @@ export function EnrolWorkforceForm({ onEnroll, onClose, open = true, draftData =
       if (!response.ok || !result?.success) {
         const message = result?.error?.message || result?.message || 'Unable to enroll workforce member.';
         setSubmitStatus({ success: false, message })
+        formScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
         return;
       }
 
       setSubmitStatus({ success: true, message: `${fullName} enrolled successfully.` })
+      formScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
 
       if (onEnroll) {
         onEnroll(fullName);
@@ -130,6 +133,7 @@ export function EnrolWorkforceForm({ onEnroll, onClose, open = true, draftData =
       }
     } catch {
       setSubmitStatus({ success: false, message: 'Unable to enroll workforce member. Please try again.' })
+      formScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
     } finally {
       setIsSubmitting(false)
     }
@@ -475,11 +479,6 @@ export function EnrolWorkforceForm({ onEnroll, onClose, open = true, draftData =
                   {isSubmitting ? 'ENROLLING...' : 'ENROLL'}
                 </button>
               </div>
-              {submitStatus && (
-                <div className={`mt-2 text-sm font-medium ${submitStatus.success ? 'text-success-dark' : 'text-danger-dark'}`}>
-                  {submitStatus.message}
-                </div>
-              )}
             </form>
         </div>
       </DialogContent>

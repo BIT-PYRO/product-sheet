@@ -17,7 +17,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Search, X, Download, Printer } from 'lucide-react';
+import DateTimeStamp from '@/components/date-time-stamp';
 
 const KYC_COLUMNS = [
   { key: '__select__', label: '' },
@@ -221,17 +221,18 @@ export default function MasterKYCSheet() {
   });
 
   return (
-    <div className="min-h-screen bg-cloud-gray p-4 md:p-6">
-      <div className="max-w-[1600px] mx-auto border border-soft-border bg-white p-4 md:p-6">
+    <div className="min-h-screen bg-cloud-gray">
+      <div className="pt-16 px-3 md:px-4 pb-3 md:pb-4">
         {/* Header */}
-        <div className="mb-4 sticky top-0 z-30 bg-white/95 py-2 border-b border-soft-border shadow-sm backdrop-blur">
+        <div className="sheet-fixed-header fixed top-0 left-0 right-0 z-[60] bg-white/95 py-2 border-b border-soft-border shadow-sm backdrop-blur px-3 md:px-4">
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-3">
               <MasterNavigationDrawer inHeader />
-              <h1 className="text-lg md:text-xl font-bold text-midnight-ink">
+              <h1 className="text-xl font-bold tracking-tight text-midnight-ink">
                 MASTER KYC SHEET
               </h1>
             </div>
+            <DateTimeStamp />
           </div>
         </div>
 
