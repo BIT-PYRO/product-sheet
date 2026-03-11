@@ -33,10 +33,9 @@ const nextConfig = {
       { source: '/master-product-sheet/:path*', destination: '/frontend/master-product-sheet/:path*' },
       { source: '/finding-sheet', destination: '/frontend/finding-sheet' },
       { source: '/master-workforce-sheet', destination: '/frontend/master-workforce-sheet' },
-      { source: '/master-designer-sheet', destination: '/frontend/master-designer-sheet' },
       { source: '/orders', destination: '/frontend/orders' },
-      { source: '/orders/:path*', destination: '/frontend/orders/:path*' },
-      { source: '/profile', destination: '/frontend/profile' },
+      { source: '/orders/create-job', destination: '/frontend/orders/create-job' },
+      { source: '/orders/job-sheet', destination: '/frontend/orders/job-sheet' },
     ]
   },
 }

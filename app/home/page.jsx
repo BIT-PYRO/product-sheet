@@ -18,6 +18,8 @@ const SHEET_BLOCKS = [
   { href: '/master-kyc-sheet', title: 'Master KYC Sheet', subtitle: 'Company KYC records' },
   { href: '/managers-dashboard', title: 'Managers Dashboard', subtitle: 'Manager view and job cards' },
   { href: '/enrol-workforce', title: 'Enrol Workforce', subtitle: 'Workforce onboarding form' },
+  { href: '/drafts', title: 'Drafts', subtitle: 'View and load saved drafts' },
+  { href: '/orders', title: 'Orders', subtitle: 'Create and manage job orders' },
 ];
 
 export default function HomePage() {
