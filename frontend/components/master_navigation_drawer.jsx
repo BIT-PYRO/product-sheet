@@ -6,15 +6,17 @@ import { createPortal } from 'react-dom';
 import { House, LayoutDashboard, X } from 'lucide-react';
 
 const NAV_LINKS = [
-  { href: '/home', label: 'Home', className: 'bg-trust-blue/10 border border-trust-blue text-deep-blue hover:bg-trust-blue/20' },
   { href: '/', label: 'Product Sheet', className: 'bg-trust-blue/10 border border-trust-blue text-deep-blue hover:bg-trust-blue/20' },
-  { href: '/master-job-sheet', label: 'Master Job Sheet', className: 'bg-trust-blue/10 border border-trust-blue text-deep-blue hover:bg-trust-blue/20' },
   { href: '/master-product-sheet', label: 'Master Product Sheet', className: 'bg-trust-blue/10 border border-trust-blue text-deep-blue hover:bg-trust-blue/20' },
   { href: '/master-inventory-sheet', label: 'Master Inventory Sheet', className: 'bg-trust-blue/10 border border-trust-blue text-deep-blue hover:bg-trust-blue/20' },
+  { href: '/master-job-sheet', label: 'Master Job Sheet', className: 'bg-trust-blue/10 border border-trust-blue text-deep-blue hover:bg-trust-blue/20' },
   { href: '/master-workforce-sheet', label: 'Master Workforce Sheet', className: 'bg-trust-blue/10 border border-trust-blue text-deep-blue hover:bg-trust-blue/20' },
   { href: '/master-kyc-sheet', label: 'Master KYC Sheet', className: 'bg-trust-blue/10 border border-trust-blue text-deep-blue hover:bg-trust-blue/20' },
   { href: '/master-customer-sheet', label: 'Master Customer Sheet', className: 'bg-trust-blue/10 border border-trust-blue text-deep-blue hover:bg-trust-blue/20' },
   { href: '/managers-dashboard', label: 'Managers Dashboard', className: 'bg-trust-blue/10 border border-trust-blue text-deep-blue hover:bg-trust-blue/20' },
+  { href: '/orders', label: 'Orders', className: 'bg-trust-blue/10 border border-trust-blue text-deep-blue hover:bg-trust-blue/20' },
+  { href: '/enrol-workforce', label: 'Enrol Workforce', className: 'bg-trust-blue/10 border border-trust-blue text-deep-blue hover:bg-trust-blue/20' },
+  { href: '/enrol-customer', label: 'Enrol Customer', className: 'bg-trust-blue/10 border border-trust-blue text-deep-blue hover:bg-trust-blue/20' },
   { href: '/drafts', label: 'Drafts', className: 'bg-trust-blue/10 border border-trust-blue text-deep-blue hover:bg-trust-blue/20' },
 ];
 
@@ -32,44 +34,27 @@ export default function MasterNavigationDrawer({ inHeader = false }) {
     ? 'h-11 w-11 border-2 border-midnight-ink bg-white rounded hover:bg-cloud-gray transition-colors shadow-sm inline-flex items-center justify-center'
     : 'fixed top-4 left-4 z-50 p-2 border-2 border-midnight-ink bg-white rounded hover:bg-cloud-gray transition-colors';
 
-  const homeButtonClass = inHeader
-    ? 'inline-flex h-11 items-center gap-2 px-4 border-2 border-midnight-ink bg-white rounded text-base font-semibold text-midnight-ink hover:bg-cloud-gray transition-colors shadow-sm'
-    : 'fixed top-4 left-16 z-50 inline-flex items-center gap-2 border-2 border-midnight-ink bg-white rounded px-3 py-2 text-sm font-semibold text-midnight-ink hover:bg-cloud-gray transition-colors';
-
   return (
     <>
-      <div className={inHeader ? 'flex items-center gap-3' : undefined}>
-        <button
-          onClick={() => setIsOpen(true)}
-          className={dashboardButtonClass}
-          aria-label="Open dashboard"
-        >
-          <LayoutDashboard className="h-5 w-5 text-midnight-ink" />
-        </button>
-
-        {inHeader && (
-          <Link
-            href="/home"
-            className={homeButtonClass}
-            aria-label="Go to home"
-          >
-            <House className="h-4 w-4" />
-            Home
-          </Link>
-        )}
-      </div>
+      <button
+        onClick={() => setIsOpen(true)}
+        className={dashboardButtonClass}
+        aria-label="Open dashboard"
+      >
+        <LayoutDashboard className="h-5 w-5 text-midnight-ink" />
+      </button>
 
       {isMounted && createPortal(
         <>
           {isOpen && (
             <div
-              className="fixed top-16 left-0 right-0 bottom-0 z-40 bg-black bg-opacity-50"
+              className="fixed top-[60px] left-0 right-0 bottom-0 z-40 bg-black bg-opacity-50"
               onClick={handleClose}
             />
           )}
 
           <div
-            className={`fixed top-16 left-0 h-[calc(100vh-4rem)] w-80 bg-white border-r-2 border-soft-border transform transition-transform duration-300 z-50 overflow-y-auto ${
+            className={`fixed top-[60px] left-0 h-[calc(100vh-60px)] w-80 bg-white border-r-2 border-soft-border transform transition-transform duration-300 z-50 overflow-y-auto ${
               isOpen
                 ? 'translate-x-0 shadow-lg pointer-events-auto'
                 : '-translate-x-[110%] shadow-none pointer-events-none'
@@ -78,13 +63,23 @@ export default function MasterNavigationDrawer({ inHeader = false }) {
             <div className="p-4">
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-bold">Dashboard</h2>
-                <button
-                  onClick={handleClose}
-                  className="p-1 hover:bg-cloud-gray rounded"
-                  aria-label="Close dashboard"
-                >
-                  <X className="h-5 w-5" />
-                </button>
+                <div className="flex items-center gap-2">
+                  <Link
+                    href="/home"
+                    onClick={handleClose}
+                    className="p-1.5 hover:bg-cloud-gray rounded-full border border-soft-border"
+                    aria-label="Go to home"
+                  >
+                    <House className="h-4 w-4 text-midnight-ink" />
+                  </Link>
+                  <button
+                    onClick={handleClose}
+                    className="p-1 hover:bg-cloud-gray rounded"
+                    aria-label="Close dashboard"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
               </div>
 
               {NAV_LINKS.map((item) => (
