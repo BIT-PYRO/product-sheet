@@ -1224,7 +1224,7 @@ function ProductSheetContent() {
 
       {/* Modal Overlay */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center overflow-y-auto">
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-[100] flex items-center justify-center overflow-y-auto">
           <div className="bg-white p-6 rounded-lg w-11/12 my-8">
             <div className="flex justify-between items-center mb-2">
               <h2 className="text-2xl font-bold">ADD NEW PRODUCT</h2>
