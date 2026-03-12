@@ -13,13 +13,16 @@ const SHEET_BLOCKS = [
   { href: '/master-inventory-sheet', title: 'Master Inventory Sheet', subtitle: 'Live stock and final stock' },
   {href: '/enrol-customer', title: 'Enroll Customer', subtitle: 'Customer entry form' },
   { href: '/master-customer-sheet', title: 'Master Customer Sheet', subtitle: 'Customer records and details' },
-  { href: '/master-job-sheet', title: 'Master Job Sheet', subtitle: 'Job master data' },
-  { href: '/master-workforce-sheet', title: 'Master Workforce Sheet', subtitle: 'Workforce records' },
   { href: '/master-kyc-sheet', title: 'Master KYC Sheet', subtitle: 'Company KYC records' },
-  { href: '/managers-dashboard', title: 'Managers Dashboard', subtitle: 'Manager view and job cards' },
   { href: '/enrol-workforce', title: 'Enrol Workforce', subtitle: 'Workforce onboarding form' },
+  { href: '/master-workforce-sheet', title: 'Master Workforce Sheet', subtitle: 'Workforce records' },
+  { href: '/master-job-sheet', title: 'Master Job Sheet', subtitle: 'Job master data' },
+  { href: '/managers-dashboard', title: 'Managers Dashboard', subtitle: 'Manager view and job cards' },
   { href: '/drafts', title: 'Drafts', subtitle: 'View and load saved drafts' },
   { href: '/orders', title: 'Orders', subtitle: 'Create and manage job orders' },
+  { href: '#my-desk', title: 'My Desk', subtitle: 'Coming soon' },
+  { href: '#dummy-1', title: 'Dummy Button', subtitle: 'Coming soon' },
+  { href: '#dummy-2', title: 'Dummy Button', subtitle: 'Coming soon' },
 ];
 
 export default function HomePage() {
@@ -77,7 +80,9 @@ export default function HomePage() {
         )}
 
         <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {SHEET_BLOCKS.map((block) => {
+          {SHEET_BLOCKS.map((block, index) => {
+            const num = <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-trust-blue text-white text-xs font-bold mb-2">{index + 1}</span>;
+
             if (block.href === '/enrol-workforce') {
               return (
                 <button
@@ -86,6 +91,7 @@ export default function HomePage() {
                   onClick={() => setIsEnrollWorkforceOpen(true)}
                   className="block text-left rounded-xl border border-soft-border bg-white p-6 hover:border-trust-blue hover:shadow-md transition"
                 >
+                  {num}
                   <h2 className="text-lg font-semibold text-midnight-ink">{block.title}</h2>
                   <p className="text-sm text-cool-gray mt-2">{block.subtitle}</p>
                 </button>
@@ -98,6 +104,7 @@ export default function HomePage() {
                 href={block.href}
                 className="block rounded-xl border border-soft-border bg-white p-6 hover:border-trust-blue hover:shadow-md transition"
               >
+                {num}
                 <h2 className="text-lg font-semibold text-midnight-ink">{block.title}</h2>
                 <p className="text-sm text-cool-gray mt-2">{block.subtitle}</p>
               </Link>
