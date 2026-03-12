@@ -569,13 +569,13 @@ export default function MasterJobSheet() {
       <Dialog open={isPrintSheetOpen} onOpenChange={setIsPrintSheetOpen}>
         <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
           <DialogHeader className="border-b pb-4">
-            <DialogTitle>Print Master WIP/JOB Sheet</DialogTitle>
+            <DialogTitle>Print Master Job Sheet</DialogTitle>
           </DialogHeader>
           
           <div className="space-y-4 py-4">
             {/* Sheet Header */}
             <div className="text-center border-b-2 border-midnight-ink pb-4 mb-6">
-              <h2 className="text-2xl font-bold mb-2">MASTER WIP/JOB SHEET</h2>
+              <h2 className="text-2xl font-bold mb-2">MASTER JOB SHEET</h2>
               <p className="text-sm text-cool-gray">Date: {new Date().toISOString().split('T')[0]}</p>
             </div>
 
@@ -682,7 +682,7 @@ export default function MasterJobSheet() {
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <MasterNavigationDrawer inHeader />
-              <h1 className="text-xl font-bold tracking-tight text-midnight-ink">MASTER WIP/JOB SHEET</h1>
+              <h1 className="text-xl font-bold tracking-tight text-midnight-ink">MASTER JOB SHEET</h1>
             </div>
             <DateTimeStamp />
           </div>
