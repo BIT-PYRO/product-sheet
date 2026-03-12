@@ -705,14 +705,25 @@ export default function MasterWorkforceSheet() {
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <MasterNavigationDrawer inHeader />
-              <h1 className="text-xl font-bold tracking-tight text-midnight-ink">WORK FORCE MASTER SHEET</h1>
+              <h1 className="text-xl font-bold tracking-tight text-midnight-ink">MASTER WORKFORCE SHEET</h1>
             </div>
             <DateTimeStamp />
           </div>
         </div>
 
         {/* Action Buttons */}
-        <div className="flex flex-wrap gap-2 md:gap-4 justify-end mb-4">
+        <div className="flex flex-wrap gap-2 md:gap-4 justify-end mb-4 items-center">
+          {/* Search Bar */}
+          <div className="mr-auto relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-cool-gray w-5 h-5" />
+            <Input
+              type="text"
+              placeholder="SEARCH BAR"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="border-2 border-soft-border rounded-lg px-4 py-2 pl-10 w-64"
+            />
+          </div>
           <Button 
             onClick={handleQuickEnroll}
             className="bg-trust-blue hover:bg-trust-blue text-white rounded-full px-6"
@@ -736,7 +747,7 @@ export default function MasterWorkforceSheet() {
           <Button
             onClick={handleDeleteSelectedRows}
             variant="outline"
-            className="border-red-600 text-danger hover:bg-danger/10 rounded-full px-6"
+            className="border-red-500 text-red-500 hover:bg-red-50 disabled:opacity-100 disabled:border-red-500 disabled:text-red-500 rounded-full px-6"
             disabled={selectedRows.size === 0 || editingRowIds.size > 0}
           >
             Delete Selected
@@ -807,28 +818,14 @@ export default function MasterWorkforceSheet() {
           </DropdownMenu>
         </div>
 
-        {/* Search Bar */}
-        <div className="flex gap-2 mb-2 max-w-md mx-auto md:mx-0">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-cool-gray w-5 h-5" />
-            <Input
-              type="text"
-              placeholder="SEARCH BAR"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="flex-1 border-2 border-soft-border rounded-lg px-4 py-2 pl-10"
-            />
-          </div>
-        </div>
-
       {/* Filter Row */}
-      <div className="border border-soft-border rounded-lg mb-4 bg-trust-blue/10 p-4">
+      <div className="border border-soft-border rounded-lg mb-4 bg-[#dbeafe] p-4">
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2">
           {/* Department Filter */}
           <div>
-            <label className="text-sm font-semibold text-slate-text block mb-1">DEPARTMENT</label>
+            <label className="text-sm font-semibold text-black block mb-1">DEPARTMENT</label>
             <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
-              <SelectTrigger className="h-8 text-sm">
+              <SelectTrigger className="h-8 text-sm focus:ring-0 focus:ring-offset-0">
                 <SelectValue placeholder="Select Department" />
               </SelectTrigger>
               <SelectContent>
@@ -841,9 +838,9 @@ export default function MasterWorkforceSheet() {
 
           {/* Type Filter */}
           <div>
-            <label className="text-sm font-semibold text-slate-text block mb-1">TYPE</label>
+            <label className="text-sm font-semibold text-black block mb-1">TYPE</label>
             <Select value={typeFilter} onValueChange={setTypeFilter}>
-              <SelectTrigger className="h-8 text-sm">
+              <SelectTrigger className="h-8 text-sm focus:ring-0 focus:ring-offset-0">
                 <SelectValue placeholder="Select Type" />
               </SelectTrigger>
               <SelectContent>
@@ -856,9 +853,9 @@ export default function MasterWorkforceSheet() {
 
           {/* Origin Filter */}
           <div>
-            <label className="text-sm font-semibold text-slate-text block mb-1">ORIGIN</label>
+            <label className="text-sm font-semibold text-black block mb-1">ORIGIN</label>
             <Select value={originFilter} onValueChange={setOriginFilter}>
-              <SelectTrigger className="h-8 text-sm">
+              <SelectTrigger className="h-8 text-sm focus:ring-0 focus:ring-offset-0">
                 <SelectValue placeholder="Select Origin" />
               </SelectTrigger>
               <SelectContent>
@@ -871,9 +868,9 @@ export default function MasterWorkforceSheet() {
 
           {/* Payment Type Filter */}
           <div>
-            <label className="text-sm font-semibold text-slate-text block mb-1">PAYMENT TYPE</label>
+            <label className="text-sm font-semibold text-black block mb-1">PAYMENT TYPE</label>
             <Select value={paymentTypeFilter} onValueChange={setPaymentTypeFilter}>
-              <SelectTrigger className="h-8 text-sm">
+              <SelectTrigger className="h-8 text-sm focus:ring-0 focus:ring-offset-0">
                 <SelectValue placeholder="Select Payment Type" />
               </SelectTrigger>
               <SelectContent>

@@ -88,7 +88,7 @@ export async function GET(request) {
     success: true,
     user: {
       id: user?.username || 'User',
-      role: user?.is_staff ? 'admin' : 'user',
+      role: user?.role || 'staff',
     },
   });
 

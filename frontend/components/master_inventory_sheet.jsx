@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { ChevronDown } from 'lucide-react';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
 import { CreateJobModal } from '@/components/create-job-modal';
 import { Button } from '@/components/ui/button';
@@ -783,8 +784,9 @@ export default function MasterInventorySheet() {
             </div>
             <DateTimeStamp />
           </div>
+        </div>
 
-          <div className="flex flex-col lg:flex-row gap-3 lg:items-center lg:justify-between mb-2">
+        <div className="flex flex-col lg:flex-row gap-3 lg:items-center lg:justify-between mb-2">
           <div className="flex flex-col md:flex-row gap-3 md:items-center">
             <div className="w-full md:max-w-[360px] relative">
               <Input
@@ -809,7 +811,7 @@ export default function MasterInventorySheet() {
               />
               {isSkuDropdownOpen && skuSearchOptions.length > 0 && (
                 <div
-                  className="absolute z-10 mt-1 w-full max-h-60 overflow-auto rounded-md border border-soft-border bg-white shadow-lg"
+                  className="absolute z-30 mt-1 w-full max-h-60 overflow-auto rounded-md border border-soft-border bg-white shadow-lg"
                   onMouseDown={(event) => event.preventDefault()}
                 >
                   {skuSearchOptions.map((option) => {
@@ -848,32 +850,35 @@ export default function MasterInventorySheet() {
           </div>
           <div className="flex flex-wrap gap-2 justify-start lg:justify-end">
             <Button
-              className="bg-success hover:bg-success/90"
+              className="bg-success hover:bg-success/90 rounded-full px-6"
               onClick={() => setIsCreateJobModalOpen(true)}
             >
               Create a Job
             </Button>
-            <Button variant="outline" onClick={() => setIsManageColumnsOpen(true)}>
+            <Button variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-6" onClick={() => setIsManageColumnsOpen(true)}>
               Manage Columns
             </Button>
-            <Button variant="outline" onClick={handleExport}>Export</Button>
-            <Button variant="outline" onClick={() => window.print()}>Print</Button>
+            <Button variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-6" onClick={handleExport}>Export</Button>
+            <Button variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-6" onClick={() => window.print()}>Print</Button>
           </div>
         </div>
-        </div>
 
-        <div className="flex flex-wrap gap-2 mb-3">
+        <div className="border border-soft-border rounded-lg mb-4 bg-[#dbeafe] p-3">
+        <div className="flex flex-wrap gap-2">
           {FILTER_FIELDS.map((field) => (
             <DropdownMenu key={field.key}>
               <DropdownMenuTrigger asChild>
                 <button
                   type="button"
-                  className="px-3 py-1 text-sm border rounded bg-trust-blue/10 text-midnight-ink border-trust-blue/40"
+                  className="flex items-center gap-1.5 px-3 py-1 text-sm border rounded bg-white text-midnight-ink border-trust-blue/40"
                 >
-                  {field.label}
-                  {filterSelections[field.key]?.size > 0
-                    ? ` (${filterSelections[field.key].size})`
-                    : ''}
+                  <span>
+                    {field.label}
+                    {filterSelections[field.key]?.size > 0
+                      ? ` (${filterSelections[field.key].size})`
+                      : ''}
+                  </span>
+                  <ChevronDown className="h-3.5 w-3.5 opacity-60" />
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent className="w-56 max-h-64 overflow-y-auto p-2">
@@ -903,18 +908,19 @@ export default function MasterInventorySheet() {
             </DropdownMenu>
           ))}
         </div>
+        </div>
 
         <div className="flex flex-col xl:flex-row gap-4">
           <div className="xl:w-[75%]">
-            <div className="overflow-x-auto border border-soft-border">
-              <table className="w-full min-w-[1200px] border-collapse text-sm">
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[1200px] border-separate border-spacing-0 text-sm">
                 <thead>
                   <tr>
                     {visibleColumnList.map((column) => (
                       <th
                         key={column.key}
-                        className={`border border-soft-border bg-trust-blue/15 px-2 py-2 text-center font-semibold text-deep-blue ${
-                          column.key === '__select__' ? 'sticky left-0 z-20' : ''
+                        className={`border-t border-b border-r border-soft-border px-2 py-2 text-center font-semibold text-black ${
+                          column.key === '__select__' ? 'sticky left-0 z-20 border-l bg-[#dbeafe]' : 'bg-[#dbeafe]'
                         }`}
                       >
                         {column.key === '__select__' ? (
@@ -936,8 +942,8 @@ export default function MasterInventorySheet() {
                       {visibleColumnList.map((column) => (
                         <td
                           key={`${row.id}-${column.key}`}
-                          className={`border border-soft-border px-2 py-2 h-9 text-center ${
-                            column.key === '__select__' ? 'sticky left-0 z-10 bg-white' : ''
+                          className={`border-b border-r border-soft-border px-2 py-2 h-9 text-center ${
+                            column.key === '__select__' ? 'sticky left-0 z-10 bg-white border-l shadow-[2px_0_4px_-1px_rgba(0,0,0,0.08)]' : ''
                           }`}
                         >
                           {column.key === '__select__' ? (
@@ -969,8 +975,8 @@ export default function MasterInventorySheet() {
 
           <div className="xl:w-[10%] self-start relative">
             <div className="border border-soft-border bg-white p-0">
-              <div className="h-9 border-b border-soft-border bg-trust-blue/15 text-xs font-semibold text-deep-blue flex items-center justify-center px-2 tracking-wide whitespace-nowrap">
-                TOTAL IN DEMAND
+              <div className="py-2 min-h-[2.25rem] border-b border-soft-border bg-[#dbeafe] text-xs font-semibold text-black flex items-center justify-center px-2 tracking-wide text-center">
+                TOTAL IN<br />DEMAND
               </div>
               {rowsToRender.length === 0 ? (
                 <div className="rounded-md border border-dashed border-soft-border p-3 text-sm text-cool-gray">
@@ -996,16 +1002,16 @@ export default function MasterInventorySheet() {
 
           <div className="xl:w-[15%] self-start relative">
             <div className="border border-soft-border bg-white p-0">
-              <div className="h-9 border-b border-soft-border bg-trust-blue/15 text-xs font-semibold text-deep-blue flex items-center justify-between px-2 relative tracking-wide">
+              <div className="py-2 min-h-[2.25rem] border-b border-soft-border bg-[#dbeafe] text-xs font-semibold text-black flex items-center justify-between px-2 relative tracking-wide">
                 <div className="flex-1">
                   {picklists.length > 0 ? (
                     <div className="relative">
                       <button
                         onClick={() => setIsPicklistDropdownOpen(!isPicklistDropdownOpen)}
-                        className="w-full text-left py-1 px-2 rounded hover:bg-trust-blue/10 transition-colors truncate"
+                        className="w-full text-left py-1 px-2 rounded hover:bg-trust-blue/10 transition-colors whitespace-normal leading-tight"
                       >
                         {selectedPicklist === null
-                          ? 'VIEW ALL PRODUCTS'
+                          ? <span>VIEW ALL<br />PRODUCTS</span>
                           : selectedPicklist
                           ? picklists.find((p) => p.id === selectedPicklist)?.name || 'Select'
                           : 'SELECT PICKLIST'}

@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { Search } from 'lucide-react';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -13,6 +14,13 @@ import {
 	DialogTitle,
 } from '@/components/ui/dialog';
 import DateTimeStamp from '@/components/date-time-stamp';
+import { EnrollCustomerForm } from '@/components/enroll-customer';
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 const CUSTOMER_COLUMNS = [
 	{ key: '__select__', label: '' },
@@ -58,10 +66,33 @@ const columnConfig = {
 };
 
 function normalizeCustomerRows(payload = {}) {
-	if (Array.isArray(payload.customerData)) return payload.customerData;
-	if (Array.isArray(payload.kycData)) return payload.kycData;
-	if (Array.isArray(payload.products)) return payload.products;
-	return [];
+	const rows = Array.isArray(payload.data)
+		? payload.data
+		: Array.isArray(payload.data?.results)
+			? payload.data.results
+			: [];
+
+	return rows.map((row) => ({
+		id: row.id,
+		companyName: row.company_name || '',
+		businessType: row.business_type || '',
+		gstNumber: row.gst_number || '',
+		panNumber: row.pan_number || '',
+		addressLine1: row.address_line1 || '',
+		addressLine2: row.address_line2 || '',
+		city: row.city || '',
+		state: row.state || '',
+		pinCode: row.pin_code || '',
+		authorizedPersonName: row.authorized_person_name || '',
+		designation: row.designation || '',
+		mobile: row.mobile || '',
+		email: row.email || '',
+		accountName: row.account_name || '',
+		bankName: row.bank_name || '',
+		accountNumber: row.account_number || '',
+		ifsc: row.ifsc || '',
+		status: row.status || '',
+	}));
 }
 
 export default function MasterCustomerSheet() {
@@ -80,18 +111,22 @@ export default function MasterCustomerSheet() {
 	const [emptyRowsData, setEmptyRowsData] = useState(
 		Array.from({ length: 10 }).map(() => ({}))
 	);
+	const [isEnrollCustomerOpen, setIsEnrollCustomerOpen] = useState(false);
+
+	const [archivedRows, setArchivedRows] = useState(new Set());
+	const [isArchivedView, setIsArchivedView] = useState(false);
 
 	const loadCustomerData = useCallback(async () => {
 		setIsLoading(true);
 		setError('');
 
 		try {
-			const response = await fetch('/api/save-to-sheets', {
+			const response = await fetch('/api/customers', {
 				method: 'GET',
 			});
 
-			if (response.ok) {
-				const data = await response.json();
+			const data = await response.json().catch(() => null);
+			if (response.ok && data?.success) {
 				setCustomers(normalizeCustomerRows(data));
 			} else {
 				setError('Failed to load customer data');
@@ -200,6 +235,14 @@ export default function MasterCustomerSheet() {
 		setEmptyRowsData(newEmptyRows);
 	};
 
+	const handleArchiveRow = () => {
+		if (selectedRows.size === 0) { alert('Please select at least one row to archive'); return; }
+		const newArchived = new Set(archivedRows);
+		selectedRows.forEach(id => newArchived.add(id));
+		setArchivedRows(newArchived);
+		setSelectedRows(new Set());
+	};
+
 	const handleAddEmptyRow = () => {
 		setEmptyRowsData([...emptyRowsData, {}]);
 	};
@@ -226,6 +269,7 @@ export default function MasterCustomerSheet() {
 	};
 
 	return (
+		<>
 		<div className="min-h-screen bg-cloud-gray">
 			<div className="pt-16 px-3 md:px-4 pb-3 md:pb-4">
 				<div className="sheet-fixed-header fixed top-0 left-0 right-0 z-[60] bg-white/95 py-2 border-b border-soft-border shadow-sm backdrop-blur px-3 md:px-4">
@@ -239,35 +283,59 @@ export default function MasterCustomerSheet() {
 				</div>
 
 				<div className="max-w-full overflow-hidden">
-					<div className="bg-white p-4 rounded-lg shadow-sm mb-6">
-						<div className="flex flex-col lg:flex-row gap-4 mb-4">
-							<div className="flex-1">
-								<Input
-									placeholder="Search by company name, GST, mobile, or email..."
-									value={searchTerm}
-									onChange={(e) => setSearchTerm(e.target.value)}
-									className="w-full"
-								/>
-							</div>
+				{/* Action Buttons */}
+					<div className="flex flex-wrap gap-2 md:gap-4 justify-end mb-4 items-center">
+						<div className="relative mr-auto">
+							<Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-cool-gray w-4 h-4" />
+							<Input
+								type="text"
+								placeholder="Search by company name, GST, mobile, or email..."
+								value={searchTerm}
+								onChange={(e) => setSearchTerm(e.target.value)}
+								className="border border-soft-border rounded-lg pl-9 pr-4 h-9 w-64 text-sm"
+							/>
 						</div>
-						<div className="flex flex-wrap gap-2 justify-start lg:justify-end">
-							<Button variant="outline" onClick={() => setIsManageColumnsOpen(true)}>
-								Manage Columns
-							</Button>
-							<Button variant="outline" onClick={handleExport}>
-								Export
-							</Button>
-							<Button variant="outline" onClick={() => window.print()}>
-								Print
-							</Button>
-						</div>
+						<Button onClick={loadCustomerData} variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-6" disabled={isLoading}>
+							{isLoading ? 'Refreshing...' : 'Refresh'}
+						</Button>
+						<Button onClick={handleAddEmptyRow} className="bg-success hover:bg-success text-white rounded-full px-6">
+							Add Customer
+						</Button>
+						<Button onClick={() => setIsEnrollCustomerOpen(true)} className="bg-midnight-ink hover:bg-midnight-ink/90 text-white rounded-full px-6">
+							Enroll Customer
+						</Button>
+						<Button variant="outline" className="border-trust-blue text-trust-blue hover:bg-trust-blue/10 rounded-full px-6">
+							Edit Row
+						</Button>
+						<DropdownMenu>
+							<DropdownMenuTrigger asChild>
+								<Button variant="outline" className="border-warning text-warning hover:bg-warning/10 rounded-full px-6">
+									Archive
+								</Button>
+							</DropdownMenuTrigger>
+							<DropdownMenuContent>
+								<DropdownMenuItem onClick={handleArchiveRow} disabled={isArchivedView}>Archive Selected Rows</DropdownMenuItem>
+								<DropdownMenuItem onClick={() => setIsArchivedView(!isArchivedView)}>
+									{isArchivedView ? 'Show Active Rows' : 'Show Archived Rows'}
+								</DropdownMenuItem>
+							</DropdownMenuContent>
+						</DropdownMenu>
+						<Button onClick={() => setIsManageColumnsOpen(true)} variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-6">
+							Manage Columns
+						</Button>
+						<Button onClick={handleExport} variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-6">
+							Export
+						</Button>
+						<Button onClick={() => window.print()} variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-6">
+							Print
+						</Button>
 					</div>
 
 					<div className="bg-white rounded-lg shadow-sm overflow-x-auto">
 						<table className="w-full border-collapse">
 							<thead>
 								<tr className="bg-cloud-gray border-b-2 border-soft-border">
-									<th className="p-2 text-center border border-soft-border w-12">
+									<th className="sticky left-0 z-20 p-2 text-center border-t border-b border-r border-soft-border w-12 bg-cloud-gray">
 										<Checkbox
 											checked={
 												selectedRows.size ===
@@ -302,23 +370,21 @@ export default function MasterCustomerSheet() {
 								{sortedCustomers.length > 0 ? (
 									sortedCustomers.map((row, index) => (
 										<tr key={index} className="border-b border-soft-border hover:bg-cloud-gray">
-											<td className="p-1 text-center border border-soft-border w-12 bg-cloud-gray text-sm font-medium">
-												<div className="flex items-center justify-center gap-1">
+											<td className="sticky left-0 z-10 p-1 text-center border-b border-r border-soft-border w-12 bg-white text-sm font-medium">												<div className="flex items-center justify-center gap-1">
 													<Checkbox
 														checked={selectedRows.has(index)}
 														onCheckedChange={(checked) => handleSelectRow(index, checked)}
 														className="rounded"
 													/>
 												</div>
-											</td>
-											{CUSTOMER_COLUMNS.filter(
-												(column) => visibleColumns.has(column.key) && column.key !== '__select__'
-											).map((column) => (
-												<td
-													key={`${index}-${column.key}`}
-													className={`p-3 text-sm text-slate-text border border-soft-border ${columnConfig[column.key]?.minWidth}`}
-												>
-													{row[column.key] ? String(row[column.key]).substring(0, 50) : ''}
+										</td>
+										{CUSTOMER_COLUMNS.filter(
+											(column) => visibleColumns.has(column.key) && column.key !== '__select__'
+										).map((column) => (
+											<td
+												key={`${index}-${column.key}`}
+												className={`p-3 text-sm text-slate-text border border-soft-border ${columnConfig[column.key]?.minWidth}`}
+											>													{row[column.key] ? String(row[column.key]).substring(0, 50) : ''}
 												</td>
 											))}
 										</tr>
@@ -326,23 +392,21 @@ export default function MasterCustomerSheet() {
 								) : (
 									emptyRowsData.map((_, index) => (
 										<tr key={`empty-${index}`} className="border-b border-soft-border hover:bg-cloud-gray">
-											<td className="p-1 text-center border border-soft-border w-12 bg-cloud-gray text-sm font-medium">
-												<div className="flex items-center justify-center gap-1">
+											<td className="sticky left-0 z-10 p-1 text-center border-b border-r border-soft-border w-12 bg-white text-sm font-medium">												<div className="flex items-center justify-center gap-1">
 													<Checkbox
 														checked={selectedRows.has(index)}
 														onCheckedChange={(checked) => handleSelectRow(index, checked)}
 														className="rounded"
 													/>
 												</div>
-											</td>
-											{CUSTOMER_COLUMNS.filter(
-												(column) => visibleColumns.has(column.key) && column.key !== '__select__'
-											).map((column) => (
-												<td
-													key={`empty-${index}-${column.key}`}
-													className={`p-1 text-sm border border-soft-border ${columnConfig[column.key]?.minWidth}`}
-												>
-													<Input
+										</td>
+										{CUSTOMER_COLUMNS.filter(
+											(column) => visibleColumns.has(column.key) && column.key !== '__select__'
+										).map((column) => (
+											<td
+												key={`empty-${index}-${column.key}`}
+												className={`p-1 text-sm border border-soft-border ${columnConfig[column.key]?.minWidth}`}
+											>													<Input
 														type="text"
 														value={emptyRowsData[index]?.[column.key] || ''}
 														onChange={(e) => handleEmptyRowChange(index, column.key, e.target.value)}
@@ -445,5 +509,17 @@ export default function MasterCustomerSheet() {
 				</DialogContent>
 			</Dialog>
 		</div>
+
+		{isEnrollCustomerOpen && (
+			<EnrollCustomerForm
+				open={isEnrollCustomerOpen}
+				onClose={() => setIsEnrollCustomerOpen(false)}
+				onEnroll={() => {
+					setIsEnrollCustomerOpen(false);
+					loadCustomerData();
+				}}
+			/>
+		)}
+		</>
 	);
 }

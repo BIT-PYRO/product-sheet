@@ -19,10 +19,10 @@
       }
     ],
     "paths": {
-      "@/components/*": ["./frontend/components/*"],
-      "@/hooks/*": ["./frontend/hooks/*"],
-      "@/lib/*": ["./frontend/lib/*"],
-      "@/styles/*": ["./frontend/styles/*"],
+      "@/components/*": ["./components/*"],
+      "@/hooks/*": ["./hooks/*"],
+      "@/lib/*": ["./lib/*"],
+      "@/styles/*": ["./styles/*"],
       "@/*": ["./*"]
     }
   },

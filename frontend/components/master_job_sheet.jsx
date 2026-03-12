@@ -81,15 +81,15 @@ export default function MasterJobSheet() {
     newReissue: { minWidth: 'min-w-[100px]', headerBg: 'bg-[#dbeafe]' },
     type: { minWidth: 'min-w-[70px]', headerBg: 'bg-[#dbeafe]' },
     receiver: { minWidth: 'min-w-[80px]', headerBg: 'bg-[#dbeafe]' },
-    dayCondition: { minWidth: 'min-w-[100px]', headerBg: 'bg-[#dbeafe]', cellBg: 'bg-trust-blue/10' },
+    dayCondition: { minWidth: 'min-w-[100px]', headerBg: 'bg-[#dbeafe]' },
     issuedQty: { minWidth: 'min-w-[70px]', headerBg: 'bg-[#dbeafe]' },
     issuedWeight: { minWidth: 'min-w-[80px]', headerBg: 'bg-[#dbeafe]' },
-    receivedQty: { minWidth: 'min-w-[80px]', headerBg: 'bg-success/10', cellBg: 'bg-success/10' },
-    receivedWeight: { minWidth: 'min-w-[100px]', headerBg: 'bg-success/10', cellBg: 'bg-success/10' },
-    lossQty: { minWidth: 'min-w-[70px]', headerBg: 'bg-danger/10', cellBg: 'bg-danger/10' },
-    lossWeight: { minWidth: 'min-w-[80px]', headerBg: 'bg-danger/10', cellBg: 'bg-danger/10' },
-    reIssueQty: { minWidth: 'min-w-[80px]', headerBg: 'bg-[#dbeafe]', cellBg: 'bg-trust-blue/10' },
-    reIssueWeight: { minWidth: 'min-w-[100px]', headerBg: 'bg-[#dbeafe]', cellBg: 'bg-trust-blue/10' },
+    receivedQty: { minWidth: 'min-w-[80px]', headerBg: 'bg-[#dbeafe]' },
+    receivedWeight: { minWidth: 'min-w-[100px]', headerBg: 'bg-[#dbeafe]' },
+    lossQty: { minWidth: 'min-w-[70px]', headerBg: 'bg-[#dbeafe]' },
+    lossWeight: { minWidth: 'min-w-[80px]', headerBg: 'bg-[#dbeafe]' },
+    reIssueQty: { minWidth: 'min-w-[80px]', headerBg: 'bg-[#dbeafe]' },
+    reIssueWeight: { minWidth: 'min-w-[100px]', headerBg: 'bg-[#dbeafe]' },
   };
   
   const [visibleColumns, setVisibleColumns] = useState(new Set(columns.map(col => col.id)));
@@ -684,6 +684,17 @@ export default function MasterJobSheet() {
 
         {/* Action Buttons */}
         <div className="flex flex-wrap gap-2 md:gap-4 justify-end mb-4 items-center">
+          {/* Search Bar */}
+          <div className="relative mr-auto">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-cool-gray w-4 h-4" />
+            <Input
+              type="text"
+              placeholder="SEARCH BAR"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="border border-soft-border rounded-lg pl-9 pr-4 h-9 w-64 text-sm"
+            />
+          </div>
           <Button 
             onClick={handleCreateJob}
             className="bg-success hover:bg-success text-white rounded-full px-6"
@@ -776,26 +787,12 @@ export default function MasterJobSheet() {
           </DropdownMenu>
         </div>
 
-        {/* Search Bar */}
-        <div className="flex gap-2 mb-2 max-w-md mx-auto md:mx-0">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-cool-gray w-5 h-5" />
-            <Input
-              type="text"
-              placeholder="SEARCH BAR"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="flex-1 border-2 border-soft-border rounded-lg px-4 py-2 pl-10"
-            />
-          </div>
-        </div>
-
       {/* Filter Row */}
       <div className="border border-soft-border rounded-lg mb-4 bg-trust-blue/10 p-4">
         <div className="grid grid-cols-2 md:grid-cols-6 lg:grid-cols-11 gap-2">
           {/* Status/Pending WIP Completion */}
           <div>
-            <label className="text-sm font-semibold text-slate-text block mb-1">STATUS</label>
+            <label className="text-sm font-semibold text-black block mb-1">STATUS</label>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger className="h-8 text-sm">
                 <SelectValue placeholder="Select Status" />
@@ -810,29 +807,31 @@ export default function MasterJobSheet() {
 
           {/* Date From */}
           <div>
-            <label className="text-sm font-semibold text-slate-text block mb-1">DATE FROM</label>
-            <Input
+            <label className="text-sm font-semibold text-black block mb-1">DATE FROM</label>
+            <input
               type="date"
               value={dateFromFilter}
               onChange={(e) => setDateFromFilter(e.target.value)}
-              className="h-8 text-sm p-1"
+              className="h-8 w-full rounded-md border border-input bg-background text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+              style={{ padding: 0, paddingLeft: '8px' }}
             />
           </div>
 
           {/* Date To */}
           <div>
-            <label className="text-sm font-semibold text-slate-text block mb-1">DATE TO</label>
-            <Input
+            <label className="text-sm font-semibold text-black block mb-1">DATE TO</label>
+            <input
               type="date"
               value={dateToFilter}
               onChange={(e) => setDateToFilter(e.target.value)}
-              className="h-8 text-sm p-1"
+              className="h-8 w-full rounded-md border border-input bg-background text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+              style={{ padding: 0, paddingLeft: '8px' }}
             />
           </div>
 
           {/* New/Reissue */}
           <div>
-            <label className="text-sm font-semibold text-slate-text block mb-1">NEW/RE-ISSUE</label>
+            <label className="text-sm font-semibold text-black block mb-1">NEW/RE-ISSUE</label>
             <Select value={newReissueFilter} onValueChange={setNewReissueFilter}>
               <SelectTrigger className="h-8 text-sm">
                 <SelectValue placeholder="Select" />
@@ -847,7 +846,7 @@ export default function MasterJobSheet() {
 
           {/* Name */}
           <div>
-            <label className="text-sm font-semibold text-slate-text block mb-1">NAME</label>
+            <label className="text-sm font-semibold text-black block mb-1">NAME</label>
             <Select value={nameFilter} onValueChange={setNameFilter}>
               <SelectTrigger className="h-8 text-sm">
                 <SelectValue placeholder="Select Name" />
@@ -862,7 +861,7 @@ export default function MasterJobSheet() {
 
           {/* Issuer */}
           <div>
-            <label className="text-sm font-semibold text-slate-text block mb-1">ISSUER</label>
+            <label className="text-sm font-semibold text-black block mb-1">ISSUER</label>
             <Select value={issuerFilter} onValueChange={setIssuerFilter}>
               <SelectTrigger className="h-8 text-sm">
                 <SelectValue placeholder="Select Issuer" />
@@ -877,7 +876,7 @@ export default function MasterJobSheet() {
 
           {/* Department */}
           <div>
-            <label className="text-sm font-semibold text-slate-text block mb-1">DEPARTMENT</label>
+            <label className="text-sm font-semibold text-black block mb-1">DEPARTMENT</label>
             <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
               <SelectTrigger className="h-8 text-sm">
                 <SelectValue placeholder="Select Dept" />
@@ -892,7 +891,7 @@ export default function MasterJobSheet() {
 
           {/* Type */}
           <div>
-            <label className="text-sm font-semibold text-slate-text block mb-1">TYPE</label>
+            <label className="text-sm font-semibold text-black block mb-1">TYPE</label>
             <Select value={typeFilter} onValueChange={setTypeFilter}>
               <SelectTrigger className="h-8 text-sm">
                 <SelectValue placeholder="Select Type" />
@@ -907,7 +906,7 @@ export default function MasterJobSheet() {
 
           {/* Category */}
           <div>
-            <label className="text-sm font-semibold text-slate-text block mb-1">CATEGORY</label>
+            <label className="text-sm font-semibold text-black block mb-1">CATEGORY</label>
             <Select value={categoryFilter} onValueChange={setCategoryFilter}>
               <SelectTrigger className="h-8 text-sm">
                 <SelectValue placeholder="Select Category" />
@@ -922,7 +921,7 @@ export default function MasterJobSheet() {
 
           {/* Receiver */}
           <div>
-            <label className="text-sm font-semibold text-slate-text block mb-1">RECEIVER</label>
+            <label className="text-sm font-semibold text-black block mb-1">RECEIVER</label>
             <Select value={receiverFilter} onValueChange={setReceiverFilter}>
               <SelectTrigger className="h-8 text-sm">
                 <SelectValue placeholder="Select Receiver" />
@@ -937,13 +936,13 @@ export default function MasterJobSheet() {
 
           {/* SKU Search */}
           <div>
-            <label className="text-sm font-semibold text-slate-text block mb-1">SKU</label>
-            <Input
+            <label className="text-sm font-semibold text-black block mb-1">SKU</label>
+            <input
               type="text"
               placeholder="Enter SKU"
               value={skuFilter}
               onChange={(e) => setSKUFilter(e.target.value)}
-              className="h-8 text-sm p-1"
+              className="h-8 w-full rounded-md border border-input bg-background px-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
             />
           </div>
         </div>
