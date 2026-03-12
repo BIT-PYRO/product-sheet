@@ -678,7 +678,7 @@ export default function MasterJobSheet() {
 
       <div className="pt-16 px-3 md:px-4 pb-3 md:pb-4">
         {/* Header Section */}
-        <div className="sheet-fixed-header fixed top-0 left-0 right-0 z-[60] bg-white/95 py-2 border-b border-soft-border shadow-sm backdrop-blur px-3 md:px-4">
+        <div className="transition-[left,width] duration-300 ease-in-out fixed top-0 left-0 right-0 z-[60] bg-white/95 py-2 border-b border-soft-border shadow-sm backdrop-blur px-3 md:px-4">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <MasterNavigationDrawer inHeader />
@@ -794,14 +794,14 @@ export default function MasterJobSheet() {
         </div>
 
       {/* Filter Row */}
-      <div className="border border-soft-border rounded-lg mb-4 bg-trust-blue/10 p-4">
-        <div className="grid grid-cols-2 md:grid-cols-6 lg:grid-cols-11 gap-2">
+      <div className="border border-soft-border rounded-lg bg-trust-blue/10 p-4">
+        <div className="grid grid-cols-2 md:grid-cols-6 lg:grid-cols-11 gap-2 items-end">
           {/* Status/Pending WIP Completion */}
           <div>
-            <label className="text-sm font-semibold text-black block mb-1">STATUS</label>
+            <label className="text-xs font-semibold text-black block mb-1">STATUS</label>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="h-8 text-sm">
-                <SelectValue placeholder="Select Status" />
+              <SelectTrigger className="text-xs bg-white focus:ring-0 focus:ring-offset-0">
+                <SelectValue placeholder="Select..." />
               </SelectTrigger>
               <SelectContent>
                 {statusOptions.map(status => (
@@ -813,33 +813,31 @@ export default function MasterJobSheet() {
 
           {/* Date From */}
           <div>
-            <label className="text-sm font-semibold text-black block mb-1">DATE FROM</label>
+            <label className="text-xs font-semibold text-black block mb-1">DATE FROM</label>
             <input
               type="date"
               value={dateFromFilter}
               onChange={(e) => setDateFromFilter(e.target.value)}
-              className="h-8 w-full rounded-md border border-input bg-background text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-              style={{ padding: 0, paddingLeft: '8px' }}
+              className="flex h-9 w-full items-center rounded-md border border-input bg-white px-3 py-1 text-xs focus:outline-none focus:ring-0"
             />
           </div>
 
           {/* Date To */}
           <div>
-            <label className="text-sm font-semibold text-black block mb-1">DATE TO</label>
+            <label className="text-xs font-semibold text-black block mb-1">DATE TO</label>
             <input
               type="date"
               value={dateToFilter}
               onChange={(e) => setDateToFilter(e.target.value)}
-              className="h-8 w-full rounded-md border border-input bg-background text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-              style={{ padding: 0, paddingLeft: '8px' }}
+              className="flex h-9 w-full items-center rounded-md border border-input bg-white px-3 py-1 text-xs focus:outline-none focus:ring-0"
             />
           </div>
 
           {/* New/Reissue */}
           <div>
-            <label className="text-sm font-semibold text-black block mb-1">NEW/RE-ISSUE</label>
+            <label className="text-xs font-semibold text-black block mb-1">NEW/RE-ISSUE</label>
             <Select value={newReissueFilter} onValueChange={setNewReissueFilter}>
-              <SelectTrigger className="h-8 text-sm">
+              <SelectTrigger className="text-xs bg-white focus:ring-0 focus:ring-offset-0">
                 <SelectValue placeholder="Select" />
               </SelectTrigger>
               <SelectContent>
@@ -852,9 +850,9 @@ export default function MasterJobSheet() {
 
           {/* Name */}
           <div>
-            <label className="text-sm font-semibold text-black block mb-1">NAME</label>
+            <label className="text-xs font-semibold text-black block mb-1">NAME</label>
             <Select value={nameFilter} onValueChange={setNameFilter}>
-              <SelectTrigger className="h-8 text-sm">
+              <SelectTrigger className="text-xs bg-white focus:ring-0 focus:ring-offset-0">
                 <SelectValue placeholder="Select Name" />
               </SelectTrigger>
               <SelectContent>
@@ -867,10 +865,10 @@ export default function MasterJobSheet() {
 
           {/* Issuer */}
           <div>
-            <label className="text-sm font-semibold text-black block mb-1">ISSUER</label>
+            <label className="text-xs font-semibold text-black block mb-1">ISSUER</label>
             <Select value={issuerFilter} onValueChange={setIssuerFilter}>
-              <SelectTrigger className="h-8 text-sm">
-                <SelectValue placeholder="Select Issuer" />
+              <SelectTrigger className="text-xs bg-white focus:ring-0 focus:ring-offset-0">
+                <SelectValue placeholder="Select..." />
               </SelectTrigger>
               <SelectContent>
                 {issuerOptions.map(issuer => (
@@ -882,9 +880,9 @@ export default function MasterJobSheet() {
 
           {/* Department */}
           <div>
-            <label className="text-sm font-semibold text-black block mb-1">DEPARTMENT</label>
+            <label className="text-xs font-semibold text-black block mb-1">DEPARTMENT</label>
             <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
-              <SelectTrigger className="h-8 text-sm">
+              <SelectTrigger className="text-xs bg-white focus:ring-0 focus:ring-offset-0">
                 <SelectValue placeholder="Select Dept" />
               </SelectTrigger>
               <SelectContent>
@@ -897,9 +895,9 @@ export default function MasterJobSheet() {
 
           {/* Type */}
           <div>
-            <label className="text-sm font-semibold text-black block mb-1">TYPE</label>
+            <label className="text-xs font-semibold text-black block mb-1">TYPE</label>
             <Select value={typeFilter} onValueChange={setTypeFilter}>
-              <SelectTrigger className="h-8 text-sm">
+              <SelectTrigger className="text-xs bg-white focus:ring-0 focus:ring-offset-0">
                 <SelectValue placeholder="Select Type" />
               </SelectTrigger>
               <SelectContent>
@@ -912,10 +910,10 @@ export default function MasterJobSheet() {
 
           {/* Category */}
           <div>
-            <label className="text-sm font-semibold text-black block mb-1">CATEGORY</label>
+            <label className="text-xs font-semibold text-black block mb-1">CATEGORY</label>
             <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-              <SelectTrigger className="h-8 text-sm">
-                <SelectValue placeholder="Select Category" />
+              <SelectTrigger className="text-xs bg-white focus:ring-0 focus:ring-offset-0">
+                <SelectValue placeholder="Select..." />
               </SelectTrigger>
               <SelectContent>
                 {categoryOptions.map(option => (
@@ -927,10 +925,10 @@ export default function MasterJobSheet() {
 
           {/* Receiver */}
           <div>
-            <label className="text-sm font-semibold text-black block mb-1">RECEIVER</label>
+            <label className="text-xs font-semibold text-black block mb-1">RECEIVER</label>
             <Select value={receiverFilter} onValueChange={setReceiverFilter}>
-              <SelectTrigger className="h-8 text-sm">
-                <SelectValue placeholder="Select Receiver" />
+              <SelectTrigger className="text-xs bg-white focus:ring-0 focus:ring-offset-0">
+                <SelectValue placeholder="Select..." />
               </SelectTrigger>
               <SelectContent>
                 {receiverOptions.map(receiver => (
@@ -942,13 +940,13 @@ export default function MasterJobSheet() {
 
           {/* SKU Search */}
           <div>
-            <label className="text-sm font-semibold text-black block mb-1">SKU</label>
+            <label className="text-xs font-semibold text-black block mb-1">SKU</label>
             <input
               type="text"
               placeholder="Enter SKU"
               value={skuFilter}
               onChange={(e) => setSKUFilter(e.target.value)}
-              className="h-8 w-full rounded-md border border-input bg-background px-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+              className="flex h-9 w-full items-center rounded-md border border-input bg-white px-3 py-1 text-xs placeholder:text-muted-foreground focus:outline-none focus:ring-0"
             />
           </div>
         </div>
