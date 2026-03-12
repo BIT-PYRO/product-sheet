@@ -825,7 +825,7 @@ export default function MasterWorkforceSheet() {
           <div>
             <label className="text-sm font-semibold text-black block mb-1">DEPARTMENT</label>
             <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
-              <SelectTrigger className="h-8 text-sm">
+              <SelectTrigger className="h-8 text-sm focus:ring-0 focus:ring-offset-0">
                 <SelectValue placeholder="Select Department" />
               </SelectTrigger>
               <SelectContent>
@@ -840,7 +840,7 @@ export default function MasterWorkforceSheet() {
           <div>
             <label className="text-sm font-semibold text-black block mb-1">TYPE</label>
             <Select value={typeFilter} onValueChange={setTypeFilter}>
-              <SelectTrigger className="h-8 text-sm">
+              <SelectTrigger className="h-8 text-sm focus:ring-0 focus:ring-offset-0">
                 <SelectValue placeholder="Select Type" />
               </SelectTrigger>
               <SelectContent>
@@ -855,7 +855,7 @@ export default function MasterWorkforceSheet() {
           <div>
             <label className="text-sm font-semibold text-black block mb-1">ORIGIN</label>
             <Select value={originFilter} onValueChange={setOriginFilter}>
-              <SelectTrigger className="h-8 text-sm">
+              <SelectTrigger className="h-8 text-sm focus:ring-0 focus:ring-offset-0">
                 <SelectValue placeholder="Select Origin" />
               </SelectTrigger>
               <SelectContent>
@@ -870,7 +870,7 @@ export default function MasterWorkforceSheet() {
           <div>
             <label className="text-sm font-semibold text-black block mb-1">PAYMENT TYPE</label>
             <Select value={paymentTypeFilter} onValueChange={setPaymentTypeFilter}>
-              <SelectTrigger className="h-8 text-sm">
+              <SelectTrigger className="h-8 text-sm focus:ring-0 focus:ring-offset-0">
                 <SelectValue placeholder="Select Payment Type" />
               </SelectTrigger>
               <SelectContent>

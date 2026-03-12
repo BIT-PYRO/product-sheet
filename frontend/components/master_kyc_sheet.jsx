@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { Search } from 'lucide-react';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -8,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
@@ -88,6 +90,9 @@ export default function MasterKYCSheet() {
   const [emptyRowsData, setEmptyRowsData] = useState(
     Array.from({ length: 10 }).map(() => ({}))
   );
+
+  const [archivedRows, setArchivedRows] = useState(new Set());
+  const [isArchivedView, setIsArchivedView] = useState(false);
 
   const loadKYCData = useCallback(async () => {
     setIsLoading(true);
@@ -187,6 +192,14 @@ export default function MasterKYCSheet() {
     setEmptyRowsData(newEmptyRows);
   };
 
+  const handleArchiveRow = () => {
+    if (selectedRows.size === 0) { alert('Please select at least one row to archive'); return; }
+    const newArchived = new Set(archivedRows);
+    selectedRows.forEach(id => newArchived.add(id));
+    setArchivedRows(newArchived);
+    setSelectedRows(new Set());
+  };
+
   const handleAddEmptyRow = () => {
     setEmptyRowsData([...emptyRowsData, {}]);
   };
@@ -241,29 +254,49 @@ export default function MasterKYCSheet() {
         </div>
 
         <div className="max-w-full overflow-hidden">
-          {/* Search and Controls */}
-          <div className="bg-white p-4 rounded-lg shadow-sm mb-6">
-            <div className="flex flex-col lg:flex-row gap-4 mb-4">
-              <div className="flex-1">
-                <Input
-                  placeholder="Search by company name or GST number..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full"
-                />
-              </div>
+          {/* Action Buttons */}
+          <div className="flex flex-wrap gap-2 md:gap-4 justify-end mb-4 items-center">
+            <div className="relative mr-auto">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-cool-gray w-4 h-4" />
+              <Input
+                type="text"
+                placeholder="SEARCH BAR"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="border border-soft-border rounded-lg pl-9 pr-4 h-9 w-64 text-sm"
+              />
             </div>
-            <div className="flex flex-wrap gap-2 justify-start lg:justify-end">
-              <Button variant="outline" onClick={() => setIsManageColumnsOpen(true)}>
-                Manage Columns
-              </Button>
-              <Button variant="outline" onClick={handleExport}>
-                Export
-              </Button>
-              <Button variant="outline" onClick={() => window.print()}>
-                Print
-              </Button>
-            </div>
+            <Button onClick={loadKYCData} variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-6" disabled={isLoading}>
+              {isLoading ? 'Refreshing...' : 'Refresh'}
+            </Button>
+            <Button onClick={handleAddEmptyRow} className="bg-success hover:bg-success text-white rounded-full px-6">
+              Add KYC
+            </Button>
+            <Button variant="outline" className="border-trust-blue text-trust-blue hover:bg-trust-blue/10 rounded-full px-6">
+              Edit Row
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="border-warning text-warning hover:bg-warning/10 rounded-full px-6">
+                  Archive
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuItem onClick={handleArchiveRow} disabled={isArchivedView}>Archive Selected Rows</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setIsArchivedView(!isArchivedView)}>
+                  {isArchivedView ? 'Show Active Rows' : 'Show Archived Rows'}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <Button onClick={() => setIsManageColumnsOpen(true)} variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-6">
+              Manage Columns
+            </Button>
+            <Button onClick={handleExport} variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-6">
+              Export
+            </Button>
+            <Button onClick={() => window.print()} variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-6">
+              Print
+            </Button>
           </div>
 
           {/* Table */}
@@ -271,7 +304,7 @@ export default function MasterKYCSheet() {
             <table className="w-full border-collapse">
               <thead>
                 <tr className="bg-cloud-gray border-b-2 border-soft-border">
-                  <th className="p-2 text-center border border-soft-border w-12">
+                  <th className="sticky left-0 z-20 p-2 text-center border-t border-b border-r border-soft-border w-12 bg-cloud-gray">
                     <Checkbox
                       checked={selectedRows.size === (sortedProducts.length > 0 ? sortedProducts.length : emptyRowsData.length) && selectedRows.size > 0}
                       onCheckedChange={handleSelectAll}
@@ -304,7 +337,7 @@ export default function MasterKYCSheet() {
                 {sortedProducts.length > 0 ? (
                   sortedProducts.map((row, index) => (
                     <tr key={index} className="border-b border-soft-border hover:bg-cloud-gray">
-                      <td className="p-1 text-center border border-soft-border w-12 bg-cloud-gray text-sm font-medium">
+                      <td className="sticky left-0 z-10 p-1 text-center border-b border-r border-soft-border w-12 bg-white text-sm font-medium">
                         <div className="flex items-center justify-center gap-1">
                           <Checkbox
                             checked={selectedRows.has(index)}
@@ -328,7 +361,7 @@ export default function MasterKYCSheet() {
                 ) : (
                   emptyRowsData.map((_, index) => (
                     <tr key={`empty-${index}`} className="border-b border-soft-border hover:bg-cloud-gray">
-                      <td className="p-1 text-center border border-soft-border w-12 bg-cloud-gray text-sm font-medium">
+                      <td className="sticky left-0 z-10 p-1 text-center border-b border-r border-soft-border w-12 bg-white text-sm font-medium">
                         <div className="flex items-center justify-center gap-1">
                           <Checkbox
                             checked={selectedRows.has(index)}
