@@ -65,7 +65,7 @@ export async function POST(request) {
       success: true,
       user: {
         id: user?.username || userId,
-        role: user?.is_staff ? 'admin' : 'user',
+        role: user?.role || 'staff',
       },
     });
 

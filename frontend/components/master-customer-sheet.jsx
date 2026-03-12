@@ -13,6 +13,7 @@ import {
 	DialogTitle,
 } from '@/components/ui/dialog';
 import DateTimeStamp from '@/components/date-time-stamp';
+import { EnrollCustomerForm } from '@/components/enroll-customer';
 
 const CUSTOMER_COLUMNS = [
 	{ key: '__select__', label: '' },
@@ -58,10 +59,33 @@ const columnConfig = {
 };
 
 function normalizeCustomerRows(payload = {}) {
-	if (Array.isArray(payload.customerData)) return payload.customerData;
-	if (Array.isArray(payload.kycData)) return payload.kycData;
-	if (Array.isArray(payload.products)) return payload.products;
-	return [];
+	const rows = Array.isArray(payload.data)
+		? payload.data
+		: Array.isArray(payload.data?.results)
+			? payload.data.results
+			: [];
+
+	return rows.map((row) => ({
+		id: row.id,
+		companyName: row.company_name || '',
+		businessType: row.business_type || '',
+		gstNumber: row.gst_number || '',
+		panNumber: row.pan_number || '',
+		addressLine1: row.address_line1 || '',
+		addressLine2: row.address_line2 || '',
+		city: row.city || '',
+		state: row.state || '',
+		pinCode: row.pin_code || '',
+		authorizedPersonName: row.authorized_person_name || '',
+		designation: row.designation || '',
+		mobile: row.mobile || '',
+		email: row.email || '',
+		accountName: row.account_name || '',
+		bankName: row.bank_name || '',
+		accountNumber: row.account_number || '',
+		ifsc: row.ifsc || '',
+		status: row.status || '',
+	}));
 }
 
 export default function MasterCustomerSheet() {
@@ -80,18 +104,19 @@ export default function MasterCustomerSheet() {
 	const [emptyRowsData, setEmptyRowsData] = useState(
 		Array.from({ length: 10 }).map(() => ({}))
 	);
+	const [isEnrollCustomerOpen, setIsEnrollCustomerOpen] = useState(false);
 
 	const loadCustomerData = useCallback(async () => {
 		setIsLoading(true);
 		setError('');
 
 		try {
-			const response = await fetch('/api/save-to-sheets', {
+			const response = await fetch('/api/customers', {
 				method: 'GET',
 			});
 
-			if (response.ok) {
-				const data = await response.json();
+			const data = await response.json().catch(() => null);
+			if (response.ok && data?.success) {
 				setCustomers(normalizeCustomerRows(data));
 			} else {
 				setError('Failed to load customer data');
@@ -226,6 +251,7 @@ export default function MasterCustomerSheet() {
 	};
 
 	return (
+		<>
 		<div className="min-h-screen bg-cloud-gray">
 			<div className="pt-16 px-3 md:px-4 pb-3 md:pb-4">
 				<div className="sheet-fixed-header fixed top-0 left-0 right-0 z-[60] bg-white/95 py-2 border-b border-soft-border shadow-sm backdrop-blur px-3 md:px-4">
@@ -259,8 +285,12 @@ export default function MasterCustomerSheet() {
 							</Button>
 							<Button variant="outline" onClick={() => window.print()}>
 								Print
-							</Button>
-						</div>
+							</Button>						<Button
+							className="bg-midnight-ink hover:bg-midnight-ink/90 text-white"
+							onClick={() => setIsEnrollCustomerOpen(true)}
+						>
+							+ Enroll Customer
+						</Button>						</div>
 					</div>
 
 					<div className="bg-white rounded-lg shadow-sm overflow-x-auto">
@@ -445,5 +475,17 @@ export default function MasterCustomerSheet() {
 				</DialogContent>
 			</Dialog>
 		</div>
+
+		{isEnrollCustomerOpen && (
+			<EnrollCustomerForm
+				open={isEnrollCustomerOpen}
+				onClose={() => setIsEnrollCustomerOpen(false)}
+				onEnroll={() => {
+					setIsEnrollCustomerOpen(false);
+					loadCustomerData();
+				}}
+			/>
+		)}
+		</>
 	);
 }
