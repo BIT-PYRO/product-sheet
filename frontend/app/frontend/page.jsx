@@ -1,12 +1,11 @@
 'use client'
 
 import React, { Suspense } from "react"
-import { Trash2 } from 'lucide-react'
+import { Trash2, LayoutDashboard, House, X } from 'lucide-react'
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { CreateJobModal } from '@/components/create-job-modal'
-import MasterNavigationDrawer from '@/components/master_navigation_drawer'
 import DateTimeStamp from '@/components/date-time-stamp'
 
 const PRODUCT_SHEET_SYNC_KEY = 'product_sheet_updated_at'
@@ -21,6 +20,7 @@ function ProductSheetContent() {
   const autoSaveTimeoutRef = useRef(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isCreateJobModalOpen, setIsCreateJobModalOpen] = useState(false)
+  const [isDashboardOpen, setIsDashboardOpen] = useState(false)
   const [productImage, setProductImage] = useState(null)
 
   const [platingType, setPlatingType] = useState([
@@ -601,14 +601,22 @@ function ProductSheetContent() {
     }
     
     return (<div className="relative min-h-screen bg-cloud-gray flex flex-col text-midnight-ink overflow-x-hidden">
-      <div className="sheet-fixed-header fixed top-0 left-0 right-0 z-[60] bg-white/95 py-2 border-b border-soft-border shadow-sm backdrop-blur px-3 md:px-4">
-        <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <MasterNavigationDrawer inHeader />
-          <h1 className="text-xl font-bold tracking-tight text-midnight-ink">PRODUCT SHEET</h1>
+      <div className="sheet-fixed-header fixed top-0 left-0 right-0 z-[70] flex justify-between items-center bg-white/95 backdrop-blur py-1 px-2 md:px-3 border-b border-soft-border shadow-sm transition-all duration-300">
+        <div className="flex items-center gap-2">
+          <button onClick={() => setIsDashboardOpen(!isDashboardOpen)} className="h-8 w-8 border-2 border-midnight-ink bg-white rounded hover:bg-cloud-gray transition-colors shadow-sm inline-flex items-center justify-center">
+            <LayoutDashboard className="h-4 w-4 text-midnight-ink" />
+          </button>
+          <a
+            href="/home"
+            className="inline-flex h-8 items-center gap-1.5 px-3 border-2 border-midnight-ink bg-white rounded text-sm font-semibold text-midnight-ink hover:bg-cloud-gray transition-colors shadow-sm"
+          >
+            <House className="h-3.5 w-3.5" />
+            Home
+          </a>
+          <h1 className="text-base font-bold tracking-tight text-midnight-ink">PRODUCT SHEET</h1>
         </div>
-        <div className="flex gap-3 items-center">
-          <DateTimeStamp />
+        <div className="flex gap-1.5 items-center">
+          <DateTimeStamp className="mr-1 text-xs" />
           <button onClick={handleAddProduct} className="w-fit px-3 h-8 text-sm bg-trust-blue text-white font-semibold rounded-full shadow-sm hover:bg-deep-blue">+ ADD PRODUCT</button>
           <button onClick={handleSaveToGoogleSheets} disabled={isSaving} className="w-fit px-3 h-8 text-sm bg-success text-white font-semibold rounded-full shadow-sm hover:bg-success/90 disabled:opacity-50 disabled:cursor-not-allowed">{isSaving ? 'Saving...' : 'SAVE'}</button>
           <button onClick={handleDeleteFromGoogleSheets} disabled={isSaving} className="w-fit px-3 h-8 text-sm bg-danger text-white font-semibold rounded-full shadow-sm hover:bg-danger/90 disabled:opacity-50 disabled:cursor-not-allowed">DELETE</button>
@@ -626,10 +634,9 @@ function ProductSheetContent() {
             </button>
           )}
         </div>
-        </div>
       </div>
 
-      <div className="flex-1 pt-[60px] px-2 pb-2 transition-all duration-300">
+      <div className="flex-1 pt-11 px-2 pb-2 transition-all duration-300">
       {/* Top Section - Product Details & Variations Combined */}
       <div className="bg-cloud-gray p-1.5 rounded-xl mb-2 border border-soft-border shadow-sm">
         <div className="flex gap-2 h-auto">
@@ -887,8 +894,8 @@ function ProductSheetContent() {
                 </div>
 
                 <div className="bg-white border-2 border-soft-border rounded-xl shadow-sm max-h-[6rem] flex flex-col">
-                  <div className="flex border-b border-soft-border flex-shrink-0">
-                    <div className="w-32 px-2 py-0.2 border-r-2 border-soft-border font-semibold text-sm flex items-center flex-shrink-0">
+                  <div className="flex divide-x-2 divide-soft-border border-b border-soft-border flex-shrink-0">
+                    <div className="w-32 px-2 py-0.2 font-semibold text-sm flex items-center flex-shrink-0">
                       MASTER SKU
                     </div>
                     <div className="flex-1 px-2 py-0.2">
@@ -898,8 +905,8 @@ function ProductSheetContent() {
 
                   <div className="overflow-y-auto flex-1">
                     {variations.map((variation, index) => (
-                      <div key={variation.id} className={`flex items-center ${index < variations.length - 1 ? 'border-b border-soft-border' : ''}`}>
-                        <div className="w-32 px-2 py-0.2 border-r-2 border-soft-border font-semibold text-sm flex items-center flex-shrink-0">
+                      <div key={variation.id} className={`flex items-stretch divide-x-2 divide-soft-border ${index < variations.length - 1 ? 'border-b border-soft-border' : ''}`}>
+                        <div className="w-32 px-2 py-0.2 font-semibold text-sm flex items-center flex-shrink-0">
                           <select
                             value={variation.label}
                             onChange={(e) => updateVariationLabel(variation.id, e.target.value)}
@@ -913,7 +920,7 @@ function ProductSheetContent() {
                         </div>
                         {variation.label === 'COLOR' ? (
                           <>
-                            <div className="flex-1 px-2 py-0.2 border-r-2 border-soft-border">
+                            <div className="flex-1 px-2 py-0.2 flex items-center">
                               <select
                                 value={variation.col1}
                                 onChange={(e) => updateColorVariationColor(variation.id, e.target.value)}
@@ -925,7 +932,7 @@ function ProductSheetContent() {
                                 ))}
                               </select>
                             </div>
-                            <div className="flex-1 px-2 py-0.2 border-r-2 border-soft-border">
+                            <div className="flex-1 px-2 py-0.2 flex items-center">
                               <input
                                 type="text"
                                 value={variation.col2}
@@ -937,15 +944,15 @@ function ProductSheetContent() {
                           </>
                         ) : (
                           <>
-                            <div className="flex-1 px-2 py-0.2 border-r-2 border-soft-border">
+                            <div className="flex-1 px-2 py-0.2 flex items-center">
                               <input type="text" value={variation.col1} onChange={(e) => updateVariation(variation.id, 'col1', e.target.value)} className="w-full bg-transparent outline-none text-sm"/>
                             </div>
-                            <div className="flex-1 px-2 py-0.2 border-r-2 border-soft-border">
+                            <div className="flex-1 px-2 py-0.2 flex items-center">
                               <input type="text" value={variation.col2} onChange={(e) => updateVariation(variation.id, 'col2', e.target.value)} className="w-full bg-transparent outline-none text-sm"/>
                             </div>
                           </>
                         )}
-                        <button type="button" onClick={() => deleteVariation(variation.id)} className="px-2 py-0.2 text-danger hover:text-danger-dark transition-colors flex-shrink-0">
+                        <button type="button" onClick={() => deleteVariation(variation.id)} className="px-2 py-0.2 text-danger hover:text-danger-dark transition-colors flex-shrink-0 flex items-center">
                           <Trash2 className="h-3 w-3" />
                         </button>
                       </div>
@@ -1487,10 +1494,11 @@ function ProductSheetContent() {
                         </div>
 
                         <div className="bg-white border-2 border-soft-border max-h-[6rem] flex flex-col">
-                          <div className="flex border-b border-soft-border flex-shrink-0">
-                            <div className="w-32 px-2 py-0.2 border-r-2 border-soft-border font-semibold text-sm flex items-center flex-shrink-0">
+                          <div className="flex divide-x-2 divide-soft-border border-b border-soft-border flex-shrink-0">
+                            <div className="w-32 px-2 py-0.2 font-semibold text-sm flex items-center flex-shrink-0">
                               MASTER SKU
                             </div>
+
                             <div className="flex-1 px-2 py-0.2">
                               <input type="text" value={materialSku} onChange={(e) => setMaterialSku(e.target.value)} className="w-full bg-transparent outline-none text-sm"/>
                             </div>
@@ -1498,8 +1506,8 @@ function ProductSheetContent() {
 
                           <div className="overflow-y-auto flex-1">
                             {variations.map((variation, index) => (
-                              <div key={variation.id} className={`flex items-center ${index < variations.length - 1 ? 'border-b border-soft-border' : ''}`}>
-                                <div className="w-32 px-2 py-0.2 border-r-2 border-soft-border font-semibold text-sm flex items-center flex-shrink-0">
+                              <div key={variation.id} className={`flex items-stretch divide-x-2 divide-soft-border ${index < variations.length - 1 ? 'border-b border-soft-border' : ''}`}>
+                                <div className="w-32 px-2 py-0.2 font-semibold text-sm flex items-center flex-shrink-0">
                                   <select
                                     value={variation.label}
                                     onChange={(e) => updateVariationLabel(variation.id, e.target.value)}
@@ -1513,7 +1521,7 @@ function ProductSheetContent() {
                                 </div>
                                 {variation.label === 'COLOR' ? (
                                   <>
-                                    <div className="flex-1 px-2 py-0.2 border-r-2 border-soft-border">
+                                    <div className="flex-1 px-2 py-0.2 border-r-2 border-soft-border flex items-center">
                                       <select
                                         value={variation.col1}
                                         onChange={(e) => updateColorVariationColor(variation.id, e.target.value)}
@@ -1525,7 +1533,7 @@ function ProductSheetContent() {
                                         ))}
                                       </select>
                                     </div>
-                                    <div className="flex-1 px-2 py-0.2 border-r-2 border-soft-border">
+                                    <div className="flex-1 px-2 py-0.2 flex items-center">
                                       <input
                                         type="text"
                                         value={variation.col2}
@@ -1537,15 +1545,15 @@ function ProductSheetContent() {
                                   </>
                                 ) : (
                                   <>
-                                    <div className="flex-1 px-2 py-0.2 border-r-2 border-soft-border">
+                                    <div className="flex-1 px-2 py-0.2 flex items-center">
                                       <input type="text" value={variation.col1} onChange={(e) => updateVariation(variation.id, 'col1', e.target.value)} className="w-full bg-transparent outline-none text-sm"/>
                                     </div>
-                                    <div className="flex-1 px-2 py-0.2 border-r-2 border-soft-border">
+                                    <div className="flex-1 px-2 py-0.2 flex items-center">
                                       <input type="text" value={variation.col2} onChange={(e) => updateVariation(variation.id, 'col2', e.target.value)} className="w-full bg-transparent outline-none text-sm"/>
                                     </div>
                                   </>
                                 )}
-                                <button type="button" onClick={() => deleteVariation(variation.id)} className="px-2 py-0.2 text-danger hover:text-danger-dark transition-colors flex-shrink-0">
+                                <button type="button" onClick={() => deleteVariation(variation.id)} className="px-2 py-0.2 text-danger hover:text-danger-dark transition-colors flex-shrink-0 flex items-center">
                                   <Trash2 className="h-3 w-3" />
                                 </button>
                               </div>
@@ -1835,7 +1843,62 @@ function ProductSheetContent() {
       )}
       </div>
 
+      {/* Dashboard Panel */}
+      {isDashboardOpen && (
+        <div className="fixed top-10 left-0 right-0 bottom-0 z-40 bg-black bg-opacity-50" onClick={() => setIsDashboardOpen(false)}></div>
+      )}
+      <div className={`fixed top-10 left-0 h-[calc(100vh-2.5rem)] w-80 bg-white border-r-2 border-soft-border shadow-lg transform transition-transform duration-300 z-50 overflow-y-scroll ${
+        isDashboardOpen ? 'translate-x-0' : '-translate-x-full'
+      }`}>
+        <div className="p-4">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-2xl font-bold">Dashboard</h2>
+            <button onClick={() => setIsDashboardOpen(false)} className="p-1 hover:bg-cloud-gray rounded">
+              <X className="h-5 w-5" />
+            </button>
+          </div>
 
+          {/* Product Sheet Button */}
+          <a href="/" className="w-full mb-6 px-4 py-3 text-base bg-trust-blue/10 border border-trust-blue text-deep-blue font-semibold rounded hover:bg-trust-blue/20 transition-colors block text-center">
+            Product Sheet
+          </a>
+
+          {/* Master Job Sheet Button */}
+          <a href="/master-job-sheet" className="w-full mb-6 px-4 py-3 text-base bg-trust-blue/10 border border-trust-blue text-deep-blue font-semibold rounded hover:bg-trust-blue/20 transition-colors block text-center">
+            Master Job Sheet
+          </a>
+
+          {/* Master Product Sheet Button */}
+          <a href="/master-product-sheet" className="w-full mb-6 px-4 py-3 text-base bg-trust-blue/10 border border-trust-blue text-deep-blue font-semibold rounded hover:bg-trust-blue/20 transition-colors block text-center">
+            Master Product Sheet
+          </a>
+
+          {/* Master Inventory Sheet Button */}
+          <a href="/master-inventory-sheet" className="w-full mb-6 px-4 py-3 text-base bg-trust-blue/10 border border-trust-blue text-deep-blue font-semibold rounded hover:bg-trust-blue/20 transition-colors block text-center">
+            Master Inventory Sheet
+          </a>
+
+          {/* Master Workforce Sheet Button */}
+          <a href="/master-workforce-sheet" className="w-full mb-6 px-4 py-3 text-base bg-trust-blue/10 border border-trust-blue text-deep-blue font-semibold rounded hover:bg-trust-blue/20 transition-colors block text-center">
+            Master Workforce Sheet
+          </a>
+
+          {/* Master KYC Sheet Button */}
+          <a href="/master-kyc-sheet" className="w-full mb-6 px-4 py-3 text-base bg-trust-blue/10 border border-trust-blue text-deep-blue font-semibold rounded hover:bg-trust-blue/20 transition-colors block text-center">
+            Master KYC Sheet
+          </a>
+
+          {/* Managers Dashboard Button */}
+          <a href="/managers-dashboard" className="w-full mb-6 px-4 py-3 text-base bg-trust-blue/10 border border-trust-blue text-deep-blue font-semibold rounded hover:bg-trust-blue/20 transition-colors block text-center">
+            Managers Dashboard
+          </a>
+
+          {/* Drafts Button */}
+          <a href="/drafts" className="w-full mb-6 px-4 py-3 text-base bg-trust-blue/10 border border-trust-blue text-deep-blue font-semibold rounded hover:bg-trust-blue/20 transition-colors block text-center">
+            Drafts
+          </a>
+        </div>
+      </div>
 
       <CreateJobModal 
         open={isCreateJobModalOpen}
