@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { ChevronDown } from 'lucide-react';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
 import { CreateJobModal } from '@/components/create-job-modal';
 import { Button } from '@/components/ui/button';
@@ -869,12 +870,15 @@ export default function MasterInventorySheet() {
               <DropdownMenuTrigger asChild>
                 <button
                   type="button"
-                  className="px-3 py-1 text-sm border rounded bg-white text-midnight-ink border-trust-blue/40"
+                  className="flex items-center gap-1.5 px-3 py-1 text-sm border rounded bg-white text-midnight-ink border-trust-blue/40"
                 >
-                  {field.label}
-                  {filterSelections[field.key]?.size > 0
-                    ? ` (${filterSelections[field.key].size})`
-                    : ''}
+                  <span>
+                    {field.label}
+                    {filterSelections[field.key]?.size > 0
+                      ? ` (${filterSelections[field.key].size})`
+                      : ''}
+                  </span>
+                  <ChevronDown className="h-3.5 w-3.5 opacity-60" />
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent className="w-56 max-h-64 overflow-y-auto p-2">
