@@ -1,13 +1,12 @@
 'use client'
 
 import React, { Suspense } from "react"
-import { Trash2, Download, Eye, Upload, Edit3, Search, X } from 'lucide-react'
+import { Trash2 } from 'lucide-react'
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { CreateJobModal } from '@/components/create-job-modal'
-import { GenericJobModal } from '@/components/generic-job-modal'
-import { PrintJobCardModal } from '@/components/print-job-card-modal'
+import MasterNavigationDrawer from '@/components/master_navigation_drawer'
 import DateTimeStamp from '@/components/date-time-stamp'
 import MasterNavigationDrawer from '@/components/master_navigation_drawer'
 
@@ -28,11 +27,7 @@ function ProductSheetContent() {
   const autoSaveTimeoutRef = useRef(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isCreateJobModalOpen, setIsCreateJobModalOpen] = useState(false)
-  const [isGenericJobModalOpen, setIsGenericJobModalOpen] = useState(false)
-  const [isPrintJobCardModalOpen, setIsPrintJobCardModalOpen] = useState(false)
-  const [jobCardToPrint, setJobCardToPrint] = useState(null)
-  const [productImages, setProductImages] = useState([])
-  const [primaryImageIndex, setPrimaryImageIndex] = useState(0)
+  const [productImage, setProductImage] = useState(null)
 
   const [platingType, setPlatingType] = useState([
     { id: 1, col1: '', col2: '', col3: '' },
@@ -1105,50 +1100,17 @@ function ProductSheetContent() {
     }
     
     return (<div className="relative min-h-screen bg-cloud-gray flex flex-col text-midnight-ink overflow-x-hidden">
-      <div className="transition-[left,width] duration-300 ease-in-out fixed top-0 left-0 right-0 z-[70] flex justify-between items-center bg-white/95 backdrop-blur py-1 px-2 md:px-3 border-b border-soft-border shadow-sm">
-        <div className="flex items-center gap-2">
+      <div className="sheet-fixed-header fixed top-0 left-0 right-0 z-[60] bg-white/95 py-2 border-b border-soft-border shadow-sm backdrop-blur px-3 md:px-4">
+        <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
           <MasterNavigationDrawer inHeader />
           <h1 className="text-xl font-bold tracking-tight text-midnight-ink">PRODUCT SHEET</h1>
         </div>
-        <div className="flex gap-1.5 items-center">
-          {backendMode && (
-            <span
-              className={`px-2 py-1 rounded text-[11px] font-semibold border ${
-                backendMode === 'DEPLOYED'
-                  ? 'bg-success/10 text-success-dark border-success/30'
-                  : 'bg-danger/10 text-danger-dark border-danger/30'
-              }`}
-            >
-              Backend: {backendMode}
-            </span>
-          )}
-          <DateTimeStamp className="mr-1 text-xs" />
-          {skuParam ? (
-            <>
-              <button onClick={() => router.push('/master-product-sheet')} className="w-fit px-3 h-8 text-sm bg-midnight-ink text-white font-semibold rounded-full shadow-sm hover:bg-midnight-ink/90">
-                ← BACK
-              </button>
-              {isViewMode ? (
-                <button onClick={() => setIsViewMode(false)} className="w-fit px-3 h-8 text-sm bg-trust-blue text-white font-semibold rounded-full shadow-sm hover:bg-deep-blue flex items-center gap-1">
-                  <Edit3 className="h-3.5 w-3.5" />
-                  EDIT
-                </button>
-              ) : (
-                <button onClick={handleSaveProduct} disabled={isSaving} className="w-fit px-3 h-8 text-sm bg-success text-white font-semibold rounded-full shadow-sm hover:bg-success/90 disabled:opacity-50 disabled:cursor-not-allowed">{isSaving ? 'Saving...' : 'SAVE'}</button>
-              )}
-              <button onClick={handleDeleteProduct} disabled={isSaving} className="w-fit px-3 h-8 text-sm bg-danger text-white font-semibold rounded-full shadow-sm hover:bg-danger/90 disabled:opacity-50 disabled:cursor-not-allowed">DELETE</button>
-            </>
-          ) : (
-            <>
-              <button onClick={handleEditProduct} className="w-fit px-3 h-8 text-sm bg-trust-blue text-white font-semibold rounded-full shadow-sm hover:bg-deep-blue flex items-center gap-1">
-                <Edit3 className="h-3.5 w-3.5" />
-                EDIT
-              </button>
-              <button onClick={handleAddProduct} className="w-fit px-3 h-8 text-sm bg-trust-blue text-white font-semibold rounded-full shadow-sm hover:bg-deep-blue">+ ADD PRODUCT</button>
-              <button onClick={handleSaveProduct} disabled={isSaving} className="w-fit px-3 h-8 text-sm bg-success text-white font-semibold rounded-full shadow-sm hover:bg-success/90 disabled:opacity-50 disabled:cursor-not-allowed">{isSaving ? 'Saving...' : 'SAVE'}</button>
-              <button onClick={handleDeleteProduct} disabled={isSaving} className="w-fit px-3 h-8 text-sm bg-danger text-white font-semibold rounded-full shadow-sm hover:bg-danger/90 disabled:opacity-50 disabled:cursor-not-allowed">DELETE</button>
-            </>
-          )}
+        <div className="flex gap-3 items-center">
+          <DateTimeStamp />
+          <button onClick={handleAddProduct} className="w-fit px-3 h-8 text-sm bg-trust-blue text-white font-semibold rounded-full shadow-sm hover:bg-deep-blue">+ ADD PRODUCT</button>
+          <button onClick={handleSaveToGoogleSheets} disabled={isSaving} className="w-fit px-3 h-8 text-sm bg-success text-white font-semibold rounded-full shadow-sm hover:bg-success/90 disabled:opacity-50 disabled:cursor-not-allowed">{isSaving ? 'Saving...' : 'SAVE'}</button>
+          <button onClick={handleDeleteFromGoogleSheets} disabled={isSaving} className="w-fit px-3 h-8 text-sm bg-danger text-white font-semibold rounded-full shadow-sm hover:bg-danger/90 disabled:opacity-50 disabled:cursor-not-allowed">DELETE</button>
           {saveStatus && (
             <div className={`text-sm px-2 py-1 rounded-md ${saveStatus.success ? 'bg-success/10 text-success-dark border border-success/30' : 'bg-danger/10 text-danger-dark border border-danger/30'}`}>
               {saveStatus.message}
@@ -1163,81 +1125,10 @@ function ProductSheetContent() {
             </button>
           )}
         </div>
+        </div>
       </div>
 
-      {/* Edit Product Search Dialog */}
-      {isEditDialogOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 max-h-[80vh] flex flex-col">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-soft-border">
-              <h2 className="text-lg font-bold text-midnight-ink">Edit Product</h2>
-              <button onClick={() => setIsEditDialogOpen(false)} className="p-1 rounded-full hover:bg-cloud-gray">
-                <X className="h-5 w-5 text-cool-gray" />
-              </button>
-            </div>
-            <div className="px-5 py-4">
-              <p className="text-sm text-cool-gray mb-3">Search by Master SKU, SKU, or product name:</p>
-              <div className="flex gap-2">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-cool-gray" />
-                  <input
-                    type="text"
-                    placeholder="Enter Master SKU or SKU..."
-                    value={editSearchTerm}
-                    onChange={(e) => setEditSearchTerm(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === 'Enter') handleEditSearch() }}
-                    className="w-full border border-soft-border rounded-lg pl-9 pr-3 h-10 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue/40"
-                    autoFocus
-                  />
-                </div>
-                <button
-                  onClick={handleEditSearch}
-                  disabled={isEditSearching || !editSearchTerm.trim()}
-                  className="px-4 h-10 bg-trust-blue text-white text-sm font-semibold rounded-lg hover:bg-deep-blue disabled:opacity-50"
-                >
-                  {isEditSearching ? 'Searching...' : 'Search'}
-                </button>
-              </div>
-            </div>
-            <div className="flex-1 overflow-y-auto px-5 pb-5">
-              {editSearchResults.length === 0 && !isEditSearching && editSearchTerm.trim() && (
-                <p className="text-sm text-cool-gray text-center py-6">No products found. Try a different search term.</p>
-              )}
-              {editSearchResults.length > 0 && (
-                <div className="space-y-2">
-                  {editSearchResults.map((product) => (
-                    <button
-                      key={product.id}
-                      onClick={() => handleSelectProductForEdit(product)}
-                      className="w-full text-left p-3 border border-soft-border rounded-lg hover:bg-trust-blue/5 hover:border-trust-blue/40 transition-colors"
-                    >
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-sm font-semibold text-midnight-ink">{product.sku}</p>
-                          <p className="text-xs text-cool-gray">{product.name || 'Unnamed product'}</p>
-                        </div>
-                        <div className="text-right">
-                          {product.master_sku && product.master_sku !== product.sku && (
-                            <p className="text-xs text-cool-gray">Master: {product.master_sku}</p>
-                          )}
-                          <p className="text-xs text-cool-gray">{product.category || ''}</p>
-                        </div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {isViewMode && (
-        <div className="fixed top-[52px] left-0 right-0 z-[65] bg-amber-50 border-b border-amber-300 px-4 py-1.5 text-center text-xs font-semibold text-amber-800">
-          👁 Viewing <strong>{sku}</strong> — click <strong>Edit</strong> to make changes
-        </div>
-      )}
-      <div className={`flex-1 transition-all duration-300 px-3 md:px-4 pb-3 ${isViewMode ? 'pt-24 pointer-events-none select-none opacity-80' : 'pt-16'}`}>
+      <div className="flex-1 pt-[60px] px-2 pb-2 transition-all duration-300">
       {/* Top Section - Product Details & Variations Combined */}
       <div className="bg-cloud-gray p-1.5 rounded-xl mb-2 border border-soft-border shadow-sm">
         <div className="flex gap-2 h-auto">
@@ -2888,6 +2779,9 @@ function ProductSheetContent() {
         </div>
       )}
       </div>
+
+
+
       <CreateJobModal 
         open={isCreateJobModalOpen}
         onOpenChange={setIsCreateJobModalOpen}
