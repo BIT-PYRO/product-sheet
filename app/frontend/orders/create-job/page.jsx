@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Search, X, Pencil, ChevronRight, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -77,6 +78,8 @@ function EditableRow({ label, value, inputValue, onInputChange, placeholder }) {
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function CreateJobPage() {
+  const router = useRouter();
+  
   // Order items
   const [orderItems, setOrderItems] = useState([]);
 
@@ -125,13 +128,17 @@ export default function CreateJobPage() {
     setProductsLoading(true);
     try {
       const res = await fetch('/api/products', { cache: 'no-store' });
+      if (!res.ok) {
+        throw new Error(`API error: ${res.status}`);
+      }
       const json = await res.json().catch(() => null);
       const list =
         Array.isArray(json?.data?.results) ? json.data.results :
         Array.isArray(json?.data) ? json.data :
         Array.isArray(json?.results) ? json.results : [];
       setProducts(list);
-    } catch {
+    } catch (error) {
+      console.error('Failed to load products:', error);
       setProducts([]);
     } finally {
       setProductsLoading(false);
@@ -142,14 +149,17 @@ export default function CreateJobPage() {
   const loadCustomers = useCallback(async () => {
     try {
       const res = await fetch('/api/save-to-sheets', { method: 'GET', cache: 'no-store' });
-      if (res.ok) {
+      if (!res.ok) {
+        console.warn('Could not load customers:', res.status);
+      } else {
         const data = await res.json().catch(() => null);
         const list =
           Array.isArray(data?.customerData) ? data.customerData :
           Array.isArray(data?.kycData) ? data.kycData : [];
         setCustomers(list);
       }
-    } catch {
+    } catch (error) {
+      console.error('Failed to load customers:', error);
       setCustomers([]);
     }
   }, []);
@@ -275,16 +285,32 @@ export default function CreateJobPage() {
     setOrderMessage({ type: '', text: '' });
 
     try {
-      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_BASE_URL || 'http://127.0.0.1:8000';
-      const response = await fetch(`${backendUrl}/api/v1/orders/`, {
+      // Map frontend items to the shape the backend serializer expects
+      const apiItems = orderItems.map((item) => ({
+        name: item.name,
+        sku: item.sku || '',
+        price: String(item.price),
+        quantity: item.quantity,
+        taxable: item.taxable ?? true,
+        images: item.images || [],
+        note: item.note || '',
+      }));
+
+      const response = await fetch('/api/orders', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        credentials: 'include',
         body: JSON.stringify({
-          customer: selectedCustomer?.id || null,
-          items: orderItems,
+          customer_id: selectedCustomer?.id || null,
+          customer_name: selectedCustomer?.companyName || selectedCustomer?.authorizedPersonName || selectedCustomer?.firstName || '',
+          customer_email: selectedCustomer?.email || '',
+          customer_phone: selectedCustomer?.phone || '',
+          customer_address: selectedCustomer?.address || '',
+          customer_city: selectedCustomer?.city || '',
+          customer_state: selectedCustomer?.state || '',
+          customer_zip: selectedCustomer?.pinCode || '',
+          items: apiItems,
           discount: parseFloat(discount) || 0,
           shipping: parseFloat(shipping) || 0,
           notes: notes,
@@ -292,12 +318,16 @@ export default function CreateJobPage() {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || 'Failed to create order');
+        const errorData = await response.json().catch(() => null);
+        const msg =
+          errorData?.detail ||
+          errorData?.message ||
+          (errorData ? JSON.stringify(errorData) : `Server error ${response.status}`);
+        throw new Error(msg);
       }
 
       setOrderMessage({ type: 'success', text: 'Order created successfully!' });
-      // Reset form after success
+      // Reset form and redirect to order sheet after success
       setTimeout(() => {
         setOrderItems([]);
         setSelectedCustomer(null);
@@ -306,6 +336,7 @@ export default function CreateJobPage() {
         setDiscount('');
         setShipping('');
         setOrderMessage({ type: '', text: '' });
+        router.push('/orders/job-sheet');
       }, 2000);
     } catch (error) {
       setOrderMessage({ type: 'error', text: error.message || 'Error creating order' });
@@ -397,13 +428,27 @@ export default function CreateJobPage() {
                           )}
                         </td>
                         <td className="px-4 py-3 text-center">
-                          <input
-                            type="number"
-                            min="1"
-                            value={item.quantity}
-                            onChange={(e) => updateItemQty(item.id, parseInt(e.target.value) || 1)}
-                            className="w-16 text-center border border-input rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                          />
+                          <div className="flex items-center justify-center gap-2">
+                            <button
+                              onClick={() => updateItemQty(item.id, Math.max(1, item.quantity - 1))}
+                              className="flex items-center justify-center w-7 h-7 rounded border border-soft-border hover:bg-gray-100 transition-colors text-cool-gray hover:text-midnight-ink"
+                            >
+                              −
+                            </button>
+                            <input
+                              type="number"
+                              min="1"
+                              value={item.quantity}
+                              onChange={(e) => updateItemQty(item.id, parseInt(e.target.value) || 1)}
+                              className="w-12 text-center border border-input rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                            />
+                            <button
+                              onClick={() => updateItemQty(item.id, item.quantity + 1)}
+                              className="flex items-center justify-center w-7 h-7 rounded border border-soft-border hover:bg-gray-100 transition-colors text-cool-gray hover:text-midnight-ink"
+                            >
+                              +
+                            </button>
+                          </div>
                         </td>
                         <td className="px-4 py-3 text-right text-midnight-ink">
                           {fmt(item.price)}

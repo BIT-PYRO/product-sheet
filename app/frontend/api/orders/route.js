@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-const ORDERS_BACKEND_URL = (process.env.BACKEND_BASE_URL || 'https://product-sheet.onrender.com').replace(/\/$/, '');
+const ORDERS_BACKEND_URL = 'http://127.0.0.1:8000';
 
 export async function GET() {
   try {

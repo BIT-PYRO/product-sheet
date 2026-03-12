@@ -21,6 +21,13 @@ class Order(AuditModel):
         blank=True,
         help_text="Reference to customer ID from external CMS"
     )
+    customer_name = models.CharField(max_length=255, blank=True, default='')
+    customer_email = models.EmailField(blank=True, default='')
+    customer_phone = models.CharField(max_length=20, blank=True, default='')
+    customer_address = models.TextField(blank=True, default='')
+    customer_city = models.CharField(max_length=100, blank=True, default='')
+    customer_state = models.CharField(max_length=100, blank=True, default='')
+    customer_zip = models.CharField(max_length=20, blank=True, default='')
     status = models.CharField(
         max_length=30,
         choices=OrderStatus.choices,
