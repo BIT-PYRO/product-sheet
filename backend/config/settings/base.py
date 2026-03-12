@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     'kyc',
     'drafts',
     'orders',
+    'customers',
 ]
 
 MIDDLEWARE = [

@@ -14,6 +14,7 @@ const nextConfig = {
       { source: '/login', destination: '/frontend/login' },
       { source: '/drafts', destination: '/frontend/drafts' },
       { source: '/enrol-workforce', destination: '/frontend/enrol-workforce' },
+      { source: '/enrol-customer', destination: '/frontend/enrol-customer' },
       { source: '/managers-dashboard', destination: '/frontend/managers-dashboard' },
       { source: '/master-inventory-sheet', destination: '/frontend/master-inventory-sheet' },
       { source: '/master-job-sheet', destination: '/frontend/master-job-sheet' },
