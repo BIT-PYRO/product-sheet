@@ -111,59 +111,6 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground;
-    font-size: 16px;
-    line-height: 1.5;
+    @apply bg-background text-foreground text-base leading-normal;
   }
-}
-
-/* ── Fix autofill background ── */
-input:-webkit-autofill,
-input:-webkit-autofill:hover,
-input:-webkit-autofill:focus {
-  -webkit-box-shadow: 0 0 0 1000px white inset !important;
-  -webkit-text-fill-color: #111827 !important;
-}
-
-/* ── Disabled inputs ── */
-input:disabled,
-textarea:disabled,
-select:disabled {
-  cursor: not-allowed;
-  opacity: 0.7;
-  background-color: #F9FAFB !important;
-  border-color: #E5E7EB !important;
-  color: #6B7280 !important;
-}
-
-/* ── Hide number spinners ── */
-input[type="number"]::-webkit-outer-spin-button,
-input[type="number"]::-webkit-inner-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
-}
-input[type="number"] {
-  -moz-appearance: textfield;
-}
-
-/* ── Global input / button sizing (UI Guidelines 44px min) ── */
-@layer components {
-  input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([role]),
-  textarea,
-  select,
-  .min-h-touch {
-    min-height: 44px;
-  }
-}
-
-/* Keep all sheet table headers opaque so sticky headers don't visually overlap rows */
-table thead th {
-  --tw-bg-opacity: 1 !important;
-  backdrop-filter: none !important;
-  opacity: 1 !important;
-}
-
-/* Keep fixed sheet headers visible when the left navigation drawer is open */
-.sheet-fixed-header {
-  transition: left 0.3s ease, width 0.3s ease;
 }

@@ -601,7 +601,7 @@ function ProductSheetContent() {
     }
     
     return (<div className="relative min-h-screen bg-cloud-gray flex flex-col text-midnight-ink overflow-x-hidden">
-      <div className="sheet-fixed-header fixed top-0 left-0 right-0 z-[70] flex justify-between items-center bg-white/95 backdrop-blur py-1 px-2 md:px-3 border-b border-soft-border shadow-sm transition-all duration-300">
+      <div className="transition-[left,width] duration-300 ease-in-out fixed top-0 left-0 right-0 z-[70] flex justify-between items-center bg-white/95 backdrop-blur py-1 px-2 md:px-3 border-b border-soft-border shadow-sm">
         <div className="flex items-center gap-2">
           <button onClick={() => setIsDashboardOpen(!isDashboardOpen)} className="h-8 w-8 border-2 border-midnight-ink bg-white rounded hover:bg-cloud-gray transition-colors shadow-sm inline-flex items-center justify-center">
             <LayoutDashboard className="h-4 w-4 text-midnight-ink" />

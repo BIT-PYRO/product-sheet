@@ -8,6 +8,7 @@ instrumentation-client.ts
 # ── Frontend (Next.js) ──────────────────────────────────────
 node_modules/
 frontend/node_modules/
+.next/
 frontend/.next/
 frontend/.env.local
 frontend/.env*.local

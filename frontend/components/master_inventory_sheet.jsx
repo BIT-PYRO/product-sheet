@@ -776,7 +776,7 @@ export default function MasterInventorySheet() {
       </Dialog>
 
       <div className="pt-16 px-3 md:px-4 pb-3 md:pb-4">
-        <div className="sheet-fixed-header fixed top-0 left-0 right-0 z-[60] bg-white/95 py-2 border-b border-soft-border shadow-sm backdrop-blur px-3 md:px-4">
+        <div className="transition-[left,width] duration-300 ease-in-out fixed top-0 left-0 right-0 z-[60] bg-white/95 py-2 border-b border-soft-border shadow-sm backdrop-blur px-3 md:px-4">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <MasterNavigationDrawer inHeader />
