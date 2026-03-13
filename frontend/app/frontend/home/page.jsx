@@ -10,21 +10,21 @@ import DateTimeStamp from '@/components/date-time-stamp';
 import { Search, X, ArrowRight } from 'lucide-react';
 
 const SHEET_BLOCKS = [
-  { href: '/', title: 'Product Sheet', subtitle: 'Product entry and live stock form' },
-  { href: '/master-product-sheet', title: 'Master Product Sheet', subtitle: 'All product records' },
-  { href: '/master-inventory-sheet', title: 'Master Inventory Sheet', subtitle: 'Live stock and final stock' },
-  {href: '/enrol-customer', title: 'Enroll Customer', subtitle: 'Customer entry form' },
-  { href: '/master-customer-sheet', title: 'Master Customer Sheet', subtitle: 'Customer records and details' },
-  { href: '/master-kyc-sheet', title: 'Master KYC Sheet', subtitle: 'Company KYC records' },
-  { href: '/enrol-workforce', title: 'Enroll Workforce', subtitle: 'Workforce onboarding form' },
-  { href: '/master-workforce-sheet', title: 'Master Workforce Sheet', subtitle: 'Workforce records' },
-  { href: '/master-job-sheet', title: 'Master Job Sheet', subtitle: 'Job master data' },
-  { href: '/managers-dashboard', title: 'Managers Dashboard', subtitle: 'Manager view and job cards' },
-  { href: '/drafts', title: 'Drafts', subtitle: 'View and load saved drafts' },
-  { href: '/orders', title: 'Orders', subtitle: 'Create and manage job orders' },
-  { href: '#my-desk', title: 'My Desk', subtitle: 'Coming soon' },
-  { href: '#dummy-1', title: 'Dummy Button', subtitle: 'Coming soon' },
-  { href: '#dummy-2', title: 'Dummy Button', subtitle: 'Coming soon' },
+  { href: '/', title: 'Product Sheet', subtitle: 'Product entry and live stock form', keywords: ['sku', 'product', 'stock', 'listing', 'material', 'weight', 'variation', 'stone', 'image', 'live stock', 'final stock', 'entry'] },
+  { href: '/master-product-sheet', title: 'Master Product Sheet', subtitle: 'All product records', keywords: ['sku', 'product', 'records', 'all products', 'listing', 'master'] },
+  { href: '/master-inventory-sheet', title: 'Master Inventory Sheet', subtitle: 'Live stock and final stock', keywords: ['inventory', 'stock', 'live stock', 'final stock', 'quantity', 'master'] },
+  { href: '/enrol-customer', title: 'Enroll Customer', subtitle: 'Customer entry form', keywords: ['customer', 'enroll', 'client', 'onboard', 'new customer', 'buyer', 'phone', 'contact'] },
+  { href: '/master-customer-sheet', title: 'Master Customer Sheet', subtitle: 'Customer records and details', keywords: ['customer', 'records', 'clients', 'details', 'master', 'buyer'] },
+  { href: '/master-kyc-sheet', title: 'Master KYC Sheet', subtitle: 'Company KYC records', keywords: ['kyc', 'know your customer', 'company', 'verification', 'documents', 'gst', 'pan', 'aadhar'] },
+  { href: '/enrol-workforce', title: 'Enroll Workforce', subtitle: 'Workforce onboarding form', keywords: ['workforce', 'worker', 'employee', 'enroll', 'onboard', 'staff', 'labour', 'department', 'designation', 'hr'] },
+  { href: '/master-workforce-sheet', title: 'Master Workforce Sheet', subtitle: 'Workforce records', keywords: ['workforce', 'worker', 'employee', 'staff', 'records', 'master', 'labour'] },
+  { href: '/master-job-sheet', title: 'Master Job Sheet', subtitle: 'Job master data', keywords: ['job', 'work order', 'task', 'assignment', 'master', 'job card'] },
+  { href: '/managers-dashboard', title: 'Managers Dashboard', subtitle: 'Manager view and job cards', keywords: ['manager', 'dashboard', 'job cards', 'overview', 'manage', 'admin'] },
+  { href: '/drafts', title: 'Drafts', subtitle: 'View and load saved drafts', keywords: ['draft', 'saved', 'pending', 'resume', 'incomplete', 'continue'] },
+  { href: '/orders', title: 'Orders', subtitle: 'Create and manage job orders', keywords: ['order', 'job order', 'manage orders', 'create order', 'dispatch'] },
+  { href: '#my-desk', title: 'My Desk', subtitle: 'Coming soon', keywords: ['desk', 'personal', 'my work'] },
+  { href: '#dummy-1', title: 'Dummy Button', subtitle: 'Coming soon', keywords: [] },
+  { href: '#dummy-2', title: 'Dummy Button', subtitle: 'Coming soon', keywords: [] },
 ];
 
 export default function HomePage() {
@@ -149,22 +149,6 @@ export default function HomePage() {
 
     loadSession();
   }, [router]);
-
-  // Listen for profile photo updates from the profile page
-  useEffect(() => {
-    function onPhotoUpdated(e) {
-      setProfilePhoto(e.detail?.photo || null);
-    }
-    window.addEventListener('profile_photo_updated', onPhotoUpdated);
-    return () => window.removeEventListener('profile_photo_updated', onPhotoUpdated);
-  }, []);
-
-  function getInitials() {
-    const f = userInfo?.first_name?.[0] || '';
-    const l = userInfo?.last_name?.[0] || '';
-    if (f || l) return (f + l).toUpperCase();
-    return (userInfo?.username || username)?.[0]?.toUpperCase() || '?';
-  }
 
   useEffect(() => {
     function handleClickOutside(e) {
