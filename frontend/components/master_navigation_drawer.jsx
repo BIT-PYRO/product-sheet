@@ -41,6 +41,7 @@ export default function MasterNavigationDrawer({ inHeader = false }) {
         onClick={() => setIsOpen(true)}
         className={dashboardButtonClass}
         aria-label="Open dashboard"
+        suppressHydrationWarning
       >
         <LayoutDashboard className="h-5 w-5 text-midnight-ink" />
       </button>
@@ -77,6 +78,7 @@ export default function MasterNavigationDrawer({ inHeader = false }) {
                     onClick={handleClose}
                     className="p-1 hover:bg-cloud-gray rounded"
                     aria-label="Close dashboard"
+                    suppressHydrationWarning
                   >
                     <X className="h-5 w-5" />
                   </button>
