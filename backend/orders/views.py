@@ -18,9 +18,7 @@ class OrderViewSet(viewsets.ModelViewSet):
         return OrderDetailSerializer
 
     def get_queryset(self):
-        """Return all orders (filtered by user if authenticated)"""
-        if self.request.user and self.request.user.is_authenticated:
-            return Order.objects.filter(created_by=self.request.user).prefetch_related('items')
+        """Return all orders so team members can view shared order details."""
         return Order.objects.all().prefetch_related('items')
 
     def create(self, request, *args, **kwargs):

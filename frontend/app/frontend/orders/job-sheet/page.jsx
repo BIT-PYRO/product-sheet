@@ -45,7 +45,7 @@ export default function JobSheetPage() {
   const [visibleDetailFields, setVisibleDetailFields] = useState(new Set(PRODUCT_DETAIL_FIELDS.map((field) => field.key)));
   const [selectedDetailFields, setSelectedDetailFields] = useState(new Set());
   const [showPasswordDialog, setShowPasswordDialog] = useState(false);
-  const [customerDetailsUnlocked, setCustomerDetailsUnlocked] = useState(false);
+  const [customerDetailsUnlocked, setCustomerDetailsUnlocked] = useState(true);
   const [passwordInput, setPasswordInput] = useState('');
   const [passwordError, setPasswordError] = useState('');
 
@@ -316,7 +316,6 @@ export default function JobSheetPage() {
                         key={order.id}
                         onClick={() => {
                           setSelectedOrder(order);
-                          setCustomerDetailsUnlocked(false);
                         }}
                         className={`hover:bg-gradient-to-r hover:from-blue-50/40 hover:to-transparent transition-all cursor-pointer group border-l-4 ${
                           selectedOrder?.id === order.id
@@ -413,12 +412,6 @@ export default function JobSheetPage() {
                     <div className="p-3 rounded-lg bg-gradient-to-br from-slate-50/90 to-blue-50/50 border border-slate-300/40 shadow-sm animate-fade-in">
                       <div className="flex items-center justify-between mb-2">
                         <h3 className="font-bold text-midnight-ink text-xs uppercase tracking-wide">Customer Details</h3>
-                        <button
-                          onClick={() => setCustomerDetailsUnlocked(false)}
-                          className="text-xs text-slate-500 hover:text-midnight-ink transition-colors underline"
-                        >
-                          Lock
-                        </button>
                       </div>
                       <div className="grid grid-cols-2 gap-2.5">
                         {[
