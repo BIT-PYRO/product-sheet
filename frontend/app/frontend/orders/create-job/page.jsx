@@ -7,6 +7,7 @@ import { Search, X, Pencil, ChevronRight, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
+import { useDrafts, useDraftLoader } from '@/components/drafts-manager';
 import {
   Dialog,
   DialogContent,
@@ -79,6 +80,8 @@ function EditableRow({ label, value, inputValue, onInputChange, placeholder }) {
 
 export default function CreateJobPage() {
   const router = useRouter();
+  const { saveDraft } = useDrafts();
+  const loadedDraft = useDraftLoader();
   
   // Order items
   const [orderItems, setOrderItems] = useState([]);
@@ -119,6 +122,16 @@ export default function CreateJobPage() {
     city: '', state: '', pinCode: '', phone: '',
   });
   const customerContainerRef = useRef(null);
+
+  const applyDraftData = useCallback((draft) => {
+    if (!draft) return;
+    setOrderItems(Array.isArray(draft.orderItems) ? draft.orderItems : []);
+    setSelectedCustomer(draft.selectedCustomer || null);
+    setCustomerSearch(draft.customerSearch || '');
+    setNotes(draft.notes || '');
+    setDiscount(draft.discount || '');
+    setShipping(draft.shipping || '');
+  }, []);
 
 
 
@@ -180,6 +193,25 @@ export default function CreateJobPage() {
   }, []);
 
   useEffect(() => { loadCustomers(); }, [loadCustomers]);
+
+  useEffect(() => {
+    if (loadedDraft?.section === 'Create Order' && loadedDraft?.data) {
+      applyDraftData(loadedDraft.data);
+    }
+  }, [loadedDraft, applyDraftData]);
+
+  useEffect(() => {
+    const draftFromSession = sessionStorage.getItem('create_order_draft_to_load');
+    if (!draftFromSession) return;
+    try {
+      const parsed = JSON.parse(draftFromSession);
+      applyDraftData(parsed);
+    } catch (error) {
+      console.error('Failed to load create order draft:', error);
+    } finally {
+      sessionStorage.removeItem('create_order_draft_to_load');
+    }
+  }, [applyDraftData]);
 
   // ── Close customer dropdown on outside click ───────────────────────────────
   useEffect(() => {
@@ -286,6 +318,26 @@ export default function CreateJobPage() {
     setSelectedCustomer(c);
     setCustomerSearch(c.companyName || c.authorizedPersonName || c.email || '');
     setCustomerDropdownOpen(false);
+  }
+
+  function handleSaveDraft() {
+    const draftData = {
+      title: selectedCustomer?.companyName
+        ? `Create Order - ${selectedCustomer.companyName}`
+        : 'Create Order Draft',
+      selectedCustomer,
+      customerSearch,
+      orderItems,
+      discount,
+      shipping,
+      notes,
+      itemsCount: orderItems.length,
+      total: total.toFixed(2),
+    };
+
+    saveDraft('Create Order', `draft_create_order_${Date.now()}`, draftData);
+    setOrderMessage({ type: 'success', text: 'Draft saved successfully' });
+    setTimeout(() => setOrderMessage({ type: '', text: '' }), 2200);
   }
 
   // Create order
@@ -681,7 +733,14 @@ export default function CreateJobPage() {
             {orderMessage.text}
           </div>
         )}
-        <div className="flex justify-center">
+        <div className="flex justify-center gap-3">
+          <Button
+            variant="outline"
+            onClick={handleSaveDraft}
+            className="px-8 py-2.5 font-semibold"
+          >
+            Save to draft
+          </Button>
           <Button
             onClick={handleCreateOrder}
             disabled={isCreatingOrder || orderItems.length === 0}

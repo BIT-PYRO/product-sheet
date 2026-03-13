@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { CreateJobModal } from '@/components/create-job-modal'
 import { QuickEnrollModal } from '@/components/quick-enroll-modal'
@@ -9,7 +10,7 @@ import { EnrolWorkforceForm } from '@/app/frontend/enrol-workforce/page'
 
 const DRAFTS_STORAGE_KEY = 'form_drafts'
 
-const SECTIONS = ['Create Job', 'Enroll Workforce', 'Quick Enroll']
+const SECTIONS = ['Create Job', 'Create Order', 'Enroll Workforce', 'Quick Enroll']
 
 const getAddressText = (address) => {
   if (!address) return ''
@@ -43,6 +44,14 @@ const TABLE_CONFIG = {
     { key: 'stoneRows', label: 'Stone Rows', getValue: (draft) => draft.stoneRows },
     { key: 'dieWeightRows', label: 'Die/Weight Rows', getValue: (draft) => draft.dieWeightRows },
     { key: 'noteByIssuer', label: 'Note', getValue: (draft) => draft.noteByIssuer },
+    { key: 'savedAt', label: 'Saved At', getValue: (draft) => draft.savedAt },
+  ],
+  'Create Order': [
+    { key: 'title', label: 'Title', getValue: (draft) => draft.title },
+    { key: 'customerName', label: 'Customer', getValue: (draft) => draft.selectedCustomer?.companyName || draft.selectedCustomer?.authorizedPersonName || draft.customerSearch },
+    { key: 'itemsCount', label: 'Items', getValue: (draft) => draft.itemsCount },
+    { key: 'total', label: 'Total', getValue: (draft) => draft.total ? `INR ${draft.total}` : '' },
+    { key: 'notes', label: 'Notes', getValue: (draft) => draft.notes },
     { key: 'savedAt', label: 'Saved At', getValue: (draft) => draft.savedAt },
   ],
   'Enroll Workforce': [
@@ -79,6 +88,7 @@ const TABLE_CONFIG = {
 }
 
 export default function DraftsPage() {
+  const router = useRouter()
   const [drafts, setDrafts] = useState({})
   const [activeSection, setActiveSection] = useState(null)
   const [isCreateJobOpen, setIsCreateJobOpen] = useState(false)
@@ -116,6 +126,12 @@ export default function DraftsPage() {
   }
 
   const handleContinueDraft = (section, draft) => {
+    if (section === 'Create Order') {
+      sessionStorage.setItem('create_order_draft_to_load', JSON.stringify(draft))
+      router.push('/orders/create-job')
+      return
+    }
+
     if (section === 'Enroll Workforce') {
       setWorkforceDraftData(draft)
       setIsEnrollWorkforceOpen(true)
