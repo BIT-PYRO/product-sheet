@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { RefreshCw, ChevronRight, ArrowLeft } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 
 const fmt = (n) => `₹${Number(n).toFixed(2)}`;
 

@@ -1,17 +1,32 @@
 'use client';
 
 import Link from 'next/link';
+import MasterNavigationDrawer from '@/components/master_navigation_drawer';
+import { House } from 'lucide-react';
 
 export default function OrdersPage() {
   return (
-    <main className="min-h-screen bg-cloud-gray p-4 md:p-8">
-      <div className="max-w-6xl mx-auto">
+    <main className="min-h-screen bg-cloud-gray">
+      <div className="transition-[left,width] duration-300 ease-in-out fixed top-0 left-0 right-0 z-[60] bg-white/95 py-2 border-b border-soft-border shadow-sm backdrop-blur px-3 md:px-4">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <MasterNavigationDrawer inHeader />
+            <Link
+              href="/home"
+              className="inline-flex items-center gap-2 rounded-lg border border-soft-border bg-white px-3 py-2 text-sm font-medium text-midnight-ink hover:bg-slate-50 transition-colors"
+            >
+              <House className="h-4 w-4" />
+              Home
+            </Link>
+            <h1 className="text-xl font-bold tracking-tight text-midnight-ink">ORDERS</h1>
+          </div>
+          <div />
+        </div>
+      </div>
+
+      <div className="max-w-6xl mx-auto px-4 md:px-8 pt-20 pb-8">
         <div className="mb-8">
-          <Link href="/home" className="text-sm text-trust-blue hover:underline">
-            ← Back to Home
-          </Link>
-          <h1 className="text-3xl font-bold text-midnight-ink mt-3">Orders</h1>
-          <p className="text-base text-cool-gray mt-2">Create and manage orders</p>
+          <p className="text-base text-cool-gray">Create and manage orders</p>
         </div>
 
         <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">

@@ -27,7 +27,3 @@ backend/celerybeat-schedule.*
 # ── General ─────────────────────────────────────────────────
 .DS_Store
 .venv/
-
-# ── Old root-level env (in case leftover) ───────────────────
-.env
-.env*.local

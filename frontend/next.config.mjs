@@ -16,6 +16,7 @@ const nextConfig = {
       { source: '/enrol-workforce', destination: '/frontend/enrol-workforce' },
       { source: '/enrol-customer', destination: '/frontend/enrol-customer' },
       { source: '/managers-dashboard', destination: '/frontend/managers-dashboard' },
+      { source: '/company-kyc', destination: '/frontend/company-kyc' },
       { source: '/master-inventory-sheet', destination: '/frontend/master-inventory-sheet' },
       { source: '/master-job-sheet', destination: '/frontend/master-job-sheet' },
       { source: '/master-kyc-sheet', destination: '/frontend/master-kyc-sheet' },

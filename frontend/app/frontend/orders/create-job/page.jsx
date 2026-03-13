@@ -311,7 +311,7 @@ export default function CreateJobPage() {
         note: item.note || '',
       }));
 
-      const response = await fetch('/api/orders', {
+      const response = await fetch('/frontend/api/orders', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

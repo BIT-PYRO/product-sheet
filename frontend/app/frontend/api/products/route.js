@@ -1,18 +1,43 @@
-import { proxyAuthenticatedRequest } from '@/app/frontend/api/_lib/backend-auth';
+import { NextResponse } from 'next/server';
+
+const DEFAULT_BACKEND_URL = 'http://127.0.0.1:8000';
+
+function getBackendBaseUrl() {
+  return (process.env.BACKEND_BASE_URL || DEFAULT_BACKEND_URL).replace(/\/$/, '');
+}
 
 export async function GET(request) {
   const url = new URL(request.url);
   const search = url.search || '';
-  return proxyAuthenticatedRequest(request, `/api/v1/products/${search}`);
+
+  try {
+    const response = await fetch(`${getBackendBaseUrl()}/api/v1/products/${search}`, {
+      method: 'GET',
+      cache: 'no-store',
+    });
+
+    const data = await response.json().catch(() => null);
+    return NextResponse.json(data, { status: response.status });
+  } catch {
+    return NextResponse.json({ success: false, message: 'Backend unreachable' }, { status: 502 });
+  }
 }
 
 export async function POST(request) {
-  const body = await request.text();
-  return proxyAuthenticatedRequest(request, '/api/v1/products/', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body,
-  });
+  try {
+    const body = await request.text();
+    const response = await fetch(`${getBackendBaseUrl()}/api/v1/products/`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body,
+      cache: 'no-store',
+    });
+
+    const data = await response.json().catch(() => null);
+    return NextResponse.json(data, { status: response.status });
+  } catch {
+    return NextResponse.json({ success: false, message: 'Backend unreachable' }, { status: 502 });
+  }
 }
