@@ -169,7 +169,8 @@ export default function ManagersDashboard() {
           voucherNo: `JOB-${job.id}`,
           name: job.assignee || 'Unassigned',
           category: job.title,
-          qtyWeight: '-',
+          qty: job.quantity ?? '-',
+          weight: job.weight ?? '-',
           status: job.status,
         });
       });
@@ -200,17 +201,76 @@ export default function ManagersDashboard() {
     setIsManageColumnsOpen(true);
   };
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'New':
-        return 'bg-trust-blue/10 border-trust-blue/60';
-      case 'Work in Progress':
-        return 'bg-trust-blue/20 border-trust-blue';
-      case 'Completed':
-        return 'bg-success/10 border-success';
+  const getCardStyle = (bucket) => {
+    switch (bucket) {
+      case 'new':
+        return {
+          border: 'border-yellow-400',
+          header: 'bg-yellow-400',
+          headerText: 'text-yellow-900',
+          badge: 'bg-yellow-200 text-yellow-800',
+          label: 'New',
+        };
+      case 'wip':
+        return {
+          border: 'border-orange-500',
+          header: 'bg-orange-500',
+          headerText: 'text-white',
+          badge: 'bg-orange-200 text-orange-900',
+          label: 'WIP',
+        };
+      case 'completed':
+        return {
+          border: 'border-green-500',
+          header: 'bg-green-500',
+          headerText: 'text-white',
+          badge: 'bg-green-200 text-green-900',
+          label: 'Done',
+        };
       default:
-        return 'bg-cloud-gray border-soft-border';
+        return {
+          border: 'border-soft-border',
+          header: 'bg-cloud-gray',
+          headerText: 'text-midnight-ink',
+          badge: 'bg-cloud-gray text-slate-text',
+          label: '',
+        };
     }
+  };
+
+  const VoucherCard = ({ card, bucket }) => {
+    const s = getCardStyle(bucket);
+    return (
+      <div
+        onClick={() => handleCardClick(card)}
+        className={`border-2 ${s.border} rounded-lg overflow-hidden cursor-pointer hover:shadow-md transition-shadow`}
+      >
+        {/* Header row: Voucher No. | NEW/Reissue badge */}
+        <div className={`${s.header} flex items-center justify-between px-2 py-1`}>
+          <span className={`text-[11px] font-bold ${s.headerText} truncate`}>{card.voucherNo}</span>
+          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${s.badge} whitespace-nowrap`}>{s.label}</span>
+        </div>
+        {/* Name */}
+        <div className="bg-white border-t border-gray-200 px-2 py-1 text-center">
+          <span className="text-xs font-semibold text-midnight-ink truncate block">{card.name}</span>
+        </div>
+        {/* Category */}
+        <div className="bg-white border-t border-gray-200 px-2 py-1 text-center">
+          <span className="text-xs text-slate-text truncate block">{card.category}</span>
+        </div>
+        {/* QTY | WT */}
+        <div className="bg-white border-t border-gray-200 flex divide-x divide-gray-200">
+          <div className="flex-1 px-2 py-1 text-center">
+            <span className="text-[10px] text-cool-gray block leading-tight">QTY</span>
+            <span className="text-xs font-semibold text-midnight-ink">{card.qty ?? '-'}</span>
+          </div>
+          <div className="flex-1 px-2 py-1 text-center">
+            <span className="text-[10px] text-cool-gray block leading-tight">WT</span>
+            <span className="text-xs font-semibold text-midnight-ink">{card.weight ?? '-'}</span>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   const calculateTotal = (processData) => {
@@ -501,77 +561,20 @@ export default function ManagersDashboard() {
               {processColumns.map((column) => 
                 visibleColumns.has(column) && (
                   <td key={column} className="border-2 border-soft-border p-3 align-top min-h-[400px]">
-                  <div className="space-y-3">
+                  <div className="space-y-2.5">
                     {/* New Cards */}
                     {jobCardsData[column].new.map((card, idx) => (
-                      <div
-                        key={`new-${idx}`}
-                        onClick={() => handleCardClick(card)}
-                        className="bg-trust-blue/10 border-2 border-trust-blue/60 rounded-lg p-3 cursor-pointer hover:shadow-lg transition-shadow"
-                      >
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-1">
-                            <span className="text-sm font-bold text-slate-text">Voucher No.: {card.voucherNo}</span>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <span className="text-sm font-bold text-slate-text">Name: {card.name}</span>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <span className="text-sm font-bold text-slate-text">Title: {card.category}</span>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <span className="text-sm font-bold text-slate-text">Total Qty & Weight: {card.qtyWeight}</span>
-                          </div>
-                        </div>
-                      </div>
+                      <VoucherCard key={`new-${idx}`} card={card} bucket="new" />
                     ))}
 
                     {/* Work in Progress Cards */}
                     {jobCardsData[column].wip.map((card, idx) => (
-                      <div
-                        key={`wip-${idx}`}
-                        onClick={() => handleCardClick(card)}
-                        className="bg-trust-blue/20 border-2 border-trust-blue rounded-lg p-3 cursor-pointer hover:shadow-lg transition-shadow"
-                      >
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-1">
-                            <span className="text-sm font-bold text-slate-text">Voucher No.: {card.voucherNo}</span>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <span className="text-sm font-bold text-slate-text">Name: {card.name}</span>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <span className="text-sm font-bold text-slate-text">Title: {card.category}</span>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <span className="text-sm font-bold text-slate-text">Total Qty & Weight: {card.qtyWeight}</span>
-                          </div>
-                        </div>
-                      </div>
+                      <VoucherCard key={`wip-${idx}`} card={card} bucket="wip" />
                     ))}
 
                     {/* Completed Cards */}
                     {jobCardsData[column].completed.map((card, idx) => (
-                      <div
-                        key={`completed-${idx}`}
-                        onClick={() => handleCardClick(card)}
-                        className="bg-success/10 border-2 border-success rounded-lg p-3 cursor-pointer hover:shadow-lg transition-shadow"
-                      >
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-1">
-                            <span className="text-sm font-bold text-slate-text">Voucher No.: {card.voucherNo}</span>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <span className="text-sm font-bold text-slate-text">Name: {card.name}</span>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <span className="text-sm font-bold text-slate-text">Title: {card.category}</span>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <span className="text-sm font-bold text-slate-text">Total Qty & Weight: {card.qtyWeight}</span>
-                          </div>
-                        </div>
-                      </div>
+                      <VoucherCard key={`completed-${idx}`} card={card} bucket="completed" />
                     ))}
                   </div>
                 </td>
@@ -590,7 +593,7 @@ export default function ManagersDashboard() {
 
       {/* Company KYC Modal */}
       <Dialog open={isKYCModalOpen} onOpenChange={setIsKYCModalOpen}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden p-0">
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden p-0 [&>button]:hidden">
           <DialogHeader className="sr-only">
             <DialogTitle>Company KYC Form</DialogTitle>
           </DialogHeader>

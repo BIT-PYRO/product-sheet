@@ -12,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Upload } from 'lucide-react';
+import { Upload, X } from 'lucide-react';
 
 export function CompanyKYCForm({ onClose }) {
   const [formData, setFormData] = useState({
@@ -151,7 +151,7 @@ export function CompanyKYCForm({ onClose }) {
 
   const labelClass = 'block text-xs font-semibold tracking-wide text-slate-600 uppercase mb-2';
   const fieldClass = 'w-full border-slate-300/80 bg-white/90 rounded-xl shadow-sm focus:border-trust-blue focus:ring-2 focus:ring-trust-blue/20 transition-all';
-  const sectionShellClass = 'rounded-2xl border border-slate-200/80 bg-gradient-to-b from-white to-slate-50/60 shadow-sm p-5 md:p-6';
+  const sectionShellClass = 'bg-white border-b border-slate-200 p-5 md:p-6';
 
   const DocumentUploadCard = ({ label, field }) => (
     <div
@@ -181,24 +181,19 @@ export function CompanyKYCForm({ onClose }) {
   );
 
   return (
-    <div className="w-full max-h-[90vh] overflow-y-auto bg-[radial-gradient(circle_at_top_right,_#dbeafe_0%,_#f8fafc_40%,_#ffffff_82%)]">
+    <div className="w-full max-h-[90vh] overflow-y-auto">
       {/* Header */}
-      <div className="bg-gradient-to-r from-slate-900 via-deep-blue to-trust-blue text-white p-6 md:p-8 rounded-t-2xl border-b border-white/20">
-        <div className="inline-flex items-center gap-2 rounded-full border border-white/30 bg-white/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider">
-          Verification Journey
-        </div>
-        <h1 className="text-2xl md:text-3xl font-bold mt-3">B2B Business KYC Form</h1>
-        <p className="text-blue-100 text-sm mt-2">Complete your business verification in 5 structured steps.</p>
-        <div className="mt-4 flex flex-wrap gap-2">
-          {['Company', 'Authorized Person', 'Bank', 'Documents', 'Declaration'].map((step, idx) => (
-            <span key={step} className="text-[11px] font-medium rounded-full px-2.5 py-1 bg-white/15 border border-white/25">
-              {idx + 1}. {step}
-            </span>
-          ))}
+      <div className="bg-gradient-to-r from-midnight-ink to-midnight-ink/90 text-white px-5 py-4 rounded-t-lg border-b border-white/10 flex items-center justify-between relative">
+        <div className="flex-1" />
+        <h1 className="text-lg font-bold tracking-widest uppercase">B2B Business KYC Form</h1>
+        <div className="flex-1 flex justify-end">
+          <button onClick={onClose} className="text-cool-gray hover:text-white transition-colors" aria-label="Close">
+            <X className="h-5 w-5" />
+          </button>
         </div>
       </div>
 
-      <div className="p-4 md:p-6 space-y-5 rounded-b-2xl">
+      <div className="space-y-4 p-0">
         
         {/* Section 1: Company Details */}
         <section className={sectionShellClass}>
@@ -447,17 +442,16 @@ export function CompanyKYCForm({ onClose }) {
         </section>
 
         {/* Action Buttons */}
-        <div className="sticky bottom-0 bg-white/95 backdrop-blur-sm rounded-xl border border-slate-200 px-4 py-3 flex gap-3 justify-end">
+        <div className="sticky bottom-0 bg-white border-t border-slate-200 px-4 py-3 flex gap-3">
           <Button
-            onClick={onClose}
-            variant="outline"
-            className="px-8 rounded-xl border-slate-300 hover:bg-slate-50"
+            onClick={() => alert('Draft saved!')}
+            className="flex-1 h-10 rounded-lg bg-trust-blue hover:bg-trust-blue/90 text-white font-semibold text-sm tracking-wide"
           >
-            Cancel
+            Save as Draft
           </Button>
           <Button
             onClick={handleSubmit}
-            className="bg-gradient-to-r from-trust-blue to-deep-blue hover:from-deep-blue hover:to-trust-blue text-white px-8 rounded-xl shadow-md"
+            className="flex-1 h-10 rounded-lg bg-midnight-ink hover:bg-midnight-ink/90 text-white font-bold text-sm tracking-widest uppercase"
           >
             Submit KYC
           </Button>
