@@ -122,6 +122,7 @@ SPECTACULAR_SETTINGS = {
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(minutes=env.int('ACCESS_TOKEN_MINUTES', default=30)),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=env.int('REFRESH_TOKEN_DAYS', default=7)),
+    'SIGNING_KEY': env('JWT_SIGNING_KEY', default='please-change-this-jwt-signing-key-32b'),
 }
 
 CORS_ALLOWED_ORIGINS = env.list('CORS_ALLOWED_ORIGINS', default=['http://localhost:3000'])
