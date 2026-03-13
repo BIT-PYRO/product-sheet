@@ -8,6 +8,7 @@ class InventoryTxnType(models.TextChoices):
 	IN = 'in', 'IN'
 	OUT = 'out', 'OUT'
 	ADJUST = 'adjust', 'ADJUST'
+	DEMAND = 'demand', 'DEMAND'
 
 
 class InventoryTransaction(AuditModel):

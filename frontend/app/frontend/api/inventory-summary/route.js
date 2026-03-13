@@ -8,12 +8,20 @@ function asArray(data) {
 
 function buildProductStockMap(products, transactions) {
   const qtyByProduct = new Map();
+  const demandByProduct = new Map();
 
   transactions.forEach((txn) => {
     const productId = txn?.product;
     if (!productId) return;
 
     const qty = Number(txn?.quantity || 0);
+
+    // Demand transactions are tracked separately; they do not affect stock balance.
+    if (txn?.txn_type === 'demand') {
+      demandByProduct.set(productId, (demandByProduct.get(productId) || 0) + qty);
+      return;
+    }
+
     const current = qtyByProduct.get(productId) || 0;
 
     if (txn?.txn_type === 'out') {
@@ -27,6 +35,7 @@ function buildProductStockMap(products, transactions) {
 
   return products.map((product) => {
     const currentStock = qtyByProduct.get(product.id) || 0;
+    const totalInDemand = demandByProduct.get(product.id) || 0;
     return {
       id: product.id,
       sku: product.sku || '',
@@ -69,6 +78,7 @@ function buildProductStockMap(products, transactions) {
           unit: 'pcs',
         },
       ],
+      totalInDemand,
     };
   });
 }
