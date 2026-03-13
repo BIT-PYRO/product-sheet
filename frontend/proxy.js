@@ -7,7 +7,7 @@ function isPublicAsset(pathname) {
   return /\.[^/]+$/.test(pathname);
 }
 
-export function middleware(request) {
+export function proxy(request) {
   const { pathname, search } = request.nextUrl;
   const hasAccessToken = Boolean(request.cookies.get(ACCESS_COOKIE)?.value);
   const hasRefreshToken = Boolean(request.cookies.get(REFRESH_COOKIE)?.value);

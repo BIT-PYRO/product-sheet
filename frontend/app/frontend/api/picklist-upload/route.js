@@ -87,9 +87,8 @@ async function parsePdf(file) {
   const arrayBuffer = await file.arrayBuffer();
   const buffer = Buffer.from(arrayBuffer);
 
-  // Dynamic import avoids a Next.js webpack issue where pdf-parse tries
-  // to load a test file at require() time.
-  const pdfParse = (await import('pdf-parse/lib/pdf-parse.js')).default;
+  // Import from the package entrypoint so Next/Turbopack can resolve exports.
+  const pdfParse = (await import('pdf-parse')).default;
   const { text } = await pdfParse(buffer);
 
   const items = parsePdfPicklistText(text);
