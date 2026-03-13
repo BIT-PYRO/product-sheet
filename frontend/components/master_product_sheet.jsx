@@ -28,6 +28,7 @@ import {
 import Link from 'next/link';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
 import DateTimeStamp from '@/components/date-time-stamp';
+import BulkUploadButton from '@/components/bulk-upload-button';
 
 export default function MasterProductSheet() {
   const PRODUCT_SHEET_SYNC_KEY = 'product_sheet_updated_at';
@@ -757,6 +758,7 @@ export default function MasterProductSheet() {
           >
             {isLoading ? 'Refreshing...' : 'Refresh'}
           </Button>
+          <BulkUploadButton sheetType="products" onComplete={loadProducts} />
           <Button 
             onClick={handleCreateProduct}
             className="bg-success hover:bg-success text-white rounded-full px-6"

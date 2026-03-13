@@ -1,0 +1,645 @@
+import { NextResponse } from 'next/server';
+import * as XLSX from 'xlsx';
+
+const ACCESS_COOKIE = 'psd-access-token';
+const REFRESH_COOKIE = 'psd-refresh-token';
+const DEFAULT_BACKEND_URL = 'https://product-sheet.onrender.com';
+
+function backendBaseUrl() {
+  return (process.env.BACKEND_BASE_URL || DEFAULT_BACKEND_URL).replace(/\/$/, '');
+}
+
+function normalizeKey(value) {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '');
+}
+
+function normalizeRow(row) {
+  return Object.entries(row || {}).reduce((accumulator, [key, value]) => {
+    accumulator[normalizeKey(key)] = typeof value === 'string' ? value.trim() : value;
+    return accumulator;
+  }, {});
+}
+
+function pickValue(row, aliases, fallback = '') {
+  for (const alias of aliases) {
+    const value = row[normalizeKey(alias)];
+    if (value !== undefined && value !== null && String(value).trim() !== '') {
+      return typeof value === 'string' ? value.trim() : value;
+    }
+  }
+  return fallback;
+}
+
+function toNumber(value, fallback = 0) {
+  const normalized = String(value ?? '')
+    .replace(/,/g, '')
+    .trim();
+
+  if (!normalized) {
+    return fallback;
+  }
+
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function toBoolean(value, fallback = true) {
+  const normalized = String(value ?? '').trim().toLowerCase();
+  if (!normalized) {
+    return fallback;
+  }
+  if (['true', '1', 'yes', 'active', 'approved'].includes(normalized)) {
+    return true;
+  }
+  if (['false', '0', 'no', 'inactive', 'rejected'].includes(normalized)) {
+    return false;
+  }
+  return fallback;
+}
+
+function errorMessageFromPayload(payload, fallback) {
+  if (!payload) {
+    return fallback;
+  }
+
+  if (typeof payload.message === 'string' && payload.message.trim()) {
+    return payload.message.trim();
+  }
+
+  if (typeof payload.error === 'string' && payload.error.trim()) {
+    return payload.error.trim();
+  }
+
+  if (Array.isArray(payload.error?.details) && payload.error.details.length > 0) {
+    return payload.error.details.join(', ');
+  }
+
+  if (payload.error?.details && typeof payload.error.details === 'object') {
+    const detailEntries = Object.entries(payload.error.details)
+      .map(([key, value]) => `${key}: ${Array.isArray(value) ? value.join(', ') : value}`);
+    if (detailEntries.length > 0) {
+      return detailEntries.join(' | ');
+    }
+  }
+
+  return fallback;
+}
+
+async function requestTokenRefresh(refreshToken) {
+  if (!refreshToken) {
+    return null;
+  }
+
+  const response = await fetch(`${backendBaseUrl()}/api/v1/auth/refresh/`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ refresh: refreshToken }),
+    cache: 'no-store',
+  });
+
+  const payload = await response.json().catch(() => null);
+  const access = payload?.data?.access;
+
+  if (!response.ok || !access) {
+    return null;
+  }
+
+  return access;
+}
+
+function createBackendClient(request) {
+  const accessToken = request.cookies.get(ACCESS_COOKIE)?.value || '';
+  const refreshToken = request.cookies.get(REFRESH_COOKIE)?.value || '';
+  let activeToken = accessToken;
+
+  const doFetch = async (path, options = {}) => {
+    const headers = {
+      ...(options.headers || {}),
+    };
+
+    if (activeToken) {
+      headers.Authorization = `Bearer ${activeToken}`;
+    }
+
+    return fetch(`${backendBaseUrl()}${path}`, {
+      method: options.method || 'GET',
+      headers,
+      body: options.body,
+      cache: 'no-store',
+    });
+  };
+
+  return {
+    async request(path, options = {}) {
+      let response = await doFetch(path, options);
+
+      if (response.status === 401 && refreshToken) {
+        const refreshedToken = await requestTokenRefresh(refreshToken);
+        if (refreshedToken) {
+          activeToken = refreshedToken;
+          response = await doFetch(path, options);
+        }
+      }
+
+      const isNoContent = response.status === 204 || response.status === 205;
+      const payload = isNoContent
+        ? null
+        : await response.json().catch(() => null);
+
+      return { response, payload };
+    },
+  };
+}
+
+async function parseUploadFile(file) {
+  const fileName = String(file?.name || '').toLowerCase();
+
+  if (fileName.endsWith('.json')) {
+    const text = await file.text();
+    const parsed = JSON.parse(text);
+    if (!Array.isArray(parsed)) {
+      throw new Error('JSON bulk uploads must contain an array of rows.');
+    }
+    return parsed.map((row) => normalizeRow(row));
+  }
+
+  const buffer = await file.arrayBuffer();
+  const workbook = XLSX.read(buffer, { type: 'array' });
+  const firstSheetName = workbook.SheetNames[0];
+
+  if (!firstSheetName) {
+    throw new Error('The uploaded file does not contain any sheets.');
+  }
+
+  const sheet = workbook.Sheets[firstSheetName];
+  const rows = XLSX.utils.sheet_to_json(sheet, { defval: '', raw: false });
+
+  if (!Array.isArray(rows) || rows.length === 0) {
+    throw new Error('The uploaded file does not contain any rows.');
+  }
+
+  return rows.map((row) => normalizeRow(row));
+}
+
+function summarizeResult(sheetLabel, createdCount, updatedCount, skippedCount, failures) {
+  const parts = [];
+
+  if (createdCount > 0) {
+    parts.push(`created ${createdCount}`);
+  }
+  if (updatedCount > 0) {
+    parts.push(`updated ${updatedCount}`);
+  }
+  if (skippedCount > 0) {
+    parts.push(`skipped ${skippedCount}`);
+  }
+
+  const failureCount = failures.length;
+  if (failureCount > 0) {
+    parts.push(`failed ${failureCount}`);
+  }
+
+  const base = parts.length > 0 ? parts.join(', ') : 'no rows processed';
+  const sample = failureCount > 0 ? ` First error: ${failures[0]}` : '';
+  return `${sheetLabel} bulk upload completed: ${base}.${sample}`;
+}
+
+function normalizeCustomerStatus(value) {
+  const normalized = String(value || '').trim().toLowerCase();
+  return normalized === 'inactive' ? 'inactive' : 'active';
+}
+
+function normalizeJobStatus(value) {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (['assigned', 'in_progress', 'completed', 'cancelled', 'created'].includes(normalized)) {
+    return normalized;
+  }
+  if (normalized === 'in progress') {
+    return 'in_progress';
+  }
+  return 'created';
+}
+
+function normalizeKycStatus(value) {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (['approved', 'rejected', 'pending'].includes(normalized)) {
+    return normalized;
+  }
+  return 'pending';
+}
+
+async function fetchCollection(client, path) {
+  const { response, payload } = await client.request(path);
+  if (!response.ok) {
+    throw new Error(errorMessageFromPayload(payload, `Failed to fetch ${path}`));
+  }
+  return Array.isArray(payload?.data)
+    ? payload.data
+    : Array.isArray(payload?.data?.results)
+      ? payload.data.results
+      : [];
+}
+
+async function uploadProducts(client, rows) {
+  const existingProducts = await fetchCollection(client, '/api/v1/products/');
+  const productBySku = new Map(
+    existingProducts.map((product) => [String(product.sku || '').trim().toUpperCase(), product])
+  );
+
+  let createdCount = 0;
+  let updatedCount = 0;
+  let skippedCount = 0;
+  const failures = [];
+
+  for (const [index, row] of rows.entries()) {
+    const sku = String(pickValue(row, ['sku', 'mastersku', 'mastersku', 'productsku'])).trim();
+    const name = String(pickValue(row, ['listingname', 'name', 'productname', 'title'], sku)).trim();
+
+    if (!sku) {
+      skippedCount += 1;
+      continue;
+    }
+
+    const payload = {
+      sku,
+      name: name || sku,
+      category: String(pickValue(row, ['category'])).trim(),
+      selling_price: toNumber(pickValue(row, ['sellingprice', 'selling_price', 'price']), 0),
+      cost_price: toNumber(pickValue(row, ['costprice', 'cost_price']), 0),
+      is_active: toBoolean(pickValue(row, ['isactive', 'active', 'shopifystatus'], true), true),
+    };
+
+    const existing = productBySku.get(sku.toUpperCase());
+    const path = existing ? `/api/v1/products/${existing.id}/` : '/api/v1/products/';
+    const method = existing ? 'PATCH' : 'POST';
+    const { response, payload: result } = await client.request(path, {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      failures.push(`Row ${index + 2}: ${errorMessageFromPayload(result, `Failed to save product ${sku}`)}`);
+      continue;
+    }
+
+    if (existing) {
+      updatedCount += 1;
+    } else {
+      createdCount += 1;
+      const saved = result?.data || {};
+      productBySku.set(sku.toUpperCase(), saved);
+    }
+  }
+
+  return { createdCount, updatedCount, skippedCount, failures, label: 'Product sheet' };
+}
+
+async function uploadWorkforce(client, rows) {
+  const existingMembers = await fetchCollection(client, '/api/v1/workforce/');
+  const membersByPhone = new Map();
+  const membersByName = new Map();
+
+  existingMembers.forEach((member) => {
+    const phone = String(member.phone || '').trim();
+    const fullName = String(member.full_name || '').trim().toLowerCase();
+    if (phone) {
+      membersByPhone.set(phone, member);
+    }
+    if (fullName) {
+      membersByName.set(fullName, member);
+    }
+  });
+
+  let createdCount = 0;
+  let updatedCount = 0;
+  let skippedCount = 0;
+  const failures = [];
+
+  for (const [index, row] of rows.entries()) {
+    const firstName = String(pickValue(row, ['firstname', 'first_name'])).trim();
+    const lastName = String(pickValue(row, ['lastname', 'last_name'])).trim();
+    const fullName = String(
+      pickValue(row, ['fullname', 'full_name', 'name'], `${firstName} ${lastName}`.trim())
+    ).trim();
+    const phone = String(pickValue(row, ['contactnumber', 'phone', 'mobile'])).trim();
+
+    if (!fullName) {
+      skippedCount += 1;
+      continue;
+    }
+
+    const payload = {
+      full_name: fullName,
+      phone,
+      active: toBoolean(pickValue(row, ['active', 'status', 'type'], true), true),
+    };
+
+    const existing = (phone && membersByPhone.get(phone)) || membersByName.get(fullName.toLowerCase());
+    const path = existing ? `/api/v1/workforce/${existing.id}/` : '/api/v1/workforce/';
+    const method = existing ? 'PATCH' : 'POST';
+    const { response, payload: result } = await client.request(path, {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      failures.push(`Row ${index + 2}: ${errorMessageFromPayload(result, `Failed to save workforce member ${fullName}`)}`);
+      continue;
+    }
+
+    if (existing) {
+      updatedCount += 1;
+    } else {
+      createdCount += 1;
+      const saved = result?.data || {};
+      if (phone) {
+        membersByPhone.set(phone, saved);
+      }
+      membersByName.set(fullName.toLowerCase(), saved);
+    }
+  }
+
+  return { createdCount, updatedCount, skippedCount, failures, label: 'Workforce sheet' };
+}
+
+async function uploadCustomers(client, rows) {
+  const existingCustomers = await fetchCollection(client, '/api/v1/customers/');
+  const customersByGst = new Map();
+  const customersByName = new Map();
+
+  existingCustomers.forEach((customer) => {
+    const gst = String(customer.gst_number || '').trim().toUpperCase();
+    const companyName = String(customer.company_name || '').trim().toLowerCase();
+    if (gst) {
+      customersByGst.set(gst, customer);
+    }
+    if (companyName) {
+      customersByName.set(companyName, customer);
+    }
+  });
+
+  let createdCount = 0;
+  let updatedCount = 0;
+  let skippedCount = 0;
+  const failures = [];
+
+  for (const [index, row] of rows.entries()) {
+    const companyName = String(pickValue(row, ['companyname', 'company_name', 'name'])).trim();
+    const gstNumber = String(pickValue(row, ['gstnumber', 'gst_number'])).trim();
+
+    if (!companyName) {
+      skippedCount += 1;
+      continue;
+    }
+
+    const payload = {
+      company_name: companyName,
+      business_type: String(pickValue(row, ['businesstype', 'business_type'])).trim(),
+      gst_number: gstNumber,
+      pan_number: String(pickValue(row, ['pannumber', 'pan_number'])).trim(),
+      status: normalizeCustomerStatus(pickValue(row, ['status'])),
+      address_line1: String(pickValue(row, ['addressline1', 'address_line1', 'address'])).trim(),
+      address_line2: String(pickValue(row, ['addressline2', 'address_line2'])).trim(),
+      city: String(pickValue(row, ['city'])).trim(),
+      state: String(pickValue(row, ['state'])).trim(),
+      pin_code: String(pickValue(row, ['pincode', 'pin_code'])).trim(),
+      authorized_person_name: String(pickValue(row, ['authorizedpersonname', 'authorized_person_name', 'contactperson'])).trim(),
+      designation: String(pickValue(row, ['designation'])).trim(),
+      mobile: String(pickValue(row, ['mobile', 'phone'])).trim(),
+      email: String(pickValue(row, ['email'])).trim(),
+      account_name: String(pickValue(row, ['accountname', 'account_name'])).trim(),
+      bank_name: String(pickValue(row, ['bankname', 'bank_name'])).trim(),
+      account_number: String(pickValue(row, ['accountnumber', 'account_number'])).trim(),
+      ifsc: String(pickValue(row, ['ifsc'])).trim(),
+    };
+
+    const existing = (gstNumber && customersByGst.get(gstNumber.toUpperCase())) || customersByName.get(companyName.toLowerCase());
+    const path = existing ? `/api/v1/customers/${existing.id}/` : '/api/v1/customers/';
+    const method = existing ? 'PATCH' : 'POST';
+    const { response, payload: result } = await client.request(path, {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      failures.push(`Row ${index + 2}: ${errorMessageFromPayload(result, `Failed to save customer ${companyName}`)}`);
+      continue;
+    }
+
+    if (existing) {
+      updatedCount += 1;
+    } else {
+      createdCount += 1;
+      const saved = result?.data || {};
+      if (gstNumber) {
+        customersByGst.set(gstNumber.toUpperCase(), saved);
+      }
+      customersByName.set(companyName.toLowerCase(), saved);
+    }
+  }
+
+  return { createdCount, updatedCount, skippedCount, failures, label: 'Customer sheet' };
+}
+
+async function uploadJobs(client, rows) {
+  const existingProducts = await fetchCollection(client, '/api/v1/products/');
+  const productBySku = new Map(
+    existingProducts.map((product) => [String(product.sku || '').trim().toUpperCase(), product])
+  );
+
+  let createdCount = 0;
+  let skippedCount = 0;
+  const failures = [];
+
+  for (const [index, row] of rows.entries()) {
+    const title = String(pickValue(row, ['title', 'jobtitle', 'category'])).trim();
+    const productSku = String(pickValue(row, ['productsku', 'sku', 'mastersku', 'product'])).trim();
+    const explicitProductId = toNumber(pickValue(row, ['productid', 'product_id']), 0);
+    const assigneeId = toNumber(pickValue(row, ['assigneeid', 'assignee_id', 'userid', 'user_id']), 0);
+
+    const resolvedProductId = explicitProductId || productBySku.get(productSku.toUpperCase())?.id;
+
+    if (!title || !resolvedProductId) {
+      skippedCount += 1;
+      continue;
+    }
+
+    const payload = {
+      title,
+      product: resolvedProductId,
+      status: normalizeJobStatus(pickValue(row, ['status'])),
+    };
+
+    if (assigneeId > 0) {
+      payload.assignee = assigneeId;
+    }
+
+    const { response, payload: result } = await client.request('/api/v1/jobs/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      failures.push(`Row ${index + 2}: ${errorMessageFromPayload(result, `Failed to save job ${title}`)}`);
+      continue;
+    }
+
+    createdCount += 1;
+  }
+
+  return { createdCount, updatedCount: 0, skippedCount, failures, label: 'Job sheet' };
+}
+
+async function uploadKyc(client, rows) {
+  const existingMembers = await fetchCollection(client, '/api/v1/workforce/');
+  const existingKycRecords = await fetchCollection(client, '/api/v1/kyc/');
+  const membersByPhone = new Map();
+  const membersByName = new Map();
+  const kycByMemberId = new Map();
+
+  existingMembers.forEach((member) => {
+    const phone = String(member.phone || '').trim();
+    const fullName = String(member.full_name || '').trim().toLowerCase();
+    if (phone) {
+      membersByPhone.set(phone, member);
+    }
+    if (fullName) {
+      membersByName.set(fullName, member);
+    }
+  });
+
+  existingKycRecords.forEach((record) => {
+    if (record?.member) {
+      kycByMemberId.set(Number(record.member), record);
+    }
+  });
+
+  let createdCount = 0;
+  let updatedCount = 0;
+  let skippedCount = 0;
+  const failures = [];
+
+  for (const [index, row] of rows.entries()) {
+    const fullName = String(pickValue(row, ['membername', 'member_name', 'fullname', 'full_name', 'authorizedpersonname'])).trim();
+    const phone = String(pickValue(row, ['mobile', 'phone', 'contactnumber'])).trim();
+    const idNumber = String(pickValue(row, ['idnumber', 'id_number', 'gstnumber', 'pannumber'])).trim();
+
+    if (!fullName) {
+      skippedCount += 1;
+      continue;
+    }
+
+    let member = (phone && membersByPhone.get(phone)) || membersByName.get(fullName.toLowerCase());
+
+    if (!member) {
+      const memberCreate = await client.request('/api/v1/workforce/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          full_name: fullName,
+          phone,
+          active: true,
+        }),
+      });
+
+      if (!memberCreate.response.ok) {
+        failures.push(`Row ${index + 2}: ${errorMessageFromPayload(memberCreate.payload, `Failed to create workforce member ${fullName}`)}`);
+        continue;
+      }
+
+      member = memberCreate.payload?.data;
+      if (phone) {
+        membersByPhone.set(phone, member);
+      }
+      membersByName.set(fullName.toLowerCase(), member);
+    }
+
+    const payload = {
+      member: member.id,
+      status: normalizeKycStatus(pickValue(row, ['status'])),
+      id_number: idNumber,
+    };
+
+    const existing = kycByMemberId.get(Number(member.id));
+    const path = existing ? `/api/v1/kyc/${existing.id}/` : '/api/v1/kyc/';
+    const method = existing ? 'PATCH' : 'POST';
+    const result = await client.request(path, {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    if (!result.response.ok) {
+      failures.push(`Row ${index + 2}: ${errorMessageFromPayload(result.payload, `Failed to save KYC for ${fullName}`)}`);
+      continue;
+    }
+
+    if (existing) {
+      updatedCount += 1;
+    } else {
+      createdCount += 1;
+      kycByMemberId.set(Number(member.id), result.payload?.data);
+    }
+  }
+
+  return { createdCount, updatedCount, skippedCount, failures, label: 'KYC sheet' };
+}
+
+const UPLOAD_HANDLERS = {
+  products: uploadProducts,
+  workforce: uploadWorkforce,
+  jobs: uploadJobs,
+  kyc: uploadKyc,
+  customers: uploadCustomers,
+};
+
+export async function POST(request) {
+  try {
+    const formData = await request.formData();
+    const file = formData.get('file');
+    const sheetType = String(formData.get('sheetType') || '').trim().toLowerCase();
+
+    if (!file || typeof file.arrayBuffer !== 'function') {
+      return NextResponse.json({ success: false, message: 'Please upload a file.' }, { status: 400 });
+    }
+
+    const handler = UPLOAD_HANDLERS[sheetType];
+    if (!handler) {
+      return NextResponse.json({ success: false, message: 'Unsupported bulk upload sheet type.' }, { status: 400 });
+    }
+
+    const client = createBackendClient(request);
+    const rows = await parseUploadFile(file);
+    const result = await handler(client, rows);
+    const message = summarizeResult(
+      result.label,
+      result.createdCount,
+      result.updatedCount,
+      result.skippedCount,
+      result.failures
+    );
+
+    return NextResponse.json({
+      success: result.createdCount > 0 || result.updatedCount > 0,
+      message,
+      createdCount: result.createdCount,
+      updatedCount: result.updatedCount,
+      skippedCount: result.skippedCount,
+      failures: result.failures,
+    }, { status: result.failures.length > 0 && result.createdCount === 0 && result.updatedCount === 0 ? 400 : 200 });
+  } catch (error) {
+    return NextResponse.json(
+      { success: false, message: error.message || 'Bulk upload failed.' },
+      { status: 500 }
+    );
+  }
+}

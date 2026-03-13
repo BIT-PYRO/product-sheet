@@ -31,6 +31,7 @@ import MasterNavigationDrawer from '@/components/master_navigation_drawer';
 import { CreateJobModal } from '@/components/create-job-modal';
 import { ReceiveJobModal } from '@/components/receive-job-modal';
 import DateTimeStamp from '@/components/date-time-stamp';
+import BulkUploadButton from '@/components/bulk-upload-button';
 
 export default function MasterJobSheet() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -695,6 +696,7 @@ export default function MasterJobSheet() {
               className="border border-soft-border rounded-lg pl-9 pr-4 h-9 w-64 text-sm"
             />
           </div>
+          <BulkUploadButton sheetType="jobs" onComplete={() => window.location.reload()} />
           <Button 
             onClick={handleCreateJob}
             className="bg-success hover:bg-success text-white rounded-full px-6"

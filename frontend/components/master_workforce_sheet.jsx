@@ -29,6 +29,7 @@ import MasterNavigationDrawer from '@/components/master_navigation_drawer';
 import { QuickEnrollModal } from '@/components/quick-enroll-modal';
 import { EnrolWorkforceForm } from '@/app/frontend/enrol-workforce/page';
 import DateTimeStamp from '@/components/date-time-stamp';
+import BulkUploadButton from '@/components/bulk-upload-button';
 
 export default function MasterWorkforceSheet() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -724,6 +725,7 @@ export default function MasterWorkforceSheet() {
               className="border-2 border-soft-border rounded-lg px-4 py-2 pl-10 w-64"
             />
           </div>
+          <BulkUploadButton sheetType="workforce" onComplete={() => window.location.reload()} />
           <Button 
             onClick={handleQuickEnroll}
             className="bg-trust-blue hover:bg-trust-blue text-white rounded-full px-6"

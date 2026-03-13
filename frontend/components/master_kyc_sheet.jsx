@@ -20,6 +20,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import DateTimeStamp from '@/components/date-time-stamp';
+import BulkUploadButton from '@/components/bulk-upload-button';
 
 const KYC_COLUMNS = [
   { key: '__select__', label: '' },
@@ -317,6 +318,7 @@ export default function MasterKYCSheet() {
             <Button onClick={loadKYCData} variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-6" disabled={isLoading}>
               {isLoading ? 'Refreshing...' : 'Refresh'}
             </Button>
+            <BulkUploadButton sheetType="kyc" onComplete={loadKYCData} />
             <Button onClick={handleAddEmptyRow} className="bg-success hover:bg-success text-white rounded-full px-6">
               Add KYC
             </Button>
