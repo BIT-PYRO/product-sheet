@@ -29,7 +29,7 @@ function buildProductStockMap(products, transactions) {
     const qty = Number(txn?.quantity || 0);
 
     // Demand transactions are tracked separately; they do not affect stock balance.
-    if (String(txn?.txn_type || '').trim().toLowerCase() === 'demand') {
+    if (txn?.txn_type === 'demand') {
       demandByProduct.set(productId, (demandByProduct.get(productId) || 0) + qty);
       return;
     }

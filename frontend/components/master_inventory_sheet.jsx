@@ -189,6 +189,7 @@ function buildInventoryRow(product, stockField) {
   return {
     id: product.id,
     sku: product.sku || product.masterSku || '',
+    totalInDemand: product.totalInDemand || 0,
     waxPiece: getLiveStockValue(liveStock, stockField, ['rawMaterial', 'waxPiece']),
     waxSetting: getLiveStockValue(liveStock, stockField, ['rawSetting', 'waxSetting']),
     casting: getLiveStockValue(liveStock, stockField, ['wipLiquidCasting', 'casting', 'tyre', 'postCasting', 'finalCasting', 'dustunuing']),
@@ -215,35 +216,17 @@ function getFilterValue(product, fieldKey) {
   return product?.[fieldKey];
 }
 
-function generatePicklists(products) {
-  // Generate sample picklists based on product count
-  // In a real app, this would come from the backend
-  if (!Array.isArray(products) || products.length === 0) {
+const PSD_PICKLISTS_KEY = 'psd_picklists';
+
+function loadPicklistsFromStorage() {
+  try {
+    const raw = localStorage.getItem(PSD_PICKLISTS_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
     return [];
   }
-
-  const picklists = [];
-  const itemsPerPicklist = Math.ceil(products.length / 3); // Divide into 3 picklists for demo
-
-  for (let i = 1; i <= 3; i++) {
-    const createdDate = new Date(2026, 1, 20 - (3 - i), 9 + i, 30 + i * 15);
-    const startIndex = (i - 1) * itemsPerPicklist;
-    const endIndex = Math.min(i * itemsPerPicklist, products.length);
-    const picklistProducts = products.slice(startIndex, endIndex);
-
-    if (picklistProducts.length > 0) {
-      picklists.push({
-        id: `picklist-${i}`,
-        name: `PickList-${i}`,
-        createdAt: createdDate.toISOString(),
-        createdAtFormatted: createdDate.toLocaleString(),
-        orderCount: picklistProducts.length,
-        productSkus: picklistProducts.map((p) => p.sku || p.masterSku),
-      });
-    }
-  }
-
-  return picklists;
 }
 
 
@@ -293,10 +276,7 @@ export default function MasterInventorySheet() {
 
       const nextProducts = Array.isArray(result.products) ? result.products : [];
       setProducts(nextProducts);
-
-      // Generate picklists from products or create sample picklists
-      const generatedPicklists = generatePicklists(nextProducts);
-      setPicklists(generatedPicklists);
+      setPicklists(loadPicklistsFromStorage());
 
     } catch (fetchError) {
       setError(fetchError.message || 'Failed to load inventory data');
@@ -346,8 +326,9 @@ export default function MasterInventorySheet() {
       // Filter by picklist if one is selected
       if (selectedPicklist) {
         const currentPicklist = picklists.find((p) => p.id === selectedPicklist);
-        const productSku = product.sku || product.masterSku;
-        if (currentPicklist && !currentPicklist.productSkus.includes(productSku)) {
+        const productSku = String(product.sku || product.masterSku || '').trim();
+        const picklistSkus = (currentPicklist?.items || []).map((item) => String(item.sku || '').trim());
+        if (currentPicklist && !picklistSkus.includes(productSku)) {
           return false;
         }
       }
@@ -533,31 +514,21 @@ export default function MasterInventorySheet() {
     [sortedProducts, stockField]
   );
 
-  const requiredQtyBySku = useMemo(() => {
+  // Build a SKU → needed-qty map from the selected picklist (localStorage).
+  // When no picklist is selected this map is empty and the DB-derived
+  // totalInDemand from each inventory row is used instead.
+  const picklistNeededBySku = useMemo(() => {
     const map = new Map();
+    if (!selectedPicklist) return map;
 
-    if (selectedPicklist) {
-      const currentPicklist = picklists.find((picklist) => picklist.id === selectedPicklist);
-      (currentPicklist?.productSkus || []).forEach((sku) => {
-        const normalizedSku = String(sku || '').trim();
-        if (!normalizedSku) {
-          return;
-        }
-        map.set(normalizedSku, (map.get(normalizedSku) || 0) + 1);
-      });
-      return map;
-    }
-
-    sortedProducts.forEach((product) => {
-      const sku = String(product?.sku || product?.masterSku || '').trim();
-      if (!sku) {
-        return;
-      }
-      map.set(sku, (map.get(sku) || 0) + 1);
+    const currentPicklist = picklists.find((p) => p.id === selectedPicklist);
+    (currentPicklist?.items || []).forEach((item) => {
+      const sku = String(item.sku || '').trim();
+      if (sku) map.set(sku, item.needed || 0);
     });
 
     return map;
-  }, [picklists, selectedPicklist, sortedProducts]);
+  }, [picklists, selectedPicklist]);
 
   const totalInDemandByRowId = useMemo(() => {
     const map = new Map();
@@ -569,16 +540,17 @@ export default function MasterInventorySheet() {
         return;
       }
 
-      const requiredQty = requiredQtyBySku.get(sku) || 0;
-      const finalStockUnits = parseNumericValue(row.finalStockUnit);
-      const readyForPlatingUnits = parseNumericValue(row.readyForPlating);
+      // When a picklist is selected → show that picklist's needed qty.
+      // Otherwise → show the total demand from the DB (all demand transactions).
+      const demandValue = selectedPicklist
+        ? (picklistNeededBySku.get(sku) ?? '')
+        : (row.totalInDemand || '');
 
-      const demandValue = Math.max(0, requiredQty - (finalStockUnits + readyForPlatingUnits));
       map.set(row.id, demandValue);
     });
 
     return map;
-  }, [inventoryRows, requiredQtyBySku]);
+  }, [inventoryRows, picklistNeededBySku, selectedPicklist]);
 
   const rowsToRender = useMemo(() => {
     const minRows = 16;
@@ -1041,10 +1013,10 @@ export default function MasterInventorySheet() {
                             >
                               <div className="font-medium">{picklist.name}</div>
                               <div className="text-cool-gray text-sm">
-                                {new Date(picklist.createdAt).toLocaleString()}
+                                {picklist.dateFormatted || new Date(picklist.date || picklist.createdAt).toLocaleString()}
                               </div>
                               <div className="text-cool-gray text-sm">
-                                {picklist.orderCount} order{picklist.orderCount !== 1 ? 's' : ''}
+                                {(picklist.items || []).length} product{(picklist.items || []).length !== 1 ? 's' : ''}
                               </div>
                             </button>
                           ))}
