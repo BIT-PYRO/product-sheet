@@ -23,21 +23,62 @@ import DateTimeStamp from '@/components/date-time-stamp';
 
 const KYC_COLUMNS = [
   { key: '__select__', label: '' },
-  { key: 'id', label: 'Record ID' },
-  { key: 'member', label: 'Member ID' },
-  { key: 'id_number', label: 'ID Number' },
+  // Company Details
+  { key: 'companyName', label: 'Company Name' },
+  { key: 'businessType', label: 'Business Type' },
+  { key: 'gstNumber', label: 'GST Number' },
+  { key: 'panNumber', label: 'PAN Number' },
+  { key: 'address', label: 'Address' },
+  { key: 'city', label: 'City' },
+  { key: 'state', label: 'State' },
+  { key: 'pinCode', label: 'PIN Code' },
+  // Authorized Person
+  { key: 'authorizedPersonName', label: 'Authorized Person' },
+  { key: 'designation', label: 'Designation' },
+  { key: 'mobile', label: 'Mobile' },
+  { key: 'email', label: 'Email' },
+  // Bank Details
+  { key: 'accountName', label: 'Account Name' },
+  { key: 'bankName', label: 'Bank Name' },
+  { key: 'accountNumber', label: 'Account Number' },
+  { key: 'ifsc', label: 'IFSC Code' },
+  // Documents
+  { key: 'gstCertificate', label: 'GST Certificate' },
+  { key: 'panCard', label: 'PAN Card' },
+  { key: 'idProof', label: 'ID Proof' },
+  { key: 'cancelledCheque', label: 'Cancelled Cheque' },
+  // Status & Meta
   { key: 'status', label: 'Status' },
+  { key: 'kycType', label: 'KYC Type' },
   { key: 'created_at', label: 'Created At' },
   { key: 'updated_at', label: 'Updated At' },
 ];
 
 const columnConfig = {
-  id: { minWidth: 'min-w-[100px]', headerBg: 'bg-trust-blue/20' },
-  member: { minWidth: 'min-w-[120px]', headerBg: 'bg-trust-blue/20' },
-  id_number: { minWidth: 'min-w-[180px]', headerBg: 'bg-trust-blue/20' },
-  status: { minWidth: 'min-w-[100px]', headerBg: 'bg-trust-blue/20' },
-  created_at: { minWidth: 'min-w-[200px]', headerBg: 'bg-trust-blue/20' },
-  updated_at: { minWidth: 'min-w-[200px]', headerBg: 'bg-trust-blue/20' },
+  companyName:          { minWidth: 'min-w-[150px]', headerBg: 'bg-trust-blue/20' },
+  businessType:         { minWidth: 'min-w-[130px]', headerBg: 'bg-trust-blue/20' },
+  gstNumber:            { minWidth: 'min-w-[150px]', headerBg: 'bg-trust-blue/20' },
+  panNumber:            { minWidth: 'min-w-[130px]', headerBg: 'bg-trust-blue/20' },
+  address:              { minWidth: 'min-w-[220px]', headerBg: 'bg-trust-blue/20' },
+  city:                 { minWidth: 'min-w-[110px]', headerBg: 'bg-trust-blue/20' },
+  state:                { minWidth: 'min-w-[120px]', headerBg: 'bg-trust-blue/20' },
+  pinCode:              { minWidth: 'min-w-[100px]', headerBg: 'bg-trust-blue/20' },
+  authorizedPersonName: { minWidth: 'min-w-[160px]', headerBg: 'bg-trust-blue/20' },
+  designation:          { minWidth: 'min-w-[130px]', headerBg: 'bg-trust-blue/20' },
+  mobile:               { minWidth: 'min-w-[120px]', headerBg: 'bg-trust-blue/20' },
+  email:                { minWidth: 'min-w-[160px]', headerBg: 'bg-trust-blue/20' },
+  accountName:          { minWidth: 'min-w-[140px]', headerBg: 'bg-trust-blue/20' },
+  bankName:             { minWidth: 'min-w-[130px]', headerBg: 'bg-trust-blue/20' },
+  accountNumber:        { minWidth: 'min-w-[150px]', headerBg: 'bg-trust-blue/20' },
+  ifsc:                 { minWidth: 'min-w-[120px]', headerBg: 'bg-trust-blue/20' },
+  gstCertificate:       { minWidth: 'min-w-[140px]', headerBg: 'bg-trust-blue/20' },
+  panCard:              { minWidth: 'min-w-[110px]', headerBg: 'bg-trust-blue/20' },
+  idProof:              { minWidth: 'min-w-[110px]', headerBg: 'bg-trust-blue/20' },
+  cancelledCheque:      { minWidth: 'min-w-[150px]', headerBg: 'bg-trust-blue/20' },
+  status:               { minWidth: 'min-w-[100px]', headerBg: 'bg-trust-blue/20' },
+  kycType:              { minWidth: 'min-w-[120px]', headerBg: 'bg-trust-blue/20' },
+  created_at:           { minWidth: 'min-w-[160px]', headerBg: 'bg-trust-blue/20' },
+  updated_at:           { minWidth: 'min-w-[160px]', headerBg: 'bg-trust-blue/20' },
 };
 
 export default function MasterKYCSheet() {
@@ -199,12 +240,17 @@ export default function MasterKYCSheet() {
   };
 
   const filteredProducts = products.filter((product) => {
-    const matchesSearch =
-      product.companyName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      product.gstNumber?.toLowerCase().includes(searchTerm.toLowerCase());
+    const s = searchTerm.toLowerCase();
+    const matchesSearch = !s || [
+      product.companyName, product.businessType, product.gstNumber, product.panNumber,
+      product.addressLine1, product.addressLine2, product.city, product.state, product.pinCode,
+      product.authorizedPersonName, product.designation, product.mobile, product.email,
+      product.accountName, product.bankName, product.accountNumber, product.ifsc,
+      product.status, product.kycType,
+    ].some((val) => String(val || '').toLowerCase().includes(s));
     const matchesType =
       kycTypeFilter === 'All' ||
-      product.kycType?.toLowerCase() === kycTypeFilter.toLowerCase();
+      String(product.kycType || '').toLowerCase() === kycTypeFilter.toLowerCase();
     return matchesSearch && matchesType;
   });
 
@@ -354,7 +400,9 @@ export default function MasterKYCSheet() {
                             key={`${index}-${column.key}`}
                             className={`p-3 text-sm text-slate-text border border-soft-border ${columnConfig[column.key]?.minWidth}`}
                           >
-                            {row[column.key] ? String(row[column.key]).substring(0, 50) : ''}
+                            {column.key === 'address'
+                              ? [row.addressLine1, row.addressLine2].filter(Boolean).join(', ')
+                              : row[column.key] ? String(row[column.key]).substring(0, 50) : ''}
                           </td>
                         )
                       )}
