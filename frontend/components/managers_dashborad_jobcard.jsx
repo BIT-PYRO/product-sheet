@@ -591,6 +591,9 @@ export default function ManagersDashboard() {
       {/* Company KYC Modal */}
       <Dialog open={isKYCModalOpen} onOpenChange={setIsKYCModalOpen}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden p-0">
+          <DialogHeader className="sr-only">
+            <DialogTitle>Company KYC Form</DialogTitle>
+          </DialogHeader>
           <CompanyKYCForm onClose={() => setIsKYCModalOpen(false)} />
         </DialogContent>
       </Dialog>
