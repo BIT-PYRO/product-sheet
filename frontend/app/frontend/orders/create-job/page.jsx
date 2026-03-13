@@ -148,14 +148,29 @@ export default function CreateJobPage() {
   // ── Load customers from master customer sheet ──────────────────────────────
   const loadCustomers = useCallback(async () => {
     try {
-      const res = await fetch('/api/save-to-sheets', { method: 'GET', cache: 'no-store' });
+      const res = await fetch('/api/customers', { method: 'GET', cache: 'no-store' });
       if (!res.ok) {
         console.warn('Could not load customers:', res.status);
       } else {
         const data = await res.json().catch(() => null);
-        const list =
-          Array.isArray(data?.customerData) ? data.customerData :
-          Array.isArray(data?.kycData) ? data.kycData : [];
+        const rows =
+          Array.isArray(data?.data?.results) ? data.data.results :
+          Array.isArray(data?.data) ? data.data :
+          Array.isArray(data?.results) ? data.results : [];
+
+        const list = rows.map((customer) => ({
+          id: customer?.id,
+          companyName: customer?.company_name || '',
+          authorizedPersonName: customer?.authorized_person_name || '',
+          email: customer?.email || '',
+          mobile: customer?.mobile || '',
+          phone: customer?.mobile || '',
+          address: customer?.address_line1 || '',
+          city: customer?.city || '',
+          state: customer?.state || '',
+          pinCode: customer?.pin_code || '',
+        }));
+
         setCustomers(list);
       }
     } catch (error) {

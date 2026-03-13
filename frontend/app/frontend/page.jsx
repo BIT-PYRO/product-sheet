@@ -265,7 +265,7 @@ function ProductSheetContent() {
   })
 
   const saveProductData = async (productData, isAutoSave = false) => {
-    const response = await fetch('/api/save-to-sheets', {
+    const response = await fetch('/api/product-sheet', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -522,8 +522,7 @@ function ProductSheetContent() {
         setStoneInfo(stoneInfo.filter(row => row.id !== id));
     };
     
-    // Handle saving product data
-    const handleSaveToGoogleSheets = async () => {
+    const handleSaveProduct = async () => {
       setIsSaving(true);
       setSaveStatus(null);
       
@@ -537,8 +536,7 @@ function ProductSheetContent() {
       }
     };
     
-    // Handle deleting product data
-    const handleDeleteFromGoogleSheets = async () => {
+    const handleDeleteProduct = async () => {
       if (!sku) {
         setSaveStatus({ success: false, message: 'Please enter a SKU to delete' });
         setTimeout(() => setSaveStatus(null), 4000);
@@ -552,7 +550,7 @@ function ProductSheetContent() {
       setSaveStatus(null);
       
       try {
-        const response = await fetch('/api/save-to-sheets', {
+        const response = await fetch('/api/product-sheet', {
           method: 'DELETE',
           headers: {
             'Content-Type': 'application/json',
@@ -605,8 +603,8 @@ function ProductSheetContent() {
         <div className="flex gap-1.5 items-center">
           <DateTimeStamp className="mr-1 text-xs" />
           <button onClick={handleAddProduct} className="w-fit px-3 h-8 text-sm bg-trust-blue text-white font-semibold rounded-full shadow-sm hover:bg-deep-blue">+ ADD PRODUCT</button>
-          <button onClick={handleSaveToGoogleSheets} disabled={isSaving} className="w-fit px-3 h-8 text-sm bg-success text-white font-semibold rounded-full shadow-sm hover:bg-success/90 disabled:opacity-50 disabled:cursor-not-allowed">{isSaving ? 'Saving...' : 'SAVE'}</button>
-          <button onClick={handleDeleteFromGoogleSheets} disabled={isSaving} className="w-fit px-3 h-8 text-sm bg-danger text-white font-semibold rounded-full shadow-sm hover:bg-danger/90 disabled:opacity-50 disabled:cursor-not-allowed">DELETE</button>
+          <button onClick={handleSaveProduct} disabled={isSaving} className="w-fit px-3 h-8 text-sm bg-success text-white font-semibold rounded-full shadow-sm hover:bg-success/90 disabled:opacity-50 disabled:cursor-not-allowed">{isSaving ? 'Saving...' : 'SAVE'}</button>
+          <button onClick={handleDeleteProduct} disabled={isSaving} className="w-fit px-3 h-8 text-sm bg-danger text-white font-semibold rounded-full shadow-sm hover:bg-danger/90 disabled:opacity-50 disabled:cursor-not-allowed">DELETE</button>
           {saveStatus && (
             <div className={`text-sm px-2 py-1 rounded-md ${saveStatus.success ? 'bg-success/10 text-success-dark border border-success/30' : 'bg-danger/10 text-danger-dark border border-danger/30'}`}>
               {saveStatus.message}

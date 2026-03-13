@@ -45,7 +45,7 @@ function ProductDetailContent() {
       setFetchError('');
 
       try {
-        const response = await fetch('/api/save-to-sheets', {
+        const response = await fetch('/api/product-sheet', {
           method: 'GET',
           cache: 'no-store',
         });

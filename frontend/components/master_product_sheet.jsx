@@ -939,7 +939,7 @@ export default function MasterProductSheet() {
 
       {isLoading && (
         <div className="mb-4 rounded-md border border-trust-blue/30 bg-trust-blue/10 px-4 py-2 text-sm text-deep-blue">
-          Loading products from Google Sheets...
+          Loading products...
         </div>
       )}
 
