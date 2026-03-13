@@ -2,9 +2,7 @@ const DEFAULT_LIVE_STOCK = {
   rawMaterial: { min: '', current: '', wip: '', location: '' },
   rawSetting: { min: '', current: '', wip: '', location: '' },
   tyre: { min: '', current: '', wip: '', location: '' },
-  dustunuing: { min: '', current: '', wip: '', location: '' },
   wipLiquidCasting: { min: '', current: '', wip: '', location: '' },
-  postCasting: { min: '', current: '', wip: '', location: '' },
   filing: { min: '', current: '', wip: '', location: '' },
   packing: { min: '', current: '', wip: '', location: '' },
   setting: { min: '', current: '', wip: '', location: '' },
@@ -21,8 +19,7 @@ function normalizeLiveStockKeys(rawStock = {}) {
   const aliases = [
     ['filing', ['filling']],
     ['packing', ['prePolish']],
-    ['wipLiquidCasting', ['casting', 'tyre']],
-    ['postCasting', ['finalCasting', 'dustunuing']],
+    ['wipLiquidCasting', ['casting', 'tyre', 'postCasting', 'finalCasting', 'dustunuing']],
     ['readyForPlacing', ['readyForPlating']],
   ];
 
@@ -47,6 +44,10 @@ function normalizeLiveStockKeys(rawStock = {}) {
       };
     }
   });
+
+  delete normalized.postCasting;
+  delete normalized.finalCasting;
+  delete normalized.dustunuing;
 
   return normalized;
 }

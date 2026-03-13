@@ -18,7 +18,6 @@ const LIVE_STOCK_COLUMNS = [
   ['Wax Piece', 'rawMaterial'],
   ['Wax Setting', 'rawSetting'],
   ['Casting', 'wipLiquidCasting'],
-  ['Final Casting', 'postCasting'],
   ['Filling', 'filing'],
   ['Pre Polish', 'packing'],
   ['Setting', 'setting'],

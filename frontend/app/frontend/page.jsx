@@ -1,12 +1,13 @@
 'use client'
 
 import React, { Suspense } from "react"
-import { Trash2, LayoutDashboard, House, X } from 'lucide-react'
+import { Trash2 } from 'lucide-react'
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { CreateJobModal } from '@/components/create-job-modal'
 import DateTimeStamp from '@/components/date-time-stamp'
+import MasterNavigationDrawer from '@/components/master_navigation_drawer'
 
 const PRODUCT_SHEET_SYNC_KEY = 'product_sheet_updated_at'
 const PRODUCT_SHEET_SYNC_EVENT = 'product_sheet_sync'
@@ -20,7 +21,6 @@ function ProductSheetContent() {
   const autoSaveTimeoutRef = useRef(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isCreateJobModalOpen, setIsCreateJobModalOpen] = useState(false)
-  const [isDashboardOpen, setIsDashboardOpen] = useState(false)
   const [productImage, setProductImage] = useState(null)
 
   const [platingType, setPlatingType] = useState([
@@ -125,9 +125,7 @@ function ProductSheetContent() {
     rawMaterial: { min: '', current: '', wip: '', location: '' },
     rawSetting: { min: '', current: '', wip: '', location: '' },
     tyre: { min: '', current: '', wip: '', location: '' },
-    dustunuing: { min: '', current: '', wip: '', location: '' },
     wipLiquidCasting: { min: '', current: '', wip: '', location: '' },
-    postCasting: { min: '', current: '', wip: '', location: '' },
     filing: { min: '', current: '', wip: '', location: '' },
     packing: { min: '', current: '', wip: '', location: '' },
     setting: { min: '', current: '', wip: '', location: '' },
@@ -194,9 +192,7 @@ function ProductSheetContent() {
       rawMaterial: { min: '', current: '', wip: '', location: '' },
       rawSetting: { min: '', current: '', wip: '', location: '' },
       tyre: { min: '', current: '', wip: '', location: '' },
-      dustunuing: { min: '', current: '', wip: '', location: '' },
       wipLiquidCasting: { min: '', current: '', wip: '', location: '' },
-      postCasting: { min: '', current: '', wip: '', location: '' },
       filing: { min: '', current: '', wip: '', location: '' },
       packing: { min: '', current: '', wip: '', location: '' },
       setting: { min: '', current: '', wip: '', location: '' },
@@ -601,19 +597,10 @@ function ProductSheetContent() {
     }
     
     return (<div className="relative min-h-screen bg-cloud-gray flex flex-col text-midnight-ink overflow-x-hidden">
-      <div className="sheet-fixed-header fixed top-0 left-0 right-0 z-[70] flex justify-between items-center bg-white/95 backdrop-blur py-1 px-2 md:px-3 border-b border-soft-border shadow-sm transition-all duration-300">
+      <div className="sheet-fixed-header fixed top-0 left-0 right-0 z-[70] flex justify-between items-center bg-white/95 backdrop-blur py-2 px-3 md:px-4 border-b border-soft-border shadow-sm transition-all duration-300">
         <div className="flex items-center gap-2">
-          <button onClick={() => setIsDashboardOpen(!isDashboardOpen)} className="h-8 w-8 border-2 border-midnight-ink bg-white rounded hover:bg-cloud-gray transition-colors shadow-sm inline-flex items-center justify-center">
-            <LayoutDashboard className="h-4 w-4 text-midnight-ink" />
-          </button>
-          <a
-            href="/home"
-            className="inline-flex h-8 items-center gap-1.5 px-3 border-2 border-midnight-ink bg-white rounded text-sm font-semibold text-midnight-ink hover:bg-cloud-gray transition-colors shadow-sm"
-          >
-            <House className="h-3.5 w-3.5" />
-            Home
-          </a>
-          <h1 className="text-base font-bold tracking-tight text-midnight-ink">PRODUCT SHEET</h1>
+          <MasterNavigationDrawer inHeader />
+          <h1 className="text-xl font-bold tracking-tight text-midnight-ink">PRODUCT SHEET</h1>
         </div>
         <div className="flex gap-1.5 items-center">
           <DateTimeStamp className="mr-1 text-xs" />
@@ -636,7 +623,7 @@ function ProductSheetContent() {
         </div>
       </div>
 
-      <div className="flex-1 pt-11 px-2 pb-2 transition-all duration-300">
+      <div className="flex-1 pt-16 px-3 md:px-4 pb-3 transition-all duration-300">
       {/* Top Section - Product Details & Variations Combined */}
       <div className="bg-cloud-gray p-1.5 rounded-xl mb-2 border border-soft-border shadow-sm">
         <div className="flex gap-2 h-auto">
@@ -977,11 +964,10 @@ function ProductSheetContent() {
             <table className="w-full table-fixed text-sm border-collapse text-center">
               <thead>
                 <tr className="bg-[#dce8f5]">
-                  <th className="border border-soft-border px-1 py-1 text-left font-semibold text-midnight-ink w-24"></th>
+                  <th className="border border-soft-border px-1 py-1 text-left font-semibold text-midnight-ink w-36 whitespace-nowrap"></th>
                   <th className="border border-soft-border px-0.5 py-1 font-semibold text-midnight-ink">Wax Piece</th>
                   <th className="border border-soft-border px-0.5 py-1 font-semibold text-midnight-ink">Wax Setting</th>
                   <th className="border border-soft-border px-0.5 py-1 font-semibold text-midnight-ink">Casting</th>
-                  <th className="border border-soft-border px-0.5 py-1 font-semibold text-midnight-ink">Final Casting</th>
                   <th className="border border-soft-border px-0.5 py-1 font-semibold text-midnight-ink">Filling</th>
                   <th className="border border-soft-border px-0.5 py-1 font-semibold text-midnight-ink">Pre Polish</th>
                   <th className="border border-soft-border px-0.5 py-1 font-semibold text-midnight-ink">Setting</th>
@@ -991,11 +977,10 @@ function ProductSheetContent() {
               </thead>
               <tbody>
                 <tr>
-                  <td className="border border-soft-border px-1 py-1 font-semibold text-left text-midnight-ink bg-[#f5f8fc]">Minimum Suggested</td>
+                  <td className="border border-soft-border px-1 py-1 font-semibold text-left text-midnight-ink bg-[#f5f8fc] whitespace-nowrap">Minimum Suggested</td>
                   <td className="border border-soft-border p-0"><input className="w-full h-full px-1 py-1 text-sm bg-transparent outline-none text-center" value={liveStock.rawMaterial.min} onChange={(e) => updateLiveStock('rawMaterial','min', e.target.value)} /></td>
                   <td className="border border-soft-border p-0"><input className="w-full h-full px-1 py-1 text-sm bg-transparent outline-none text-center" value={liveStock.rawSetting.min} onChange={(e) => updateLiveStock('rawSetting','min', e.target.value)} /></td>
                   <td className="border border-soft-border p-0"><input className="w-full h-full px-1 py-1 text-sm bg-transparent outline-none text-center" value={liveStock.wipLiquidCasting.min} onChange={(e) => updateLiveStock('wipLiquidCasting','min', e.target.value)} /></td>
-                  <td className="border border-soft-border p-0"><input className="w-full h-full px-1 py-1 text-sm bg-transparent outline-none text-center" value={liveStock.postCasting.min} onChange={(e) => updateLiveStock('postCasting','min', e.target.value)} /></td>
                   <td className="border border-soft-border p-0"><input className="w-full h-full px-1 py-1 text-sm bg-transparent outline-none text-center" value={liveStock.filing.min} onChange={(e) => updateLiveStock('filing','min', e.target.value)} /></td>
                   <td className="border border-soft-border p-0"><input className="w-full h-full px-1 py-1 text-sm bg-transparent outline-none text-center" value={liveStock.packing.min} onChange={(e) => updateLiveStock('packing','min', e.target.value)} /></td>
                   <td className="border border-soft-border p-0"><input className="w-full h-full px-1 py-1 text-sm bg-transparent outline-none text-center" value={liveStock.setting.min} onChange={(e) => updateLiveStock('setting','min', e.target.value)} /></td>
@@ -1003,11 +988,10 @@ function ProductSheetContent() {
                   <td className="border border-soft-border p-0"><input className="w-full h-full px-1 py-1 text-sm bg-transparent outline-none text-center" value={liveStock.readyForPlacing.min} onChange={(e) => updateLiveStock('readyForPlacing','min', e.target.value)} /></td>
                 </tr>
                 <tr>
-                  <td className="border border-soft-border px-1 py-1 font-semibold text-left text-midnight-ink bg-[#f5f8fc]">Current Stock</td>
+                  <td className="border border-soft-border px-1 py-1 font-semibold text-left text-midnight-ink bg-[#f5f8fc] whitespace-nowrap">Current Stock</td>
                   <td className="border border-soft-border p-0"><input className="w-full h-full px-1 py-1 text-sm bg-transparent outline-none text-center" value={liveStock.rawMaterial.current} onChange={(e) => updateLiveStock('rawMaterial','current', e.target.value)} /></td>
                   <td className="border border-soft-border p-0"><input className="w-full h-full px-1 py-1 text-sm bg-transparent outline-none text-center" value={liveStock.rawSetting.current} onChange={(e) => updateLiveStock('rawSetting','current', e.target.value)} /></td>
                   <td className="border border-soft-border p-0"><input className="w-full h-full px-1 py-1 text-sm bg-transparent outline-none text-center" value={liveStock.wipLiquidCasting.current} onChange={(e) => updateLiveStock('wipLiquidCasting','current', e.target.value)} /></td>
-                  <td className="border border-soft-border p-0"><input className="w-full h-full px-1 py-1 text-sm bg-transparent outline-none text-center" value={liveStock.postCasting.current} onChange={(e) => updateLiveStock('postCasting','current', e.target.value)} /></td>
                   <td className="border border-soft-border p-0"><input className="w-full h-full px-1 py-1 text-sm bg-transparent outline-none text-center" value={liveStock.filing.current} onChange={(e) => updateLiveStock('filing','current', e.target.value)} /></td>
                   <td className="border border-soft-border p-0"><input className="w-full h-full px-1 py-1 text-sm bg-transparent outline-none text-center" value={liveStock.packing.current} onChange={(e) => updateLiveStock('packing','current', e.target.value)} /></td>
                   <td className="border border-soft-border p-0"><input className="w-full h-full px-1 py-1 text-sm bg-transparent outline-none text-center" value={liveStock.setting.current} onChange={(e) => updateLiveStock('setting','current', e.target.value)} /></td>
@@ -1015,11 +999,10 @@ function ProductSheetContent() {
                   <td className="border border-soft-border p-0"><input className="w-full h-full px-1 py-1 text-sm bg-transparent outline-none text-center" value={liveStock.readyForPlacing.current} onChange={(e) => updateLiveStock('readyForPlacing','current', e.target.value)} /></td>
                 </tr>
                 <tr>
-                  <td className="border border-soft-border px-1 py-1 font-semibold text-left text-midnight-ink bg-[#f5f8fc]">WIP</td>
+                  <td className="border border-soft-border px-1 py-1 font-semibold text-left text-midnight-ink bg-[#f5f8fc] whitespace-nowrap">WIP</td>
                   <td className="border border-soft-border p-0"><input className="w-full h-full px-1 py-1 text-sm bg-transparent outline-none text-center" value={liveStock.rawMaterial.wip} onChange={(e) => updateLiveStock('rawMaterial','wip', e.target.value)} /></td>
                   <td className="border border-soft-border p-0"><input className="w-full h-full px-1 py-1 text-sm bg-transparent outline-none text-center" value={liveStock.rawSetting.wip} onChange={(e) => updateLiveStock('rawSetting','wip', e.target.value)} /></td>
                   <td className="border border-soft-border p-0"><input className="w-full h-full px-1 py-1 text-sm bg-transparent outline-none text-center" value={liveStock.wipLiquidCasting.wip} onChange={(e) => updateLiveStock('wipLiquidCasting','wip', e.target.value)} /></td>
-                  <td className="border border-soft-border p-0"><input className="w-full h-full px-1 py-1 text-sm bg-transparent outline-none text-center" value={liveStock.postCasting.wip} onChange={(e) => updateLiveStock('postCasting','wip', e.target.value)} /></td>
                   <td className="border border-soft-border p-0"><input className="w-full h-full px-1 py-1 text-sm bg-transparent outline-none text-center" value={liveStock.filing.wip} onChange={(e) => updateLiveStock('filing','wip', e.target.value)} /></td>
                   <td className="border border-soft-border p-0"><input className="w-full h-full px-1 py-1 text-sm bg-transparent outline-none text-center" value={liveStock.packing.wip} onChange={(e) => updateLiveStock('packing','wip', e.target.value)} /></td>
                   <td className="border border-soft-border p-0"><input className="w-full h-full px-1 py-1 text-sm bg-transparent outline-none text-center" value={liveStock.setting.wip} onChange={(e) => updateLiveStock('setting','wip', e.target.value)} /></td>
@@ -1027,11 +1010,10 @@ function ProductSheetContent() {
                   <td className="border border-soft-border p-0"><input className="w-full h-full px-1 py-1 text-sm bg-transparent outline-none text-center" value={liveStock.readyForPlacing.wip} onChange={(e) => updateLiveStock('readyForPlacing','wip', e.target.value)} /></td>
                 </tr>
                 <tr>
-                  <td className="border border-soft-border px-1 py-1 font-semibold text-left text-midnight-ink bg-[#f5f8fc]">Location</td>
+                  <td className="border border-soft-border px-1 py-1 font-semibold text-left text-midnight-ink bg-[#f5f8fc] whitespace-nowrap">Location</td>
                   <td className="border border-soft-border p-0"><input className="w-full h-full px-1 py-1 text-sm bg-transparent outline-none text-center" value={liveStock.rawMaterial.location} onChange={(e) => updateLiveStock('rawMaterial','location', e.target.value)} /></td>
                   <td className="border border-soft-border p-0"><input className="w-full h-full px-1 py-1 text-sm bg-transparent outline-none text-center" value={liveStock.rawSetting.location} onChange={(e) => updateLiveStock('rawSetting','location', e.target.value)} /></td>
                   <td className="border border-soft-border p-0"><input className="w-full h-full px-1 py-1 text-sm bg-transparent outline-none text-center" value={liveStock.wipLiquidCasting.location} onChange={(e) => updateLiveStock('wipLiquidCasting','location', e.target.value)} /></td>
-                  <td className="border border-soft-border p-0"><input className="w-full h-full px-1 py-1 text-sm bg-transparent outline-none text-center" value={liveStock.postCasting.location} onChange={(e) => updateLiveStock('postCasting','location', e.target.value)} /></td>
                   <td className="border border-soft-border p-0"><input className="w-full h-full px-1 py-1 text-sm bg-transparent outline-none text-center" value={liveStock.filing.location} onChange={(e) => updateLiveStock('filing','location', e.target.value)} /></td>
                   <td className="border border-soft-border p-0"><input className="w-full h-full px-1 py-1 text-sm bg-transparent outline-none text-center" value={liveStock.packing.location} onChange={(e) => updateLiveStock('packing','location', e.target.value)} /></td>
                   <td className="border border-soft-border p-0"><input className="w-full h-full px-1 py-1 text-sm bg-transparent outline-none text-center" value={liveStock.setting.location} onChange={(e) => updateLiveStock('setting','location', e.target.value)} /></td>
@@ -1579,11 +1561,10 @@ function ProductSheetContent() {
                       <table className="w-full table-fixed text-sm border-collapse text-center">
                         <thead>
                           <tr>
-                            <th className="w-36 px-1 py-0.5 text-center font-semibold"></th>
+                            <th className="w-36 px-1 py-0.5 text-left font-semibold whitespace-nowrap"></th>
                             <th className="w-20 px-0.5 py-0.5">Wax Piece</th>
                             <th className="w-20 px-0.5 py-0.5">Wax Setting</th>
                             <th className="w-24 px-0.5 py-0.5">Casting</th>
-                            <th className="w-20 px-0.5 py-0.5">Final Casting</th>
                             <th className="w-20 px-0.5 py-0.5">Filling</th>
                             <th className="w-20 px-0.5 py-0.5">Pre Polish</th>
                             <th className="w-20 px-0.5 py-0.5">Setting</th>
@@ -1593,11 +1574,10 @@ function ProductSheetContent() {
                         </thead>
                         <tbody>
                           <tr className="border-t">
-                            <td className="px-1 py-0.5 font-semibold text-center">Minimum Suggested</td>
+                            <td className="px-1 py-0.5 font-semibold text-left whitespace-nowrap">Minimum Suggested</td>
                             <td className="px-0.5 py-0.5"><input className="w-full text-sm px-0.5 py-0.5 border rounded" value={liveStock.rawMaterial.min} onChange={(e) => updateLiveStock('rawMaterial','min', e.target.value)} /></td>
                             <td className="px-0.5 py-0.5"><input className="w-full text-sm px-0.5 py-0.5 border rounded" value={liveStock.rawSetting.min} onChange={(e) => updateLiveStock('rawSetting','min', e.target.value)} /></td>
                             <td className="px-0.5 py-0.5"><input className="w-full text-sm px-0.5 py-0.5 border rounded" value={liveStock.wipLiquidCasting.min} onChange={(e) => updateLiveStock('wipLiquidCasting','min', e.target.value)} /></td>
-                            <td className="px-0.5 py-0.5"><input className="w-full text-sm px-0.5 py-0.5 border rounded" value={liveStock.postCasting.min} onChange={(e) => updateLiveStock('postCasting','min', e.target.value)} /></td>
                             <td className="px-0.5 py-0.5"><input className="w-full text-sm px-0.5 py-0.5 border rounded" value={liveStock.filing.min} onChange={(e) => updateLiveStock('filing','min', e.target.value)} /></td>
                             <td className="px-0.5 py-0.5"><input className="w-full text-sm px-0.5 py-0.5 border rounded" value={liveStock.packing.min} onChange={(e) => updateLiveStock('packing','min', e.target.value)} /></td>
                             <td className="px-0.5 py-0.5"><input className="w-full text-sm px-0.5 py-0.5 border rounded" value={liveStock.setting.min} onChange={(e) => updateLiveStock('setting','min', e.target.value)} /></td>
@@ -1605,11 +1585,10 @@ function ProductSheetContent() {
                             <td className="px-0.5 py-0.5"><input className="w-full text-sm px-0.5 py-0.5 border rounded" value={liveStock.readyForPlacing.min} onChange={(e) => updateLiveStock('readyForPlacing','min', e.target.value)} /></td>
                           </tr>
                           <tr className="border-t">
-                            <td className="px-1 py-0.5 font-semibold text-center">Current Stock</td>
+                            <td className="px-1 py-0.5 font-semibold text-left whitespace-nowrap">Current Stock</td>
                             <td className="px-0.5 py-0.5"><input className="w-full text-sm px-0.5 py-0.5 border rounded" value={liveStock.rawMaterial.current} onChange={(e) => updateLiveStock('rawMaterial','current', e.target.value)} /></td>
                             <td className="px-0.5 py-0.5"><input className="w-full text-sm px-0.5 py-0.5 border rounded" value={liveStock.rawSetting.current} onChange={(e) => updateLiveStock('rawSetting','current', e.target.value)} /></td>
                             <td className="px-0.5 py-0.5"><input className="w-full text-sm px-0.5 py-0.5 border rounded" value={liveStock.wipLiquidCasting.current} onChange={(e) => updateLiveStock('wipLiquidCasting','current', e.target.value)} /></td>
-                            <td className="px-0.5 py-0.5"><input className="w-full text-sm px-0.5 py-0.5 border rounded" value={liveStock.postCasting.current} onChange={(e) => updateLiveStock('postCasting','current', e.target.value)} /></td>
                             <td className="px-0.5 py-0.5"><input className="w-full text-sm px-0.5 py-0.5 border rounded" value={liveStock.filing.current} onChange={(e) => updateLiveStock('filing','current', e.target.value)} /></td>
                             <td className="px-0.5 py-0.5"><input className="w-full text-sm px-0.5 py-0.5 border rounded" value={liveStock.packing.current} onChange={(e) => updateLiveStock('packing','current', e.target.value)} /></td>
                             <td className="px-0.5 py-0.5"><input className="w-full text-sm px-0.5 py-0.5 border rounded" value={liveStock.setting.current} onChange={(e) => updateLiveStock('setting','current', e.target.value)} /></td>
@@ -1617,11 +1596,10 @@ function ProductSheetContent() {
                             <td className="px-0.5 py-0.5"><input className="w-full text-sm px-0.5 py-0.5 border rounded" value={liveStock.readyForPlacing.current} onChange={(e) => updateLiveStock('readyForPlacing','current', e.target.value)} /></td>
                           </tr>
                           <tr className="border-t">
-                            <td className="px-1 py-0.5 font-semibold text-center">WIP</td>
+                            <td className="px-1 py-0.5 font-semibold text-left whitespace-nowrap">WIP</td>
                             <td className="px-0.5 py-0.5"><input className="w-full text-sm px-0.5 py-0.5 border rounded" value={liveStock.rawMaterial.wip} onChange={(e) => updateLiveStock('rawMaterial','wip', e.target.value)} /></td>
                             <td className="px-0.5 py-0.5"><input className="w-full text-sm px-0.5 py-0.5 border rounded" value={liveStock.rawSetting.wip} onChange={(e) => updateLiveStock('rawSetting','wip', e.target.value)} /></td>
                             <td className="px-0.5 py-0.5"><input className="w-full text-sm px-0.5 py-0.5 border rounded" value={liveStock.wipLiquidCasting.wip} onChange={(e) => updateLiveStock('wipLiquidCasting','wip', e.target.value)} /></td>
-                            <td className="px-0.5 py-0.5"><input className="w-full text-sm px-0.5 py-0.5 border rounded" value={liveStock.postCasting.wip} onChange={(e) => updateLiveStock('postCasting','wip', e.target.value)} /></td>
                             <td className="px-0.5 py-0.5"><input className="w-full text-sm px-0.5 py-0.5 border rounded" value={liveStock.filing.wip} onChange={(e) => updateLiveStock('filing','wip', e.target.value)} /></td>
                             <td className="px-0.5 py-0.5"><input className="w-full text-sm px-0.5 py-0.5 border rounded" value={liveStock.packing.wip} onChange={(e) => updateLiveStock('packing','wip', e.target.value)} /></td>
                             <td className="px-0.5 py-0.5"><input className="w-full text-sm px-0.5 py-0.5 border rounded" value={liveStock.setting.wip} onChange={(e) => updateLiveStock('setting','wip', e.target.value)} /></td>
@@ -1629,11 +1607,10 @@ function ProductSheetContent() {
                             <td className="px-0.5 py-0.5"><input className="w-full text-sm px-0.5 py-0.5 border rounded" value={liveStock.readyForPlacing.wip} onChange={(e) => updateLiveStock('readyForPlacing','wip', e.target.value)} /></td>
                           </tr>
                           <tr className="border-t">
-                            <td className="px-1 py-0.5 font-semibold text-center">Location</td>
+                            <td className="px-1 py-0.5 font-semibold text-left whitespace-nowrap">Location</td>
                             <td className="px-0.5 py-0.5"><input className="w-full text-sm px-0.5 py-0.5 border rounded" value={liveStock.rawMaterial.location} onChange={(e) => updateLiveStock('rawMaterial','location', e.target.value)} /></td>
                             <td className="px-0.5 py-0.5"><input className="w-full text-sm px-0.5 py-0.5 border rounded" value={liveStock.rawSetting.location} onChange={(e) => updateLiveStock('rawSetting','location', e.target.value)} /></td>
                             <td className="px-0.5 py-0.5"><input className="w-full text-sm px-0.5 py-0.5 border rounded" value={liveStock.wipLiquidCasting.location} onChange={(e) => updateLiveStock('wipLiquidCasting','location', e.target.value)} /></td>
-                            <td className="px-0.5 py-0.5"><input className="w-full text-sm px-0.5 py-0.5 border rounded" value={liveStock.postCasting.location} onChange={(e) => updateLiveStock('postCasting','location', e.target.value)} /></td>
                             <td className="px-0.5 py-0.5"><input className="w-full text-sm px-0.5 py-0.5 border rounded" value={liveStock.filing.location} onChange={(e) => updateLiveStock('filing','location', e.target.value)} /></td>
                             <td className="px-0.5 py-0.5"><input className="w-full text-sm px-0.5 py-0.5 border rounded" value={liveStock.packing.location} onChange={(e) => updateLiveStock('packing','location', e.target.value)} /></td>
                             <td className="px-0.5 py-0.5"><input className="w-full text-sm px-0.5 py-0.5 border rounded" value={liveStock.setting.location} onChange={(e) => updateLiveStock('setting','location', e.target.value)} /></td>
@@ -1842,64 +1819,6 @@ function ProductSheetContent() {
         </div>
       )}
       </div>
-
-      {/* Dashboard Panel */}
-      {isDashboardOpen && (
-        <div className="fixed top-10 left-0 right-0 bottom-0 z-40 bg-black bg-opacity-50" onClick={() => setIsDashboardOpen(false)}></div>
-      )}
-      <div className={`fixed top-10 left-0 h-[calc(100vh-2.5rem)] w-80 bg-white border-r-2 border-soft-border shadow-lg transform transition-transform duration-300 z-50 overflow-y-scroll ${
-        isDashboardOpen ? 'translate-x-0' : '-translate-x-full'
-      }`}>
-        <div className="p-4">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-bold">Dashboard</h2>
-            <button onClick={() => setIsDashboardOpen(false)} className="p-1 hover:bg-cloud-gray rounded">
-              <X className="h-5 w-5" />
-            </button>
-          </div>
-
-          {/* Product Sheet Button */}
-          <a href="/" className="w-full mb-6 px-4 py-3 text-base bg-trust-blue/10 border border-trust-blue text-deep-blue font-semibold rounded hover:bg-trust-blue/20 transition-colors block text-center">
-            Product Sheet
-          </a>
-
-          {/* Master Job Sheet Button */}
-          <a href="/master-job-sheet" className="w-full mb-6 px-4 py-3 text-base bg-trust-blue/10 border border-trust-blue text-deep-blue font-semibold rounded hover:bg-trust-blue/20 transition-colors block text-center">
-            Master Job Sheet
-          </a>
-
-          {/* Master Product Sheet Button */}
-          <a href="/master-product-sheet" className="w-full mb-6 px-4 py-3 text-base bg-trust-blue/10 border border-trust-blue text-deep-blue font-semibold rounded hover:bg-trust-blue/20 transition-colors block text-center">
-            Master Product Sheet
-          </a>
-
-          {/* Master Inventory Sheet Button */}
-          <a href="/master-inventory-sheet" className="w-full mb-6 px-4 py-3 text-base bg-trust-blue/10 border border-trust-blue text-deep-blue font-semibold rounded hover:bg-trust-blue/20 transition-colors block text-center">
-            Master Inventory Sheet
-          </a>
-
-          {/* Master Workforce Sheet Button */}
-          <a href="/master-workforce-sheet" className="w-full mb-6 px-4 py-3 text-base bg-trust-blue/10 border border-trust-blue text-deep-blue font-semibold rounded hover:bg-trust-blue/20 transition-colors block text-center">
-            Master Workforce Sheet
-          </a>
-
-          {/* Master KYC Sheet Button */}
-          <a href="/master-kyc-sheet" className="w-full mb-6 px-4 py-3 text-base bg-trust-blue/10 border border-trust-blue text-deep-blue font-semibold rounded hover:bg-trust-blue/20 transition-colors block text-center">
-            Master KYC Sheet
-          </a>
-
-          {/* Managers Dashboard Button */}
-          <a href="/managers-dashboard" className="w-full mb-6 px-4 py-3 text-base bg-trust-blue/10 border border-trust-blue text-deep-blue font-semibold rounded hover:bg-trust-blue/20 transition-colors block text-center">
-            Managers Dashboard
-          </a>
-
-          {/* Drafts Button */}
-          <a href="/drafts" className="w-full mb-6 px-4 py-3 text-base bg-trust-blue/10 border border-trust-blue text-deep-blue font-semibold rounded hover:bg-trust-blue/20 transition-colors block text-center">
-            Drafts
-          </a>
-        </div>
-      </div>
-
       <CreateJobModal 
         open={isCreateJobModalOpen}
         onOpenChange={setIsCreateJobModalOpen}

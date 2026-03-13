@@ -56,7 +56,6 @@ function buildProductStockMap(products, transactions) {
         rawMaterial: { min: '', current: String(currentStock), wip: '', location: '' },
         rawSetting: { min: '', current: '', wip: '', location: '' },
         wipLiquidCasting: { min: '', current: '', wip: '', location: '' },
-        postCasting: { min: '', current: '', wip: '', location: '' },
         filing: { min: '', current: '', wip: '', location: '' },
         packing: { min: '', current: '', wip: '', location: '' },
         setting: { min: '', current: '', wip: '', location: '' },
