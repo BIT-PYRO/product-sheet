@@ -149,11 +149,15 @@ export function CompanyKYCForm({ onClose }) {
     onClose();
   };
 
-  const DocumentUploadCard = ({ label, field, placeholder }) => (
+  const labelClass = 'block text-xs font-semibold tracking-wide text-slate-600 uppercase mb-2';
+  const fieldClass = 'w-full border-slate-300/80 bg-white/90 rounded-xl shadow-sm focus:border-trust-blue focus:ring-2 focus:ring-trust-blue/20 transition-all';
+  const sectionShellClass = 'rounded-2xl border border-slate-200/80 bg-gradient-to-b from-white to-slate-50/60 shadow-sm p-5 md:p-6';
+
+  const DocumentUploadCard = ({ label, field }) => (
     <div
       onDragOver={handleDragOver}
       onDrop={(e) => handleDrop(e, field)}
-      className="border-2 border-dashed border-soft-border rounded-lg p-6 text-center hover:border-trust-blue hover:bg-trust-blue/10 transition-all cursor-pointer relative group"
+      className="border border-dashed border-slate-300 rounded-2xl p-5 text-center hover:border-trust-blue hover:bg-blue-50/50 transition-all cursor-pointer relative group bg-white"
     >
       <input
         type="file"
@@ -161,12 +165,14 @@ export function CompanyKYCForm({ onClose }) {
         onChange={(e) => handleFileUpload(e, field)}
         className="absolute inset-0 opacity-0 cursor-pointer"
       />
-      <Upload className="w-6 h-6 text-cool-gray mx-auto mb-2" />
-      <p className="text-sm font-semibold text-slate-text">{label}</p>
-      <p className="text-sm text-cool-gray mt-1">Drag or browse</p>
-      <p className="text-sm text-cool-gray mt-2">PDF, JPG, PNG (Max 5MB)</p>
+      <div className="w-12 h-12 mx-auto mb-3 rounded-2xl bg-gradient-to-br from-blue-100 to-slate-100 flex items-center justify-center border border-blue-200/60">
+        <Upload className="w-6 h-6 text-deep-blue" />
+      </div>
+      <p className="text-sm font-semibold text-slate-800">{label}</p>
+      <p className="text-xs text-cool-gray mt-1">Drag and drop or click to browse</p>
+      <p className="text-xs text-cool-gray mt-2">PDF, JPG, PNG up to 5MB</p>
       {fileNames[field] && (
-        <div className="mt-2 text-sm text-success font-semibold flex items-center justify-center gap-1">
+        <div className="mt-3 text-xs text-success font-semibold flex items-center justify-center gap-1 bg-emerald-50 border border-emerald-200 rounded-lg py-1.5 px-2">
           <span>✓</span>
           <span className="truncate">{fileNames[field]}</span>
         </div>
@@ -175,35 +181,45 @@ export function CompanyKYCForm({ onClose }) {
   );
 
   return (
-    <div className="w-full max-h-[90vh] overflow-y-auto">
+    <div className="w-full max-h-[90vh] overflow-y-auto bg-[radial-gradient(circle_at_top_right,_#dbeafe_0%,_#f8fafc_40%,_#ffffff_82%)]">
       {/* Header */}
-      <div className="bg-gradient-to-r from-trust-blue to-deep-blue text-white p-8 rounded-t-lg">
-        <h1 className="text-3xl font-bold">B2B BUSINESS KYC FORM</h1>
-        <p className="text-indigo-100 text-sm mt-2">Complete your business verification in 5 steps</p>
+      <div className="bg-gradient-to-r from-slate-900 via-deep-blue to-trust-blue text-white p-6 md:p-8 rounded-t-2xl border-b border-white/20">
+        <div className="inline-flex items-center gap-2 rounded-full border border-white/30 bg-white/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider">
+          Verification Journey
+        </div>
+        <h1 className="text-2xl md:text-3xl font-bold mt-3">B2B Business KYC Form</h1>
+        <p className="text-blue-100 text-sm mt-2">Complete your business verification in 5 structured steps.</p>
+        <div className="mt-4 flex flex-wrap gap-2">
+          {['Company', 'Authorized Person', 'Bank', 'Documents', 'Declaration'].map((step, idx) => (
+            <span key={step} className="text-[11px] font-medium rounded-full px-2.5 py-1 bg-white/15 border border-white/25">
+              {idx + 1}. {step}
+            </span>
+          ))}
+        </div>
       </div>
 
-      <div className="p-8 bg-white space-y-8 rounded-b-lg">
+      <div className="p-4 md:p-6 space-y-5 rounded-b-2xl">
         
         {/* Section 1: Company Details */}
-        <div>
-          <div className="border-b-2 border-soft-border pb-3 mb-6">
-            <h2 className="text-lg font-bold text-midnight-ink">1. COMPANY DETAILS</h2>
+        <section className={sectionShellClass}>
+          <div className="border-b border-slate-200 pb-3 mb-5">
+            <h2 className="text-base md:text-lg font-bold text-midnight-ink">1. Company Details</h2>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             <div>
-              <Label className="block text-sm font-semibold text-slate-text mb-2">Company Name *</Label>
+              <Label className={labelClass}>Company Name *</Label>
               <Input
                 name="companyName"
                 value={formData.companyName}
                 onChange={handleFormChange}
                 placeholder="Enter company name"
-                className="w-full border-soft-border"
+                className={fieldClass}
               />
             </div>
             <div>
-              <Label className="block text-sm font-semibold text-slate-text mb-2">Business Type *</Label>
+              <Label className={labelClass}>Business Type *</Label>
               <Select value={formData.businessType} onValueChange={(value) => handleSelectChange('businessType', value)}>
-                <SelectTrigger className="border-soft-border">
+                <SelectTrigger className={fieldClass}>
                   <SelectValue placeholder="Select business type" />
                 </SelectTrigger>
                 <SelectContent>
@@ -214,65 +230,65 @@ export function CompanyKYCForm({ onClose }) {
               </Select>
             </div>
             <div>
-              <Label className="block text-sm font-semibold text-slate-text mb-2">GST Number (GSTIN) *</Label>
+              <Label className={labelClass}>GST Number (GSTIN) *</Label>
               <Input
                 name="gstNumber"
                 value={formData.gstNumber}
                 onChange={handleFormChange}
                 placeholder="15 digit GST number"
-                className="w-full border-soft-border"
+                className={fieldClass}
               />
             </div>
             <div>
-              <Label className="block text-sm font-semibold text-slate-text mb-2">PAN Number *</Label>
+              <Label className={labelClass}>PAN Number *</Label>
               <Input
                 name="panNumber"
                 value={formData.panNumber}
                 onChange={handleFormChange}
                 placeholder="10 digit PAN"
-                className="w-full border-soft-border"
+                className={fieldClass}
               />
             </div>
           </div>
 
-          <div className="mt-6 pt-6 border-t border-soft-border">
-            <h3 className="text-sm font-semibold text-slate-text mb-4">Registered Address *</h3>
+          <div className="mt-5 pt-5 border-t border-slate-200">
+            <h3 className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-4">Registered Address *</h3>
             <div className="space-y-4">
               <div>
-                <Label className="block text-sm font-semibold text-cool-gray mb-2">Address Line 1</Label>
+                <Label className={labelClass}>Address Line 1</Label>
                 <Input
                   name="addressLine1"
                   value={formData.addressLine1}
                   onChange={handleFormChange}
                   placeholder="Street address"
-                  className="w-full border-soft-border"
+                  className={fieldClass}
                 />
               </div>
               <div>
-                <Label className="block text-sm font-semibold text-cool-gray mb-2">Address Line 2</Label>
+                <Label className={labelClass}>Address Line 2</Label>
                 <Input
                   name="addressLine2"
                   value={formData.addressLine2}
                   onChange={handleFormChange}
                   placeholder="Apartment, suite, etc."
-                  className="w-full border-soft-border"
+                  className={fieldClass}
                 />
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
-                  <Label className="block text-sm font-semibold text-cool-gray mb-2">City</Label>
+                  <Label className={labelClass}>City</Label>
                   <Input
                     name="city"
                     value={formData.city}
                     onChange={handleFormChange}
                     placeholder="City"
-                    className="w-full border-soft-border"
+                    className={fieldClass}
                   />
                 </div>
                 <div>
-                  <Label className="block text-sm font-semibold text-cool-gray mb-2">State</Label>
+                  <Label className={labelClass}>State</Label>
                   <Select value={formData.state} onValueChange={(value) => handleSelectChange('state', value)}>
-                    <SelectTrigger className="border-soft-border">
+                    <SelectTrigger className={fieldClass}>
                       <SelectValue placeholder="Select state" />
                     </SelectTrigger>
                     <SelectContent>
@@ -283,165 +299,165 @@ export function CompanyKYCForm({ onClose }) {
                   </Select>
                 </div>
                 <div>
-                  <Label className="block text-sm font-semibold text-cool-gray mb-2">PIN Code</Label>
+                  <Label className={labelClass}>PIN Code</Label>
                   <Input
                     name="pinCode"
                     value={formData.pinCode}
                     onChange={handleFormChange}
                     placeholder="6 digit PIN code"
-                    className="w-full border-soft-border"
+                    className={fieldClass}
                   />
                 </div>
               </div>
             </div>
           </div>
-        </div>
+        </section>
 
         {/* Section 2: Authorized Person Details */}
-        <div>
-          <div className="border-b-2 border-soft-border pb-3 mb-6">
-            <h2 className="text-lg font-bold text-midnight-ink">2. AUTHORIZED PERSON DETAILS</h2>
+        <section className={sectionShellClass}>
+          <div className="border-b border-slate-200 pb-3 mb-5">
+            <h2 className="text-base md:text-lg font-bold text-midnight-ink">2. Authorized Person Details</h2>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             <div>
-              <Label className="block text-sm font-semibold text-slate-text mb-2">Full Name *</Label>
+              <Label className={labelClass}>Full Name *</Label>
               <Input
                 name="authorizedPersonName"
                 value={formData.authorizedPersonName}
                 onChange={handleFormChange}
                 placeholder="Full name"
-                className="w-full border-soft-border"
+                className={fieldClass}
               />
             </div>
             <div>
-              <Label className="block text-sm font-semibold text-slate-text mb-2">Designation *</Label>
+              <Label className={labelClass}>Designation *</Label>
               <Input
                 name="designation"
                 value={formData.designation}
                 onChange={handleFormChange}
                 placeholder="Director, Manager, etc."
-                className="w-full border-soft-border"
+                className={fieldClass}
               />
             </div>
             <div>
-              <Label className="block text-sm font-semibold text-slate-text mb-2">Mobile Number *</Label>
+              <Label className={labelClass}>Mobile Number *</Label>
               <Input
                 name="mobile"
                 value={formData.mobile}
                 onChange={handleFormChange}
                 placeholder="10 digit mobile number"
                 type="tel"
-                className="w-full border-soft-border"
+                className={fieldClass}
               />
             </div>
             <div>
-              <Label className="block text-sm font-semibold text-slate-text mb-2">Email Address *</Label>
+              <Label className={labelClass}>Email Address *</Label>
               <Input
                 name="email"
                 value={formData.email}
                 onChange={handleFormChange}
                 placeholder="email@example.com"
                 type="email"
-                className="w-full border-soft-border"
+                className={fieldClass}
               />
             </div>
           </div>
-        </div>
+        </section>
 
         {/* Section 3: Bank Details */}
-        <div>
-          <div className="border-b-2 border-soft-border pb-3 mb-6">
-            <h2 className="text-lg font-bold text-midnight-ink">3. BANK DETAILS</h2>
+        <section className={sectionShellClass}>
+          <div className="border-b border-slate-200 pb-3 mb-5">
+            <h2 className="text-base md:text-lg font-bold text-midnight-ink">3. Bank Details</h2>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             <div>
-              <Label className="block text-sm font-semibold text-slate-text mb-2">Account Name *</Label>
+              <Label className={labelClass}>Account Name *</Label>
               <Input
                 name="accountName"
                 value={formData.accountName}
                 onChange={handleFormChange}
                 placeholder="Account holder name"
-                className="w-full border-soft-border"
+                className={fieldClass}
               />
             </div>
             <div>
-              <Label className="block text-sm font-semibold text-slate-text mb-2">Bank Name *</Label>
+              <Label className={labelClass}>Bank Name *</Label>
               <Input
                 name="bankName"
                 value={formData.bankName}
                 onChange={handleFormChange}
                 placeholder="Bank name"
-                className="w-full border-soft-border"
+                className={fieldClass}
               />
             </div>
             <div>
-              <Label className="block text-sm font-semibold text-slate-text mb-2">Account Number *</Label>
+              <Label className={labelClass}>Account Number *</Label>
               <Input
                 name="accountNumber"
                 value={formData.accountNumber}
                 onChange={handleFormChange}
                 placeholder="Account number"
-                className="w-full border-soft-border"
+                className={fieldClass}
               />
             </div>
             <div>
-              <Label className="block text-sm font-semibold text-slate-text mb-2">IFSC Code *</Label>
+              <Label className={labelClass}>IFSC Code *</Label>
               <Input
                 name="ifsc"
                 value={formData.ifsc}
                 onChange={handleFormChange}
                 placeholder="IFSC code"
-                className="w-full border-soft-border"
+                className={fieldClass}
               />
             </div>
           </div>
-        </div>
+        </section>
 
         {/* Section 4: Documents Upload */}
-        <div>
-          <div className="border-b-2 border-soft-border pb-3 mb-6">
-            <h2 className="text-lg font-bold text-midnight-ink">4. DOCUMENTS UPLOAD</h2>
+        <section className={sectionShellClass}>
+          <div className="border-b border-slate-200 pb-3 mb-5">
+            <h2 className="text-base md:text-lg font-bold text-midnight-ink">4. Documents Upload</h2>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <DocumentUploadCard label="GST Certificate" field="gstCertificate" />
             <DocumentUploadCard label="PAN Card" field="panCard" />
             <DocumentUploadCard label="Authorized Person ID Proof" field="idProof" />
             <DocumentUploadCard label="Cancelled Cheque / Bank Proof" field="cancelledCheque" />
           </div>
-        </div>
+        </section>
 
         {/* Section 5: Declaration */}
-        <div>
-          <div className="border-b-2 border-soft-border pb-3 mb-6">
-            <h2 className="text-lg font-bold text-midnight-ink">5. DECLARATION</h2>
+        <section className={sectionShellClass}>
+          <div className="border-b border-slate-200 pb-3 mb-5">
+            <h2 className="text-base md:text-lg font-bold text-midnight-ink">5. Declaration</h2>
           </div>
-          <div className="bg-cloud-gray p-6 rounded-lg border border-soft-border">
+          <div className="bg-gradient-to-br from-slate-50 to-blue-50/60 p-5 rounded-2xl border border-slate-200">
             <div className="flex items-start gap-4">
               <Checkbox
                 id="declaration"
                 checked={formData.declaration}
                 onCheckedChange={(checked) => handleCheckboxChange('declaration', checked)}
-                className="mt-1"
+                className="mt-0.5"
               />
-              <Label htmlFor="declaration" className="text-sm text-slate-text font-medium cursor-pointer leading-relaxed">
+              <Label htmlFor="declaration" className="text-sm text-slate-700 font-medium cursor-pointer leading-relaxed">
                 I confirm that the information provided above is accurate and I am authorized to represent this business.
               </Label>
             </div>
           </div>
-        </div>
+        </section>
 
         {/* Action Buttons */}
-        <div className="flex gap-3 justify-end pt-6 border-t">
+        <div className="sticky bottom-0 bg-white/95 backdrop-blur-sm rounded-xl border border-slate-200 px-4 py-3 flex gap-3 justify-end">
           <Button
             onClick={onClose}
             variant="outline"
-            className="px-8"
+            className="px-8 rounded-xl border-slate-300 hover:bg-slate-50"
           >
             Cancel
           </Button>
           <Button
             onClick={handleSubmit}
-            className="bg-trust-blue hover:bg-deep-blue text-white px-8"
+            className="bg-gradient-to-r from-trust-blue to-deep-blue hover:from-deep-blue hover:to-trust-blue text-white px-8 rounded-xl shadow-md"
           >
             Submit KYC
           </Button>

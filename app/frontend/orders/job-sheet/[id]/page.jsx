@@ -1,14 +1,15 @@
 'use client';
 
-import { useState, useEffect, use } from 'react';
+import { useState, useEffect } from 'react';
+import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { ChevronRight, ArrowLeft } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 
 const fmt = (n) => `₹${Number(n).toFixed(2)}`;
 
-export default function OrderDetailPage({ params }) {
-  const { id } = use(params);
+export default function OrderDetailPage() {
+  const params = useParams();
+  const id = params?.id;
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);

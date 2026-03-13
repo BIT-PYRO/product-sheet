@@ -11,6 +11,7 @@ const NAV_LINKS = [
   { href: '/master-inventory-sheet', label: 'Master Inventory Sheet', className: 'bg-trust-blue/10 border border-trust-blue text-deep-blue hover:bg-trust-blue/20' },
   { href: '/master-job-sheet', label: 'Master Job Sheet', className: 'bg-trust-blue/10 border border-trust-blue text-deep-blue hover:bg-trust-blue/20' },
   { href: '/master-workforce-sheet', label: 'Master Workforce Sheet', className: 'bg-trust-blue/10 border border-trust-blue text-deep-blue hover:bg-trust-blue/20' },
+  { href: '/company-kyc', label: 'Company KYC Form', className: 'bg-trust-blue/10 border border-trust-blue text-deep-blue hover:bg-trust-blue/20' },
   { href: '/master-kyc-sheet', label: 'Master KYC Sheet', className: 'bg-trust-blue/10 border border-trust-blue text-deep-blue hover:bg-trust-blue/20' },
   { href: '/master-customer-sheet', label: 'Master Customer Sheet', className: 'bg-trust-blue/10 border border-trust-blue text-deep-blue hover:bg-trust-blue/20' },
   { href: '/managers-dashboard', label: 'Managers Dashboard', className: 'bg-trust-blue/10 border border-trust-blue text-deep-blue hover:bg-trust-blue/20' },

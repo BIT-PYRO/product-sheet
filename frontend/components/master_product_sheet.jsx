@@ -422,6 +422,14 @@ export default function MasterProductSheet() {
 
   const displayedData = filteredData;
 
+  const selectedProduct = useMemo(() => {
+    const selectedId = selectedRows.values().next().value;
+    if (selectedId === undefined) {
+      return null;
+    }
+    return data.find((row) => row.id === selectedId) || null;
+  }, [data, selectedRows]);
+
   const allDisplayedRowsSelected = displayedData.length > 0 && displayedData.every(row => selectedRows.has(row.id));
   const toggleSelectAllRows = (checked) => {
     if (checked) {
@@ -822,6 +830,29 @@ export default function MasterProductSheet() {
           </DropdownMenu>
         </div>
 
+        <div className="mb-4 border border-soft-border rounded-lg bg-white overflow-hidden">
+          <div className="px-3 py-2 bg-trust-blue/40 font-bold text-sm text-midnight-ink border-b border-soft-border">
+            PRODUCT DETAILS
+          </div>
+          <div className="p-3">
+            {!selectedProduct ? (
+              <div className="text-sm text-cool-gray">Select a row to see product details.</div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
+                <DetailCard label="SKU" value={selectedProduct.sku} />
+                <DetailCard label="LISTING NAME" value={selectedProduct.listingName} />
+                <DetailCard label="MATERIAL" value={selectedProduct.material} />
+                <DetailCard label="CATEGORY" value={selectedProduct.category} />
+                <DetailCard label="COLLECTION" value={selectedProduct.collection} />
+                <DetailCard label="DIE NUMBER/FINDINGS" value={selectedProduct.dieNumberFindings} />
+                <DetailCard label="MASTER SKU" value={selectedProduct.masterSku} />
+                <DetailCard label="COLOR" value={selectedProduct.color} />
+                <DetailCard label="IMAGES" value={selectedProduct.images} />
+              </div>
+            )}
+          </div>
+        </div>
+
 
       {/* Filter Row */}
       <div className="border border-soft-border rounded-lg mb-4 bg-trust-blue/10 p-4">
@@ -1079,6 +1110,15 @@ export default function MasterProductSheet() {
           {editingRowIds.size > 0 && <p className="text-trust-blue font-semibold">Editing {editingRowIds.size} row(s)</p>}
         </div>
       </div>
+    </div>
+  );
+}
+
+function DetailCard({ label, value }) {
+  return (
+    <div className="border border-soft-border rounded-lg bg-white overflow-hidden">
+      <div className="px-2 py-1 bg-cloud-gray font-semibold text-xs text-slate-text border-b border-soft-border">{label}</div>
+      <div className="px-2 py-2 text-sm min-h-[36px] whitespace-pre-wrap break-words">{value || '—'}</div>
     </div>
   );
 }
