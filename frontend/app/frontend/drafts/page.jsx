@@ -9,6 +9,7 @@ import { QuickEnrollModal } from '@/components/quick-enroll-modal'
 import { EnrolWorkforceForm } from '@/app/frontend/enrol-workforce/page'
 
 const DRAFTS_STORAGE_KEY = 'form_drafts'
+const CREATE_ORDER_ENTITY_TYPE = 'create_order'
 
 const SECTIONS = ['Create Job', 'Create Order', 'Enroll Workforce', 'Quick Enroll']
 
@@ -90,6 +91,8 @@ const TABLE_CONFIG = {
 export default function DraftsPage() {
   const router = useRouter()
   const [drafts, setDrafts] = useState({})
+  const [backendCreateOrderDrafts, setBackendCreateOrderDrafts] = useState([])
+  const [backendCreateOrderLoading, setBackendCreateOrderLoading] = useState(false)
   const [activeSection, setActiveSection] = useState(null)
   const [isCreateJobOpen, setIsCreateJobOpen] = useState(false)
   const [isQuickEnrollOpen, setIsQuickEnrollOpen] = useState(false)
@@ -112,17 +115,79 @@ export default function DraftsPage() {
     }
   }, [])
 
+  useEffect(() => {
+    const fetchCreateOrderDrafts = async () => {
+      setBackendCreateOrderLoading(true)
+      try {
+        const response = await fetch(
+          `/api/drafts?entity_type=${CREATE_ORDER_ENTITY_TYPE}&is_submitted=false`,
+          { cache: 'no-store' }
+        )
+
+        if (!response.ok) {
+          throw new Error(`Failed to fetch drafts (${response.status})`)
+        }
+
+        const json = await response.json().catch(() => null)
+        const rows =
+          Array.isArray(json?.data?.results) ? json.data.results :
+          Array.isArray(json?.data) ? json.data :
+          Array.isArray(json?.results) ? json.results :
+          Array.isArray(json) ? json : []
+
+        const normalized = rows.map((draft) => {
+          const payload = draft?.payload && typeof draft.payload === 'object' ? draft.payload : {}
+          return {
+            ...payload,
+            id: draft?.id,
+            __backendDraftId: draft?.id,
+            savedAt: draft?.updated_at || draft?.created_at || payload?.savedAt || '',
+          }
+        })
+
+        setBackendCreateOrderDrafts(normalized)
+      } catch (error) {
+        console.error('Failed to load backend Create Order drafts:', error)
+        setBackendCreateOrderDrafts([])
+      } finally {
+        setBackendCreateOrderLoading(false)
+      }
+    }
+
+    fetchCreateOrderDrafts()
+  }, [])
+
+  const combinedDrafts = useMemo(() => {
+    return {
+      ...drafts,
+      'Create Order': backendCreateOrderDrafts,
+    }
+  }, [drafts, backendCreateOrderDrafts])
+
   const totalDrafts = useMemo(
-    () => Object.values(drafts).reduce((sum, sectionDrafts) => sum + sectionDrafts.length, 0),
-    [drafts]
+    () => Object.values(combinedDrafts).reduce((sum, sectionDrafts) => sum + sectionDrafts.length, 0),
+    [combinedDrafts]
   )
 
-  const activeDrafts = activeSection ? (drafts[activeSection] || []) : []
+  const activeDrafts = activeSection ? (combinedDrafts[activeSection] || []) : []
   const activeColumns = activeSection ? (TABLE_CONFIG[activeSection] || []) : []
 
-  const clearAllDrafts = () => {
+  const clearAllDrafts = async () => {
     localStorage.removeItem(DRAFTS_STORAGE_KEY)
     setDrafts({})
+
+    if (backendCreateOrderDrafts.length === 0) return
+
+    try {
+      await Promise.all(
+        backendCreateOrderDrafts
+          .filter((draft) => draft?.__backendDraftId)
+          .map((draft) => fetch(`/api/drafts/${draft.__backendDraftId}`, { method: 'DELETE' }))
+      )
+      setBackendCreateOrderDrafts([])
+    } catch (error) {
+      console.error('Failed to clear backend Create Order drafts:', error)
+    }
   }
 
   const handleContinueDraft = (section, draft) => {
@@ -168,7 +233,7 @@ export default function DraftsPage() {
 
         <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
           {SECTIONS.map((section) => {
-            const count = (drafts[section] || []).length
+            const count = (combinedDrafts[section] || []).length
             const isActive = activeSection === section
 
             return (
@@ -211,7 +276,11 @@ export default function DraftsPage() {
             <h3 className="text-base font-semibold text-midnight-ink mb-4">{activeSection} Drafts</h3>
 
             {activeDrafts.length === 0 ? (
-              <p className="text-sm text-cool-gray">No drafts available in this section.</p>
+              <p className="text-sm text-cool-gray">
+                {activeSection === 'Create Order' && backendCreateOrderLoading
+                  ? 'Loading drafts...'
+                  : 'No drafts available in this section.'}
+              </p>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[980px] border-collapse">

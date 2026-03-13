@@ -7,13 +7,21 @@ import { Search, X, Pencil, ChevronRight, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
-import { useDrafts, useDraftLoader } from '@/components/drafts-manager';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+
+const CREATE_ORDER_ENTITY_TYPE = 'create_order';
+
+const EMPTY_NEW_CUSTOMER = {
+  firstName: '', lastName: '', language: 'English [Default]', email: '',
+  acceptsMarketing: false, taxExempt: false,
+  country: 'India', company: '', address: '', apartment: '',
+  city: '', state: '', pinCode: '', phone: '',
+};
 
 const INDIAN_STATES = [
   'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh',
@@ -78,10 +86,8 @@ function EditableRow({ label, value, inputValue, onInputChange, placeholder }) {
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
-export default function CreateJobPage() {
+export function CreateOrderForm({ embedded = false }) {
   const router = useRouter();
-  const { saveDraft } = useDrafts();
-  const loadedDraft = useDraftLoader();
   
   // Order items
   const [orderItems, setOrderItems] = useState([]);
@@ -108,6 +114,7 @@ export default function CreateJobPage() {
   // Create order
   const [isCreatingOrder, setIsCreatingOrder] = useState(false);
   const [orderMessage, setOrderMessage] = useState({ type: '', text: '' });
+  const [activeDraftId, setActiveDraftId] = useState(null);
 
   // Customer
   const [customerSearch, setCustomerSearch] = useState('');
@@ -115,15 +122,12 @@ export default function CreateJobPage() {
   const [customers, setCustomers] = useState([]);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [isCreateCustomerOpen, setIsCreateCustomerOpen] = useState(false);
-  const [newCustomer, setNewCustomer] = useState({
-    firstName: '', lastName: '', language: 'English [Default]', email: '',
-    acceptsMarketing: false, taxExempt: false,
-    country: 'India', company: '', address: '', apartment: '',
-    city: '', state: '', pinCode: '', phone: '',
-  });
+  const [newCustomer, setNewCustomer] = useState(EMPTY_NEW_CUSTOMER);
+  const [isSavingCustomer, setIsSavingCustomer] = useState(false);
+  const [createCustomerError, setCreateCustomerError] = useState('');
   const customerContainerRef = useRef(null);
 
-  const applyDraftData = useCallback((draft) => {
+  const applyDraftData = useCallback((draft, options = {}) => {
     if (!draft) return;
     setOrderItems(Array.isArray(draft.orderItems) ? draft.orderItems : []);
     setSelectedCustomer(draft.selectedCustomer || null);
@@ -131,6 +135,9 @@ export default function CreateJobPage() {
     setNotes(draft.notes || '');
     setDiscount(draft.discount || '');
     setShipping(draft.shipping || '');
+    if (options.draftId) {
+      setActiveDraftId(options.draftId);
+    }
   }, []);
 
 
@@ -195,17 +202,12 @@ export default function CreateJobPage() {
   useEffect(() => { loadCustomers(); }, [loadCustomers]);
 
   useEffect(() => {
-    if (loadedDraft?.section === 'Create Order' && loadedDraft?.data) {
-      applyDraftData(loadedDraft.data);
-    }
-  }, [loadedDraft, applyDraftData]);
-
-  useEffect(() => {
     const draftFromSession = sessionStorage.getItem('create_order_draft_to_load');
     if (!draftFromSession) return;
     try {
       const parsed = JSON.parse(draftFromSession);
-      applyDraftData(parsed);
+      const draftId = parsed?.__backendDraftId || parsed?.id || null;
+      applyDraftData(parsed, { draftId });
     } catch (error) {
       console.error('Failed to load create order draft:', error);
     } finally {
@@ -290,28 +292,79 @@ export default function CreateJobPage() {
     setOrderItems((prev) => prev.filter((i) => i.id !== id));
   }
 
-  function handleCreateCustomer() {
+  async function handleCreateCustomer() {
+    if (isSavingCustomer) return;
+
     const displayName =
       [newCustomer.firstName, newCustomer.lastName].filter(Boolean).join(' ') ||
       newCustomer.email ||
       'New Customer';
-    const saved = {
-      ...newCustomer,
-      companyName: newCustomer.company || displayName,
-      authorizedPersonName: displayName,
-      displayName,
-    };
-    setCustomers((prev) => [saved, ...prev]);
-    setSelectedCustomer(saved);
-    setCustomerSearch(displayName);
-    setCustomerDropdownOpen(false);
-    setIsCreateCustomerOpen(false);
-    setNewCustomer({
-      firstName: '', lastName: '', language: 'English [Default]', email: '',
-      acceptsMarketing: false, taxExempt: false,
-      country: 'India', company: '', address: '', apartment: '',
-      city: '', state: '', pinCode: '', phone: '',
-    });
+    const companyName = (newCustomer.company || displayName).trim();
+
+    if (!companyName) {
+      setCreateCustomerError('Company name is required.');
+      return;
+    }
+
+    setCreateCustomerError('');
+    setIsSavingCustomer(true);
+
+    try {
+      const payload = {
+        company_name: companyName,
+        authorized_person_name: displayName,
+        email: (newCustomer.email || '').trim(),
+        mobile: (newCustomer.phone || '').trim(),
+        address_line1: (newCustomer.address || '').trim(),
+        address_line2: (newCustomer.apartment || '').trim(),
+        city: (newCustomer.city || '').trim(),
+        state: (newCustomer.state || '').trim(),
+        pin_code: (newCustomer.pinCode || '').trim(),
+        status: 'active',
+      };
+
+      const response = await fetch('/api/customers', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const json = await response.json().catch(() => null);
+      if (!response.ok) {
+        const msg =
+          json?.detail ||
+          json?.message ||
+          (json ? JSON.stringify(json) : `Failed to create customer (${response.status})`);
+        throw new Error(msg);
+      }
+
+      const created = json?.data || json;
+      const saved = {
+        id: created?.id,
+        companyName: created?.company_name || companyName,
+        authorizedPersonName: created?.authorized_person_name || displayName,
+        email: created?.email || payload.email,
+        mobile: created?.mobile || payload.mobile,
+        phone: created?.mobile || payload.mobile,
+        address: created?.address_line1 || payload.address_line1,
+        city: created?.city || payload.city,
+        state: created?.state || payload.state,
+        pinCode: created?.pin_code || payload.pin_code,
+      };
+
+      setCustomers((prev) => [saved, ...prev]);
+      setSelectedCustomer(saved);
+      setCustomerSearch(saved.companyName || saved.authorizedPersonName || saved.email || '');
+      setCustomerDropdownOpen(false);
+      setIsCreateCustomerOpen(false);
+      setNewCustomer(EMPTY_NEW_CUSTOMER);
+    } catch (error) {
+      setCreateCustomerError(error.message || 'Failed to create customer');
+    } finally {
+      setIsSavingCustomer(false);
+    }
   }
 
   function selectCustomer(c) {
@@ -320,7 +373,7 @@ export default function CreateJobPage() {
     setCustomerDropdownOpen(false);
   }
 
-  function handleSaveDraft() {
+  async function handleSaveDraft() {
     const draftData = {
       title: selectedCustomer?.companyName
         ? `Create Order - ${selectedCustomer.companyName}`
@@ -335,9 +388,62 @@ export default function CreateJobPage() {
       total: total.toFixed(2),
     };
 
-    saveDraft('Create Order', `draft_create_order_${Date.now()}`, draftData);
-    setOrderMessage({ type: 'success', text: 'Draft saved successfully' });
-    setTimeout(() => setOrderMessage({ type: '', text: '' }), 2200);
+    try {
+      const body = JSON.stringify({
+        entity_type: CREATE_ORDER_ENTITY_TYPE,
+        payload: draftData,
+        is_submitted: false,
+      });
+
+      const saveViaEndpoint = async (endpoint, method) => {
+        const response = await fetch(endpoint, {
+          method,
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body,
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => null);
+          const error = new Error(
+            errorData?.detail ||
+            errorData?.message ||
+            `Failed to save draft (${response.status})`
+          );
+          error.status = response.status;
+          throw error;
+        }
+
+        return response.json().catch(() => null);
+      };
+
+      let json;
+      if (activeDraftId) {
+        try {
+          json = await saveViaEndpoint(`/api/drafts/${activeDraftId}`, 'PATCH');
+        } catch (error) {
+          if (error.status === 403) {
+            json = await saveViaEndpoint('/api/drafts', 'POST');
+          } else {
+            throw error;
+          }
+        }
+      } else {
+        json = await saveViaEndpoint('/api/drafts', 'POST');
+      }
+
+      const returnedId = json?.data?.id || json?.id;
+      if (returnedId) {
+        setActiveDraftId(returnedId);
+      }
+
+      setOrderMessage({ type: 'success', text: 'Draft saved to backend successfully' });
+      setTimeout(() => setOrderMessage({ type: '', text: '' }), 2200);
+    } catch (error) {
+      setOrderMessage({ type: 'error', text: error.message || 'Failed to save draft' });
+      setTimeout(() => setOrderMessage({ type: '', text: '' }), 3000);
+    }
   }
 
   // Create order
@@ -402,6 +508,7 @@ export default function CreateJobPage() {
         setNotes('');
         setDiscount('');
         setShipping('');
+        setActiveDraftId(null);
         setOrderMessage({ type: '', text: '' });
         router.push('/orders/job-sheet');
       }, 2000);
@@ -414,21 +521,23 @@ export default function CreateJobPage() {
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <main className="min-h-screen bg-cloud-gray">
+    <main className={embedded ? '' : 'min-h-screen bg-cloud-gray'}>
       {/* Top breadcrumb bar */}
-      <div className="bg-cloud-gray border-b border-soft-border px-6 py-4">
-        <div className="max-w-6xl mx-auto">
-          <div className="flex items-center gap-1.5 text-sm text-cool-gray">
-            <Link href="/orders" className="hover:text-midnight-ink">Orders</Link>
-            <ChevronRight className="h-3.5 w-3.5" />
-            <span className="text-midnight-ink font-medium">Create order</span>
+      {!embedded && (
+        <div className="bg-cloud-gray border-b border-soft-border px-6 py-4">
+          <div className="max-w-6xl mx-auto">
+            <div className="flex items-center gap-1.5 text-sm text-cool-gray">
+              <Link href="/orders" className="hover:text-midnight-ink">Orders</Link>
+              <ChevronRight className="h-3.5 w-3.5" />
+              <span className="text-midnight-ink font-medium">Create order</span>
+            </div>
+            <h1 className="text-2xl font-bold text-midnight-ink mt-2">Create order</h1>
           </div>
-          <h1 className="text-2xl font-bold text-midnight-ink mt-2">Create order</h1>
         </div>
-      </div>
+      )}
 
       {/* Two-column layout */}
-      <div className="max-w-6xl mx-auto px-6 py-6 grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-5">
+      <div className={`max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-5 ${embedded ? 'px-0 py-2' : 'px-6 py-6'}`}>
 
         {/* ── LEFT COLUMN ────────────────────────────────────────────────── */}
         <div className="space-y-4">
@@ -723,7 +832,7 @@ export default function CreateJobPage() {
       {/* ═══════════════════════════════════════════════════════════════════
           Create Order Button & Message
       ════════════════════════════════════════════════════════════════════ */}
-      <div className="max-w-6xl mx-auto px-6 py-6">
+      <div className={`max-w-6xl mx-auto ${embedded ? 'px-0 py-4' : 'px-6 py-6'}`}>
         {orderMessage.text && (
           <div className={`mb-4 p-4 rounded-lg text-sm ${
             orderMessage.type === 'success'
@@ -974,7 +1083,16 @@ export default function CreateJobPage() {
       {/* ═══════════════════════════════════════════════════════════════════
           Create New Customer Dialog
       ════════════════════════════════════════════════════════════════════ */}
-      <Dialog open={isCreateCustomerOpen} onOpenChange={setIsCreateCustomerOpen}>
+      <Dialog
+        open={isCreateCustomerOpen}
+        onOpenChange={(open) => {
+          setIsCreateCustomerOpen(open);
+          if (!open) {
+            setCreateCustomerError('');
+            setIsSavingCustomer(false);
+          }
+        }}
+      >
         <DialogContent className="max-w-lg" style={{ maxHeight: '90vh', overflowY: 'auto' }}>
           <DialogHeader>
             <DialogTitle>Create a new customer</DialogTitle>
@@ -1079,6 +1197,12 @@ export default function CreateJobPage() {
               />
             </div>
 
+            {createCustomerError && (
+              <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                {createCustomerError}
+              </div>
+            )}
+
             {/* Address */}
             <div>
               <label className="text-sm font-medium text-midnight-ink mb-1.5 block">Address</label>
@@ -1155,13 +1279,23 @@ export default function CreateJobPage() {
           </div>
 
           <div className="flex justify-end gap-2 pt-4 border-t border-soft-border">
-            <Button variant="outline" onClick={() => setIsCreateCustomerOpen(false)}>
+            <Button
+              variant="outline"
+              onClick={() => setIsCreateCustomerOpen(false)}
+              disabled={isSavingCustomer}
+            >
               Cancel
             </Button>
-            <Button onClick={handleCreateCustomer}>Save</Button>
+            <Button onClick={handleCreateCustomer} disabled={isSavingCustomer}>
+              {isSavingCustomer ? 'Saving...' : 'Save'}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
     </main>
   );
+}
+
+export default function CreateJobPage() {
+  return <CreateOrderForm />;
 }

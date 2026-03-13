@@ -1,5 +1,6 @@
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework.decorators import action
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
@@ -19,7 +20,7 @@ from .serializers import DraftSerializer
     destroy=extend_schema(summary='Delete draft', tags=['Drafts']),
 )
 class DraftViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
-    """CRUD for drafts — scoped to the authenticated owner."""
+    """CRUD for drafts. Lists are team-visible for authenticated users."""
 
     serializer_class = DraftSerializer
     permission_classes = [IsAuthenticated]
@@ -27,10 +28,22 @@ class DraftViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
     search_fields = ["entity_type"]
 
     def get_queryset(self):
-        return Draft.objects.filter(owner=self.request.user).order_by("-updated_at")
+        return Draft.objects.select_related("owner").order_by("-updated_at")
 
     def perform_create(self, serializer):
         serializer.save(owner=self.request.user)
+
+    def _assert_can_modify(self, draft):
+        if draft.owner_id != self.request.user.id:
+            raise PermissionDenied("You can only modify your own drafts.")
+
+    def perform_update(self, serializer):
+        self._assert_can_modify(serializer.instance)
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        self._assert_can_modify(instance)
+        instance.delete()
 
     # ---------- custom actions ----------
 

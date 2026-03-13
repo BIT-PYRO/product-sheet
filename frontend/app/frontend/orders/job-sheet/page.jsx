@@ -7,8 +7,10 @@ import { RefreshCw, ChevronRight, ArrowLeft } from 'lucide-react';
 const fmt = (n) => `₹${Number(n).toFixed(2)}`;
 
 const PRODUCT_DETAIL_FIELDS = [
+  { key: 'orderProduct', label: 'Product' },
+  { key: 'orderQty', label: 'Qty' },
+  { key: 'orderPrice', label: 'Price' },
   { key: 'sku', label: 'SKU' },
-  { key: 'listingName', label: 'Listing Name' },
   { key: 'material', label: 'Material' },
   { key: 'weight', label: 'Weight' },
   { key: 'category', label: 'Category' },
@@ -32,7 +34,7 @@ const PRODUCT_DETAIL_FIELDS = [
   { key: 'images', label: 'Images' },
 ];
 
-export default function JobSheetPage() {
+export function OrderSheetView({ embedded = false }) {
   const [orders, setOrders] = useState([]);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -233,8 +235,9 @@ export default function JobSheetPage() {
   };
 
   return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_top_right,_#dbeafe_0%,_#f8fafc_32%,_#ffffff_72%)]">
+    <main className={embedded ? '' : 'min-h-screen bg-[radial-gradient(circle_at_top_right,_#dbeafe_0%,_#f8fafc_32%,_#ffffff_72%)]'}>
       {/* Header */}
+      {!embedded && (
       <div className="bg-white/85 backdrop-blur-xl border-b border-soft-border shadow-sm">
         <div className="max-w-7xl mx-auto px-5 py-3">
           <div className="flex items-center gap-1.5 text-xs text-cool-gray mb-2">
@@ -257,9 +260,10 @@ export default function JobSheetPage() {
           </div>
         </div>
       </div>
+      )}
 
       {/* Main content */}
-      <div className="max-w-7xl mx-auto px-5 py-4 h-full">
+      <div className={`max-w-7xl mx-auto h-full ${embedded ? 'px-0 py-2' : 'px-5 py-4'}`}>
         {/* Error message */}
         {error && (
           <div className="mb-4 p-3 rounded-lg bg-red-50 border border-red-200 text-red-800 text-xs">
@@ -439,114 +443,115 @@ export default function JobSheetPage() {
                     </div>
                   )}
 
-                  {/* Order items */}
+                  {/* Unified product details (includes order item info) */}
                   {selectedOrder.items && selectedOrder.items.length > 0 && (
-                    <div>
-                      <h3 className="font-bold text-slate-700 text-xs mb-2 uppercase tracking-wide\">Order Items</h3>
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-xs">
-                          <thead className="bg-gradient-to-r from-slate-50 to-blue-50 border-y border-soft-border/60">
-                            <tr>
-                              <th className="text-left px-2 py-1 font-bold text-slate-700">Product</th>
-                              <th className="text-center px-2 py-1 font-bold text-slate-700">Qty</th>
-                              <th className="text-right px-2 py-1 font-bold text-slate-700">Price</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-soft-border/40">
-                            {selectedOrder.items.map((item, idx) => (
-                              <tr key={idx} className="hover:bg-blue-50/60 transition-all">
-                                <td className="px-2 py-1 text-midnight-ink font-medium">{item.name}</td>
-                                <td className="px-2 py-1 text-center text-cool-gray">{item.quantity}</td>
-                                <td className="px-2 py-1 text-right font-bold text-midnight-ink">{fmt(item.price)}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
+                    <div className="mt-1 rounded-xl border border-slate-200/80 bg-gradient-to-b from-white to-slate-50/70 shadow-sm overflow-hidden">
+                      <div className="px-3 py-2.5 border-b border-slate-200/80 flex items-center justify-between gap-2">
+                        <span className="text-xs font-bold text-slate-700 uppercase tracking-wide">
+                          Product Details
+                        </span>
+                        <div className="flex items-center gap-3">
+                          <button
+                            type="button"
+                            onClick={() => setShowManageDetailsColumns(true)}
+                            className="text-xs font-semibold text-slate-600 hover:text-slate-900 transition-colors"
+                          >
+                            Manage Columns
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setShowProductDetails((prev) => !prev)}
+                            className="inline-flex items-center gap-1 text-xs font-semibold text-trust-blue hover:text-deep-blue transition-colors"
+                          >
+                            {showProductDetails ? 'Show less' : 'Show more'}
+                            <ChevronRight className={`h-3.5 w-3.5 transition-transform duration-300 ${showProductDetails ? 'rotate-90' : 'rotate-0'}`} />
+                          </button>
+                        </div>
                       </div>
 
-                      <div className="mt-3 rounded-xl border border-slate-200/80 bg-gradient-to-b from-white to-slate-50/70 shadow-sm overflow-hidden">
-                        <div className="px-3 py-2.5 border-b border-slate-200/80 flex items-center justify-between gap-2">
-                          <span className="text-xs font-bold text-slate-700 uppercase tracking-wide">
-                            Product Details
-                          </span>
-                          <div className="flex items-center gap-3">
-                            <button
-                              type="button"
-                              onClick={() => setShowManageDetailsColumns(true)}
-                              className="text-xs font-semibold text-slate-600 hover:text-slate-900 transition-colors"
-                            >
-                              Manage Columns
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setShowProductDetails((prev) => !prev)}
-                              className="inline-flex items-center gap-1 text-xs font-semibold text-trust-blue hover:text-deep-blue transition-colors"
-                            >
-                              {showProductDetails ? 'Show less' : 'Show more'}
-                              <ChevronRight className={`h-3.5 w-3.5 transition-transform duration-300 ${showProductDetails ? 'rotate-90' : 'rotate-0'}`} />
-                            </button>
-                          </div>
-                        </div>
-
-                        <div
-                          className={`grid transition-all duration-400 ease-out ${showProductDetails ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}
-                        >
-                          <div className="overflow-hidden">
-                            <div className="p-2.5 space-y-2">
-                              {productsLoading && (
-                                <div className="text-xs text-cool-gray">Loading product details…</div>
-                              )}
-                              {!productsLoading && productsError && (
-                                <div className="text-xs text-red-700">{productsError}</div>
-                              )}
-                              {!productsLoading && !productsError && (
-                                <div className="space-y-3">
-                                  {selectedOrder.items.map((item, idx) => {
-                                    const productDetails = productsBySku[normalizeSku(item.sku)] || {};
-                                    const details = {
-                                      sku: productDetails.sku || item.sku || '—',
-                                      listingName: productDetails.listingName || item.name || '—',
-                                      material: productDetails.material || '—',
-                                      weight: productDetails.weight || '—',
-                                      category: productDetails.category || '—',
-                                      collection: productDetails.collection || '—',
-                                      settingType: productDetails.settingType || '—',
-                                      enamelType: productDetails.enamelType || '—',
-                                      activeChannels: productDetails.activeChannels || '—',
-                                      shopifyStatus: productDetails.shopifyStatus || '—',
-                                      dieNumberFindings: productDetails.dieNumberFindings || '—',
-                                      masterSku: productDetails.masterSku || '—',
-                                      color: productDetails.color || '—',
-                                      enamel: productDetails.enamel || '—',
-                                      stoneName: productDetails.stoneName || '—',
-                                      stoneCut: productDetails.stoneCut || '—',
-                                      stoneColor: productDetails.stoneColor || '—',
-                                      stoneSize: productDetails.stoneSize || '—',
-                                      stoneQuantity: productDetails.stoneQuantity || '—',
-                                      platingType: productDetails.platingType || '—',
-                                      platingColor: productDetails.platingColor || '—',
-                                      notes: productDetails.notes || item.note || selectedOrder.notes || '—',
-                                      images: productDetails.images || item.images || '—',
-                                    };
-
-                                    return (
-                                      <div key={item.id || idx} className="rounded-lg bg-white border border-slate-200/70 p-2.5 shadow-sm">
-                                        <div className="text-xs font-bold text-midnight-ink mb-1.5">{details.listingName}</div>
-                                        <div className="grid grid-cols-2 md:grid-cols-3 gap-2.5">
+                      <div
+                        className={`grid transition-all duration-400 ease-out ${showProductDetails ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}
+                      >
+                        <div className="overflow-hidden">
+                          <div className="p-2.5 space-y-2">
+                            {productsLoading && (
+                              <div className="text-xs text-cool-gray">Loading product details…</div>
+                            )}
+                            {!productsLoading && productsError && (
+                              <div className="text-xs text-red-700">{productsError}</div>
+                            )}
+                            {!productsLoading && !productsError && (
+                              <div className="rounded-lg bg-white border border-slate-200/70 shadow-sm overflow-hidden">
+                                {PRODUCT_DETAIL_FIELDS.some((field) => visibleDetailFields.has(field.key)) ? (
+                                  <div className="overflow-x-auto">
+                                    <table className="min-w-full text-xs">
+                                      <thead className="bg-gradient-to-r from-slate-50 to-blue-50 border-b border-soft-border/60">
+                                        <tr>
                                           {PRODUCT_DETAIL_FIELDS.filter((field) => visibleDetailFields.has(field.key)).map((field) => (
-                                            <DetailItem
+                                            <th
                                               key={field.key}
-                                              label={field.label}
-                                              value={displayValue(details[field.key])}
-                                            />
+                                              className="text-left px-2 py-1.5 font-bold text-slate-700 whitespace-nowrap"
+                                            >
+                                              {field.label}
+                                            </th>
                                           ))}
-                                        </div>
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                              )}
-                            </div>
+                                        </tr>
+                                      </thead>
+                                      <tbody className="divide-y divide-soft-border/40">
+                                        {selectedOrder.items.map((item, idx) => {
+                                          const productDetails = productsBySku[normalizeSku(item.sku)] || {};
+                                          const details = {
+                                            orderProduct: item.name || '—',
+                                            orderQty: item.quantity ?? '—',
+                                            orderPrice: fmt(item.price || 0),
+                                            sku: productDetails.sku || item.sku || '—',
+                                            listingName: productDetails.listingName || item.name || '—',
+                                            material: productDetails.material || '—',
+                                            weight: productDetails.weight || '—',
+                                            category: productDetails.category || '—',
+                                            collection: productDetails.collection || '—',
+                                            settingType: productDetails.settingType || '—',
+                                            enamelType: productDetails.enamelType || '—',
+                                            activeChannels: productDetails.activeChannels || '—',
+                                            shopifyStatus: productDetails.shopifyStatus || '—',
+                                            dieNumberFindings: productDetails.dieNumberFindings || '—',
+                                            masterSku: productDetails.masterSku || '—',
+                                            color: productDetails.color || '—',
+                                            enamel: productDetails.enamel || '—',
+                                            stoneName: productDetails.stoneName || '—',
+                                            stoneCut: productDetails.stoneCut || '—',
+                                            stoneColor: productDetails.stoneColor || '—',
+                                            stoneSize: productDetails.stoneSize || '—',
+                                            stoneQuantity: productDetails.stoneQuantity || '—',
+                                            platingType: productDetails.platingType || '—',
+                                            platingColor: productDetails.platingColor || '—',
+                                            notes: productDetails.notes || item.note || selectedOrder.notes || '—',
+                                            images: productDetails.images || item.images || '—',
+                                          };
+
+                                          return (
+                                            <tr key={item.id || idx} className="hover:bg-blue-50/60 transition-all">
+                                              {PRODUCT_DETAIL_FIELDS.filter((field) => visibleDetailFields.has(field.key)).map((field) => (
+                                                <td
+                                                  key={`${item.id || idx}-${field.key}`}
+                                                  className="px-2 py-1.5 text-midnight-ink whitespace-nowrap"
+                                                >
+                                                  {displayValue(details[field.key])}
+                                                </td>
+                                              ))}
+                                            </tr>
+                                          );
+                                        })}
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                ) : (
+                                  <div className="p-3 text-xs text-cool-gray">
+                                    No detail columns are visible. Use Manage Columns to show fields.
+                                  </div>
+                                )}
+                              </div>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -748,11 +753,7 @@ export default function JobSheetPage() {
   );
 }
 
-function DetailItem({ label, value }) {
-  return (
-    <div className="text-xs rounded-md bg-slate-50/80 border border-slate-200/70 px-2 py-1.5">
-      <div className="text-slate-500 font-medium uppercase tracking-wide text-[10px]">{label}</div>
-      <div className="text-midnight-ink font-semibold mt-0.5">{value || '—'}</div>
-    </div>
-  );
+export default function JobSheetPage() {
+  return <OrderSheetView />;
 }
+
