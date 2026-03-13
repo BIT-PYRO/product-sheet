@@ -23,6 +23,8 @@ export function EnrolWorkforceForm({ onEnroll, onClose, open = true, draftData =
     email: "",
     contact: "",
     whatsapp: "",
+    department: "",
+    departmentOther: "",
     currentAddress: {
       line1: "",
       line2: "",
@@ -245,6 +247,38 @@ export function EnrolWorkforceForm({ onEnroll, onClose, open = true, draftData =
                 <div>
                   <label className="block text-sm font-semibold text-slate-text mb-2">WhatsApp Number</label>
                   <input className="w-full border border-soft-border rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-trust-blue focus:border-transparent bg-cloud-gray text-midnight-ink placeholder-slate-400 transition" name="whatsapp" value={form.whatsapp} onChange={handleInput} />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-slate-text mb-2">Department</label>
+                  <select
+                    name="department"
+                    value={form.department === '' || ['IT', 'Customer Care', 'TSF', 'JANKI', 'Other'].includes(form.department) ? form.department : 'Other'}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setForm((prev) => ({
+                        ...prev,
+                        department: val,
+                        departmentOther: val !== 'Other' ? '' : prev.departmentOther,
+                      }));
+                    }}
+                    className="w-full border border-soft-border rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-trust-blue focus:border-transparent bg-cloud-gray text-midnight-ink transition"
+                  >
+                    <option value="">Select department...</option>
+                    <option value="IT">IT</option>
+                    <option value="Customer Care">Customer Care</option>
+                    <option value="TSF">TSF</option>
+                    <option value="JANKI">JANKI</option>
+                    <option value="Other">Other</option>
+                  </select>
+                  {(form.department === 'Other' || (!['', 'IT', 'Customer Care', 'TSF', 'JANKI', 'Other'].includes(form.department) && form.department !== '')) && (
+                    <input
+                      className="w-full mt-2 border border-soft-border rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-trust-blue focus:border-transparent bg-cloud-gray text-midnight-ink placeholder-slate-400 transition"
+                      placeholder="Enter department name"
+                      name="departmentOther"
+                      value={form.departmentOther}
+                      onChange={handleInput}
+                    />
+                  )}
                 </div>
               </div>
 

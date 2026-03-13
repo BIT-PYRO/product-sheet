@@ -2,12 +2,12 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
+import { CreateJobModal } from '@/components/create-job-modal'
+import { QuickEnrollModal } from '@/components/quick-enroll-modal'
+import { EnrolWorkforceForm } from '@/app/frontend/enrol-workforce/page'
 
 const DRAFTS_STORAGE_KEY = 'form_drafts'
-const PENDING_DRAFT_KEY = 'pending_draft_load'
-const PENDING_ENROLL_WORKFORCE_DRAFT_KEY = 'pending_enroll_workforce_draft'
 
 const SECTIONS = ['Create Job', 'Enroll Workforce', 'Quick Enroll']
 
@@ -79,9 +79,12 @@ const TABLE_CONFIG = {
 }
 
 export default function DraftsPage() {
-  const router = useRouter()
   const [drafts, setDrafts] = useState({})
   const [activeSection, setActiveSection] = useState(null)
+  const [isCreateJobOpen, setIsCreateJobOpen] = useState(false)
+  const [isQuickEnrollOpen, setIsQuickEnrollOpen] = useState(false)
+  const [isEnrollWorkforceOpen, setIsEnrollWorkforceOpen] = useState(false)
+  const [workforceDraftData, setWorkforceDraftData] = useState(null)
 
   useEffect(() => {
     const stored = localStorage.getItem(DRAFTS_STORAGE_KEY)
@@ -114,19 +117,13 @@ export default function DraftsPage() {
 
   const handleContinueDraft = (section, draft) => {
     if (section === 'Enroll Workforce') {
-      localStorage.setItem(PENDING_ENROLL_WORKFORCE_DRAFT_KEY, JSON.stringify(draft))
-      router.push('/enrol-workforce')
+      setWorkforceDraftData(draft)
+      setIsEnrollWorkforceOpen(true)
       return
     }
-
-    localStorage.setItem(
-      PENDING_DRAFT_KEY,
-      JSON.stringify({
-        section,
-        data: draft,
-      })
-    )
-    router.push('/')
+    window.dispatchEvent(new CustomEvent('draftLoad', { detail: { section, data: draft } }))
+    if (section === 'Create Job') setIsCreateJobOpen(true)
+    if (section === 'Quick Enroll') setIsQuickEnrollOpen(true)
   }
 
   return (
@@ -174,6 +171,24 @@ export default function DraftsPage() {
             )
           })}
         </section>
+
+        <CreateJobModal
+          open={isCreateJobOpen}
+          onOpenChange={setIsCreateJobOpen}
+        />
+
+        <QuickEnrollModal
+          open={isQuickEnrollOpen}
+          onOpenChange={setIsQuickEnrollOpen}
+        />
+
+        {isEnrollWorkforceOpen && workforceDraftData && (
+          <EnrolWorkforceForm
+            open={isEnrollWorkforceOpen}
+            onClose={() => { setIsEnrollWorkforceOpen(false); setWorkforceDraftData(null) }}
+            draftData={workforceDraftData}
+          />
+        )}
 
         {activeSection && (
           <section className="rounded-xl border border-soft-border bg-white p-5">
