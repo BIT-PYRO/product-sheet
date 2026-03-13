@@ -26,7 +26,8 @@ function ProductSheetContent() {
   const autoSaveTimeoutRef = useRef(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isCreateJobModalOpen, setIsCreateJobModalOpen] = useState(false)
-  const [productImage, setProductImage] = useState(null)
+  const [productImages, setProductImages] = useState([])
+  const [primaryImageIndex, setPrimaryImageIndex] = useState(0)
 
   const [platingType, setPlatingType] = useState([
     { id: 1, col1: '', col2: '', col3: '' },
@@ -427,8 +428,6 @@ function ProductSheetContent() {
     liveStock,
     productImages,
     primaryImageIndex,
-    designer,
-    existingProductId: editProductId,
     ...overrideValues,
   })
 
