@@ -1,6 +1,6 @@
 ﻿import { read, utils } from 'xlsx';
 
-// -- Header normalizer ----------------------------------------------------------
+// -- Header normalizer ---------------------------------------------------------
 
 function normalizeHeader(value) {
   return String(value || '')
@@ -9,7 +9,7 @@ function normalizeHeader(value) {
     .replace(/[^a-z0-9]/g, '');
 }
 
-// -- Number utilities -----------------------------------------------------------
+// -- Number utilities ----------------------------------------------------------
 
 function toInt(value) {
   if (value === null || value === undefined || value === '') return 0;
@@ -17,7 +17,101 @@ function toInt(value) {
   return Number.isFinite(parsed) ? Math.max(0, parsed) : 0;
 }
 
-// -- CSV / TSV parser -----------------------------------------------------------
+// -- PDF parser ---------------------------------------------------------------
+//
+// SKUs in picklist PDFs look like: AJB11/G, AJB3/S, AJC1/G
+// Pattern: 1-8 uppercase letters, 0-6 digits, optional /1-4 chars.
+const PDF_SKU_RE = /^([A-Z]{1,8}\d{0,6}(?:\/[A-Z0-9]{1,4})?)$/i;
+
+// Full-row pattern: SKU  product-name  number  (columns sep by 2+ spaces).
+const PDF_FULL_ROW_RE =
+  /^([A-Z]{1,8}\d{0,6}(?:\/[A-Z0-9]{1,4})?)\s{2,}(.+?)\s{2,}(\d+)(?:\s.*)?$/i;
+
+function parsePdfPicklistText(rawText) {
+  const lines = rawText
+    .split('\n')
+    .map((l) => l.trim())
+    .filter((l) => l.length > 0);
+
+  const seen = new Set();
+  const items = [];
+
+  // Strategy 1: every row on one line with 2+ spaces between columns.
+  for (const line of lines) {
+    const m = line.match(PDF_FULL_ROW_RE);
+    if (m) {
+      const upperSku = m[1].toUpperCase();
+      if (!seen.has(upperSku)) {
+        seen.add(upperSku);
+        items.push({ sku: m[1], listingName: m[2].trim(), needed: toInt(m[3]) });
+      }
+    }
+  }
+
+  if (items.length > 0) return items;
+
+  // Strategy 2: each PDF cell is on its own line (SKU / name / number).
+  let i = 0;
+  while (i < lines.length) {
+    const skuMatch = lines[i].match(PDF_SKU_RE);
+    if (skuMatch) {
+      const upperSku = skuMatch[1].toUpperCase();
+      if (!seen.has(upperSku)) {
+        seen.add(upperSku);
+        let name = '';
+        let needed = 0;
+        let j = i + 1;
+        while (j < lines.length) {
+          const next = lines[j];
+          if (/^\d+$/.test(next)) {
+            needed = toInt(next);
+            j += 1;
+            break;
+          }
+          if (next.match(PDF_SKU_RE)) break;
+          name = name ? `${name} ${next}` : next;
+          j += 1;
+        }
+        items.push({ sku: skuMatch[1], listingName: name || skuMatch[1], needed });
+        i = j;
+        continue;
+      }
+    }
+    i += 1;
+  }
+
+  return items;
+}
+
+async function parsePdf(file) {
+  const arrayBuffer = await file.arrayBuffer();
+  const buffer = Buffer.from(arrayBuffer);
+
+  // Dynamic import avoids a Next.js webpack issue where pdf-parse tries
+  // to load a test file at require() time.
+  const pdfParse = (await import('pdf-parse/lib/pdf-parse.js')).default;
+  const { text } = await pdfParse(buffer);
+
+  const items = parsePdfPicklistText(text);
+
+  if (items.length === 0) {
+    throw new Error(
+      'Could not extract any picklist rows from the PDF. ' +
+        'Make sure the PDF has columns: SKU, Product, Needed. ' +
+        'Alternatively export as CSV or XLSX.'
+    );
+  }
+
+  // Return in the same normalised-row format used by the rest of the pipeline.
+  return items.map((item) => ({
+    _pdfRow: true,
+    sku: item.sku,
+    listingName: item.listingName,
+    needed: item.needed,
+  }));
+}
+
+// -- CSV / TSV parser ---------------------------------------------------------
 
 function parseDelimited(text, delimiter) {
   const rows = [];
@@ -85,7 +179,7 @@ function rowsToObjects(matrix) {
     .filter((row) => Object.values(row).some((value) => String(value || '').trim() !== ''));
 }
 
-// -- Excel parser --------------------------------------------------------------
+// -- Excel parser -------------------------------------------------------------
 
 function parseExcelRows(arrayBuffer) {
   const workbook = read(Buffer.from(arrayBuffer), { type: 'buffer' });
@@ -103,12 +197,18 @@ function parseExcelRows(arrayBuffer) {
   return rowsToObjects(matrix);
 }
 
-// -- File parser dispatcher ----------------------------------------------------
+// -- File parser dispatcher ---------------------------------------------------
 
 async function parsePicklistFile(file) {
   const fileName = String(file?.name || '').trim();
   const extension = fileName.includes('.') ? fileName.split('.').pop().toLowerCase() : '';
 
+  // PDF: use pdf-parse + custom text parser.
+  if (extension === 'pdf') {
+    return parsePdf(file);
+  }
+
+  // Excel.
   if (extension === 'xlsx' || extension === 'xls') {
     const arrayBuffer = await file.arrayBuffer();
     return parseExcelRows(arrayBuffer);
@@ -152,11 +252,11 @@ async function parsePicklistFile(file) {
   }
 
   throw new Error(
-    'Unable to parse the uploaded file. Provide tabular data with headers (SKU, Product, Needed, etc.).'
+    'Unable to parse the uploaded file. Supported formats: PDF, XLSX, XLS, CSV, TSV, JSON.'
   );
 }
 
-// -- Picklist row mapper -------------------------------------------------------
+// -- Picklist row mapper ------------------------------------------------------
 
 function firstValue(row, keys, fallback = '') {
   for (const key of keys) {
@@ -169,11 +269,18 @@ function firstValue(row, keys, fallback = '') {
 }
 
 /**
- * Maps a raw parsed row to a picklist item.
- * Expected picklist columns: SKU, Product, Needed, Available
+ * Maps a parsed row to a picklist item.
+ * Handles both PDF rows (with pre-parsed fields) and CSV/Excel normalised rows.
  * Returns null when the row has no valid SKU.
  */
 function asPicklistItem(row) {
+  // PDF rows are already parsed into { sku, listingName, needed }.
+  if (row._pdfRow) {
+    const sku = String(row.sku || '').trim();
+    if (!sku) return null;
+    return { sku, listingName: String(row.listingName || sku).trim(), needed: row.needed || 0 };
+  }
+
   const sku = firstValue(row, ['sku', 'mastersku', 'productsku', 'itemcode', 'code']);
   if (!sku) return null;
 
@@ -189,7 +296,7 @@ function asPicklistItem(row) {
   return { sku, listingName, needed };
 }
 
-// -- Backend helpers -----------------------------------------------------------
+// -- Backend helpers ----------------------------------------------------------
 
 async function fetchJson(request, path, init = {}) {
   const origin = request.nextUrl.origin;
@@ -294,7 +401,7 @@ async function replaceDemandTransactions(request, productId, neededQty) {
   });
 }
 
-// -- Route handler -------------------------------------------------------------
+// -- Route handler ------------------------------------------------------------
 
 export async function POST(request) {
   try {
