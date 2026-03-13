@@ -7,7 +7,6 @@ import { Search, X, Pencil, ChevronRight, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
-import { useDrafts, useDraftLoader } from '@/components/drafts-manager';
 import {
   Dialog,
   DialogContent,
@@ -89,8 +88,6 @@ function EditableRow({ label, value, inputValue, onInputChange, placeholder }) {
 
 export function CreateOrderForm({ embedded = false }) {
   const router = useRouter();
-  const { saveDraft } = useDrafts();
-  const loadedDraft = useDraftLoader();
   
   // Order items
   const [orderItems, setOrderItems] = useState([]);
@@ -130,7 +127,7 @@ export function CreateOrderForm({ embedded = false }) {
   const [createCustomerError, setCreateCustomerError] = useState('');
   const customerContainerRef = useRef(null);
 
-  const applyDraftData = useCallback((draft) => {
+  const applyDraftData = useCallback((draft, options = {}) => {
     if (!draft) return;
     setOrderItems(Array.isArray(draft.orderItems) ? draft.orderItems : []);
     setSelectedCustomer(draft.selectedCustomer || null);
@@ -138,6 +135,9 @@ export function CreateOrderForm({ embedded = false }) {
     setNotes(draft.notes || '');
     setDiscount(draft.discount || '');
     setShipping(draft.shipping || '');
+    if (options.draftId) {
+      setActiveDraftId(options.draftId);
+    }
   }, []);
 
 
@@ -202,17 +202,12 @@ export function CreateOrderForm({ embedded = false }) {
   useEffect(() => { loadCustomers(); }, [loadCustomers]);
 
   useEffect(() => {
-    if (loadedDraft?.section === 'Create Order' && loadedDraft?.data) {
-      applyDraftData(loadedDraft.data);
-    }
-  }, [loadedDraft, applyDraftData]);
-
-  useEffect(() => {
     const draftFromSession = sessionStorage.getItem('create_order_draft_to_load');
     if (!draftFromSession) return;
     try {
       const parsed = JSON.parse(draftFromSession);
-      applyDraftData(parsed);
+      const draftId = parsed?.__backendDraftId || parsed?.id || null;
+      applyDraftData(parsed, { draftId });
     } catch (error) {
       console.error('Failed to load create order draft:', error);
     } finally {
@@ -378,7 +373,7 @@ export function CreateOrderForm({ embedded = false }) {
     setCustomerDropdownOpen(false);
   }
 
-  function handleSaveDraft() {
+  async function handleSaveDraft() {
     const draftData = {
       title: selectedCustomer?.companyName
         ? `Create Order - ${selectedCustomer.companyName}`
@@ -393,9 +388,62 @@ export function CreateOrderForm({ embedded = false }) {
       total: total.toFixed(2),
     };
 
-    saveDraft('Create Order', `draft_create_order_${Date.now()}`, draftData);
-    setOrderMessage({ type: 'success', text: 'Draft saved successfully' });
-    setTimeout(() => setOrderMessage({ type: '', text: '' }), 2200);
+    try {
+      const body = JSON.stringify({
+        entity_type: CREATE_ORDER_ENTITY_TYPE,
+        payload: draftData,
+        is_submitted: false,
+      });
+
+      const saveViaEndpoint = async (endpoint, method) => {
+        const response = await fetch(endpoint, {
+          method,
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body,
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => null);
+          const error = new Error(
+            errorData?.detail ||
+            errorData?.message ||
+            `Failed to save draft (${response.status})`
+          );
+          error.status = response.status;
+          throw error;
+        }
+
+        return response.json().catch(() => null);
+      };
+
+      let json;
+      if (activeDraftId) {
+        try {
+          json = await saveViaEndpoint(`/api/drafts/${activeDraftId}`, 'PATCH');
+        } catch (error) {
+          if (error.status === 403) {
+            json = await saveViaEndpoint('/api/drafts', 'POST');
+          } else {
+            throw error;
+          }
+        }
+      } else {
+        json = await saveViaEndpoint('/api/drafts', 'POST');
+      }
+
+      const returnedId = json?.data?.id || json?.id;
+      if (returnedId) {
+        setActiveDraftId(returnedId);
+      }
+
+      setOrderMessage({ type: 'success', text: 'Draft saved to backend successfully' });
+      setTimeout(() => setOrderMessage({ type: '', text: '' }), 2200);
+    } catch (error) {
+      setOrderMessage({ type: 'error', text: error.message || 'Failed to save draft' });
+      setTimeout(() => setOrderMessage({ type: '', text: '' }), 3000);
+    }
   }
 
   // Create order

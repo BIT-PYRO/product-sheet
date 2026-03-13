@@ -10,6 +10,7 @@ import { EnrolWorkforceForm } from '@/app/frontend/enrol-workforce/page'
 import { CompanyKYCForm } from '@/components/company-kyc-form'
 
 const DRAFTS_STORAGE_KEY = 'form_drafts'
+const CREATE_ORDER_ENTITY_TYPE = 'create_order'
 
 const SECTIONS = ['Create Job', 'Create Order', 'Enroll Workforce', 'Quick Enroll', 'KYC Form']
 
@@ -137,11 +138,7 @@ export default function DraftsPage() {
         )
 
         if (!response.ok) {
-          if (response.status !== 401) {
-            console.warn(`Create Order drafts request failed (${response.status})`)
-          }
-          setBackendCreateOrderDrafts([])
-          return
+          throw new Error(`Failed to fetch drafts (${response.status})`)
         }
 
         const json = await response.json().catch(() => null)
@@ -163,7 +160,7 @@ export default function DraftsPage() {
 
         setBackendCreateOrderDrafts(normalized)
       } catch (error) {
-        console.warn('Failed to load backend Create Order drafts:', error)
+        console.error('Failed to load backend Create Order drafts:', error)
         setBackendCreateOrderDrafts([])
       } finally {
         setBackendCreateOrderLoading(false)
@@ -305,7 +302,11 @@ export default function DraftsPage() {
             <h3 className="text-base font-semibold text-midnight-ink mb-4">{activeSection} Drafts</h3>
 
             {activeDrafts.length === 0 ? (
-              <p className="text-sm text-cool-gray">No drafts available in this section.</p>
+              <p className="text-sm text-cool-gray">
+                {activeSection === 'Create Order' && backendCreateOrderLoading
+                  ? 'Loading drafts...'
+                  : 'No drafts available in this section.'}
+              </p>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[980px] border-collapse">

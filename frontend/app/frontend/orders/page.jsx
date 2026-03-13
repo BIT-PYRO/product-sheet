@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
-import { House } from 'lucide-react';
+import { CreateOrderForm } from '@/app/frontend/orders/create-job/page';
+import { OrderSheetView } from '@/app/frontend/orders/job-sheet/page';
 
 export default function OrdersPage() {
   const [showCreateOrderForm, setShowCreateOrderForm] = useState(false);
@@ -38,13 +39,6 @@ export default function OrdersPage() {
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <MasterNavigationDrawer inHeader />
-            <Link
-              href="/home"
-              className="inline-flex items-center gap-2 rounded-lg border border-soft-border bg-white px-3 py-2 text-sm font-medium text-midnight-ink hover:bg-slate-50 transition-colors"
-            >
-              <House className="h-4 w-4" />
-              Home
-            </Link>
             <h1 className="text-xl font-bold tracking-tight text-midnight-ink">ORDERS</h1>
           </div>
           <div />
