@@ -21,7 +21,8 @@ function ProductSheetContent() {
   const autoSaveTimeoutRef = useRef(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isCreateJobModalOpen, setIsCreateJobModalOpen] = useState(false)
-  const [productImage, setProductImage] = useState(null)
+  const [productImages, setProductImages] = useState([])
+  const [primaryImageIndex, setPrimaryImageIndex] = useState(0)
 
   const [platingType, setPlatingType] = useState([
     { id: 1, col1: '', col2: '', col3: '' },
@@ -141,7 +142,8 @@ function ProductSheetContent() {
   const [showViewSheetButton, setShowViewSheetButton] = useState(false)
 
   const resetProductForm = useCallback(() => {
-    setProductImage(null)
+    setProductImages([])
+    setPrimaryImageIndex(0)
     setSku('')
     setListingName('')
     setMaterial('')
@@ -261,6 +263,8 @@ function ProductSheetContent() {
     stoneInfo,
     finalStock,
     liveStock,
+    productImages,
+    primaryImageIndex,
     ...overrideValues,
   })
 
@@ -345,17 +349,66 @@ function ProductSheetContent() {
     setFinalStock(finalStock.filter(row => row.id !== id))
   }
 
-  // Handle image upload
+  // Handle image upload (multiple)
   const handleImageUpload = (e) => {
-        const file = e.target.files?.[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onload = (event) => {
-                setProductImage(event.target?.result);
-            };
-            reader.readAsDataURL(file);
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+    Promise.all(files.map((file) => new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (event) => resolve(event.target?.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    }))).then((results) => {
+      setProductImages((prev) => {
+        const updated = [...prev, ...results];
+        if (prev.length === 0) setPrimaryImageIndex(0);
+        return updated;
+      });
+      e.target.value = '';
+    });
+  };
+
+  const removeProductImage = (indexToRemove) => {
+    setProductImages((prev) => {
+      const newImages = prev.filter((_, i) => i !== indexToRemove);
+      setPrimaryImageIndex((current) => {
+        if (newImages.length === 0) return 0;
+        if (current > indexToRemove) return current - 1;
+        if (current === indexToRemove) return Math.min(current, newImages.length - 1);
+        return current;
+      });
+      return newImages;
+    });
+  };
+
+  const dragIndexRef = useRef(null);
+  const [dragOverIdx, setDragOverIdx] = useState(null);
+
+  const handleThumbnailDrop = (dropIdx) => {
+    const fromIdx = dragIndexRef.current;
+    if (fromIdx === null || fromIdx === dropIdx) {
+      dragIndexRef.current = null;
+      setDragOverIdx(null);
+      return;
+    }
+    setProductImages((prev) => {
+      const reordered = [...prev];
+      const [moved] = reordered.splice(fromIdx, 1);
+      reordered.splice(dropIdx, 0, moved);
+      setPrimaryImageIndex((current) => {
+        if (current === fromIdx) return dropIdx;
+        if (fromIdx < dropIdx) {
+          if (current > fromIdx && current <= dropIdx) return current - 1;
+        } else {
+          if (current >= dropIdx && current < fromIdx) return current + 1;
         }
-    };
+        return current;
+      });
+      return reordered;
+    });
+    dragIndexRef.current = null;
+    setDragOverIdx(null);
+  };
     const handleManufacturingImagesUpload = (e) => {
       const files = Array.from(e.target.files || []);
       if (!files.length) return;
@@ -625,12 +678,56 @@ function ProductSheetContent() {
       {/* Top Section - Product Details & Variations Combined */}
       <div className="bg-cloud-gray p-1.5 rounded-xl mb-2 border border-soft-border shadow-sm">
         <div className="flex gap-2 h-auto">
-          {/* Product Image - Left Side - 1/4 width */}
-          <div className="w-1/5 h-[25.5rem] bg-white border-2 border-soft-border rounded-xl shadow-sm ring-1 ring-soft-border flex items-center justify-center flex-shrink-0 cursor-pointer hover:bg-cloud-gray relative overflow-hidden" onClick={() => fileInputRef.current?.click()}>
-            {productImage ? (<img src={productImage || "/placeholder.svg"} alt="Product" className="w-full h-full object-cover"/>) : (<span className="text-cool-gray text-center text-sm font-semibold">
-                PRODUCT<br />IMAGE
-              </span>)}
-            <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageUpload} className="hidden"/>
+          {/* Product Image - Left Side - 1/5 width */}
+          <div className="w-1/5 h-[25.5rem] flex flex-col gap-1 flex-shrink-0">
+            <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={handleImageUpload} className="hidden"/>
+            {/* Primary image */}
+            <div
+              className="flex-1 min-h-0 bg-white border-2 border-soft-border rounded-xl shadow-sm ring-1 ring-soft-border flex items-center justify-center cursor-pointer hover:bg-cloud-gray relative overflow-hidden"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              {productImages.length > 0 ? (
+                <img src={productImages[primaryImageIndex]} alt="Product" className="w-full h-full object-cover"/>
+              ) : (
+                <span className="text-cool-gray text-center text-sm font-semibold">PRODUCT<br/>IMAGE</span>
+              )}
+            </div>
+            {/* Thumbnails strip */}
+            {productImages.length > 0 && (
+              <div className="h-[5.5rem] flex gap-1 overflow-x-auto flex-shrink-0 pb-0.5">
+                {productImages.map((img, idx) => (
+                  <div
+                    key={idx}
+                    draggable
+                    onDragStart={() => { dragIndexRef.current = idx; }}
+                    onDragEnter={() => setDragOverIdx(idx)}
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={() => handleThumbnailDrop(idx)}
+                    onDragEnd={() => { dragIndexRef.current = null; setDragOverIdx(null); }}
+                    className={`relative flex-shrink-0 w-[4.8rem] h-[4.8rem] rounded-lg overflow-hidden border-2 cursor-grab active:cursor-grabbing transition-all select-none
+                      ${idx === primaryImageIndex ? 'border-midnight-ink ring-1 ring-midnight-ink' : 'border-soft-border hover:border-cool-gray'}
+                      ${dragOverIdx === idx && dragIndexRef.current !== idx ? 'ring-2 ring-trust-blue scale-105' : ''}
+                      ${dragIndexRef.current === idx ? 'opacity-40' : ''}`}
+                    onClick={() => setPrimaryImageIndex(idx)}
+                  >
+                    <img src={img} alt={`Product ${idx + 1}`} className="w-full h-full object-cover pointer-events-none"/>
+                    <button
+                      className="absolute top-0.5 right-0.5 w-4 h-4 bg-black/60 text-white rounded-full text-[10px] flex items-center justify-center hover:bg-red-600 leading-none"
+                      onClick={(e) => { e.stopPropagation(); removeProductImage(idx); }}
+                    >×</button>
+                    {idx === primaryImageIndex && (
+                      <div className="absolute bottom-0 left-0 right-0 bg-midnight-ink/80 text-white text-[8px] text-center py-0.5 leading-tight">MAIN</div>
+                    )}
+                  </div>
+                ))}
+                <div
+                  className="flex-shrink-0 w-[4.8rem] h-[4.8rem] rounded-lg border-2 border-dashed border-soft-border flex items-center justify-center cursor-pointer hover:bg-cloud-gray text-cool-gray"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <span className="text-2xl font-light leading-none">+</span>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Product Details & Variations - Right Side - 4/5 width */}
@@ -1220,12 +1317,55 @@ function ProductSheetContent() {
               {/* Top Section - Product Details & Variations Combined */}
               <div className="bg-cloud-gray p-2 rounded-lg mb-2">
                 <div className="flex gap-3 h-auto">
-                  {/* Product Image - Left Side - 1/4 width */}
-                  <div className="w-1/4 h-[20rem] bg-white border-2 border-soft-border flex items-center justify-center flex-shrink-0 cursor-pointer hover:bg-cloud-gray relative overflow-hidden" onClick={() => fileInputRef.current?.click()}>
-                    {productImage ? (<img src={productImage || "/placeholder.svg"} alt="Product" className="w-full h-full object-cover"/>) : (<span className="text-cool-gray text-center text-sm font-semibold">
-                        PRODUCT<br />IMAGE
-                      </span>)}
-                    <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageUpload} className="hidden"/>
+                  {/* Product Image - Left Side */}
+                  <div className="w-1/4 h-[20rem] flex flex-col gap-1 flex-shrink-0">
+                    {/* Primary image */}
+                    <div
+                      className="flex-1 min-h-0 bg-white border-2 border-soft-border flex items-center justify-center cursor-pointer hover:bg-cloud-gray relative overflow-hidden"
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      {productImages.length > 0 ? (
+                        <img src={productImages[primaryImageIndex]} alt="Product" className="w-full h-full object-cover"/>
+                      ) : (
+                        <span className="text-cool-gray text-center text-sm font-semibold">PRODUCT<br/>IMAGE</span>
+                      )}
+                    </div>
+                    {/* Thumbnails strip */}
+                    {productImages.length > 0 && (
+                      <div className="h-[4.5rem] flex gap-1 overflow-x-auto flex-shrink-0">
+                        {productImages.map((img, idx) => (
+                          <div
+                            key={idx}
+                            draggable
+                            onDragStart={() => { dragIndexRef.current = idx; }}
+                            onDragEnter={() => setDragOverIdx(idx)}
+                            onDragOver={(e) => e.preventDefault()}
+                            onDrop={() => handleThumbnailDrop(idx)}
+                            onDragEnd={() => { dragIndexRef.current = null; setDragOverIdx(null); }}
+                            className={`relative flex-shrink-0 w-[4rem] h-[4rem] overflow-hidden border-2 cursor-grab active:cursor-grabbing transition-all select-none
+                              ${idx === primaryImageIndex ? 'border-midnight-ink ring-1 ring-midnight-ink' : 'border-soft-border hover:border-cool-gray'}
+                              ${dragOverIdx === idx && dragIndexRef.current !== idx ? 'ring-2 ring-trust-blue scale-105' : ''}
+                              ${dragIndexRef.current === idx ? 'opacity-40' : ''}`}
+                            onClick={() => setPrimaryImageIndex(idx)}
+                          >
+                            <img src={img} alt={`Product ${idx + 1}`} className="w-full h-full object-cover pointer-events-none"/>
+                            <button
+                              className="absolute top-0.5 right-0.5 w-4 h-4 bg-black/60 text-white rounded-full text-[10px] flex items-center justify-center hover:bg-red-600 leading-none"
+                              onClick={(e) => { e.stopPropagation(); removeProductImage(idx); }}
+                            >×</button>
+                            {idx === primaryImageIndex && (
+                              <div className="absolute bottom-0 left-0 right-0 bg-midnight-ink/80 text-white text-[8px] text-center py-0.5 leading-tight">MAIN</div>
+                            )}
+                          </div>
+                        ))}
+                        <div
+                          className="flex-shrink-0 w-[4rem] h-[4rem] border-2 border-dashed border-soft-border flex items-center justify-center cursor-pointer hover:bg-cloud-gray text-cool-gray"
+                          onClick={() => fileInputRef.current?.click()}
+                        >
+                          <span className="text-xl font-light leading-none">+</span>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* Product Details & Variations - Right Side - 3/4 width */}
