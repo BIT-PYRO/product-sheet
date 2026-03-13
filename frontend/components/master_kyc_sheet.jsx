@@ -93,6 +93,9 @@ export default function MasterKYCSheet() {
 
   const [archivedRows, setArchivedRows] = useState(new Set());
   const [isArchivedView, setIsArchivedView] = useState(false);
+  const [kycTypeFilter, setKycTypeFilter] = useState('All');
+
+  const KYC_TYPE_OPTIONS = ['All', 'Customer', 'Work from Home', 'Vendor', 'Labour', 'Company'];
 
   const loadKYCData = useCallback(async () => {
     setIsLoading(true);
@@ -224,10 +227,15 @@ export default function MasterKYCSheet() {
     a.click();
   };
 
-  const filteredProducts = products.filter((product) =>
-    product.companyName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    product.gstNumber?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredProducts = products.filter((product) => {
+    const matchesSearch =
+      product.companyName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      product.gstNumber?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesType =
+      kycTypeFilter === 'All' ||
+      product.kycType?.toLowerCase() === kycTypeFilter.toLowerCase();
+    return matchesSearch && matchesType;
+  });
 
   const sortedProducts = [...filteredProducts].sort((a, b) => {
     if (!sortField) return 0;
@@ -256,15 +264,38 @@ export default function MasterKYCSheet() {
         <div className="max-w-full overflow-hidden">
           {/* Action Buttons */}
           <div className="flex flex-wrap gap-2 md:gap-4 justify-end mb-4 items-center">
-            <div className="relative mr-auto">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-cool-gray w-4 h-4" />
-              <Input
-                type="text"
-                placeholder="SEARCH BAR"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="border border-soft-border rounded-lg pl-9 pr-4 h-9 w-64 text-sm"
-              />
+            <div className="relative mr-auto flex items-center gap-2">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-cool-gray w-4 h-4" />
+                <Input
+                  type="text"
+                  placeholder="SEARCH BAR"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="border border-soft-border rounded-lg pl-9 pr-4 h-9 w-64 text-sm"
+                />
+              </div>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="border-midnight-ink text-midnight-ink hover:bg-gray-100 rounded-md px-4 h-9 text-sm"
+                  >
+                    {kycTypeFilter === 'All' ? 'KYC Type ▾' : `${kycTypeFilter} ▾`}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start">
+                  {KYC_TYPE_OPTIONS.map((option) => (
+                    <DropdownMenuItem
+                      key={option}
+                      onClick={() => setKycTypeFilter(option)}
+                      className={kycTypeFilter === option ? 'font-semibold' : ''}
+                    >
+                      {option}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
             <Button onClick={loadKYCData} variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-6" disabled={isLoading}>
               {isLoading ? 'Refreshing...' : 'Refresh'}
