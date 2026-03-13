@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/dialog';
 import DateTimeStamp from '@/components/date-time-stamp';
 import { EnrollCustomerForm } from '@/components/enroll-customer';
+import BulkUploadButton from '@/components/bulk-upload-button';
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -298,6 +299,7 @@ export default function MasterCustomerSheet() {
 						<Button onClick={loadCustomerData} variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-6" disabled={isLoading}>
 							{isLoading ? 'Refreshing...' : 'Refresh'}
 						</Button>
+						<BulkUploadButton sheetType="customers" onComplete={loadCustomerData} />
 						<Button onClick={handleAddEmptyRow} className="bg-success hover:bg-success text-white rounded-full px-6">
 							Add Customer
 						</Button>

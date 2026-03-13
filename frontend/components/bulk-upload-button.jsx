@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 export default function BulkUploadButton({
   sheetType,
   onComplete,
-  className = 'border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8',
+  className = 'border-midnight-ink text-midnight-ink rounded-full px-6',
 }) {
   const inputRef = useRef(null);
   const [isUploading, setIsUploading] = useState(false);

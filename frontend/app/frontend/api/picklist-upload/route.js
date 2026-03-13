@@ -20,75 +20,124 @@ function toInt(value) {
 // -- PDF parser ---------------------------------------------------------------
 //
 // SKUs in picklist PDFs look like: AJB11/G, AJB3/S, AJC1/G
-// Pattern: 1-8 uppercase letters, 0-6 digits, optional /1-4 chars.
-const PDF_SKU_RE = /^([A-Z]{1,8}\d{0,6}(?:\/[A-Z0-9]{1,4})?)$/i;
+// Pattern used here is intentionally strict so random UI text like "D"
+// or "OneDesk" is never treated as a SKU.
+const PDF_SKU_RE = /^(?=.*\d)(?=.*\/)[A-Z][A-Z0-9]{1,24}\/[A-Z0-9]{1,4}$/i;
 
 // Full-row pattern: SKU  product-name  number  (columns sep by 2+ spaces).
 const PDF_FULL_ROW_RE =
-  /^([A-Z]{1,8}\d{0,6}(?:\/[A-Z0-9]{1,4})?)\s{2,}(.+?)\s{2,}(\d+)(?:\s.*)?$/i;
+  /^((?=.*\d)(?=.*\/)[A-Z][A-Z0-9]{1,24}\/[A-Z0-9]{1,4})\s{2,}(.+?)\s{2,}(\d+)(?:\s+\d+)?(?:\s.*)?$/i;
+
+function isPicklistSku(value) {
+  return PDF_SKU_RE.test(String(value || '').trim().toUpperCase());
+}
+
+function isNoiseLine(value) {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (!normalized) return true;
+
+  return [
+    'sku',
+    'product',
+    'needed',
+    'available',
+    'total',
+    'sku picklist',
+  ].includes(normalized);
+}
+
+function mergePicklistItems(items) {
+  const bySku = new Map();
+
+  items.forEach((item) => {
+    const sku = String(item?.sku || '').trim().toUpperCase();
+    if (!isPicklistSku(sku)) {
+      return;
+    }
+
+    const current = bySku.get(sku);
+    if (current) {
+      current.needed += toInt(item?.needed);
+      if (!current.listingName && item?.listingName) {
+        current.listingName = String(item.listingName).trim();
+      }
+      return;
+    }
+
+    bySku.set(sku, {
+      sku,
+      listingName: String(item?.listingName || sku).trim(),
+      needed: toInt(item?.needed),
+    });
+  });
+
+  return Array.from(bySku.values());
+}
 
 function parsePdfPicklistText(rawText) {
-  const lines = rawText
+  const allLines = rawText
     .split('\n')
     .map((l) => l.trim())
     .filter((l) => l.length > 0);
 
-  const seen = new Set();
+  const sectionStart = allLines.findIndex((line) => /sku\s+picklist/i.test(line));
+  const lines = sectionStart >= 0 ? allLines.slice(sectionStart) : allLines;
+
   const items = [];
 
   // Strategy 1: every row on one line with 2+ spaces between columns.
   for (const line of lines) {
     const m = line.match(PDF_FULL_ROW_RE);
     if (m) {
-      const upperSku = m[1].toUpperCase();
-      if (!seen.has(upperSku)) {
-        seen.add(upperSku);
-        items.push({ sku: m[1], listingName: m[2].trim(), needed: toInt(m[3]) });
-      }
+      items.push({ sku: m[1], listingName: m[2].trim(), needed: toInt(m[3]) });
     }
   }
 
-  if (items.length > 0) return items;
+  if (items.length > 0) return mergePicklistItems(items);
 
   // Strategy 2: each PDF cell is on its own line (SKU / name / number).
   let i = 0;
   while (i < lines.length) {
     const skuMatch = lines[i].match(PDF_SKU_RE);
     if (skuMatch) {
-      const upperSku = skuMatch[1].toUpperCase();
-      if (!seen.has(upperSku)) {
-        seen.add(upperSku);
-        let name = '';
-        let needed = 0;
-        let j = i + 1;
-        while (j < lines.length) {
-          const next = lines[j];
-          if (/^\d+$/.test(next)) {
-            needed = toInt(next);
-            j += 1;
-            break;
-          }
-          if (next.match(PDF_SKU_RE)) break;
-          name = name ? `${name} ${next}` : next;
+      let name = '';
+      let needed = 0;
+      let j = i + 1;
+      while (j < lines.length) {
+        const next = lines[j];
+        if (/^\d+$/.test(next)) {
+          needed = toInt(next);
           j += 1;
+          break;
         }
-        items.push({ sku: skuMatch[1], listingName: name || skuMatch[1], needed });
-        i = j;
-        continue;
+        if (next.match(PDF_SKU_RE)) break;
+        if (!isNoiseLine(next)) {
+          name = name ? `${name} ${next}` : next;
+        }
+        j += 1;
       }
+      items.push({ sku: skuMatch[1], listingName: name || skuMatch[1], needed });
+      i = j;
+      continue;
     }
     i += 1;
   }
 
-  return items;
+  return mergePicklistItems(items);
 }
 
 async function parsePdf(file) {
   const arrayBuffer = await file.arrayBuffer();
   const buffer = Buffer.from(arrayBuffer);
 
-  // Import from the package entrypoint so Next/Turbopack can resolve exports.
-  const pdfParse = (await import('pdf-parse')).default;
+  let pdfParse;
+  try {
+    // Prefer the package entrypoint when the installed version exports it cleanly.
+    pdfParse = (await import('pdf-parse')).default;
+  } catch {
+    // Fall back to the legacy internal path used by older pdf-parse releases.
+    pdfParse = (await import('pdf-parse/lib/pdf-parse.js')).default;
+  }
   const { text } = await pdfParse(buffer);
 
   const items = parsePdfPicklistText(text);
@@ -163,7 +212,49 @@ function parseDelimited(text, delimiter) {
 function rowsToObjects(matrix) {
   if (!Array.isArray(matrix) || matrix.length === 0) return [];
 
-  const [headerRow, ...dataRows] = matrix;
+  const looksLikeSkuHeader = (header) =>
+    [
+      'sku',
+      'mastersku',
+      'productsku',
+      'itemcode',
+      'code',
+      'itemsku',
+      'stocksku',
+      'finalstocksku',
+    ].includes(header);
+
+  const looksLikeNeededHeader = (header) =>
+    [
+      'needed',
+      'need',
+      'required',
+      'requiredqty',
+      'neededqty',
+      'demand',
+      'demandqty',
+      'qty',
+      'quantity',
+      'pickqty',
+    ].includes(header);
+
+  // Some sheets have title rows before the real header. Find the best header row
+  // in the first few lines instead of assuming row 1 is the header.
+  let headerIndex = 0;
+  let bestScore = -1;
+  const scanLimit = Math.min(matrix.length, 12);
+  for (let index = 0; index < scanLimit; index += 1) {
+    const headers = (matrix[index] || []).map((value) => normalizeHeader(value));
+    const skuHits = headers.filter(looksLikeSkuHeader).length;
+    const neededHits = headers.filter(looksLikeNeededHeader).length;
+    const score = skuHits * 3 + neededHits * 2;
+    if (score > bestScore) {
+      bestScore = score;
+      headerIndex = index;
+    }
+  }
+
+  const [headerRow, ...dataRows] = matrix.slice(headerIndex);
   const headers = headerRow.map((value) => normalizeHeader(value));
 
   return dataRows
@@ -276,20 +367,40 @@ function asPicklistItem(row) {
   // PDF rows are already parsed into { sku, listingName, needed }.
   if (row._pdfRow) {
     const sku = String(row.sku || '').trim();
-    if (!sku) return null;
+    if (!isPicklistSku(sku)) return null;
     return { sku, listingName: String(row.listingName || sku).trim(), needed: row.needed || 0 };
   }
 
-  const sku = firstValue(row, ['sku', 'mastersku', 'productsku', 'itemcode', 'code']);
-  if (!sku) return null;
+  const sku = firstValue(row, [
+    'sku',
+    'mastersku',
+    'productsku',
+    'itemcode',
+    'code',
+    'itemsku',
+    'stocksku',
+    'finalstocksku',
+  ]);
+  if (!sku || !isPicklistSku(sku)) return null;
 
   const listingName = firstValue(
     row,
-    ['product', 'productname', 'listingname', 'name', 'title', 'itemname'],
+    ['product', 'productname', 'listingname', 'name', 'title', 'itemname', 'description'],
     sku
   );
 
-  const neededRaw = firstValue(row, ['needed', 'required', 'demand', 'qty', 'quantity']);
+  const neededRaw = firstValue(row, [
+    'needed',
+    'need',
+    'required',
+    'requiredqty',
+    'neededqty',
+    'demand',
+    'demandqty',
+    'qty',
+    'quantity',
+    'pickqty',
+  ]);
   const needed = toInt(neededRaw);
 
   return { sku, listingName, needed };
@@ -312,10 +423,69 @@ async function fetchJson(request, path, init = {}) {
   return { response, payload };
 }
 
+function errorMessageFromPayload(payload, fallback) {
+  if (payload?.message) {
+    return payload.message;
+  }
+
+  const details = payload?.error?.details;
+  if (Array.isArray(details) && details.length > 0) {
+    return details.join(' | ');
+  }
+
+  if (typeof details === 'string' && details.trim()) {
+    return details.trim();
+  }
+
+  if (details && typeof details === 'object') {
+    const parts = [];
+    Object.entries(details).forEach(([key, value]) => {
+      if (Array.isArray(value)) {
+        parts.push(`${key}: ${value.join(', ')}`);
+      } else if (value !== null && value !== undefined && String(value).trim() !== '') {
+        parts.push(`${key}: ${String(value)}`);
+      }
+    });
+    if (parts.length > 0) {
+      return parts.join(' | ');
+    }
+  }
+
+  const errorMessage = payload?.error?.message;
+  if (errorMessage) {
+    return errorMessage;
+  }
+
+  return fallback;
+}
+
+function isOkResponse(response, payload) {
+  // Some backend endpoints may return 2xx without explicit success flag.
+  return Boolean(response?.ok) && payload?.success !== false;
+}
+
+function sanitizeLabel(value, fallback = '') {
+  const normalized = String(value || '').trim().replace(/::/g, '-').replace(/\s+/g, ' ');
+  return normalized || fallback;
+}
+
+function parsePositiveInt(value, fallback = 1) {
+  const parsed = Number.parseInt(String(value || ''), 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function buildGroupRemark(groupMeta) {
+  const safeName = sanitizeLabel(groupMeta?.name, 'Picklist').slice(0, 80);
+  const safeUploader = sanitizeLabel(groupMeta?.uploadedBy, 'Unknown').slice(0, 40);
+  const safeDate = sanitizeLabel(groupMeta?.date, new Date().toISOString()).slice(0, 40);
+  const safeNumber = parsePositiveInt(groupMeta?.number, 1);
+  return `picklist::${groupMeta.id}::${safeNumber}::${safeUploader}::${safeDate}::${safeName}`;
+}
+
 async function resolveProductBySku(request, sku) {
   const encoded = encodeURIComponent(sku);
   const { response, payload } = await fetchJson(request, `/api/products?search=${encoded}`);
-  if (!response.ok || !payload?.success) return null;
+  if (!isOkResponse(response, payload)) return null;
 
   const rows = Array.isArray(payload.data)
     ? payload.data
@@ -334,14 +504,8 @@ async function upsertProduct(request, sku, listingName) {
   const existing = await resolveProductBySku(request, sku);
 
   if (existing) {
-    const { response, payload } = await fetchJson(request, `/api/products/${existing.id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: listingName || sku }),
-    });
-    if (response.ok && payload?.success) {
-      return payload.data || existing;
-    }
+    // For picklist ingestion we only need a valid product reference.
+    // Skip name PATCH to avoid unrelated validation failures on legacy rows.
     return existing;
   }
 
@@ -357,21 +521,21 @@ async function upsertProduct(request, sku, listingName) {
     }),
   });
 
-  if (!response.ok || !payload?.success) {
-    throw new Error(payload?.message || `Failed to create product with SKU "${sku}"`);
+  if (!isOkResponse(response, payload)) {
+    throw new Error(errorMessageFromPayload(payload, `Failed to create product with SKU "${sku}"`));
   }
 
   return payload.data;
 }
 
-async function replaceDemandTransactions(request, productId, neededQty) {
-  // Remove all existing demand transactions for this product.
+async function replaceDemandTransactions(request, productId, neededQty, groupMeta) {
+  // Remove existing demand rows only for this same group + product.
   const { response, payload } = await fetchJson(
     request,
-    `/api/inventory?product=${encodeURIComponent(productId)}&txn_type=demand`
+    `/api/inventory?product=${encodeURIComponent(productId)}`
   );
 
-  if (response.ok && payload?.success) {
+  if (isOkResponse(response, payload)) {
     const existing = Array.isArray(payload.data)
       ? payload.data
       : Array.isArray(payload.data?.results)
@@ -379,7 +543,10 @@ async function replaceDemandTransactions(request, productId, neededQty) {
       : [];
 
     for (const txn of existing) {
-      if (txn?.id) {
+      const txnType = String(txn?.txn_type || '').trim().toLowerCase();
+      const remark = String(txn?.remark || '').trim();
+      const isSameGroup = remark.startsWith(`picklist::${groupMeta.id}::`);
+      if (txn?.id && txnType === 'demand' && isSameGroup) {
         await fetchJson(request, `/api/inventory/${txn.id}`, { method: 'DELETE' });
       }
     }
@@ -388,16 +555,25 @@ async function replaceDemandTransactions(request, productId, neededQty) {
   // Create fresh demand transaction only when needed qty > 0.
   if (neededQty <= 0) return;
 
-  await fetchJson(request, '/api/inventory', {
+  const createResult = await fetchJson(request, '/api/inventory', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       product: productId,
       txn_type: 'demand',
       quantity: neededQty,
-      remark: 'picklist',
+      remark: buildGroupRemark(groupMeta),
     }),
   });
+
+  if (!isOkResponse(createResult.response, createResult.payload)) {
+    throw new Error(
+      errorMessageFromPayload(
+        createResult.payload,
+        'Failed to save demand in inventory.'
+      )
+    );
+  }
 }
 
 // -- Route handler ------------------------------------------------------------
@@ -414,8 +590,18 @@ export async function POST(request) {
       );
     }
 
+    const uploadedAt = sanitizeLabel(formData.get('uploadedAt'), new Date().toISOString());
+    const groupMeta = {
+      id: sanitizeLabel(formData.get('picklistGroupId'), `picklist-${Date.now()}`),
+      number: parsePositiveInt(formData.get('picklistNumber'), 1),
+      uploadedBy: sanitizeLabel(formData.get('uploadedBy'), 'Unknown'),
+      date: uploadedAt,
+      dateFormatted: new Date(uploadedAt).toLocaleString(),
+      name: sanitizeLabel(formData.get('picklistName'), String(file?.name || 'Picklist')),
+    };
+
     const parsedRows = await parsePicklistFile(file);
-    const items = parsedRows.map(asPicklistItem).filter(Boolean);
+    const items = mergePicklistItems(parsedRows.map(asPicklistItem).filter(Boolean));
 
     if (!items.length) {
       return Response.json(
@@ -440,7 +626,7 @@ export async function POST(request) {
           throw new Error('Product ID not returned after upsert');
         }
 
-        await replaceDemandTransactions(request, product.id, item.needed);
+        await replaceDemandTransactions(request, product.id, item.needed, groupMeta);
 
         savedCount += 1;
         savedItems.push({ sku: item.sku, name: item.listingName, needed: item.needed });
@@ -449,20 +635,30 @@ export async function POST(request) {
       }
     }
 
+    const partialFailureSummary = failures
+      .slice(0, 3)
+      .map((failure) => `${failure.sku}: ${failure.message}`)
+      .join(' | ');
+
     return Response.json({
-      success: failures.length === 0,
+      success: failures.length === 0 || savedCount > 0,
       message:
         failures.length === 0
           ? `Picklist uploaded successfully. Registered ${savedCount} products.`
-          : `Uploaded with partial success. Saved ${savedCount} of ${items.length} rows.`,
+          : savedCount > 0
+          ? `Picklist uploaded with warnings. Saved ${savedCount} of ${items.length} rows.${partialFailureSummary ? ` ${partialFailureSummary}` : ''}`
+          : `Uploaded with partial success. Saved ${savedCount} of ${items.length} rows.${partialFailureSummary ? ` ${partialFailureSummary}` : ''}`,
       fileName: file.name,
       parsedRows: parsedRows.length,
       validRows: items.length,
       savedCount,
       failedCount: failures.length,
       failures,
-      // Returned so the frontend stores this picklist in localStorage.
-      picklistItems: savedItems,
+      picklistGroup: groupMeta,
+      // Store all parsed valid rows in localStorage so picklist selection works
+      // even if backend save had partial failures.
+      picklistItems: items,
+      savedItems,
     });
   } catch (error) {
     return Response.json(

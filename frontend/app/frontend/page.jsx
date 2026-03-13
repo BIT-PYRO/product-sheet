@@ -175,18 +175,17 @@ function ProductSheetContent() {
   const [isUploadingPicklist, setIsUploadingPicklist] = useState(false)
   const [saveStatus, setSaveStatus] = useState(null)
   const [showViewSheetButton, setShowViewSheetButton] = useState(false)
+  const [currentUsername, setCurrentUsername] = useState('')
   const [backendMode, setBackendMode] = useState('')
-  const [isDesignerSaving, setIsDesignerSaving] = useState(false)
-  const [designerSaveStatus, setDesignerSaveStatus] = useState(null)
-  const [designerRecordId, setDesignerRecordId] = useState(null)
 
-  // Edit dialog state
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
-  const [editSearchTerm, setEditSearchTerm] = useState('')
-  const [editSearchResults, setEditSearchResults] = useState([])
-  const [isEditSearching, setIsEditSearching] = useState(false)
-  const [editProductId, setEditProductId] = useState(null)
-  const [isViewMode, setIsViewMode] = useState(false)
+  useEffect(() => {
+    fetch('/api/auth/session', { cache: 'no-store' })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.user?.id) setCurrentUsername(data.user.id)
+      })
+      .catch(() => {})
+  }, [])
 
   useEffect(() => {
     fetch('/api/backend-info', { cache: 'no-store' })
@@ -994,8 +993,27 @@ function ProductSheetContent() {
       setShowViewSheetButton(false)
 
       try {
+        const syncTimestamp = Date.now().toString()
+        const uploadedAt = new Date()
+
+        let plannedPicklistNumber = 1
+        try {
+          const existingPicklists = JSON.parse(localStorage.getItem('psd_picklists') || '[]')
+          plannedPicklistNumber =
+            existingPicklists.length > 0
+              ? Math.max(...existingPicklists.map((p) => p.number || 0)) + 1
+              : 1
+        } catch {
+          plannedPicklistNumber = 1
+        }
+
         const formData = new FormData()
         formData.append('file', file)
+        formData.append('picklistGroupId', `picklist-${syncTimestamp}`)
+        formData.append('picklistNumber', String(plannedPicklistNumber))
+        formData.append('uploadedBy', currentUsername || '')
+        formData.append('uploadedAt', uploadedAt.toISOString())
+        formData.append('picklistName', file.name)
 
         const response = await fetch('/api/picklist-upload', {
           method: 'POST',
@@ -1008,25 +1026,27 @@ function ProductSheetContent() {
           throw new Error(result?.message || 'Failed to upload picklist')
         }
 
-        const syncTimestamp = Date.now().toString()
         localStorage.setItem(PRODUCT_SHEET_SYNC_KEY, syncTimestamp)
 
         // Store picklist metadata in localStorage so the inventory sheet can show it.
-        if (Array.isArray(result.picklistItems) && result.picklistItems.length > 0) {
-          try {
-            const existingPicklists = JSON.parse(localStorage.getItem('psd_picklists') || '[]')
-            const newPicklist = {
-              id: `picklist-${syncTimestamp}`,
-              name: file.name,
-              date: new Date().toISOString(),
-              dateFormatted: new Date().toLocaleString(),
-              items: result.picklistItems,
-            }
-            const updated = [newPicklist, ...existingPicklists].slice(0, 20)
-            localStorage.setItem('psd_picklists', JSON.stringify(updated))
-          } catch {
-            // Non-critical: localStorage write can fail silently.
+        // A new picklist entry is created for every successful upload.
+        try {
+          const existingPicklists = JSON.parse(localStorage.getItem('psd_picklists') || '[]')
+          const parsedItems = Array.isArray(result.picklistItems) ? result.picklistItems : []
+          const backendGroup = result?.picklistGroup || {}
+          const newPicklist = {
+            id: backendGroup.id || `picklist-${syncTimestamp}`,
+            number: backendGroup.number || plannedPicklistNumber,
+            name: backendGroup.name || file.name,
+            date: backendGroup.date || uploadedAt.toISOString(),
+            dateFormatted: backendGroup.dateFormatted || uploadedAt.toLocaleString(),
+            uploadedBy: backendGroup.uploadedBy || currentUsername || 'Unknown',
+            items: parsedItems,
           }
+          const updated = [newPicklist, ...existingPicklists].slice(0, 20)
+          localStorage.setItem('psd_picklists', JSON.stringify(updated))
+        } catch {
+          // Non-critical: localStorage write can fail silently.
         }
 
         window.dispatchEvent(
@@ -1035,12 +1055,14 @@ function ProductSheetContent() {
           })
         )
 
+        const savedCount = Number(result?.savedCount || 0)
+        const hasAnySaved = savedCount > 0
         setSaveStatus({
-          success: Boolean(result.success),
+          success: hasAnySaved || Boolean(result.success),
           message: result.message,
         })
 
-        if (result.success) {
+        if (hasAnySaved || result.success) {
           setShowViewSheetButton(true)
         }
 
@@ -1063,6 +1085,17 @@ function ProductSheetContent() {
           <h1 className="text-xl font-bold tracking-tight text-midnight-ink">PRODUCT SHEET</h1>
         </div>
         <div className="flex gap-1.5 items-center">
+          {backendMode && (
+            <span
+              className={`px-2 py-1 rounded text-[11px] font-semibold border ${
+                backendMode === 'DEPLOYED'
+                  ? 'bg-success/10 text-success-dark border-success/30'
+                  : 'bg-danger/10 text-danger-dark border-danger/30'
+              }`}
+            >
+              Backend: {backendMode}
+            </span>
+          )}
           <DateTimeStamp className="mr-1 text-xs" />
           <button onClick={handleAddProduct} className="w-fit px-3 h-8 text-sm bg-trust-blue text-white font-semibold rounded-full shadow-sm hover:bg-deep-blue">+ ADD PRODUCT</button>
           <button onClick={handlePicklistUploadClick} disabled={isUploadingPicklist} className="w-fit px-3 h-8 text-sm bg-midnight-ink text-white font-semibold rounded-full shadow-sm hover:bg-midnight-ink/90 disabled:opacity-50 disabled:cursor-not-allowed">{isUploadingPicklist ? 'Uploading...' : 'UPLOAD PICKLIST'}</button>

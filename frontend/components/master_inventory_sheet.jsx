@@ -218,12 +218,43 @@ function getFilterValue(product, fieldKey) {
 
 const PSD_PICKLISTS_KEY = 'psd_picklists';
 
+const PICKLIST_SKU_RE = /^(?=.*\d)(?=.*\/)[A-Z][A-Z0-9]{1,24}\/[A-Z0-9]{1,4}$/i;
+
+function isValidPicklistSku(value) {
+  return PICKLIST_SKU_RE.test(String(value || '').trim().toUpperCase());
+}
+
 function loadPicklistsFromStorage() {
   try {
     const raw = localStorage.getItem(PSD_PICKLISTS_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
+    if (!Array.isArray(parsed)) return [];
+
+    const totalPicklists = parsed.length;
+    const sanitized = parsed
+      .map((picklist, index) => {
+        const normalizedItems = Array.isArray(picklist?.items)
+          ? picklist.items.filter((item) => isValidPicklistSku(item?.sku))
+          : [];
+
+        return {
+          ...picklist,
+          number: picklist?.number || (totalPicklists - index),
+          uploadedBy: picklist?.uploadedBy || 'Unknown',
+          date: picklist?.date || picklist?.createdAt || new Date().toISOString(),
+          dateFormatted:
+            picklist?.dateFormatted ||
+            new Date(picklist?.date || picklist?.createdAt || Date.now()).toLocaleString(),
+          items: normalizedItems,
+        };
+      });
+
+    if (JSON.stringify(sanitized) !== JSON.stringify(parsed)) {
+      localStorage.setItem(PSD_PICKLISTS_KEY, JSON.stringify(sanitized));
+    }
+
+    return sanitized;
   } catch {
     return [];
   }
@@ -246,6 +277,7 @@ export default function MasterInventorySheet() {
   const [selectedRows, setSelectedRows] = useState(new Set());
   const [sortField, setSortField] = useState('');
   const [sortDirection, setSortDirection] = useState('asc');
+  const [backendMode, setBackendMode] = useState('');
   const [filterSelections, setFilterSelections] = useState(() => {
     const initial = {};
     FILTER_FIELDS.forEach((field) => {
@@ -263,20 +295,47 @@ export default function MasterInventorySheet() {
     setError('');
 
     try {
-      const response = await fetch('/api/inventory-summary', {
-        method: 'GET',
-        cache: 'no-store',
-      });
+      const [inventoryResponse, groupsResponse] = await Promise.all([
+        fetch('/api/inventory-summary', {
+          method: 'GET',
+          cache: 'no-store',
+        }),
+        fetch('/api/picklist-groups', {
+          method: 'GET',
+          cache: 'no-store',
+        }),
+      ]);
 
-      const result = await response.json();
+      const inventoryResult = await inventoryResponse.json();
+      const groupsResult = await groupsResponse.json().catch(() => null);
 
-      if (!response.ok || !result.success) {
-        throw new Error(result.message || 'Failed to fetch inventory data');
+      if (!inventoryResponse.ok || !inventoryResult.success) {
+        throw new Error(inventoryResult.message || 'Failed to fetch inventory data');
       }
 
-      const nextProducts = Array.isArray(result.products) ? result.products : [];
+      const nextProducts = Array.isArray(inventoryResult.products) ? inventoryResult.products : [];
       setProducts(nextProducts);
-      setPicklists(loadPicklistsFromStorage());
+
+      const localPicklists = loadPicklistsFromStorage();
+      const backendPicklists = Array.isArray(groupsResult?.picklists) ? groupsResult.picklists : [];
+
+      if (backendPicklists.length === 0) {
+        setPicklists(localPicklists);
+        return;
+      }
+
+      // Merge backend + local, backend takes precedence for same IDs.
+      const merged = new Map();
+      backendPicklists.forEach((picklist) => {
+        merged.set(String(picklist?.id || ''), picklist);
+      });
+      localPicklists.forEach((picklist) => {
+        const id = String(picklist?.id || '');
+        if (!merged.has(id)) {
+          merged.set(id, picklist);
+        }
+      });
+      setPicklists(Array.from(merged.values()));
 
     } catch (fetchError) {
       setError(fetchError.message || 'Failed to load inventory data');
@@ -290,6 +349,17 @@ export default function MasterInventorySheet() {
   useEffect(() => {
     loadProducts();
   }, [loadProducts]);
+
+  useEffect(() => {
+    fetch('/api/backend-info', { cache: 'no-store' })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.backendMode) {
+          setBackendMode(String(data.backendMode));
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     const handleStorageSync = (event) => {
@@ -326,9 +396,11 @@ export default function MasterInventorySheet() {
       // Filter by picklist if one is selected
       if (selectedPicklist) {
         const currentPicklist = picklists.find((p) => p.id === selectedPicklist);
-        const productSku = String(product.sku || product.masterSku || '').trim();
-        const picklistSkus = (currentPicklist?.items || []).map((item) => String(item.sku || '').trim());
-        if (currentPicklist && !picklistSkus.includes(productSku)) {
+        const productSku = String(product.sku || product.masterSku || '').trim().toUpperCase();
+        const picklistSkus = new Set(
+          (currentPicklist?.items || []).map((item) => String(item.sku || '').trim().toUpperCase())
+        );
+        if (currentPicklist && picklistSkus.size > 0 && !picklistSkus.has(productSku)) {
           return false;
         }
       }
@@ -514,6 +586,11 @@ export default function MasterInventorySheet() {
     [sortedProducts, stockField]
   );
 
+  const selectedPicklistData = useMemo(
+    () => picklists.find((picklist) => picklist.id === selectedPicklist) || null,
+    [picklists, selectedPicklist]
+  );
+
   // Build a SKU → needed-qty map from the selected picklist (localStorage).
   // When no picklist is selected this map is empty and the DB-derived
   // totalInDemand from each inventory row is used instead.
@@ -521,20 +598,26 @@ export default function MasterInventorySheet() {
     const map = new Map();
     if (!selectedPicklist) return map;
 
-    const currentPicklist = picklists.find((p) => p.id === selectedPicklist);
-    (currentPicklist?.items || []).forEach((item) => {
-      const sku = String(item.sku || '').trim();
-      if (sku) map.set(sku, item.needed || 0);
+    (selectedPicklistData?.items || []).forEach((item) => {
+      // Normalize to uppercase so lookup matches regardless of DB casing.
+      const sku = String(item.sku || '').trim().toUpperCase();
+      if (!sku) {
+        return;
+      }
+
+      const needed = parseNumericValue(item.needed || 0);
+      map.set(sku, (map.get(sku) || 0) + needed);
     });
 
     return map;
-  }, [picklists, selectedPicklist]);
+  }, [selectedPicklist, selectedPicklistData]);
 
   const totalInDemandByRowId = useMemo(() => {
     const map = new Map();
 
     inventoryRows.forEach((row) => {
-      const sku = String(row?.sku || '').trim();
+      // Normalize to uppercase to match picklistNeededBySku keys.
+      const sku = String(row?.sku || '').trim().toUpperCase();
       if (!sku) {
         map.set(row.id, '');
         return;
@@ -542,7 +625,7 @@ export default function MasterInventorySheet() {
 
       // When a picklist is selected → show that picklist's needed qty.
       // Otherwise → show the total demand from the DB (all demand transactions).
-      const demandValue = selectedPicklist
+      const demandValue = selectedPicklistData
         ? (picklistNeededBySku.get(sku) ?? '')
         : (row.totalInDemand || '');
 
@@ -550,7 +633,7 @@ export default function MasterInventorySheet() {
     });
 
     return map;
-  }, [inventoryRows, picklistNeededBySku, selectedPicklist]);
+  }, [inventoryRows, picklistNeededBySku, selectedPicklistData]);
 
   const rowsToRender = useMemo(() => {
     const minRows = 16;
@@ -752,7 +835,20 @@ export default function MasterInventorySheet() {
               <MasterNavigationDrawer inHeader />
               <h1 className="text-xl font-bold tracking-tight text-midnight-ink">MASTER INVENTORY SHEET</h1>
             </div>
-            <DateTimeStamp />
+            <div className="flex items-center gap-2">
+              {backendMode && (
+                <span
+                  className={`px-2 py-1 rounded text-[11px] font-semibold border ${
+                    backendMode === 'DEPLOYED'
+                      ? 'bg-success/10 text-success-dark border-success/30'
+                      : 'bg-danger/10 text-danger-dark border-danger/30'
+                  }`}
+                >
+                  Backend: {backendMode}
+                </span>
+              )}
+              <DateTimeStamp />
+            </div>
           </div>
         </div>
 
@@ -974,58 +1070,60 @@ export default function MasterInventorySheet() {
             <div className="border border-soft-border bg-white p-0">
               <div className="h-10 border-b border-soft-border bg-[#dbeafe] text-[11px] font-semibold text-black flex items-center justify-between px-2 relative tracking-wide">
                 <div className="flex-1">
-                  {picklists.length > 0 ? (
-                    <div className="relative">
-                      <button
-                        onClick={() => setIsPicklistDropdownOpen(!isPicklistDropdownOpen)}
-                        className="w-full text-left px-2 rounded hover:bg-trust-blue/10 transition-colors whitespace-nowrap leading-tight"
-                      >
-                        {selectedPicklist === null
-                          ? <span>VIEW ALL PRODUCTS</span>
-                          : selectedPicklist
-                          ? picklists.find((p) => p.id === selectedPicklist)?.name || 'Select'
-                          : 'SELECT PICKLIST'}
-                      </button>
-                      {isPicklistDropdownOpen && (
-                        <div className="absolute left-0 right-0 top-full mt-0 bg-white border border-soft-border rounded shadow-lg z-20 max-h-48 overflow-y-auto">
+                  <div className="relative">
+                    <button
+                      onClick={() => setIsPicklistDropdownOpen(!isPicklistDropdownOpen)}
+                      className="w-full text-left px-2 rounded hover:bg-trust-blue/10 transition-colors whitespace-nowrap leading-tight"
+                    >
+                      {selectedPicklistData
+                        ? `${selectedPicklistData.number ? `#${selectedPicklistData.number} — ` : ''}${selectedPicklistData.name}`
+                        : 'ORDER PICK LIST'}
+                    </button>
+                    {isPicklistDropdownOpen && (
+                      <div className="absolute left-0 right-0 top-full mt-0 bg-white border border-soft-border rounded shadow-lg z-20 max-h-48 overflow-y-auto">
+                        <button
+                          onClick={() => {
+                            setSelectedPicklist(null);
+                            setIsPicklistDropdownOpen(false);
+                          }}
+                          className={`w-full text-left px-3 py-2 text-sm border-b border-soft-border hover:bg-trust-blue/10 transition-colors font-semibold ${
+                            selectedPicklist === null ? 'bg-trust-blue/10' : ''
+                          }`}
+                        >
+                          <div className="text-deep-blue">ORDER PICK LIST</div>
+                          <div className="text-cool-gray text-sm">Show all {products.length} products</div>
+                        </button>
+                        {picklists.map((picklist) => (
                           <button
+                            key={picklist.id}
                             onClick={() => {
-                              setSelectedPicklist(null);
+                              setSelectedPicklist(picklist.id);
                               setIsPicklistDropdownOpen(false);
                             }}
-                            className={`w-full text-left px-3 py-2 text-sm border-b border-soft-border hover:bg-trust-blue/10 transition-colors font-semibold ${
-                              selectedPicklist === null ? 'bg-trust-blue/10' : ''
+                            className={`w-full text-left px-3 py-2 text-sm border-b border-soft-border hover:bg-trust-blue/10 transition-colors ${
+                              selectedPicklist === picklist.id ? 'bg-trust-blue/10 font-semibold' : ''
                             }`}
                           >
-                            <div className="text-deep-blue">VIEW ALL PRODUCTS</div>
-                            <div className="text-cool-gray text-sm">Show all {products.length} products</div>
+                            <div className="font-medium">
+                              {picklist.number ? `#${picklist.number} — ` : ''}{picklist.name}
+                            </div>
+                            <div className="text-cool-gray text-xs">
+                              {picklist.dateFormatted || (picklist.date ? new Date(picklist.date).toLocaleString() : '')}
+                              {picklist.uploadedBy ? ` · ${picklist.uploadedBy}` : ''}
+                            </div>
+                            <div className="text-cool-gray text-xs">
+                              {(picklist.items || []).length} parsed item{(picklist.items || []).length !== 1 ? 's' : ''}
+                            </div>
                           </button>
-                          {picklists.map((picklist) => (
-                            <button
-                              key={picklist.id}
-                              onClick={() => {
-                                setSelectedPicklist(picklist.id);
-                                setIsPicklistDropdownOpen(false);
-                              }}
-                              className={`w-full text-left px-3 py-2 text-sm border-b border-soft-border hover:bg-trust-blue/10 transition-colors ${
-                                selectedPicklist === picklist.id ? 'bg-trust-blue/10 font-semibold' : ''
-                              }`}
-                            >
-                              <div className="font-medium">{picklist.name}</div>
-                              <div className="text-cool-gray text-sm">
-                                {picklist.dateFormatted || new Date(picklist.date || picklist.createdAt).toLocaleString()}
-                              </div>
-                              <div className="text-cool-gray text-sm">
-                                {(picklist.items || []).length} product{(picklist.items || []).length !== 1 ? 's' : ''}
-                              </div>
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <span>ORDER PICK LIST</span>
-                  )}
+                        ))}
+                        {picklists.length === 0 && (
+                          <div className="px-3 py-2 text-sm text-cool-gray">
+                            No uploaded picklists found.
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
               {rowsToRender.length === 0 ? (
