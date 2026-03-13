@@ -7,10 +7,11 @@ import { Button } from '@/components/ui/button'
 import { CreateJobModal } from '@/components/create-job-modal'
 import { QuickEnrollModal } from '@/components/quick-enroll-modal'
 import { EnrolWorkforceForm } from '@/app/frontend/enrol-workforce/page'
+import { CompanyKYCForm } from '@/components/company-kyc-form'
 
 const DRAFTS_STORAGE_KEY = 'form_drafts'
 
-const SECTIONS = ['Create Job', 'Create Order', 'Enroll Workforce', 'Quick Enroll']
+const SECTIONS = ['Create Job', 'Create Order', 'Enroll Workforce', 'Quick Enroll', 'KYC Form']
 
 const getAddressText = (address) => {
   if (!address) return ''
@@ -72,6 +73,17 @@ const TABLE_CONFIG = {
     { key: 'notes', label: 'Notes', getValue: (draft) => draft.notes },
     { key: 'savedAt', label: 'Saved At', getValue: (draft) => draft.savedAt },
   ],
+  'KYC Form': [
+    { key: 'title', label: 'Title', getValue: (draft) => draft.title },
+    { key: 'companyName', label: 'Company Name', getValue: (draft) => draft.companyName },
+    { key: 'businessType', label: 'Business Type', getValue: (draft) => draft.businessType },
+    { key: 'gstNumber', label: 'GST Number', getValue: (draft) => draft.gstNumber },
+    { key: 'authorizedPersonName', label: 'Authorized Person', getValue: (draft) => draft.authorizedPersonName },
+    { key: 'mobile', label: 'Mobile', getValue: (draft) => draft.mobile },
+    { key: 'email', label: 'Email', getValue: (draft) => draft.email },
+    { key: 'bankName', label: 'Bank Name', getValue: (draft) => draft.bankName },
+    { key: 'savedAt', label: 'Saved At', getValue: (draft) => draft.savedAt },
+  ],
   'Quick Enroll': [
     { key: 'title', label: 'Title', getValue: (draft) => draft.title },
     { key: 'firstName', label: 'First Name', getValue: (draft) => draft.firstName },
@@ -95,6 +107,7 @@ export default function DraftsPage() {
   const [isQuickEnrollOpen, setIsQuickEnrollOpen] = useState(false)
   const [isEnrollWorkforceOpen, setIsEnrollWorkforceOpen] = useState(false)
   const [workforceDraftData, setWorkforceDraftData] = useState(null)
+  const [isKYCOpen, setIsKYCOpen] = useState(false)
 
   useEffect(() => {
     const stored = localStorage.getItem(DRAFTS_STORAGE_KEY)
@@ -135,6 +148,11 @@ export default function DraftsPage() {
     if (section === 'Enroll Workforce') {
       setWorkforceDraftData(draft)
       setIsEnrollWorkforceOpen(true)
+      return
+    }
+
+    if (section === 'KYC Form') {
+      setIsKYCOpen(true)
       return
     }
     window.dispatchEvent(new CustomEvent('draftLoad', { detail: { section, data: draft } }))
@@ -204,6 +222,14 @@ export default function DraftsPage() {
             onClose={() => { setIsEnrollWorkforceOpen(false); setWorkforceDraftData(null) }}
             draftData={workforceDraftData}
           />
+        )}
+
+        {isKYCOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+            <div className="w-full max-w-3xl max-h-[90vh] overflow-hidden rounded-xl shadow-2xl">
+              <CompanyKYCForm onClose={() => setIsKYCOpen(false)} />
+            </div>
+          </div>
         )}
 
         {activeSection && (

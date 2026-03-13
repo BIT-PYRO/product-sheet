@@ -444,7 +444,21 @@ export function CompanyKYCForm({ onClose }) {
         {/* Action Buttons */}
         <div className="sticky bottom-0 bg-white border-t border-slate-200 px-4 py-3 flex gap-3">
           <Button
-            onClick={() => alert('Draft saved!')}
+            onClick={() => {
+              const stored = localStorage.getItem('form_drafts')
+              const all = stored ? JSON.parse(stored) : {}
+              const section = 'KYC Form'
+              const existing = all[section] || []
+              const draft = {
+                ...formData,
+                id: `draft_kyc_${Date.now()}`,
+                title: formData.companyName || 'KYC Draft',
+                savedAt: new Date().toLocaleString(),
+              }
+              all[section] = [draft, ...existing]
+              localStorage.setItem('form_drafts', JSON.stringify(all))
+              alert('KYC draft saved!')
+            }}
             className="flex-1 h-10 rounded-lg bg-trust-blue hover:bg-trust-blue/90 text-white font-semibold text-sm tracking-wide"
           >
             Save as Draft

@@ -46,11 +46,11 @@ export default function MasterWorkforceSheet() {
   
   // Column definitions for workforce
   const columns = [
-    { id: 'department', label: 'Department' },
     { id: 'firstName', label: 'First Name' },
     { id: 'lastName', label: 'Last Name' },
+    { id: 'department', label: 'Department' },
     { id: 'contactNumber', label: 'Contact Number' },
-    { id: 'type', label: 'Type' },
+    { id: 'type', label: 'Status' },
     { id: 'aadharCard', label: 'Aadhar Card' },
     { id: 'paymentType', label: 'Payment Type' },
     { id: 'origin', label: 'Origin' },
@@ -78,9 +78,9 @@ export default function MasterWorkforceSheet() {
   
   // Set default visible columns to prevent horizontal scrolling
   const [visibleColumns, setVisibleColumns] = useState(new Set([
-    'department',
     'firstName',
     'lastName',
+    'department',
     'contactNumber',
     'type',
     'paymentType',
