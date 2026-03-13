@@ -2,15 +2,12 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { CreateJobModal } from '@/components/create-job-modal'
 import { QuickEnrollModal } from '@/components/quick-enroll-modal'
 import { EnrolWorkforceForm } from '@/app/frontend/enrol-workforce/page'
-import { CompanyKYCForm } from '@/components/company-kyc-form'
 
 const DRAFTS_STORAGE_KEY = 'form_drafts'
-const CREATE_ORDER_ENTITY_TYPE = 'create_order'
 
 const SECTIONS = ['Create Job', 'Create Order', 'Enroll Workforce', 'Quick Enroll', 'KYC Form']
 
@@ -101,7 +98,6 @@ const TABLE_CONFIG = {
 }
 
 export default function DraftsPage() {
-  const router = useRouter()
   const [drafts, setDrafts] = useState({})
   const [backendCreateOrderDrafts, setBackendCreateOrderDrafts] = useState([])
   const [backendCreateOrderLoading, setBackendCreateOrderLoading] = useState(false)
@@ -110,7 +106,6 @@ export default function DraftsPage() {
   const [isQuickEnrollOpen, setIsQuickEnrollOpen] = useState(false)
   const [isEnrollWorkforceOpen, setIsEnrollWorkforceOpen] = useState(false)
   const [workforceDraftData, setWorkforceDraftData] = useState(null)
-  const [isKYCOpen, setIsKYCOpen] = useState(false)
 
   useEffect(() => {
     const stored = localStorage.getItem(DRAFTS_STORAGE_KEY)
@@ -208,20 +203,9 @@ export default function DraftsPage() {
   }
 
   const handleContinueDraft = (section, draft) => {
-    if (section === 'Create Order') {
-      sessionStorage.setItem('create_order_draft_to_load', JSON.stringify(draft))
-      router.push('/orders/create-job')
-      return
-    }
-
     if (section === 'Enroll Workforce') {
       setWorkforceDraftData(draft)
       setIsEnrollWorkforceOpen(true)
-      return
-    }
-
-    if (section === 'KYC Form') {
-      setIsKYCOpen(true)
       return
     }
     window.dispatchEvent(new CustomEvent('draftLoad', { detail: { section, data: draft } }))
@@ -291,14 +275,6 @@ export default function DraftsPage() {
             onClose={() => { setIsEnrollWorkforceOpen(false); setWorkforceDraftData(null) }}
             draftData={workforceDraftData}
           />
-        )}
-
-        {isKYCOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-            <div className="w-full max-w-3xl max-h-[90vh] overflow-hidden rounded-xl shadow-2xl">
-              <CompanyKYCForm onClose={() => setIsKYCOpen(false)} />
-            </div>
-          </div>
         )}
 
         {activeSection && (

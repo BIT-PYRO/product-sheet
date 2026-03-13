@@ -16,7 +16,7 @@ const SHEET_BLOCKS = [
   {href: '/enrol-customer', title: 'Enroll Customer', subtitle: 'Customer entry form' },
   { href: '/master-customer-sheet', title: 'Master Customer Sheet', subtitle: 'Customer records and details' },
   { href: '/master-kyc-sheet', title: 'Master KYC Sheet', subtitle: 'Company KYC records' },
-  { href: '/enrol-workforce', title: 'Enrol Workforce', subtitle: 'Workforce onboarding form' },
+  { href: '/enrol-workforce', title: 'Enroll Workforce', subtitle: 'Workforce onboarding form' },
   { href: '/master-workforce-sheet', title: 'Master Workforce Sheet', subtitle: 'Workforce records' },
   { href: '/master-job-sheet', title: 'Master Job Sheet', subtitle: 'Job master data' },
   { href: '/managers-dashboard', title: 'Managers Dashboard', subtitle: 'Manager view and job cards' },
