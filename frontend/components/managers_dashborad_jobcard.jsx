@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Search } from 'lucide-react';
+import { Search, Pencil, Trash2 } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -34,6 +34,9 @@ export default function ManagersDashboard() {
   const [selectedColumnsForAction, setSelectedColumnsForAction] = useState(new Set());
   const [isCreateJobModalOpen, setIsCreateJobModalOpen] = useState(false);
   const [isKYCModalOpen, setIsKYCModalOpen] = useState(false);
+  const [selectedVoucher, setSelectedVoucher] = useState(null);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [editForm, setEditForm] = useState({});
   const [isLoadingJobs, setIsLoadingJobs] = useState(false);
   const [jobsError, setJobsError] = useState('');
   
@@ -189,8 +192,67 @@ export default function ManagersDashboard() {
   }, [loadJobs]);
 
   const handleCardClick = (card) => {
+    // Single click: select/deselect the voucher
+    setSelectedVoucher(prev => (prev?.id === card.id ? null : card));
+  };
+
+  const handleCardDoubleClick = (card) => {
+    // Double click: open receive job modal
     setSelectedVoucherForReceive(card);
     setIsReceiveJobOpen(true);
+  };
+
+  const handleDeleteVoucher = () => {
+    if (!selectedVoucher) return;
+    const confirmed = window.confirm(`Delete voucher ${selectedVoucher.voucherNo}?`);
+    if (!confirmed) return;
+    setJobCardsData(prev => {
+      const next = { ...prev };
+      for (const col of Object.keys(next)) {
+        for (const bucket of ['new', 'wip', 'completed']) {
+          next[col] = {
+            ...next[col],
+            [bucket]: next[col][bucket].filter(c => c.id !== selectedVoucher.id),
+          };
+        }
+      }
+      return next;
+    });
+    setSelectedVoucher(null);
+  };
+
+  const handleOpenEdit = () => {
+    if (!selectedVoucher) return;
+    setEditForm({
+      voucherNo: selectedVoucher.voucherNo,
+      name: selectedVoucher.name,
+      category: selectedVoucher.category,
+      qty: selectedVoucher.qty,
+      weight: selectedVoucher.weight,
+      status: selectedVoucher.status,
+    });
+    setIsEditOpen(true);
+  };
+
+  const handleSaveEdit = () => {
+    setJobCardsData(prev => {
+      const next = { ...prev };
+      for (const col of Object.keys(next)) {
+        for (const bucket of ['new', 'wip', 'completed']) {
+          next[col] = {
+            ...next[col],
+            [bucket]: next[col][bucket].map(c =>
+              c.id === selectedVoucher.id
+                ? { ...c, name: editForm.name, category: editForm.category, qty: editForm.qty, weight: editForm.weight }
+                : c
+            ),
+          };
+        }
+      }
+      return next;
+    });
+    setSelectedVoucher(prev => prev ? { ...prev, ...editForm } : null);
+    setIsEditOpen(false);
   };
 
   const handleCreateJob = () => {
@@ -240,10 +302,12 @@ export default function ManagersDashboard() {
 
   const VoucherCard = ({ card, bucket }) => {
     const s = getCardStyle(bucket);
+    const isSelected = selectedVoucher?.id === card.id;
     return (
       <div
         onClick={() => handleCardClick(card)}
-        className={`border-2 ${s.border} rounded-lg overflow-hidden cursor-pointer hover:shadow-md transition-shadow`}
+        onDoubleClick={() => handleCardDoubleClick(card)}
+        className={`border-2 ${isSelected ? 'border-trust-blue ring-2 ring-trust-blue/40' : s.border} rounded-lg overflow-hidden cursor-pointer hover:shadow-md transition-shadow ${isSelected ? 'shadow-md' : ''}`}
       >
         {/* Header row: Voucher No. | NEW/Reissue badge */}
         <div className={`${s.header} flex items-center justify-between px-2 py-1`}>
@@ -376,12 +440,28 @@ export default function ManagersDashboard() {
               className="border-2 border-soft-border rounded-lg px-4 py-2 pl-10"
             />
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             <Button 
               onClick={handleCreateJob}
               className="bg-success hover:bg-success text-white rounded-full px-6"
             >
               Create a Job
+            </Button>
+            <Button 
+              onClick={handleOpenEdit}
+              disabled={!selectedVoucher}
+              className="bg-white border border-trust-blue text-trust-blue hover:bg-trust-blue/10 rounded-full px-5 gap-1.5 disabled:opacity-100 disabled:border-trust-blue disabled:text-trust-blue"
+            >
+              <Pencil className="w-4 h-4" />
+              Edit
+            </Button>
+            <Button 
+              onClick={handleDeleteVoucher}
+              disabled={!selectedVoucher}
+              className="bg-white border border-red-500 text-red-500 hover:bg-red-50 rounded-full px-5 gap-1.5 disabled:opacity-100 disabled:border-red-500 disabled:text-red-500"
+            >
+              <Trash2 className="w-4 h-4" />
+              Delete
             </Button>
             <Button 
               onClick={handleManageColumns}
@@ -402,7 +482,7 @@ export default function ManagersDashboard() {
         {jobsError && <p className="text-sm text-danger-dark mb-3">{jobsError}</p>}
 
         {/* Filter Row */}
-        <div className="border-2 border-trust-blue rounded-lg mb-6 bg-trust-blue/10 p-4">
+        <div className="border border-soft-border rounded-lg mb-6 bg-[#dbeafe] p-4">
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-9 gap-3">
             {/* Status */}
             <div>
@@ -537,7 +617,7 @@ export default function ManagersDashboard() {
         <div className="border-2 border-soft-border rounded-lg bg-white overflow-x-auto">
         <table className="w-full border-collapse text-sm">
           <thead>
-            <tr className="bg-cloud-gray border-b-2 border-soft-border">
+            <tr className="bg-[#dbeafe] border-b-2 border-soft-border">
               {processColumns.map((column) => 
                 visibleColumns.has(column) && (
                   <th key={column} className="border-2 border-soft-border p-3 text-center font-bold text-sm min-w-[200px]">
@@ -546,7 +626,7 @@ export default function ManagersDashboard() {
                 )
               )}
             </tr>
-            <tr className="bg-cloud-gray border-b-2 border-soft-border">
+            <tr className="bg-[#dbeafe] border-b-2 border-soft-border">
               {processColumns.map((column) => 
                 visibleColumns.has(column) && (
                   <th key={column} className="border-2 border-soft-border p-2 text-center font-bold text-sm">
@@ -590,6 +670,39 @@ export default function ManagersDashboard() {
         onOpenChange={setIsCreateJobModalOpen}
         onJobCreated={loadJobs}
       />
+
+      {/* Edit Voucher Dialog */}
+      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Voucher — {editForm.voucherNo}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div>
+              <label className="text-sm font-semibold text-slate-text block mb-1">Name</label>
+              <Input value={editForm.name || ''} onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))} />
+            </div>
+            <div>
+              <label className="text-sm font-semibold text-slate-text block mb-1">Category / Title</label>
+              <Input value={editForm.category || ''} onChange={e => setEditForm(f => ({ ...f, category: e.target.value }))} />
+            </div>
+            <div className="flex gap-3">
+              <div className="flex-1">
+                <label className="text-sm font-semibold text-slate-text block mb-1">QTY</label>
+                <Input value={editForm.qty || ''} onChange={e => setEditForm(f => ({ ...f, qty: e.target.value }))} />
+              </div>
+              <div className="flex-1">
+                <label className="text-sm font-semibold text-slate-text block mb-1">Weight</label>
+                <Input value={editForm.weight || ''} onChange={e => setEditForm(f => ({ ...f, weight: e.target.value }))} />
+              </div>
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setIsEditOpen(false)}>Cancel</Button>
+            <Button onClick={handleSaveEdit} className="bg-trust-blue hover:bg-deep-blue text-white">Save Changes</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Company KYC Modal */}
       <Dialog open={isKYCModalOpen} onOpenChange={setIsKYCModalOpen}>
