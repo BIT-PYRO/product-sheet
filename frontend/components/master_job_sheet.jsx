@@ -28,6 +28,7 @@ import {
 import { QuickEnrollModal } from '@/components/quick-enroll-modal';
 import { EnrolWorkforceForm } from '@/app/frontend/enrol-workforce/page';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
+import GlobalSearchBar from '@/components/global-search-bar';
 import { CreateJobModal } from '@/components/create-job-modal';
 import { ReceiveJobModal } from '@/components/receive-job-modal';
 import DateTimeStamp from '@/components/date-time-stamp';
@@ -675,10 +676,11 @@ export default function MasterJobSheet() {
         {/* Header Section */}
         <div className="transition-[left,width] duration-300 ease-in-out fixed top-0 left-0 right-0 z-[60] bg-white/95 py-2 border-b border-soft-border shadow-sm backdrop-blur px-3 md:px-4">
           <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 shrink-0">
               <MasterNavigationDrawer inHeader />
               <h1 className="text-xl font-bold tracking-tight text-midnight-ink">MASTER JOB SHEET</h1>
             </div>
+            <GlobalSearchBar />
             <DateTimeStamp />
           </div>
         </div>
