@@ -355,7 +355,7 @@ export default function MasterCustomerSheet() {
 									).map((column) => (
 										<th
 											key={column.key}
-											className={`p-3 text-left text-sm font-semibold text-slate-text ${
+										className={`p-3 text-left text-sm font-semibold text-midnight-ink ${
 												columnConfig[column.key]?.headerBg || 'bg-cloud-gray'
 											} ${columnConfig[column.key]?.minWidth} cursor-pointer hover:opacity-80`}
 											onClick={() => handleSort(column.key)}
