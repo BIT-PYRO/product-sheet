@@ -20,6 +20,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
+import GlobalSearchBar from '@/components/global-search-bar';
 import { CreateJobModal } from '@/components/create-job-modal';
 import { CompanyKYCForm } from '@/components/company-kyc-form';
 import { ReceiveJobModal } from '@/components/receive-job-modal';
@@ -192,12 +193,8 @@ export default function ManagersDashboard() {
   }, [loadJobs]);
 
   const handleCardClick = (card) => {
-    // Single click: select/deselect the voucher
-    setSelectedVoucher(prev => (prev?.id === card.id ? null : card));
-  };
-
-  const handleCardDoubleClick = (card) => {
-    // Double click: open receive job modal
+    // Single click: select the voucher and open receive job modal
+    setSelectedVoucher(card);
     setSelectedVoucherForReceive(card);
     setIsReceiveJobOpen(true);
   };
@@ -306,7 +303,6 @@ export default function ManagersDashboard() {
     return (
       <div
         onClick={() => handleCardClick(card)}
-        onDoubleClick={() => handleCardDoubleClick(card)}
         className={`border-2 ${isSelected ? 'border-trust-blue ring-2 ring-trust-blue/40' : s.border} rounded-lg overflow-hidden cursor-pointer hover:shadow-md transition-shadow ${isSelected ? 'shadow-md' : ''}`}
       >
         {/* Header row: Voucher No. | NEW/Reissue badge */}
@@ -420,10 +416,11 @@ export default function ManagersDashboard() {
         {/* Header Section */}
         <div className="transition-[left,width] duration-300 ease-in-out fixed top-0 left-0 right-0 z-[60] bg-white/95 py-2 border-b border-soft-border shadow-sm backdrop-blur px-3 md:px-4">
           <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 shrink-0">
               <MasterNavigationDrawer inHeader />
               <h1 className="text-xl font-bold tracking-tight text-midnight-ink">MANAGERS DASHBOARD FOR VOUCHERS/JOB CARDS</h1>
             </div>
+            <GlobalSearchBar />
             <DateTimeStamp />
           </div>
         </div>
