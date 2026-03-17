@@ -978,111 +978,56 @@ export default function MasterInventorySheet() {
         </div>
         </div>
 
-        <div className="flex flex-col xl:flex-row gap-4">
-          <div className="xl:w-[75%]">
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[1200px] border-separate border-spacing-0 text-sm">
-                <thead>
-                  <tr>
-                    {visibleColumnList.map((column) => (
-                      <th
-                        key={column.key}
-                        className={`border-t border-b border-r border-soft-border px-2 h-10 whitespace-nowrap text-center text-xs font-semibold text-black ${
-                          column.key === '__select__' ? 'sticky left-0 z-20 border-l bg-[#dbeafe]' : 'bg-[#dbeafe]'
-                        }`}
-                      >
-                        {column.key === '__select__' ? (
-                          <Checkbox
-                            checked={allRowsSelected}
-                            onCheckedChange={toggleSelectAll}
-                            aria-label="Select all rows"
-                          />
-                        ) : (
-                          column.label
-                        )}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {rowsToRender.map((row) => (
-                    <tr key={row.id}>
-                      {visibleColumnList.map((column) => (
-                        <td
-                          key={`${row.id}-${column.key}`}
-                          className={`border-b border-r border-soft-border px-2 py-2 h-9 text-center ${
-                            column.key === '__select__' ? 'sticky left-0 z-10 bg-white border-l shadow-[2px_0_4px_-1px_rgba(0,0,0,0.08)]' : ''
-                          }`}
-                        >
-                          {column.key === '__select__' ? (
-                            row.isEmpty ? null : (
-                              <Checkbox
-                                checked={selectedRows.has(row.id)}
-                                onCheckedChange={() => toggleRowSelection(row.id)}
-                              />
-                            )
-                          ) : row.isEmpty ? (
-                            ''
-                          ) : (
-                            <CompositeStockDisplay value={row[column.key]} />
-                          )}
-                        </td>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+        {/* Single unified table — all three sections share the same <tr> so rows are always pixel-perfect aligned.
+            Spacer columns (w-3, no border) create the visual gap that makes the sections look separate. */}
+        <div className="overflow-x-auto">
+          <table className="border-separate border-spacing-0 text-sm" style={{ minWidth: '1400px' }}>
+            <thead>
+              <tr>
+                {/* ── Main inventory columns ── */}
+                {visibleColumnList.map((column) => (
+                  <th
+                    key={column.key}
+                    className={`border-t border-b border-r border-soft-border px-2 h-10 whitespace-nowrap text-center text-xs font-semibold text-black ${
+                      column.key === '__select__' ? 'sticky left-0 z-20 border-l bg-[#dbeafe]' : 'bg-[#dbeafe]'
+                    }`}
+                  >
+                    {column.key === '__select__' ? (
+                      <Checkbox
+                        checked={allRowsSelected}
+                        onCheckedChange={toggleSelectAll}
+                        aria-label="Select all rows"
+                      />
+                    ) : (
+                      column.label
+                    )}
+                  </th>
+                ))}
 
-            {isLoading && <p className="mt-2 text-sm text-cool-gray">Loading live stock data...</p>}
-            {error && <p className="mt-2 text-sm text-danger">{error}</p>}
-            {!isLoading && !error && filteredProducts.length === 0 && (
-              <p className="mt-2 text-sm text-cool-gray">No inventory data found.</p>
-            )}
-          </div>
+                {/* ── Gap spacer ── */}
+                <th className="border-0 p-0" style={{ width: '32px', minWidth: '32px', position: 'sticky', right: '292px', backgroundColor: 'white', zIndex: 22 }} aria-hidden="true" />
 
-          <div className="xl:w-[10%] self-start relative">
-            <div className="border border-soft-border bg-white p-0">
-              <div className="h-10 border-b border-soft-border bg-[#dbeafe] text-[11px] font-semibold text-black flex items-center justify-center px-2 tracking-wide text-center whitespace-nowrap">
-                TOTAL IN DEMAND
-              </div>
-              {rowsToRender.length === 0 ? (
-                <div className="rounded-md border border-dashed border-soft-border p-3 text-sm text-cool-gray">
-                  No demand data.
-                </div>
-              ) : (
-                <div className="grid gap-0">
-                  {rowsToRender.map((row) => {
-                    const totalDemand = row.isEmpty ? '' : (totalInDemandByRowId.get(row.id) ?? '');
-                    return (
-                      <div
-                        key={`${row.id}-total-demand`}
-                        className="flex items-center justify-center border-b border-soft-border px-2 text-sm text-midnight-ink h-9"
-                      >
-                        {totalDemand}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          </div>
+                {/* ── TOTAL IN DEMAND ── */}
+                <th className="border-t border-b border-l border-r border-soft-border px-2 h-10 whitespace-nowrap text-center text-xs font-semibold text-black bg-[#dbeafe]" style={{ minWidth: '100px', position: 'sticky', right: '192px', zIndex: 22, boxShadow: '-4px 0 6px -2px rgba(0,0,0,0.10)' }}>
+                  TOTAL IN DEMAND
+                </th>
 
-          <div className="xl:w-[15%] self-start relative">
-            <div className="border border-soft-border bg-white p-0">
-              <div className="h-10 border-b border-soft-border bg-[#dbeafe] text-[11px] font-semibold text-black flex items-center justify-between px-2 relative tracking-wide">
-                <div className="flex-1">
+                {/* ── Gap spacer ── */}
+                <th className="border-0 p-0" style={{ width: '32px', minWidth: '32px', position: 'sticky', right: '160px', backgroundColor: 'white', zIndex: 22 }} aria-hidden="true" />
+
+                {/* ── ORDER PICK LIST (with dropdown) ── */}
+                <th className="border-t border-b border-l border-r border-soft-border px-2 h-10 text-xs font-semibold text-black bg-[#dbeafe] relative" style={{ minWidth: '160px', position: 'sticky', right: '0', zIndex: 22 }}>
                   <div className="relative">
                     <button
                       onClick={() => setIsPicklistDropdownOpen(!isPicklistDropdownOpen)}
-                      className="w-full text-left px-2 rounded hover:bg-trust-blue/10 transition-colors whitespace-nowrap leading-tight"
+                      className="w-full text-left px-1 rounded hover:bg-trust-blue/10 transition-colors whitespace-nowrap leading-tight text-[11px] tracking-wide"
                     >
                       {selectedPicklistData
                         ? `${selectedPicklistData.number ? `#${selectedPicklistData.number} — ` : ''}${selectedPicklistData.name}`
                         : 'ORDER PICK LIST'}
                     </button>
                     {isPicklistDropdownOpen && (
-                      <div className="absolute left-0 right-0 top-full mt-0 bg-white border border-soft-border rounded shadow-lg z-20 max-h-48 overflow-y-auto">
+                      <div className="absolute left-0 right-0 top-full mt-0 bg-white border border-soft-border rounded shadow-lg z-30 max-h-48 overflow-y-auto">
                         <button
                           onClick={() => {
                             setSelectedPicklist(null);
@@ -1126,30 +1071,61 @@ export default function MasterInventorySheet() {
                       </div>
                     )}
                   </div>
-                </div>
-              </div>
-              {rowsToRender.length === 0 ? (
-                <div className="rounded-md border border-dashed border-soft-border p-3 text-sm text-cool-gray">
-                  No incoming orders yet.
-                </div>
-              ) : (
-                <div className="grid gap-0">
-                  {rowsToRender.map((row, index) => {
-                    const product = sortedProducts[index];
-                    return (
-                      <div
-                        key={`${row.id}-order`}
-                        className="flex items-center border-b border-soft-border px-2 text-sm text-midnight-ink h-9"
-                      >
-                        {product?.sku || ''}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          </div>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {rowsToRender.map((row, index) => (
+                <tr key={row.id}>
+                  {/* ── Main inventory cells ── */}
+                  {visibleColumnList.map((column) => (
+                    <td
+                      key={`${row.id}-${column.key}`}
+                      className={`border-b border-r border-soft-border px-2 h-9 text-center ${
+                        column.key === '__select__' ? 'sticky left-0 z-10 bg-white border-l shadow-[2px_0_4px_-1px_rgba(0,0,0,0.08)]' : ''
+                      }`}
+                    >
+                      {column.key === '__select__' ? (
+                        row.isEmpty ? null : (
+                          <Checkbox
+                            checked={selectedRows.has(row.id)}
+                            onCheckedChange={() => toggleRowSelection(row.id)}
+                          />
+                        )
+                      ) : row.isEmpty ? (
+                        ''
+                      ) : (
+                        <CompositeStockDisplay value={row[column.key]} />
+                      )}
+                    </td>
+                  ))}
+
+                  {/* ── Gap spacer ── */}
+                  <td className="border-0 p-0" style={{ width: '32px', minWidth: '32px', position: 'sticky', right: '292px', backgroundColor: 'white', zIndex: 12 }} aria-hidden="true" />
+
+                  {/* ── TOTAL IN DEMAND cell ── */}
+                  <td className="border-b border-l border-r border-soft-border px-2 h-9 text-center text-sm text-midnight-ink bg-white" style={{ position: 'sticky', right: '192px', zIndex: 12, boxShadow: '-4px 0 6px -2px rgba(0,0,0,0.10)' }}>
+                    {row.isEmpty ? '' : (totalInDemandByRowId.get(row.id) ?? '')}
+                  </td>
+
+                  {/* ── Gap spacer ── */}
+                  <td className="border-0 p-0" style={{ width: '32px', minWidth: '32px', position: 'sticky', right: '160px', backgroundColor: 'white', zIndex: 12 }} aria-hidden="true" />
+
+                  {/* ── ORDER PICK LIST cell ── */}
+                  <td className="border-b border-l border-r border-soft-border px-2 h-9 text-sm text-midnight-ink bg-white" style={{ position: 'sticky', right: '0', zIndex: 12 }}>
+                    {row.isEmpty ? '' : (sortedProducts[index]?.sku || '')}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
+
+        {isLoading && <p className="mt-2 text-sm text-cool-gray">Loading live stock data...</p>}
+        {error && <p className="mt-2 text-sm text-danger">{error}</p>}
+        {!isLoading && !error && filteredProducts.length === 0 && (
+          <p className="mt-2 text-sm text-cool-gray">No inventory data found.</p>
+        )}
       </div>
 
       <CreateJobModal
