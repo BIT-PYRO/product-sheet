@@ -19,11 +19,9 @@ services:
     name: product-sheet-frontend
     env: node
     region: oregon
-    buildCommand: cd frontend && pnpm install && pnpm build
+    buildCommand: cd frontend && pnpm install --prod=false --frozen-lockfile && pnpm build
     startCommand: cd frontend && pnpm start
     envVars:
-      - key: NODE_ENV
-        value: production
       - key: BACKEND_BASE_URL
         fromService:
           name: product-sheet-backend
