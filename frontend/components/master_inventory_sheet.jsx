@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
 import GlobalSearchBar from '@/components/global-search-bar';
@@ -263,8 +263,11 @@ function loadPicklistsFromStorage() {
 
 
 export default function MasterInventorySheet() {
+  const picklistFileInputRef = useRef(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
+  const [isUploadingPicklist, setIsUploadingPicklist] = useState(false);
+  const [currentUsername, setCurrentUsername] = useState('');
   const [products, setProducts] = useState([]);
   const [picklists, setPicklists] = useState([]);
   const [selectedPicklist, setSelectedPicklist] = useState(null);
@@ -318,7 +321,9 @@ export default function MasterInventorySheet() {
       setProducts(nextProducts);
 
       const localPicklists = loadPicklistsFromStorage();
-      const backendPicklists = Array.isArray(groupsResult?.picklists) ? groupsResult.picklists : [];
+      const backendPicklists = Array.isArray(groupsResult?.picklists)
+        ? groupsResult.picklists
+        : (Array.isArray(groupsResult?.data) ? groupsResult.data : []);
 
       if (backendPicklists.length === 0) {
         setPicklists(localPicklists);
@@ -350,6 +355,17 @@ export default function MasterInventorySheet() {
   useEffect(() => {
     loadProducts();
   }, [loadProducts]);
+
+  useEffect(() => {
+    fetch('/api/auth/session', { cache: 'no-store' })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.user?.id) {
+          setCurrentUsername(data.user.id);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     fetch('/api/backend-info', { cache: 'no-store' })
@@ -763,6 +779,90 @@ export default function MasterInventorySheet() {
     URL.revokeObjectURL(url);
   };
 
+  const handlePicklistUploadClick = () => {
+    picklistFileInputRef.current?.click();
+  };
+
+  const handlePicklistFileChange = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+
+    if (!file) {
+      return;
+    }
+
+    setIsUploadingPicklist(true);
+    setError('');
+
+    try {
+      const syncTimestamp = Date.now().toString();
+      const uploadedAt = new Date();
+
+      let plannedPicklistNumber = 1;
+      try {
+        const existingPicklists = JSON.parse(localStorage.getItem(PSD_PICKLISTS_KEY) || '[]');
+        plannedPicklistNumber =
+          existingPicklists.length > 0
+            ? Math.max(...existingPicklists.map((picklist) => picklist.number || 0)) + 1
+            : 1;
+      } catch {
+        plannedPicklistNumber = 1;
+      }
+
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('picklistGroupId', `picklist-${syncTimestamp}`);
+      formData.append('picklistNumber', String(plannedPicklistNumber));
+      formData.append('uploadedBy', currentUsername || '');
+      formData.append('uploadedAt', uploadedAt.toISOString());
+      formData.append('picklistName', file.name);
+
+      const response = await fetch('/api/picklist-upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const result = await response.json().catch(() => null);
+
+      if (!response.ok || !result?.message) {
+        throw new Error(result?.message || 'Failed to upload picklist');
+      }
+
+      localStorage.setItem(PRODUCT_SHEET_SYNC_KEY, syncTimestamp);
+
+      try {
+        const existingPicklists = JSON.parse(localStorage.getItem(PSD_PICKLISTS_KEY) || '[]');
+        const parsedItems = Array.isArray(result.picklistItems) ? result.picklistItems : [];
+        const backendGroup = result?.picklistGroup || {};
+        const newPicklist = {
+          id: backendGroup.id || `picklist-${syncTimestamp}`,
+          number: backendGroup.number || plannedPicklistNumber,
+          name: backendGroup.name || file.name,
+          date: backendGroup.date || uploadedAt.toISOString(),
+          dateFormatted: backendGroup.dateFormatted || uploadedAt.toLocaleString(),
+          uploadedBy: backendGroup.uploadedBy || currentUsername || 'Unknown',
+          items: parsedItems,
+        };
+        const updated = [newPicklist, ...existingPicklists].slice(0, 20);
+        localStorage.setItem(PSD_PICKLISTS_KEY, JSON.stringify(updated));
+      } catch {
+        // Ignore localStorage write failures.
+      }
+
+      window.dispatchEvent(
+        new CustomEvent(PRODUCT_SHEET_SYNC_EVENT, {
+          detail: { updatedAt: syncTimestamp },
+        })
+      );
+
+      await loadProducts();
+    } catch (uploadError) {
+      setError(`Upload failed: ${uploadError.message}`);
+    } finally {
+      setIsUploadingPicklist(false);
+    }
+  };
+
   return (
     <div className="w-full min-h-screen bg-cloud-gray">
       <Dialog open={isManageColumnsOpen} onOpenChange={setIsManageColumnsOpen}>
@@ -918,6 +1018,13 @@ export default function MasterInventorySheet() {
           </div>
           <div className="flex flex-wrap gap-2 justify-start lg:justify-end">
             <Button
+              onClick={handlePicklistUploadClick}
+              disabled={isUploadingPicklist}
+              className="bg-midnight-ink text-white rounded-full px-6 hover:bg-midnight-ink/90 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isUploadingPicklist ? 'Uploading...' : 'Bulk Upload'}
+            </Button>
+            <Button
               className="bg-success hover:bg-success/90 rounded-full px-6"
               onClick={() => setIsCreateJobModalOpen(true)}
             >
@@ -928,6 +1035,13 @@ export default function MasterInventorySheet() {
             </Button>
             <Button variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-6" onClick={handleExport}>Export</Button>
             <Button variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-6" onClick={() => window.print()}>Print</Button>
+            <input
+              ref={picklistFileInputRef}
+              type="file"
+              accept="*/*"
+              onChange={handlePicklistFileChange}
+              className="hidden"
+            />
           </div>
         </div>
 

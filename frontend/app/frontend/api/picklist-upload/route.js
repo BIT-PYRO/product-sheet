@@ -474,106 +474,51 @@ function parsePositiveInt(value, fallback = 1) {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
 
-function buildGroupRemark(groupMeta) {
-  const safeName = sanitizeLabel(groupMeta?.name, 'Picklist').slice(0, 80);
-  const safeUploader = sanitizeLabel(groupMeta?.uploadedBy, 'Unknown').slice(0, 40);
-  const safeDate = sanitizeLabel(groupMeta?.date, new Date().toISOString()).slice(0, 40);
-  const safeNumber = parsePositiveInt(groupMeta?.number, 1);
-  return `picklist::${groupMeta.id}::${safeNumber}::${safeUploader}::${safeDate}::${safeName}`;
+function mapBackendPicklist(payloadData, fallbackMeta) {
+  const entry = payloadData || {};
+  const uploadedAt = entry?.date || fallbackMeta.date || new Date().toISOString();
+  return {
+    id: sanitizeLabel(entry?.id, fallbackMeta.id),
+    number: parsePositiveInt(entry?.number, parsePositiveInt(fallbackMeta.number, 1)),
+    name: sanitizeLabel(entry?.name, fallbackMeta.name),
+    uploadedBy: sanitizeLabel(entry?.uploadedBy, fallbackMeta.uploadedBy || 'Unknown'),
+    date: uploadedAt,
+    dateFormatted: entry?.dateFormatted || new Date(uploadedAt).toLocaleString(),
+    items: Array.isArray(entry?.items)
+      ? entry.items.map((item) => ({
+          sku: String(item?.sku || '').trim().toUpperCase(),
+          listingName: String(item?.listingName || item?.sku || '').trim(),
+          needed: toInt(item?.needed),
+        }))
+      : [],
+  };
 }
 
-async function resolveProductBySku(request, sku) {
-  const encoded = encodeURIComponent(sku);
-  const { response, payload } = await fetchJson(request, `/api/products?search=${encoded}`);
-  if (!isOkResponse(response, payload)) return null;
+async function savePicklistGroup(request, groupMeta, items) {
+  const payload = {
+    id: groupMeta.id,
+    number: parsePositiveInt(groupMeta.number, 1),
+    name: groupMeta.name,
+    uploadedBy: groupMeta.uploadedBy,
+    date: groupMeta.date,
+    items: items.map((item) => ({
+      sku: String(item.sku || '').trim().toUpperCase(),
+      listingName: String(item.listingName || item.sku || '').trim(),
+      needed: toInt(item.needed),
+    })),
+  };
 
-  const rows = Array.isArray(payload.data)
-    ? payload.data
-    : Array.isArray(payload.data?.results)
-    ? payload.data.results
-    : [];
-
-  return (
-    rows.find(
-      (item) => String(item?.sku || '').trim().toLowerCase() === sku.toLowerCase()
-    ) || null
-  );
-}
-
-async function upsertProduct(request, sku, listingName) {
-  const existing = await resolveProductBySku(request, sku);
-
-  if (existing) {
-    // For picklist ingestion we only need a valid product reference.
-    // Skip name PATCH to avoid unrelated validation failures on legacy rows.
-    return existing;
-  }
-
-  const { response, payload } = await fetchJson(request, '/api/products', {
+  const { response, payload: backendPayload } = await fetchJson(request, '/api/picklist-groups', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      sku,
-      name: listingName || sku,
-      selling_price: 0,
-      cost_price: 0,
-      is_active: true,
-    }),
+    body: JSON.stringify(payload),
   });
 
-  if (!isOkResponse(response, payload)) {
-    throw new Error(errorMessageFromPayload(payload, `Failed to create product with SKU "${sku}"`));
+  if (!isOkResponse(response, backendPayload)) {
+    throw new Error(errorMessageFromPayload(backendPayload, 'Failed to save picklist in backend.'));
   }
 
-  return payload.data;
-}
-
-async function replaceDemandTransactions(request, productId, neededQty, groupMeta) {
-  // Remove existing demand rows only for this same group + product.
-  const { response, payload } = await fetchJson(
-    request,
-    `/api/inventory?product=${encodeURIComponent(productId)}`
-  );
-
-  if (isOkResponse(response, payload)) {
-    const existing = Array.isArray(payload.data)
-      ? payload.data
-      : Array.isArray(payload.data?.results)
-      ? payload.data.results
-      : [];
-
-    for (const txn of existing) {
-      const txnType = String(txn?.txn_type || '').trim().toLowerCase();
-      const remark = String(txn?.remark || '').trim();
-      const isSameGroup = remark.startsWith(`picklist::${groupMeta.id}::`);
-      if (txn?.id && txnType === 'demand' && isSameGroup) {
-        await fetchJson(request, `/api/inventory/${txn.id}`, { method: 'DELETE' });
-      }
-    }
-  }
-
-  // Create fresh demand transaction only when needed qty > 0.
-  if (neededQty <= 0) return;
-
-  const createResult = await fetchJson(request, '/api/inventory', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      product: productId,
-      txn_type: 'demand',
-      quantity: neededQty,
-      remark: buildGroupRemark(groupMeta),
-    }),
-  });
-
-  if (!isOkResponse(createResult.response, createResult.payload)) {
-    throw new Error(
-      errorMessageFromPayload(
-        createResult.payload,
-        'Failed to save demand in inventory.'
-      )
-    );
-  }
+  return mapBackendPicklist(backendPayload?.data, groupMeta);
 }
 
 // -- Route handler ------------------------------------------------------------
@@ -614,51 +559,27 @@ export async function POST(request) {
       );
     }
 
-    const failures = [];
-    let savedCount = 0;
-    const savedItems = [];
-
-    for (const item of items) {
-      try {
-        const product = await upsertProduct(request, item.sku, item.listingName);
-
-        if (!product?.id) {
-          throw new Error('Product ID not returned after upsert');
-        }
-
-        await replaceDemandTransactions(request, product.id, item.needed, groupMeta);
-
-        savedCount += 1;
-        savedItems.push({ sku: item.sku, name: item.listingName, needed: item.needed });
-      } catch (error) {
-        failures.push({ sku: item.sku, message: error.message || 'Failed to process row' });
-      }
-    }
-
-    const partialFailureSummary = failures
-      .slice(0, 3)
-      .map((failure) => `${failure.sku}: ${failure.message}`)
-      .join(' | ');
+    const savedGroup = await savePicklistGroup(request, groupMeta, items);
 
     return Response.json({
-      success: failures.length === 0 || savedCount > 0,
-      message:
-        failures.length === 0
-          ? `Picklist uploaded successfully. Registered ${savedCount} products.`
-          : savedCount > 0
-          ? `Picklist uploaded with warnings. Saved ${savedCount} of ${items.length} rows.${partialFailureSummary ? ` ${partialFailureSummary}` : ''}`
-          : `Uploaded with partial success. Saved ${savedCount} of ${items.length} rows.${partialFailureSummary ? ` ${partialFailureSummary}` : ''}`,
+      success: true,
+      message: `Picklist uploaded successfully. Saved ${items.length} rows to inventory picklist #${savedGroup.number}.`,
       fileName: file.name,
       parsedRows: parsedRows.length,
       validRows: items.length,
-      savedCount,
-      failedCount: failures.length,
-      failures,
-      picklistGroup: groupMeta,
-      // Store all parsed valid rows in localStorage so picklist selection works
-      // even if backend save had partial failures.
-      picklistItems: items,
-      savedItems,
+      savedCount: items.length,
+      failedCount: 0,
+      failures: [],
+      picklistGroup: {
+        id: savedGroup.id,
+        number: savedGroup.number,
+        name: savedGroup.name,
+        uploadedBy: savedGroup.uploadedBy,
+        date: savedGroup.date,
+        dateFormatted: savedGroup.dateFormatted,
+      },
+      picklistItems: savedGroup.items,
+      savedItems: savedGroup.items,
     });
   } catch (error) {
     return Response.json(
