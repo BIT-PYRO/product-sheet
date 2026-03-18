@@ -14,9 +14,11 @@ Run this in your terminal to generate secure keys:
 ```bash
 # Generate Django SECRET_KEY
 python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
+0=9yn0hhf@&$q+7xcprdbd%_da-tq-1-vylm=8q*dk&pcr_+ue
 
 # Generate JWT key (32 chars)
 openssl rand -base64 32
+fA6VWBi+QDAJrvKxI7AM+S1fmQD/zUa9ccM3LEM+Bz8=
 ```
 
 Keep these values safe—you'll need them in Step 3.
