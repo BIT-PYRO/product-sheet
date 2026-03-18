@@ -294,6 +294,19 @@ export default function MasterInventorySheet() {
   );
   const [selectedColumnsForAction, setSelectedColumnsForAction] = useState(new Set());
 
+  const readJsonSafe = useCallback(async (response) => {
+    if (!response) return null;
+    if (response.status === 204 || response.status === 205) return null;
+
+    const contentType = String(response.headers.get('content-type') || '').toLowerCase();
+    if (!contentType.includes('application/json')) {
+      await response.text().catch(() => '');
+      return null;
+    }
+
+    return response.json().catch(() => null);
+  }, []);
+
   const loadProducts = useCallback(async () => {
     setIsLoading(true);
     setError('');
@@ -310,11 +323,15 @@ export default function MasterInventorySheet() {
         }),
       ]);
 
-      const inventoryResult = await inventoryResponse.json();
-      const groupsResult = await groupsResponse.json().catch(() => null);
+      const inventoryResult = await readJsonSafe(inventoryResponse);
+      const groupsResult = await readJsonSafe(groupsResponse);
 
-      if (!inventoryResponse.ok || !inventoryResult.success) {
-        throw new Error(inventoryResult.message || 'Failed to fetch inventory data');
+      if (!inventoryResponse.ok || !inventoryResult?.success) {
+        const message =
+          inventoryResult?.message ||
+          inventoryResult?.error?.message ||
+          'Failed to fetch inventory data';
+        throw new Error(message);
       }
 
       const nextProducts = Array.isArray(inventoryResult.products) ? inventoryResult.products : [];
@@ -350,7 +367,7 @@ export default function MasterInventorySheet() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [readJsonSafe]);
 
   useEffect(() => {
     loadProducts();
