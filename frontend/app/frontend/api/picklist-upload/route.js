@@ -1,4 +1,5 @@
 ﻿import { read, utils } from 'xlsx';
+import { proxyAuthenticatedRequest } from '@/app/frontend/api/_lib/backend-auth';
 
 // -- Header normalizer ---------------------------------------------------------
 
@@ -408,19 +409,15 @@ function asPicklistItem(row) {
 
 // -- Backend helpers ----------------------------------------------------------
 
-async function fetchJson(request, path, init = {}) {
-  const origin = request.nextUrl.origin;
-  const headers = new Headers(init.headers || {});
-  if (!headers.has('cookie')) {
-    headers.set('cookie', request.headers.get('cookie') || '');
+async function readResponseJsonSafe(response) {
+  if (!response) return null;
+  if (response.status === 204 || response.status === 205) return null;
+  const contentType = String(response.headers.get('content-type') || '').toLowerCase();
+  if (!contentType.includes('application/json')) {
+    await response.text().catch(() => '');
+    return null;
   }
-  const response = await fetch(`${origin}${path}`, {
-    ...init,
-    headers,
-    cache: 'no-store',
-  });
-  const payload = await response.json().catch(() => null);
-  return { response, payload };
+  return response.json().catch(() => null);
 }
 
 function errorMessageFromPayload(payload, fallback) {
@@ -508,11 +505,12 @@ async function savePicklistGroup(request, groupMeta, items) {
     })),
   };
 
-  const { response, payload: backendPayload } = await fetchJson(request, '/api/picklist-groups', {
+  const response = await proxyAuthenticatedRequest(request, '/api/v1/inventory/picklist-groups/', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   });
+  const backendPayload = await readResponseJsonSafe(response);
 
   if (!isOkResponse(response, backendPayload)) {
     throw new Error(errorMessageFromPayload(backendPayload, 'Failed to save picklist in backend.'));
