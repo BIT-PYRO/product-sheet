@@ -37,8 +37,8 @@ function CompositeStockDisplay({ value }) {
   );
 }
 
-const PRODUCT_SHEET_SYNC_KEY = 'product_sheet_updated_at';
-const PRODUCT_SHEET_SYNC_EVENT = 'product_sheet_sync';
+const INVENTORY_SYNC_KEY = 'inventory_sheet_updated_at';
+const INVENTORY_SYNC_EVENT = 'inventory_sheet_sync';
 
 const INVENTORY_COLUMNS = [
   { key: '__select__', label: '' },
@@ -418,7 +418,7 @@ export default function MasterInventorySheet() {
 
   useEffect(() => {
     const handleStorageSync = (event) => {
-      if (event.key === PRODUCT_SHEET_SYNC_KEY) {
+      if (event.key === INVENTORY_SYNC_KEY) {
         loadProducts();
       }
     };
@@ -428,11 +428,11 @@ export default function MasterInventorySheet() {
     };
 
     window.addEventListener('storage', handleStorageSync);
-    window.addEventListener(PRODUCT_SHEET_SYNC_EVENT, handleSameTabSync);
+    window.addEventListener(INVENTORY_SYNC_EVENT, handleSameTabSync);
 
     return () => {
       window.removeEventListener('storage', handleStorageSync);
-      window.removeEventListener(PRODUCT_SHEET_SYNC_EVENT, handleSameTabSync);
+      window.removeEventListener(INVENTORY_SYNC_EVENT, handleSameTabSync);
     };
   }, [loadProducts]);
 
@@ -885,7 +885,7 @@ export default function MasterInventorySheet() {
         throw new Error(result?.message || 'Failed to upload picklist');
       }
 
-      localStorage.setItem(PRODUCT_SHEET_SYNC_KEY, syncTimestamp);
+      localStorage.setItem(INVENTORY_SYNC_KEY, syncTimestamp);
 
       try {
         const existingPicklists = JSON.parse(localStorage.getItem(PSD_PICKLISTS_KEY) || '[]');
@@ -907,7 +907,7 @@ export default function MasterInventorySheet() {
       }
 
       window.dispatchEvent(
-        new CustomEvent(PRODUCT_SHEET_SYNC_EVENT, {
+        new CustomEvent(INVENTORY_SYNC_EVENT, {
           detail: { updatedAt: syncTimestamp },
         })
       );
