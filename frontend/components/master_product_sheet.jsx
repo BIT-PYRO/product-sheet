@@ -183,10 +183,10 @@ export default function MasterProductSheet() {
         cache: 'no-store',
       });
 
-      const result = await response.json();
+      const result = await response.json().catch(() => null);
 
-      if (!response.ok || !result.success) {
-        throw new Error(result.message || 'Failed to fetch product data');
+      if (!response.ok || !result?.success) {
+        throw new Error(result?.message || 'Failed to fetch product data');
       }
 
       const rows = Array.isArray(result.data)
@@ -394,8 +394,8 @@ export default function MasterProductSheet() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ ...payload, sku: row.sku }),
           });
-          const result = await response.json();
-          if (!response.ok || !result.success) throw new Error(result.message || 'Failed to create product');
+          const result = await response.json().catch(() => null);
+          if (!response.ok || !result?.success) throw new Error(result?.message || 'Failed to create product');
           const savedId = result.data?.id;
           if (savedId) {
             updatedData = updatedData.map((r) =>
@@ -408,8 +408,8 @@ export default function MasterProductSheet() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload),
           });
-          const result = await response.json();
-          if (!response.ok || !result.success) throw new Error(result.message || `Failed to save ${row.sku || 'row'}`);
+          const result = await response.json().catch(() => null);
+          if (!response.ok || !result?.success) throw new Error(result?.message || `Failed to save ${row.sku || 'row'}`);
         }
       } catch (err) {
         errors.push(err.message);
