@@ -24,9 +24,12 @@ import { CalendarIcon, Plus, Trash2, X, ArrowRight, FileText } from "lucide-reac
 import { useDrafts, useDraftLoader } from "@/components/drafts-manager"
 
 function generateVoucherNo() {
-  const year = new Date().getFullYear()
-  const num = String(Math.floor(Math.random() * 10000)).padStart(4, "0")
-  return `JW-${year}-${num}`
+  // Get current counter from localStorage or start at 1
+  const currentCount = parseInt(localStorage.getItem('jj_counter') || '0') + 1
+  // Save next counter value
+  localStorage.setItem('jj_counter', currentCount.toString())
+  // Return formatted voucher number JJ-01, JJ-02, etc.
+  return `JJ-${String(currentCount).padStart(2, '0')}`
 }
 
 export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated }) {
