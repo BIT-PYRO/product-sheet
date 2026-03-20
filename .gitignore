@@ -10,6 +10,8 @@ node_modules/
 frontend/node_modules/
 .next/
 frontend/.next/
+.env.local
+.env*.local
 frontend/.env.local
 frontend/.env*.local
 
@@ -23,6 +25,9 @@ backend/celerybeat-schedule.*
 **/__pycache__/
 *.pyc
 *.pyo
+
+# ── Dev notes (local only) ──────────────────────────────────
+DEV_ACCESS.md
 
 # ── General ─────────────────────────────────────────────────
 .DS_Store
