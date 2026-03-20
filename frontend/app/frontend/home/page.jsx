@@ -23,7 +23,7 @@ const SHEET_BLOCKS = [
   { href: '/drafts', title: 'Drafts', subtitle: 'View and load saved drafts', keywords: ['draft', 'saved', 'pending', 'resume', 'incomplete', 'continue'] },
   { href: '/orders', title: 'Orders', subtitle: 'Create and manage job orders', keywords: ['order', 'job order', 'manage orders', 'create order', 'dispatch'] },
   { href: '#my-desk', title: 'My Desk', subtitle: 'Coming soon', keywords: ['desk', 'personal', 'my work'] },
-  { href: '#dummy-1', title: 'Dummy Button', subtitle: 'Coming soon', keywords: [] },
+  { href: '#create-generic-job', title: 'Create Generic Job', subtitle: 'Create jobs for any type of work', keywords: ['job', 'generic', 'create', 'work', 'assignment', 'electrical', 'plumbing', 'labour'] },
   { href: '#dummy-2', title: 'Dummy Button', subtitle: 'Coming soon', keywords: [] },
 ];
 
@@ -354,6 +354,21 @@ export default function HomePage() {
                   key={block.href}
                   type="button"
                   onClick={() => setIsEnrollWorkforceOpen(true)}
+                  className="block text-left rounded-xl border border-soft-border bg-white p-6 hover:border-trust-blue hover:shadow-md transition"
+                >
+                  {num}
+                  <h2 className="text-lg font-semibold text-midnight-ink">{block.title}</h2>
+                  <p className="text-sm text-cool-gray mt-2">{block.subtitle}</p>
+                </button>
+              );
+            }
+
+            if (block.href === '#create-generic-job') {
+              return (
+                <button
+                  key={block.href}
+                  type="button"
+                  onClick={() => setIsGenericJobModalOpen(true)}
                   className="block text-left rounded-xl border border-soft-border bg-white p-6 hover:border-trust-blue hover:shadow-md transition"
                 >
                   {num}

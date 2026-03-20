@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Search } from 'lucide-react';
+import { Search, Eye, FileIcon } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -70,6 +70,7 @@ export default function MasterJobSheet() {
     { id: 'lossWeight', label: 'Loss Weight' },
     { id: 'reIssueQty', label: 'Re-Issue Qty' },
     { id: 'reIssueWeight', label: 'Re-Issue Weight' },
+    { id: 'files', label: 'Attached Files' },
   ];
   
   // Column configuration with styling
@@ -91,6 +92,7 @@ export default function MasterJobSheet() {
     lossWeight: { minWidth: 'min-w-[80px]', headerBg: 'bg-[#dbeafe]' },
     reIssueQty: { minWidth: 'min-w-[80px]', headerBg: 'bg-[#dbeafe]' },
     reIssueWeight: { minWidth: 'min-w-[100px]', headerBg: 'bg-[#dbeafe]' },
+    files: { minWidth: 'min-w-[120px]', headerBg: 'bg-[#dbeafe]' },
   };
   
   const [visibleColumns, setVisibleColumns] = useState(new Set(columns.map(col => col.id)));
@@ -160,11 +162,14 @@ export default function MasterJobSheet() {
   const receiverOptions = ['Receiver 1', 'Receiver 2', 'Receiver 3'];
 
   const [data, setData] = useState([]);
+  const [previewingFiles, setPreviewingFiles] = useState([]);
+  const [isFilePreviewOpen, setIsFilePreviewOpen] = useState(false);
+  const [selectedFileIndex, setSelectedFileIndex] = useState(0);
 
   useEffect(() => {
     const loadJobs = async () => {
       try {
-        const response = await fetch('/api/jobs', { cache: 'no-store' });
+        const response = await fetch('/api/v1/jobs', { cache: 'no-store' });
         const result = await response.json().catch(() => null);
         if (!response.ok || !result?.success) {
           return;
@@ -191,6 +196,7 @@ export default function MasterJobSheet() {
           lossWeight: '',
           reIssueQty: '',
           reIssueWeight: '',
+          uploadedFiles: job.uploaded_files || [],
         }));
 
         setData(mappedRows);
@@ -566,6 +572,51 @@ export default function MasterJobSheet() {
         onJobReceived={() => {}}
         voucherData={selectedVoucherForReceive}
       />
+
+      {/* File Preview Dialog */}
+      <Dialog open={isFilePreviewOpen} onOpenChange={setIsFilePreviewOpen}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Attached Files</DialogTitle>
+          </DialogHeader>
+          
+          {previewingFiles && previewingFiles.length > 0 && (
+            <div className="space-y-4">
+              {/* File List */}
+              <div className="space-y-2 border rounded p-4 bg-gray-50">
+                <h3 className="font-semibold text-sm mb-3">Files ({previewingFiles.length})</h3>
+                {previewingFiles.map((file, idx) => (
+                  <div key={idx} className="flex items-center justify-between bg-white p-3 rounded border border-gray-200 hover:border-blue-400 transition-colors">
+                    <div className="flex items-center gap-2 flex-1">
+                      <FileIcon className="h-4 w-4 text-blue-600" />
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-gray-700">{file.name}</p>
+                        <p className="text-xs text-gray-500">{file.size} KB · {file.type}</p>
+                      </div>
+                    </div>
+                    <span className="text-xs font-semibold bg-blue-100 text-blue-700 px-2 py-1 rounded">
+                      {file.type}
+                    </span>
+                  </div>
+                ))}
+              </div>
+
+              {previewingFiles.length > 0 && (
+                <p className="text-xs text-gray-500 text-center">Files are stored in the system database for record-keeping</p>
+              )}
+            </div>
+          )}
+
+          <div className="flex justify-end gap-2 mt-4">
+            <Button
+              onClick={() => setIsFilePreviewOpen(false)}
+              variant="outline"
+            >
+              Close
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Print Sheet Dialog */}
       <Dialog open={isPrintSheetOpen} onOpenChange={setIsPrintSheetOpen}>
@@ -1037,13 +1088,34 @@ export default function MasterJobSheet() {
                     {columns.map((column) =>
                       visibleColumns.has(column.id) && (
                         <td key={column.id} className={`border border-soft-border p-1 ${columnConfig[column.id].cellBg || ''}`} style={isEditing ? {backgroundColor: '#eff6ff'} : {}}>
-                          <Input
-                            type="text"
-                            value={row[column.id]}
-                            onChange={(e) => handleCellChange(row.id, column.id, e.target.value)}
-                            className="border-0 p-1 text-sm h-8"
-                            disabled={!canEdit}
-                          />
+                          {column.id === 'files' ? (
+                            <div className="flex items-center gap-2 justify-center">
+                              {row.uploadedFiles && row.uploadedFiles.length > 0 ? (
+                                <button
+                                  onClick={() => {
+                                    setPreviewingFiles(row.uploadedFiles);
+                                    setSelectedFileIndex(0);
+                                    setIsFilePreviewOpen(true);
+                                  }}
+                                  className="flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-semibold hover:bg-blue-200 transition-colors"
+                                >
+                                  <FileIcon className="h-3 w-3" />
+                                  {row.uploadedFiles.length}
+                                  <Eye className="h-3 w-3" />
+                                </button>
+                              ) : (
+                                <span className="text-xs text-gray-400">—</span>
+                              )}
+                            </div>
+                          ) : (
+                            <Input
+                              type="text"
+                              value={row[column.id]}
+                              onChange={(e) => handleCellChange(row.id, column.id, e.target.value)}
+                              className="border-0 p-1 text-sm h-8"
+                              disabled={!canEdit}
+                            />
+                          )}
                         </td>
                       )
                     )}

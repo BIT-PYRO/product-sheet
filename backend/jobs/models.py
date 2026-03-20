@@ -13,10 +13,47 @@ class JobStatus(models.TextChoices):
 	CANCELLED = 'cancelled', 'Cancelled'
 
 
+class JobPriority(models.TextChoices):
+	LOW = 'low', 'Low'
+	MEDIUM = 'medium', 'Medium'
+	HIGH = 'high', 'High'
+	URGENT = 'urgent', 'Urgent'
+
+
+class JobUrgency(models.TextChoices):
+	NORMAL = 'normal', 'Normal'
+	EXPRESS = 'express', 'Express'
+	ASAP = 'asap', 'ASAP'
+
+
 class Job(AuditModel):
+	# Jewelry job fields (legacy)
 	title = models.CharField(max_length=255)
-	product = models.ForeignKey(Product, on_delete=models.PROTECT, related_name='jobs')
+	product = models.ForeignKey(Product, on_delete=models.PROTECT, related_name='jobs', null=True, blank=True)
 	assignee = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL)
+	
+	# Generic job fields
+	job_type = models.CharField(max_length=100, blank=True, help_text='Type of work (e.g., Electrical, AC Repair, etc.)')
+	work_type = models.CharField(max_length=50, blank=True, choices=[('In-House', 'In-House'), ('Contract', 'Contract'), ('Job Work', 'Job Work')], help_text='Work type for generic jobs')
+	issued_to = models.CharField(max_length=255, blank=True, help_text='Name of person/vendor job is issued to')
+	issued_by = models.CharField(max_length=255, blank=True, help_text='Name of person issuing the job')
+	contact = models.CharField(max_length=20, blank=True, help_text='Contact number for job')
+	notes = models.TextField(blank=True, help_text='Additional notes for the job')
+	schedule = models.DateField(null=True, blank=True, help_text='Scheduled completion date')
+	description = models.TextField(blank=True)
+	assignee_name = models.CharField(max_length=255, blank=True, help_text='Name of assignee for non-jewelry jobs')
+	location = models.CharField(max_length=255, blank=True)
+	start_date = models.DateField(null=True, blank=True)
+	due_date = models.DateField(null=True, blank=True)
+	estimated_cost = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+	priority = models.CharField(max_length=20, choices=JobPriority.choices, default=JobPriority.MEDIUM)
+	urgency = models.CharField(max_length=20, choices=JobUrgency.choices, default=JobUrgency.NORMAL)
+	special_instructions = models.TextField(blank=True)
+	workers = models.JSONField(default=list, blank=True, help_text='List of workers assigned with roles')
+	materials = models.JSONField(default=list, blank=True, help_text='List of materials required')
+	tools = models.JSONField(default=list, blank=True, help_text='List of tools/equipment needed')
+	uploaded_files = models.JSONField(default=list, blank=True, help_text='List of uploaded files (photos, documents, etc.)')
+	
 	status = models.CharField(max_length=30, choices=JobStatus.choices, default=JobStatus.CREATED)
 
 	def __str__(self):

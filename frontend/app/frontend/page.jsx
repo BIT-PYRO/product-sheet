@@ -6,6 +6,8 @@ import { Trash2 } from 'lucide-react'
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { CreateJobModal } from '@/components/create-job-modal'
+import { GenericJobModal } from '@/components/generic-job-modal'
+import { PrintJobCardModal } from '@/components/print-job-card-modal'
 import DateTimeStamp from '@/components/date-time-stamp'
 import MasterNavigationDrawer from '@/components/master_navigation_drawer'
 
@@ -26,6 +28,9 @@ function ProductSheetContent() {
   const autoSaveTimeoutRef = useRef(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isCreateJobModalOpen, setIsCreateJobModalOpen] = useState(false)
+  const [isGenericJobModalOpen, setIsGenericJobModalOpen] = useState(false)
+  const [isPrintJobCardModalOpen, setIsPrintJobCardModalOpen] = useState(false)
+  const [jobCardToPrint, setJobCardToPrint] = useState(null)
   const [productImages, setProductImages] = useState([])
   const [primaryImageIndex, setPrimaryImageIndex] = useState(0)
 

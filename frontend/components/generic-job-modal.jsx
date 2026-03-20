@@ -104,7 +104,7 @@ export function GenericJobModal({ open, onOpenChange, onJobCreated }) {
 
   async function loadWorkforceMembers() {
     try {
-      const response = await fetch("/api/workforce", { cache: "no-store" })
+      const response = await fetch("/api/v1/workforce", { cache: "no-store" })
       const result = await response.json().catch(() => null)
       if (response.ok && result?.success) {
         const data = Array.isArray(result?.data) ? result.data : result?.data?.results || []
@@ -118,66 +118,44 @@ export function GenericJobModal({ open, onOpenChange, onJobCreated }) {
   async function handleSubmit(e) {
     e.preventDefault()
 
+    if (!issuedBy.trim()) {
+      alert("Please enter who is issuing the job")
+      return
+    }
+
     setIsLoading(true)
     try {
-      // Minimal test data
+      // Generate a title for the job
+      const jobTitle = `${workCategory} - ${issuedTo}`
+
       const jobData = {
-        title: `${workCategory || "Job"} - ${issuedTo || "General"}`,
-        job_type: workCategory || "Generic Job",  // Always include job_type
+        title: jobTitle,
+        job_type: workCategory,
+        work_type: workType,
+        issued_to: issuedTo,
+        issued_by: issuedBy,
+        contact: contact,
+        notes: addNote,
+        start_date: startDate,
+        schedule: scheduleFuture,
+        status: "created",
+        uploadedFiles: uploadedFiles.map(f => ({ name: f.name, type: f.type, size: f.size })),
       }
 
-      console.log('Sending minimal test job data:', jobData)
-
-      const response = await fetch("/api/jobs", {
+      const response = await fetch("/api/v1/jobs", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(jobData),
       })
 
-      let result = null
-      const responseText = await response.text()
-      
-      console.log('Raw response:', responseText, 'Status:', response.status)
-      
-      try {
-        result = JSON.parse(responseText)
-      } catch (e) {
-        result = null
-      }
+      const result = await response.json().catch(() => null)
 
-      if (!response.ok) {
-        let detailMessage = `Server error (${response.status})`
-        
-        if (result?.error?.details) {
-          if (typeof result.error.details === 'object') {
-            detailMessage = Object.entries(result.error.details)
-              .map(([key, value]) => `${key}: ${Array.isArray(value) ? value.join(', ') : value}`)
-              .join(' | ')
-          } else {
-            detailMessage = String(result.error.details)
-          }
-        } else if (result?.error?.message) {
-          detailMessage = result.error.message
-        } else if (result?.message) {
-          detailMessage = result.message
-        } else if (result?.detail) {
-          detailMessage = result.detail
-        } else if (responseText) {
-          detailMessage = responseText.substring(0, 200)
-        }
-        
-        console.error('Job creation error:', result, 'Response Text:', responseText)
-        alert(`Error: ${detailMessage}`)
+      if (!response.ok || !result?.success) {
+        const message = result?.error?.message || result?.message || "Failed to create job"
+        alert(message)
         return
       }
 
-      if (!result?.success) {
-        console.error('Job creation failed - not success:', result)
-        alert('Failed to create job')
-        return
-      }
-
-      alert("Job created successfully! Voucher: " + jobNumber)
       resetForm()
       onOpenChange(false)
       
@@ -185,7 +163,6 @@ export function GenericJobModal({ open, onOpenChange, onJobCreated }) {
         onJobCreated(result?.data || jobData)
       }
     } catch (error) {
-      console.error('Submit error:', error)
       alert("Error creating job: " + (error.message || "Unknown error"))
     } finally {
       setIsLoading(false)
@@ -212,7 +189,7 @@ export function GenericJobModal({ open, onOpenChange, onJobCreated }) {
     
     // Save to backend
     try {
-      await fetch("/api/drafts", {
+      await fetch("/api/v1/drafts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -667,10 +644,8 @@ export function GenericJobModal({ open, onOpenChange, onJobCreated }) {
       <QuickEnrollModal
         open={isQuickEnrollOpen}
         onOpenChange={setIsQuickEnrollOpen}
-        onEnroll={(worker) => {
-          const newWorker = typeof worker === 'string' ? { full_name: worker, id: Date.now() } : worker
-          setEnrolledWorkers((prev) => [newWorker, ...prev])
-          setIssuedTo(newWorker.full_name || '')
+        onEnroll={(fullName) => {
+          setEnrolledWorkers((prev) => [...prev, { full_name: fullName, id: Date.now() }])
           setIsQuickEnrollOpen(false)
         }}
       />

@@ -24,7 +24,6 @@ import { CalendarIcon, Plus, Trash2, X, ArrowRight, FileText } from "lucide-reac
 import { useDrafts, useDraftLoader } from "@/components/drafts-manager"
 
 function generateVoucherNo() {
-  if (typeof window === 'undefined') return 'JJ-01'
   // Get current counter from localStorage or start at 1
   const currentCount = parseInt(localStorage.getItem('jj_counter') || '0') + 1
   // Save next counter value
