@@ -12,11 +12,20 @@ frontend/node_modules/
 frontend/.next/
 .env.local
 .env*.local
-.env
+frontend/.env.local
+frontend/.env*.local
+
+# ── Backend (Django) ────────────────────────────────────────
 backend/.env
 backend/.venv/
 backend/db.sqlite3
 **/__pycache__/
 *.pyc
+*.pyo
+
+# ── Dev notes (local only) ──────────────────────────────────
+DEV_ACCESS.md
+
+# ── General ─────────────────────────────────────────────────
 .DS_Store
 .venv/

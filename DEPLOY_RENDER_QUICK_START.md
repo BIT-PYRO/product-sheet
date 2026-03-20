@@ -131,7 +131,7 @@ https://product-sheet-backend.onrender.com
 
 4. **Environment Variables**:
    ```
-   NEXT_PUBLIC_BACKEND_BASE_URL = https://product-sheet-backend.onrender.com
+   BACKEND_BASE_URL = https://product-sheet-backend.onrender.com
    NODE_ENV = production
    ```
 
