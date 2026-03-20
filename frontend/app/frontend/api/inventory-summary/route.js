@@ -61,7 +61,10 @@ function buildProductStockMap(products, transactions) {
       enamelType: '',
       activeChannels: '',
       shopifyStatus: product.is_active ? 'active' : 'inactive',
-      dieNumberFindings: '',
+      dieNumberFindings: [
+        ...(Array.isArray(product?.die_numbers) ? product.die_numbers.map((item) => ({ ...item, type: 'die_number' })) : []),
+        ...(Array.isArray(product?.findings) ? product.findings.map((item) => ({ ...item, type: 'findings' })) : []),
+      ],
       color: '',
       enamel: '',
       stoneName: '',

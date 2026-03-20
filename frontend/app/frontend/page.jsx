@@ -32,9 +32,11 @@ function ProductSheetContent() {
 
   const [manufacturing, setManufacturing] = useState({
     dieNumbers: [
-      { id: 1, dieNumber: '', quantity: '' },
-      { id: 2, dieNumber: '', quantity: '' },
-      { id: 3, dieNumber: '', quantity: '' },
+      { id: 1, type: 'die_number', value: '', quantity: '', location: '' },
+      { id: 2, type: 'die_number', value: '', quantity: '', location: '' },
+      { id: 3, type: 'die_number', value: '', quantity: '', location: '' },
+      { id: 4, type: 'die_number', value: '', quantity: '', location: '' },
+      { id: 5, type: 'die_number', value: '', quantity: '', location: '' },
     ],
     images: [],
     notes: '',
@@ -52,6 +54,7 @@ function ProductSheetContent() {
   const [listingName, setListingName] = useState('')
   const [material, setMaterial] = useState('')
   const [materialSku, setMaterialSku] = useState('')
+  const [materialSkuLocation, setMaterialSkuLocation] = useState('')
   const [dropdown1, setDropdown1] = useState('')
   const [weightValue, setWeightValue] = useState('')
   const [weightUnit, setWeightUnit] = useState('')
@@ -113,6 +116,8 @@ function ProductSheetContent() {
   const [variations, setVariations] = useState([
     { id: 1, label: '', col1: '', col2: '' },
     { id: 2, label: '', col1: '', col2: '' },
+    { id: 3, label: '', col1: '', col2: '' },
+    { id: 4, label: '', col1: '', col2: '' },
   ])
   const [colorCodeByColor, setColorCodeByColor] = useState({})
 
@@ -158,6 +163,7 @@ function ProductSheetContent() {
     setListingName('')
     setMaterial('')
     setMaterialSku('')
+    setMaterialSkuLocation('')
     setDropdown1('')
     setWeightValue('')
     setWeightUnit('')
@@ -176,9 +182,11 @@ function ProductSheetContent() {
     ])
     setManufacturing({
       dieNumbers: [
-        { id: 1, dieNumber: '', quantity: '' },
-        { id: 2, dieNumber: '', quantity: '' },
-        { id: 3, dieNumber: '', quantity: '' },
+        { id: 1, type: 'die_number', value: '', quantity: '', location: '' },
+        { id: 2, type: 'die_number', value: '', quantity: '', location: '' },
+        { id: 3, type: 'die_number', value: '', quantity: '', location: '' },
+        { id: 4, type: 'die_number', value: '', quantity: '', location: '' },
+        { id: 5, type: 'die_number', value: '', quantity: '', location: '' },
       ],
       images: [],
       notes: '',
@@ -193,6 +201,8 @@ function ProductSheetContent() {
     setVariations([
       { id: 1, label: '', col1: '', col2: '' },
       { id: 2, label: '', col1: '', col2: '' },
+      { id: 3, label: '', col1: '', col2: '' },
+      { id: 4, label: '', col1: '', col2: '' },
     ])
     setColorCodeByColor({})
     setStoneInfo([
@@ -258,6 +268,7 @@ function ProductSheetContent() {
     listingName,
     material,
     materialSku,
+    materialSkuLocation,
     dropdown1,
     weightValue,
     weightUnit,
@@ -479,7 +490,7 @@ function ProductSheetContent() {
         const newId = Math.max(...manufacturing.dieNumbers.map(r => r.id), 0) + 1;
         setManufacturing(prev => ({
             ...prev,
-            dieNumbers: [...prev.dieNumbers, { id: newId, dieNumber: '', quantity: '' }]
+            dieNumbers: [...prev.dieNumbers, { id: newId, type: 'die_number', value: '', quantity: '', location: '' }]
         }));
     };
     const deleteDieNumber = (id) => {
@@ -642,6 +653,7 @@ function ProductSheetContent() {
           setActiveChannels([]);
           setShopifyStatus('active');
           setMaterialSku('');
+          setMaterialSkuLocation('');
         } else {
           setSaveStatus({ success: false, message: result.message });
         }
@@ -917,17 +929,24 @@ function ProductSheetContent() {
                   </div>
                 </div>
 
-                <div className="bg-white border-2 border-soft-border rounded-xl shadow-sm max-h-[6rem] overflow-y-auto">
+                <div className="bg-white border-2 border-soft-border rounded-xl shadow-sm h-[8.75rem] flex flex-col overflow-y-auto">
                   <div className="flex flex-col">
                     {manufacturing.dieNumbers.map((row, index) => (
-                      <div key={row.id} className={`flex items-center ${index > 0 ? 'border-t border-soft-border' : ''}`}>
-                        <div className="flex-1 px-2 py-0.2 border-r-2 border-soft-border">
-                          <input type="text" placeholder="DIE NUMBER/FINDINGS" value={row.dieNumber} onChange={(e) => updateDieNumber(row.id, 'dieNumber', e.target.value)} className="w-full bg-transparent outline-none text-sm placeholder-cool-gray"/>
+                      <div key={row.id} className={`flex items-stretch divide-x-2 divide-soft-border ${index > 0 ? 'border-t border-soft-border' : ''}`}>
+                        <div className="w-32 flex-shrink-0 px-2 py-1 font-semibold text-sm flex items-center">
+                          <select value={row.type} onChange={(e) => updateDieNumber(row.id, 'type', e.target.value)} className="w-full bg-transparent outline-none text-sm">
+                            <option value="die_number">DIE NUMBER</option>
+                            <option value="findings">FINDINGS</option>
+                          </select>
                         </div>
-                        <div className="flex-1 px-2 py-0.2 border-r-2 border-soft-border">
-                          <input type="text" placeholder="QUANTITY" value={row.quantity} onChange={(e) => updateDieNumber(row.id, 'quantity', e.target.value)} className="w-full bg-transparent outline-none text-sm placeholder-cool-gray"/>
+                        <div className="flex-1 px-2 py-1 flex items-center gap-1">
+                          <input type="text" value={row.value} onChange={(e) => updateDieNumber(row.id, 'value', e.target.value)} className="flex-1 bg-transparent outline-none text-sm"/>
+                          <input type="text" placeholder="LOCATION" value={row.location} onChange={(e) => updateDieNumber(row.id, 'location', e.target.value)} className="w-24 bg-transparent outline-none text-sm placeholder-cool-gray text-right"/>
                         </div>
-                        <button type="button" onClick={() => deleteDieNumber(row.id)} className="px-2 py-0.2 text-danger hover:text-danger-dark transition-colors flex-shrink-0">
+                        <div className="w-16 flex-shrink-0 px-2 py-1 flex items-center">
+                          <input type="text" placeholder="QTY" value={row.quantity} onChange={(e) => updateDieNumber(row.id, 'quantity', e.target.value)} className="w-full bg-transparent outline-none text-sm placeholder-cool-gray"/>
+                        </div>
+                        <button type="button" onClick={() => deleteDieNumber(row.id)} className="px-2 py-1 text-danger hover:text-danger-dark transition-colors flex-shrink-0 flex items-center">
                           <Trash2 className="h-3 w-3" />
                         </button>
                       </div>
@@ -996,20 +1015,21 @@ function ProductSheetContent() {
                   </div>
                 </div>
 
-                <div className="bg-white border-2 border-soft-border rounded-xl shadow-sm max-h-[6rem] flex flex-col">
+                <div className="bg-white border-2 border-soft-border rounded-xl shadow-sm h-[8.75rem] flex flex-col">
                   <div className="flex divide-x-2 divide-soft-border border-b border-soft-border flex-shrink-0">
-                    <div className="w-32 px-2 py-0.2 font-semibold text-sm flex items-center flex-shrink-0">
+                    <div className="w-32 px-2 py-1 font-semibold text-sm flex items-center flex-shrink-0">
                       MASTER SKU
                     </div>
-                    <div className="flex-1 px-2 py-0.2">
-                      <input type="text" value={materialSku} onChange={(e) => setMaterialSku(e.target.value)} className="w-full bg-transparent outline-none text-sm"/>
+                    <div className="flex-1 px-2 py-1 flex items-center gap-1">
+                      <input type="text" value={materialSku} onChange={(e) => setMaterialSku(e.target.value)} className="flex-1 bg-transparent outline-none text-sm"/>
+                      <input type="text" placeholder="LOCATION" value={materialSkuLocation} onChange={(e) => setMaterialSkuLocation(e.target.value)} className="w-24 bg-transparent outline-none text-sm placeholder-cool-gray text-right"/>
                     </div>
                   </div>
 
                   <div className="overflow-y-auto flex-1">
                     {variations.map((variation, index) => (
                       <div key={variation.id} className={`flex items-stretch divide-x-2 divide-soft-border ${index < variations.length - 1 ? 'border-b border-soft-border' : ''}`}>
-                        <div className="w-32 px-2 py-0.2 font-semibold text-sm flex items-center flex-shrink-0">
+                        <div className="w-32 px-2 py-1 font-semibold text-sm flex items-center flex-shrink-0">
                           <select
                             value={variation.label}
                             onChange={(e) => updateVariationLabel(variation.id, e.target.value)}
@@ -1023,7 +1043,7 @@ function ProductSheetContent() {
                         </div>
                         {variation.label === 'COLOR' ? (
                           <>
-                            <div className="flex-1 px-2 py-0.2 flex items-center">
+                            <div className="flex-1 px-2 py-1 flex items-center">
                               <select
                                 value={variation.col1}
                                 onChange={(e) => updateColorVariationColor(variation.id, e.target.value)}
@@ -1035,7 +1055,7 @@ function ProductSheetContent() {
                                 ))}
                               </select>
                             </div>
-                            <div className="flex-1 px-2 py-0.2 flex items-center">
+                            <div className="flex-1 px-2 py-1 flex items-center">
                               <input
                                 type="text"
                                 value={variation.col2}
@@ -1047,15 +1067,15 @@ function ProductSheetContent() {
                           </>
                         ) : (
                           <>
-                            <div className="flex-1 px-2 py-0.2 flex items-center">
+                            <div className="flex-1 px-2 py-1 flex items-center">
                               <input type="text" value={variation.col1} onChange={(e) => updateVariation(variation.id, 'col1', e.target.value)} className="w-full bg-transparent outline-none text-sm"/>
                             </div>
-                            <div className="flex-1 px-2 py-0.2 flex items-center">
+                            <div className="flex-1 px-2 py-1 flex items-center">
                               <input type="text" value={variation.col2} onChange={(e) => updateVariation(variation.id, 'col2', e.target.value)} className="w-full bg-transparent outline-none text-sm"/>
                             </div>
                           </>
                         )}
-                        <button type="button" onClick={() => deleteVariation(variation.id)} className="px-2 py-0.2 text-danger hover:text-danger-dark transition-colors flex-shrink-0 flex items-center">
+                        <button type="button" onClick={() => deleteVariation(variation.id)} className="px-2 py-1 text-danger hover:text-danger-dark transition-colors flex-shrink-0 flex items-center">
                           <Trash2 className="h-3 w-3" />
                         </button>
                       </div>
@@ -1555,17 +1575,24 @@ function ProductSheetContent() {
                           </div>
                         </div>
 
-                        <div className="bg-white border-2 border-soft-border max-h-[8rem] overflow-y-auto">
+                        <div className="bg-white border-2 border-soft-border h-[8.75rem] flex flex-col overflow-y-auto">
                           <div className="flex flex-col">
                             {manufacturing.dieNumbers.map((row, index) => (
-                              <div key={row.id} className={`flex items-center ${index > 0 ? 'border-t border-soft-border' : ''}`}>
-                                <div className="flex-1 px-2 py-0.2 border-r-2 border-soft-border">
-                                  <input type="text" placeholder="DIE NUMBER" value={row.dieNumber} onChange={(e) => updateDieNumber(row.id, 'dieNumber', e.target.value)} className="w-full bg-transparent outline-none text-sm placeholder-cool-gray"/>
+                              <div key={row.id} className={`flex items-stretch divide-x-2 divide-soft-border ${index > 0 ? 'border-t border-soft-border' : ''}`}>
+                                <div className="w-32 flex-shrink-0 px-2 py-1 font-semibold text-sm flex items-center">
+                                  <select value={row.type} onChange={(e) => updateDieNumber(row.id, 'type', e.target.value)} className="w-full bg-transparent outline-none text-sm">
+                                    <option value="die_number">DIE NUMBER</option>
+                                    <option value="findings">FINDINGS</option>
+                                  </select>
                                 </div>
-                                <div className="flex-1 px-2 py-0.2 border-r-2 border-soft-border">
-                                  <input type="text" placeholder="QUANTITY" value={row.quantity} onChange={(e) => updateDieNumber(row.id, 'quantity', e.target.value)} className="w-full bg-transparent outline-none text-sm placeholder-cool-gray"/>
+                                <div className="flex-1 px-2 py-1 flex items-center gap-1">
+                                  <input type="text" value={row.value} onChange={(e) => updateDieNumber(row.id, 'value', e.target.value)} className="flex-1 bg-transparent outline-none text-sm"/>
+                                  <input type="text" placeholder="LOCATION" value={row.location} onChange={(e) => updateDieNumber(row.id, 'location', e.target.value)} className="w-24 bg-transparent outline-none text-sm placeholder-cool-gray text-right"/>
                                 </div>
-                                <button type="button" onClick={() => deleteDieNumber(row.id)} className="px-2 py-0.2 text-danger hover:text-danger-dark transition-colors flex-shrink-0">
+                                <div className="w-16 flex-shrink-0 px-2 py-1 flex items-center">
+                                  <input type="text" placeholder="QTY" value={row.quantity} onChange={(e) => updateDieNumber(row.id, 'quantity', e.target.value)} className="w-full bg-transparent outline-none text-sm placeholder-cool-gray"/>
+                                </div>
+                                <button type="button" onClick={() => deleteDieNumber(row.id)} className="px-2 py-1 text-danger hover:text-danger-dark transition-colors flex-shrink-0 flex items-center">
                                   <Trash2 className="h-3 w-3" />
                                 </button>
                               </div>
@@ -1634,21 +1661,22 @@ function ProductSheetContent() {
                           </div>
                         </div>
 
-                        <div className="bg-white border-2 border-soft-border max-h-[6rem] flex flex-col">
+                        <div className="bg-white border-2 border-soft-border h-[8.75rem] flex flex-col">
                           <div className="flex divide-x-2 divide-soft-border border-b border-soft-border flex-shrink-0">
-                            <div className="w-32 px-2 py-0.2 font-semibold text-sm flex items-center flex-shrink-0">
+                            <div className="w-32 px-2 py-1 font-semibold text-sm flex items-center flex-shrink-0">
                               MASTER SKU
                             </div>
 
-                            <div className="flex-1 px-2 py-0.2">
-                              <input type="text" value={materialSku} onChange={(e) => setMaterialSku(e.target.value)} className="w-full bg-transparent outline-none text-sm"/>
+                            <div className="flex-1 px-2 py-1 flex items-center gap-1">
+                              <input type="text" value={materialSku} onChange={(e) => setMaterialSku(e.target.value)} className="flex-1 bg-transparent outline-none text-sm"/>
+                              <input type="text" placeholder="LOCATION" value={materialSkuLocation} onChange={(e) => setMaterialSkuLocation(e.target.value)} className="w-24 bg-transparent outline-none text-sm placeholder-cool-gray text-right"/>
                             </div>
                           </div>
 
                           <div className="overflow-y-auto flex-1">
                             {variations.map((variation, index) => (
                               <div key={variation.id} className={`flex items-stretch divide-x-2 divide-soft-border ${index < variations.length - 1 ? 'border-b border-soft-border' : ''}`}>
-                                <div className="w-32 px-2 py-0.2 font-semibold text-sm flex items-center flex-shrink-0">
+                                <div className="w-32 px-2 py-1 font-semibold text-sm flex items-center flex-shrink-0">
                                   <select
                                     value={variation.label}
                                     onChange={(e) => updateVariationLabel(variation.id, e.target.value)}
@@ -1662,7 +1690,7 @@ function ProductSheetContent() {
                                 </div>
                                 {variation.label === 'COLOR' ? (
                                   <>
-                                    <div className="flex-1 px-2 py-0.2 border-r-2 border-soft-border flex items-center">
+                                    <div className="flex-1 px-2 py-1 border-r-2 border-soft-border flex items-center">
                                       <select
                                         value={variation.col1}
                                         onChange={(e) => updateColorVariationColor(variation.id, e.target.value)}
@@ -1674,7 +1702,7 @@ function ProductSheetContent() {
                                         ))}
                                       </select>
                                     </div>
-                                    <div className="flex-1 px-2 py-0.2 flex items-center">
+                                    <div className="flex-1 px-2 py-1 flex items-center">
                                       <input
                                         type="text"
                                         value={variation.col2}
@@ -1686,15 +1714,15 @@ function ProductSheetContent() {
                                   </>
                                 ) : (
                                   <>
-                                    <div className="flex-1 px-2 py-0.2 flex items-center">
+                                    <div className="flex-1 px-2 py-1 flex items-center">
                                       <input type="text" value={variation.col1} onChange={(e) => updateVariation(variation.id, 'col1', e.target.value)} className="w-full bg-transparent outline-none text-sm"/>
                                     </div>
-                                    <div className="flex-1 px-2 py-0.2 flex items-center">
+                                    <div className="flex-1 px-2 py-1 flex items-center">
                                       <input type="text" value={variation.col2} onChange={(e) => updateVariation(variation.id, 'col2', e.target.value)} className="w-full bg-transparent outline-none text-sm"/>
                                     </div>
                                   </>
                                 )}
-                                <button type="button" onClick={() => deleteVariation(variation.id)} className="px-2 py-0.2 text-danger hover:text-danger-dark transition-colors flex-shrink-0 flex items-center">
+                                <button type="button" onClick={() => deleteVariation(variation.id)} className="px-2 py-1 text-danger hover:text-danger-dark transition-colors flex-shrink-0 flex items-center">
                                   <Trash2 className="h-3 w-3" />
                                 </button>
                               </div>

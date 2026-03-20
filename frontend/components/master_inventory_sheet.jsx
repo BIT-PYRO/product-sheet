@@ -54,6 +54,8 @@ const INVENTORY_COLUMNS = [
   { key: 'finalStockSku', label: 'Final Stock SKU' },
   { key: 'finalStockValue', label: 'Final Stock Value' },
   { key: 'finalStockUnit', label: 'Final Stock Unit' },
+  { key: 'dieNumbers', label: 'Die Number / Findings' },
+  { key: 'dieLocation', label: 'Location' },
 ];
 
 const STOCK_FILTER_OPTIONS = [
@@ -186,6 +188,22 @@ function getLiveStockValue(liveStock, stockField, keys) {
 function buildInventoryRow(product, stockField) {
   const liveStock = product?.liveStock || {};
   const finalStock = Array.isArray(product?.finalStock) ? product.finalStock : [];
+  const dieNumbersRaw = Array.isArray(product?.dieNumberFindings) ? product.dieNumberFindings : [];
+
+  // Build a compact summary: "D: 1234 | F: clasp" and collect all locations
+  const dieParts = dieNumbersRaw
+    .filter((item) => String(item?.value || '').trim())
+    .map((item) => {
+      const prefix = String(item?.type || '') === 'findings' ? 'F' : 'D';
+      return `${prefix}: ${item.value}${item.quantity ? ` ×${item.quantity}` : ''}`;
+    });
+
+  const locationParts = dieNumbersRaw
+    .filter((item) => String(item?.location || '').trim())
+    .map((item) => {
+      const prefix = String(item?.type || '') === 'findings' ? 'F' : 'D';
+      return `${prefix}: ${item.location}`;
+    });
 
   return {
     id: product.id,
@@ -202,6 +220,8 @@ function buildInventoryRow(product, stockField) {
     finalStockSku: formatFinalStockColumn(finalStock, 'sku'),
     finalStockValue: formatFinalStockColumn(finalStock, 'value'),
     finalStockUnit: formatFinalStockColumn(finalStock, 'unit'),
+    dieNumbers: dieParts.join(' | '),
+    dieLocation: locationParts.join(' | '),
   };
 }
 

@@ -13,6 +13,13 @@ class WorkforceMemberSerializer(serializers.ModelSerializer):
 	def validate_phone(self, value):
 		return value.strip()
 
+	def validate_email(self, value):
+		return value.strip()
+
+	def validate_dob(self, value):
+		# Accept empty string as None
+		return value
+
 	class Meta:
 		model = WorkforceMember
 		fields = '__all__'

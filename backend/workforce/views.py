@@ -19,4 +19,4 @@ class WorkforceMemberViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 	queryset = WorkforceMember.objects.all().order_by('-created_at')
 	serializer_class = WorkforceMemberSerializer
 	filterset_fields = ['active']
-	search_fields = ['full_name', 'phone']
+	search_fields = ['full_name', 'phone', 'email', 'department']

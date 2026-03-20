@@ -77,10 +77,31 @@ function parseWeightToNumber(weightValue, weightUnit) {
   return baseValue;
 }
 
+function normalizeDieFindings(dieNumbers = []) {
+  const die_numbers = [];
+  const findings = [];
+
+  (Array.isArray(dieNumbers) ? dieNumbers : []).forEach((row) => {
+    const item = {
+      value: String(row?.value || row?.dieNumber || '').trim(),
+      quantity: String(row?.quantity || '').trim(),
+      location: String(row?.location || '').trim(),
+    };
+    if (String(row?.type || '').toLowerCase() === 'findings') {
+      findings.push(item);
+    } else {
+      die_numbers.push(item);
+    }
+  });
+
+  return { die_numbers, findings };
+}
+
 function mapIncomingToProductPayload(data) {
   const listingName = String(data?.listingName || '').trim();
   const sku = String(data?.sku || '').trim();
   const weightAsPrice = parseWeightToNumber(data?.weightValue, data?.weightUnit);
+  const { die_numbers, findings } = normalizeDieFindings(data?.manufacturing?.dieNumbers);
 
   return {
     sku,
@@ -89,6 +110,8 @@ function mapIncomingToProductPayload(data) {
     selling_price: weightAsPrice,
     cost_price: weightAsPrice,
     is_active: String(data?.shopifyStatus || '').toLowerCase() !== 'inactive',
+    die_numbers,
+    findings,
   };
 }
 
@@ -116,7 +139,14 @@ function mapProductSummaryRows(products = [], inventorySummaryRows = []) {
       enamelType: '',
       activeChannels: '',
       shopifyStatus: product?.is_active ? 'active' : 'inactive',
-      dieNumberFindings: '',
+      dieNumberFindings: [
+        ...(Array.isArray(product?.die_numbers) ? product.die_numbers.map((item) => ({ ...item, type: 'die_number' })) : []),
+        ...(Array.isArray(product?.findings) ? product.findings.map((item) => ({ ...item, type: 'findings' })) : []),
+      ],
+      dieNumbers: [
+        ...(Array.isArray(product?.die_numbers) ? product.die_numbers.map((item, i) => ({ id: i + 1, type: 'die_number', ...item })) : []),
+        ...(Array.isArray(product?.findings) ? product.findings.map((item, i) => ({ id: (product?.die_numbers?.length || 0) + i + 1, type: 'findings', ...item })) : []),
+      ],
       masterSku: sku,
       color: '',
       enamel: '',
