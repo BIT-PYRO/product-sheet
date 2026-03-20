@@ -346,17 +346,7 @@ export default function MasterInventorySheet() {
       const inventoryResult = await readJsonSafe(inventoryResponse);
       const groupsResult = await readJsonSafe(groupsResponse);
 
-      if (!inventoryResponse.ok || !inventoryResult?.success) {
-        const message =
-          inventoryResult?.message ||
-          inventoryResult?.error?.message ||
-          'Failed to fetch inventory data';
-        throw new Error(message);
-      }
-
-      const nextProducts = Array.isArray(inventoryResult.products) ? inventoryResult.products : [];
-      setProducts(nextProducts);
-
+      // Always load picklists regardless of whether inventory-summary succeeds.
       const localPicklists = loadPicklistsFromStorage();
       const backendPicklists = Array.isArray(groupsResult?.picklists)
         ? groupsResult.picklists
@@ -364,26 +354,37 @@ export default function MasterInventorySheet() {
 
       if (backendPicklists.length === 0) {
         setPicklists(localPicklists);
+      } else {
+        // Merge backend + local, backend takes precedence for same IDs.
+        const merged = new Map();
+        backendPicklists.forEach((picklist) => {
+          merged.set(String(picklist?.id || ''), picklist);
+        });
+        localPicklists.forEach((picklist) => {
+          const id = String(picklist?.id || '');
+          if (!merged.has(id)) {
+            merged.set(id, picklist);
+          }
+        });
+        setPicklists(Array.from(merged.values()));
+      }
+
+      if (!inventoryResponse.ok || !inventoryResult?.success) {
+        const message =
+          inventoryResult?.message ||
+          inventoryResult?.error?.message ||
+          'Failed to fetch inventory data';
+        setError(message);
+        setProducts([]);
         return;
       }
 
-      // Merge backend + local, backend takes precedence for same IDs.
-      const merged = new Map();
-      backendPicklists.forEach((picklist) => {
-        merged.set(String(picklist?.id || ''), picklist);
-      });
-      localPicklists.forEach((picklist) => {
-        const id = String(picklist?.id || '');
-        if (!merged.has(id)) {
-          merged.set(id, picklist);
-        }
-      });
-      setPicklists(Array.from(merged.values()));
+      const nextProducts = Array.isArray(inventoryResult.products) ? inventoryResult.products : [];
+      setProducts(nextProducts);
 
     } catch (fetchError) {
       setError(fetchError.message || 'Failed to load inventory data');
       setProducts([]);
-      setPicklists([]);
     } finally {
       setIsLoading(false);
     }
@@ -861,7 +862,7 @@ export default function MasterInventorySheet() {
 
       const result = await response.json().catch(() => null);
 
-      if (!response.ok || !result?.message) {
+      if (!response.ok || !result?.success) {
         throw new Error(result?.message || 'Failed to upload picklist');
       }
 
