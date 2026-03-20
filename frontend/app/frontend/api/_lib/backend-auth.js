@@ -67,8 +67,10 @@ export async function proxyAuthenticatedRequest(request, backendPath, options = 
   const doBackendFetch = async (token) => {
     const headers = {
       ...(options.headers || {}),
-      Authorization: `Bearer ${token}`,
     };
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
 
     return fetch(`${backendBaseUrl()}${backendPath}`, {
       method: options.method || 'GET',
@@ -79,27 +81,14 @@ export async function proxyAuthenticatedRequest(request, backendPath, options = 
   };
 
   let activeToken = accessToken;
-  let backendResponse = null;
+  let backendResponse = await doBackendFetch(activeToken);
 
-  if (activeToken) {
-    backendResponse = await doBackendFetch(activeToken);
-  }
-
-  if ((!backendResponse || backendResponse.status === 401) && refreshToken) {
+  if (backendResponse.status === 401 && refreshToken) {
     const refreshedToken = await requestTokenRefresh(refreshToken);
     if (refreshedToken) {
       activeToken = refreshedToken;
       backendResponse = await doBackendFetch(activeToken);
     }
-  }
-
-  if (!backendResponse) {
-    const unauthorized = NextResponse.json(
-      { success: false, message: 'Unauthorized' },
-      { status: 401 }
-    );
-    clearAuthCookies(unauthorized);
-    return unauthorized;
   }
 
   const isNoContent = backendResponse.status === 204 || backendResponse.status === 205;
