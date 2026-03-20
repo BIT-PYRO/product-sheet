@@ -80,30 +80,38 @@ export async function proxyAuthenticatedRequest(request, backendPath, options = 
     });
   };
 
-  let activeToken = accessToken;
-  let backendResponse = await doBackendFetch(activeToken);
+  try {
+    let activeToken = accessToken;
+    let backendResponse = await doBackendFetch(activeToken);
 
-  if (backendResponse.status === 401 && refreshToken) {
-    const refreshedToken = await requestTokenRefresh(refreshToken);
-    if (refreshedToken) {
-      activeToken = refreshedToken;
-      backendResponse = await doBackendFetch(activeToken);
+    if (backendResponse.status === 401 && refreshToken) {
+      const refreshedToken = await requestTokenRefresh(refreshToken);
+      if (refreshedToken) {
+        activeToken = refreshedToken;
+        backendResponse = await doBackendFetch(activeToken);
+      }
     }
 
-  const isNoContent = backendResponse.status === 204 || backendResponse.status === 205;
-  const payload = isNoContent
-    ? null
-    : await backendResponse.json().catch(() => ({ success: false, message: 'Invalid backend response' }));
+    const isNoContent = backendResponse.status === 204 || backendResponse.status === 205;
+    const payload = isNoContent
+      ? null
+      : await backendResponse.json().catch(() => ({ success: false, message: 'Invalid backend response' }));
 
-  const response = isNoContent
-    ? new NextResponse(null, { status: backendResponse.status })
-    : NextResponse.json(payload, { status: backendResponse.status });
+    const response = isNoContent
+      ? new NextResponse(null, { status: backendResponse.status })
+      : NextResponse.json(payload, { status: backendResponse.status });
 
-  if (backendResponse.status === 401) {
-    clearAuthCookies(response);
-  } else if (activeToken && activeToken !== accessToken) {
-    applyAuthCookies(response, activeToken);
+    if (backendResponse.status === 401) {
+      clearAuthCookies(response);
+    } else if (activeToken && activeToken !== accessToken) {
+      applyAuthCookies(response, activeToken);
+    }
+
+    return response;
+  } catch (networkError) {
+    return NextResponse.json(
+      { success: false, message: `Backend unreachable: ${networkError?.message || 'Network error'}` },
+      { status: 502 }
+    );
   }
-
-  return response;
 }
