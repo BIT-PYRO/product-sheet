@@ -138,7 +138,11 @@ export default function DraftsPage() {
         )
 
         if (!response.ok) {
-          throw new Error(`Failed to fetch drafts (${response.status})`)
+          if (response.status !== 401) {
+            console.warn(`Create Order drafts request failed (${response.status})`)
+          }
+          setBackendCreateOrderDrafts([])
+          return
         }
 
         const json = await response.json().catch(() => null)
@@ -160,7 +164,7 @@ export default function DraftsPage() {
 
         setBackendCreateOrderDrafts(normalized)
       } catch (error) {
-        console.error('Failed to load backend Create Order drafts:', error)
+        console.warn('Failed to load backend Create Order drafts:', error)
         setBackendCreateOrderDrafts([])
       } finally {
         setBackendCreateOrderLoading(false)
