@@ -1,7 +1,7 @@
 'use client'
 
 import React, { Suspense } from "react"
-import { Trash2 } from 'lucide-react'
+import { Trash2, Download, Eye, Upload } from 'lucide-react'
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -20,6 +20,10 @@ function ProductSheetContent() {
   const newProductToken = searchParams.get('new')
   const fileInputRef = useRef(null)
   const manufacturingImagesRef = useRef(null)
+  const designerImageRef = useRef(null)
+  const designerTdmFileRef = useRef(null)
+  const designerStlFileRef = useRef(null)
+  const designerBulkUploadRef = useRef(null)
   const autoSaveTimeoutRef = useRef(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isCreateJobModalOpen, setIsCreateJobModalOpen] = useState(false)
@@ -147,10 +151,30 @@ function ProductSheetContent() {
   const [finalStock, setFinalStock] = useState([
     { id: 1, sku: '', value: '', unit: '' },
   ])
+
+  const [designer, setDesigner] = useState({
+    image: '',
+    tdmFile: '',
+    tdmFileName: '',
+    stlFile: '',
+    stlFileName: '',
+    tdmStatus: '',
+    stlStatus: '',
+    renderStatus: '',
+    print3dStatus: '',
+    dieEntries: [
+      { id: 1, value: '' },
+      { id: 2, value: '' },
+    ],
+  })
+
   const [isSaving, setIsSaving] = useState(false)
   const [saveStatus, setSaveStatus] = useState(null)
   const [showViewSheetButton, setShowViewSheetButton] = useState(false)
   const [backendMode, setBackendMode] = useState('')
+  const [isDesignerSaving, setIsDesignerSaving] = useState(false)
+  const [designerSaveStatus, setDesignerSaveStatus] = useState(null)
+  const [designerRecordId, setDesignerRecordId] = useState(null)
 
   useEffect(() => {
     fetch('/api/backend-info', { cache: 'no-store' })
@@ -227,6 +251,21 @@ function ProductSheetContent() {
       readyForPlacing: { min: '', current: '', wip: '', location: '' },
     })
     setFinalStock([{ id: 1, sku: '', value: '', unit: '' }])
+    setDesigner({
+      image: '',
+      tdmFile: '',
+      tdmFileName: '',
+      stlFile: '',
+      stlFileName: '',
+      tdmStatus: '',
+      stlStatus: '',
+      renderStatus: '',
+      print3dStatus: '',
+      dieEntries: [
+        { id: 1, value: '' },
+        { id: 2, value: '' },
+      ],
+    })
     setIsModalOpen(false)
     setSaveStatus(null)
     setShowViewSheetButton(false)
@@ -291,6 +330,7 @@ function ProductSheetContent() {
     liveStock,
     productImages,
     primaryImageIndex,
+    designer,
     ...overrideValues,
   })
 
@@ -459,6 +499,171 @@ function ProductSheetContent() {
         images: prev.images.filter((_, index) => index !== indexToRemove),
       }));
     };
+
+    // ── Designer handlers ──────────────────────────────────
+    const handleDesignerImageUpload = (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setDesigner((prev) => ({ ...prev, image: event.target?.result || '' }));
+      };
+      reader.readAsDataURL(file);
+      e.target.value = '';
+    };
+
+    const handleDesignerFileUpload = (field, nameField) => (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setDesigner((prev) => ({
+          ...prev,
+          [field]: event.target?.result || '',
+          [nameField]: file.name,
+        }));
+      };
+      reader.readAsDataURL(file);
+      e.target.value = '';
+    };
+
+    const handleDesignerFileDownload = (field, nameField) => {
+      const data = designer[field];
+      const name = designer[nameField] || `${field}.bin`;
+      if (!data) return;
+      const a = document.createElement('a');
+      a.href = data;
+      a.download = name;
+      a.click();
+    };
+
+    const handleDesignerFileView = (field) => {
+      const data = designer[field];
+      if (!data) return;
+      window.open(data, '_blank');
+    };
+
+    const addDesignerDieEntry = () => {
+      const newId = Math.max(...designer.dieEntries.map((r) => r.id), 0) + 1;
+      setDesigner((prev) => ({
+        ...prev,
+        dieEntries: [...prev.dieEntries, { id: newId, value: '' }],
+      }));
+    };
+
+    const updateDesignerDieEntry = (id, value) => {
+      setDesigner((prev) => ({
+        ...prev,
+        dieEntries: prev.dieEntries.map((r) => (r.id === id ? { ...r, value } : r)),
+      }));
+    };
+
+    const deleteDesignerDieEntry = (id) => {
+      setDesigner((prev) => ({
+        ...prev,
+        dieEntries: prev.dieEntries.filter((r) => r.id !== id),
+      }));
+    };
+
+    // ── Designer Save / Delete / Bulk Upload ──────────────
+    const handleSaveDesigner = async () => {
+      if (!sku) {
+        setDesignerSaveStatus({ success: false, message: 'Enter a SKU first' });
+        setTimeout(() => setDesignerSaveStatus(null), 4000);
+        return;
+      }
+      setIsDesignerSaving(true);
+      setDesignerSaveStatus(null);
+      try {
+        const payload = {
+          sku,
+          image: designer.image,
+          tdm_file: designer.tdmFile,
+          stl_file: designer.stlFile,
+          tdm_status: designer.tdmStatus,
+          stl_status: designer.stlStatus,
+          render_status: designer.renderStatus,
+          print_3d_status: designer.print3dStatus,
+          die_entries: designer.dieEntries.filter((d) => d.value).map((d) => ({ value: d.value })),
+        };
+        const isUpdate = !!designerRecordId;
+        const url = isUpdate ? `/api/designers/${designerRecordId}` : '/api/designers';
+        const method = isUpdate ? 'PATCH' : 'POST';
+        const response = await fetch(url, {
+          method,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const result = await response.json();
+        if (!response.ok || !result.success) {
+          throw new Error(result.message || 'Failed to save designer data');
+        }
+        const savedId = result.data?.id || designerRecordId;
+        if (savedId) setDesignerRecordId(savedId);
+        setDesignerSaveStatus({ success: true, message: isUpdate ? 'Designer updated' : 'Designer saved' });
+      } catch (error) {
+        setDesignerSaveStatus({ success: false, message: error.message });
+      } finally {
+        setIsDesignerSaving(false);
+        setTimeout(() => setDesignerSaveStatus(null), 4000);
+      }
+    };
+
+    const handleDeleteDesigner = async () => {
+      if (!designerRecordId) {
+        setDesignerSaveStatus({ success: false, message: 'No designer record to delete' });
+        setTimeout(() => setDesignerSaveStatus(null), 4000);
+        return;
+      }
+      const confirmed = window.confirm('Delete the designer record for this SKU?');
+      if (!confirmed) return;
+      setIsDesignerSaving(true);
+      setDesignerSaveStatus(null);
+      try {
+        const response = await fetch(`/api/designers/${designerRecordId}`, { method: 'DELETE' });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok && response.status !== 204) {
+          throw new Error(result.message || 'Failed to delete designer');
+        }
+        setDesignerRecordId(null);
+        setDesigner({
+          image: '', tdmFile: '', tdmFileName: '', stlFile: '', stlFileName: '',
+          tdmStatus: '', stlStatus: '', renderStatus: '', print3dStatus: '',
+          dieEntries: [{ id: 1, value: '' }, { id: 2, value: '' }],
+        });
+        setDesignerSaveStatus({ success: true, message: 'Designer record deleted' });
+      } catch (error) {
+        setDesignerSaveStatus({ success: false, message: error.message });
+      } finally {
+        setIsDesignerSaving(false);
+        setTimeout(() => setDesignerSaveStatus(null), 4000);
+      }
+    };
+
+    const handleDesignerBulkUpload = async (e) => {
+      const file = e.target.files?.[0];
+      e.target.value = '';
+      if (!file) return;
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('sheetType', 'designers');
+      setIsDesignerSaving(true);
+      setDesignerSaveStatus(null);
+      try {
+        const response = await fetch('/api/bulk-upload', { method: 'POST', body: formData });
+        const result = await response.json().catch(() => null);
+        if (!response.ok || !result?.success) {
+          throw new Error(result?.message || 'Bulk upload failed');
+        }
+        setDesignerSaveStatus({ success: true, message: result.message });
+      } catch (error) {
+        setDesignerSaveStatus({ success: false, message: error.message });
+      } finally {
+        setIsDesignerSaving(false);
+        setTimeout(() => setDesignerSaveStatus(null), 6000);
+      }
+    };
+
     // Handlers for Plating Type
     const updatePlatingType = (id, field, value) => {
         setPlatingType(platingType.map(row => row.id === id ? { ...row, [field]: value } : row));
@@ -1345,6 +1550,114 @@ function ProductSheetContent() {
         </div>
       </div>
 
+      {/* Designer Panel */}
+      <div className="bg-cloud-gray p-2 rounded-xl mb-2 border border-soft-border shadow-sm">
+        <div className="flex items-center justify-between mb-1.5">
+          <h2 className="text-sm font-semibold text-trust-blue">DESIGNER</h2>
+          <div className="flex items-center gap-1.5">
+            {designerSaveStatus && (
+              <span className={`text-xs px-2 py-0.5 rounded ${designerSaveStatus.success ? 'bg-success/10 text-success-dark' : 'bg-danger/10 text-danger-dark'}`}>{designerSaveStatus.message}</span>
+            )}
+            <button type="button" onClick={handleSaveDesigner} disabled={isDesignerSaving} className="px-2.5 py-1 text-xs bg-success text-white font-semibold rounded-full hover:bg-success/90 disabled:opacity-50">{isDesignerSaving ? 'Saving...' : 'SAVE'}</button>
+            <button type="button" onClick={handleDeleteDesigner} disabled={isDesignerSaving} className="px-2.5 py-1 text-xs bg-danger text-white font-semibold rounded-full hover:bg-danger/90 disabled:opacity-50">DELETE</button>
+            <button type="button" onClick={() => designerBulkUploadRef.current?.click()} disabled={isDesignerSaving} className="px-2.5 py-1 text-xs bg-trust-blue text-white font-semibold rounded-full hover:bg-deep-blue disabled:opacity-50 flex items-center gap-1"><Upload className="h-3 w-3"/>UPLOAD</button>
+            <input ref={designerBulkUploadRef} type="file" accept=".csv,.xlsx,.xls,.json" onChange={handleDesignerBulkUpload} className="hidden"/>
+          </div>
+        </div>
+        <div className="flex gap-2">
+          {/* Left: Image Upload – 40% */}
+          <div className="bg-white border border-soft-border rounded-xl overflow-hidden flex items-center justify-center cursor-pointer hover:bg-cloud-gray relative" style={{width: '40%', minHeight: '12rem'}} onClick={() => designerImageRef.current?.click()}>
+            {designer.image ? (
+              <img src={designer.image} alt="Designer" className="w-full h-full object-cover rounded-xl"/>
+            ) : (
+              <span className="text-sm text-cool-gray">Click to upload image</span>
+            )}
+            <input ref={designerImageRef} type="file" accept="image/*" onChange={handleDesignerImageUpload} className="hidden"/>
+          </div>
+
+          {/* Right: 3DM + STL fields – 60% */}
+          <div className="flex flex-col gap-2" style={{width: '60%'}}>
+            {/* 3DM Field */}
+            <div className="bg-white border border-soft-border rounded-xl p-2">
+              <label className="text-xs font-semibold text-midnight-ink mb-1 block">3DM</label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={designer.tdmFileName || designer.tdmFile}
+                  onChange={(e) => setDesigner((prev) => ({ ...prev, tdmFile: e.target.value, tdmFileName: '' }))}
+                  placeholder="Type or upload 3DM file"
+                  className="flex-1 text-sm border border-soft-border rounded px-2 py-1 outline-none"
+                />
+                <button type="button" onClick={() => designerTdmFileRef.current?.click()} className="px-2 py-1 text-xs bg-trust-blue text-white rounded font-semibold hover:bg-deep-blue">Upload</button>
+                <button type="button" onClick={() => handleDesignerFileDownload('tdmFile', 'tdmFileName')} disabled={!designer.tdmFile} className="px-2 py-1 text-xs bg-midnight-ink text-white rounded font-semibold hover:bg-midnight-ink/80 disabled:opacity-40"><Download className="h-3 w-3"/></button>
+                <button type="button" onClick={() => handleDesignerFileView('tdmFile')} disabled={!designer.tdmFile} className="px-2 py-1 text-xs bg-midnight-ink text-white rounded font-semibold hover:bg-midnight-ink/80 disabled:opacity-40"><Eye className="h-3 w-3"/></button>
+                <input ref={designerTdmFileRef} type="file" onChange={handleDesignerFileUpload('tdmFile', 'tdmFileName')} className="hidden"/>
+              </div>
+            </div>
+
+            {/* STL Field */}
+            <div className="bg-white border border-soft-border rounded-xl p-2">
+              <label className="text-xs font-semibold text-midnight-ink mb-1 block">STL</label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={designer.stlFileName || designer.stlFile}
+                  onChange={(e) => setDesigner((prev) => ({ ...prev, stlFile: e.target.value, stlFileName: '' }))}
+                  placeholder="Type or upload STL file"
+                  className="flex-1 text-sm border border-soft-border rounded px-2 py-1 outline-none"
+                />
+                <button type="button" onClick={() => designerStlFileRef.current?.click()} className="px-2 py-1 text-xs bg-trust-blue text-white rounded font-semibold hover:bg-deep-blue">Upload</button>
+                <button type="button" onClick={() => handleDesignerFileDownload('stlFile', 'stlFileName')} disabled={!designer.stlFile} className="px-2 py-1 text-xs bg-midnight-ink text-white rounded font-semibold hover:bg-midnight-ink/80 disabled:opacity-40"><Download className="h-3 w-3"/></button>
+                <button type="button" onClick={() => handleDesignerFileView('stlFile')} disabled={!designer.stlFile} className="px-2 py-1 text-xs bg-midnight-ink text-white rounded font-semibold hover:bg-midnight-ink/80 disabled:opacity-40"><Eye className="h-3 w-3"/></button>
+                <input ref={designerStlFileRef} type="file" onChange={handleDesignerFileUpload('stlFile', 'stlFileName')} className="hidden"/>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Designer Tracking Table */}
+        <div className="mt-2 bg-white border border-soft-border rounded-xl overflow-hidden">
+          <table className="w-full table-fixed text-sm border-collapse text-center">
+            <thead>
+              <tr className="bg-[#dce8f5]">
+                <th className="border border-soft-border px-1 py-1 font-semibold text-midnight-ink">3DM</th>
+                <th className="border border-soft-border px-1 py-1 font-semibold text-midnight-ink">STL</th>
+                <th className="border border-soft-border px-1 py-1 font-semibold text-midnight-ink">RENDER</th>
+                <th className="border border-soft-border px-1 py-1 font-semibold text-midnight-ink">3D PRINT</th>
+                <th className="border border-soft-border px-1 py-1 font-semibold text-midnight-ink">DIE</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td className="border border-soft-border px-1 py-1">
+                  <input type="text" value={designer.tdmStatus} onChange={(e) => setDesigner((prev) => ({ ...prev, tdmStatus: e.target.value }))} className="w-full bg-transparent outline-none text-sm text-center"/>
+                </td>
+                <td className="border border-soft-border px-1 py-1">
+                  <input type="text" value={designer.stlStatus} onChange={(e) => setDesigner((prev) => ({ ...prev, stlStatus: e.target.value }))} className="w-full bg-transparent outline-none text-sm text-center"/>
+                </td>
+                <td className="border border-soft-border px-1 py-1">
+                  <input type="text" value={designer.renderStatus} onChange={(e) => setDesigner((prev) => ({ ...prev, renderStatus: e.target.value }))} className="w-full bg-transparent outline-none text-sm text-center"/>
+                </td>
+                <td className="border border-soft-border px-1 py-1">
+                  <input type="text" value={designer.print3dStatus} onChange={(e) => setDesigner((prev) => ({ ...prev, print3dStatus: e.target.value }))} className="w-full bg-transparent outline-none text-sm text-center"/>
+                </td>
+                <td className="border border-soft-border px-1 py-1">
+                  <div className="flex flex-col gap-1 max-h-32 overflow-y-auto">
+                    {designer.dieEntries.map((die) => (
+                      <div key={die.id} className="flex items-center gap-1">
+                        <input type="text" value={die.value} onChange={(e) => updateDesignerDieEntry(die.id, e.target.value)} className="flex-1 bg-transparent outline-none text-sm text-center border-b border-soft-border" placeholder="Die"/>
+                        <button type="button" onClick={() => deleteDesignerDieEntry(die.id)} className="text-danger hover:text-danger-dark"><Trash2 className="h-3 w-3"/></button>
+                      </div>
+                    ))}
+                    <button type="button" onClick={addDesignerDieEntry} className="text-xs text-trust-blue font-semibold hover:underline">+ Add Die</button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       {/* Modal Overlay */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-[100] flex items-center justify-center overflow-y-auto">
@@ -1994,6 +2307,82 @@ function ProductSheetContent() {
                       </div>
                     </div>
                   </div>
+                </div>
+              </div>
+
+              {/* Designer Panel (Modal) */}
+              <div className="bg-cloud-gray p-2 rounded-xl mb-2 border border-soft-border shadow-sm">
+                <div className="flex items-center justify-between mb-1.5">
+                  <h2 className="text-sm font-semibold text-trust-blue">DESIGNER</h2>
+                  <div className="flex items-center gap-1.5">
+                    {designerSaveStatus && (
+                      <span className={`text-xs px-2 py-0.5 rounded ${designerSaveStatus.success ? 'bg-success/10 text-success-dark' : 'bg-danger/10 text-danger-dark'}`}>{designerSaveStatus.message}</span>
+                    )}
+                    <button type="button" onClick={handleSaveDesigner} disabled={isDesignerSaving} className="px-2.5 py-1 text-xs bg-success text-white font-semibold rounded-full hover:bg-success/90 disabled:opacity-50">{isDesignerSaving ? 'Saving...' : 'SAVE'}</button>
+                    <button type="button" onClick={handleDeleteDesigner} disabled={isDesignerSaving} className="px-2.5 py-1 text-xs bg-danger text-white font-semibold rounded-full hover:bg-danger/90 disabled:opacity-50">DELETE</button>
+                    <button type="button" onClick={() => designerBulkUploadRef.current?.click()} disabled={isDesignerSaving} className="px-2.5 py-1 text-xs bg-trust-blue text-white font-semibold rounded-full hover:bg-deep-blue disabled:opacity-50 flex items-center gap-1"><Upload className="h-3 w-3"/>UPLOAD</button>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <div className="bg-white border border-soft-border rounded-xl overflow-hidden flex items-center justify-center cursor-pointer hover:bg-cloud-gray relative" style={{width: '40%', minHeight: '12rem'}} onClick={() => designerImageRef.current?.click()}>
+                    {designer.image ? (
+                      <img src={designer.image} alt="Designer" className="w-full h-full object-cover rounded-xl"/>
+                    ) : (
+                      <span className="text-sm text-cool-gray">Click to upload image</span>
+                    )}
+                  </div>
+                  <div className="flex flex-col gap-2" style={{width: '60%'}}>
+                    <div className="bg-white border border-soft-border rounded-xl p-2">
+                      <label className="text-xs font-semibold text-midnight-ink mb-1 block">3DM</label>
+                      <div className="flex items-center gap-2">
+                        <input type="text" value={designer.tdmFileName || designer.tdmFile} onChange={(e) => setDesigner((prev) => ({ ...prev, tdmFile: e.target.value, tdmFileName: '' }))} placeholder="Type or upload 3DM file" className="flex-1 text-sm border border-soft-border rounded px-2 py-1 outline-none"/>
+                        <button type="button" onClick={() => designerTdmFileRef.current?.click()} className="px-2 py-1 text-xs bg-trust-blue text-white rounded font-semibold hover:bg-deep-blue">Upload</button>
+                        <button type="button" onClick={() => handleDesignerFileDownload('tdmFile', 'tdmFileName')} disabled={!designer.tdmFile} className="px-2 py-1 text-xs bg-midnight-ink text-white rounded font-semibold hover:bg-midnight-ink/80 disabled:opacity-40"><Download className="h-3 w-3"/></button>
+                        <button type="button" onClick={() => handleDesignerFileView('tdmFile')} disabled={!designer.tdmFile} className="px-2 py-1 text-xs bg-midnight-ink text-white rounded font-semibold hover:bg-midnight-ink/80 disabled:opacity-40"><Eye className="h-3 w-3"/></button>
+                      </div>
+                    </div>
+                    <div className="bg-white border border-soft-border rounded-xl p-2">
+                      <label className="text-xs font-semibold text-midnight-ink mb-1 block">STL</label>
+                      <div className="flex items-center gap-2">
+                        <input type="text" value={designer.stlFileName || designer.stlFile} onChange={(e) => setDesigner((prev) => ({ ...prev, stlFile: e.target.value, stlFileName: '' }))} placeholder="Type or upload STL file" className="flex-1 text-sm border border-soft-border rounded px-2 py-1 outline-none"/>
+                        <button type="button" onClick={() => designerStlFileRef.current?.click()} className="px-2 py-1 text-xs bg-trust-blue text-white rounded font-semibold hover:bg-deep-blue">Upload</button>
+                        <button type="button" onClick={() => handleDesignerFileDownload('stlFile', 'stlFileName')} disabled={!designer.stlFile} className="px-2 py-1 text-xs bg-midnight-ink text-white rounded font-semibold hover:bg-midnight-ink/80 disabled:opacity-40"><Download className="h-3 w-3"/></button>
+                        <button type="button" onClick={() => handleDesignerFileView('stlFile')} disabled={!designer.stlFile} className="px-2 py-1 text-xs bg-midnight-ink text-white rounded font-semibold hover:bg-midnight-ink/80 disabled:opacity-40"><Eye className="h-3 w-3"/></button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-2 bg-white border border-soft-border rounded-xl overflow-hidden">
+                  <table className="w-full table-fixed text-sm border-collapse text-center">
+                    <thead>
+                      <tr className="bg-[#dce8f5]">
+                        <th className="border border-soft-border px-1 py-1 font-semibold text-midnight-ink">3DM</th>
+                        <th className="border border-soft-border px-1 py-1 font-semibold text-midnight-ink">STL</th>
+                        <th className="border border-soft-border px-1 py-1 font-semibold text-midnight-ink">RENDER</th>
+                        <th className="border border-soft-border px-1 py-1 font-semibold text-midnight-ink">3D PRINT</th>
+                        <th className="border border-soft-border px-1 py-1 font-semibold text-midnight-ink">DIE</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td className="border border-soft-border px-1 py-1"><input type="text" value={designer.tdmStatus} onChange={(e) => setDesigner((prev) => ({ ...prev, tdmStatus: e.target.value }))} className="w-full bg-transparent outline-none text-sm text-center"/></td>
+                        <td className="border border-soft-border px-1 py-1"><input type="text" value={designer.stlStatus} onChange={(e) => setDesigner((prev) => ({ ...prev, stlStatus: e.target.value }))} className="w-full bg-transparent outline-none text-sm text-center"/></td>
+                        <td className="border border-soft-border px-1 py-1"><input type="text" value={designer.renderStatus} onChange={(e) => setDesigner((prev) => ({ ...prev, renderStatus: e.target.value }))} className="w-full bg-transparent outline-none text-sm text-center"/></td>
+                        <td className="border border-soft-border px-1 py-1"><input type="text" value={designer.print3dStatus} onChange={(e) => setDesigner((prev) => ({ ...prev, print3dStatus: e.target.value }))} className="w-full bg-transparent outline-none text-sm text-center"/></td>
+                        <td className="border border-soft-border px-1 py-1">
+                          <div className="flex flex-col gap-1 max-h-32 overflow-y-auto">
+                            {designer.dieEntries.map((die) => (
+                              <div key={die.id} className="flex items-center gap-1">
+                                <input type="text" value={die.value} onChange={(e) => updateDesignerDieEntry(die.id, e.target.value)} className="flex-1 bg-transparent outline-none text-sm text-center border-b border-soft-border" placeholder="Die"/>
+                                <button type="button" onClick={() => deleteDesignerDieEntry(die.id)} className="text-danger hover:text-danger-dark"><Trash2 className="h-3 w-3"/></button>
+                              </div>
+                            ))}
+                            <button type="button" onClick={addDesignerDieEntry} className="text-xs text-trust-blue font-semibold hover:underline">+ Add Die</button>
+                          </div>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
                 </div>
               </div>
 

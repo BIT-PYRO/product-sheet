@@ -594,12 +594,75 @@ async function uploadKyc(client, rows) {
   return { createdCount, updatedCount, skippedCount, failures, label: 'KYC sheet' };
 }
 
+async function uploadDesigners(client, rows) {
+  const existingDesigners = await fetchCollection(client, '/api/v1/designers/');
+  const designerBySku = new Map(
+    existingDesigners.map((d) => [String(d.sku || '').trim().toUpperCase(), d])
+  );
+
+  let createdCount = 0;
+  let updatedCount = 0;
+  let skippedCount = 0;
+  const failures = [];
+
+  for (const [index, row] of rows.entries()) {
+    const sku = String(pickValue(row, ['sku', 'mastersku', 'productsku'])).trim();
+
+    if (!sku) {
+      skippedCount += 1;
+      continue;
+    }
+
+    const payload = {
+      sku,
+      image: String(pickValue(row, ['image'])).trim(),
+      tdm_file: String(pickValue(row, ['tdmfile', 'tdm_file', '3dmfile', '3dm_file', '3dm'])).trim(),
+      stl_file: String(pickValue(row, ['stlfile', 'stl_file', 'stl'])).trim(),
+      tdm_status: String(pickValue(row, ['tdmstatus', 'tdm_status', '3dmstatus'])).trim(),
+      stl_status: String(pickValue(row, ['stlstatus', 'stl_status'])).trim(),
+      render_status: String(pickValue(row, ['renderstatus', 'render_status', 'render'])).trim(),
+      print_3d_status: String(pickValue(row, ['print3dstatus', 'print_3d_status', '3dprintstatus', '3dprint'])).trim(),
+      is_active: toBoolean(pickValue(row, ['isactive', 'active'], true), true),
+    };
+
+    const dieRaw = String(pickValue(row, ['die', 'dieentries', 'die_entries'])).trim();
+    if (dieRaw) {
+      payload.die_entries = dieRaw.split(',').map((v) => ({ value: v.trim() })).filter((v) => v.value);
+    }
+
+    const existing = designerBySku.get(sku.toUpperCase());
+    const path = existing ? `/api/v1/designers/${existing.id}/` : '/api/v1/designers/';
+    const method = existing ? 'PATCH' : 'POST';
+    const { response, payload: result } = await client.request(path, {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      failures.push(`Row ${index + 2}: ${errorMessageFromPayload(result, `Failed to save designer ${sku}`)}`);
+      continue;
+    }
+
+    if (existing) {
+      updatedCount += 1;
+    } else {
+      createdCount += 1;
+      const saved = result?.data || {};
+      designerBySku.set(sku.toUpperCase(), saved);
+    }
+  }
+
+  return { createdCount, updatedCount, skippedCount, failures, label: 'Designer sheet' };
+}
+
 const UPLOAD_HANDLERS = {
   products: uploadProducts,
   workforce: uploadWorkforce,
   jobs: uploadJobs,
   kyc: uploadKyc,
   customers: uploadCustomers,
+  designers: uploadDesigners,
 };
 
 export async function POST(request) {
