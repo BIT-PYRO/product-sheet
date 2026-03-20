@@ -6,6 +6,8 @@ import { Trash2 } from 'lucide-react'
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { CreateJobModal } from '@/components/create-job-modal'
+import { GenericJobModal } from '@/components/generic-job-modal'
+import { PrintJobCardModal } from '@/components/print-job-card-modal'
 import DateTimeStamp from '@/components/date-time-stamp'
 import MasterNavigationDrawer from '@/components/master_navigation_drawer'
 
@@ -21,6 +23,9 @@ function ProductSheetContent() {
   const autoSaveTimeoutRef = useRef(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isCreateJobModalOpen, setIsCreateJobModalOpen] = useState(false)
+  const [isGenericJobModalOpen, setIsGenericJobModalOpen] = useState(false)
+  const [isPrintJobCardModalOpen, setIsPrintJobCardModalOpen] = useState(false)
+  const [jobCardToPrint, setJobCardToPrint] = useState(null)
   const [productImages, setProductImages] = useState([])
   const [primaryImageIndex, setPrimaryImageIndex] = useState(0)
 
@@ -1168,8 +1173,8 @@ function ProductSheetContent() {
             <button onClick={addFinalStockRow} className="w-full px-1 py-1 bg-trust-blue text-white text-sm hover:bg-deep-blue flex-shrink-0">+ Add Row</button>
           </div>
         </div>
-        <div className="mt-2 flex justify-center">
-          <button onClick={() => setIsCreateJobModalOpen(true)} className="px-6 py-1.5 bg-success text-white font-semibold rounded text-sm hover:bg-success">Create a Job</button>
+        <div className="mt-2 flex justify-center gap-3">
+          <button onClick={() => setIsCreateJobModalOpen(true)} className="px-6 py-1.5 bg-success text-white font-semibold rounded text-sm hover:bg-success">Create Job</button>
         </div>
       </div>
 
@@ -1990,6 +1995,21 @@ function ProductSheetContent() {
           console.log('Job created:', data)
           // Add your logic here to save the job data
         }}
+      />
+      <GenericJobModal
+        open={isGenericJobModalOpen}
+        onOpenChange={setIsGenericJobModalOpen}
+        onJobCreated={(jobData) => {
+          console.log('Generic job created:', jobData)
+          setJobCardToPrint(jobData)
+          setIsGenericJobModalOpen(false)
+          setIsPrintJobCardModalOpen(true)
+        }}
+      />
+      <PrintJobCardModal
+        open={isPrintJobCardModalOpen}
+        onOpenChange={setIsPrintJobCardModalOpen}
+        data={jobCardToPrint}
       />
 
     </div>);
