@@ -171,7 +171,11 @@ export function OrderSheetView({ embedded = false }) {
       ]);
 
       if (!ordersResponse.ok) {
-        throw new Error('Failed to fetch orders');
+        console.warn(`Orders request failed (${ordersResponse.status})`);
+        setError('Failed to fetch orders');
+        setLoading(false);
+        setProductsLoading(false);
+        return;
       }
 
       const ordersData = await ordersResponse.json();
