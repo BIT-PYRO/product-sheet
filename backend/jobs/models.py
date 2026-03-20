@@ -28,7 +28,7 @@ class JobUrgency(models.TextChoices):
 
 class Job(AuditModel):
 	# Jewelry job fields (legacy)
-	title = models.CharField(max_length=255)
+	title = models.CharField(max_length=255, blank=True, default="Untitled Job")
 	product = models.ForeignKey(Product, on_delete=models.PROTECT, related_name='jobs', null=True, blank=True)
 	assignee = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL)
 	
