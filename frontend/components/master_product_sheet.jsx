@@ -195,27 +195,27 @@ export default function MasterProductSheet() {
         id: product.id,
         sku: product.sku || '',
         listingName: product.name || '',
-        material: '',
-        weight: '',
+        material: product.material || '',
+        weight: product.weight || '',
         category: product.category || '',
-        collection: '',
-        settingType: '',
-        enamelType: '',
-        activeChannels: '',
+        collection: product.collection || '',
+        settingType: product.setting_type || '',
+        enamelType: product.enamel_type || '',
+        activeChannels: product.active_channels || '',
         shopifyStatus: product.is_active ? 'active' : 'inactive',
         dieNumberFindings: '',
-        masterSku: product.sku || '',
-        color: '',
-        enamel: '',
-        stoneName: '',
-        stoneCut: '',
-        stoneColor: '',
-        stoneSize: '',
-        stoneQuantity: '',
-        platingType: '',
-        platingColor: '',
-        notes: '',
-        images: '',
+        masterSku: product.master_sku || product.sku || '',
+        color: product.color || '',
+        enamel: product.enamel || '',
+        stoneName: product.stone_name || '',
+        stoneCut: product.stone_cut || '',
+        stoneColor: product.stone_color || '',
+        stoneSize: product.stone_size || '',
+        stoneQuantity: product.stone_quantity || '',
+        platingType: product.plating_type || '',
+        platingColor: product.plating_color || '',
+        notes: product.notes || '',
+        images: product.images || '',
       }));
 
       setData(mappedRows);
@@ -296,9 +296,10 @@ export default function MasterProductSheet() {
   };
 
   const handleAddRow = () => {
-    const newId = Math.max(...data.map(row => row.id), -1) + 1;
+    const tempId = -Date.now(); // negative temp ID to distinguish from real backend IDs
     const newRow = {
-      id: newId,
+      id: tempId,
+      _isNew: true,
       sku: '',
       listingName: '',
       material: '',
@@ -308,7 +309,7 @@ export default function MasterProductSheet() {
       settingType: '',
       enamelType: '',
       activeChannels: '',
-      shopifyStatus: '',
+      shopifyStatus: 'active',
       dieNumberFindings: '',
       masterSku: '',
       color: '',
@@ -323,7 +324,8 @@ export default function MasterProductSheet() {
       notes: '',
       images: '',
     };
-    setData([...data, newRow]);
+    setData((prev) => [newRow, ...prev]);
+    setEditingRowIds((prev) => new Set([...prev, tempId]));
   };
 
   const handleEditRow = () => {
@@ -334,9 +336,89 @@ export default function MasterProductSheet() {
     setEditingRowIds(new Set(selectedRows));
   };
 
-  const handleSaveEdit = () => {
+  const [saveEditStatus, setSaveEditStatus] = useState(null); // { success, message }
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
+
+  const handleSaveEdit = async () => {
+    const editedRows = data.filter((row) => editingRowIds.has(row.id));
+    if (editedRows.length === 0) {
+      setEditingRowIds(new Set());
+      setSelectedRows(new Set());
+      return;
+    }
+    setIsSavingEdit(true);
+    setSaveEditStatus(null);
+    const errors = [];
+    let updatedData = [...data];
+
+    for (const row of editedRows) {
+      try {
+        const payload = {
+          name: row.listingName || row.sku,
+          category: row.category,
+          is_active: String(row.shopifyStatus).toLowerCase() !== 'inactive',
+          material: row.material,
+          weight: row.weight,
+          collection: row.collection,
+          setting_type: row.settingType,
+          enamel_type: row.enamelType,
+          active_channels: row.activeChannels,
+          master_sku: row.masterSku,
+          color: row.color,
+          enamel: row.enamel,
+          stone_name: row.stoneName,
+          stone_cut: row.stoneCut,
+          stone_color: row.stoneColor,
+          stone_size: row.stoneSize,
+          stone_quantity: row.stoneQuantity,
+          plating_type: row.platingType,
+          plating_color: row.platingColor,
+          notes: row.notes,
+          images: row.images,
+        };
+
+        if (row._isNew) {
+          if (!row.sku.trim()) {
+            errors.push('New row requires a SKU');
+            continue;
+          }
+          const response = await fetch('/api/products', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ...payload, sku: row.sku }),
+          });
+          const result = await response.json();
+          if (!response.ok || !result.success) throw new Error(result.message || 'Failed to create product');
+          const savedId = result.data?.id;
+          if (savedId) {
+            updatedData = updatedData.map((r) =>
+              r.id === row.id ? { ...r, id: savedId, _isNew: false } : r
+            );
+          }
+        } else {
+          const response = await fetch(`/api/products/${row.id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
+          const result = await response.json();
+          if (!response.ok || !result.success) throw new Error(result.message || `Failed to save ${row.sku || 'row'}`);
+        }
+      } catch (err) {
+        errors.push(err.message);
+      }
+    }
+
+    setData(updatedData);
+    setIsSavingEdit(false);
     setEditingRowIds(new Set());
     setSelectedRows(new Set());
+    if (errors.length > 0) {
+      setSaveEditStatus({ success: false, message: errors.join('; ') });
+    } else {
+      setSaveEditStatus({ success: true, message: `${editedRows.length} row(s) saved` });
+      setTimeout(() => setSaveEditStatus(null), 3000);
+    }
   };
 
   const handleCancelEdit = () => {
@@ -1077,7 +1159,7 @@ export default function MasterProductSheet() {
       </div>
 
       {/* Add Row and Edit Controls */}
-      <div className="mt-4 flex gap-2 items-center">
+      <div className="mt-4 flex gap-2 items-center flex-wrap">
         <Button 
           onClick={handleAddRow}
           className="bg-trust-blue hover:bg-deep-blue text-white px-6"
@@ -1087,21 +1169,33 @@ export default function MasterProductSheet() {
         </Button>
         
         {editingRowIds.size > 0 && (
-          <div className="flex gap-2 ml-4">
+          <div className="flex gap-2 ml-4 items-center flex-wrap">
             <Button 
               onClick={handleSaveEdit}
               className="bg-success hover:bg-success/90 text-white px-6"
+              disabled={isSavingEdit}
             >
-              Save Changes
+              {isSavingEdit ? 'Saving...' : 'Save Changes'}
             </Button>
             <Button 
               onClick={handleCancelEdit}
               variant="outline"
               className="border-red-600 text-danger hover:bg-danger/10 px-6"
+              disabled={isSavingEdit}
             >
               Cancel Edit
             </Button>
+            {saveEditStatus && (
+              <span className={`text-sm font-semibold ${saveEditStatus.success ? 'text-success' : 'text-danger'}`}>
+                {saveEditStatus.message}
+              </span>
+            )}
           </div>
+        )}
+        {!editingRowIds.size && saveEditStatus && (
+          <span className={`ml-4 text-sm font-semibold ${saveEditStatus.success ? 'text-success' : 'text-danger'}`}>
+            {saveEditStatus.message}
+          </span>
         )}
       </div>
 

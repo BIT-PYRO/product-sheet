@@ -165,46 +165,55 @@ export default function MasterJobSheet() {
   const [previewingFiles, setPreviewingFiles] = useState([]);
   const [isFilePreviewOpen, setIsFilePreviewOpen] = useState(false);
   const [selectedFileIndex, setSelectedFileIndex] = useState(0);
+  const [isLoading, setIsLoading] = useState(false);
+  const [fetchError, setFetchError] = useState('');
+
+  const loadJobs = async () => {
+    setIsLoading(true);
+    setFetchError('');
+    try {
+      const response = await fetch('/api/jobs', { cache: 'no-store' });
+      const result = await response.json().catch(() => null);
+      if (!response.ok || !result?.success) {
+        setFetchError(result?.message || 'Failed to load jobs');
+        return;
+      }
+
+      const jobs = Array.isArray(result?.data) ? result.data : (result?.data?.results || []);
+      const mappedRows = jobs.map((job) => ({
+        id: job.id,
+        voucherNo: `JOB-${job.id}`,
+        issued: job.created_at ? new Date(job.created_at).toLocaleDateString('en-IN') : '',
+        department: job.work_type || '',
+        category: job.job_type || job.title || '',
+        firstName: job.issued_to || job.assignee_name || '',
+        status: job.status || '',
+        newReissue: 'New',
+        type: job.title || '',
+        receiver: job.issued_by || '',
+        dayCondition: job.schedule ? new Date(job.schedule).toLocaleDateString('en-IN') : '',
+        issuedQty: '',
+        issuedWeight: '',
+        receivedQty: '',
+        receivedWeight: '',
+        lossQty: '',
+        lossWeight: '',
+        reIssueQty: '',
+        reIssueWeight: '',
+        uploadedFiles: job.uploaded_files || [],
+        notes: job.notes || '',
+        contact: job.contact || '',
+      }));
+
+      setData(mappedRows);
+    } catch (err) {
+      setFetchError(err.message || 'Failed to load jobs');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const loadJobs = async () => {
-      try {
-        const response = await fetch('/api/v1/jobs', { cache: 'no-store' });
-        const result = await response.json().catch(() => null);
-        if (!response.ok || !result?.success) {
-          return;
-        }
-
-        const jobs = Array.isArray(result?.data) ? result.data : (result?.data?.results || []);
-        const mappedRows = jobs.map((job) => ({
-          id: job.id,
-          voucherNo: `JOB-${job.id}`,
-          issued: job.created_at ? new Date(job.created_at).toLocaleDateString() : '',
-          department: '',
-          category: job.title || '',
-          firstName: job.assignee || '',
-          status: job.status || '',
-          newReissue: 'New',
-          type: '',
-          receiver: '',
-          dayCondition: '',
-          issuedQty: '',
-          issuedWeight: '',
-          receivedQty: '',
-          receivedWeight: '',
-          lossQty: '',
-          lossWeight: '',
-          reIssueQty: '',
-          reIssueWeight: '',
-          uploadedFiles: job.uploaded_files || [],
-        }));
-
-        setData(mappedRows);
-      } catch {
-        // Keep editable local table if backend load fails.
-      }
-    };
-
     loadJobs();
   }, []);
 
@@ -755,7 +764,15 @@ export default function MasterJobSheet() {
               className="border border-soft-border rounded-lg pl-9 pr-4 h-9 w-64 text-sm"
             />
           </div>
-          <BulkUploadButton sheetType="jobs" onComplete={() => window.location.reload()} />
+          <BulkUploadButton sheetType="jobs" onComplete={loadJobs} />
+          <Button
+            onClick={loadJobs}
+            variant="outline"
+            className="border-midnight-ink text-midnight-ink rounded-full px-6"
+            disabled={isLoading}
+          >
+            {isLoading ? 'Loading...' : 'Refresh'}
+          </Button>
           <Button 
             onClick={handleCreateJob}
             className="bg-success hover:bg-success text-white rounded-full px-6"
@@ -1007,6 +1024,13 @@ export default function MasterJobSheet() {
         </div>
       </div>
 
+      {/* Loading / Error Banner */}
+      {fetchError && (
+        <div className="mb-2 px-4 py-2 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">
+          {fetchError}
+        </div>
+      )}
+
       {/* Table Section */}
       <div className="border border-soft-border rounded-lg bg-white overflow-hidden">
         {/* Table wrapper with vertical and horizontal scrolling */}
@@ -1171,7 +1195,14 @@ export default function MasterJobSheet() {
         open={isQuickEnrollOpen} 
         onOpenChange={setIsQuickEnrollOpen}
       />
-      
+
+      {/* Create Job Modal */}
+      <CreateJobModal
+        open={isCreateJobModalOpen}
+        onOpenChange={setIsCreateJobModalOpen}
+        onJobCreated={loadJobs}
+      />
+
       {/* Enroll Workforce Modal */}
       <Dialog open={isEnrollWorkforceOpen} onOpenChange={setIsEnrollWorkforceOpen}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
