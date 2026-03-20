@@ -168,8 +168,26 @@ async function parseUploadFile(file) {
     return parsed.map((row) => normalizeRow(row));
   }
 
-  const buffer = await file.arrayBuffer();
-  const workbook = XLSX.read(buffer, { type: 'array' });
+  // CSV / TSV — parse as text so we don't rely on the Excel binary reader.
+  if (fileName.endsWith('.csv') || fileName.endsWith('.tsv')) {
+    const text = await file.text();
+    const delimiter = fileName.endsWith('.tsv') ? '\t' : ',';
+    const lines = text.split(/\r?\n/).filter((l) => l.trim());
+    if (lines.length < 2) throw new Error('The uploaded file does not contain any rows.');
+    const headers = lines[0].split(delimiter).map((h) => h.replace(/^["']|["']$/g, '').trim());
+    const rows = lines.slice(1).map((line) => {
+      const cells = line.split(delimiter).map((c) => c.replace(/^["']|["']$/g, '').trim());
+      const row = {};
+      headers.forEach((h, i) => { row[h] = cells[i] ?? ''; });
+      return normalizeRow(row);
+    });
+    if (rows.length === 0) throw new Error('The uploaded file does not contain any rows.');
+    return rows;
+  }
+
+  // Excel — XLSX.read requires a Uint8Array for type:'array' (ArrayBuffer is NOT the same).
+  const arrayBuffer = await file.arrayBuffer();
+  const workbook = XLSX.read(new Uint8Array(arrayBuffer), { type: 'array' });
   const firstSheetName = workbook.SheetNames[0];
 
   if (!firstSheetName) {
@@ -272,6 +290,22 @@ async function uploadProducts(client, rows) {
       selling_price: toNumber(pickValue(row, ['sellingprice', 'selling_price', 'price']), 0),
       cost_price: toNumber(pickValue(row, ['costprice', 'cost_price']), 0),
       is_active: toBoolean(pickValue(row, ['isactive', 'active', 'shopifystatus'], true), true),
+      material: String(pickValue(row, ['material'])).trim(),
+      weight: String(pickValue(row, ['weight'])).trim(),
+      collection: String(pickValue(row, ['collection'])).trim(),
+      setting_type: String(pickValue(row, ['settingtype', 'setting_type', 'setting'])).trim(),
+      enamel_type: String(pickValue(row, ['enameltype', 'enamel_type', 'enamel'])).trim(),
+      active_channels: String(pickValue(row, ['activechannels', 'active_channels', 'channels'])).trim(),
+      master_sku: String(pickValue(row, ['mastersku', 'master_sku'])).trim(),
+      color: String(pickValue(row, ['color'])).trim(),
+      stone_name: String(pickValue(row, ['stonename', 'stone_name', 'stone'])).trim(),
+      stone_cut: String(pickValue(row, ['stonecut', 'stone_cut'])).trim(),
+      stone_color: String(pickValue(row, ['stonecolor', 'stone_color'])).trim(),
+      stone_size: String(pickValue(row, ['stonesize', 'stone_size'])).trim(),
+      stone_quantity: String(pickValue(row, ['stonequantity', 'stone_quantity'])).trim(),
+      plating_type: String(pickValue(row, ['platingtype', 'plating_type', 'plating'])).trim(),
+      plating_color: String(pickValue(row, ['platingcolor', 'plating_color'])).trim(),
+      notes: String(pickValue(row, ['notes', 'note', 'remarks'])).trim(),
     };
 
     const existing = productBySku.get(sku.toUpperCase());
