@@ -126,27 +126,62 @@ export function CompanyKYCForm({ onClose }) {
     }
   };
 
-  const handleSubmit = () => {
-    // Validate all required fields
-    if (!formData.companyName || !formData.businessType || !formData.gstNumber || 
+  const handleSubmit = async () => {
+    // Validate required fields
+    if (!formData.companyName || !formData.businessType || !formData.gstNumber ||
         !formData.panNumber || !formData.addressLine1 || !formData.city || !formData.state ||
-        !formData.pinCode || !formData.authorizedPersonName || !formData.designation || 
-        !formData.mobile || !formData.email || !formData.accountName || !formData.bankName || 
+        !formData.pinCode || !formData.authorizedPersonName || !formData.designation ||
+        !formData.mobile || !formData.email || !formData.accountName || !formData.bankName ||
         !formData.accountNumber || !formData.ifsc || !formData.declaration) {
       alert('Please fill all required fields and accept the declaration');
       return;
     }
 
     // Validate at least one document is uploaded
-    if (!formData.gstCertificate && !formData.panCard && 
+    if (!formData.gstCertificate && !formData.panCard &&
         !formData.idProof && !formData.cancelledCheque) {
       alert('Please upload at least one document');
       return;
     }
 
-    console.log('KYC Form Submitted:', formData);
-    alert('Company KYC submitted successfully!');
-    onClose();
+    try {
+      const response = await fetch('/api/customers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          company_name: formData.companyName.trim(),
+          business_type: formData.businessType.trim(),
+          gst_number: formData.gstNumber.trim(),
+          pan_number: formData.panNumber.trim(),
+          status: 'active',
+          address_line1: formData.addressLine1.trim(),
+          address_line2: formData.addressLine2.trim(),
+          city: formData.city.trim(),
+          state: formData.state.trim(),
+          pin_code: formData.pinCode.trim(),
+          authorized_person_name: formData.authorizedPersonName.trim(),
+          designation: formData.designation.trim(),
+          mobile: formData.mobile.trim(),
+          email: formData.email.trim(),
+          account_name: formData.accountName.trim(),
+          bank_name: formData.bankName.trim(),
+          account_number: formData.accountNumber.trim(),
+          ifsc: formData.ifsc.trim(),
+        }),
+      });
+
+      const result = await response.json().catch(() => null);
+
+      if (!response.ok || !result?.success) {
+        alert(result?.error?.message || result?.message || 'Failed to submit KYC. Please try again.');
+        return;
+      }
+
+      alert('Company KYC submitted successfully!');
+      onClose();
+    } catch {
+      alert('Unable to submit KYC. Please check your connection and try again.');
+    }
   };
 
   const labelClass = 'block text-xs font-semibold tracking-wide text-slate-600 uppercase mb-2';

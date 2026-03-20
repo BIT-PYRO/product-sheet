@@ -10,13 +10,13 @@ async function resolveId(context) {
 
 export async function GET(request, context) {
   const id = await resolveId(context);
-  return proxyAuthenticatedRequest(request, `/api/v1/workforce/${id}/`);
+  return proxyAuthenticatedRequest(request, `/api/v1/kyc/${id}/`);
 }
 
 export async function PATCH(request, context) {
   const id = await resolveId(context);
   const body = await request.text();
-  return proxyAuthenticatedRequest(request, `/api/v1/workforce/${id}/`, {
+  return proxyAuthenticatedRequest(request, `/api/v1/kyc/${id}/`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body,
@@ -25,7 +25,7 @@ export async function PATCH(request, context) {
 
 export async function DELETE(request, context) {
   const id = await resolveId(context);
-  return proxyAuthenticatedRequest(request, `/api/v1/workforce/${id}/`, {
+  return proxyAuthenticatedRequest(request, `/api/v1/kyc/${id}/`, {
     method: 'DELETE',
   });
 }
