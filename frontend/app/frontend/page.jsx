@@ -17,7 +17,6 @@ function ProductSheetContent() {
   const searchParams = useSearchParams()
   const newProductToken = searchParams.get('new')
   const fileInputRef = useRef(null)
-  const picklistFileInputRef = useRef(null)
   const manufacturingImagesRef = useRef(null)
   const autoSaveTimeoutRef = useRef(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -139,9 +138,18 @@ function ProductSheetContent() {
     { id: 1, sku: '', value: '', unit: '' },
   ])
   const [isSaving, setIsSaving] = useState(false)
-  const [isUploadingPicklist, setIsUploadingPicklist] = useState(false)
   const [saveStatus, setSaveStatus] = useState(null)
   const [showViewSheetButton, setShowViewSheetButton] = useState(false)
+  const [backendMode, setBackendMode] = useState('')
+
+  useEffect(() => {
+    fetch('/api/backend-info', { cache: 'no-store' })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.backendMode) setBackendMode(String(data.backendMode))
+      })
+      .catch(() => {})
+  }, [])
 
   const resetProductForm = useCallback(() => {
     setProductImages([])
@@ -645,81 +653,6 @@ function ProductSheetContent() {
       }
     };
 
-    const handlePicklistUploadClick = () => {
-      picklistFileInputRef.current?.click()
-    }
-
-    const handlePicklistFileChange = async (event) => {
-      const file = event.target.files?.[0]
-      event.target.value = ''
-
-      if (!file) {
-        return
-      }
-
-      setIsUploadingPicklist(true)
-      setSaveStatus(null)
-      setShowViewSheetButton(false)
-
-      try {
-        const formData = new FormData()
-        formData.append('file', file)
-
-        const response = await fetch('/api/picklist-upload', {
-          method: 'POST',
-          body: formData,
-        })
-
-        const result = await response.json().catch(() => null)
-
-        if (!response.ok || !result?.message) {
-          throw new Error(result?.message || 'Failed to upload picklist')
-        }
-
-        const syncTimestamp = Date.now().toString()
-        localStorage.setItem(PRODUCT_SHEET_SYNC_KEY, syncTimestamp)
-
-        // Store picklist metadata in localStorage so the inventory sheet can show it.
-        if (Array.isArray(result.picklistItems) && result.picklistItems.length > 0) {
-          try {
-            const existingPicklists = JSON.parse(localStorage.getItem('psd_picklists') || '[]')
-            const newPicklist = {
-              id: `picklist-${syncTimestamp}`,
-              name: file.name,
-              date: new Date().toISOString(),
-              dateFormatted: new Date().toLocaleString(),
-              items: result.picklistItems,
-            }
-            const updated = [newPicklist, ...existingPicklists].slice(0, 20)
-            localStorage.setItem('psd_picklists', JSON.stringify(updated))
-          } catch {
-            // Non-critical: localStorage write can fail silently.
-          }
-        }
-
-        window.dispatchEvent(
-          new CustomEvent(PRODUCT_SHEET_SYNC_EVENT, {
-            detail: { updatedAt: syncTimestamp },
-          })
-        )
-
-        setSaveStatus({
-          success: Boolean(result.success),
-          message: result.message,
-        })
-
-        if (result.success) {
-          setShowViewSheetButton(true)
-        }
-
-        setTimeout(() => setSaveStatus(null), 6000)
-      } catch (error) {
-        setSaveStatus({ success: false, message: `Upload failed: ${error.message}` })
-      } finally {
-        setIsUploadingPicklist(false)
-      }
-    }
-
     const handleViewProductSheet = () => {
       router.push('/master-product-sheet')
     }
@@ -731,18 +664,21 @@ function ProductSheetContent() {
           <h1 className="text-xl font-bold tracking-tight text-midnight-ink">PRODUCT SHEET</h1>
         </div>
         <div className="flex gap-1.5 items-center">
+          {backendMode && (
+            <span
+              className={`px-2 py-1 rounded text-[11px] font-semibold border ${
+                backendMode === 'DEPLOYED'
+                  ? 'bg-success/10 text-success-dark border-success/30'
+                  : 'bg-danger/10 text-danger-dark border-danger/30'
+              }`}
+            >
+              Backend: {backendMode}
+            </span>
+          )}
           <DateTimeStamp className="mr-1 text-xs" />
           <button onClick={handleAddProduct} className="w-fit px-3 h-8 text-sm bg-trust-blue text-white font-semibold rounded-full shadow-sm hover:bg-deep-blue">+ ADD PRODUCT</button>
-          <button onClick={handlePicklistUploadClick} disabled={isUploadingPicklist} className="w-fit px-3 h-8 text-sm bg-midnight-ink text-white font-semibold rounded-full shadow-sm hover:bg-midnight-ink/90 disabled:opacity-50 disabled:cursor-not-allowed">{isUploadingPicklist ? 'Uploading...' : 'UPLOAD PICKLIST'}</button>
           <button onClick={handleSaveProduct} disabled={isSaving} className="w-fit px-3 h-8 text-sm bg-success text-white font-semibold rounded-full shadow-sm hover:bg-success/90 disabled:opacity-50 disabled:cursor-not-allowed">{isSaving ? 'Saving...' : 'SAVE'}</button>
           <button onClick={handleDeleteProduct} disabled={isSaving} className="w-fit px-3 h-8 text-sm bg-danger text-white font-semibold rounded-full shadow-sm hover:bg-danger/90 disabled:opacity-50 disabled:cursor-not-allowed">DELETE</button>
-          <input
-            ref={picklistFileInputRef}
-            type="file"
-            accept="*/*"
-            onChange={handlePicklistFileChange}
-            className="hidden"
-          />
           {saveStatus && (
             <div className={`text-sm px-2 py-1 rounded-md ${saveStatus.success ? 'bg-success/10 text-success-dark border border-success/30' : 'bg-danger/10 text-danger-dark border border-danger/30'}`}>
               {saveStatus.message}

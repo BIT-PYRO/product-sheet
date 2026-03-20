@@ -1,9 +1,21 @@
 import { NextResponse } from 'next/server';
+import { proxyAuthenticatedRequest } from '@/app/frontend/api/_lib/backend-auth';
 
 function asArray(data) {
   if (Array.isArray(data)) return data;
   if (Array.isArray(data?.results)) return data.results;
   return [];
+}
+
+async function readJsonSafe(response) {
+  if (!response) return null;
+  if (response.status === 204 || response.status === 205) return null;
+  const contentType = String(response.headers.get('content-type') || '').toLowerCase();
+  if (!contentType.includes('application/json')) {
+    await response.text().catch(() => '');
+    return null;
+  }
+  return response.json().catch(() => null);
 }
 
 function buildProductStockMap(products, transactions) {
@@ -17,7 +29,7 @@ function buildProductStockMap(products, transactions) {
     const qty = Number(txn?.quantity || 0);
 
     // Demand transactions are tracked separately; they do not affect stock balance.
-    if (txn?.txn_type === 'demand') {
+    if (String(txn?.txn_type || '').trim().toLowerCase() === 'demand') {
       demandByProduct.set(productId, (demandByProduct.get(productId) || 0) + qty);
       return;
     }
@@ -84,44 +96,40 @@ function buildProductStockMap(products, transactions) {
 }
 
 export async function GET(request) {
-  const origin = request.nextUrl.origin;
-  const cookie = request.headers.get('cookie') || '';
+  try {
+    const [productsResponse, inventoryResponse] = await Promise.all([
+      proxyAuthenticatedRequest(request, '/api/v1/products/'),
+      proxyAuthenticatedRequest(request, '/api/v1/inventory/'),
+    ]);
 
-  const [productsResponse, inventoryResponse] = await Promise.all([
-    fetch(`${origin}/api/products`, {
-      method: 'GET',
-      headers: { cookie },
-      cache: 'no-store',
-    }),
-    fetch(`${origin}/api/inventory`, {
-      method: 'GET',
-      headers: { cookie },
-      cache: 'no-store',
-    }),
-  ]);
+    const productsPayload = await readJsonSafe(productsResponse);
+    const inventoryPayload = await readJsonSafe(inventoryResponse);
 
-  const productsPayload = await productsResponse.json().catch(() => null);
-  const inventoryPayload = await inventoryResponse.json().catch(() => null);
+    if (!productsResponse.ok || !productsPayload?.success) {
+      return NextResponse.json(
+        { success: false, message: productsPayload?.message || 'Failed to fetch products.' },
+        { status: productsResponse.status || 500 }
+      );
+    }
 
-  if (!productsResponse.ok || !productsPayload?.success) {
+    if (!inventoryResponse.ok || !inventoryPayload?.success) {
+      return NextResponse.json(
+        { success: false, message: inventoryPayload?.message || 'Failed to fetch inventory.' },
+        { status: inventoryResponse.status || 500 }
+      );
+    }
+
+    const products = asArray(productsPayload.data);
+    const transactions = asArray(inventoryPayload.data);
+
+    return NextResponse.json({
+      success: true,
+      products: buildProductStockMap(products, transactions),
+    });
+  } catch {
     return NextResponse.json(
-      { success: false, message: productsPayload?.message || 'Failed to fetch products.' },
-      { status: productsResponse.status || 500 }
+      { success: false, message: 'Backend request failed while loading inventory summary.' },
+      { status: 502 }
     );
   }
-
-  if (!inventoryResponse.ok || !inventoryPayload?.success) {
-    return NextResponse.json(
-      { success: false, message: inventoryPayload?.message || 'Failed to fetch inventory.' },
-      { status: inventoryResponse.status || 500 }
-    );
-  }
-
-  const products = asArray(productsPayload.data);
-  const transactions = asArray(inventoryPayload.data);
-
-  return NextResponse.json({
-    success: true,
-    products: buildProductStockMap(products, transactions),
-  });
 }

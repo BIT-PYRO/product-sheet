@@ -26,9 +26,11 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
+import GlobalSearchBar from '@/components/global-search-bar';
 import { QuickEnrollModal } from '@/components/quick-enroll-modal';
 import { EnrolWorkforceForm } from '@/app/frontend/enrol-workforce/page';
 import DateTimeStamp from '@/components/date-time-stamp';
+import BulkUploadButton from '@/components/bulk-upload-button';
 
 export default function MasterWorkforceSheet() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -703,10 +705,11 @@ export default function MasterWorkforceSheet() {
         {/* Header Section */}
         <div className="transition-[left,width] duration-300 ease-in-out fixed top-0 left-0 right-0 z-[60] bg-white/95 py-2 border-b border-soft-border shadow-sm backdrop-blur px-3 md:px-4">
           <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 shrink-0">
               <MasterNavigationDrawer inHeader />
               <h1 className="text-xl font-bold tracking-tight text-midnight-ink">MASTER WORKFORCE SHEET</h1>
             </div>
+            <GlobalSearchBar />
             <DateTimeStamp />
           </div>
         </div>
@@ -724,6 +727,7 @@ export default function MasterWorkforceSheet() {
               className="border-2 border-soft-border rounded-lg px-4 py-2 pl-10 w-64"
             />
           </div>
+          <BulkUploadButton sheetType="workforce" onComplete={() => window.location.reload()} />
           <Button 
             onClick={handleQuickEnroll}
             className="bg-trust-blue hover:bg-trust-blue text-white rounded-full px-6"

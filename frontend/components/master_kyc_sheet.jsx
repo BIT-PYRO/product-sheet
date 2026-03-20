@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Search } from 'lucide-react';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
+import GlobalSearchBar from '@/components/global-search-bar';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
@@ -20,6 +21,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import DateTimeStamp from '@/components/date-time-stamp';
+import BulkUploadButton from '@/components/bulk-upload-button';
 
 const KYC_COLUMNS = [
   { key: '__select__', label: '' },
@@ -268,12 +270,13 @@ export default function MasterKYCSheet() {
         {/* Header */}
         <div className="transition-[left,width] duration-300 ease-in-out fixed top-0 left-0 right-0 z-[60] bg-white/95 py-2 border-b border-soft-border shadow-sm backdrop-blur px-3 md:px-4">
           <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 shrink-0">
               <MasterNavigationDrawer inHeader />
               <h1 className="text-xl font-bold tracking-tight text-midnight-ink">
                 MASTER KYC SHEET
               </h1>
             </div>
+            <GlobalSearchBar />
             <DateTimeStamp />
           </div>
         </div>
@@ -317,6 +320,7 @@ export default function MasterKYCSheet() {
             <Button onClick={loadKYCData} variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-6" disabled={isLoading}>
               {isLoading ? 'Refreshing...' : 'Refresh'}
             </Button>
+            <BulkUploadButton sheetType="kyc" onComplete={loadKYCData} />
             <Button onClick={handleAddEmptyRow} className="bg-success hover:bg-success text-white rounded-full px-6">
               Add KYC
             </Button>
@@ -363,7 +367,7 @@ export default function MasterKYCSheet() {
                     (column) => (
                       <th
                         key={column.key}
-                        className={`p-3 text-left text-sm font-semibold text-slate-text ${
+                        className={`p-3 text-left text-sm font-semibold text-midnight-ink ${
                           columnConfig[column.key]?.headerBg || 'bg-cloud-gray'
                         } ${columnConfig[column.key]?.minWidth} cursor-pointer hover:opacity-80`}
                         onClick={() => handleSort(column.key)}

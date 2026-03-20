@@ -1,8 +1,9 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
+import GlobalSearchBar from '@/components/global-search-bar';
 import { CreateJobModal } from '@/components/create-job-modal';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -218,12 +219,43 @@ function getFilterValue(product, fieldKey) {
 
 const PSD_PICKLISTS_KEY = 'psd_picklists';
 
+const PICKLIST_SKU_RE = /^(?=.*\d)(?=.*\/)[A-Z][A-Z0-9]{1,24}\/[A-Z0-9]{1,4}$/i;
+
+function isValidPicklistSku(value) {
+  return PICKLIST_SKU_RE.test(String(value || '').trim().toUpperCase());
+}
+
 function loadPicklistsFromStorage() {
   try {
     const raw = localStorage.getItem(PSD_PICKLISTS_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
+    if (!Array.isArray(parsed)) return [];
+
+    const totalPicklists = parsed.length;
+    const sanitized = parsed
+      .map((picklist, index) => {
+        const normalizedItems = Array.isArray(picklist?.items)
+          ? picklist.items.filter((item) => isValidPicklistSku(item?.sku))
+          : [];
+
+        return {
+          ...picklist,
+          number: picklist?.number || (totalPicklists - index),
+          uploadedBy: picklist?.uploadedBy || 'Unknown',
+          date: picklist?.date || picklist?.createdAt || new Date().toISOString(),
+          dateFormatted:
+            picklist?.dateFormatted ||
+            new Date(picklist?.date || picklist?.createdAt || Date.now()).toLocaleString(),
+          items: normalizedItems,
+        };
+      });
+
+    if (JSON.stringify(sanitized) !== JSON.stringify(parsed)) {
+      localStorage.setItem(PSD_PICKLISTS_KEY, JSON.stringify(sanitized));
+    }
+
+    return sanitized;
   } catch {
     return [];
   }
@@ -231,8 +263,11 @@ function loadPicklistsFromStorage() {
 
 
 export default function MasterInventorySheet() {
+  const picklistFileInputRef = useRef(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
+  const [isUploadingPicklist, setIsUploadingPicklist] = useState(false);
+  const [currentUsername, setCurrentUsername] = useState('');
   const [products, setProducts] = useState([]);
   const [picklists, setPicklists] = useState([]);
   const [selectedPicklist, setSelectedPicklist] = useState(null);
@@ -246,6 +281,7 @@ export default function MasterInventorySheet() {
   const [selectedRows, setSelectedRows] = useState(new Set());
   const [sortField, setSortField] = useState('');
   const [sortDirection, setSortDirection] = useState('asc');
+  const [backendMode, setBackendMode] = useState('');
   const [filterSelections, setFilterSelections] = useState(() => {
     const initial = {};
     FILTER_FIELDS.forEach((field) => {
@@ -258,25 +294,71 @@ export default function MasterInventorySheet() {
   );
   const [selectedColumnsForAction, setSelectedColumnsForAction] = useState(new Set());
 
+  const readJsonSafe = useCallback(async (response) => {
+    if (!response) return null;
+    if (response.status === 204 || response.status === 205) return null;
+
+    const contentType = String(response.headers.get('content-type') || '').toLowerCase();
+    if (!contentType.includes('application/json')) {
+      await response.text().catch(() => '');
+      return null;
+    }
+
+    return response.json().catch(() => null);
+  }, []);
+
   const loadProducts = useCallback(async () => {
     setIsLoading(true);
     setError('');
 
     try {
-      const response = await fetch('/api/inventory-summary', {
-        method: 'GET',
-        cache: 'no-store',
-      });
+      const [inventoryResponse, groupsResponse] = await Promise.all([
+        fetch('/api/inventory-summary', {
+          method: 'GET',
+          cache: 'no-store',
+        }),
+        fetch('/api/picklist-groups', {
+          method: 'GET',
+          cache: 'no-store',
+        }),
+      ]);
 
-      const result = await response.json();
+      const inventoryResult = await readJsonSafe(inventoryResponse);
+      const groupsResult = await readJsonSafe(groupsResponse);
 
-      if (!response.ok || !result.success) {
-        throw new Error(result.message || 'Failed to fetch inventory data');
+      if (!inventoryResponse.ok || !inventoryResult?.success) {
+        const message =
+          inventoryResult?.message ||
+          inventoryResult?.error?.message ||
+          'Failed to fetch inventory data';
+        throw new Error(message);
       }
 
-      const nextProducts = Array.isArray(result.products) ? result.products : [];
+      const nextProducts = Array.isArray(inventoryResult.products) ? inventoryResult.products : [];
       setProducts(nextProducts);
-      setPicklists(loadPicklistsFromStorage());
+
+      const localPicklists = loadPicklistsFromStorage();
+      const backendPicklists = Array.isArray(groupsResult?.picklists)
+        ? groupsResult.picklists
+        : (Array.isArray(groupsResult?.data) ? groupsResult.data : []);
+
+      if (backendPicklists.length === 0) {
+        setPicklists(localPicklists);
+        return;
+      }
+
+      // Merge backend + local, backend takes precedence for same IDs.
+      const merged = new Map();
+      backendPicklists.forEach((picklist) => {
+        merged.set(String(picklist?.id || ''), picklist);
+      });
+      localPicklists.forEach((picklist) => {
+        const id = String(picklist?.id || '');
+        if (!merged.has(id)) {
+          merged.set(id, picklist);
+        }
+      });
+      setPicklists(Array.from(merged.values()));
 
     } catch (fetchError) {
       setError(fetchError.message || 'Failed to load inventory data');
@@ -285,11 +367,33 @@ export default function MasterInventorySheet() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [readJsonSafe]);
 
   useEffect(() => {
     loadProducts();
   }, [loadProducts]);
+
+  useEffect(() => {
+    fetch('/api/auth/session', { cache: 'no-store' })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.user?.id) {
+          setCurrentUsername(data.user.id);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    fetch('/api/backend-info', { cache: 'no-store' })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.backendMode) {
+          setBackendMode(String(data.backendMode));
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     const handleStorageSync = (event) => {
@@ -326,9 +430,11 @@ export default function MasterInventorySheet() {
       // Filter by picklist if one is selected
       if (selectedPicklist) {
         const currentPicklist = picklists.find((p) => p.id === selectedPicklist);
-        const productSku = String(product.sku || product.masterSku || '').trim();
-        const picklistSkus = (currentPicklist?.items || []).map((item) => String(item.sku || '').trim());
-        if (currentPicklist && !picklistSkus.includes(productSku)) {
+        const productSku = String(product.sku || product.masterSku || '').trim().toUpperCase();
+        const picklistSkus = new Set(
+          (currentPicklist?.items || []).map((item) => String(item.sku || '').trim().toUpperCase())
+        );
+        if (currentPicklist && picklistSkus.size > 0 && !picklistSkus.has(productSku)) {
           return false;
         }
       }
@@ -514,6 +620,11 @@ export default function MasterInventorySheet() {
     [sortedProducts, stockField]
   );
 
+  const selectedPicklistData = useMemo(
+    () => picklists.find((picklist) => picklist.id === selectedPicklist) || null,
+    [picklists, selectedPicklist]
+  );
+
   // Build a SKU → needed-qty map from the selected picklist (localStorage).
   // When no picklist is selected this map is empty and the DB-derived
   // totalInDemand from each inventory row is used instead.
@@ -521,20 +632,26 @@ export default function MasterInventorySheet() {
     const map = new Map();
     if (!selectedPicklist) return map;
 
-    const currentPicklist = picklists.find((p) => p.id === selectedPicklist);
-    (currentPicklist?.items || []).forEach((item) => {
-      const sku = String(item.sku || '').trim();
-      if (sku) map.set(sku, item.needed || 0);
+    (selectedPicklistData?.items || []).forEach((item) => {
+      // Normalize to uppercase so lookup matches regardless of DB casing.
+      const sku = String(item.sku || '').trim().toUpperCase();
+      if (!sku) {
+        return;
+      }
+
+      const needed = parseNumericValue(item.needed || 0);
+      map.set(sku, (map.get(sku) || 0) + needed);
     });
 
     return map;
-  }, [picklists, selectedPicklist]);
+  }, [selectedPicklist, selectedPicklistData]);
 
   const totalInDemandByRowId = useMemo(() => {
     const map = new Map();
 
     inventoryRows.forEach((row) => {
-      const sku = String(row?.sku || '').trim();
+      // Normalize to uppercase to match picklistNeededBySku keys.
+      const sku = String(row?.sku || '').trim().toUpperCase();
       if (!sku) {
         map.set(row.id, '');
         return;
@@ -542,7 +659,7 @@ export default function MasterInventorySheet() {
 
       // When a picklist is selected → show that picklist's needed qty.
       // Otherwise → show the total demand from the DB (all demand transactions).
-      const demandValue = selectedPicklist
+      const demandValue = selectedPicklistData
         ? (picklistNeededBySku.get(sku) ?? '')
         : (row.totalInDemand || '');
 
@@ -550,7 +667,7 @@ export default function MasterInventorySheet() {
     });
 
     return map;
-  }, [inventoryRows, picklistNeededBySku, selectedPicklist]);
+  }, [inventoryRows, picklistNeededBySku, selectedPicklistData]);
 
   const rowsToRender = useMemo(() => {
     const minRows = 16;
@@ -679,6 +796,90 @@ export default function MasterInventorySheet() {
     URL.revokeObjectURL(url);
   };
 
+  const handlePicklistUploadClick = () => {
+    picklistFileInputRef.current?.click();
+  };
+
+  const handlePicklistFileChange = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+
+    if (!file) {
+      return;
+    }
+
+    setIsUploadingPicklist(true);
+    setError('');
+
+    try {
+      const syncTimestamp = Date.now().toString();
+      const uploadedAt = new Date();
+
+      let plannedPicklistNumber = 1;
+      try {
+        const existingPicklists = JSON.parse(localStorage.getItem(PSD_PICKLISTS_KEY) || '[]');
+        plannedPicklistNumber =
+          existingPicklists.length > 0
+            ? Math.max(...existingPicklists.map((picklist) => picklist.number || 0)) + 1
+            : 1;
+      } catch {
+        plannedPicklistNumber = 1;
+      }
+
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('picklistGroupId', `picklist-${syncTimestamp}`);
+      formData.append('picklistNumber', String(plannedPicklistNumber));
+      formData.append('uploadedBy', currentUsername || '');
+      formData.append('uploadedAt', uploadedAt.toISOString());
+      formData.append('picklistName', file.name);
+
+      const response = await fetch('/api/picklist-upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const result = await response.json().catch(() => null);
+
+      if (!response.ok || !result?.message) {
+        throw new Error(result?.message || 'Failed to upload picklist');
+      }
+
+      localStorage.setItem(PRODUCT_SHEET_SYNC_KEY, syncTimestamp);
+
+      try {
+        const existingPicklists = JSON.parse(localStorage.getItem(PSD_PICKLISTS_KEY) || '[]');
+        const parsedItems = Array.isArray(result.picklistItems) ? result.picklistItems : [];
+        const backendGroup = result?.picklistGroup || {};
+        const newPicklist = {
+          id: backendGroup.id || `picklist-${syncTimestamp}`,
+          number: backendGroup.number || plannedPicklistNumber,
+          name: backendGroup.name || file.name,
+          date: backendGroup.date || uploadedAt.toISOString(),
+          dateFormatted: backendGroup.dateFormatted || uploadedAt.toLocaleString(),
+          uploadedBy: backendGroup.uploadedBy || currentUsername || 'Unknown',
+          items: parsedItems,
+        };
+        const updated = [newPicklist, ...existingPicklists].slice(0, 20);
+        localStorage.setItem(PSD_PICKLISTS_KEY, JSON.stringify(updated));
+      } catch {
+        // Ignore localStorage write failures.
+      }
+
+      window.dispatchEvent(
+        new CustomEvent(PRODUCT_SHEET_SYNC_EVENT, {
+          detail: { updatedAt: syncTimestamp },
+        })
+      );
+
+      await loadProducts();
+    } catch (uploadError) {
+      setError(`Upload failed: ${uploadError.message}`);
+    } finally {
+      setIsUploadingPicklist(false);
+    }
+  };
+
   return (
     <div className="w-full min-h-screen bg-cloud-gray">
       <Dialog open={isManageColumnsOpen} onOpenChange={setIsManageColumnsOpen}>
@@ -748,11 +949,25 @@ export default function MasterInventorySheet() {
       <div className="pt-16 px-3 md:px-4 pb-3 md:pb-4">
         <div className="transition-[left,width] duration-300 ease-in-out fixed top-0 left-0 right-0 z-[60] bg-white/95 py-2 border-b border-soft-border shadow-sm backdrop-blur px-3 md:px-4">
           <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 shrink-0">
               <MasterNavigationDrawer inHeader />
               <h1 className="text-xl font-bold tracking-tight text-midnight-ink">MASTER INVENTORY SHEET</h1>
             </div>
-            <DateTimeStamp />
+            <GlobalSearchBar />
+            <div className="flex items-center gap-2">
+              {backendMode && (
+                <span
+                  className={`px-2 py-1 rounded text-[11px] font-semibold border ${
+                    backendMode === 'DEPLOYED'
+                      ? 'bg-success/10 text-success-dark border-success/30'
+                      : 'bg-danger/10 text-danger-dark border-danger/30'
+                  }`}
+                >
+                  Backend: {backendMode}
+                </span>
+              )}
+              <DateTimeStamp />
+            </div>
           </div>
         </div>
 
@@ -820,6 +1035,13 @@ export default function MasterInventorySheet() {
           </div>
           <div className="flex flex-wrap gap-2 justify-start lg:justify-end">
             <Button
+              onClick={handlePicklistUploadClick}
+              disabled={isUploadingPicklist}
+              className="bg-midnight-ink text-white rounded-full px-6 hover:bg-midnight-ink/90 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isUploadingPicklist ? 'Uploading...' : 'Bulk Upload'}
+            </Button>
+            <Button
               className="bg-success hover:bg-success/90 rounded-full px-6"
               onClick={() => setIsCreateJobModalOpen(true)}
             >
@@ -830,6 +1052,13 @@ export default function MasterInventorySheet() {
             </Button>
             <Button variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-6" onClick={handleExport}>Export</Button>
             <Button variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-6" onClick={() => window.print()}>Print</Button>
+            <input
+              ref={picklistFileInputRef}
+              type="file"
+              accept="*/*"
+              onChange={handlePicklistFileChange}
+              className="hidden"
+            />
           </div>
         </div>
 
@@ -880,176 +1109,154 @@ export default function MasterInventorySheet() {
         </div>
         </div>
 
-        <div className="flex flex-col xl:flex-row gap-4">
-          <div className="xl:w-[75%]">
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[1200px] border-separate border-spacing-0 text-sm">
-                <thead>
-                  <tr>
-                    {visibleColumnList.map((column) => (
-                      <th
-                        key={column.key}
-                        className={`border-t border-b border-r border-soft-border px-2 h-10 whitespace-nowrap text-center text-xs font-semibold text-black ${
-                          column.key === '__select__' ? 'sticky left-0 z-20 border-l bg-[#dbeafe]' : 'bg-[#dbeafe]'
-                        }`}
-                      >
-                        {column.key === '__select__' ? (
-                          <Checkbox
-                            checked={allRowsSelected}
-                            onCheckedChange={toggleSelectAll}
-                            aria-label="Select all rows"
-                          />
-                        ) : (
-                          column.label
-                        )}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {rowsToRender.map((row) => (
-                    <tr key={row.id}>
-                      {visibleColumnList.map((column) => (
-                        <td
-                          key={`${row.id}-${column.key}`}
-                          className={`border-b border-r border-soft-border px-2 py-2 h-9 text-center ${
-                            column.key === '__select__' ? 'sticky left-0 z-10 bg-white border-l shadow-[2px_0_4px_-1px_rgba(0,0,0,0.08)]' : ''
+        {/* Single unified table — all three sections share the same <tr> so rows are always pixel-perfect aligned.
+            Spacer columns (w-3, no border) create the visual gap that makes the sections look separate. */}
+        <div className="overflow-x-auto">
+          <table className="border-separate border-spacing-0 text-sm" style={{ minWidth: '1400px' }}>
+            <thead>
+              <tr>
+                {/* ── Main inventory columns ── */}
+                {visibleColumnList.map((column) => (
+                  <th
+                    key={column.key}
+                    className={`border-t border-b border-r border-soft-border px-2 h-10 whitespace-nowrap text-center text-xs font-semibold text-black ${
+                      column.key === '__select__' ? 'sticky left-0 z-20 border-l bg-[#dbeafe]' : 'bg-[#dbeafe]'
+                    }`}
+                  >
+                    {column.key === '__select__' ? (
+                      <Checkbox
+                        checked={allRowsSelected}
+                        onCheckedChange={toggleSelectAll}
+                        aria-label="Select all rows"
+                      />
+                    ) : (
+                      column.label
+                    )}
+                  </th>
+                ))}
+
+                {/* ── Gap spacer ── */}
+                <th className="border-0 p-0" style={{ width: '32px', minWidth: '32px', position: 'sticky', right: '292px', backgroundColor: 'white', zIndex: 22 }} aria-hidden="true" />
+
+                {/* ── TOTAL IN DEMAND ── */}
+                <th className="border-t border-b border-l border-r border-soft-border px-2 h-10 whitespace-nowrap text-center text-xs font-semibold text-black bg-[#dbeafe]" style={{ minWidth: '100px', position: 'sticky', right: '192px', zIndex: 22, boxShadow: '-4px 0 6px -2px rgba(0,0,0,0.10)' }}>
+                  TOTAL IN DEMAND
+                </th>
+
+                {/* ── Gap spacer ── */}
+                <th className="border-0 p-0" style={{ width: '32px', minWidth: '32px', position: 'sticky', right: '160px', backgroundColor: 'white', zIndex: 22 }} aria-hidden="true" />
+
+                {/* ── ORDER PICK LIST (with dropdown) ── */}
+                <th className="border-t border-b border-l border-r border-soft-border px-2 h-10 text-xs font-semibold text-black bg-[#dbeafe] relative" style={{ minWidth: '160px', position: 'sticky', right: '0', zIndex: 22 }}>
+                  <div className="relative">
+                    <button
+                      onClick={() => setIsPicklistDropdownOpen(!isPicklistDropdownOpen)}
+                      className="w-full text-left px-1 rounded hover:bg-trust-blue/10 transition-colors whitespace-nowrap leading-tight text-[11px] tracking-wide"
+                    >
+                      {selectedPicklistData
+                        ? `${selectedPicklistData.number ? `#${selectedPicklistData.number} — ` : ''}${selectedPicklistData.name}`
+                        : 'ORDER PICK LIST'}
+                    </button>
+                    {isPicklistDropdownOpen && (
+                      <div className="absolute left-0 right-0 top-full mt-0 bg-white border border-soft-border rounded shadow-lg z-30 max-h-48 overflow-y-auto">
+                        <button
+                          onClick={() => {
+                            setSelectedPicklist(null);
+                            setIsPicklistDropdownOpen(false);
+                          }}
+                          className={`w-full text-left px-3 py-2 text-sm border-b border-soft-border hover:bg-trust-blue/10 transition-colors font-semibold ${
+                            selectedPicklist === null ? 'bg-trust-blue/10' : ''
                           }`}
                         >
-                          {column.key === '__select__' ? (
-                            row.isEmpty ? null : (
-                              <Checkbox
-                                checked={selectedRows.has(row.id)}
-                                onCheckedChange={() => toggleRowSelection(row.id)}
-                              />
-                            )
-                          ) : row.isEmpty ? (
-                            ''
-                          ) : (
-                            <CompositeStockDisplay value={row[column.key]} />
-                          )}
-                        </td>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {isLoading && <p className="mt-2 text-sm text-cool-gray">Loading live stock data...</p>}
-            {error && <p className="mt-2 text-sm text-danger">{error}</p>}
-            {!isLoading && !error && filteredProducts.length === 0 && (
-              <p className="mt-2 text-sm text-cool-gray">No inventory data found.</p>
-            )}
-          </div>
-
-          <div className="xl:w-[10%] self-start relative">
-            <div className="border border-soft-border bg-white p-0">
-              <div className="h-10 border-b border-soft-border bg-[#dbeafe] text-[11px] font-semibold text-black flex items-center justify-center px-2 tracking-wide text-center whitespace-nowrap">
-                TOTAL IN DEMAND
-              </div>
-              {rowsToRender.length === 0 ? (
-                <div className="rounded-md border border-dashed border-soft-border p-3 text-sm text-cool-gray">
-                  No demand data.
-                </div>
-              ) : (
-                <div className="grid gap-0">
-                  {rowsToRender.map((row) => {
-                    const totalDemand = row.isEmpty ? '' : (totalInDemandByRowId.get(row.id) ?? '');
-                    return (
-                      <div
-                        key={`${row.id}-total-demand`}
-                        className="flex items-center justify-center border-b border-soft-border px-2 text-sm text-midnight-ink h-9"
-                      >
-                        {totalDemand}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="xl:w-[15%] self-start relative">
-            <div className="border border-soft-border bg-white p-0">
-              <div className="h-10 border-b border-soft-border bg-[#dbeafe] text-[11px] font-semibold text-black flex items-center justify-between px-2 relative tracking-wide">
-                <div className="flex-1">
-                  {picklists.length > 0 ? (
-                    <div className="relative">
-                      <button
-                        onClick={() => setIsPicklistDropdownOpen(!isPicklistDropdownOpen)}
-                        className="w-full text-left px-2 rounded hover:bg-trust-blue/10 transition-colors whitespace-nowrap leading-tight"
-                      >
-                        {selectedPicklist === null
-                          ? <span>VIEW ALL PRODUCTS</span>
-                          : selectedPicklist
-                          ? picklists.find((p) => p.id === selectedPicklist)?.name || 'Select'
-                          : 'SELECT PICKLIST'}
-                      </button>
-                      {isPicklistDropdownOpen && (
-                        <div className="absolute left-0 right-0 top-full mt-0 bg-white border border-soft-border rounded shadow-lg z-20 max-h-48 overflow-y-auto">
+                          <div className="text-deep-blue">ORDER PICK LIST</div>
+                          <div className="text-cool-gray text-sm">Show all {products.length} products</div>
+                        </button>
+                        {picklists.map((picklist) => (
                           <button
+                            key={picklist.id}
                             onClick={() => {
-                              setSelectedPicklist(null);
+                              setSelectedPicklist(picklist.id);
                               setIsPicklistDropdownOpen(false);
                             }}
-                            className={`w-full text-left px-3 py-2 text-sm border-b border-soft-border hover:bg-trust-blue/10 transition-colors font-semibold ${
-                              selectedPicklist === null ? 'bg-trust-blue/10' : ''
+                            className={`w-full text-left px-3 py-2 text-sm border-b border-soft-border hover:bg-trust-blue/10 transition-colors ${
+                              selectedPicklist === picklist.id ? 'bg-trust-blue/10 font-semibold' : ''
                             }`}
                           >
-                            <div className="text-deep-blue">VIEW ALL PRODUCTS</div>
-                            <div className="text-cool-gray text-sm">Show all {products.length} products</div>
+                            <div className="font-medium">
+                              {picklist.number ? `#${picklist.number} — ` : ''}{picklist.name}
+                            </div>
+                            <div className="text-cool-gray text-xs">
+                              {picklist.dateFormatted || (picklist.date ? new Date(picklist.date).toLocaleString() : '')}
+                              {picklist.uploadedBy ? ` · ${picklist.uploadedBy}` : ''}
+                            </div>
+                            <div className="text-cool-gray text-xs">
+                              {(picklist.items || []).length} parsed item{(picklist.items || []).length !== 1 ? 's' : ''}
+                            </div>
                           </button>
-                          {picklists.map((picklist) => (
-                            <button
-                              key={picklist.id}
-                              onClick={() => {
-                                setSelectedPicklist(picklist.id);
-                                setIsPicklistDropdownOpen(false);
-                              }}
-                              className={`w-full text-left px-3 py-2 text-sm border-b border-soft-border hover:bg-trust-blue/10 transition-colors ${
-                                selectedPicklist === picklist.id ? 'bg-trust-blue/10 font-semibold' : ''
-                              }`}
-                            >
-                              <div className="font-medium">{picklist.name}</div>
-                              <div className="text-cool-gray text-sm">
-                                {picklist.dateFormatted || new Date(picklist.date || picklist.createdAt).toLocaleString()}
-                              </div>
-                              <div className="text-cool-gray text-sm">
-                                {(picklist.items || []).length} product{(picklist.items || []).length !== 1 ? 's' : ''}
-                              </div>
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <span>ORDER PICK LIST</span>
-                  )}
-                </div>
-              </div>
-              {rowsToRender.length === 0 ? (
-                <div className="rounded-md border border-dashed border-soft-border p-3 text-sm text-cool-gray">
-                  No incoming orders yet.
-                </div>
-              ) : (
-                <div className="grid gap-0">
-                  {rowsToRender.map((row, index) => {
-                    const product = sortedProducts[index];
-                    return (
-                      <div
-                        key={`${row.id}-order`}
-                        className="flex items-center border-b border-soft-border px-2 text-sm text-midnight-ink h-9"
-                      >
-                        {product?.sku || ''}
+                        ))}
+                        {picklists.length === 0 && (
+                          <div className="px-3 py-2 text-sm text-cool-gray">
+                            No uploaded picklists found.
+                          </div>
+                        )}
                       </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          </div>
+                    )}
+                  </div>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {rowsToRender.map((row, index) => (
+                <tr key={row.id}>
+                  {/* ── Main inventory cells ── */}
+                  {visibleColumnList.map((column) => (
+                    <td
+                      key={`${row.id}-${column.key}`}
+                      className={`border-b border-r border-soft-border px-2 h-9 text-center ${
+                        column.key === '__select__' ? 'sticky left-0 z-10 bg-white border-l shadow-[2px_0_4px_-1px_rgba(0,0,0,0.08)]' : ''
+                      }`}
+                    >
+                      {column.key === '__select__' ? (
+                        row.isEmpty ? null : (
+                          <Checkbox
+                            checked={selectedRows.has(row.id)}
+                            onCheckedChange={() => toggleRowSelection(row.id)}
+                          />
+                        )
+                      ) : row.isEmpty ? (
+                        ''
+                      ) : (
+                        <CompositeStockDisplay value={row[column.key]} />
+                      )}
+                    </td>
+                  ))}
+
+                  {/* ── Gap spacer ── */}
+                  <td className="border-0 p-0" style={{ width: '32px', minWidth: '32px', position: 'sticky', right: '292px', backgroundColor: 'white', zIndex: 12 }} aria-hidden="true" />
+
+                  {/* ── TOTAL IN DEMAND cell ── */}
+                  <td className="border-b border-l border-r border-soft-border px-2 h-9 text-center text-sm text-midnight-ink bg-white" style={{ position: 'sticky', right: '192px', zIndex: 12, boxShadow: '-4px 0 6px -2px rgba(0,0,0,0.10)' }}>
+                    {row.isEmpty ? '' : (totalInDemandByRowId.get(row.id) ?? '')}
+                  </td>
+
+                  {/* ── Gap spacer ── */}
+                  <td className="border-0 p-0" style={{ width: '32px', minWidth: '32px', position: 'sticky', right: '160px', backgroundColor: 'white', zIndex: 12 }} aria-hidden="true" />
+
+                  {/* ── ORDER PICK LIST cell ── */}
+                  <td className="border-b border-l border-r border-soft-border px-2 h-9 text-sm text-midnight-ink bg-white" style={{ position: 'sticky', right: '0', zIndex: 12 }}>
+                    {row.isEmpty ? '' : (sortedProducts[index]?.sku || '')}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
+
+        {isLoading && <p className="mt-2 text-sm text-cool-gray">Loading live stock data...</p>}
+        {error && <p className="mt-2 text-sm text-danger">{error}</p>}
+        {!isLoading && !error && filteredProducts.length === 0 && (
+          <p className="mt-2 text-sm text-cool-gray">No inventory data found.</p>
+        )}
       </div>
 
       <CreateJobModal

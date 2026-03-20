@@ -28,6 +28,8 @@ import {
 import Link from 'next/link';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
 import DateTimeStamp from '@/components/date-time-stamp';
+import GlobalSearchBar from '@/components/global-search-bar';
+import BulkUploadButton from '@/components/bulk-upload-button';
 
 export default function MasterProductSheet() {
   const PRODUCT_SHEET_SYNC_KEY = 'product_sheet_updated_at';
@@ -728,10 +730,11 @@ export default function MasterProductSheet() {
         {/* Header Section */}
         <div className="transition-[left,width] duration-300 ease-in-out fixed top-0 left-0 right-0 z-[60] bg-white/95 py-2 border-b border-soft-border shadow-sm backdrop-blur px-3 md:px-4">
           <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 shrink-0">
               <MasterNavigationDrawer inHeader />
               <h1 className="text-xl font-bold tracking-tight text-midnight-ink">MASTER PRODUCT SHEET</h1>
             </div>
+            <GlobalSearchBar />
             <DateTimeStamp />
           </div>
         </div>
@@ -757,6 +760,7 @@ export default function MasterProductSheet() {
           >
             {isLoading ? 'Refreshing...' : 'Refresh'}
           </Button>
+          <BulkUploadButton sheetType="products" onComplete={loadProducts} />
           <Button 
             onClick={handleCreateProduct}
             className="bg-success hover:bg-success text-white rounded-full px-6"

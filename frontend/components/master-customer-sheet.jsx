@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Search } from 'lucide-react';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
+import GlobalSearchBar from '@/components/global-search-bar';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
@@ -15,6 +16,7 @@ import {
 } from '@/components/ui/dialog';
 import DateTimeStamp from '@/components/date-time-stamp';
 import { EnrollCustomerForm } from '@/components/enroll-customer';
+import BulkUploadButton from '@/components/bulk-upload-button';
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -274,10 +276,11 @@ export default function MasterCustomerSheet() {
 			<div className="pt-16 px-3 md:px-4 pb-3 md:pb-4">
 				<div className="transition-[left,width] duration-300 ease-in-out fixed top-0 left-0 right-0 z-[60] bg-white/95 py-2 border-b border-soft-border shadow-sm backdrop-blur px-3 md:px-4">
 					<div className="flex items-center justify-between gap-4">
-						<div className="flex items-center gap-3">
+						<div className="flex items-center gap-3 shrink-0">
 							<MasterNavigationDrawer inHeader />
 							<h1 className="text-xl font-bold tracking-tight text-midnight-ink">MASTER CUSTOMER SHEET</h1>
 						</div>
+						<GlobalSearchBar />
 						<DateTimeStamp />
 					</div>
 				</div>
@@ -298,6 +301,7 @@ export default function MasterCustomerSheet() {
 						<Button onClick={loadCustomerData} variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-6" disabled={isLoading}>
 							{isLoading ? 'Refreshing...' : 'Refresh'}
 						</Button>
+						<BulkUploadButton sheetType="customers" onComplete={loadCustomerData} />
 						<Button onClick={handleAddEmptyRow} className="bg-success hover:bg-success text-white rounded-full px-6">
 							Add Customer
 						</Button>
@@ -351,7 +355,7 @@ export default function MasterCustomerSheet() {
 									).map((column) => (
 										<th
 											key={column.key}
-											className={`p-3 text-left text-sm font-semibold text-slate-text ${
+										className={`p-3 text-left text-sm font-semibold text-midnight-ink ${
 												columnConfig[column.key]?.headerBg || 'bg-cloud-gray'
 											} ${columnConfig[column.key]?.minWidth} cursor-pointer hover:opacity-80`}
 											onClick={() => handleSort(column.key)}

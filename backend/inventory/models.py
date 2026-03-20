@@ -23,3 +23,37 @@ class InventoryTransaction(AuditModel):
 
 	def __str__(self):
 		return f'{self.product.sku} | {self.txn_type} | {self.quantity}'
+
+
+class PicklistGroup(AuditModel):
+	group_id = models.CharField(max_length=120, unique=True)
+	number = models.PositiveIntegerField(unique=True)
+	name = models.CharField(max_length=255)
+	uploaded_by = models.CharField(max_length=120, blank=True)
+	uploaded_at = models.DateTimeField()
+
+	class Meta:
+		ordering = ('-number', '-uploaded_at')
+
+	def __str__(self):
+		return f'Picklist {self.number} | {self.name}'
+
+
+class PicklistItem(AuditModel):
+	group = models.ForeignKey(
+		PicklistGroup,
+		on_delete=models.CASCADE,
+		related_name='items',
+	)
+	sku = models.CharField(max_length=60)
+	listing_name = models.CharField(max_length=255, blank=True)
+	needed = models.PositiveIntegerField(default=0)
+
+	class Meta:
+		ordering = ('id',)
+		constraints = [
+			models.UniqueConstraint(fields=('group', 'sku'), name='unique_picklist_sku_per_group'),
+		]
+
+	def __str__(self):
+		return f'{self.group.number} | {self.sku} | {self.needed}'
