@@ -447,19 +447,38 @@ export default function MasterInventorySheet() {
   const filteredProducts = useMemo(() => {
     const normalizedSearch = effectiveSearch.toLowerCase();
 
-    return products.filter((product) => {
-      // Filter by picklist if one is selected
-      if (selectedPicklist) {
-        const currentPicklist = picklists.find((p) => p.id === selectedPicklist);
-        const productSku = String(product.sku || product.masterSku || '').trim().toUpperCase();
-        const picklistSkus = new Set(
-          (currentPicklist?.items || []).map((item) => String(item.sku || '').trim().toUpperCase())
-        );
-        if (currentPicklist && picklistSkus.size > 0 && !picklistSkus.has(productSku)) {
-          return false;
-        }
-      }
+    // When a picklist is selected, drive rows from the picklist items themselves.
+    // For any item whose SKU matches a product in the DB we use full product data;
+    // for items with no matching product we synthesise a minimal row so they still appear.
+    if (selectedPicklist) {
+      const currentPicklist = picklists.find((p) => p.id === selectedPicklist);
+      const items = currentPicklist?.items || [];
 
+      if (items.length > 0) {
+        const productBySku = new Map(
+          products.map((p) => [String(p.sku || p.masterSku || '').trim().toUpperCase(), p])
+        );
+
+        return items.map((item) => {
+          const sku = String(item.sku || '').trim().toUpperCase();
+          const existing = productBySku.get(sku);
+          if (existing) return existing;
+          // Picklist item with no matching product in DB — show row with SKU only
+          return {
+            id: `pl-${sku}`,
+            sku,
+            masterSku: sku,
+            listingName: item.listingName || sku,
+            totalInDemand: 0,
+            liveStock: {},
+            finalStock: [],
+            dieNumberFindings: [],
+          };
+        });
+      }
+    }
+
+    return products.filter((product) => {
       const matchesFilters = FILTER_FIELDS.every((field) => {
         const selected = filterSelections[field.key];
         if (!selected || selected.size === 0) {
