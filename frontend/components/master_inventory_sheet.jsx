@@ -1317,10 +1317,10 @@ export default function MasterInventorySheet() {
           </select>
         </div>
         <div className="flex items-center gap-3">
-          <span>{inventoryRows.length === 0 ? '0' : `${(safeInventoryPage - 1) * rowsPerPage + 1}–${Math.min(safeInventoryPage * rowsPerPage, inventoryRows.length)}`} of {inventoryRows.length}</span>
-          <button onClick={() => setCurrentPage((p) => Math.max(1, p - 1))} disabled={safeInventoryPage <= 1} className="px-2 py-1 border border-soft-border rounded disabled:opacity-40 hover:bg-cloud-gray">‹</button>
+          <span>{inventoryRows.length === 0 ? '0' : `${(safeInventoryPage - 1) * rowsPerPage + 1}-${Math.min(safeInventoryPage * rowsPerPage, inventoryRows.length)}`} of {inventoryRows.length}</span>
+          <button onClick={() => setCurrentPage((p) => Math.max(1, p - 1))} disabled={safeInventoryPage <= 1} className="px-2 py-1 border border-soft-border rounded disabled:opacity-40 hover:bg-cloud-gray">&lsaquo;</button>
           <span>{safeInventoryPage} / {totalInventoryPages}</span>
-          <button onClick={() => setCurrentPage((p) => Math.min(totalInventoryPages, p + 1))} disabled={safeInventoryPage >= totalInventoryPages} className="px-2 py-1 border border-soft-border rounded disabled:opacity-40 hover:bg-cloud-gray">›</button>
+          <button onClick={() => setCurrentPage((p) => Math.min(totalInventoryPages, p + 1))} disabled={safeInventoryPage >= totalInventoryPages} className="px-2 py-1 border border-soft-border rounded disabled:opacity-40 hover:bg-cloud-gray">&rsaquo;</button>
         </div>
         <div className="flex gap-4">
           <span>Selected: {selectedRows.size}</span>
