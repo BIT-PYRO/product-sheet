@@ -150,6 +150,22 @@ export default function HomePage() {
     loadSession();
   }, [router]);
 
+  // Listen for profile photo updates from the profile page
+  useEffect(() => {
+    function onPhotoUpdated(e) {
+      setProfilePhoto(e.detail?.photo || null);
+    }
+    window.addEventListener('profile_photo_updated', onPhotoUpdated);
+    return () => window.removeEventListener('profile_photo_updated', onPhotoUpdated);
+  }, []);
+
+  function getInitials() {
+    const f = userInfo?.first_name?.[0] || '';
+    const l = userInfo?.last_name?.[0] || '';
+    if (f || l) return (f + l).toUpperCase();
+    return (userInfo?.username || username)?.[0]?.toUpperCase() || '?';
+  }
+
   useEffect(() => {
     function handleClickOutside(e) {
       if (searchRef.current && !searchRef.current.contains(e.target)) {
