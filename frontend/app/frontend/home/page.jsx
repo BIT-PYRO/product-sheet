@@ -25,6 +25,7 @@ const SHEET_BLOCKS = [
   { href: '#my-desk', title: 'My Desk', subtitle: 'Coming soon', keywords: ['desk', 'personal', 'my work'] },
   { href: '#create-generic-job', title: 'Create Generic Job', subtitle: 'Create jobs for any type of work', keywords: ['job', 'generic', 'create', 'work', 'assignment', 'electrical', 'plumbing', 'labour'] },
   { href: '/master-designer-sheet', title: 'Master Designer Sheet', subtitle: 'Designer records and details', keywords: ['designer', 'records', 'details', 'master', 'design'] },
+  { href: '/finding-sheet', title: 'Findings Sheet', subtitle: 'Finding records and details', keywords: ['finding', 'findings', 'die number', 'size', 'quantity', 'weight', 'sheet'] },
 ];
 
 export default function HomePage() {
