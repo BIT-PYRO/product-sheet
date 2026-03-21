@@ -319,13 +319,19 @@ export async function POST(request) {
     }
 
     const productPayload = mapIncomingToProductPayload(data);
-    const existing = await resolveProductBySku(request, sku);
+
+    // If the client already knows the product ID (loaded via Edit dialog), skip the search.
+    let existingId = data?.existingProductId ? Number(data.existingProductId) : null;
+    if (!existingId) {
+      const found = await resolveProductBySku(request, sku).catch(() => null);
+      existingId = found?.id ?? null;
+    }
 
     let savedProduct = null;
     let isUpdate = false;
 
-    if (existing) {
-      const patchResult = await fetchJsonWithSession(request, `/api/products/${existing.id}`, {
+    if (existingId) {
+      const patchResult = await fetchJsonWithSession(request, `/api/products/${existingId}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -337,13 +343,13 @@ export async function POST(request) {
         return Response.json(
           {
             success: false,
-            message: patchResult.payload?.message || 'Failed to update product.',
+            message: patchResult.payload?.message || patchResult.payload?.detail || 'Failed to update product.',
           },
           { status: patchResult.response.status || 500 }
         );
       }
 
-      savedProduct = patchResult.payload?.data || existing;
+      savedProduct = patchResult.payload?.data || { id: existingId };
       isUpdate = true;
     } else {
       const createResult = await fetchJsonWithSession(request, '/api/products', {
@@ -369,7 +375,11 @@ export async function POST(request) {
     }
 
     if (savedProduct?.id) {
-      await syncInventoryToFinalStock(request, savedProduct.id, sku, data?.finalStock);
+      try {
+        await syncInventoryToFinalStock(request, savedProduct.id, sku, data?.finalStock);
+      } catch {
+        // Inventory sync is best-effort; do not fail the whole save.
+      }
     }
 
     return Response.json({
@@ -381,7 +391,7 @@ export async function POST(request) {
     return Response.json(
       {
         success: false,
-        message: 'Failed to save product.',
+        message: error.message || 'Failed to save product.',
         error: error.message,
       },
       { status: 500 }

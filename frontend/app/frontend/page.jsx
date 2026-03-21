@@ -276,6 +276,7 @@ function ProductSheetContent() {
     setIsModalOpen(false)
     setSaveStatus(null)
     setShowViewSheetButton(false)
+    setEditProductId(null)
   }, [])
 
   const handleAddProduct = () => {
@@ -338,6 +339,7 @@ function ProductSheetContent() {
     productImages,
     primaryImageIndex,
     designer,
+    existingProductId: editProductId,
     ...overrideValues,
   })
 
