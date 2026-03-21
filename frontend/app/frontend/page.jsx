@@ -1,7 +1,7 @@
 'use client'
 
 import React, { Suspense } from "react"
-import { Trash2, Download, Eye, Upload } from 'lucide-react'
+import { Trash2, Download, Eye, Upload, Edit3 } from 'lucide-react'
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -910,7 +910,12 @@ function ProductSheetContent() {
       }
     };
     
-    const handleDeleteProduct = async () => {
+    const handleEditProduct = () => {
+    // Add real edit behavior as needed
+    alert('Edit product')
+  }
+
+  const handleDeleteProduct = async () => {
       if (!sku) {
         setSaveStatus({ success: false, message: 'Please enter a SKU to delete' });
         setTimeout(() => setSaveStatus(null), 4000);
@@ -993,6 +998,10 @@ function ProductSheetContent() {
             </span>
           )}
           <DateTimeStamp className="mr-1 text-xs" />
+          <button onClick={handleEditProduct} className="w-fit px-3 h-8 text-sm bg-trust-blue text-white font-semibold rounded-full shadow-sm hover:bg-deep-blue flex items-center gap-1">
+            <Edit3 className="h-3.5 w-3.5" />
+            EDIT
+          </button>
           <button onClick={handleAddProduct} className="w-fit px-3 h-8 text-sm bg-trust-blue text-white font-semibold rounded-full shadow-sm hover:bg-deep-blue">+ ADD PRODUCT</button>
           <button onClick={handleSaveProduct} disabled={isSaving} className="w-fit px-3 h-8 text-sm bg-success text-white font-semibold rounded-full shadow-sm hover:bg-success/90 disabled:opacity-50 disabled:cursor-not-allowed">{isSaving ? 'Saving...' : 'SAVE'}</button>
           <button onClick={handleDeleteProduct} disabled={isSaving} className="w-fit px-3 h-8 text-sm bg-danger text-white font-semibold rounded-full shadow-sm hover:bg-danger/90 disabled:opacity-50 disabled:cursor-not-allowed">DELETE</button>

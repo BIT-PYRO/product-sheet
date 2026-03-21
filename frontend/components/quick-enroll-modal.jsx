@@ -104,15 +104,6 @@ export function QuickEnrollModal({ open, onOpenChange, onEnroll }) {
       console.error('Quick enroll failed', error)
       alert(`Error: ${error.message || 'Unable to enroll workforce member.'}`)
     }
-    onOpenChange(false)
-    setFirstName("")
-    setLastName("")
-    setContactNumber("")
-    setLocation("Dwarka Niwas, Jaipur")
-    setDesignation("")
-    setDesignationOther("")
-    setRemarks("")
-    setPhotoFileName("")
   }
 
   function handleSaveDraft() {
