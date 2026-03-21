@@ -188,19 +188,65 @@ function mapProductSummaryRows(products = [], inventorySummaryRows = []) {
   });
 }
 
-async function fetchJsonWithSession(request, path, init = {}) {
-  const origin = request.nextUrl.origin;
-  const headers = new Headers(init.headers || {});
+const DEFAULT_BACKEND_URL = 'https://product-sheet.onrender.com';
+const ACCESS_COOKIE = 'psd-access-token';
+const REFRESH_COOKIE = 'psd-refresh-token';
 
-  if (!headers.has('cookie')) {
-    headers.set('cookie', request.headers.get('cookie') || '');
+function backendBaseUrl() {
+  return (process.env.BACKEND_BASE_URL || DEFAULT_BACKEND_URL).replace(/\/$/, '');
+}
+
+// Map internal /api/<resource>[/<id>][?query] → Django /api/v1/<resource>[/<id>/][?query]
+function toBackendPath(internalPath) {
+  // Strip leading /api/ and resolve to /api/v1/
+  const withoutPrefix = internalPath.replace(/^\/api\//, '');
+  // Split off query string
+  const qIdx = withoutPrefix.indexOf('?');
+  const qs = qIdx >= 0 ? withoutPrefix.slice(qIdx) : '';
+  const resource = qIdx >= 0 ? withoutPrefix.slice(0, qIdx) : withoutPrefix;
+  // Ensure trailing slash on the path part (Django requires it)
+  const resourceWithSlash = resource.endsWith('/') ? resource : `${resource}/`;
+  return `/api/v1/${resourceWithSlash}${qs}`;
+}
+
+async function refreshAccessToken(refreshToken) {
+  if (!refreshToken) return null;
+  try {
+    const res = await fetch(`${backendBaseUrl()}/api/v1/auth/refresh/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh: refreshToken }),
+      cache: 'no-store',
+    });
+    const payload = await res.json().catch(() => null);
+    return payload?.data?.access || null;
+  } catch {
+    return null;
   }
+}
 
-  const response = await fetch(`${origin}${path}`, {
-    ...init,
-    headers,
-    cache: 'no-store',
-  });
+async function fetchJsonWithSession(request, path, init = {}) {
+  const accessToken = request.cookies.get(ACCESS_COOKIE)?.value || '';
+  const refreshToken = request.cookies.get(REFRESH_COOKIE)?.value || '';
+  const backendPath = toBackendPath(path);
+  const url = `${backendBaseUrl()}${backendPath}`;
+
+  const doFetch = async (token) => {
+    const headers = new Headers(init.headers || {});
+    if (token) headers.set('Authorization', `Bearer ${token}`);
+    if (!headers.has('Content-Type') && init.body) headers.set('Content-Type', 'application/json');
+    return fetch(url, { ...init, headers, cache: 'no-store' });
+  };
+
+  let response = await doFetch(accessToken);
+
+  // Retry once with a refreshed token on 401
+  if (response.status === 401 && refreshToken) {
+    const newToken = await refreshAccessToken(refreshToken);
+    if (newToken) {
+      response = await doFetch(newToken);
+    }
+  }
 
   const payload = await response.json().catch(() => null);
   return { response, payload };
@@ -264,9 +310,9 @@ async function syncInventoryToFinalStock(request, productId, sku, finalStock) {
 
 export async function GET(request) {
   try {
-    const [productsResult, summaryResult] = await Promise.all([
+    const [productsResult, inventoryResult] = await Promise.all([
       fetchJsonWithSession(request, '/api/products'),
-      fetchJsonWithSession(request, '/api/inventory-summary'),
+      fetchJsonWithSession(request, '/api/inventory'),
     ]);
 
     if (!productsResult.response.ok || !productsResult.payload?.success) {
@@ -280,10 +326,40 @@ export async function GET(request) {
     }
 
     const products = asArray(productsResult.payload.data);
-    const summaryRows =
-      summaryResult.response.ok && summaryResult.payload?.success
-        ? summaryResult.payload.products || []
+    const transactions =
+      inventoryResult.response.ok && inventoryResult.payload?.success
+        ? asArray(inventoryResult.payload.data)
         : [];
+
+    // Build per-product stock summary inline (same logic as inventory-summary/route.js).
+    // This avoids a loopback call to /api/inventory-summary which is a frontend-only route.
+    const qtyByProduct = new Map();
+    transactions.forEach((txn) => {
+      const pid = txn?.product;
+      if (!pid) return;
+      const qty = Number(txn?.quantity || 0);
+      if (String(txn?.txn_type || '').trim().toLowerCase() === 'demand') return;
+      const cur = qtyByProduct.get(pid) || 0;
+      qtyByProduct.set(pid, txn?.txn_type === 'out' ? cur - qty : cur + qty);
+    });
+
+    const summaryRows = products.map((p) => {
+      const currentStock = qtyByProduct.get(p.id) || 0;
+      return {
+        sku: p.sku || '',
+        liveStock: {
+          rawMaterial: { min: '', current: String(currentStock), wip: '', location: '' },
+          rawSetting: { min: '', current: '', wip: '', location: '' },
+          wipLiquidCasting: { min: '', current: '', wip: '', location: '' },
+          filing: { min: '', current: '', wip: '', location: '' },
+          packing: { min: '', current: '', wip: '', location: '' },
+          setting: { min: '', current: '', wip: '', location: '' },
+          finalPolish: { min: '', current: '', wip: '', location: '' },
+          readyForPlacing: { min: '', current: '', wip: '', location: '' },
+        },
+        finalStock: [{ sku: p.sku || '', value: String(currentStock), unit: 'pcs' }],
+      };
+    });
 
     return Response.json({
       success: true,
