@@ -1,9 +1,13 @@
 import { NextResponse } from 'next/server';
 import * as XLSX from 'xlsx';
 
+export const maxDuration = 60; // seconds – extend execution window on Vercel / Render
+
 const ACCESS_COOKIE = 'psd-access-token';
 const REFRESH_COOKIE = 'psd-refresh-token';
 const DEFAULT_BACKEND_URL = 'https://product-sheet.onrender.com';
+const MAX_FILE_SIZE_MB = 500;
+const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
 
 function backendBaseUrl() {
   return (process.env.BACKEND_BASE_URL || DEFAULT_BACKEND_URL).replace(/\/$/, '');
@@ -274,61 +278,71 @@ async function uploadProducts(client, rows) {
   let skippedCount = 0;
   const failures = [];
 
-  for (const [index, row] of rows.entries()) {
+  // Build per-row tasks first so we can run them in parallel batches
+  const tasks = rows.map((row, index) => {
     const sku = String(pickValue(row, ['sku', 'mastersku', 'mastersku', 'productsku'])).trim();
     const name = String(pickValue(row, ['listingname', 'name', 'productname', 'title'], sku)).trim();
+    return { row, index, sku, name };
+  });
 
-    if (!sku) {
-      skippedCount += 1;
-      continue;
-    }
+  const BATCH_SIZE = 5;
 
-    const payload = {
-      sku,
-      name: name || sku,
-      category: String(pickValue(row, ['category'])).trim(),
-      selling_price: toNumber(pickValue(row, ['sellingprice', 'selling_price', 'price']), 0),
-      cost_price: toNumber(pickValue(row, ['costprice', 'cost_price']), 0),
-      is_active: toBoolean(pickValue(row, ['isactive', 'active', 'shopifystatus'], true), true),
-      material: String(pickValue(row, ['material'])).trim(),
-      weight: String(pickValue(row, ['weight'])).trim(),
-      collection: String(pickValue(row, ['collection'])).trim(),
-      setting_type: String(pickValue(row, ['settingtype', 'setting_type', 'setting'])).trim(),
-      enamel_type: String(pickValue(row, ['enameltype', 'enamel_type', 'enamel'])).trim(),
-      active_channels: String(pickValue(row, ['activechannels', 'active_channels', 'channels'])).trim(),
-      master_sku: String(pickValue(row, ['mastersku', 'master_sku'])).trim(),
-      color: String(pickValue(row, ['color'])).trim(),
-      stone_name: String(pickValue(row, ['stonename', 'stone_name', 'stone'])).trim(),
-      stone_cut: String(pickValue(row, ['stonecut', 'stone_cut'])).trim(),
-      stone_color: String(pickValue(row, ['stonecolor', 'stone_color'])).trim(),
-      stone_size: String(pickValue(row, ['stonesize', 'stone_size'])).trim(),
-      stone_quantity: String(pickValue(row, ['stonequantity', 'stone_quantity'])).trim(),
-      plating_type: String(pickValue(row, ['platingtype', 'plating_type', 'plating'])).trim(),
-      plating_color: String(pickValue(row, ['platingcolor', 'plating_color'])).trim(),
-      notes: String(pickValue(row, ['notes', 'note', 'remarks'])).trim(),
-    };
+  for (let batchStart = 0; batchStart < tasks.length; batchStart += BATCH_SIZE) {
+    const batch = tasks.slice(batchStart, batchStart + BATCH_SIZE);
 
-    const existing = productBySku.get(sku.toUpperCase());
-    const path = existing ? `/api/v1/products/${existing.id}/` : '/api/v1/products/';
-    const method = existing ? 'PATCH' : 'POST';
-    const { response, payload: result } = await client.request(path, {
-      method,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
+    await Promise.all(batch.map(async ({ row, index, sku, name }) => {
+      if (!sku) {
+        skippedCount += 1;
+        return;
+      }
 
-    if (!response.ok) {
-      failures.push(`Row ${index + 2}: ${errorMessageFromPayload(result, `Failed to save product ${sku}`)}`);
-      continue;
-    }
+      const payload = {
+        sku,
+        name: name || sku,
+        category: String(pickValue(row, ['category'])).trim(),
+        selling_price: toNumber(pickValue(row, ['sellingprice', 'selling_price', 'price']), 0),
+        cost_price: toNumber(pickValue(row, ['costprice', 'cost_price']), 0),
+        is_active: toBoolean(pickValue(row, ['isactive', 'active', 'shopifystatus'], true), true),
+        material: String(pickValue(row, ['material'])).trim(),
+        weight: String(pickValue(row, ['weight'])).trim(),
+        collection: String(pickValue(row, ['collection'])).trim(),
+        setting_type: String(pickValue(row, ['settingtype', 'setting_type', 'setting'])).trim(),
+        enamel_type: String(pickValue(row, ['enameltype', 'enamel_type', 'enamel'])).trim(),
+        active_channels: String(pickValue(row, ['activechannels', 'active_channels', 'channels'])).trim(),
+        master_sku: String(pickValue(row, ['mastersku', 'master_sku'])).trim(),
+        color: String(pickValue(row, ['color'])).trim(),
+        stone_name: String(pickValue(row, ['stonename', 'stone_name', 'stone'])).trim(),
+        stone_cut: String(pickValue(row, ['stonecut', 'stone_cut'])).trim(),
+        stone_color: String(pickValue(row, ['stonecolor', 'stone_color'])).trim(),
+        stone_size: String(pickValue(row, ['stonesize', 'stone_size'])).trim(),
+        stone_quantity: String(pickValue(row, ['stonequantity', 'stone_quantity'])).trim(),
+        plating_type: String(pickValue(row, ['platingtype', 'plating_type', 'plating'])).trim(),
+        plating_color: String(pickValue(row, ['platingcolor', 'plating_color'])).trim(),
+        notes: String(pickValue(row, ['notes', 'note', 'remarks'])).trim(),
+      };
 
-    if (existing) {
-      updatedCount += 1;
-    } else {
-      createdCount += 1;
-      const saved = result?.data || {};
-      productBySku.set(sku.toUpperCase(), saved);
-    }
+      const existing = productBySku.get(sku.toUpperCase());
+      const path = existing ? `/api/v1/products/${existing.id}/` : '/api/v1/products/';
+      const method = existing ? 'PATCH' : 'POST';
+      const { response, payload: result } = await client.request(path, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        failures.push(`Row ${index + 2}: ${errorMessageFromPayload(result, `Failed to save product ${sku}`)}`);
+        return;
+      }
+
+      if (existing) {
+        updatedCount += 1;
+      } else {
+        createdCount += 1;
+        const saved = result?.data || {};
+        productBySku.set(sku.toUpperCase(), saved);
+      }
+    }));
   }
 
   return { createdCount, updatedCount, skippedCount, failures, label: 'Product sheet' };
@@ -709,6 +723,13 @@ export async function POST(request) {
       return NextResponse.json({ success: false, message: 'Please upload a file.' }, { status: 400 });
     }
 
+    if (file.size > MAX_FILE_SIZE_BYTES) {
+      return NextResponse.json(
+        { success: false, message: `File is too large (${(file.size / 1024 / 1024).toFixed(1)} MB). Maximum allowed size is ${MAX_FILE_SIZE_MB} MB.` },
+        { status: 413 }
+      );
+    }
+
     const handler = UPLOAD_HANDLERS[sheetType];
     if (!handler) {
       return NextResponse.json({ success: false, message: 'Unsupported bulk upload sheet type.' }, { status: 400 });
@@ -734,8 +755,14 @@ export async function POST(request) {
       failures: result.failures,
     }, { status: result.failures.length > 0 && result.createdCount === 0 && result.updatedCount === 0 ? 400 : 200 });
   } catch (error) {
+    const message = (typeof error?.message === 'string' && error.message.trim())
+      ? error.message.trim()
+      : (typeof error === 'string' && error.trim())
+        ? error.trim()
+        : 'Bulk upload failed. Check server logs for details.';
+    console.error('[bulk-upload] Unhandled error:', error);
     return NextResponse.json(
-      { success: false, message: error.message || 'Bulk upload failed.' },
+      { success: false, message },
       { status: 500 }
     );
   }
