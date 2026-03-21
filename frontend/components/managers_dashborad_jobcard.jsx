@@ -412,7 +412,7 @@ export default function ManagersDashboard() {
         voucherData={selectedVoucherForReceive}
       />
 
-      <div className="pt-16 px-3 md:px-4 pb-3 md:pb-4">
+      <div className="pt-16 px-3 md:px-4 pb-16">
         {/* Header Section */}
         <div className="transition-[left,width] duration-300 ease-in-out fixed top-0 left-0 right-0 z-[60] bg-white/95 py-2 border-b border-soft-border shadow-sm backdrop-blur px-3 md:px-4">
           <div className="flex items-center justify-between gap-3">
@@ -662,6 +662,15 @@ export default function ManagersDashboard() {
           </table>
         </div>
       </div>
+
+      {/* Fixed Footer */}
+      <div className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-soft-border shadow-lg px-4 py-2 flex flex-wrap items-center justify-between gap-3 text-sm text-cool-gray">
+        <div className="flex gap-4">
+          <span>Total Vouchers: {Object.values(jobCardsData).reduce((sum, col) => sum + col.new.length + col.wip.length + col.completed.length, 0)}</span>
+          {isLoadingJobs && <span className="text-trust-blue">Loading...</span>}
+        </div>
+      </div>
+
       <CreateJobModal
         open={isCreateJobModalOpen}
         onOpenChange={setIsCreateJobModalOpen}

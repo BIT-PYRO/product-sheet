@@ -105,6 +105,8 @@ export default function MasterKYCSheet() {
   const [archivedRows, setArchivedRows] = useState(new Set());
   const [isArchivedView, setIsArchivedView] = useState(false);
   const [kycTypeFilter, setKycTypeFilter] = useState('All');
+  const [rowsPerPage, setRowsPerPage] = useState(25);
+  const [currentPage, setCurrentPage] = useState(1);
 
   const KYC_TYPE_OPTIONS = ['All', 'Customer', 'Work from Home', 'Vendor', 'Labour', 'Company'];
 
@@ -264,9 +266,13 @@ export default function MasterKYCSheet() {
     return sortDirection === 'asc' ? comparison : -comparison;
   });
 
+  const totalPages = Math.max(1, Math.ceil(sortedProducts.length / rowsPerPage));
+  const safePage = Math.min(currentPage, totalPages);
+  const paginatedKycData = sortedProducts.slice((safePage - 1) * rowsPerPage, safePage * rowsPerPage);
+
   return (
     <div className="min-h-screen bg-cloud-gray">
-      <div className="pt-16 px-3 md:px-4 pb-3 md:pb-4">
+      <div className="pt-16 px-3 md:px-4 pb-16">
         {/* Header */}
         <div className="transition-[left,width] duration-300 ease-in-out fixed top-0 left-0 right-0 z-[60] bg-white/95 py-2 border-b border-soft-border shadow-sm backdrop-blur px-3 md:px-4">
           <div className="flex items-center justify-between gap-4">
@@ -386,8 +392,8 @@ export default function MasterKYCSheet() {
                 </tr>
               </thead>
               <tbody>
-                {sortedProducts.length > 0 ? (
-                  sortedProducts.map((row, index) => (
+                {paginatedKycData.length > 0 ? (
+                  paginatedKycData.map((row, index) => (
                     <tr key={index} className="border-b border-soft-border hover:bg-cloud-gray">
                       <td className="sticky left-0 z-10 p-1 text-center border-b border-r border-soft-border w-12 bg-white text-sm font-medium">
                         <div className="flex items-center justify-center gap-1">
@@ -450,7 +456,7 @@ export default function MasterKYCSheet() {
           {isLoading && <p className="mt-2 text-sm text-cool-gray">Loading KYC data...</p>}
           {error && <p className="mt-2 text-sm text-danger">{error}</p>}
 
-          {/* Add Row Button and Stats */}
+          {/* Add Row Button */}
           <div className="mt-4 flex gap-2 items-center">
             {sortedProducts.length === 0 && (
               <Button
@@ -460,12 +466,31 @@ export default function MasterKYCSheet() {
                 + Add Row
               </Button>
             )}
-            <div className="flex gap-6 text-sm text-cool-gray ml-2">
-              <span>Selected Rows: {selectedRows.size}</span>
-              <span>Visible Rows: {sortedProducts.length || emptyRowsData.length}</span>
-            </div>
           </div>
+        </div>
       </div>
+
+      {/* Fixed Footer */}
+      <div className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-soft-border shadow-lg px-4 py-2 flex flex-wrap items-center justify-between gap-3 text-sm text-cool-gray">
+        <div className="flex items-center gap-2">
+          <span>Rows per page:</span>
+          <select
+            value={rowsPerPage}
+            onChange={(e) => { setRowsPerPage(Number(e.target.value)); setCurrentPage(1); }}
+            className="border border-soft-border rounded px-2 py-1 text-sm text-midnight-ink bg-white"
+          >
+            {[25, 50, 75, 100].map((n) => <option key={n} value={n}>{n}</option>)}
+          </select>
+        </div>
+        <div className="flex items-center gap-3">
+          <span>{sortedProducts.length === 0 ? '0' : `${(safePage - 1) * rowsPerPage + 1}–${Math.min(safePage * rowsPerPage, sortedProducts.length)}`} of {sortedProducts.length}</span>
+          <button onClick={() => setCurrentPage((p) => Math.max(1, p - 1))} disabled={safePage <= 1} className="px-2 py-1 border border-soft-border rounded disabled:opacity-40 hover:bg-cloud-gray">‹</button>
+          <span>{safePage} / {totalPages}</span>
+          <button onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))} disabled={safePage >= totalPages} className="px-2 py-1 border border-soft-border rounded disabled:opacity-40 hover:bg-cloud-gray">›</button>
+        </div>
+        <div className="flex gap-4">
+          <span>Selected: {selectedRows.size}</span>
+        </div>
       </div>
 
       {/* Manage Columns Dialog */}
