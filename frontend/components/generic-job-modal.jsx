@@ -667,8 +667,10 @@ export function GenericJobModal({ open, onOpenChange, onJobCreated }) {
       <QuickEnrollModal
         open={isQuickEnrollOpen}
         onOpenChange={setIsQuickEnrollOpen}
-        onEnroll={(fullName) => {
-          setEnrolledWorkers((prev) => [...prev, { full_name: fullName, id: Date.now() }])
+        onEnroll={(worker) => {
+          const newWorker = typeof worker === 'string' ? { full_name: worker, id: Date.now() } : worker
+          setEnrolledWorkers((prev) => [newWorker, ...prev])
+          setIssuedTo(newWorker.full_name || '')
           setIsQuickEnrollOpen(false)
         }}
       />
