@@ -264,6 +264,91 @@ export default function MasterProductSheet() {
     ));
   };
 
+  // Fetch designer + product data when Master SKU is typed and Enter/Tab pressed
+  const handleMasterSkuLookup = async (rowId, masterSku) => {
+    const sku = (masterSku || '').trim();
+    if (!sku) return;
+
+    try {
+      // Fetch designer data by SKU
+      const [designerRes, productRes] = await Promise.all([
+        fetch(`/api/designers?sku=${encodeURIComponent(sku)}`, { cache: 'no-store' }),
+        fetch(`/api/products?sku=${encodeURIComponent(sku)}`, { cache: 'no-store' }),
+      ]);
+
+      const designerResult = await designerRes.json().catch(() => null);
+      const productResult = await productRes.json().catch(() => null);
+
+      const designerRows = designerRes.ok && designerResult?.success
+        ? (Array.isArray(designerResult.data) ? designerResult.data : designerResult.data?.results || [])
+        : [];
+      const productRows = productRes.ok && productResult?.success
+        ? (Array.isArray(productResult.data) ? productResult.data : productResult.data?.results || [])
+        : [];
+
+      const designer = designerRows[0] || null;
+      const product = productRows[0] || null;
+
+      if (!designer && !product) return;
+
+      setData((prev) =>
+        prev.map((row) => {
+          if (row.id !== rowId) return row;
+          const updates = {};
+
+          // Auto-fill from designer data
+          if (designer) {
+            if (designer.design_material && !row.material) updates.material = designer.design_material;
+            // Stone info from first stone entry
+            const s = Array.isArray(designer.stone_entries) && designer.stone_entries[0];
+            if (s) {
+              if (s.name && !row.stoneName) updates.stoneName = s.name;
+              if (s.cut && !row.stoneCut) updates.stoneCut = s.cut;
+              if (s.color && !row.stoneColor) updates.stoneColor = s.color;
+              if (s.size && !row.stoneSize) updates.stoneSize = s.size;
+              if (s.quantity && !row.stoneQuantity) updates.stoneQuantity = s.quantity;
+            }
+            // Die/Findings from designer
+            const dieInfo = designer.die_code || '';
+            const findingsInfo = Array.isArray(designer.findings_entries) && designer.findings_entries[0];
+            if ((dieInfo || findingsInfo) && !row.dieNumberFindings) {
+              const parts = [];
+              if (dieInfo) parts.push(`Die: ${dieInfo}`);
+              if (findingsInfo?.code) parts.push(`Findings: ${findingsInfo.code}`);
+              updates.dieNumberFindings = parts.join(', ');
+            }
+          }
+
+          // Auto-fill from product data (if a product with this SKU exists)
+          if (product) {
+            if (product.name && !row.listingName) updates.listingName = product.name;
+            if (product.material && !row.material) updates.material = product.material;
+            if (product.weight && !row.weight) updates.weight = product.weight;
+            if (product.category && !row.category) updates.category = product.category;
+            if (product.collection && !row.collection) updates.collection = product.collection;
+            if (product.setting_type && !row.settingType) updates.settingType = product.setting_type;
+            if (product.enamel_type && !row.enamelType) updates.enamelType = product.enamel_type;
+            if (product.active_channels && !row.activeChannels) updates.activeChannels = product.active_channels;
+            if (product.color && !row.color) updates.color = product.color;
+            if (product.enamel && !row.enamel) updates.enamel = product.enamel;
+            if (product.stone_name && !row.stoneName) updates.stoneName = product.stone_name;
+            if (product.stone_cut && !row.stoneCut) updates.stoneCut = product.stone_cut;
+            if (product.stone_color && !row.stoneColor) updates.stoneColor = product.stone_color;
+            if (product.stone_size && !row.stoneSize) updates.stoneSize = product.stone_size;
+            if (product.stone_quantity && !row.stoneQuantity) updates.stoneQuantity = product.stone_quantity;
+            if (product.plating_type && !row.platingType) updates.platingType = product.plating_type;
+            if (product.plating_color && !row.platingColor) updates.platingColor = product.plating_color;
+            if (product.notes && !row.notes) updates.notes = product.notes;
+          }
+
+          return Object.keys(updates).length > 0 ? { ...row, ...updates } : row;
+        })
+      );
+    } catch {
+      // Silently fail — user can still manually fill fields
+    }
+  };
+
   const handlePrint = () => {
     window.print();
   };
@@ -1138,6 +1223,12 @@ export default function MasterProductSheet() {
                               type="text"
                               value={row[column.id]}
                               onChange={(e) => handleCellChange(row.id, column.id, e.target.value)}
+                              onKeyDown={column.id === 'masterSku' ? (e) => {
+                                if (e.key === 'Enter' || e.key === 'Tab') {
+                                  handleMasterSkuLookup(row.id, row.masterSku);
+                                }
+                              } : undefined}
+                              onBlur={column.id === 'masterSku' ? () => handleMasterSkuLookup(row.id, row.masterSku) : undefined}
                               className="border-0 p-1 text-sm h-8"
                             />
                           ) : column.id === 'sku' && row[column.id] ? (

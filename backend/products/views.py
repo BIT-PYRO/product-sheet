@@ -47,5 +47,5 @@ from .serializers import ProductSerializer
 class ProductViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 	queryset = Product.objects.all().order_by('-created_at')
 	serializer_class = ProductSerializer
-	filterset_fields = ['is_active', 'category']
-	search_fields = ['sku', 'name']
+	filterset_fields = ['is_active', 'category', 'sku', 'master_sku']
+	search_fields = ['sku', 'name', 'master_sku']
