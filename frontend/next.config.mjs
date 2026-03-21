@@ -35,6 +35,7 @@ const nextConfig = {
       { source: '/master-designer-sheet', destination: '/frontend/master-designer-sheet' },
       { source: '/orders', destination: '/frontend/orders' },
       { source: '/orders/:path*', destination: '/frontend/orders/:path*' },
+      { source: '/profile', destination: '/frontend/profile' },
     ]
   },
 }
