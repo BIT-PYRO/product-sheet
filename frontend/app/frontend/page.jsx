@@ -18,6 +18,7 @@ function ProductSheetContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const newProductToken = searchParams.get('new')
+  const skuParam = (searchParams.get('sku') || '').trim()
   const fileInputRef = useRef(null)
   const manufacturingImagesRef = useRef(null)
   const designerImageRef = useRef(null)
@@ -182,6 +183,7 @@ function ProductSheetContent() {
   const [editSearchResults, setEditSearchResults] = useState([])
   const [isEditSearching, setIsEditSearching] = useState(false)
   const [editProductId, setEditProductId] = useState(null)
+  const [isViewMode, setIsViewMode] = useState(false)
 
   useEffect(() => {
     fetch('/api/backend-info', { cache: 'no-store' })
@@ -288,6 +290,66 @@ function ProductSheetContent() {
     if (!newProductToken) return
     resetProductForm()
   }, [newProductToken, resetProductForm])
+
+  // Load product from SKU param (clicking SKU in master product sheet)
+  useEffect(() => {
+    if (!skuParam) return
+    let cancelled = false
+    fetch(`/api/products?search=${encodeURIComponent(skuParam)}`, { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((json) => {
+        if (cancelled) return
+        const rows = Array.isArray(json.data)
+          ? json.data
+          : Array.isArray(json.data?.results)
+          ? json.data.results
+          : []
+        const product = rows.find((p) => String(p.sku || '').trim().toLowerCase() === skuParam.toLowerCase())
+        if (!product) return
+        setEditProductId(product.id)
+        setSku(product.sku || '')
+        setListingName(product.name || '')
+        setMaterial(product.material || '')
+        setDropdown1(product.material || '')
+        setWeightValue(product.weight || '')
+        setWeightUnit('')
+        setDropdown2(product.category || '')
+        setDropdown3(product.collection || '')
+        setSettingType(product.setting_type || '')
+        setEnamelType(product.enamel_type || '')
+        setShopifyStatus(product.is_active ? 'active' : 'inactive')
+        setMaterialSku(product.master_sku || product.sku || '')
+        setMaterialSkuLocation('')
+        const ch = product.active_channels || ''
+        setActiveChannels(ch ? ch.split(',').map((c) => c.trim()).filter(Boolean) : [])
+        const dieRows = Array.isArray(product.die_numbers) ? product.die_numbers : []
+        const findingRows = Array.isArray(product.findings) ? product.findings : []
+        const combined = [
+          ...dieRows.map((d, i) => ({ id: i + 1, type: 'die_number', value: d.value || '', quantity: d.quantity || '', location: d.location || '' })),
+          ...findingRows.map((f, i) => ({ id: dieRows.length + i + 1, type: 'findings', value: f.value || '', quantity: f.quantity || '', location: f.location || '' })),
+        ]
+        while (combined.length < 5) combined.push({ id: combined.length + 1, type: 'die_number', value: '', quantity: '', location: '' })
+        setManufacturing((prev) => ({ ...prev, dieNumbers: combined, notes: product.notes || '' }))
+        if (product.stone_name || product.stone_cut || product.stone_color || product.stone_size || product.stone_quantity) {
+          setStoneInfo([
+            { id: 1, name: product.stone_name || '', cut: product.stone_cut || '', color: product.stone_color || '', size: product.stone_size || '', quantity: product.stone_quantity || '', material: '', weight: '' },
+            { id: 2, name: '', cut: '', color: '', size: '', quantity: '', material: '', weight: '' },
+            { id: 3, name: '', cut: '', color: '', size: '', quantity: '', material: '', weight: '' },
+          ])
+        }
+        setPlatingType([
+          { id: 1, col1: product.plating_type || '', col2: product.plating_color || '', col3: '' },
+          { id: 2, col1: '', col2: '', col3: '' },
+          { id: 3, col1: '', col2: '', col3: '' },
+        ])
+        setProductImages(product.images ? [product.images] : [])
+        setPrimaryImageIndex(0)
+        setIsViewMode(true)
+        window.scrollTo({ top: 0, behavior: 'smooth' })
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [skuParam])
 
   useEffect(() => {
     const pendingDraft = localStorage.getItem('pending_draft_load')
@@ -945,9 +1007,14 @@ function ProductSheetContent() {
         const result = await response.json();
         
         if (result.success) {
+          localStorage.setItem(PRODUCT_SHEET_SYNC_KEY, Date.now().toString());
+          // When opened via SKU link, redirect back to the master sheet after deletion
+          if (skuParam) {
+            router.push('/master-product-sheet')
+            return
+          }
           setSaveStatus({ success: true, message: result.message });
           setShowViewSheetButton(false)
-          localStorage.setItem(PRODUCT_SHEET_SYNC_KEY, Date.now().toString());
           setTimeout(() => setSaveStatus(null), 4000);
           
           // Clear form after successful deletion
@@ -998,13 +1065,32 @@ function ProductSheetContent() {
             </span>
           )}
           <DateTimeStamp className="mr-1 text-xs" />
-          <button onClick={handleEditProduct} className="w-fit px-3 h-8 text-sm bg-trust-blue text-white font-semibold rounded-full shadow-sm hover:bg-deep-blue flex items-center gap-1">
-            <Edit3 className="h-3.5 w-3.5" />
-            EDIT
-          </button>
-          <button onClick={handleAddProduct} className="w-fit px-3 h-8 text-sm bg-trust-blue text-white font-semibold rounded-full shadow-sm hover:bg-deep-blue">+ ADD PRODUCT</button>
-          <button onClick={handleSaveProduct} disabled={isSaving} className="w-fit px-3 h-8 text-sm bg-success text-white font-semibold rounded-full shadow-sm hover:bg-success/90 disabled:opacity-50 disabled:cursor-not-allowed">{isSaving ? 'Saving...' : 'SAVE'}</button>
-          <button onClick={handleDeleteProduct} disabled={isSaving} className="w-fit px-3 h-8 text-sm bg-danger text-white font-semibold rounded-full shadow-sm hover:bg-danger/90 disabled:opacity-50 disabled:cursor-not-allowed">DELETE</button>
+          {skuParam ? (
+            <>
+              <button onClick={() => router.push('/master-product-sheet')} className="w-fit px-3 h-8 text-sm bg-midnight-ink text-white font-semibold rounded-full shadow-sm hover:bg-midnight-ink/90">
+                ← BACK
+              </button>
+              {isViewMode ? (
+                <button onClick={() => setIsViewMode(false)} className="w-fit px-3 h-8 text-sm bg-trust-blue text-white font-semibold rounded-full shadow-sm hover:bg-deep-blue flex items-center gap-1">
+                  <Edit3 className="h-3.5 w-3.5" />
+                  EDIT
+                </button>
+              ) : (
+                <button onClick={handleSaveProduct} disabled={isSaving} className="w-fit px-3 h-8 text-sm bg-success text-white font-semibold rounded-full shadow-sm hover:bg-success/90 disabled:opacity-50 disabled:cursor-not-allowed">{isSaving ? 'Saving...' : 'SAVE'}</button>
+              )}
+              <button onClick={handleDeleteProduct} disabled={isSaving} className="w-fit px-3 h-8 text-sm bg-danger text-white font-semibold rounded-full shadow-sm hover:bg-danger/90 disabled:opacity-50 disabled:cursor-not-allowed">DELETE</button>
+            </>
+          ) : (
+            <>
+              <button onClick={handleEditProduct} className="w-fit px-3 h-8 text-sm bg-trust-blue text-white font-semibold rounded-full shadow-sm hover:bg-deep-blue flex items-center gap-1">
+                <Edit3 className="h-3.5 w-3.5" />
+                EDIT
+              </button>
+              <button onClick={handleAddProduct} className="w-fit px-3 h-8 text-sm bg-trust-blue text-white font-semibold rounded-full shadow-sm hover:bg-deep-blue">+ ADD PRODUCT</button>
+              <button onClick={handleSaveProduct} disabled={isSaving} className="w-fit px-3 h-8 text-sm bg-success text-white font-semibold rounded-full shadow-sm hover:bg-success/90 disabled:opacity-50 disabled:cursor-not-allowed">{isSaving ? 'Saving...' : 'SAVE'}</button>
+              <button onClick={handleDeleteProduct} disabled={isSaving} className="w-fit px-3 h-8 text-sm bg-danger text-white font-semibold rounded-full shadow-sm hover:bg-danger/90 disabled:opacity-50 disabled:cursor-not-allowed">DELETE</button>
+            </>
+          )}
           {saveStatus && (
             <div className={`text-sm px-2 py-1 rounded-md ${saveStatus.success ? 'bg-success/10 text-success-dark border border-success/30' : 'bg-danger/10 text-danger-dark border border-danger/30'}`}>
               {saveStatus.message}
@@ -1088,7 +1174,12 @@ function ProductSheetContent() {
         </div>
       )}
 
-      <div className="flex-1 pt-16 px-3 md:px-4 pb-3 transition-all duration-300">
+      {isViewMode && (
+        <div className="fixed top-[52px] left-0 right-0 z-[65] bg-amber-50 border-b border-amber-300 px-4 py-1.5 text-center text-xs font-semibold text-amber-800">
+          👁 Viewing <strong>{sku}</strong> — click <strong>Edit</strong> to make changes
+        </div>
+      )}
+      <div className={`flex-1 transition-all duration-300 px-3 md:px-4 pb-3 ${isViewMode ? 'pt-24 pointer-events-none select-none opacity-80' : 'pt-16'}`}>
       {/* Top Section - Product Details & Variations Combined */}
       <div className="bg-cloud-gray p-1.5 rounded-xl mb-2 border border-soft-border shadow-sm">
         <div className="flex gap-2 h-auto">

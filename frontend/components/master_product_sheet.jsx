@@ -1273,7 +1273,7 @@ export default function MasterProductSheet() {
                           ) : column.id === 'sku' && row[column.id] ? (
                             <div className="min-h-8 px-1 py-1 text-sm whitespace-pre-wrap break-words leading-4">
                               <Link
-                                href={`/master-product-sheet/product?sku=${encodeURIComponent(row[column.id])}`}
+                                href={`/frontend?sku=${encodeURIComponent(row[column.id])}`}
                                 className="text-deep-blue underline hover:text-deep-blue"
                               >
                                 {row[column.id]}
