@@ -357,6 +357,34 @@ export default function MasterProductSheet() {
     }
   };
 
+  const handleFindingCodeLookup = async (rowId, findingCode) => {
+    const code = (findingCode || '').trim();
+    if (!code) return;
+    try {
+      const res = await fetch(`/api/findings?finding_code=${encodeURIComponent(code)}`, { cache: 'no-store' });
+      const json = await res.json().catch(() => null);
+      if (!res.ok || !json?.success) return;
+      const rows = Array.isArray(json.data) ? json.data : (json.data?.results || []);
+      const finding = rows[0] || null;
+      if (!finding) return;
+      setData((prev) =>
+        prev.map((row) => {
+          if (row.id !== rowId) return row;
+          const updates = {};
+          // Enrich dieNumberFindings with die number info from the finding
+          if (finding.die_number && !row.dieNumberFindings.includes('Die:')) {
+            updates.dieNumberFindings = `${code} | Die: ${finding.die_number}`;
+          }
+          // Auto-fill weight from finding if currently empty
+          if (finding.weight && !row.weight) updates.weight = finding.weight;
+          return Object.keys(updates).length > 0 ? { ...row, ...updates } : row;
+        })
+      );
+    } catch {
+      // Silently fail — user can still manually fill fields
+    }
+  };
+
   const handlePrint = () => {
     window.print();
   };
@@ -1234,8 +1262,12 @@ export default function MasterProductSheet() {
                                 if (e.key === 'Enter' || e.key === 'Tab') {
                                   handleMasterSkuLookup(row.id, row.masterSku);
                                 }
+                              } : column.id === 'dieNumberFindings' ? (e) => {
+                                if (e.key === 'Enter' || e.key === 'Tab') {
+                                  handleFindingCodeLookup(row.id, row.dieNumberFindings);
+                                }
                               } : undefined}
-                              onBlur={column.id === 'masterSku' ? () => handleMasterSkuLookup(row.id, row.masterSku) : undefined}
+                              onBlur={column.id === 'masterSku' ? () => handleMasterSkuLookup(row.id, row.masterSku) : column.id === 'dieNumberFindings' ? () => handleFindingCodeLookup(row.id, row.dieNumberFindings) : undefined}
                               className="border-0 p-1 text-sm h-8"
                             />
                           ) : column.id === 'sku' && row[column.id] ? (
