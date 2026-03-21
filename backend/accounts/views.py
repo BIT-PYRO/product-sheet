@@ -71,3 +71,13 @@ class MeView(APIView):
 	def get(self, request):
 		serializer = UserSerializer(request.user)
 		return api_success(serializer.data, message='Authenticated user profile fetched successfully.')
+
+	@extend_schema(summary='Update current user profile', tags=['Auth'])
+	def patch(self, request):
+		allowed_fields = {'first_name', 'last_name'}
+		data = {k: v for k, v in request.data.items() if k in allowed_fields}
+		serializer = UserSerializer(request.user, data=data, partial=True)
+		if serializer.is_valid():
+			serializer.save()
+			return api_success(serializer.data, message='Profile updated successfully.')
+		return api_success(serializer.errors, message='Invalid data.', status_code=400)

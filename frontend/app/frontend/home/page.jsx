@@ -30,6 +30,8 @@ const SHEET_BLOCKS = [
 export default function HomePage() {
   const router = useRouter();
   const [username, setUsername] = useState('User');
+  const [userInfo, setUserInfo] = useState(null);
+  const [profilePhoto, setProfilePhoto] = useState(null);
   const [isEnrollWorkforceOpen, setIsEnrollWorkforceOpen] = useState(false);
   const [isGenericJobModalOpen, setIsGenericJobModalOpen] = useState(false);
   const [enrollStatusMessage, setEnrollStatusMessage] = useState('');
@@ -133,7 +135,13 @@ export default function HomePage() {
           return;
         }
 
-        setUsername(result.user?.id || 'User');
+        const u = result.user;
+        setUsername(u?.username || u?.id || 'User');
+        setUserInfo(u);
+        // Load profile photo from localStorage
+        const key = `profile_photo_${u?.username || u?.id}`;
+        const saved = localStorage.getItem(key);
+        if (saved) setProfilePhoto(saved);
       } catch {
         router.replace('/login');
       }
@@ -141,6 +149,22 @@ export default function HomePage() {
 
     loadSession();
   }, [router]);
+
+  // Listen for profile photo updates from the profile page
+  useEffect(() => {
+    function onPhotoUpdated(e) {
+      setProfilePhoto(e.detail?.photo || null);
+    }
+    window.addEventListener('profile_photo_updated', onPhotoUpdated);
+    return () => window.removeEventListener('profile_photo_updated', onPhotoUpdated);
+  }, []);
+
+  function getInitials() {
+    const f = userInfo?.first_name?.[0] || '';
+    const l = userInfo?.last_name?.[0] || '';
+    if (f || l) return (f + l).toUpperCase();
+    return (userInfo?.username || username)?.[0]?.toUpperCase() || '?';
+  }
 
   useEffect(() => {
     function handleClickOutside(e) {
@@ -166,10 +190,30 @@ export default function HomePage() {
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-8">
           <div>
             <h1 className="text-3xl font-bold text-midnight-ink">Home</h1>
-            <p className="text-base text-cool-gray mt-2">Welcome, {username}</p>
+            <p className="text-base text-cool-gray mt-2">
+              Welcome,{' '}
+              <Link
+                href="/profile"
+                className="font-bold text-trust-blue hover:underline underline-offset-2 transition"
+              >
+                {username}
+              </Link>
+            </p>
           </div>
           <div className="flex items-center gap-3">
             <DateTimeStamp />
+            {/* User avatar — links to profile */}
+            <Link
+              href="/profile"
+              title="View profile"
+              className="w-9 h-9 rounded-full border-2 border-trust-blue overflow-hidden flex items-center justify-center bg-trust-blue text-white text-sm font-bold hover:opacity-90 transition shrink-0"
+            >
+              {profilePhoto ? (
+                <img src={profilePhoto} alt="Profile" className="w-full h-full object-cover" />
+              ) : (
+                <span>{getInitials()}</span>
+              )}
+            </Link>
             <Button variant="outline" onClick={handleLogout} className="h-11 text-base font-semibold">Logout</Button>
           </div>
         </div>

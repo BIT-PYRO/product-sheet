@@ -37,8 +37,8 @@ function CompositeStockDisplay({ value }) {
   );
 }
 
-const PRODUCT_SHEET_SYNC_KEY = 'product_sheet_updated_at';
-const PRODUCT_SHEET_SYNC_EVENT = 'product_sheet_sync';
+const INVENTORY_SYNC_KEY = 'inventory_sheet_updated_at';
+const INVENTORY_SYNC_EVENT = 'inventory_sheet_sync';
 
 const INVENTORY_COLUMNS = [
   { key: '__select__', label: '' },
@@ -346,17 +346,7 @@ export default function MasterInventorySheet() {
       const inventoryResult = await readJsonSafe(inventoryResponse);
       const groupsResult = await readJsonSafe(groupsResponse);
 
-      if (!inventoryResponse.ok || !inventoryResult?.success) {
-        const message =
-          inventoryResult?.message ||
-          inventoryResult?.error?.message ||
-          'Failed to fetch inventory data';
-        throw new Error(message);
-      }
-
-      const nextProducts = Array.isArray(inventoryResult.products) ? inventoryResult.products : [];
-      setProducts(nextProducts);
-
+      // Always load picklists regardless of whether inventory-summary succeeds.
       const localPicklists = loadPicklistsFromStorage();
       const backendPicklists = Array.isArray(groupsResult?.picklists)
         ? groupsResult.picklists
@@ -364,26 +354,37 @@ export default function MasterInventorySheet() {
 
       if (backendPicklists.length === 0) {
         setPicklists(localPicklists);
+      } else {
+        // Merge backend + local, backend takes precedence for same IDs.
+        const merged = new Map();
+        backendPicklists.forEach((picklist) => {
+          merged.set(String(picklist?.id || ''), picklist);
+        });
+        localPicklists.forEach((picklist) => {
+          const id = String(picklist?.id || '');
+          if (!merged.has(id)) {
+            merged.set(id, picklist);
+          }
+        });
+        setPicklists(Array.from(merged.values()));
+      }
+
+      if (!inventoryResponse.ok || !inventoryResult?.success) {
+        const message =
+          inventoryResult?.message ||
+          inventoryResult?.error?.message ||
+          'Failed to fetch inventory data';
+        setError(message);
+        setProducts([]);
         return;
       }
 
-      // Merge backend + local, backend takes precedence for same IDs.
-      const merged = new Map();
-      backendPicklists.forEach((picklist) => {
-        merged.set(String(picklist?.id || ''), picklist);
-      });
-      localPicklists.forEach((picklist) => {
-        const id = String(picklist?.id || '');
-        if (!merged.has(id)) {
-          merged.set(id, picklist);
-        }
-      });
-      setPicklists(Array.from(merged.values()));
+      const nextProducts = Array.isArray(inventoryResult.products) ? inventoryResult.products : [];
+      setProducts(nextProducts);
 
     } catch (fetchError) {
       setError(fetchError.message || 'Failed to load inventory data');
       setProducts([]);
-      setPicklists([]);
     } finally {
       setIsLoading(false);
     }
@@ -417,7 +418,7 @@ export default function MasterInventorySheet() {
 
   useEffect(() => {
     const handleStorageSync = (event) => {
-      if (event.key === PRODUCT_SHEET_SYNC_KEY) {
+      if (event.key === INVENTORY_SYNC_KEY) {
         loadProducts();
       }
     };
@@ -427,11 +428,11 @@ export default function MasterInventorySheet() {
     };
 
     window.addEventListener('storage', handleStorageSync);
-    window.addEventListener(PRODUCT_SHEET_SYNC_EVENT, handleSameTabSync);
+    window.addEventListener(INVENTORY_SYNC_EVENT, handleSameTabSync);
 
     return () => {
       window.removeEventListener('storage', handleStorageSync);
-      window.removeEventListener(PRODUCT_SHEET_SYNC_EVENT, handleSameTabSync);
+      window.removeEventListener(INVENTORY_SYNC_EVENT, handleSameTabSync);
     };
   }, [loadProducts]);
 
@@ -446,19 +447,38 @@ export default function MasterInventorySheet() {
   const filteredProducts = useMemo(() => {
     const normalizedSearch = effectiveSearch.toLowerCase();
 
-    return products.filter((product) => {
-      // Filter by picklist if one is selected
-      if (selectedPicklist) {
-        const currentPicklist = picklists.find((p) => p.id === selectedPicklist);
-        const productSku = String(product.sku || product.masterSku || '').trim().toUpperCase();
-        const picklistSkus = new Set(
-          (currentPicklist?.items || []).map((item) => String(item.sku || '').trim().toUpperCase())
-        );
-        if (currentPicklist && picklistSkus.size > 0 && !picklistSkus.has(productSku)) {
-          return false;
-        }
-      }
+    // When a picklist is selected, drive rows from the picklist items themselves.
+    // For any item whose SKU matches a product in the DB we use full product data;
+    // for items with no matching product we synthesise a minimal row so they still appear.
+    if (selectedPicklist) {
+      const currentPicklist = picklists.find((p) => p.id === selectedPicklist);
+      const items = currentPicklist?.items || [];
 
+      if (items.length > 0) {
+        const productBySku = new Map(
+          products.map((p) => [String(p.sku || p.masterSku || '').trim().toUpperCase(), p])
+        );
+
+        return items.map((item) => {
+          const sku = String(item.sku || '').trim().toUpperCase();
+          const existing = productBySku.get(sku);
+          if (existing) return existing;
+          // Picklist item with no matching product in DB — show row with SKU only
+          return {
+            id: `pl-${sku}`,
+            sku,
+            masterSku: sku,
+            listingName: item.listingName || sku,
+            totalInDemand: 0,
+            liveStock: {},
+            finalStock: [],
+            dieNumberFindings: [],
+          };
+        });
+      }
+    }
+
+    return products.filter((product) => {
       const matchesFilters = FILTER_FIELDS.every((field) => {
         const selected = filterSelections[field.key];
         if (!selected || selected.size === 0) {
@@ -861,11 +881,11 @@ export default function MasterInventorySheet() {
 
       const result = await response.json().catch(() => null);
 
-      if (!response.ok || !result?.message) {
+      if (!response.ok || !result?.success) {
         throw new Error(result?.message || 'Failed to upload picklist');
       }
 
-      localStorage.setItem(PRODUCT_SHEET_SYNC_KEY, syncTimestamp);
+      localStorage.setItem(INVENTORY_SYNC_KEY, syncTimestamp);
 
       try {
         const existingPicklists = JSON.parse(localStorage.getItem(PSD_PICKLISTS_KEY) || '[]');
@@ -887,7 +907,7 @@ export default function MasterInventorySheet() {
       }
 
       window.dispatchEvent(
-        new CustomEvent(PRODUCT_SHEET_SYNC_EVENT, {
+        new CustomEvent(INVENTORY_SYNC_EVENT, {
           detail: { updatedAt: syncTimestamp },
         })
       );
