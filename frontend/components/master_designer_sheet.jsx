@@ -31,6 +31,8 @@ export default function MasterDesignerSheet() {
   const [editingRowIds, setEditingRowIds] = useState(new Set());
   const [archivedRows, setArchivedRows] = useState(new Set());
   const [viewMode, setViewMode] = useState('active');
+  const [rowsPerPage, setRowsPerPage] = useState(25);
+  const [currentPage, setCurrentPage] = useState(1);
 
   // Column definitions for designer
   const columns = [
@@ -280,6 +282,9 @@ export default function MasterDesignerSheet() {
   const archivedData = data.filter(row => archivedRows.has(row.id));
   const isArchivedView = viewMode === 'archived';
   const displayedData = isArchivedView ? archivedData : activeData;
+  const totalPages = Math.max(1, Math.ceil(displayedData.length / rowsPerPage));
+  const safePage = Math.min(currentPage, totalPages);
+  const paginatedData = displayedData.slice((safePage - 1) * rowsPerPage, safePage * rowsPerPage);
   const displayedRowIds = displayedData.map((row) => row.id);
   const allDisplayedRowsSelected =
     displayedRowIds.length > 0 && displayedRowIds.every((id) => selectedRows.has(id));
@@ -360,7 +365,7 @@ export default function MasterDesignerSheet() {
         </DialogContent>
       </Dialog>
 
-      <div className="pt-16 px-3 md:px-4 pb-3 md:pb-4">
+      <div className="pt-16 px-3 md:px-4 pb-16">
         {/* Header Section */}
         <div className="transition-[left,width] duration-300 ease-in-out fixed top-0 left-0 right-0 z-[60] bg-white/95 py-2 border-b border-soft-border shadow-sm backdrop-blur px-3 md:px-4">
           <div className="flex items-center justify-between gap-3">
@@ -475,7 +480,7 @@ export default function MasterDesignerSheet() {
               </thead>
 
               <tbody>
-                {displayedData.map((row) => {
+                {paginatedData.map((row) => {
                   const isEditing = editingRowIds.has(row.id);
                   const isAnyRowEditing = editingRowIds.size > 0;
                   const canEdit = !isArchivedView && (!isAnyRowEditing || isEditing);
@@ -557,13 +562,30 @@ export default function MasterDesignerSheet() {
           )}
         </div>
 
-        {/* Footer Info */}
-        <div className="mt-4 text-sm text-cool-gray">
-          <p>Selected Rows: {selectedRows.size}</p>
-          <p>Visible Rows: {displayedData.length}</p>
-          <p>Archived Rows: {archivedRows.size}</p>
-          <p>View: {isArchivedView ? 'Archived' : 'Active'}</p>
-          {editingRowIds.size > 0 && <p className="text-trust-blue font-semibold">Editing {editingRowIds.size} row(s)</p>}
+      </div>
+
+      {/* Fixed Footer */}
+      <div className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-soft-border shadow-lg px-4 py-2 flex flex-wrap items-center justify-between gap-3 text-sm text-cool-gray">
+        <div className="flex items-center gap-2">
+          <span>Rows per page:</span>
+          <select
+            value={rowsPerPage}
+            onChange={(e) => { setRowsPerPage(Number(e.target.value)); setCurrentPage(1); }}
+            className="border border-soft-border rounded px-2 py-1 text-sm text-midnight-ink bg-white"
+          >
+            {[25, 50, 75, 100].map((n) => <option key={n} value={n}>{n}</option>)}
+          </select>
+        </div>
+        <div className="flex items-center gap-3">
+          <span>{displayedData.length === 0 ? '0' : `${(safePage - 1) * rowsPerPage + 1}–${Math.min(safePage * rowsPerPage, displayedData.length)}`} of {displayedData.length}</span>
+          <button onClick={() => setCurrentPage((p) => Math.max(1, p - 1))} disabled={safePage <= 1} className="px-2 py-1 border border-soft-border rounded disabled:opacity-40 hover:bg-cloud-gray">‹</button>
+          <span>{safePage} / {totalPages}</span>
+          <button onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))} disabled={safePage >= totalPages} className="px-2 py-1 border border-soft-border rounded disabled:opacity-40 hover:bg-cloud-gray">›</button>
+        </div>
+        <div className="flex gap-4">
+          <span>Selected: {selectedRows.size}</span>
+          <span>Archived: {archivedRows.size}</span>
+          {editingRowIds.size > 0 && <span className="text-trust-blue font-semibold">Editing {editingRowIds.size} row(s)</span>}
         </div>
       </div>
     </div>

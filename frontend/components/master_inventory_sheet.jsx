@@ -302,6 +302,8 @@ export default function MasterInventorySheet() {
   const [sortField, setSortField] = useState('');
   const [sortDirection, setSortDirection] = useState('asc');
   const [backendMode, setBackendMode] = useState('');
+  const [rowsPerPage, setRowsPerPage] = useState(25);
+  const [currentPage, setCurrentPage] = useState(1);
   const [filterSelections, setFilterSelections] = useState(() => {
     const initial = {};
     FILTER_FIELDS.forEach((field) => {
@@ -710,18 +712,20 @@ export default function MasterInventorySheet() {
   }, [inventoryRows, picklistNeededBySku, selectedPicklistData]);
 
   const rowsToRender = useMemo(() => {
+    const start = (currentPage - 1) * rowsPerPage;
+    const end = start + rowsPerPage;
+    const pageRows = inventoryRows.slice(start, end);
     const minRows = 16;
-    if (inventoryRows.length >= minRows) {
-      return inventoryRows;
-    }
-
-    const emptyRows = Array.from({ length: minRows - inventoryRows.length }, (_, index) => ({
-      id: `empty-${index}`,
+    if (pageRows.length >= minRows) return pageRows;
+    const emptyRows = Array.from({ length: minRows - pageRows.length }, (_, i) => ({
+      id: `empty-${i}`,
       isEmpty: true,
     }));
+    return [...pageRows, ...emptyRows];
+  }, [inventoryRows, currentPage, rowsPerPage]);
 
-    return [...inventoryRows, ...emptyRows];
-  }, [inventoryRows]);
+  const totalInventoryPages = Math.max(1, Math.ceil(inventoryRows.length / rowsPerPage));
+  const safeInventoryPage = Math.min(currentPage, totalInventoryPages);
 
   const toggleRowSelection = (id) => {
     setSelectedRows((prev) => {
@@ -986,7 +990,7 @@ export default function MasterInventorySheet() {
         </DialogContent>
       </Dialog>
 
-      <div className="pt-16 px-3 md:px-4 pb-3 md:pb-4">
+      <div className="pt-16 px-3 md:px-4 pb-16">
         <div className="transition-[left,width] duration-300 ease-in-out fixed top-0 left-0 right-0 z-[60] bg-white/95 py-2 border-b border-soft-border shadow-sm backdrop-blur px-3 md:px-4">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3 shrink-0">
@@ -1297,6 +1301,30 @@ export default function MasterInventorySheet() {
         {!isLoading && !error && filteredProducts.length === 0 && (
           <p className="mt-2 text-sm text-cool-gray">No inventory data found.</p>
         )}
+
+      </div>
+
+      {/* Fixed Footer */}
+      <div className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-soft-border shadow-lg px-4 py-2 flex flex-wrap items-center justify-between gap-3 text-sm text-cool-gray">
+        <div className="flex items-center gap-2">
+          <span>Rows per page:</span>
+          <select
+            value={rowsPerPage}
+            onChange={(e) => { setRowsPerPage(Number(e.target.value)); setCurrentPage(1); }}
+            className="border border-soft-border rounded px-2 py-1 text-sm text-midnight-ink bg-white"
+          >
+            {[25, 50, 75, 100].map((n) => <option key={n} value={n}>{n}</option>)}
+          </select>
+        </div>
+        <div className="flex items-center gap-3">
+          <span>{inventoryRows.length === 0 ? '0' : `${(safeInventoryPage - 1) * rowsPerPage + 1}–${Math.min(safeInventoryPage * rowsPerPage, inventoryRows.length)}`} of {inventoryRows.length}</span>
+          <button onClick={() => setCurrentPage((p) => Math.max(1, p - 1))} disabled={safeInventoryPage <= 1} className="px-2 py-1 border border-soft-border rounded disabled:opacity-40 hover:bg-cloud-gray">‹</button>
+          <span>{safeInventoryPage} / {totalInventoryPages}</span>
+          <button onClick={() => setCurrentPage((p) => Math.min(totalInventoryPages, p + 1))} disabled={safeInventoryPage >= totalInventoryPages} className="px-2 py-1 border border-soft-border rounded disabled:opacity-40 hover:bg-cloud-gray">›</button>
+        </div>
+        <div className="flex gap-4">
+          <span>Selected: {selectedRows.size}</span>
+        </div>
       </div>
 
       <CreateJobModal
