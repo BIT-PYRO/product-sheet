@@ -43,21 +43,67 @@ export function QuickEnrollModal({ open, onOpenChange, onEnroll }) {
     }
   }
 
-  function handleSubmit() {
-    if (!firstName || !contactNumber) return
+  async function handleSubmit() {
     const fullName = `${firstName} ${lastName}`.trim()
-    if (onEnroll) {
-      onEnroll(fullName)
+    if (!fullName) {
+      alert('Please enter first name (and last name is optional)')
+      return
     }
-    onOpenChange(false)
-    setFirstName("")
-    setLastName("")
-    setContactNumber("")
-    setLocation("Dwarka Niwas, Jaipur")
-    setDesignation("")
-    setDesignationOther("")
-    setRemarks("")
-    setPhotoFileName("")
+    if (!contactNumber.trim()) {
+      alert('Please enter contact number')
+      return
+    }
+
+    const payload = {
+      full_name: fullName,
+      phone: `${countryCode} ${contactNumber}`.trim(),
+      whatsapp: contactNumber.trim(),
+      email: '',
+      current_location: location,
+      department,
+      designation: designation === 'Other' ? designationOther.trim() : designation,
+      notes: remarks,
+      active: true,
+    }
+
+    try {
+      const response = await fetch('/api/workforce', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      const result = await response.json().catch(() => null)
+
+      if (!response.ok || !result?.success) {
+        const msg = result?.error?.message || result?.message || result?.detail || 'Unable to enroll workforce member.'
+        throw new Error(msg)
+      }
+
+      const created = result.data
+      if (onEnroll) {
+        onEnroll(created)
+      }
+
+      if (typeof window !== 'undefined') {
+        alert('Workforce enrolled successfully!')
+      }
+
+      onOpenChange(false)
+      setFirstName('')
+      setLastName('')
+      setCountryCode('+91')
+      setContactNumber('')
+      setLocation('Dwarka Niwas, Jaipur')
+      setDepartment('')
+      setDesignation('')
+      setDesignationOther('')
+      setType('In-House')
+      setRemarks('')
+      setPhotoFileName('')
+    } catch (error) {
+      console.error('Quick enroll failed', error)
+      alert(`Error: ${error.message || 'Unable to enroll workforce member.'}`)
+    }
   }
 
   function handleSaveDraft() {

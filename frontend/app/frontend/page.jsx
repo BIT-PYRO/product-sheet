@@ -1,7 +1,7 @@
 'use client'
 
 import React, { Suspense } from "react"
-import { Trash2, Download, Eye, Upload } from 'lucide-react'
+import { Trash2, Download, Eye, Upload, Edit3 } from 'lucide-react'
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -131,9 +131,9 @@ function ProductSheetContent() {
   const [colorCodeByColor, setColorCodeByColor] = useState({})
 
   const [stoneInfo, setStoneInfo] = useState([
-    { id: 1, name: '', cut: '', color: '', size: '', quantity: '' },
-    { id: 2, name: '', cut: '', color: '', size: '', quantity: '' },
-    { id: 3, name: '', cut: '', color: '', size: '', quantity: '' },
+    { id: 1, name: '', cut: '', color: '', size: '', quantity: '', material: '', weight: '' },
+    { id: 2, name: '', cut: '', color: '', size: '', quantity: '', material: '', weight: '' },
+    { id: 3, name: '', cut: '', color: '', size: '', quantity: '', material: '', weight: '' },
   ])
 
   const [liveStock, setLiveStock] = useState({
@@ -799,7 +799,7 @@ function ProductSheetContent() {
         const newId = Math.max(...stoneInfo.map(r => r.id), 0) + 1;
         setStoneInfo([
             ...stoneInfo,
-            { id: newId, name: '', cut: '', color: '', size: '', quantity: '' },
+            { id: newId, name: '', cut: '', color: '', size: '', quantity: '', material: '', weight: '' },
         ]);
     };
     const deleteStoneInfo = (id) => {
@@ -820,7 +820,12 @@ function ProductSheetContent() {
       }
     };
     
-    const handleDeleteProduct = async () => {
+    const handleEditProduct = () => {
+    // Add real edit behavior as needed
+    alert('Edit product')
+  }
+
+  const handleDeleteProduct = async () => {
       if (!sku) {
         setSaveStatus({ success: false, message: 'Please enter a SKU to delete' });
         setTimeout(() => setSaveStatus(null), 4000);
@@ -898,6 +903,10 @@ function ProductSheetContent() {
             </span>
           )}
           <DateTimeStamp className="mr-1 text-xs" />
+          <button onClick={handleEditProduct} className="w-fit px-3 h-8 text-sm bg-trust-blue text-white font-semibold rounded-full shadow-sm hover:bg-deep-blue flex items-center gap-1">
+            <Edit3 className="h-3.5 w-3.5" />
+            EDIT
+          </button>
           <button onClick={handleAddProduct} className="w-fit px-3 h-8 text-sm bg-trust-blue text-white font-semibold rounded-full shadow-sm hover:bg-deep-blue">+ ADD PRODUCT</button>
           <button onClick={handleSaveProduct} disabled={isSaving} className="w-fit px-3 h-8 text-sm bg-success text-white font-semibold rounded-full shadow-sm hover:bg-success/90 disabled:opacity-50 disabled:cursor-not-allowed">{isSaving ? 'Saving...' : 'SAVE'}</button>
           <button onClick={handleDeleteProduct} disabled={isSaving} className="w-fit px-3 h-8 text-sm bg-danger text-white font-semibold rounded-full shadow-sm hover:bg-danger/90 disabled:opacity-50 disabled:cursor-not-allowed">DELETE</button>
@@ -1405,26 +1414,32 @@ function ProductSheetContent() {
 
       {/* Stone Info and Plating Type - Side by Side */}
       <div className="flex gap-2 mb-2 items-stretch">
-        <div className="w-1/2 bg-cloud-gray p-1.5 rounded-xl border border-soft-border shadow-sm flex flex-col h-full">
+        <div className="w-1/2 bg-cloud-gray p-1.5 rounded-xl border border-soft-border shadow-sm flex flex-col h-full min-h-[240px]">
           <h2 className="text-sm font-semibold mb-1">STONE INFO</h2>
           <div className="bg-white flex-1 flex flex-col">
             <div className="max-h-36 overflow-y-auto">
               <table className="w-full border-2 border-soft-border table-fixed break-words">
               <thead>
                 <tr className="border-b-2 border-soft-border">
-                  <th className="w-32 px-2 py-1 text-left font-semibold text-sm border-r-2 border-soft-border bg-white break-words">
+                  <th className="w-24 px-2 py-1 text-left font-semibold text-sm border-r-2 border-soft-border bg-white break-words">
                     NAME
                   </th>
-                  <th className="w-32 px-2 py-1 text-left font-semibold text-sm border-r-2 border-soft-border bg-white break-words">
+                  <th className="w-24 px-2 py-1 text-left font-semibold text-sm border-r-2 border-soft-border bg-white break-words">
                     CUT
                   </th>
-                  <th className="w-32 px-2 py-1 text-left font-semibold text-sm border-r-2 border-soft-border bg-white break-words">
+                  <th className="w-24 px-2 py-1 text-left font-semibold text-sm border-r-2 border-soft-border bg-white break-words">
                     COLOR
                   </th>
-                  <th className="w-32 px-2 py-1 text-left font-semibold text-sm border-r-2 border-soft-border bg-white break-words">
+                  <th className="w-24 px-2 py-1 text-left font-semibold text-sm border-r-2 border-soft-border bg-white break-words">
                     SIZE
                   </th>
-                  <th className="w-32 px-2 py-1 text-left font-semibold text-sm bg-white break-words">
+                  <th className="w-24 px-2 py-1 text-left font-semibold text-sm border-r-2 border-soft-border bg-white break-words">
+                    MATERIAL
+                  </th>
+                  <th className="w-24 px-2 py-1 text-left font-semibold text-sm border-r-2 border-soft-border bg-white break-words">
+                    WEIGHT
+                  </th>
+                  <th className="w-24 px-2 py-1 text-left font-semibold text-sm border-r-2 border-soft-border bg-white break-words">
                     QUANTITY
                   </th>
                 </tr>
@@ -1432,22 +1447,28 @@ function ProductSheetContent() {
               <tbody>
                 {stoneInfo.map((stone, index) => (
                   <tr key={stone.id} className={index < stoneInfo.length - 1 ? 'border-b-2 border-soft-border' : ''}>
-                    <td className="w-32 px-2 py-1 border-r-2 border-soft-border bg-white">
+                    <td className="w-24 px-2 py-1 border-r-2 border-soft-border bg-white">
                       <input type="text" value={stone.name} onChange={(e) => updateStoneInfo(stone.id, 'name', e.target.value)} className="w-full bg-transparent outline-none text-sm"/>
                     </td>
-                    <td className="w-32 px-2 py-1 border-r-2 border-soft-border bg-white">
+                    <td className="w-24 px-2 py-1 border-r-2 border-soft-border bg-white">
                       <input type="text" value={stone.cut} onChange={(e) => updateStoneInfo(stone.id, 'cut', e.target.value)} className="w-full bg-transparent outline-none text-sm"/>
                     </td>
-                    <td className="w-32 px-2 py-1 border-r-2 border-soft-border bg-white">
+                    <td className="w-24 px-2 py-1 border-r-2 border-soft-border bg-white">
                       <input type="text" value={stone.color} onChange={(e) => updateStoneInfo(stone.id, 'color', e.target.value)} className="w-full bg-transparent outline-none text-sm"/>
                     </td>
-                    <td className="w-32 px-2 py-1 border-r-2 border-soft-border bg-white">
+                    <td className="w-24 px-2 py-1 border-r-2 border-soft-border bg-white">
                       <input type="text" value={stone.size} onChange={(e) => updateStoneInfo(stone.id, 'size', e.target.value)} className="w-full bg-transparent outline-none text-sm"/>
                     </td>
-                    <td className="w-32 px-2 py-1 border-r-2 border-soft-border bg-white">
+                    <td className="w-24 px-2 py-1 border-r-2 border-soft-border bg-white">
+                      <input type="text" value={stone.material} onChange={(e) => updateStoneInfo(stone.id, 'material', e.target.value)} className="w-full bg-transparent outline-none text-sm"/>
+                    </td>
+                    <td className="w-24 px-2 py-1 border-r-2 border-soft-border bg-white">
+                      <input type="text" value={stone.weight} onChange={(e) => updateStoneInfo(stone.id, 'weight', e.target.value)} className="w-full bg-transparent outline-none text-sm"/>
+                    </td>
+                    <td className="w-24 px-2 py-1 border-r-2 border-soft-border bg-white">
                       <input type="text" value={stone.quantity} onChange={(e) => updateStoneInfo(stone.id, 'quantity', e.target.value)} className="w-full bg-transparent outline-none text-sm"/>
                     </td>
-                    <td className="px-2 py-1 bg-white text-center">
+                    <td className="w-4 px-2 py-1 bg-white text-center" style={{maxWidth: '1.5rem'}}>
                       <button type="button" onClick={() => deleteStoneInfo(stone.id)} className="text-danger hover:text-danger-dark transition-colors">
                         <Trash2 className="h-3 w-3" />
                       </button>
@@ -1463,34 +1484,34 @@ function ProductSheetContent() {
           </button>
         </div>
 
-        <div className="w-1/2 bg-cloud-gray p-1.5 rounded-xl border border-soft-border shadow-sm flex flex-col h-full">
+        <div className="w-1/2 bg-cloud-gray p-1.5 rounded-xl border border-soft-border shadow-sm flex flex-col h-full min-h-[240px]">
           <h2 className="text-sm font-semibold mb-1">PLATING INFO</h2>
           <div className="bg-white flex-1 flex flex-col">
             <div className="max-h-36 overflow-y-auto">
               <table className="w-full border-2 border-soft-border table-fixed break-words">
               <thead>
                 <tr className="border-b-2 border-soft-border">
-                  <th className="w-2/5 px-2 py-1 text-left font-semibold text-sm border-r-2 border-soft-border bg-white break-words">
+                  <th className="w-32 px-2 py-1 text-left font-semibold text-sm border-r-2 border-soft-border bg-white break-words">
                     PLATING TYPE
                   </th>
-                  <th className="w-2/5 px-2 py-1 text-left font-semibold text-sm border-r-2 border-soft-border bg-white break-words">
+                  <th className="w-32 px-2 py-1 text-left font-semibold text-sm border-r-2 border-soft-border bg-white break-words">
                     PLATING COLOR
                   </th>
-                  <th className="w-1/5 px-2 py-1 text-center font-semibold text-sm bg-white break-words">
-                    ACTION
+                  <th className="w-6 px-2 py-1 text-center font-semibold text-sm bg-white break-words">
+                    
                   </th>
                 </tr>
               </thead>
               <tbody>
                 {platingType.map((row, index) => (
                   <tr key={row.id} className={index < platingType.length - 1 ? 'border-b-2 border-soft-border' : ''}>
-                    <td className="w-2/5 px-2 py-1 border-r-2 border-soft-border bg-white break-words">
+                    <td className="w-32 px-2 py-1 border-r-2 border-soft-border bg-white break-words">
                       <input type="text" value={row.col1} onChange={(e) => updatePlatingType(row.id, 'col1', e.target.value)} className="w-full bg-transparent outline-none text-sm"/>
                     </td>
-                    <td className="w-2/5 px-2 py-1 border-r-2 border-soft-border bg-white">
+                    <td className="w-32 px-2 py-1 border-r-2 border-soft-border bg-white">
                       <input type="text" value={row.col2} onChange={(e) => updatePlatingType(row.id, 'col2', e.target.value)} className="w-full bg-transparent outline-none text-sm"/>
                     </td>
-                    <td className="w-1/5 px-2 py-1 bg-white text-center">
+                    <td className="w-6 px-2 py-1 bg-white text-center">
                       <button type="button" onClick={() => deletePlatingType(row.id)} className="text-danger hover:text-danger-dark transition-colors">
                         <Trash2 className="h-3 w-3" />
                       </button>
@@ -2172,17 +2193,23 @@ function ProductSheetContent() {
                       <table className="w-full border-2 border-soft-border table-fixed">
                       <thead>
                         <tr className="border-b-2 border-soft-border">
-                          <th className="w-32 px-2 py-1 text-left font-semibold text-sm border-r-2 border-soft-border bg-white">
+                          <th className="w-24 px-2 py-1 text-left font-semibold text-sm border-r-2 border-soft-border bg-white">
                             NAME
                           </th>
-                          <th className="w-32 px-2 py-1 text-left font-semibold text-sm border-r-2 border-soft-border bg-white">
+                          <th className="w-24 px-2 py-1 text-left font-semibold text-sm border-r-2 border-soft-border bg-white">
                             CUT
                           </th>
-                          <th className="w-32 px-2 py-1 text-left font-semibold text-sm border-r-2 border-soft-border bg-white">
+                          <th className="w-24 px-2 py-1 text-left font-semibold text-sm border-r-2 border-soft-border bg-white">
                             COLOR
                           </th>
-                          <th className="w-32 px-2 py-1 text-left font-semibold text-sm border-r-2 border-soft-border bg-white">
+                          <th className="w-20 px-2 py-1 text-left font-semibold text-sm border-r-2 border-soft-border bg-white">
                             SIZE
+                          </th>
+                          <th className="w-20 px-2 py-1 text-left font-semibold text-sm border-r-2 border-soft-border bg-white whitespace-nowrap">
+                            MATERIAL
+                          </th>
+                          <th className="w-20 px-2 py-1 text-left font-semibold text-sm border-r-2 border-soft-border bg-white whitespace-nowrap">
+                            WEIGHT
                           </th>
                           <th className="w-32 px-2 py-1 text-left font-semibold text-sm bg-white">
                             QUANTITY
@@ -2192,22 +2219,28 @@ function ProductSheetContent() {
                       <tbody>
                         {stoneInfo.map((stone, index) => (
                           <tr key={stone.id} className={index < stoneInfo.length - 1 ? 'border-b-2 border-soft-border' : ''}>
-                            <td className="w-32 px-2 py-1 border-r-2 border-soft-border bg-white">
+                            <td className="w-24 px-2 py-1 border-r-2 border-soft-border bg-white">
                               <input type="text" value={stone.name} onChange={(e) => updateStoneInfo(stone.id, 'name', e.target.value)} className="w-full bg-transparent outline-none text-sm"/>
                             </td>
-                            <td className="w-32 px-2 py-1 border-r-2 border-soft-border bg-white">
+                            <td className="w-24 px-2 py-1 border-r-2 border-soft-border bg-white">
                               <input type="text" value={stone.cut} onChange={(e) => updateStoneInfo(stone.id, 'cut', e.target.value)} className="w-full bg-transparent outline-none text-sm"/>
                             </td>
-                            <td className="w-32 px-2 py-1 border-r-2 border-soft-border bg-white">
+                            <td className="w-24 px-2 py-1 border-r-2 border-soft-border bg-white">
                               <input type="text" value={stone.color} onChange={(e) => updateStoneInfo(stone.id, 'color', e.target.value)} className="w-full bg-transparent outline-none text-sm"/>
                             </td>
-                            <td className="w-32 px-2 py-1 border-r-2 border-soft-border bg-white">
+                            <td className="w-20 px-2 py-1 border-r-2 border-soft-border bg-white">
                               <input type="text" value={stone.size} onChange={(e) => updateStoneInfo(stone.id, 'size', e.target.value)} className="w-full bg-transparent outline-none text-sm"/>
+                            </td>
+                            <td className="w-20 px-2 py-1 border-r-2 border-soft-border bg-white">
+                              <input type="text" value={stone.material} onChange={(e) => updateStoneInfo(stone.id, 'material', e.target.value)} className="w-full bg-transparent outline-none text-sm"/>
+                            </td>
+                            <td className="w-20 px-2 py-1 border-r-2 border-soft-border bg-white">
+                              <input type="text" value={stone.weight} onChange={(e) => updateStoneInfo(stone.id, 'weight', e.target.value)} className="w-full bg-transparent outline-none text-sm"/>
                             </td>
                             <td className="w-32 px-2 py-1 border-r-2 border-soft-border bg-white">
                               <input type="text" value={stone.quantity} onChange={(e) => updateStoneInfo(stone.id, 'quantity', e.target.value)} className="w-full bg-transparent outline-none text-sm"/>
                             </td>
-                            <td className="px-2 py-1 bg-white text-center">
+                            <td className="w-6 px-0.5 py-0.5 bg-white text-center" style={{maxWidth: '1.5rem'}}>
                               <button type="button" onClick={() => deleteStoneInfo(stone.id)} className="text-danger hover:text-danger-dark transition-colors">
                                 <Trash2 className="h-3 w-3" />
                               </button>
@@ -2230,13 +2263,13 @@ function ProductSheetContent() {
                       <table className="w-full border-2 border-soft-border table-fixed">
                       <thead>
                         <tr className="border-b-2 border-soft-border">
-                          <th className="w-2/5 px-2 py-1 text-left font-semibold text-sm border-r-2 border-soft-border bg-white">
+                          <th className="w-1/3 px-2 py-1 text-left font-semibold text-sm border-r-2 border-soft-border bg-white">
                             PLATING TYPE
                           </th>
-                          <th className="w-2/5 px-2 py-1 text-left font-semibold text-sm border-r-2 border-soft-border bg-white">
+                          <th className="w-1/3 px-2 py-1 text-left font-semibold text-sm border-r-2 border-soft-border bg-white">
                             PLATING COLOR
                           </th>
-                          <th className="w-1/5 px-2 py-1 text-center font-semibold text-sm bg-white">
+                          <th className="w-1/3 px-2 py-1 text-center font-semibold text-sm bg-white">
                             ACTION
                           </th>
                         </tr>
@@ -2244,13 +2277,13 @@ function ProductSheetContent() {
                       <tbody>
                         {platingType.map((row, index) => (
                           <tr key={row.id} className={index < platingType.length - 1 ? 'border-b-2 border-soft-border' : ''}>
-                            <td className="w-2/5 px-2 py-1 border-r-2 border-soft-border bg-white">
+                            <td className="w-1/3 px-2 py-1 border-r-2 border-soft-border bg-white">
                               <input type="text" value={row.col1} onChange={(e) => updatePlatingType(row.id, 'col1', e.target.value)} className="w-full bg-transparent outline-none text-sm"/>
                             </td>
-                            <td className="w-2/5 px-2 py-1 border-r-2 border-soft-border bg-white">
+                            <td className="w-1/3 px-2 py-1 border-r-2 border-soft-border bg-white">
                               <input type="text" value={row.col2} onChange={(e) => updatePlatingType(row.id, 'col2', e.target.value)} className="w-full bg-transparent outline-none text-sm"/>
                             </td>
-                            <td className="w-1/5 px-2 py-1 bg-white text-center">
+                            <td className="w-1/3 px-2 py-1 bg-white text-center">
                               <button type="button" onClick={() => deletePlatingType(row.id)} className="text-danger hover:text-danger-dark transition-colors">
                                 <Trash2 className="h-3 w-3" />
                               </button>

@@ -88,6 +88,10 @@ export async function GET(request) {
     success: true,
     user: {
       id: user?.username || 'User',
+      username: user?.username || 'User',
+      first_name: user?.first_name || '',
+      last_name: user?.last_name || '',
+      email: user?.email || '',
       role: user?.role || 'staff',
     },
   });
