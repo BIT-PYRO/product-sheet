@@ -1,5 +1,5 @@
-"""
-Direct Bulk Import Script — Product Sheet Design
+﻿"""
+Direct Bulk Import Script â€” Product Sheet Design
 =================================================
 Imports large CSV/XLSX files directly to the BACKEND API, bypassing the
 Next.js bulk-upload route and its 25MB limit entirely.
@@ -22,21 +22,21 @@ import sys
 import pandas as pd
 import requests
 
-# ─────────────────────────────────────────────
-# CONFIG — edit or pass as CLI args
-# ─────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# CONFIG â€” edit or pass as CLI args
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 API_URL    = "https://product-sheet.onrender.com"
-# API_URL  = "http://localhost:8000"   # ← local dev
+# API_URL  = "http://localhost:8000"   # â† local dev
 
 USERNAME   = "Kartik"
 PASSWORD   = "Janki@5270"
 
-CHUNK_ROWS = 200   # rows per batch — keep small to avoid Render timeouts
-# ─────────────────────────────────────────────
+CHUNK_ROWS = 200   # rows per batch â€” keep small to avoid Render timeouts
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 VALID_SHEETS = {"products", "workforce", "customers", "kyc", "designers", "jobs"}
 
-# Maps sheet name → (backend endpoint, unique key field(s), payload builder)
+# Maps sheet name â†’ (backend endpoint, unique key field(s), payload builder)
 SHEET_CONFIG = {
     "products":  "/api/v1/products/",
     "workforce": "/api/v1/workforce/",
@@ -251,17 +251,17 @@ def upload_rows(session, api_url, sheet, rows_df):
             skipped += 1
             continue
 
-        # ── Jobs: resolve product ID ──
+        # â”€â”€ Jobs: resolve product ID â”€â”€
         if sheet == "jobs":
             psku = payload.pop("_product_sku", "").upper()
             product = product_map.get(psku)
             if not product:
-                failures.append(f"Row {i+2}: product SKU '{psku}' not found — skipped")
+                failures.append(f"Row {i+2}: product SKU '{psku}' not found â€” skipped")
                 skipped += 1
                 continue
             payload["product"] = product["id"]
 
-        # ── KYC: resolve member ID ──
+        # â”€â”€ KYC: resolve member ID â”€â”€
         if sheet == "kyc":
             mname = payload.pop("_member_name", "").lower()
             mphone = payload.pop("_member_phone", "")
@@ -291,7 +291,7 @@ def upload_rows(session, api_url, sheet, rows_df):
                     f"Row {i+2}: {r.json().get('message','create failed')}")
             continue
 
-        # ── Standard upsert ──
+        # â”€â”€ Standard upsert â”€â”€
         lookup_key = key.upper() if sheet in ("products", "designers") else key.lower()
         existing_rec = lookup.get(lookup_key)
 
@@ -315,7 +315,7 @@ def upload_rows(session, api_url, sheet, rows_df):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Direct bulk import — Product Sheet Design")
+    parser = argparse.ArgumentParser(description="Direct bulk import â€” Product Sheet Design")
     parser.add_argument("--file",     required=True, help="Path to CSV or XLSX file")
     parser.add_argument("--sheet",    required=True, choices=sorted(VALID_SHEETS))
     parser.add_argument("--url",      default=API_URL)
@@ -345,7 +345,7 @@ def main():
         sys.exit(0)
 
     total_chunks = math.ceil(total_rows / args.chunk)
-    print(f"[read] {total_rows} rows → {total_chunks} batch(es) of {args.chunk}")
+    print(f"[read] {total_rows} rows â†’ {total_chunks} batch(es) of {args.chunk}")
 
     token = get_token(args.url, args.username, args.password)
 
@@ -353,7 +353,7 @@ def main():
     session.headers.update({"Authorization": f"Bearer {token}",
                              "Content-Type": "application/json"})
 
-    print(f"\n[upload] sheet='{args.sheet}' → {args.url}")
+    print(f"\n[upload] sheet='{args.sheet}' â†’ {args.url}")
     total_created = total_updated = total_skipped = 0
     all_failures = []
 
@@ -374,148 +374,7 @@ def main():
     print(f"\n[done] created={total_created} updated={total_updated} "
           f"skipped={total_skipped} failed={len(all_failures)}")
     if all_failures:
-        print("Re-run is safe — existing rows will be updated, not duplicated.")
-
-
-if __name__ == "__main__":
-    main()
-
-
-import argparse
-import json
-import math
-import os
-import sys
-import tempfile
-
-import pandas as pd
-import requests
-
-# ─────────────────────────────────────────────
-# CONFIG — edit these or pass as CLI args
-# ─────────────────────────────────────────────
-API_URL   = "https://product-sheet.onrender.com"   # live server
-# API_URL = "http://localhost:8000"                 # ← uncomment for local dev
-
-USERNAME  = "Kartik"    # your login username
-PASSWORD  = "Janki@5270"      # your login password
-
-CHUNK_ROWS = 500   # rows per upload batch (keep low to avoid timeouts)
-# ─────────────────────────────────────────────
-
-VALID_SHEETS = {"products", "workforce", "customers", "kyc", "designers", "jobs"}
-
-
-def get_token(api_url: str, username: str, password: str) -> str:
-    print(f"[auth] Logging in as '{username}' ...")
-    r = requests.post(
-        f"{api_url}/api/v1/auth/login/",
-        json={"username": username, "password": password},
-        timeout=30,
-    )
-    if not r.ok:
-        print(f"[auth] FAILED: {r.status_code} {r.text[:300]}")
-        sys.exit(1)
-    token = r.json().get("data", {}).get("access") or r.json().get("access")
-    if not token:
-        print(f"[auth] Could not parse access token from: {r.text[:300]}")
-        sys.exit(1)
-    print("[auth] Login OK.")
-    return token
-
-
-def upload_chunk(api_url: str, token: str, sheet: str, chunk_df: pd.DataFrame, chunk_num: int, total_chunks: int) -> bool:
-    # Write chunk to a temp CSV file
-    tmp = tempfile.NamedTemporaryFile(suffix=".csv", delete=False, mode="w", encoding="utf-8")
-    chunk_df.to_csv(tmp.name, index=False)
-    tmp.close()
-
-    size_kb = os.path.getsize(tmp.name) / 1024
-    print(f"  chunk {chunk_num}/{total_chunks} — {len(chunk_df)} rows, {size_kb:.0f} KB ... ", end="", flush=True)
-
-    try:
-        with open(tmp.name, "rb") as f:
-            r = requests.post(
-                f"{api_url}/api/frontend/bulk-upload",
-                files={"file": (f"chunk_{chunk_num}.csv", f, "text/csv")},
-                data={"sheetType": sheet},
-                headers={"Authorization": f"Bearer {token}"},
-                timeout=120,
-            )
-    finally:
-        os.unlink(tmp.name)
-
-    try:
-        body = r.json()
-    except Exception:
-        body = {"message": r.text[:200]}
-
-    msg = body.get("message", "")
-    if r.ok:
-        print(f"OK — {msg}")
-        return True
-    else:
-        print(f"FAILED ({r.status_code}) — {msg}")
-        if body.get("failures"):
-            for err in body["failures"][:5]:
-                print(f"    {err}")
-        return False
-
-
-def main():
-    parser = argparse.ArgumentParser(description="Direct bulk import for Product Sheet Design")
-    parser.add_argument("--file",     required=True,  help="Path to CSV or XLSX file")
-    parser.add_argument("--sheet",    required=True,  choices=VALID_SHEETS, help="Sheet type")
-    parser.add_argument("--url",      default=API_URL, help="Backend API base URL")
-    parser.add_argument("--username", default=USERNAME)
-    parser.add_argument("--password", default=PASSWORD)
-    parser.add_argument("--chunk",    default=CHUNK_ROWS, type=int, help="Rows per upload batch")
-    args = parser.parse_args()
-
-    if not os.path.exists(args.file):
-        print(f"File not found: {args.file}")
-        sys.exit(1)
-
-    # ── Read file ──────────────────────────────
-    ext = os.path.splitext(args.file)[1].lower()
-    print(f"[read] Loading {args.file} ...")
-    if ext in (".xls", ".xlsx"):
-        df = pd.read_excel(args.file, dtype=str)
-    elif ext == ".csv":
-        df = pd.read_csv(args.file, dtype=str)
-    else:
-        print("Only .csv / .xls / .xlsx files are supported.")
-        sys.exit(1)
-
-    df = df.fillna("").astype(str)
-    total_rows = len(df)
-    total_chunks = math.ceil(total_rows / args.chunk)
-    print(f"[read] {total_rows} rows, will upload in {total_chunks} chunk(s) of {args.chunk}")
-
-    if total_rows == 0:
-        print("File has no data rows. Exiting.")
-        sys.exit(0)
-
-    # ── Auth ───────────────────────────────────
-    token = get_token(args.url, args.username, args.password)
-
-    # ── Upload ─────────────────────────────────
-    ok_count = 0
-    fail_count = 0
-    print(f"\n[upload] Uploading to sheet='{args.sheet}' at {args.url}")
-
-    for i in range(total_chunks):
-        chunk = df[i * args.chunk : (i + 1) * args.chunk]
-        success = upload_chunk(args.url, token, args.sheet, chunk, i + 1, total_chunks)
-        if success:
-            ok_count += 1
-        else:
-            fail_count += 1
-
-    # ── Summary ────────────────────────────────
-    print(f"\n[done] {ok_count}/{total_chunks} chunks succeeded, {fail_count} failed.")
-    if fail_count:
-        print("Tip: re-run with the same file — existing rows will be updated (not duplicated).")
+        print("Re-run is safe â€” existing rows will be updated, not duplicated.")
 
 
 if __name__ == "__main__":
