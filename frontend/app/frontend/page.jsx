@@ -1,7 +1,7 @@
 'use client'
 
 import React, { Suspense } from "react"
-import { Trash2, Download, Eye, Upload, Edit3 } from 'lucide-react'
+import { Trash2, Download, Eye, Upload, Edit3, Search, X } from 'lucide-react'
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -175,6 +175,13 @@ function ProductSheetContent() {
   const [isDesignerSaving, setIsDesignerSaving] = useState(false)
   const [designerSaveStatus, setDesignerSaveStatus] = useState(null)
   const [designerRecordId, setDesignerRecordId] = useState(null)
+
+  // Edit dialog state
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [editSearchTerm, setEditSearchTerm] = useState('')
+  const [editSearchResults, setEditSearchResults] = useState([])
+  const [isEditSearching, setIsEditSearching] = useState(false)
+  const [editProductId, setEditProductId] = useState(null)
 
   useEffect(() => {
     fetch('/api/backend-info', { cache: 'no-store' })
@@ -821,8 +828,94 @@ function ProductSheetContent() {
     };
     
     const handleEditProduct = () => {
-    // Add real edit behavior as needed
-    alert('Edit product')
+    setEditSearchTerm('')
+    setEditSearchResults([])
+    setIsEditDialogOpen(true)
+  }
+
+  const handleEditSearch = async () => {
+    const term = editSearchTerm.trim()
+    if (!term) return
+    setIsEditSearching(true)
+    try {
+      const res = await fetch(`/api/products?search=${encodeURIComponent(term)}`, { cache: 'no-store' })
+      const json = await res.json()
+      if (res.ok && json?.success) {
+        const rows = Array.isArray(json.data) ? json.data : (json.data?.results || [])
+        setEditSearchResults(rows)
+      } else {
+        setEditSearchResults([])
+      }
+    } catch {
+      setEditSearchResults([])
+    } finally {
+      setIsEditSearching(false)
+    }
+  }
+
+  const handleSelectProductForEdit = (product) => {
+    setIsEditDialogOpen(false)
+    setEditProductId(product.id)
+
+    // Populate all form fields from the backend product
+    setSku(product.sku || '')
+    setListingName(product.name || '')
+    setMaterial(product.material || '')
+    setDropdown1(product.material || '')
+    setWeightValue(product.weight || '')
+    setWeightUnit('')
+    setDropdown2(product.category || '')
+    setDropdown3(product.collection || '')
+    setSettingType(product.setting_type || '')
+    setEnamelType(product.enamel_type || '')
+    setShopifyStatus(product.is_active ? 'active' : 'inactive')
+    setMaterialSku(product.master_sku || product.sku || '')
+    setMaterialSkuLocation('')
+
+    // Active channels
+    const ch = product.active_channels || ''
+    if (ch) {
+      setActiveChannels(ch.split(',').map(c => c.trim()).filter(Boolean))
+    } else {
+      setActiveChannels([])
+    }
+
+    // Die numbers / findings
+    const dieRows = Array.isArray(product.die_numbers) ? product.die_numbers : []
+    const findingRows = Array.isArray(product.findings) ? product.findings : []
+    const combined = [
+      ...dieRows.map((d, i) => ({ id: i + 1, type: 'die_number', value: d.value || '', quantity: d.quantity || '', location: d.location || '' })),
+      ...findingRows.map((f, i) => ({ id: dieRows.length + i + 1, type: 'findings', value: f.value || '', quantity: f.quantity || '', location: f.location || '' })),
+    ]
+    // Pad to at least 5 rows
+    while (combined.length < 5) {
+      combined.push({ id: combined.length + 1, type: 'die_number', value: '', quantity: '', location: '' })
+    }
+    setManufacturing(prev => ({ ...prev, dieNumbers: combined, notes: product.notes || '' }))
+
+    // Stone info
+    if (product.stone_name || product.stone_cut || product.stone_color || product.stone_size || product.stone_quantity) {
+      setStoneInfo([
+        { id: 1, name: product.stone_name || '', cut: product.stone_cut || '', color: product.stone_color || '', size: product.stone_size || '', quantity: product.stone_quantity || '', material: '', weight: '' },
+        { id: 2, name: '', cut: '', color: '', size: '', quantity: '', material: '', weight: '' },
+        { id: 3, name: '', cut: '', color: '', size: '', quantity: '', material: '', weight: '' },
+      ])
+    }
+
+    // Plating
+    setPlatingType([
+      { id: 1, col1: product.plating_type || '', col2: product.plating_color || '', col3: '' },
+      { id: 2, col1: '', col2: '', col3: '' },
+      { id: 3, col1: '', col2: '', col3: '' },
+    ])
+
+    // Notes & images
+    setProductImages(product.images ? [product.images] : [])
+    setPrimaryImageIndex(0)
+
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+    setSaveStatus({ success: true, message: `Loaded: ${product.sku} - ${product.name || ''}` })
+    setTimeout(() => setSaveStatus(null), 3000)
   }
 
   const handleDeleteProduct = async () => {
@@ -925,6 +1018,73 @@ function ProductSheetContent() {
           )}
         </div>
       </div>
+
+      {/* Edit Product Search Dialog */}
+      {isEditDialogOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 max-h-[80vh] flex flex-col">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-soft-border">
+              <h2 className="text-lg font-bold text-midnight-ink">Edit Product</h2>
+              <button onClick={() => setIsEditDialogOpen(false)} className="p-1 rounded-full hover:bg-cloud-gray">
+                <X className="h-5 w-5 text-cool-gray" />
+              </button>
+            </div>
+            <div className="px-5 py-4">
+              <p className="text-sm text-cool-gray mb-3">Search by Master SKU, SKU, or product name:</p>
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-cool-gray" />
+                  <input
+                    type="text"
+                    placeholder="Enter Master SKU or SKU..."
+                    value={editSearchTerm}
+                    onChange={(e) => setEditSearchTerm(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') handleEditSearch() }}
+                    className="w-full border border-soft-border rounded-lg pl-9 pr-3 h-10 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue/40"
+                    autoFocus
+                  />
+                </div>
+                <button
+                  onClick={handleEditSearch}
+                  disabled={isEditSearching || !editSearchTerm.trim()}
+                  className="px-4 h-10 bg-trust-blue text-white text-sm font-semibold rounded-lg hover:bg-deep-blue disabled:opacity-50"
+                >
+                  {isEditSearching ? 'Searching...' : 'Search'}
+                </button>
+              </div>
+            </div>
+            <div className="flex-1 overflow-y-auto px-5 pb-5">
+              {editSearchResults.length === 0 && !isEditSearching && editSearchTerm.trim() && (
+                <p className="text-sm text-cool-gray text-center py-6">No products found. Try a different search term.</p>
+              )}
+              {editSearchResults.length > 0 && (
+                <div className="space-y-2">
+                  {editSearchResults.map((product) => (
+                    <button
+                      key={product.id}
+                      onClick={() => handleSelectProductForEdit(product)}
+                      className="w-full text-left p-3 border border-soft-border rounded-lg hover:bg-trust-blue/5 hover:border-trust-blue/40 transition-colors"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-semibold text-midnight-ink">{product.sku}</p>
+                          <p className="text-xs text-cool-gray">{product.name || 'Unnamed product'}</p>
+                        </div>
+                        <div className="text-right">
+                          {product.master_sku && product.master_sku !== product.sku && (
+                            <p className="text-xs text-cool-gray">Master: {product.master_sku}</p>
+                          )}
+                          <p className="text-xs text-cool-gray">{product.category || ''}</p>
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="flex-1 pt-16 px-3 md:px-4 pb-3 transition-all duration-300">
       {/* Top Section - Product Details & Variations Combined */}
