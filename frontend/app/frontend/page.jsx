@@ -1950,18 +1950,24 @@ function ProductSheetContent() {
                 {designer.trackingRows.map((row) => (
                   <tr key={row.id} className="hover:bg-cloud-gray/40">
                     <td className="border border-soft-border p-0">
-                      {row.tdm ? (
-                        <a href={row.tdm} target="_blank" rel="noopener noreferrer" className="block px-2 py-1 text-trust-blue underline truncate max-w-[120px]" title={row.tdm}>{row.tdm}</a>
-                      ) : (
-                        <input type="url" value={row.tdm} onChange={(e) => updateDesignerTrackingRow(row.id, 'tdm', e.target.value)} placeholder="Drive link" className="w-full bg-transparent outline-none px-2 py-1 min-w-[100px]"/>
-                      )}
+                      <div className="flex items-center">
+                        {row.tdm ? (
+                          <a href={row.tdm} target="_blank" rel="noopener noreferrer" className="flex-1 px-2 py-1 text-trust-blue underline truncate text-xs" title={row.tdm}>{row.tdm}</a>
+                        ) : (
+                          <input type="url" value={row.tdm} onChange={(e) => updateDesignerTrackingRow(row.id, 'tdm', e.target.value)} placeholder="Drive link" className="flex-1 bg-transparent outline-none px-2 py-1 min-w-[60px]"/>
+                        )}
+                        <button type="button" title="Set Drive link" onClick={() => { const url = window.prompt('Paste Google Drive link:', row.tdm); if (url !== null) updateDesignerTrackingRow(row.id, 'tdm', url.trim()); }} className="px-1 py-1 text-cool-gray hover:text-trust-blue flex-shrink-0"><Upload className="h-3 w-3"/></button>
+                      </div>
                     </td>
                     <td className="border border-soft-border p-0">
-                      {row.stl ? (
-                        <a href={row.stl} target="_blank" rel="noopener noreferrer" className="block px-2 py-1 text-trust-blue underline truncate max-w-[120px]" title={row.stl}>{row.stl}</a>
-                      ) : (
-                        <input type="url" value={row.stl} onChange={(e) => updateDesignerTrackingRow(row.id, 'stl', e.target.value)} placeholder="Drive link" className="w-full bg-transparent outline-none px-2 py-1 min-w-[100px]"/>
-                      )}
+                      <div className="flex items-center">
+                        {row.stl ? (
+                          <a href={row.stl} target="_blank" rel="noopener noreferrer" className="flex-1 px-2 py-1 text-trust-blue underline truncate text-xs" title={row.stl}>{row.stl}</a>
+                        ) : (
+                          <input type="url" value={row.stl} onChange={(e) => updateDesignerTrackingRow(row.id, 'stl', e.target.value)} placeholder="Drive link" className="flex-1 bg-transparent outline-none px-2 py-1 min-w-[60px]"/>
+                        )}
+                        <button type="button" title="Set Drive link" onClick={() => { const url = window.prompt('Paste Google Drive link:', row.stl); if (url !== null) updateDesignerTrackingRow(row.id, 'stl', url.trim()); }} className="px-1 py-1 text-cool-gray hover:text-trust-blue flex-shrink-0"><Upload className="h-3 w-3"/></button>
+                      </div>
                     </td>
                     <td className="border border-soft-border p-0"><input type="text" value={row.designCode} onChange={(e) => updateDesignerTrackingRow(row.id, 'designCode', e.target.value)} className="w-full bg-transparent outline-none px-2 py-1 min-w-[80px]"/></td>
                     <td className="border border-soft-border p-0"><input type="text" value={row.masterNumber} onChange={(e) => updateDesignerTrackingRow(row.id, 'masterNumber', e.target.value)} className="w-full bg-transparent outline-none px-2 py-1 min-w-[90px]"/></td>
@@ -2775,18 +2781,24 @@ function ProductSheetContent() {
                         {designer.trackingRows.map((row) => (
                           <tr key={row.id} className="hover:bg-cloud-gray/40">
                             <td className="border border-soft-border p-0">
-                              {row.tdm ? (
-                                <a href={row.tdm} target="_blank" rel="noopener noreferrer" className="block px-2 py-1 text-trust-blue underline truncate max-w-[120px]" title={row.tdm}>{row.tdm}</a>
-                              ) : (
-                                <input type="url" value={row.tdm} onChange={(e) => updateDesignerTrackingRow(row.id, 'tdm', e.target.value)} placeholder="Drive link" className="w-full bg-transparent outline-none px-2 py-1 min-w-[100px]"/>
-                              )}
+                              <div className="flex items-center">
+                                {row.tdm ? (
+                                  <a href={row.tdm} target="_blank" rel="noopener noreferrer" className="flex-1 px-2 py-1 text-trust-blue underline truncate text-xs" title={row.tdm}>{row.tdm}</a>
+                                ) : (
+                                  <input type="url" value={row.tdm} onChange={(e) => updateDesignerTrackingRow(row.id, 'tdm', e.target.value)} placeholder="Drive link" className="flex-1 bg-transparent outline-none px-2 py-1 min-w-[60px]"/>
+                                )}
+                                <button type="button" title="Set Drive link" onClick={() => { const url = window.prompt('Paste Google Drive link:', row.tdm); if (url !== null) updateDesignerTrackingRow(row.id, 'tdm', url.trim()); }} className="px-1 py-1 text-cool-gray hover:text-trust-blue flex-shrink-0"><Upload className="h-3 w-3"/></button>
+                              </div>
                             </td>
                             <td className="border border-soft-border p-0">
-                              {row.stl ? (
-                                <a href={row.stl} target="_blank" rel="noopener noreferrer" className="block px-2 py-1 text-trust-blue underline truncate max-w-[120px]" title={row.stl}>{row.stl}</a>
-                              ) : (
-                                <input type="url" value={row.stl} onChange={(e) => updateDesignerTrackingRow(row.id, 'stl', e.target.value)} placeholder="Drive link" className="w-full bg-transparent outline-none px-2 py-1 min-w-[100px]"/>
-                              )}
+                              <div className="flex items-center">
+                                {row.stl ? (
+                                  <a href={row.stl} target="_blank" rel="noopener noreferrer" className="flex-1 px-2 py-1 text-trust-blue underline truncate text-xs" title={row.stl}>{row.stl}</a>
+                                ) : (
+                                  <input type="url" value={row.stl} onChange={(e) => updateDesignerTrackingRow(row.id, 'stl', e.target.value)} placeholder="Drive link" className="flex-1 bg-transparent outline-none px-2 py-1 min-w-[60px]"/>
+                                )}
+                                <button type="button" title="Set Drive link" onClick={() => { const url = window.prompt('Paste Google Drive link:', row.stl); if (url !== null) updateDesignerTrackingRow(row.id, 'stl', url.trim()); }} className="px-1 py-1 text-cool-gray hover:text-trust-blue flex-shrink-0"><Upload className="h-3 w-3"/></button>
+                              </div>
                             </td>
                             <td className="border border-soft-border p-0"><input type="text" value={row.designCode} onChange={(e) => updateDesignerTrackingRow(row.id, 'designCode', e.target.value)} className="w-full bg-transparent outline-none px-2 py-1 min-w-[80px]"/></td>
                             <td className="border border-soft-border p-0"><input type="text" value={row.masterNumber} onChange={(e) => updateDesignerTrackingRow(row.id, 'masterNumber', e.target.value)} className="w-full bg-transparent outline-none px-2 py-1 min-w-[90px]"/></td>
