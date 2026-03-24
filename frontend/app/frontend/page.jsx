@@ -2000,7 +2000,7 @@ function ProductSheetContent() {
         </div>
 
         {/* 50/50 split: Left = 3 measurement panels | Right = Die info + Mechanism */}
-        <div className="mt-2 flex gap-2">
+        <div className="mt-2 flex gap-2 items-stretch">
           {/* Left 50%: Size, Measurements, Material */}
           <div className="flex flex-col gap-2" style={{width:'50%'}}>
             <div className="bg-white border border-soft-border rounded-xl p-2">
@@ -2011,7 +2011,7 @@ function ProductSheetContent() {
               <label className="text-xs font-semibold text-midnight-ink mb-1 block">Total Design Measurements (Approx)</label>
               <input type="text" value={designer.totalDesignMeasurements} onChange={(e) => setDesigner((prev) => ({ ...prev, totalDesignMeasurements: e.target.value }))} placeholder="e.g. 25mm x 20mm x 5mm" className="w-full bg-transparent outline-none text-sm border border-soft-border rounded px-2 py-1"/>
             </div>
-            <div className="bg-white border border-soft-border rounded-xl p-2">
+            <div className="flex-1 bg-white border border-soft-border rounded-xl p-2">
               <label className="text-xs font-semibold text-midnight-ink mb-1 block">Design Material</label>
               <input type="text" value={designer.designMaterial} onChange={(e) => setDesigner((prev) => ({ ...prev, designMaterial: e.target.value }))} placeholder="e.g. Silver 925" className="w-full bg-transparent outline-none text-sm border border-soft-border rounded px-2 py-1"/>
             </div>
@@ -2039,9 +2039,9 @@ function ProductSheetContent() {
             </div>
 
             {/* Mechanism */}
-            <div className="bg-white border border-soft-border rounded-xl p-2">
+            <div className="flex-1 bg-white border border-soft-border rounded-xl p-2 flex flex-col">
               <label className="text-xs font-semibold text-midnight-ink mb-1 block">Mechanism</label>
-              <textarea value={designer.mechanism} onChange={(e) => setDesigner((prev) => ({ ...prev, mechanism: e.target.value }))} placeholder="Describe the mechanism used" rows={2} className="w-full bg-transparent outline-none text-xs border border-soft-border rounded px-2 py-0.5 resize-none"/>
+              <textarea value={designer.mechanism} onChange={(e) => setDesigner((prev) => ({ ...prev, mechanism: e.target.value }))} placeholder="Describe the mechanism used" className="flex-1 w-full bg-transparent outline-none text-xs border border-soft-border rounded px-2 py-0.5 resize-none"/>
             </div>
           </div>
         </div>
@@ -2824,7 +2824,7 @@ function ProductSheetContent() {
                   </div>
                 </div>
                 {/* 50/50 split: Left = 3 measurement panels | Right = Die info + Mechanism */}
-                <div className="mt-2 flex gap-2">
+                <div className="mt-2 flex gap-2 items-stretch">
                   {/* Left 50% */}
                   <div className="flex flex-col gap-2" style={{width:'50%'}}>
                     <div className="bg-white border border-soft-border rounded-xl p-2">
@@ -2835,7 +2835,7 @@ function ProductSheetContent() {
                       <label className="text-xs font-semibold text-midnight-ink mb-1 block">Total Design Measurements (Approx)</label>
                       <input type="text" value={designer.totalDesignMeasurements} onChange={(e) => setDesigner((prev) => ({ ...prev, totalDesignMeasurements: e.target.value }))} placeholder="e.g. 25mm x 20mm x 5mm" className="w-full bg-transparent outline-none text-sm border border-soft-border rounded px-2 py-1"/>
                     </div>
-                    <div className="bg-white border border-soft-border rounded-xl p-2">
+                    <div className="flex-1 bg-white border border-soft-border rounded-xl p-2">
                       <label className="text-xs font-semibold text-midnight-ink mb-1 block">Design Material</label>
                       <input type="text" value={designer.designMaterial} onChange={(e) => setDesigner((prev) => ({ ...prev, designMaterial: e.target.value }))} placeholder="e.g. Silver 925" className="w-full bg-transparent outline-none text-sm border border-soft-border rounded px-2 py-1"/>
                     </div>
@@ -2850,9 +2850,9 @@ function ProductSheetContent() {
                         <div><label className="text-[11px] text-cool-gray block">CPX Dead Weight</label><input type="text" value={designer.cpxDeadWeight} onChange={(e) => setDesigner((prev) => ({ ...prev, cpxDeadWeight: e.target.value }))} placeholder="CPX Dead Weight" className="w-full bg-transparent outline-none text-xs border border-soft-border rounded px-2 py-0.5"/></div>
                       </div>
                     </div>
-                    <div className="bg-white border border-soft-border rounded-xl p-2">
+                    <div className="flex-1 bg-white border border-soft-border rounded-xl p-2 flex flex-col">
                       <label className="text-xs font-semibold text-midnight-ink mb-1 block">Mechanism</label>
-                      <textarea value={designer.mechanism} onChange={(e) => setDesigner((prev) => ({ ...prev, mechanism: e.target.value }))} placeholder="Describe the mechanism used" rows={2} className="w-full bg-transparent outline-none text-xs border border-soft-border rounded px-2 py-0.5 resize-none"/>
+                      <textarea value={designer.mechanism} onChange={(e) => setDesigner((prev) => ({ ...prev, mechanism: e.target.value }))} placeholder="Describe the mechanism used" className="flex-1 w-full bg-transparent outline-none text-xs border border-soft-border rounded px-2 py-0.5 resize-none"/>
                     </div>
                   </div>
                 </div>
