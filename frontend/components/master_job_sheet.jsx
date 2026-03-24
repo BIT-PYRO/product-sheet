@@ -33,8 +33,11 @@ import { CreateJobModal } from '@/components/create-job-modal';
 import { ReceiveJobModal } from '@/components/receive-job-modal';
 import DateTimeStamp from '@/components/date-time-stamp';
 import BulkUploadButton from '@/components/bulk-upload-button';
+import LastUpdatedFooter from '@/components/last-updated-footer';
 
 export default function MasterJobSheet() {
+  const [lastUpdated, setLastUpdated] = useState(null);
+  const [currentUsername, setCurrentUsername] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedRows, setSelectedRows] = useState(new Set());
   const [isManageColumnsOpen, setIsManageColumnsOpen] = useState(false);
@@ -171,6 +174,10 @@ export default function MasterJobSheet() {
   const [isLoading, setIsLoading] = useState(false);
   const [fetchError, setFetchError] = useState('');
 
+  useEffect(() => {
+    fetch('/api/auth/session').then(r => r.json()).then(d => { if (d?.user?.username) setCurrentUsername(d.user.username); }).catch(() => {});
+  }, []);
+
   const loadJobs = async () => {
     setIsLoading(true);
     setFetchError('');
@@ -209,6 +216,7 @@ export default function MasterJobSheet() {
       }));
 
       setData(mappedRows);
+      setLastUpdated(new Date());
     } catch (err) {
       setFetchError(err.message || 'Failed to load jobs');
     } finally {
@@ -769,33 +777,33 @@ export default function MasterJobSheet() {
           <Button
             onClick={loadJobs}
             variant="outline"
-            className="border-midnight-ink text-midnight-ink rounded-full px-6"
+            className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8"
             disabled={isLoading}
           >
             {isLoading ? 'Loading...' : 'Refresh'}
           </Button>
           <Button 
             onClick={handleCreateJob}
-            className="bg-success hover:bg-success text-white rounded-full px-6"
+            className="bg-success hover:bg-success text-white rounded-full px-4 text-sm h-8"
           >
             Create a Job
           </Button>
           <Button 
             onClick={handleEnrollWorkforce}
-            className="bg-trust-blue hover:bg-trust-blue text-white rounded-full px-6"
+            className="bg-trust-blue hover:bg-trust-blue text-white rounded-full px-4 text-sm h-8"
           >
             Enroll Workforce
           </Button>
           <Button 
             onClick={handleQuickEnroll}
-            className="bg-trust-blue hover:bg-trust-blue text-white rounded-full px-6"
+            className="bg-trust-blue hover:bg-trust-blue text-white rounded-full px-4 text-sm h-8"
           >
             Quick Enroll
           </Button>
           <Button 
             onClick={handleEditRow}
             variant="outline"
-            className="border-trust-blue text-trust-blue hover:bg-trust-blue/10 rounded-full px-6"
+            className="border-trust-blue text-trust-blue hover:bg-trust-blue/10 rounded-full px-4 text-sm h-8"
             disabled={isArchivedView}
           >
             Edit Row
@@ -804,7 +812,7 @@ export default function MasterJobSheet() {
             <DropdownMenuTrigger asChild>
               <Button 
                 variant="outline"
-                className="border-trust-blue text-trust-blue hover:bg-trust-blue/10 rounded-full px-6"
+                className="border-trust-blue text-trust-blue hover:bg-trust-blue/10 rounded-full px-4 text-sm h-8"
               >
                 Archive
               </Button>
@@ -824,7 +832,7 @@ export default function MasterJobSheet() {
             <Button
               onClick={handleUnarchiveRows}
               variant="outline"
-              className="border-green-600 text-success hover:bg-success/10 rounded-full px-6"
+              className="border-green-600 text-success hover:bg-success/10 rounded-full px-4 text-sm h-8"
               disabled={selectedRows.size === 0}
             >
               Unarchive Selected
@@ -833,14 +841,14 @@ export default function MasterJobSheet() {
           <Button 
             onClick={handleManageColumns}
             variant="outline"
-            className="border-midnight-ink text-midnight-ink rounded-full px-6"
+            className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8"
           >
             Manage Columns
           </Button>
           <Button 
             onClick={handleExport}
             variant="outline"
-            className="border-midnight-ink text-midnight-ink rounded-full px-6"
+            className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8"
           >
             Export
           </Button>
@@ -850,7 +858,7 @@ export default function MasterJobSheet() {
             <DropdownMenuTrigger asChild>
               <Button 
                 variant="outline"
-                className="border-midnight-ink text-midnight-ink rounded-full px-6"
+                className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8"
               >
                 Print
               </Button>
@@ -1206,6 +1214,7 @@ export default function MasterJobSheet() {
           <span>Archived: {archivedRows.size}</span>
           {editingRowIds.size > 0 && <span className="text-trust-blue font-semibold">Editing {editingRowIds.size} row(s)</span>}
         </div>
+        <LastUpdatedFooter timestamp={lastUpdated} username={currentUsername} compact />
       </div>
 
       {/* Quick Enroll Modal */}

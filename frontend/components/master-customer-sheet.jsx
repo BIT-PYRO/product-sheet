@@ -17,6 +17,7 @@ import {
 import DateTimeStamp from '@/components/date-time-stamp';
 import { EnrollCustomerForm } from '@/components/enroll-customer';
 import BulkUploadButton from '@/components/bulk-upload-button';
+import LastUpdatedFooter from '@/components/last-updated-footer';
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -98,6 +99,8 @@ function normalizeCustomerRows(payload = {}) {
 }
 
 export default function MasterCustomerSheet() {
+	const [lastUpdated, setLastUpdated] = useState(null);
+	const [currentUsername, setCurrentUsername] = useState('');
 	const [isLoading, setIsLoading] = useState(true);
 	const [error, setError] = useState('');
 	const [customers, setCustomers] = useState([]);
@@ -120,6 +123,10 @@ export default function MasterCustomerSheet() {
 	const [rowsPerPage, setRowsPerPage] = useState(25);
 	const [currentPage, setCurrentPage] = useState(1);
 
+	useEffect(() => {
+		fetch('/api/auth/session').then(r => r.json()).then(d => { if (d?.user?.username) setCurrentUsername(d.user.username); }).catch(() => {});
+	}, []);
+
 	const loadCustomerData = useCallback(async () => {
 		setIsLoading(true);
 		setError('');
@@ -131,8 +138,7 @@ export default function MasterCustomerSheet() {
 
 			const data = await response.json().catch(() => null);
 			if (response.ok && data?.success) {
-				setCustomers(normalizeCustomerRows(data));
-			} else {
+				setCustomers(normalizeCustomerRows(data));			setLastUpdated(new Date());			} else {
 				setError('Failed to load customer data');
 			}
 		} catch (err) {
@@ -304,22 +310,22 @@ export default function MasterCustomerSheet() {
 								className="border border-soft-border rounded-lg pl-9 pr-4 h-9 w-64 text-sm"
 							/>
 						</div>
-						<Button onClick={loadCustomerData} variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-6" disabled={isLoading}>
+						<Button onClick={loadCustomerData} variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8" disabled={isLoading}>
 							{isLoading ? 'Refreshing...' : 'Refresh'}
 						</Button>
 						<BulkUploadButton sheetType="customers" onComplete={loadCustomerData} />
-						<Button onClick={handleAddEmptyRow} className="bg-success hover:bg-success text-white rounded-full px-6">
+						<Button onClick={handleAddEmptyRow} className="bg-success hover:bg-success text-white rounded-full px-4 text-sm h-8">
 							Add Customer
 						</Button>
-						<Button onClick={() => setIsEnrollCustomerOpen(true)} className="bg-midnight-ink hover:bg-midnight-ink/90 text-white rounded-full px-6">
+						<Button onClick={() => setIsEnrollCustomerOpen(true)} className="bg-midnight-ink hover:bg-midnight-ink/90 text-white rounded-full px-4 text-sm h-8">
 							Enroll Customer
 						</Button>
-						<Button variant="outline" className="border-trust-blue text-trust-blue hover:bg-trust-blue/10 rounded-full px-6">
+						<Button variant="outline" className="border-trust-blue text-trust-blue hover:bg-trust-blue/10 rounded-full px-4 text-sm h-8">
 							Edit Row
 						</Button>
 						<DropdownMenu>
 							<DropdownMenuTrigger asChild>
-								<Button variant="outline" className="border-warning text-warning hover:bg-warning/10 rounded-full px-6">
+								<Button variant="outline" className="border-warning text-warning hover:bg-warning/10 rounded-full px-4 text-sm h-8">
 									Archive
 								</Button>
 							</DropdownMenuTrigger>
@@ -330,13 +336,13 @@ export default function MasterCustomerSheet() {
 								</DropdownMenuItem>
 							</DropdownMenuContent>
 						</DropdownMenu>
-						<Button onClick={() => setIsManageColumnsOpen(true)} variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-6">
+						<Button onClick={() => setIsManageColumnsOpen(true)} variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8">
 							Manage Columns
 						</Button>
-						<Button onClick={handleExport} variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-6">
+						<Button onClick={handleExport} variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8">
 							Export
 						</Button>
-						<Button onClick={() => window.print()} variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-6">
+						<Button onClick={() => window.print()} variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8">
 							Print
 						</Button>
 					</div>
@@ -470,6 +476,7 @@ export default function MasterCustomerSheet() {
 					<span>Selected Rows: {selectedRows.size}</span>
 					<span>Visible Rows: {sortedCustomers.length || emptyRowsData.length}</span>
 				</div>
+				<LastUpdatedFooter timestamp={lastUpdated} username={currentUsername} compact />
 			</div>
 
 			<Dialog open={isManageColumnsOpen} onOpenChange={setIsManageColumnsOpen}>

@@ -22,6 +22,7 @@ import MasterNavigationDrawer from '@/components/master_navigation_drawer';
 import DateTimeStamp from '@/components/date-time-stamp';
 import GlobalSearchBar from '@/components/global-search-bar';
 import BulkUploadButton from '@/components/bulk-upload-button';
+import LastUpdatedFooter from '@/components/last-updated-footer';
 
 const FINDING_COLUMNS = [
   { id: 'findingCode', label: 'FINDING CODE' },
@@ -48,6 +49,8 @@ const EMPTY_FINDING_ROW = {
 };
 
 export default function FindingSheet() {
+  const [lastUpdated, setLastUpdated] = useState(null);
+  const [currentUsername, setCurrentUsername] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [fetchError, setFetchError] = useState('');
@@ -75,6 +78,10 @@ export default function FindingSheet() {
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(25);
 
+  useEffect(() => {
+    fetch('/api/auth/session').then(r => r.json()).then(d => { if (d?.user?.username) setCurrentUsername(d.user.username); }).catch(() => {});
+  }, []);
+
   const loadFindings = useCallback(async () => {
     setIsLoading(true);
     setFetchError('');
@@ -91,6 +98,7 @@ export default function FindingSheet() {
         weight: r.weight ?? '',
       }));
       setData(rows);
+      setLastUpdated(new Date());
     } catch (err) {
       setFetchError(err.message || 'Failed to load findings');
     } finally {
@@ -506,7 +514,7 @@ export default function FindingSheet() {
           <Button
             onClick={loadFindings}
             variant="outline"
-            className="border-midnight-ink text-midnight-ink rounded-full px-6"
+            className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8"
             disabled={isLoading}
           >
             {isLoading ? 'Refreshing...' : 'Refresh'}
@@ -515,7 +523,7 @@ export default function FindingSheet() {
           <Button
             onClick={handleEditRow}
             variant="outline"
-            className="border-trust-blue text-trust-blue hover:bg-trust-blue/10 rounded-full px-6"
+            className="border-trust-blue text-trust-blue hover:bg-trust-blue/10 rounded-full px-4 text-sm h-8"
             disabled={isArchivedView}
           >
             Edit Row
@@ -524,7 +532,7 @@ export default function FindingSheet() {
             <DropdownMenuTrigger asChild>
               <Button
                 variant="outline"
-                className="border-warning text-warning hover:bg-warning/10 rounded-full px-6"
+                className="border-warning text-warning hover:bg-warning/10 rounded-full px-4 text-sm h-8"
               >
                 Archive
               </Button>
@@ -542,7 +550,7 @@ export default function FindingSheet() {
             <Button
               onClick={handleUnarchiveRows}
               variant="outline"
-              className="border-green-600 text-success hover:bg-success/10 rounded-full px-6"
+              className="border-green-600 text-success hover:bg-success/10 rounded-full px-4 text-sm h-8"
               disabled={selectedRows.size === 0}
             >
               Unarchive Selected
@@ -551,14 +559,14 @@ export default function FindingSheet() {
           <Button
             onClick={() => setIsManageColumnsOpen(true)}
             variant="outline"
-            className="border-midnight-ink text-midnight-ink rounded-full px-6"
+            className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8"
           >
             Manage Columns
           </Button>
           <Button
             onClick={handleExport}
             variant="outline"
-            className="border-midnight-ink text-midnight-ink rounded-full px-6"
+            className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8"
           >
             Export
           </Button>
@@ -566,7 +574,7 @@ export default function FindingSheet() {
             <DropdownMenuTrigger asChild>
               <Button
                 variant="outline"
-                className="border-midnight-ink text-midnight-ink rounded-full px-6"
+                className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8"
               >
                 Print
               </Button>
@@ -765,7 +773,7 @@ export default function FindingSheet() {
           <Button
             onClick={handleDeleteSelectedRows}
             variant="outline"
-            className="border-danger text-danger hover:bg-danger/10 rounded-full px-6"
+            className="border-danger text-danger hover:bg-danger/10 rounded-full px-4 text-sm h-8"
             disabled={selectedRows.size === 0 || editingRowIds.size > 0}
           >
             Delete Selected
@@ -805,6 +813,7 @@ export default function FindingSheet() {
             <span>Archived: {archivedRows.size}</span>
             {editingRowIds.size > 0 && <span className="text-trust-blue font-semibold">Editing {editingRowIds.size} row(s)</span>}
           </div>
+          <LastUpdatedFooter timestamp={lastUpdated} username={currentUsername} compact />
         </div>
       </div>
     </div>

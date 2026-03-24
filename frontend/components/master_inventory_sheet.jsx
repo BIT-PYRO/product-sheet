@@ -21,6 +21,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import DateTimeStamp from '@/components/date-time-stamp';
+import LastUpdatedFooter from '@/components/last-updated-footer';
 
 // Component to render composite WIP vs Current Stock values
 function CompositeStockDisplay({ value }) {
@@ -284,6 +285,7 @@ function loadPicklistsFromStorage() {
 
 export default function MasterInventorySheet() {
   const picklistFileInputRef = useRef(null);
+  const [lastUpdated, setLastUpdated] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [isUploadingPicklist, setIsUploadingPicklist] = useState(false);
@@ -383,6 +385,7 @@ export default function MasterInventorySheet() {
 
       const nextProducts = Array.isArray(inventoryResult.products) ? inventoryResult.products : [];
       setProducts(nextProducts);
+      setLastUpdated(new Date());
 
     } catch (fetchError) {
       setError(fetchError.message || 'Failed to load inventory data');
@@ -1081,21 +1084,21 @@ export default function MasterInventorySheet() {
             <Button
               onClick={handlePicklistUploadClick}
               disabled={isUploadingPicklist}
-              className="bg-midnight-ink text-white rounded-full px-6 hover:bg-midnight-ink/90 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="bg-midnight-ink text-white rounded-full px-4 text-sm h-8 hover:bg-midnight-ink/90 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isUploadingPicklist ? 'Uploading...' : 'Bulk Upload'}
             </Button>
             <Button
-              className="bg-success hover:bg-success/90 rounded-full px-6"
+              className="bg-success hover:bg-success/90 rounded-full px-4 text-sm h-8"
               onClick={() => setIsCreateJobModalOpen(true)}
             >
               Create a Job
             </Button>
-            <Button variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-6" onClick={() => setIsManageColumnsOpen(true)}>
+            <Button variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8" onClick={() => setIsManageColumnsOpen(true)}>
               Manage Columns
             </Button>
-            <Button variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-6" onClick={handleExport}>Export</Button>
-            <Button variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-6" onClick={() => window.print()}>Print</Button>
+            <Button variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8" onClick={handleExport}>Export</Button>
+            <Button variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8" onClick={() => window.print()}>Print</Button>
             <input
               ref={picklistFileInputRef}
               type="file"
@@ -1325,6 +1328,7 @@ export default function MasterInventorySheet() {
         <div className="flex gap-4">
           <span>Selected: {selectedRows.size}</span>
         </div>
+        <LastUpdatedFooter timestamp={lastUpdated} username={currentUsername} compact />
       </div>
 
       <CreateJobModal

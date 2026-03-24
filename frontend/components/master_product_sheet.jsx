@@ -30,10 +30,13 @@ import MasterNavigationDrawer from '@/components/master_navigation_drawer';
 import DateTimeStamp from '@/components/date-time-stamp';
 import GlobalSearchBar from '@/components/global-search-bar';
 import BulkUploadButton from '@/components/bulk-upload-button';
+import LastUpdatedFooter from '@/components/last-updated-footer';
 
 export default function MasterProductSheet() {
   const PRODUCT_SHEET_SYNC_KEY = 'product_sheet_updated_at';
   const PRODUCT_SHEET_SYNC_EVENT = 'product_sheet_sync';
+  const [lastUpdated, setLastUpdated] = useState(null);
+  const [currentUsername, setCurrentUsername] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [fetchError, setFetchError] = useState('');
@@ -175,6 +178,10 @@ export default function MasterProductSheet() {
 
   const [data, setData] = useState([]);
 
+  useEffect(() => {
+    fetch('/api/auth/session').then(r => r.json()).then(d => { if (d?.user?.username) setCurrentUsername(d.user.username); }).catch(() => {});
+  }, []);
+
   const loadProducts = useCallback(async () => {
     setIsLoading(true);
     setFetchError('');
@@ -223,6 +230,7 @@ export default function MasterProductSheet() {
       }));
 
       setData(mappedRows);
+      setLastUpdated(new Date());
     } catch (error) {
       setFetchError(error.message || 'Failed to load products');
       setData([]);
@@ -957,7 +965,7 @@ export default function MasterProductSheet() {
           <Button
             onClick={loadProducts}
             variant="outline"
-            className="border-midnight-ink text-midnight-ink rounded-full px-6"
+            className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8"
             disabled={isLoading}
           >
             {isLoading ? 'Refreshing...' : 'Refresh'}
@@ -965,14 +973,14 @@ export default function MasterProductSheet() {
           <BulkUploadButton sheetType="products" onComplete={loadProducts} />
           <Button 
             onClick={handleCreateProduct}
-            className="bg-success hover:bg-success text-white rounded-full px-6"
+            className="bg-success hover:bg-success text-white rounded-full px-4 text-sm h-8"
           >
             Add Product
           </Button>
           <Button 
             onClick={handleEditRow}
             variant="outline"
-            className="border-trust-blue text-trust-blue hover:bg-trust-blue/10 rounded-full px-6"
+            className="border-trust-blue text-trust-blue hover:bg-trust-blue/10 rounded-full px-4 text-sm h-8"
             disabled={isArchivedView}
           >
             Edit Row
@@ -981,7 +989,7 @@ export default function MasterProductSheet() {
             <DropdownMenuTrigger asChild>
               <Button 
                 variant="outline"
-                className="border-warning text-warning hover:bg-warning/10 rounded-full px-6"
+                className="border-warning text-warning hover:bg-warning/10 rounded-full px-4 text-sm h-8"
               >
                 Archive
               </Button>
@@ -1001,7 +1009,7 @@ export default function MasterProductSheet() {
             <Button
               onClick={handleUnarchiveRows}
               variant="outline"
-              className="border-green-600 text-success hover:bg-success/10 rounded-full px-6"
+              className="border-green-600 text-success hover:bg-success/10 rounded-full px-4 text-sm h-8"
               disabled={selectedRows.size === 0}
             >
               Unarchive Selected
@@ -1010,14 +1018,14 @@ export default function MasterProductSheet() {
           <Button 
             onClick={handleManageColumns}
             variant="outline"
-            className="border-midnight-ink text-midnight-ink rounded-full px-6"
+            className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8"
           >
             Manage Columns
           </Button>
           <Button 
             onClick={handleExport}
             variant="outline"
-            className="border-midnight-ink text-midnight-ink rounded-full px-6"
+            className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8"
           >
             Export
           </Button>
@@ -1027,7 +1035,7 @@ export default function MasterProductSheet() {
             <DropdownMenuTrigger asChild>
               <Button 
                 variant="outline"
-                className="border-midnight-ink text-midnight-ink rounded-full px-6"
+                className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8"
               >
                 Print
               </Button>
@@ -1361,6 +1369,7 @@ export default function MasterProductSheet() {
           <span>Archived: {archivedRows.size}</span>
           {editingRowIds.size > 0 && <span className="text-trust-blue font-semibold">Editing {editingRowIds.size} row(s)</span>}
         </div>
+        <LastUpdatedFooter timestamp={lastUpdated} username={currentUsername} compact />
       </div>
     </div>
   );

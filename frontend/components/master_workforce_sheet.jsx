@@ -31,8 +31,11 @@ import { QuickEnrollModal } from '@/components/quick-enroll-modal';
 import { EnrolWorkforceForm } from '@/app/frontend/enrol-workforce/page';
 import DateTimeStamp from '@/components/date-time-stamp';
 import BulkUploadButton from '@/components/bulk-upload-button';
+import LastUpdatedFooter from '@/components/last-updated-footer';
 
 export default function MasterWorkforceSheet() {
+  const [lastUpdated, setLastUpdated] = useState(null);
+  const [currentUsername, setCurrentUsername] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedRows, setSelectedRows] = useState(new Set());
   const [isManageColumnsOpen, setIsManageColumnsOpen] = useState(false);
@@ -146,6 +149,10 @@ export default function MasterWorkforceSheet() {
   const [data, setData] = useState([]);
 
   useEffect(() => {
+    fetch('/api/auth/session').then(r => r.json()).then(d => { if (d?.user?.username) setCurrentUsername(d.user.username); }).catch(() => {});
+  }, []);
+
+  useEffect(() => {
     const loadWorkforce = async () => {
       try {
         const response = await fetch('/api/workforce', { cache: 'no-store' });
@@ -180,6 +187,7 @@ export default function MasterWorkforceSheet() {
         });
 
         setData(mappedRows);
+        setLastUpdated(new Date());
       } catch {
         // Keep table editable with local rows when backend load fails.
       }
@@ -738,20 +746,20 @@ export default function MasterWorkforceSheet() {
           <BulkUploadButton sheetType="workforce" onComplete={() => window.location.reload()} />
           <Button 
             onClick={handleQuickEnroll}
-            className="bg-trust-blue hover:bg-trust-blue text-white rounded-full px-6"
+            className="bg-trust-blue hover:bg-trust-blue text-white rounded-full px-4 text-sm h-8"
           >
             Quick Enroll
           </Button>
           <Button 
             onClick={handleEnrollWorkforce}
-            className="bg-trust-blue hover:bg-trust-blue text-white rounded-full px-6"
+            className="bg-trust-blue hover:bg-trust-blue text-white rounded-full px-4 text-sm h-8"
           >
             Enroll Workforce
           </Button>
           <Button 
             onClick={handleEditRow}
             variant="outline"
-            className="border-trust-blue text-trust-blue hover:bg-trust-blue/10 rounded-full px-6"
+            className="border-trust-blue text-trust-blue hover:bg-trust-blue/10 rounded-full px-4 text-sm h-8"
             disabled={isArchivedView}
           >
             Edit Row
@@ -759,7 +767,7 @@ export default function MasterWorkforceSheet() {
           <Button
             onClick={handleDeleteSelectedRows}
             variant="outline"
-            className="border-red-500 text-red-500 hover:bg-red-50 disabled:opacity-100 disabled:border-red-500 disabled:text-red-500 rounded-full px-6"
+            className="border-red-500 text-red-500 hover:bg-red-50 disabled:opacity-100 disabled:border-red-500 disabled:text-red-500 rounded-full px-4 text-sm h-8"
             disabled={selectedRows.size === 0 || editingRowIds.size > 0}
           >
             Delete Selected
@@ -768,7 +776,7 @@ export default function MasterWorkforceSheet() {
             <DropdownMenuTrigger asChild>
               <Button 
                 variant="outline"
-                className="border-trust-blue text-trust-blue hover:bg-trust-blue/10 rounded-full px-6"
+                className="border-trust-blue text-trust-blue hover:bg-trust-blue/10 rounded-full px-4 text-sm h-8"
               >
                 Archive
               </Button>
@@ -788,7 +796,7 @@ export default function MasterWorkforceSheet() {
             <Button
               onClick={handleUnarchiveRows}
               variant="outline"
-              className="border-green-600 text-success hover:bg-success/10 rounded-full px-6"
+              className="border-green-600 text-success hover:bg-success/10 rounded-full px-4 text-sm h-8"
               disabled={selectedRows.size === 0}
             >
               Unarchive Selected
@@ -797,14 +805,14 @@ export default function MasterWorkforceSheet() {
           <Button 
             onClick={handleManageColumns}
             variant="outline"
-            className="border-midnight-ink text-midnight-ink rounded-full px-6"
+            className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8"
           >
             Manage Columns
           </Button>
           <Button 
             onClick={handleExport}
             variant="outline"
-            className="border-midnight-ink text-midnight-ink rounded-full px-6"
+            className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8"
           >
             Export
           </Button>
@@ -814,7 +822,7 @@ export default function MasterWorkforceSheet() {
             <DropdownMenuTrigger asChild>
               <Button 
                 variant="outline"
-                className="border-midnight-ink text-midnight-ink rounded-full px-6"
+                className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8"
               >
                 Print
               </Button>
@@ -1020,6 +1028,7 @@ export default function MasterWorkforceSheet() {
           <span>Archived: {archivedRows.size}</span>
           {editingRowIds.size > 0 && <span className="text-trust-blue font-semibold">Editing {editingRowIds.size} row(s)</span>}
         </div>
+        <LastUpdatedFooter timestamp={lastUpdated} username={currentUsername} compact />
       </div>
 
       {/* Quick Enroll Modal */}
