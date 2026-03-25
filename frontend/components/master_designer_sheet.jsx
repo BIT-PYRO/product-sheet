@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -28,9 +28,10 @@ import LastUpdatedFooter from '@/components/last-updated-footer';
 // Each entry: { id, label, group?, groupLabel?, width }
 // group columns are displayed as a second header row under the group header.
 const COLUMNS = [
-  { id: 'sku',                      label: 'Master SKU',                        width: 'min-w-[120px]' },
   { id: 'rendered_photo',           label: 'Rendered Photo',                    width: 'min-w-[120px]' },
   { id: 'technical_drawing',        label: 'Technical Drawing',                 width: 'min-w-[160px]' },
+  { id: 'sku',                      label: 'Master SKU',                        width: 'min-w-[120px]' },
+  { id: 'other_photo',              label: 'Other Photo',                       width: 'min-w-[120px]' },
   { id: 'design_code',              label: 'Design Code',                       width: 'min-w-[120px]' },
   { id: 'master_number',            label: 'Master Number',                     width: 'min-w-[120px]' },
   { id: 'die_code',                 label: 'Die Code',                          width: 'min-w-[100px]' },
@@ -84,6 +85,7 @@ function mapRow(row) {
     sku: row.sku || '',
     rendered_photo: row.rendered_photo || row.image || '',
     technical_drawing: row.technical_drawing || '',
+    other_photo: row.designer_image_3 || '',
     design_code: row.design_code || '',
     master_number: row.master_number || '',
     die_code: row.die_code || '',
@@ -135,6 +137,7 @@ function toPayload(row) {
     sku: row.sku,
     rendered_photo: row.rendered_photo,
     technical_drawing: row.technical_drawing,
+    designer_image_3: row.other_photo,
     design_code: row.design_code,
     master_number: row.master_number,
     die_code: row.die_code,
@@ -263,7 +266,7 @@ export default function MasterDesignerSheet() {
     const newId = Math.max(...data.map((r) => r.id), -1) + 1;
     setData([...data, {
       id: newId, hasBackendRecord: false, is_active: true,
-      sku: '', rendered_photo: '', technical_drawing: '',
+      sku: '', rendered_photo: '', technical_drawing: '', other_photo: '',
       design_code: '', master_number: '', die_code: '',
       mold_qty_per_die: '', cpx_dead_weight: '',
       design_motive_size: '', total_design_measurements: '',
@@ -566,12 +569,20 @@ export default function MasterDesignerSheet() {
                         />
                       </td>
                       {visibleCols.map((col) => {
-                        const isPhoto = col.id === 'rendered_photo' || col.id === 'technical_drawing';
+                        const isPhoto = col.id === 'rendered_photo' || col.id === 'technical_drawing' || col.id === 'other_photo';
                         const val = row[col.id] ?? '';
+                        const photoFieldName = col.id === 'other_photo' ? 'designer_image_3' : col.id;
                         return (
                           <td key={col.id} className="border border-soft-border p-1" style={isEditing ? { backgroundColor: '#eff6ff' } : {}}>
-                            {isPhoto && val ? (
-                              <img src={val} alt={col.label} className="w-10 h-10 object-cover rounded border border-soft-border mx-auto" />
+                            {isPhoto ? (
+                              <DesignerPhotoCell
+                                value={val}
+                                rowId={row.id}
+                                fieldName={photoFieldName}
+                                isNew={!row.hasBackendRecord}
+                                isEditing={isEditing}
+                                onChange={(newUrl) => handleCellChange(row.id, col.id, newUrl)}
+                              />
                             ) : (
                               <Input
                                 type="text"
@@ -652,6 +663,86 @@ export default function MasterDesignerSheet() {
         </div>
         <LastUpdatedFooter timestamp={lastUpdated} username={currentUsername} compact />
       </div>
+    </div>
+  );
+}
+
+// ── DesignerPhotoCell ──────────────────────────────────────────────────────────
+function DesignerPhotoCell({ value, rowId, fieldName, isNew, isEditing, onChange }) {
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState('');
+  const inputRef = useRef(null);
+
+  const backendBase =
+    typeof window !== 'undefined' && window.location.hostname === 'localhost'
+      ? 'http://localhost:8000'
+      : 'https://product-sheet.onrender.com';
+
+  const resolveUrl = (url) => {
+    if (!url) return '';
+    if (url.startsWith('data:') || url.startsWith('http://') || url.startsWith('https://')) return url;
+    return `${backendBase}${url}`;
+  };
+
+  const handleFileChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (isNew) {
+      setUploadError('Save the row first, then upload a photo.');
+      return;
+    }
+    setUploading(true);
+    setUploadError('');
+    try {
+      const formData = new FormData();
+      formData.append('image', file);
+      const res = await fetch(`/api/designers/${rowId}/upload-photo?field=${fieldName}`, {
+        method: 'POST',
+        body: formData,
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.success) throw new Error(data?.message || 'Upload failed');
+      onChange(data.data?.url || '');
+    } catch (err) {
+      setUploadError(err.message || 'Upload failed');
+    } finally {
+      setUploading(false);
+      if (inputRef.current) inputRef.current.value = '';
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-1 min-h-8 px-1 py-1 items-center">
+      {value ? (
+        <img
+          src={resolveUrl(value)}
+          alt={fieldName}
+          className="w-10 h-10 object-cover rounded border border-soft-border"
+          onError={(e) => { e.target.style.display = 'none'; }}
+        />
+      ) : (
+        !isEditing && <span className="text-cool-gray text-xs">—</span>
+      )}
+      {isEditing && (
+        <>
+          <input
+            ref={inputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/gif"
+            className="hidden"
+            onChange={handleFileChange}
+          />
+          <button
+            type="button"
+            onClick={() => inputRef.current?.click()}
+            disabled={uploading}
+            className="text-xs px-2 py-0.5 rounded border border-trust-blue text-trust-blue hover:bg-trust-blue/10 disabled:opacity-50 w-fit"
+          >
+            {uploading ? 'Uploading…' : '+ Upload'}
+          </button>
+          {uploadError && <p className="text-xs text-danger text-center">{uploadError}</p>}
+        </>
+      )}
     </div>
   );
 }

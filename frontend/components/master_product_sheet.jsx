@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -52,8 +52,9 @@ export default function MasterProductSheet() {
   const [rowsPerPage, setRowsPerPage] = useState(25);
   const [currentPage, setCurrentPage] = useState(1);
   
-  // Column definitions for products
+  // Column definitions for products — images is first
   const columns = [
+    { id: 'images', label: 'Images' },
     { id: 'sku', label: 'SKU' },
     { id: 'listingName', label: 'Listing Name' },
     { id: 'material', label: 'Material' },
@@ -76,11 +77,11 @@ export default function MasterProductSheet() {
     { id: 'platingType', label: 'Plating Type' },
     { id: 'platingColor', label: 'Plating Color' },
     { id: 'notes', label: 'Notes' },
-    { id: 'images', label: 'Images' },
   ];
   
   // Column configuration with styling
   const columnConfig = {
+    images: { minWidth: 'min-w-[120px]', headerBg: 'bg-[#dbeafe]' },
     sku: { minWidth: 'min-w-[80px]', headerBg: 'bg-[#dbeafe]' },
     listingName: { minWidth: 'min-w-[100px]', headerBg: 'bg-[#dbeafe]' },
     material: { minWidth: 'min-w-[80px]', headerBg: 'bg-[#dbeafe]' },
@@ -103,11 +104,11 @@ export default function MasterProductSheet() {
     platingType: { minWidth: 'min-w-[85px]', headerBg: 'bg-[#dbeafe]' },
     platingColor: { minWidth: 'min-w-[85px]', headerBg: 'bg-[#dbeafe]' },
     notes: { minWidth: 'min-w-[100px]', headerBg: 'bg-[#dbeafe]' },
-    images: { minWidth: 'min-w-[80px]', headerBg: 'bg-[#dbeafe]' },
   };
   
   // Set default visible columns to prevent horizontal scrolling
   const [visibleColumns, setVisibleColumns] = useState(new Set([
+    'images',
     'sku',
     'listingName',
     'material',
@@ -226,7 +227,7 @@ export default function MasterProductSheet() {
         platingType: product.plating_type || '',
         platingColor: product.plating_color || '',
         notes: product.notes || '',
-        images: product.images || '',
+        images: Array.isArray(product.images) ? product.images : [],
       }));
 
       setData(mappedRows);
@@ -452,7 +453,7 @@ export default function MasterProductSheet() {
       platingType: '',
       platingColor: '',
       notes: '',
-      images: '',
+      images: [],
     };
     setData((prev) => [newRow, ...prev]);
     setEditingRowIds((prev) => new Set([...prev, tempId]));
@@ -504,7 +505,6 @@ export default function MasterProductSheet() {
           plating_type: row.platingType,
           plating_color: row.platingColor,
           notes: row.notes,
-          images: row.images,
         };
 
         if (row._isNew) {
@@ -1261,7 +1261,15 @@ export default function MasterProductSheet() {
                     {columns.map((column) =>
                       visibleColumns.has(column.id) && (
                         <td key={column.id} className={`border border-soft-border p-1 ${columnConfig[column.id].cellBg || ''}`} style={isEditing ? {backgroundColor: '#eff6ff'} : {}}>
-                          {canEdit ? (
+                          {column.id === 'images' ? (
+                            <ImageCell
+                              images={row.images}
+                              rowId={row.id}
+                              isNew={!!row._isNew}
+                              isEditing={canEdit}
+                              onImagesChange={(newImages) => handleCellChange(row.id, 'images', newImages)}
+                            />
+                          ) : canEdit ? (
                             <Input
                               type="text"
                               value={row[column.id]}
@@ -1371,6 +1379,94 @@ export default function MasterProductSheet() {
         </div>
         <LastUpdatedFooter timestamp={lastUpdated} username={currentUsername} compact />
       </div>
+    </div>
+  );
+}
+
+function ImageCell({ images, rowId, isNew, isEditing, onImagesChange }) {
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState('');
+  const inputRef = useRef(null);
+
+  const imageList = Array.isArray(images) ? images : [];
+
+  const backendBase =
+    typeof window !== 'undefined' && window.location.hostname === 'localhost'
+      ? 'http://localhost:8000'
+      : 'https://product-sheet.onrender.com';
+
+  const resolveUrl = (url) => {
+    if (!url) return '';
+    // base64 data URLs and absolute URLs need no prepending
+    if (url.startsWith('data:') || url.startsWith('http://') || url.startsWith('https://')) return url;
+    return `${backendBase}${url}`;
+  };
+
+  const handleFileChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (isNew) {
+      setUploadError('Save the row first, then upload an image.');
+      return;
+    }
+    setUploading(true);
+    setUploadError('');
+    try {
+      const formData = new FormData();
+      formData.append('image', file);
+      const res = await fetch(`/api/products/${rowId}/upload-image`, {
+        method: 'POST',
+        body: formData,
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.success) throw new Error(data?.message || 'Upload failed');
+      onImagesChange(Array.isArray(data.data?.images) ? data.data.images : [...imageList, data.data?.url]);
+    } catch (err) {
+      setUploadError(err.message || 'Upload failed');
+    } finally {
+      setUploading(false);
+      if (inputRef.current) inputRef.current.value = '';
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-1 min-h-8 px-1 py-1">
+      {imageList.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          {imageList.map((url, i) => (
+            <img
+              key={i}
+              src={resolveUrl(url)}
+              alt={`product-img-${i + 1}`}
+              className="w-10 h-10 object-cover rounded border border-soft-border"
+              onError={(e) => { e.target.style.display = 'none'; }}
+            />
+          ))}
+        </div>
+      )}
+      {isEditing && (
+        <>
+          <input
+            ref={inputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/gif"
+            className="hidden"
+            onChange={handleFileChange}
+          />
+          <button
+            type="button"
+            onClick={() => inputRef.current?.click()}
+            disabled={uploading}
+            className="text-xs px-2 py-0.5 rounded border border-trust-blue text-trust-blue hover:bg-trust-blue/10 disabled:opacity-50 w-fit"
+          >
+            {uploading ? 'Uploading…' : '+ Upload'}
+          </button>
+          {uploadError && <span className="text-xs text-danger">{uploadError}</span>}
+        </>
+      )}
+      {!isEditing && imageList.length === 0 && (
+        <span className="text-xs text-cool-gray">—</span>
+      )}
     </div>
   );
 }

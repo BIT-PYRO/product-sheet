@@ -31,7 +31,7 @@ class Product(AuditModel):
 	plating_type = models.CharField(max_length=120, blank=True, default='')
 	plating_color = models.CharField(max_length=120, blank=True, default='')
 	notes = models.TextField(blank=True, default='')
-	images = models.TextField(blank=True, default='')
+	images = models.JSONField(default=list, blank=True)
 
 	def __str__(self):
 		return f'{self.sku} - {self.name}'

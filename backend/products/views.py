@@ -1,4 +1,7 @@
 from drf_spectacular.utils import OpenApiExample, extend_schema_view, extend_schema
+from rest_framework.decorators import action
+from rest_framework.parsers import MultiPartParser
+from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
 
 from common.mixins import StandardizedSuccessResponseMixin
@@ -49,3 +52,37 @@ class ProductViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 	serializer_class = ProductSerializer
 	filterset_fields = ['is_active', 'category', 'sku', 'master_sku']
 	search_fields = ['sku', 'name', 'master_sku']
+
+	@extend_schema(summary='Upload image for product', tags=['Products'])
+	@action(detail=True, methods=['post'], url_path='upload-image', parser_classes=[MultiPartParser])
+	def upload_image(self, request, pk=None):
+		import os
+		import uuid
+		from django.conf import settings
+
+		product = self.get_object()
+		image_file = request.FILES.get('image')
+		if not image_file:
+			return Response({'success': False, 'message': 'No image file provided.'}, status=400)
+
+		allowed_types = {'image/jpeg', 'image/png', 'image/webp', 'image/gif'}
+		if image_file.content_type not in allowed_types:
+			return Response({'success': False, 'message': 'Unsupported image type. Use JPEG, PNG, WebP, or GIF.'}, status=400)
+
+		ext = os.path.splitext(image_file.name)[1].lower() or '.jpg'
+		filename = f'{uuid.uuid4().hex}{ext}'
+		upload_dir = os.path.join(settings.MEDIA_ROOT, 'products', str(product.pk))
+		os.makedirs(upload_dir, exist_ok=True)
+		file_path = os.path.join(upload_dir, filename)
+
+		with open(file_path, 'wb') as f:
+			for chunk in image_file.chunks():
+				f.write(chunk)
+
+		image_url = f'{settings.MEDIA_URL}products/{product.pk}/{filename}'
+		current_images = product.images if isinstance(product.images, list) else []
+		current_images.append(image_url)
+		product.images = current_images
+		product.save(update_fields=['images'])
+
+		return Response({'success': True, 'data': {'url': image_url, 'images': product.images}})

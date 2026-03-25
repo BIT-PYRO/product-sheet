@@ -131,7 +131,7 @@ function mapIncomingToProductPayload(data) {
     plating_type: String(Array.isArray(data?.platingType) ? (data.platingType.find(r => r?.col1)?.col1 || '') : (data?.platingType || '')).trim(),
     plating_color: String(Array.isArray(data?.platingType) ? (data.platingType.find(r => r?.col2)?.col2 || '') : (data?.platingColor || '')).trim(),
     notes: String(data?.notes || data?.manufacturing?.notes || '').trim(),
-    images: String(data?.images || '').trim(),
+    images: Array.isArray(data?.productImages) ? data.productImages.filter(Boolean) : [],
   };
 }
 
@@ -178,7 +178,7 @@ function mapProductSummaryRows(products = [], inventorySummaryRows = []) {
       platingType: product?.plating_type || '',
       platingColor: product?.plating_color || '',
       notes: product?.notes || '',
-      images: product?.images || '',
+      images: Array.isArray(product?.images) ? product.images : [],
       liveStock: normalizeLiveStockKeys(summary?.liveStock || DEFAULT_LIVE_STOCK),
       finalStock: Array.isArray(summary?.finalStock)
         ? summary.finalStock

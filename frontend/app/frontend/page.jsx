@@ -347,7 +347,7 @@ function ProductSheetContent() {
           { id: 2, col1: '', col2: '', col3: '' },
           { id: 3, col1: '', col2: '', col3: '' },
         ])
-        setProductImages(product.images ? [product.images] : [])
+        setProductImages(Array.isArray(product.images) ? product.images : (product.images ? [product.images] : []))
         setPrimaryImageIndex(0)
         setIsViewMode(true)
         window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -667,7 +667,9 @@ function ProductSheetContent() {
         const payload = {
           sku,
           image: designer.image1,
+          rendered_photo: designer.image1,
           designer_image_2: designer.image2,
+          technical_drawing: designer.image2,
           designer_image_3: designer.image3,
           design_stage: designer.designStage,
           design_motive_size: designer.sizeOfDesignMotive,
@@ -1902,18 +1904,19 @@ function ProductSheetContent() {
             <input ref={designerImageRef2} type="file" accept="image/*" onChange={handleDesignerImageSlotUpload('image2')} className="hidden"/>
             <input ref={designerImageRef3} type="file" accept="image/*" onChange={handleDesignerImageSlotUpload('image3')} className="hidden"/>
             {[
-              { slot: 'image1', ref: designerImageRef1, label: '1' },
-              { slot: 'image2', ref: designerImageRef2, label: '2' },
-              { slot: 'image3', ref: designerImageRef3, label: '3' },
+              { slot: 'image1', ref: designerImageRef1, label: 'Rendered Photo' },
+              { slot: 'image2', ref: designerImageRef2, label: 'Technical Drawing' },
+              { slot: 'image3', ref: designerImageRef3, label: 'Other Photo' },
             ].map(({ slot, ref, label }) => (
               <div key={slot} className="flex flex-col gap-1">
+                <div className="text-center text-xs font-semibold text-trust-blue py-0.5 bg-trust-blue/10 rounded-t-lg border border-soft-border border-b-0">{label}</div>
                 <div
-                  className="bg-white border border-soft-border rounded-xl overflow-hidden flex items-center justify-center cursor-pointer hover:bg-cloud-gray"
+                  className="bg-white border border-soft-border rounded-b-xl overflow-hidden flex items-center justify-center cursor-pointer hover:bg-cloud-gray"
                   style={{minHeight: '9rem'}}
                   onClick={() => ref.current?.click()}
                 >
                   {designer[slot] ? (
-                    <img src={designer[slot]} alt={`Designer ${label}`} className="w-full h-full object-cover rounded-xl"/>
+                    <img src={designer[slot]} alt={label} className="w-full h-full object-cover rounded-b-xl"/>
                   ) : (
                     <span className="text-xs text-cool-gray text-center px-2">Click to upload image</span>
                   )}
@@ -2734,18 +2737,19 @@ function ProductSheetContent() {
                   {/* 3 Image Upload Slots – equal columns */}
                   <div className="grid grid-cols-3 gap-1.5">
                     {[
-                      { slot: 'image1', ref: designerImageRef1, label: '1' },
-                      { slot: 'image2', ref: designerImageRef2, label: '2' },
-                      { slot: 'image3', ref: designerImageRef3, label: '3' },
+                      { slot: 'image1', ref: designerImageRef1, label: 'Rendered Photo' },
+                      { slot: 'image2', ref: designerImageRef2, label: 'Technical Drawing' },
+                      { slot: 'image3', ref: designerImageRef3, label: 'Other Photo' },
                     ].map(({ slot, ref, label }) => (
                       <div key={slot} className="flex flex-col gap-1">
+                        <div className="text-center text-xs font-semibold text-trust-blue py-0.5 bg-trust-blue/10 rounded-t-lg border border-soft-border border-b-0">{label}</div>
                         <div
-                          className="bg-white border border-soft-border rounded-xl overflow-hidden flex items-center justify-center cursor-pointer hover:bg-cloud-gray"
+                          className="bg-white border border-soft-border rounded-b-xl overflow-hidden flex items-center justify-center cursor-pointer hover:bg-cloud-gray"
                           style={{minHeight: '9rem'}}
                           onClick={() => ref.current?.click()}
                         >
                           {designer[slot] ? (
-                            <img src={designer[slot]} alt={`Designer ${label}`} className="w-full h-full object-cover rounded-xl"/>
+                            <img src={designer[slot]} alt={label} className="w-full h-full object-cover rounded-b-xl"/>
                           ) : (
                             <span className="text-xs text-cool-gray text-center px-2">Click to upload image</span>
                           )}
