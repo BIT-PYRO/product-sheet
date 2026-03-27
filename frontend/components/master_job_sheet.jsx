@@ -776,33 +776,33 @@ export default function MasterJobSheet() {
           <Button
             onClick={loadJobs}
             variant="outline"
-            className="border-midnight-ink text-midnight-ink rounded-full px-6"
+            className="border-midnight-ink text-midnight-ink rounded-full px-4 h-8 text-sm"
             disabled={isLoading}
           >
             {isLoading ? 'Loading...' : 'Refresh'}
           </Button>
           <Button 
             onClick={handleCreateJob}
-            className="bg-success hover:bg-success text-white rounded-full px-6"
+            className="bg-success hover:bg-success text-white rounded-full px-4 h-8 text-sm"
           >
             Create a Job
           </Button>
           <Button 
             onClick={handleEnrollWorkforce}
-            className="bg-trust-blue hover:bg-trust-blue text-white rounded-full px-6"
+            className="bg-trust-blue hover:bg-trust-blue text-white rounded-full px-4 h-8 text-sm"
           >
             Edit Row
           </Button>
           <Button 
             onClick={handleQuickEnroll}
-            className="bg-trust-blue hover:bg-trust-blue text-white rounded-full px-6"
+            className="bg-trust-blue hover:bg-trust-blue text-white rounded-full px-4 h-8 text-sm"
           >
             Archive Row
           </Button>
           <Button 
             onClick={handleEditRow}
             variant="outline"
-            className="border-trust-blue text-trust-blue hover:bg-trust-blue/10 rounded-full px-6"
+            className="border-trust-blue text-trust-blue hover:bg-trust-blue/10 rounded-full px-4 h-8 text-sm"
             disabled={isArchivedView}
           >
             Edit Row
@@ -811,7 +811,7 @@ export default function MasterJobSheet() {
             <DropdownMenuTrigger asChild>
               <Button 
                 variant="outline"
-                className="border-trust-blue text-trust-blue hover:bg-trust-blue/10 rounded-full px-6"
+                className="border-trust-blue text-trust-blue hover:bg-trust-blue/10 rounded-full px-4 h-8 text-sm"
               >
                 Archive
               </Button>
@@ -831,7 +831,7 @@ export default function MasterJobSheet() {
             <Button
               onClick={handleUnarchiveRows}
               variant="outline"
-              className="border-green-600 text-success hover:bg-success/10 rounded-full px-6"
+              className="border-green-600 text-success hover:bg-success/10 rounded-full px-4 h-8 text-sm"
               disabled={selectedRows.size === 0}
             >
               Unarchive Selected
@@ -840,14 +840,14 @@ export default function MasterJobSheet() {
           <Button 
             onClick={handleManageColumns}
             variant="outline"
-            className="border-midnight-ink text-midnight-ink rounded-full px-6"
+            className="border-midnight-ink text-midnight-ink rounded-full px-4 h-8 text-sm"
           >
             Manage Columns
           </Button>
           <Button 
             onClick={handleExport}
             variant="outline"
-            className="border-midnight-ink text-midnight-ink rounded-full px-6"
+            className="border-midnight-ink text-midnight-ink rounded-full px-4 h-8 text-sm"
           >
             Export
           </Button>
@@ -857,7 +857,7 @@ export default function MasterJobSheet() {
             <DropdownMenuTrigger asChild>
               <Button 
                 variant="outline"
-                className="border-midnight-ink text-midnight-ink rounded-full px-6"
+                className="border-midnight-ink text-midnight-ink rounded-full px-4 h-8 text-sm"
               >
                 Print
               </Button>

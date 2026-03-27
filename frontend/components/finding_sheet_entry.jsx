@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef, useState } from 'react';
-import { ImageIcon, X, Save, RotateCcw, Trash2 } from 'lucide-react';
+import { ImageIcon, X, Save, RotateCcw, Trash2, Plus, Star } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
 import DateTimeStamp from '@/components/date-time-stamp';
@@ -16,19 +16,54 @@ const EMPTY_FORM = {
 };
 
 export default function FindingSheetEntry() {
-  const [image, setImage] = useState(null);
+  const [images, setImages] = useState([]);
   const imageInputRef = useRef(null);
+  const dragIndexRef = useRef(null);
   const [form, setForm] = useState({ ...EMPTY_FORM });
   const [saveStatus, setSaveStatus] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
 
-  const handleImageChange = (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (event) => setImage(event.target?.result || null);
-    reader.readAsDataURL(file);
+  const handleImagesChange = (e) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+    Promise.all(
+      files.map(
+        (file) =>
+          new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onload = (ev) => resolve(ev.target?.result || null);
+            reader.readAsDataURL(file);
+          })
+      )
+    ).then((results) => {
+      setImages((prev) => [...prev, ...results.filter(Boolean)]);
+    });
     e.target.value = '';
+  };
+
+  const handleRemoveImage = (idx) => {
+    setImages((prev) => prev.filter((_, i) => i !== idx));
+  };
+
+  const handleDragStart = (idx) => {
+    dragIndexRef.current = idx;
+  };
+
+  const handleDragOver = (e, idx) => {
+    e.preventDefault();
+    const from = dragIndexRef.current;
+    if (from === null || from === idx) return;
+    setImages((prev) => {
+      const next = [...prev];
+      const [moved] = next.splice(from, 1);
+      next.splice(idx, 0, moved);
+      dragIndexRef.current = idx;
+      return next;
+    });
+  };
+
+  const handleDragEnd = () => {
+    dragIndexRef.current = null;
   };
 
   const setField = (field, value) =>
@@ -36,7 +71,7 @@ export default function FindingSheetEntry() {
 
   const handleReset = () => {
     setForm({ ...EMPTY_FORM });
-    setImage(null);
+    setImages([]);
     setSaveStatus(null);
   };
 
@@ -51,7 +86,7 @@ export default function FindingSheetEntry() {
     setIsSaving(false);
     setTimeout(() => setSaveStatus(null), 3000);
     setForm({ ...EMPTY_FORM });
-    setImage(null);
+    setImages([]);
   };
 
   const handleDelete = () => {
@@ -59,6 +94,8 @@ export default function FindingSheetEntry() {
     setSaveStatus({ success: false, message: 'Finding deleted.' });
     setTimeout(() => setSaveStatus(null), 3000);
   };
+
+  const primaryImage = images[0] || null;
 
   return (
     <div className="relative min-h-screen bg-cloud-gray flex flex-col text-midnight-ink overflow-x-hidden">
@@ -104,41 +141,73 @@ export default function FindingSheetEntry() {
 
         {/* Left — Image panel */}
         <div className="lg:w-[340px] shrink-0 bg-white border-r border-soft-border flex flex-col">
-          <div className="px-4 py-3 bg-trust-blue/40 border-b border-soft-border">
-            <p className="text-xs font-bold text-midnight-ink tracking-widest uppercase">Image</p>
+          <div className="px-4 py-3 bg-trust-blue/40 border-b border-soft-border flex items-center justify-between">
+            <p className="text-xs font-bold text-midnight-ink tracking-widest uppercase">Images</p>
+            {images.length > 0 && (
+              <span className="text-xs text-cool-gray">{images.length} photo{images.length > 1 ? 's' : ''} · drag to reorder</span>
+            )}
           </div>
-          <div className="flex-1 flex flex-col items-center justify-center p-6 gap-4">
+          <div className="flex-1 flex flex-col p-4 gap-3">
+            {/* Primary image preview */}
             <div
-              onClick={() => imageInputRef.current?.click()}
-              className="border-2 border-dashed border-soft-border rounded-2xl flex flex-col items-center justify-center w-full cursor-pointer hover:border-trust-blue hover:bg-trust-blue/5 transition-colors relative"
-              style={{ minHeight: '320px' }}
+              onClick={() => !primaryImage && imageInputRef.current?.click()}
+              className={`border-2 border-dashed border-soft-border rounded-2xl flex flex-col items-center justify-center w-full relative overflow-hidden transition-colors ${!primaryImage ? 'cursor-pointer hover:border-trust-blue hover:bg-trust-blue/5' : ''}`}
+              style={{ minHeight: '240px' }}
             >
-              <input ref={imageInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageChange} />
-              {image ? (
+              <input ref={imageInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleImagesChange} />
+              {primaryImage ? (
                 <>
-                  <img src={image} alt="Finding" className="w-full h-full object-contain rounded-2xl p-3" style={{ maxHeight: '380px' }} />
-                  <button
-                    onClick={(e) => { e.stopPropagation(); setImage(null); }}
-                    className="absolute top-3 right-3 bg-white border border-soft-border rounded-full p-1.5 shadow hover:bg-danger/10 hover:border-danger/40 transition-colors"
-                    title="Remove image"
-                  >
-                    <X className="w-4 h-4 text-cool-gray" />
-                  </button>
+                  <img src={primaryImage} alt="Primary finding" className="w-full h-full object-contain p-3" style={{ maxHeight: '260px' }} />
+                  <span className="absolute top-2 left-2 bg-trust-blue text-white text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
+                    <Star className="w-2.5 h-2.5 fill-white" /> PRIMARY
+                  </span>
                 </>
               ) : (
-                <div className="text-center text-cool-gray select-none px-4 py-10">
-                  <ImageIcon className="w-16 h-16 mx-auto mb-4 opacity-30" />
-                  <p className="text-sm font-semibold">FINDING IMAGE</p>
+                <div className="text-center text-cool-gray select-none px-4 py-8">
+                  <ImageIcon className="w-14 h-14 mx-auto mb-3 opacity-30" />
+                  <p className="text-sm font-semibold">FINDING IMAGES</p>
                   <p className="text-xs text-cool-gray/60 mt-1">Click to upload</p>
                 </div>
               )}
             </div>
+
+            {/* Thumbnail strip — drag to reorder */}
+            {images.length > 0 && (
+              <div className="flex gap-2 overflow-x-auto pb-1">
+                {images.map((src, idx) => (
+                  <div
+                    key={idx}
+                    draggable
+                    onDragStart={() => handleDragStart(idx)}
+                    onDragOver={(e) => handleDragOver(e, idx)}
+                    onDragEnd={handleDragEnd}
+                    className={`relative shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 cursor-grab active:cursor-grabbing transition-all ${idx === 0 ? 'border-trust-blue shadow-md' : 'border-soft-border hover:border-trust-blue/50'}`}
+                    title={idx === 0 ? 'Primary image' : 'Drag to make primary'}
+                  >
+                    <img src={src} alt={`Finding ${idx + 1}`} className="w-full h-full object-cover" />
+                    {idx === 0 && (
+                      <span className="absolute bottom-0 left-0 right-0 bg-trust-blue/90 text-white text-[8px] font-bold text-center py-0.5">PRIMARY</span>
+                    )}
+                    <button
+                      onClick={() => handleRemoveImage(idx)}
+                      className="absolute top-0.5 right-0.5 bg-white/90 rounded-full p-0.5 hover:bg-danger/10 transition-colors"
+                      title="Remove"
+                    >
+                      <X className="w-3 h-3 text-cool-gray" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Add images button */}
             <button
-              className="w-full border border-trust-blue text-trust-blue hover:bg-trust-blue/10 rounded-md px-4 h-9 text-sm font-semibold transition-colors"
+              className="w-full border border-trust-blue text-trust-blue hover:bg-trust-blue/10 rounded-md px-4 h-9 text-sm font-semibold transition-colors flex items-center justify-center gap-2"
               suppressHydrationWarning
               onClick={() => imageInputRef.current?.click()}
             >
-              {image ? 'Change Image' : 'Select Image'}
+              <Plus className="w-4 h-4" />
+              {images.length === 0 ? 'Select Images' : 'Add More Images'}
             </button>
           </div>
         </div>
