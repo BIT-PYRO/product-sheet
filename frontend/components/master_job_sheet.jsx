@@ -261,8 +261,7 @@ export default function MasterJobSheet() {
   };
 
   const handleCreateJob = () => {
-    // Create job functionality
-    console.log('Create new job');
+    setIsCreateJobModalOpen(true);
   };
 
   const handleQuickEnroll = () => {
@@ -786,18 +785,6 @@ export default function MasterJobSheet() {
             className="bg-success hover:bg-success text-white rounded-full px-4 h-8 text-sm"
           >
             Create a Job
-          </Button>
-          <Button 
-            onClick={handleEnrollWorkforce}
-            className="bg-trust-blue hover:bg-trust-blue text-white rounded-full px-4 h-8 text-sm"
-          >
-            Edit Row
-          </Button>
-          <Button 
-            onClick={handleQuickEnroll}
-            className="bg-trust-blue hover:bg-trust-blue text-white rounded-full px-4 h-8 text-sm"
-          >
-            Archive Row
           </Button>
           <Button 
             onClick={handleEditRow}
