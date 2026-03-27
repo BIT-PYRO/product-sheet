@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
 import GlobalSearchBar from '@/components/global-search-bar';
-import { CreateJobModal } from '@/components/create-job-modal';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
@@ -23,7 +22,7 @@ import {
 import DateTimeStamp from '@/components/date-time-stamp';
 import LastUpdatedFooter from '@/components/last-updated-footer';
 
-// Component to render composite WIP vs Current Stock values
+// Component to render composite WIP/Current Stock values
 function CompositeStockDisplay({ value }) {
   if (!value?.isComposite) {
     return <span>{value}</span>;
@@ -59,12 +58,40 @@ const INVENTORY_COLUMNS = [
   { key: 'dieLocation', label: 'Location' },
 ];
 
+// Maps frontend row field -> backend stage key stored in InventoryTransaction.stage
+const STOCK_STAGE_MAP = {
+  waxPiece:       'wax_piece',
+  waxSetting:     'wax_setting',
+  casting:        'casting',
+  filling:        'filling',
+  prePolish:      'pre_polish',
+  setting:        'setting',
+  finalPolish:    'final_polish',
+  readyForPlating:'ready_for_plating',
+  finalStockValue:'final_stock',
+};
+
+// Human-readable label for each stage (used in remark)
+const STOCK_FIELDS_MAP = {
+  waxPiece:       'Wax Piece',
+  waxSetting:     'Wax Setting',
+  casting:        'Casting',
+  filling:        'Filling',
+  prePolish:      'Pre Polish',
+  setting:        'Setting',
+  finalPolish:    'Final Polish',
+  readyForPlating:'Ready for Plating',
+  finalStockValue:'Final Stock',
+};
+
+const NON_EDITABLE_KEYS = new Set(['__select__', 'sku', 'finalStockSku']);
+
 const STOCK_FILTER_OPTIONS = [
   { value: 'min', label: 'Minimum Suggested' },
   { value: 'current', label: 'Current Stock' },
   { value: 'wip', label: 'WIP' },
   { value: 'location', label: 'Location' },
-  { value: 'wip-vs-current', label: 'WIP vs Current Stock' },
+  { value: 'wip-vs-current', label: 'WIP/Current Stock' },
 ];
 
 const PRODUCT_SORT_FIELDS = [
@@ -157,7 +184,7 @@ function parseNumericValue(value) {
 function getLiveStockValue(liveStock, stockField, keys) {
   const normalizedField = stockField || 'current';
 
-  // Handle WIP vs Current Stock special case
+  // Handle WIP/Current Stock special case
   if (normalizedField === 'wip-vs-current') {
     let wipValue = '';
     let currentValue = '';
@@ -297,9 +324,8 @@ export default function MasterInventorySheet() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSku, setSelectedSku] = useState('');
   const [isSkuDropdownOpen, setIsSkuDropdownOpen] = useState(false);
-  const [stockField, setStockField] = useState('min');
+  const [stockField, setStockField] = useState('current');
   const [isManageColumnsOpen, setIsManageColumnsOpen] = useState(false);
-  const [isCreateJobModalOpen, setIsCreateJobModalOpen] = useState(false);
   const [selectedRows, setSelectedRows] = useState(new Set());
   const [sortField, setSortField] = useState('');
   const [sortDirection, setSortDirection] = useState('asc');
@@ -317,6 +343,13 @@ export default function MasterInventorySheet() {
     new Set(INVENTORY_COLUMNS.map((column) => column.key))
   );
   const [selectedColumnsForAction, setSelectedColumnsForAction] = useState(new Set());
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editDraft, setEditDraft] = useState(new Map()); // productId -> {field: value}
+  const [isSavingAll, setIsSavingAll] = useState(false);
+  const [deletingRows, setDeletingRows] = useState(new Set());
+  const [isEditFieldTypeDialogOpen, setIsEditFieldTypeDialogOpen] = useState(false);
+  const [editFieldType, setEditFieldType] = useState('current');
+  const [pendingEditFieldType, setPendingEditFieldType] = useState('current');
 
   const readJsonSafe = useCallback(async (response) => {
     if (!response) return null;
@@ -927,8 +960,256 @@ export default function MasterInventorySheet() {
     }
   };
 
+  const handleEnterEditMode = useCallback((fieldType = 'current') => {
+    setEditFieldType(fieldType);
+    const draft = new Map();
+
+    if (fieldType === 'wip-vs-current') {
+      // Initialize draft with both wip and current values for each stage column
+      sortedProducts.forEach((p) => {
+        const wipRow = buildInventoryRow(p, 'wip');
+        const currRow = buildInventoryRow(p, 'current');
+        const entry = {};
+        for (const field of Object.keys(STOCK_STAGE_MAP)) {
+          entry[`${field}_wip`] = String(parseNumericValue(wipRow[field]) || '');
+          entry[`${field}_current`] = String(parseNumericValue(currRow[field]) || '');
+        }
+        draft.set(p.id, entry);
+      });
+    } else if (fieldType === 'location') {
+      // Only dieLocation is editable; also carry dieNumbers to preserve it on save
+      sortedProducts.forEach((p) => {
+        const row = buildInventoryRow(p, 'current');
+        draft.set(p.id, {
+          dieLocation: row.dieLocation || '',
+          dieNumbers: row.dieNumbers || '',
+        });
+      });
+    } else {
+      // min, current, wip — all stage columns + dieNumbers/dieLocation editable
+      const rows = sortedProducts.map((p) => buildInventoryRow(p, fieldType));
+      rows.forEach((row) => {
+        if (row.isEmpty) return;
+        draft.set(row.id, {
+          waxPiece: String(parseNumericValue(row.waxPiece) || ''),
+          waxSetting: String(parseNumericValue(row.waxSetting) || ''),
+          casting: String(parseNumericValue(row.casting) || ''),
+          filling: String(parseNumericValue(row.filling) || ''),
+          prePolish: String(parseNumericValue(row.prePolish) || ''),
+          setting: String(parseNumericValue(row.setting) || ''),
+          finalPolish: String(parseNumericValue(row.finalPolish) || ''),
+          readyForPlating: String(parseNumericValue(row.readyForPlating) || ''),
+          finalStockValue: String(parseNumericValue(row.finalStockValue) || ''),
+          dieNumbers: row.dieNumbers || '',
+          dieLocation: row.dieLocation || '',
+        });
+      });
+    }
+
+    setEditDraft(draft);
+    setIsEditMode(true);
+  }, [sortedProducts]);
+
+  const handleCancelEditMode = useCallback(() => {
+    setIsEditMode(false);
+    setEditDraft(new Map());
+  }, []);
+
+  const handleEditFieldChange = useCallback((productId, field, value) => {
+    setEditDraft((prev) => {
+      const next = new Map(prev);
+      const current = next.get(productId) || {};
+      next.set(productId, { ...current, [field]: value });
+      return next;
+    });
+  }, []);
+
+  const handleSaveAll = useCallback(async () => {
+    setIsSavingAll(true);
+    setError('');
+    try {
+      const allCalls = [];
+
+      if (editFieldType === 'wip-vs-current') {
+        // Save both WIP and Current changes simultaneously
+        for (const [productId, editData] of editDraft.entries()) {
+          const product = sortedProducts.find((p) => p.id === productId);
+          if (!product) continue;
+          const wipRow = buildInventoryRow(product, 'wip');
+          const currRow = buildInventoryRow(product, 'current');
+
+          for (const [field, stageName] of Object.entries(STOCK_FIELDS_MAP)) {
+            const wipNew = parseFloat(editData[`${field}_wip`]) || 0;
+            const wipOld = parseNumericValue(wipRow[field]);
+            const wipDelta = Math.round(wipNew - wipOld);
+            if (wipDelta !== 0) {
+              allCalls.push(fetch('/api/inventory/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ product: productId, txn_type: 'adjust', quantity: wipDelta, stage: STOCK_STAGE_MAP[field], stock_type: 'wip', remark: `Stage: ${stageName} (WIP)` }),
+              }));
+            }
+            const currNew = parseFloat(editData[`${field}_current`]) || 0;
+            const currOld = parseNumericValue(currRow[field]);
+            const currDelta = Math.round(currNew - currOld);
+            if (currDelta !== 0) {
+              allCalls.push(fetch('/api/inventory/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ product: productId, txn_type: 'adjust', quantity: currDelta, stage: STOCK_STAGE_MAP[field], stock_type: 'current', remark: `Stage: ${stageName} (Current)` }),
+              }));
+            }
+          }
+        }
+      } else if (editFieldType === 'location') {
+        // Only update die_numbers location field on the product
+        const originalRows = sortedProducts.map((p) => buildInventoryRow(p, 'current'));
+        for (const [productId, editData] of editDraft.entries()) {
+          const originalRow = originalRows.find((r) => r.id === productId);
+          if (!originalRow) continue;
+          if (editData.dieLocation !== originalRow.dieLocation) {
+            const product = sortedProducts.find((p) => p.id === productId);
+            const dieNumbersRaw = Array.isArray(product?.dieNumberFindings) ? product.dieNumberFindings : [];
+            // Preserve existing die/findings entries, update only location
+            const dieEntry = dieNumbersRaw.length > 0
+              ? dieNumbersRaw.map((item) => ({ ...item, location: editData.dieLocation.trim() }))
+              : (editData.dieNumbers?.trim()
+                ? [{ value: editData.dieNumbers.trim(), quantity: '', location: editData.dieLocation.trim() }]
+                : []);
+            allCalls.push(fetch(`/api/products/${productId}/`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ die_numbers: dieEntry }),
+            }));
+          }
+        }
+      } else {
+        // min / current / wip — compute deltas against the same field type's saved values
+        const baseRows = sortedProducts.map((p) => buildInventoryRow(p, editFieldType));
+        for (const [productId, editData] of editDraft.entries()) {
+          const originalRow = baseRows.find((r) => r.id === productId);
+          if (!originalRow) continue;
+
+          for (const [field, stageName] of Object.entries(STOCK_FIELDS_MAP)) {
+            const newVal = parseFloat(editData[field]) || 0;
+            const oldVal = parseNumericValue(originalRow[field]);
+            const delta = Math.round(newVal - oldVal);
+            if (delta !== 0) {
+              allCalls.push(fetch('/api/inventory/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  product: productId,
+                  txn_type: 'adjust',
+                  quantity: delta,
+                  stage: STOCK_STAGE_MAP[field],
+                  stock_type: editFieldType,
+                  remark: `Stage: ${stageName}`,
+                }),
+              }));
+            }
+          }
+
+          if (
+            editData.dieNumbers !== originalRow.dieNumbers ||
+            editData.dieLocation !== originalRow.dieLocation
+          ) {
+            const dieEntry = editData.dieNumbers.trim()
+              ? [{ value: editData.dieNumbers.trim(), quantity: '', location: editData.dieLocation.trim() }]
+              : [];
+            allCalls.push(fetch(`/api/products/${productId}/`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ die_numbers: dieEntry }),
+            }));
+          }
+        }
+      }
+
+      if (allCalls.length > 0) {
+        const results = await Promise.all(allCalls);
+        const failed = results.find((r) => !r.ok);
+        if (failed) {
+          const err = await failed.json().catch(() => ({}));
+          throw new Error(err?.message || 'Save failed');
+        }
+      }
+
+      setIsEditMode(false);
+      setEditDraft(new Map());
+      await loadProducts();
+    } catch (err) {
+      setError(`Failed to save: ${err.message}`);
+    } finally {
+      setIsSavingAll(false);
+    }
+  }, [editDraft, editFieldType, sortedProducts, loadProducts]);
+
+  const handleDeleteSelected = useCallback(async () => {
+    if (selectedRows.size === 0) return;
+    const count = selectedRows.size;
+    if (!window.confirm(`Delete ${count} selected product${count > 1 ? 's' : ''}? This cannot be undone.`)) return;
+    const ids = [...selectedRows];
+    ids.forEach((id) => setDeletingRows((prev) => new Set(prev).add(id)));
+    try {
+      const results = await Promise.all(
+        ids.map((id) => fetch(`/api/products/${id}/`, { method: 'DELETE' }))
+      );
+      const failed = results.find((r) => !r.ok);
+      if (failed) {
+        const err = await failed.json().catch(() => ({}));
+        throw new Error(err?.message || 'Delete failed');
+      }
+      setSelectedRows(new Set());
+      await loadProducts();
+    } catch (err) {
+      setError(`Failed to delete: ${err.message}`);
+    } finally {
+      setDeletingRows(new Set());
+    }
+  }, [selectedRows, loadProducts]);
+
   return (
     <div className="w-full min-h-screen bg-cloud-gray">
+      {/* ── Edit Field Type Selection Dialog ── */}
+      <Dialog open={isEditFieldTypeDialogOpen} onOpenChange={setIsEditFieldTypeDialogOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Select Field to Edit</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <p className="text-sm text-cool-gray">Choose which stock view you want to edit for all rows:</p>
+            {STOCK_FILTER_OPTIONS.map((option) => (
+              <label key={option.value} className="flex items-center gap-3 cursor-pointer rounded-md p-2 hover:bg-cloud-gray">
+                <input
+                  type="radio"
+                  name="editFieldType"
+                  value={option.value}
+                  checked={pendingEditFieldType === option.value}
+                  onChange={() => setPendingEditFieldType(option.value)}
+                  className="accent-trust-blue w-4 h-4"
+                />
+                <span className="text-sm font-medium">{option.label}</span>
+              </label>
+            ))}
+          </div>
+          <DialogFooter className="flex gap-2">
+            <Button variant="outline" onClick={() => setIsEditFieldTypeDialogOpen(false)} className="rounded-full px-4 text-sm h-8">
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                setIsEditFieldTypeDialogOpen(false);
+                handleEnterEditMode(pendingEditFieldType);
+              }}
+              className="bg-trust-blue text-white rounded-full px-4 text-sm h-8 hover:bg-trust-blue/90"
+            >
+              Start Editing
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={isManageColumnsOpen} onOpenChange={setIsManageColumnsOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
@@ -1082,18 +1363,62 @@ export default function MasterInventorySheet() {
           </div>
           <div className="flex flex-wrap gap-2 justify-start lg:justify-end">
             <Button
+              onClick={loadProducts}
+              disabled={isEditMode}
+              variant="outline"
+              className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8 disabled:opacity-40"
+            >
+              Refresh
+            </Button>
+            <Button
               onClick={handlePicklistUploadClick}
-              disabled={isUploadingPicklist}
+              disabled={isUploadingPicklist || isEditMode}
               className="bg-midnight-ink text-white rounded-full px-4 text-sm h-8 hover:bg-midnight-ink/90 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isUploadingPicklist ? 'Uploading...' : 'Bulk Upload'}
             </Button>
-            <Button
-              className="bg-success hover:bg-success/90 rounded-full px-4 text-sm h-8"
-              onClick={() => setIsCreateJobModalOpen(true)}
-            >
-              Create a Job
-            </Button>
+            {/* Edit / Save / Cancel */}
+            {isEditMode ? (
+              <>
+                <span className="text-xs text-cool-gray self-center hidden sm:inline">
+                  Editing: <strong>{STOCK_FILTER_OPTIONS.find(o => o.value === editFieldType)?.label}</strong>
+                </span>
+                <Button
+                  onClick={handleSaveAll}
+                  disabled={isSavingAll}
+                  className="bg-success hover:bg-success/90 text-white rounded-full px-4 text-sm h-8 disabled:opacity-50"
+                >
+                  {isSavingAll ? 'Saving...' : 'Save'}
+                </Button>
+                <Button
+                  onClick={handleCancelEditMode}
+                  disabled={isSavingAll}
+                  variant="outline"
+                  className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8"
+                >
+                  Cancel
+                </Button>
+              </>
+            ) : (
+              <Button
+                onClick={() => { setPendingEditFieldType('current'); setIsEditFieldTypeDialogOpen(true); }}
+                variant="outline"
+                className="border-trust-blue text-trust-blue rounded-full px-4 text-sm h-8 hover:bg-trust-blue/10"
+              >
+                Edit
+              </Button>
+            )}
+            {/* Delete — available whenever rows are selected */}
+            {selectedRows.size > 0 && !isEditMode && (
+              <Button
+                onClick={handleDeleteSelected}
+                disabled={deletingRows.size > 0}
+                variant="outline"
+                className="border-[#f59e0b] text-[#f59e0b] rounded-full px-4 text-sm h-8 hover:bg-amber-50 disabled:opacity-50"
+              >
+                {deletingRows.size > 0 ? 'Deleting...' : `Delete${selectedRows.size > 1 ? ` (${selectedRows.size})` : ''}`}
+              </Button>
+            )}
             <Button variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8" onClick={() => setIsManageColumnsOpen(true)}>
               Manage Columns
             </Button>
@@ -1253,28 +1578,107 @@ export default function MasterInventorySheet() {
               </tr>
             </thead>
             <tbody>
-              {rowsToRender.map((row, index) => (
-                <tr key={row.id}>
+              {rowsToRender.map((row, index) => {
+                const isRowEditing = isEditMode && !row.isEmpty && editDraft.has(row.id);
+                const editData = editDraft.get(row.id);
+                const isDeleting = deletingRows.has(row.id);
+
+                return (
+                <tr key={row.id} className={isDeleting ? 'opacity-40 pointer-events-none' : ''}>
                   {/* ── Main inventory cells ── */}
                   {visibleColumnList.map((column) => (
                     <td
                       key={`${row.id}-${column.key}`}
                       className={`border-b border-r border-soft-border px-2 h-9 text-center ${
                         column.key === '__select__' ? 'sticky left-0 z-10 bg-white border-l shadow-[2px_0_4px_-1px_rgba(0,0,0,0.08)]' : ''
-                      }`}
+                      } ${isEditMode && !row.isEmpty && !NON_EDITABLE_KEYS.has(column.key) && (() => {
+                        if (editFieldType === 'location') return column.key === 'dieLocation';
+                        if (editFieldType === 'wip-vs-current') return STOCK_STAGE_MAP[column.key] !== undefined;
+                        return STOCK_STAGE_MAP[column.key] !== undefined || column.key === 'finalStockValue' || column.key === 'dieNumbers' || column.key === 'dieLocation';
+                      })() ? 'bg-blue-50/40' : ''}`}
                     >
                       {column.key === '__select__' ? (
-                        row.isEmpty ? null : (
-                          <Checkbox
-                            checked={selectedRows.has(row.id)}
-                            onCheckedChange={() => toggleRowSelection(row.id)}
+                    row.isEmpty ? null : (
+                      <Checkbox
+                        checked={selectedRows.has(row.id)}
+                        onCheckedChange={() => toggleRowSelection(row.id)}
+                      />
+                    )
+                  ) : row.isEmpty ? (
+                    ''
+                  ) : isRowEditing ? (
+                    (() => {
+                      const isStockCol = STOCK_STAGE_MAP[column.key] !== undefined;
+
+                      // Location mode: only dieLocation is editable
+                      if (editFieldType === 'location') {
+                        if (column.key === 'dieLocation') {
+                          return (
+                            <input
+                              type="text"
+                              value={editData?.dieLocation ?? ''}
+                              onChange={(e) => handleEditFieldChange(row.id, 'dieLocation', e.target.value)}
+                              className="w-full min-w-[80px] border border-trust-blue/50 rounded px-1 py-0.5 text-xs text-center bg-blue-50 focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                            />
+                          );
+                        }
+                        return <CompositeStockDisplay value={row[column.key]} />;
+                      }
+
+                      // WIP vs Current mode: two stacked inputs per stock column
+                      if (editFieldType === 'wip-vs-current' && isStockCol) {
+                        return (
+                          <div className="flex flex-col gap-0.5">
+                            <input
+                              type="number"
+                              value={editData?.[`${column.key}_wip`] ?? ''}
+                              min="0"
+                              onChange={(e) => handleEditFieldChange(row.id, `${column.key}_wip`, e.target.value)}
+                              className="w-full min-w-[56px] border border-trust-blue/50 rounded px-1 py-0.5 text-[11px] text-center bg-blue-50 focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                              placeholder="WIP"
+                            />
+                            <input
+                              type="number"
+                              value={editData?.[`${column.key}_current`] ?? ''}
+                              min="0"
+                              onChange={(e) => handleEditFieldChange(row.id, `${column.key}_current`, e.target.value)}
+                              className="w-full min-w-[56px] border border-success/50 rounded px-1 py-0.5 text-[11px] text-center bg-green-50 focus:outline-none focus:ring-1 focus:ring-success"
+                              placeholder="Cur"
+                            />
+                          </div>
+                        );
+                      }
+
+                      // min / current / wip: numeric inputs for stock columns
+                      if (isStockCol || column.key === 'finalStockValue') {
+                        return (
+                          <input
+                            type="number"
+                            value={editData?.[column.key] ?? ''}
+                            min="0"
+                            onChange={(e) => handleEditFieldChange(row.id, column.key, e.target.value)}
+                            className="w-full min-w-[60px] border border-trust-blue/50 rounded px-1 py-0.5 text-xs text-center bg-blue-50 focus:outline-none focus:ring-1 focus:ring-trust-blue"
                           />
-                        )
-                      ) : row.isEmpty ? (
-                        ''
-                      ) : (
-                        <CompositeStockDisplay value={row[column.key]} />
-                      )}
+                        );
+                      }
+
+                      // dieNumbers / dieLocation: text input (only in non-location modes)
+                      if (column.key === 'dieNumbers' || column.key === 'dieLocation') {
+                        return (
+                          <input
+                            type="text"
+                            value={editData?.[column.key] ?? ''}
+                            onChange={(e) => handleEditFieldChange(row.id, column.key, e.target.value)}
+                            className="w-full min-w-[80px] border border-trust-blue/50 rounded px-1 py-0.5 text-xs text-center bg-blue-50 focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                          />
+                        );
+                      }
+
+                      return <CompositeStockDisplay value={row[column.key]} />;
+                    })()
+                  ) : (
+                    <CompositeStockDisplay value={row[column.key]} />
+                  )}
                     </td>
                   ))}
 
@@ -1294,7 +1698,8 @@ export default function MasterInventorySheet() {
                     {row.isEmpty ? '' : (sortedProducts[index]?.sku || '')}
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -1331,16 +1736,6 @@ export default function MasterInventorySheet() {
         <LastUpdatedFooter timestamp={lastUpdated} username={currentUsername} compact />
       </div>
 
-      <CreateJobModal
-        open={isCreateJobModalOpen}
-        onOpenChange={setIsCreateJobModalOpen}
-        onQuickEnroll={() => {
-          console.log('Quick enroll clicked');
-        }}
-        onJobCreated={(data) => {
-          console.log('Job created:', data);
-        }}
-      />
     </div>
   );
 }

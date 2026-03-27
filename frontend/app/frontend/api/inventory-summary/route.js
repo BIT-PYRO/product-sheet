@@ -19,7 +19,9 @@ async function readJsonSafe(response) {
 }
 
 function buildProductStockMap(products, transactions) {
-  const qtyByProduct = new Map();
+  // stockByProductKey: productId -> Map<`${stage}__${stock_type}`, running_qty>
+  // stock_type is one of: 'current', 'min', 'wip'  (default 'current' for old txns)
+  const stockByProductKey = new Map();
   const demandByProduct = new Map();
 
   transactions.forEach((txn) => {
@@ -27,69 +29,85 @@ function buildProductStockMap(products, transactions) {
     if (!productId) return;
 
     const qty = Number(txn?.quantity || 0);
+    const stage = String(txn?.stage || '').trim().toLowerCase() || 'default';
+    const stockType = String(txn?.stock_type || 'current').trim().toLowerCase() || 'current';
 
-    // Demand transactions are tracked separately; they do not affect stock balance.
     if (String(txn?.txn_type || '').trim().toLowerCase() === 'demand') {
       demandByProduct.set(productId, (demandByProduct.get(productId) || 0) + qty);
       return;
     }
 
-    const current = qtyByProduct.get(productId) || 0;
-
-    if (txn?.txn_type === 'out') {
-      qtyByProduct.set(productId, current - qty);
-      return;
-    }
-
-    // Treat 'in' and 'adjust' as additive for dashboard summary.
-    qtyByProduct.set(productId, current + qty);
+    if (!stockByProductKey.has(productId)) stockByProductKey.set(productId, new Map());
+    const keyMap = stockByProductKey.get(productId);
+    const key = `${stage}__${stockType}`;
+    const prev = keyMap.get(key) || 0;
+    const delta = txn?.txn_type === 'out' ? -qty : qty;
+    keyMap.set(key, prev + delta);
   });
 
   return products.map((product) => {
-    const currentStock = qtyByProduct.get(product.id) || 0;
+    const keyMap = stockByProductKey.get(product.id) || new Map();
     const totalInDemand = demandByProduct.get(product.id) || 0;
+
+    // Get value for a given stage + stock_type combination
+    const val = (stage, type) => {
+      const v = keyMap.get(`${stage}__${type}`);
+      return v != null ? String(v) : '';
+    };
+
+    // Helper that returns {min, current, wip, location} for a stage
+    const stageVals = (stage) => ({
+      min:      val(stage, 'min'),
+      current:  val(stage, 'current'),
+      wip:      val(stage, 'wip'),
+      location: '',
+    });
+
+    // Default bucket (old transactions that have no stage set) — treated as current
+    const defaultCurrent = val('default', 'current');
+
     return {
       id: product.id,
       sku: product.sku || '',
       masterSku: product.sku || '',
       listingName: product.name || '',
-      material: '',
-      weight: '',
+      material: product.material || '',
+      weight: product.weight || '',
       category: product.category || '',
-      collection: '',
-      settingType: '',
-      enamelType: '',
-      activeChannels: '',
+      collection: product.collection || '',
+      settingType: product.setting_type || '',
+      enamelType: product.enamel_type || '',
+      activeChannels: product.active_channels || '',
       shopifyStatus: product.is_active ? 'active' : 'inactive',
       dieNumberFindings: [
         ...(Array.isArray(product?.die_numbers) ? product.die_numbers.map((item) => ({ ...item, type: 'die_number' })) : []),
         ...(Array.isArray(product?.findings) ? product.findings.map((item) => ({ ...item, type: 'findings' })) : []),
       ],
-      color: '',
-      enamel: '',
-      stoneName: '',
-      stoneCut: '',
-      stoneColor: '',
-      stoneSize: '',
-      stoneQuantity: '',
-      platingType: '',
-      platingColor: '',
-      notes: '',
-      images: '',
+      color: product.color || '',
+      enamel: product.enamel || '',
+      stoneName: product.stone_name || '',
+      stoneCut: product.stone_cut || '',
+      stoneColor: product.stone_color || '',
+      stoneSize: product.stone_size || '',
+      stoneQuantity: product.stone_quantity || '',
+      platingType: product.plating_type || '',
+      platingColor: product.plating_color || '',
+      notes: product.notes || '',
+      images: product.images || '',
       liveStock: {
-        rawMaterial: { min: '', current: String(currentStock), wip: '', location: '' },
-        rawSetting: { min: '', current: '', wip: '', location: '' },
-        wipLiquidCasting: { min: '', current: '', wip: '', location: '' },
-        filing: { min: '', current: '', wip: '', location: '' },
-        packing: { min: '', current: '', wip: '', location: '' },
-        setting: { min: '', current: '', wip: '', location: '' },
-        finalPolish: { min: '', current: '', wip: '', location: '' },
-        readyForPlacing: { min: '', current: '', wip: '', location: '' },
+        rawMaterial:     { ...stageVals('wax_piece'),         current: val('wax_piece', 'current') || defaultCurrent },
+        rawSetting:      stageVals('wax_setting'),
+        wipLiquidCasting:stageVals('casting'),
+        filing:          stageVals('filling'),
+        packing:         stageVals('pre_polish'),
+        setting:         stageVals('setting'),
+        finalPolish:     stageVals('final_polish'),
+        readyForPlacing: stageVals('ready_for_plating'),
       },
       finalStock: [
         {
           sku: product.sku || '',
-          value: String(currentStock),
+          value: val('final_stock', 'current') || defaultCurrent,
           unit: 'pcs',
         },
       ],
