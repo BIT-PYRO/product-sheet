@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -47,6 +47,7 @@ export default function MasterJobSheet() {
   const [shouldPrintReceiveJob, setShouldPrintReceiveJob] = useState(false);
   const [isQuickEnrollOpen, setIsQuickEnrollOpen] = useState(false);
   const [isEnrollWorkforceOpen, setIsEnrollWorkforceOpen] = useState(false);
+  const [isCreateJobModalOpen, setIsCreateJobModalOpen] = useState(false);
   const [editingRowIds, setEditingRowIds] = useState(new Set());
   const [archivedRows, setArchivedRows] = useState(new Set());
   const [viewMode, setViewMode] = useState('active');
