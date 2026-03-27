@@ -185,8 +185,9 @@ export function OrderSheetView({ embedded = false }) {
           ? ordersData
           : [];
       setOrders(ordersList);
-      if (ordersList.length > 0 && !selectedOrder) {
-        setSelectedOrder(ordersList[0]);
+      if (selectedOrder) {
+        const updatedSelected = ordersList.find((order) => order.id === selectedOrder.id) || null;
+        setSelectedOrder(updatedSelected);
       }
 
       if (!productsResponse.ok) {
@@ -278,7 +279,7 @@ export function OrderSheetView({ embedded = false }) {
         {/* Vertical split layout: top list, bottom details */}
         <div className="flex flex-col gap-3 h-full min-h-0">
           {/* Top area - Orders table */}
-          <div className="w-full h-[36vh] min-h-[260px] max-h-[44vh] bg-white/95 rounded-2xl border border-slate-200/70 shadow-md overflow-hidden flex flex-col hover:shadow-lg transition-all">
+          <div className="w-full h-[52vh] min-h-[360px] max-h-[56vh] shrink-0 bg-white/95 rounded-2xl border border-slate-200/70 shadow-md overflow-hidden flex flex-col hover:shadow-lg transition-all">
             <div className="px-4 py-3 border-b border-slate-200/70 bg-gradient-to-r from-slate-50 to-slate-100/70">
               <div className="flex items-center justify-between">
                 <h3 className="text-xs font-bold uppercase tracking-wide text-slate-700">Orders</h3>
@@ -365,9 +366,10 @@ export function OrderSheetView({ embedded = false }) {
             )}
           </div>
 
-          {/* Bottom area - Order details */}
+          {/* Bottom area - Order details (shown only after selecting an order) */}
+          {selectedOrder && (
           <div className="w-full flex-1 min-h-0 bg-white/95 rounded-2xl border border-slate-200/70 shadow-lg overflow-hidden flex flex-col">
-            {selectedOrder ? (
+            {(
               <div className="flex-1 overflow-y-auto">
                 {/* Header */}
                 <div className="sticky top-0 bg-gradient-to-r from-midnight-ink via-slate-800 to-midnight-ink/80 text-white p-2 z-20 shadow-md">
@@ -620,14 +622,9 @@ export function OrderSheetView({ embedded = false }) {
                   )}
                 </div>
               </div>
-            ) : (
-              <div className="flex items-center justify-center flex-1 text-center">
-                <div className="text-cool-gray">
-                  <p className="text-xs">Select an order from the list to view details</p>
-                </div>
-              </div>
             )}
           </div>
+          )}
         </div>
       </div>
 
