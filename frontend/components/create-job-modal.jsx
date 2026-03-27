@@ -272,16 +272,20 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
 
   const jewelleryDepartments = [
     { value: "design", label: "Design / CAD" },
-    { value: "wax-moulding", label: "Wax Moulding" },
+    { value: "3d-print", label: "3D Print" },
+    { value: "mold-die", label: "Mold Die" },
+    { value: "wax-pieces", label: "Wax Pieces" },
+    { value: "wax-setting", label: "Wax Setting" },
     { value: "casting", label: "Casting" },
     { value: "filing", label: "Filing / Grinding" },
-    { value: "setting", label: "Stone Setting" },
+    { value: "pre-polish", label: "Pre-Polish" },
+    { value: "hand-setting", label: "Hand Setting" },
     { value: "polishing", label: "Polishing" },
-    { value: "rhodium", label: "Rhodium / Plating" },
-    { value: "qc", label: "Quality Check" },
+    { value: "plating", label: "Plating" },
+    { value: "final-qc", label: "Final Quality Check" },
     { value: "hallmarking", label: "Hallmarking" },
-    { value: "packaging", label: "Packaging" },
-    { value: "store", label: "Store / Vault" },
+    { value: "laser-soldering", label: "Laser Soldering" },
+    { value: "final-packaging", label: "Final Packaging" },
   ]
 
   return (
