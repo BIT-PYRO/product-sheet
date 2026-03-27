@@ -369,7 +369,7 @@ function FindingSheetEntryContent() {
       <div className="sticky top-0 z-30 bg-white border-b border-soft-border shadow-sm px-3 py-2 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <MasterNavigationDrawer inHeader />
-          <span className="text-sm font-bold text-midnight-ink tracking-wide">FINDING SHEET</span>
+          <span className="text-xl font-bold text-midnight-ink tracking-wide">FINDING SHEET</span>
           {backendMode ? (
             <span className="text-[10px] px-2 py-0.5 rounded font-semibold bg-trust-blue/10 text-deep-blue border border-trust-blue/30">
               Backend: {backendMode.toUpperCase()}
