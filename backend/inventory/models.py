@@ -11,6 +11,12 @@ class InventoryTxnType(models.TextChoices):
 	DEMAND = 'demand', 'DEMAND'
 
 
+class StockType(models.TextChoices):
+	CURRENT = 'current', 'Current Stock'
+	MIN = 'min', 'Minimum Suggested'
+	WIP = 'wip', 'WIP'
+
+
 class InventoryTransaction(AuditModel):
 	product = models.ForeignKey(
 		Product,
@@ -19,6 +25,8 @@ class InventoryTransaction(AuditModel):
 	)
 	txn_type = models.CharField(max_length=10, choices=InventoryTxnType.choices)
 	quantity = models.IntegerField()
+	stage = models.CharField(max_length=60, blank=True, default='')
+	stock_type = models.CharField(max_length=20, choices=StockType.choices, default='current', blank=True)
 	remark = models.CharField(max_length=255, blank=True)
 
 	def __str__(self):
