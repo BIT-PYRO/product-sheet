@@ -32,14 +32,16 @@ const COLUMNS = [
   { id: 'technical_drawing',        label: 'Technical Drawing',                 width: 'min-w-[160px]' },
   { id: 'sku',                      label: 'Master SKU',                        width: 'min-w-[120px]' },
   { id: 'other_photo',              label: 'Other Photo',                       width: 'min-w-[120px]' },
-  { id: 'design_code',              label: 'Design Code',                       width: 'min-w-[120px]' },
-  { id: 'master_number',            label: 'Master Number',                     width: 'min-w-[120px]' },
+  { id: 'motive_code',             label: 'Motive Code',                       width: 'min-w-[120px]' },
+  { id: 'master_sku',              label: 'Master SKU',                        width: 'min-w-[120px]' },
   { id: 'die_code',                 label: 'Die Code',                          width: 'min-w-[100px]' },
   { id: 'mold_qty_per_die',         label: 'Mold Qty / Die',                    width: 'min-w-[110px]' },
   { id: 'cpx_dead_weight',          label: 'CPX Dead Weight',                   width: 'min-w-[120px]' },
   { id: 'design_motive_size',       label: 'Size of Design Motive',             width: 'min-w-[140px]' },
   { id: 'total_design_measurements',label: 'Total Design Measurements (Approx)',width: 'min-w-[200px]' },
   { id: 'design_material',          label: 'Design Material',                   width: 'min-w-[130px]' },
+  { id: 'setting_type',             label: 'Setting Type',                      width: 'min-w-[120px]' },
+  { id: 'enamel',                   label: 'Enamel',                            width: 'min-w-[80px]'  },
   // Stone Information group
   { id: 'stone_name',               label: 'Name',      group: 'stone', width: 'min-w-[100px]' },
   { id: 'stone_material',           label: 'Stone Material', group: 'stone', width: 'min-w-[120px]' },
@@ -56,12 +58,16 @@ const COLUMNS = [
   { id: 'findings_size',            label: 'Size',     group: 'findings', width: 'min-w-[90px]' },
   { id: 'findings_quantity',        label: 'Quantity', group: 'findings', width: 'min-w-[90px]' },
   { id: 'findings_weight',          label: 'Weight',   group: 'findings', width: 'min-w-[90px]' },
+  // Plating group
+  { id: 'plating_type',             label: 'Plating Type',  group: 'plating', width: 'min-w-[130px]' },
+  { id: 'plating_color',            label: 'Plating Color', group: 'plating', width: 'min-w-[120px]' },
 ];
 
 // Group meta â€“ defines the spanning header cells
 const GROUPS = {
   stone:    { label: 'Stone Information', span: 7 },
   findings: { label: 'Findings',          span: 5 },
+  plating:  { label: 'Plating Info',      span: 2 },
 };
 
 // Totals footer â€” which columns show a numeric sum
@@ -76,8 +82,8 @@ function mapRow(row) {
   // Stone entries â€” flatten first entry; store all for tooltip/expansion
   const s = (Array.isArray(row.stone_entries) && row.stone_entries[0]) || {};
   // Findings entries â€” flatten first entry
-  const f = (Array.isArray(row.findings_entries) && row.findings_entries[0]) || {};
-
+  const f = (Array.isArray(row.findings_entries) && row.findings_entries[0]) || {};  // Plating entries — flatten first entry
+  const p = (Array.isArray(row.plating_entries) && row.plating_entries[0]) || {};
   return {
     id: row.id,
     hasBackendRecord: true,
@@ -86,14 +92,16 @@ function mapRow(row) {
     rendered_photo: row.rendered_photo || row.image || '',
     technical_drawing: row.technical_drawing || '',
     other_photo: row.designer_image_3 || '',
-    design_code: row.design_code || '',
-    master_number: row.master_number || '',
+    motive_code: row.motive_code || '',
+    master_sku: row.master_sku || '',
     die_code: row.die_code || '',
     mold_qty_per_die: row.mold_qty_per_die || '',
     cpx_dead_weight: row.cpx_dead_weight || '',
     design_motive_size: row.design_motive_size || '',
     total_design_measurements: row.total_design_measurements || '',
     design_material: row.design_material || '',
+    setting_type: row.setting_type || '',
+    enamel: row.enamel || '',
     stone_name: s.name || '',
     stone_material: s.material || '',
     stone_color: s.color || '',
@@ -107,9 +115,12 @@ function mapRow(row) {
     findings_size: f.size || '',
     findings_quantity: f.quantity || '',
     findings_weight: f.weight || '',
+    plating_type: p.type || '',
+    plating_color: p.color || '',
     // keep full arrays for save
     _stone_entries: Array.isArray(row.stone_entries) ? row.stone_entries : [],
     _findings_entries: Array.isArray(row.findings_entries) ? row.findings_entries : [],
+    _plating_entries: Array.isArray(row.plating_entries) ? row.plating_entries : [],
   };
 }
 
@@ -133,22 +144,29 @@ function toPayload(row) {
     : (row.findings_code ? [{ code: row.findings_code, die: row.findings_die,
         size: row.findings_size, quantity: row.findings_quantity, weight: row.findings_weight }] : []);
 
+  const platingEntries = row._plating_entries && row._plating_entries.length > 0
+    ? [{ ...row._plating_entries[0], type: row.plating_type, color: row.plating_color }, ...row._plating_entries.slice(1)]
+    : (row.plating_type ? [{ type: row.plating_type, color: row.plating_color }] : []);
+
   return {
     sku: row.sku,
     rendered_photo: row.rendered_photo,
     technical_drawing: row.technical_drawing,
     designer_image_3: row.other_photo,
-    design_code: row.design_code,
-    master_number: row.master_number,
+    motive_code: row.motive_code,
+    master_sku: row.master_sku,
     die_code: row.die_code,
     mold_qty_per_die: row.mold_qty_per_die,
     cpx_dead_weight: row.cpx_dead_weight,
     design_motive_size: row.design_motive_size,
     total_design_measurements: row.total_design_measurements,
     design_material: row.design_material,
+    setting_type: row.setting_type,
+    enamel: row.enamel,
     stone_entries: stoneEntries,
     mechanism: row.mechanism,
     findings_entries: findingsEntries,
+    plating_entries: platingEntries,
     is_active: row.is_active,
   };
 }
@@ -267,16 +285,18 @@ export default function MasterDesignerSheet() {
     setData([...data, {
       id: newId, hasBackendRecord: false, is_active: true,
       sku: '', rendered_photo: '', technical_drawing: '', other_photo: '',
-      design_code: '', master_number: '', die_code: '',
+      motive_code: '', master_sku: '', die_code: '',
       mold_qty_per_die: '', cpx_dead_weight: '',
       design_motive_size: '', total_design_measurements: '',
       design_material: '',
+      setting_type: '', enamel: '',
       stone_name: '', stone_material: '', stone_color: '',
       stone_cut: '', stone_size: '', stone_quantity: '', stone_weight: '',
       mechanism: '',
       findings_code: '', findings_die: '', findings_size: '',
       findings_quantity: '', findings_weight: '',
-      _stone_entries: [], _findings_entries: [],
+      plating_type: '', plating_color: '',
+      _stone_entries: [], _findings_entries: [], _plating_entries: [],
     }]);
   };
 

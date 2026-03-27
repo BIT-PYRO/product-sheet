@@ -18,6 +18,7 @@ const NAV_LINKS = [
   { href: '/orders', label: 'Orders', className: 'bg-trust-blue/10 border border-trust-blue text-deep-blue hover:bg-trust-blue/20' },
   { href: '/enrol-workforce', label: 'Enrol Workforce', className: 'bg-trust-blue/10 border border-trust-blue text-deep-blue hover:bg-trust-blue/20' },
   { href: '/enrol-customer', label: 'Enrol Customer', className: 'bg-trust-blue/10 border border-trust-blue text-deep-blue hover:bg-trust-blue/20' },
+  { href: '/designer-sheet', label: 'Designer Sheet', className: 'bg-trust-blue/10 border border-trust-blue text-deep-blue hover:bg-trust-blue/20' },
   { href: '/master-designer-sheet', label: 'Master Designer Sheet', className: 'bg-trust-blue/10 border border-trust-blue text-deep-blue hover:bg-trust-blue/20' },
   { href: '/finding-sheet', label: 'Findings Sheet', className: 'bg-trust-blue/10 border border-trust-blue text-deep-blue hover:bg-trust-blue/20' },
   { href: '/drafts', label: 'Drafts', className: 'bg-trust-blue/10 border border-trust-blue text-deep-blue hover:bg-trust-blue/20' },

@@ -10,6 +10,7 @@ import { GenericJobModal } from '@/components/generic-job-modal'
 import { PrintJobCardModal } from '@/components/print-job-card-modal'
 import DateTimeStamp from '@/components/date-time-stamp'
 import MasterNavigationDrawer from '@/components/master_navigation_drawer'
+import Link from 'next/link'
 
 const PRODUCT_SHEET_SYNC_KEY = 'product_sheet_updated_at'
 const PRODUCT_SHEET_SYNC_EVENT = 'product_sheet_sync'
@@ -154,10 +155,10 @@ function ProductSheetContent() {
   ])
 
   const TRACKING_DEFAULT_ROWS = () => [
-    { id: 1, tdm: '', stl: '', designCode: '', masterNumber: '', dieCode: '', moldDieQty: '' },
-    { id: 2, tdm: '', stl: '', designCode: '', masterNumber: '', dieCode: '', moldDieQty: '' },
-    { id: 3, tdm: '', stl: '', designCode: '', masterNumber: '', dieCode: '', moldDieQty: '' },
-    { id: 4, tdm: '', stl: '', designCode: '', masterNumber: '', dieCode: '', moldDieQty: '' },
+    { id: 1, tdm: '', stl: '', motiveCode: '', masterSku: '', dieCode: '', moldDieQty: '' },
+    { id: 2, tdm: '', stl: '', motiveCode: '', masterSku: '', dieCode: '', moldDieQty: '' },
+    { id: 3, tdm: '', stl: '', motiveCode: '', masterSku: '', dieCode: '', moldDieQty: '' },
+    { id: 4, tdm: '', stl: '', motiveCode: '', masterSku: '', dieCode: '', moldDieQty: '' },
   ]
 
   const [designer, setDesigner] = useState({
@@ -636,7 +637,7 @@ function ProductSheetContent() {
       const newId = Math.max(...designer.trackingRows.map((r) => r.id), 0) + 1;
       setDesigner((prev) => ({
         ...prev,
-        trackingRows: [...prev.trackingRows, { id: newId, tdm: '', stl: '', designCode: '', masterNumber: '', dieCode: '', moldDieQty: '' }],
+        trackingRows: [...prev.trackingRows, { id: newId, tdm: '', stl: '', motiveCode: '', masterSku: '', dieCode: '', moldDieQty: '' }],
       }));
     };
 
@@ -1890,6 +1891,7 @@ function ProductSheetContent() {
             {designerSaveStatus && (
               <span className={`text-xs px-2 py-0.5 rounded ${designerSaveStatus.success ? 'bg-success/10 text-success-dark' : 'bg-danger/10 text-danger-dark'}`}>{designerSaveStatus.message}</span>
             )}
+            <Link href={sku ? `/frontend/designer-sheet?sku=${encodeURIComponent(sku)}` : '/frontend/designer-sheet'} className="px-2.5 py-1 text-xs bg-midnight-ink text-white font-semibold rounded-full hover:bg-midnight-ink/80 flex items-center gap-1"><Eye className="h-3 w-3"/>OPEN SHEET</Link>
             <button type="button" onClick={handleSaveDesigner} disabled={isDesignerSaving} className="px-2.5 py-1 text-xs bg-success text-white font-semibold rounded-full hover:bg-success/90 disabled:opacity-50">{isDesignerSaving ? 'Saving...' : 'SAVE'}</button>
             <button type="button" onClick={handleDeleteDesigner} disabled={isDesignerSaving} className="px-2.5 py-1 text-xs bg-danger text-white font-semibold rounded-full hover:bg-danger/90 disabled:opacity-50">DELETE</button>
             <button type="button" onClick={() => designerBulkUploadRef.current?.click()} disabled={isDesignerSaving} className="px-2.5 py-1 text-xs bg-trust-blue text-white font-semibold rounded-full hover:bg-deep-blue disabled:opacity-50 flex items-center gap-1"><Upload className="h-3 w-3"/>UPLOAD</button>
@@ -1942,8 +1944,8 @@ function ProductSheetContent() {
                 <tr className="bg-[#dce8f5]">
                   <th className="border border-soft-border px-2 py-1 font-semibold text-midnight-ink text-left">3DM</th>
                   <th className="border border-soft-border px-2 py-1 font-semibold text-midnight-ink text-left">STL</th>
-                  <th className="border border-soft-border px-2 py-1 font-semibold text-midnight-ink text-left">Design Code</th>
-                  <th className="border border-soft-border px-2 py-1 font-semibold text-midnight-ink text-left">Master Number</th>
+                  <th className="border border-soft-border px-2 py-1 font-semibold text-midnight-ink text-left">Motive Code</th>
+                  <th className="border border-soft-border px-2 py-1 font-semibold text-midnight-ink text-left">Master SKU</th>
                   <th className="border border-soft-border px-2 py-1 font-semibold text-midnight-ink text-left">Die Code</th>
                   <th className="border border-soft-border px-2 py-1 font-semibold text-midnight-ink text-left">Mold/Die Qty</th>
                   <th className="border border-soft-border px-1 py-1 w-6"></th>
@@ -1972,8 +1974,8 @@ function ProductSheetContent() {
                         <button type="button" title="Set Drive link" onClick={() => { const url = window.prompt('Paste Google Drive link:', row.stl); if (url !== null) updateDesignerTrackingRow(row.id, 'stl', url.trim()); }} className="px-1 py-1 text-cool-gray hover:text-trust-blue flex-shrink-0"><Upload className="h-3 w-3"/></button>
                       </div>
                     </td>
-                    <td className="border border-soft-border p-0"><input type="text" value={row.designCode} onChange={(e) => updateDesignerTrackingRow(row.id, 'designCode', e.target.value)} className="w-full bg-transparent outline-none px-2 py-1 min-w-[80px]"/></td>
-                    <td className="border border-soft-border p-0"><input type="text" value={row.masterNumber} onChange={(e) => updateDesignerTrackingRow(row.id, 'masterNumber', e.target.value)} className="w-full bg-transparent outline-none px-2 py-1 min-w-[90px]"/></td>
+                    <td className="border border-soft-border p-0"><input type="text" value={row.motiveCode} onChange={(e) => updateDesignerTrackingRow(row.id, 'motiveCode', e.target.value)} className="w-full bg-transparent outline-none px-2 py-1 min-w-[80px]"/></td>
+                    <td className="border border-soft-border p-0"><input type="text" value={row.masterSku} onChange={(e) => updateDesignerTrackingRow(row.id, 'masterSku', e.target.value)} className="w-full bg-transparent outline-none px-2 py-1 min-w-[90px]"/></td>
                     <td className="border border-soft-border p-0"><input type="text" value={row.dieCode} onChange={(e) => updateDesignerTrackingRow(row.id, 'dieCode', e.target.value)} className="w-full bg-transparent outline-none px-2 py-1 min-w-[70px]"/></td>
                     <td className="border border-soft-border p-0"><input type="text" value={row.moldDieQty} onChange={(e) => updateDesignerTrackingRow(row.id, 'moldDieQty', e.target.value)} className="w-full bg-transparent outline-none px-2 py-1 min-w-[70px]"/></td>
                     <td className="border border-soft-border p-0 text-center">
@@ -2774,8 +2776,8 @@ function ProductSheetContent() {
                         <tr className="bg-[#dce8f5]">
                           <th className="border border-soft-border px-2 py-1 font-semibold text-midnight-ink text-left">3DM</th>
                           <th className="border border-soft-border px-2 py-1 font-semibold text-midnight-ink text-left">STL</th>
-                          <th className="border border-soft-border px-2 py-1 font-semibold text-midnight-ink text-left">Design Code</th>
-                          <th className="border border-soft-border px-2 py-1 font-semibold text-midnight-ink text-left">Master Number</th>
+                          <th className="border border-soft-border px-2 py-1 font-semibold text-midnight-ink text-left">Motive Code</th>
+                          <th className="border border-soft-border px-2 py-1 font-semibold text-midnight-ink text-left">Master SKU</th>
                           <th className="border border-soft-border px-2 py-1 font-semibold text-midnight-ink text-left">Die Code</th>
                           <th className="border border-soft-border px-2 py-1 font-semibold text-midnight-ink text-left">Mold/Die Qty</th>
                           <th className="border border-soft-border px-1 py-1 w-6"></th>
@@ -2804,8 +2806,8 @@ function ProductSheetContent() {
                                 <button type="button" title="Set Drive link" onClick={() => { const url = window.prompt('Paste Google Drive link:', row.stl); if (url !== null) updateDesignerTrackingRow(row.id, 'stl', url.trim()); }} className="px-1 py-1 text-cool-gray hover:text-trust-blue flex-shrink-0"><Upload className="h-3 w-3"/></button>
                               </div>
                             </td>
-                            <td className="border border-soft-border p-0"><input type="text" value={row.designCode} onChange={(e) => updateDesignerTrackingRow(row.id, 'designCode', e.target.value)} className="w-full bg-transparent outline-none px-2 py-1 min-w-[80px]"/></td>
-                            <td className="border border-soft-border p-0"><input type="text" value={row.masterNumber} onChange={(e) => updateDesignerTrackingRow(row.id, 'masterNumber', e.target.value)} className="w-full bg-transparent outline-none px-2 py-1 min-w-[90px]"/></td>
+                            <td className="border border-soft-border p-0"><input type="text" value={row.motiveCode} onChange={(e) => updateDesignerTrackingRow(row.id, 'motiveCode', e.target.value)} className="w-full bg-transparent outline-none px-2 py-1 min-w-[80px]"/></td>
+                            <td className="border border-soft-border p-0"><input type="text" value={row.masterSku} onChange={(e) => updateDesignerTrackingRow(row.id, 'masterSku', e.target.value)} className="w-full bg-transparent outline-none px-2 py-1 min-w-[90px]"/></td>
                             <td className="border border-soft-border p-0"><input type="text" value={row.dieCode} onChange={(e) => updateDesignerTrackingRow(row.id, 'dieCode', e.target.value)} className="w-full bg-transparent outline-none px-2 py-1 min-w-[70px]"/></td>
                             <td className="border border-soft-border p-0"><input type="text" value={row.moldDieQty} onChange={(e) => updateDesignerTrackingRow(row.id, 'moldDieQty', e.target.value)} className="w-full bg-transparent outline-none px-2 py-1 min-w-[70px]"/></td>
                             <td className="border border-soft-border p-0 text-center">

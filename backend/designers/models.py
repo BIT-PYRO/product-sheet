@@ -1,3 +1,5 @@
+import uuid
+
 from django.db import models
 from common.models import AuditModel
 
@@ -5,15 +7,15 @@ from common.models import AuditModel
 class DesignerSheet(AuditModel):
     """Stores designer data linked to a product SKU."""
 
-    sku = models.CharField(max_length=60, unique=True)
+    sku = models.CharField(max_length=60, unique=True, blank=True, default='')
 
     # ── Images / Drawings ────────────────────────────────────────────────────
     rendered_photo = models.TextField(blank=True, default='')      # Rendered Photo (URL/base64)
     technical_drawing = models.TextField(blank=True, default='')   # Technical Drawing (URL/base64)
 
     # ── Design Identity ───────────────────────────────────────────────────────
-    design_code = models.CharField(max_length=120, blank=True, default='')
-    master_number = models.CharField(max_length=120, blank=True, default='')
+    motive_code = models.CharField(max_length=120, blank=True, default='')
+    master_sku = models.CharField(max_length=120, blank=True, default='')
 
     # ── Die & Mold ────────────────────────────────────────────────────────────
     die_code = models.CharField(max_length=120, blank=True, default='')
@@ -38,6 +40,10 @@ class DesignerSheet(AuditModel):
     # Each entry: {code, die, size, quantity, weight}
     findings_entries = models.JSONField(default=list, blank=True)
 
+    # ── Plating Information (list of plating entries per SKU) ─────────────────
+    # Each entry: {type, color}
+    plating_entries = models.JSONField(default=list, blank=True)
+
     # ── Legacy / kept for backward compat ────────────────────────────────────
     image = models.TextField(blank=True, default='')
     tdm_file = models.TextField(blank=True, default='')   # stores Google Drive link for 3DM
@@ -52,16 +58,30 @@ class DesignerSheet(AuditModel):
     designer_image_2 = models.TextField(blank=True, default='')  # second image slot
     designer_image_3 = models.TextField(blank=True, default='')  # third image slot
 
+    # ── Setting Type & Enamel (designer-specific, not synced to products) ────
+    # Values: '' | 'WAX SETTING' | 'HAND SETTING'
+    setting_type = models.CharField(max_length=60, blank=True, default='')
+    # Values: '' | 'YES' | 'NO'
+    enamel = models.CharField(max_length=10, blank=True, default='')
+
     # ── Design Stage ─────────────────────────────────────────────────────────
     # Tracks which stage the product is currently at in the design pipeline.
     # Values: '' | '3DM' | 'STL' | 'RENDER' | '3D PRINT' | 'COMPLETE'
     design_stage = models.CharField(max_length=50, blank=True, default='')
 
     # ── Tracking Table ───────────────────────────────────────────────────────
-    # Each row: {id, tdm, stl, designCode, masterNumber, dieCode, moldDieQty}
+    # Each row: {id, tdm, stl, motiveCode, masterSku, dieCode, moldDieQty}
     tracking_rows = models.JSONField(default=list, blank=True)
 
+    # ── Notes ─────────────────────────────────────────────────────────────────
+    designer_notes = models.TextField(blank=True, default='')
+
     is_active = models.BooleanField(default=True)
+
+    def save(self, *args, **kwargs):
+        if not self.sku:
+            self.sku = f'DS-{uuid.uuid4().hex[:10].upper()}'
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f'Designer – {self.sku}'

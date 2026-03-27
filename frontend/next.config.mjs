@@ -34,6 +34,8 @@ const nextConfig = {
       { source: '/finding-sheet', destination: '/frontend/finding-sheet' },
       { source: '/master-workforce-sheet', destination: '/frontend/master-workforce-sheet' },
       { source: '/master-designer-sheet', destination: '/frontend/master-designer-sheet' },
+      { source: '/designer-sheet', destination: '/frontend/designer-sheet' },
+      { source: '/designer-sheet/:path*', destination: '/frontend/designer-sheet/:path*' },
       { source: '/orders', destination: '/frontend/orders' },
       { source: '/orders/:path*', destination: '/frontend/orders/:path*' },
       { source: '/profile', destination: '/frontend/profile' },

@@ -4,11 +4,10 @@ from .models import DesignerSheet
 
 
 class DesignerSheetSerializer(serializers.ModelSerializer):
+    sku = serializers.CharField(required=False, allow_blank=True, default='')
+
     def validate_sku(self, value):
-        sku = value.strip()
-        if not sku:
-            raise serializers.ValidationError('SKU cannot be blank.')
-        return sku
+        return value.strip() if value else ''
 
     class Meta:
         model = DesignerSheet

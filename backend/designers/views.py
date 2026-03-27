@@ -22,7 +22,7 @@ class DesignerSheetViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
     queryset = DesignerSheet.objects.all().order_by('-created_at')
     serializer_class = DesignerSheetSerializer
     filterset_fields = ['is_active', 'sku']
-    search_fields = ['sku']
+    search_fields = ['sku', 'motive_code', 'master_sku']
 
     @extend_schema(summary='Upload photo for designer sheet', tags=['Designers'])
     @action(detail=True, methods=['post'], url_path='upload-photo', parser_classes=[MultiPartParser])
