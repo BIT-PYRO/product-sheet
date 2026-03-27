@@ -75,6 +75,7 @@ export default function FindingSheetEntry() {
             <button
               onClick={handleSave}
               disabled={isSaving}
+              suppressHydrationWarning
               className="w-fit px-3 h-8 text-sm bg-success text-white font-semibold rounded-full shadow-sm hover:bg-success/90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
             >
               <Save className="h-3.5 w-3.5" />
@@ -83,6 +84,7 @@ export default function FindingSheetEntry() {
             <button
               onClick={handleDelete}
               disabled={isSaving}
+              suppressHydrationWarning
               className="w-fit px-3 h-8 text-sm bg-danger text-white font-semibold rounded-full shadow-sm hover:bg-danger/90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
             >
               <Trash2 className="h-3.5 w-3.5" />
@@ -133,6 +135,7 @@ export default function FindingSheetEntry() {
             </div>
             <button
               className="w-full border border-trust-blue text-trust-blue hover:bg-trust-blue/10 rounded-md px-4 h-9 text-sm font-semibold transition-colors"
+              suppressHydrationWarning
               onClick={() => imageInputRef.current?.click()}
             >
               {image ? 'Change Image' : 'Select Image'}
@@ -162,6 +165,7 @@ export default function FindingSheetEntry() {
             <div className="flex flex-wrap gap-3 items-center">
               <button
                 onClick={handleReset}
+                suppressHydrationWarning
                 className="w-fit px-3 h-8 text-sm border border-midnight-ink text-midnight-ink rounded-full flex items-center gap-1 hover:bg-midnight-ink/5 font-semibold"
               >
                 <RotateCcw className="h-3.5 w-3.5" />
