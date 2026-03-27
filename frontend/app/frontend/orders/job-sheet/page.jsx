@@ -42,7 +42,7 @@ export function OrderSheetView({ embedded = false }) {
   const [productsBySku, setProductsBySku] = useState({});
   const [productsLoading, setProductsLoading] = useState(false);
   const [productsError, setProductsError] = useState(null);
-  const [showProductDetails, setShowProductDetails] = useState(false);
+  const [showProductDetails, setShowProductDetails] = useState(true);
   const [showManageDetailsColumns, setShowManageDetailsColumns] = useState(false);
   const [visibleDetailFields, setVisibleDetailFields] = useState(new Set(PRODUCT_DETAIL_FIELDS.map((field) => field.key)));
   const [selectedDetailFields, setSelectedDetailFields] = useState(new Set());
@@ -239,7 +239,7 @@ export function OrderSheetView({ embedded = false }) {
   };
 
   return (
-    <main className={embedded ? '' : 'min-h-screen bg-[radial-gradient(circle_at_top_right,_#dbeafe_0%,_#f8fafc_32%,_#ffffff_72%)]'}>
+    <main className={embedded ? '' : 'h-screen bg-[radial-gradient(circle_at_top_right,_#dbeafe_0%,_#f8fafc_32%,_#ffffff_72%)] overflow-hidden'}>
       {/* Header */}
       {!embedded && (
       <div className="bg-white/85 backdrop-blur-xl border-b border-soft-border shadow-sm">
@@ -267,7 +267,7 @@ export function OrderSheetView({ embedded = false }) {
       )}
 
       {/* Main content */}
-      <div className={`max-w-7xl mx-auto h-full ${embedded ? 'px-0 py-2' : 'px-5 py-4'}`}>
+      <div className={`${embedded ? 'h-full px-0 py-2' : 'h-[calc(100vh-90px)] px-5 py-4'} min-h-0`}>
         {/* Error message */}
         {error && (
           <div className="mb-4 p-3 rounded-lg bg-red-50 border border-red-200 text-red-800 text-xs">
@@ -275,10 +275,10 @@ export function OrderSheetView({ embedded = false }) {
           </div>
         )}
 
-        {/* Split layout: 40% table, 60% details */}
-        <div className="flex gap-4 h-full items-stretch">
-          {/* Left side - 40% Orders table */}
-          <div className="w-2/5 h-full bg-white/95 rounded-2xl border border-slate-200/70 shadow-md overflow-hidden flex flex-col hover:shadow-lg transition-all">
+        {/* Vertical split layout: top list, bottom details */}
+        <div className="flex flex-col gap-3 h-full min-h-0">
+          {/* Top area - Orders table */}
+          <div className="w-full h-[36vh] min-h-[260px] max-h-[44vh] bg-white/95 rounded-2xl border border-slate-200/70 shadow-md overflow-hidden flex flex-col hover:shadow-lg transition-all">
             <div className="px-4 py-3 border-b border-slate-200/70 bg-gradient-to-r from-slate-50 to-slate-100/70">
               <div className="flex items-center justify-between">
                 <h3 className="text-xs font-bold uppercase tracking-wide text-slate-700">Orders</h3>
@@ -365,8 +365,8 @@ export function OrderSheetView({ embedded = false }) {
             )}
           </div>
 
-          {/* Right side - 60% Order details */}
-          <div className="w-3/5 h-full bg-white/95 rounded-2xl border border-slate-200/70 shadow-lg overflow-y-auto flex flex-col">
+          {/* Bottom area - Order details */}
+          <div className="w-full flex-1 min-h-0 bg-white/95 rounded-2xl border border-slate-200/70 shadow-lg overflow-hidden flex flex-col">
             {selectedOrder ? (
               <div className="flex-1 overflow-y-auto">
                 {/* Header */}
@@ -382,7 +382,7 @@ export function OrderSheetView({ embedded = false }) {
                 </div>
 
                 {/* Content */}
-                <div className="p-2 space-y-2">
+                <div className="p-3 space-y-3 min-h-0 flex flex-col">
                   {/* Summary cards */}
                   <div className="grid grid-cols-2 gap-2">
                     <div className="p-2 bg-gradient-to-br from-slate-50 to-white rounded-lg border border-soft-border/60 shadow-sm hover:shadow-md transition-shadow">
@@ -449,7 +449,7 @@ export function OrderSheetView({ embedded = false }) {
 
                   {/* Unified product details (includes order item info) */}
                   {selectedOrder.items && selectedOrder.items.length > 0 && (
-                    <div className="mt-1 rounded-xl border border-slate-200/80 bg-gradient-to-b from-white to-slate-50/70 shadow-sm overflow-hidden">
+                    <div className={`mt-1 rounded-xl border border-slate-200/80 bg-gradient-to-b from-white to-slate-50/70 shadow-sm overflow-hidden flex flex-col min-h-0 ${showProductDetails ? 'flex-1' : ''}`}>
                       <div className="px-3 py-2.5 border-b border-slate-200/80 flex items-center justify-between gap-2">
                         <span className="text-xs font-bold text-slate-700 uppercase tracking-wide">
                           Product Details
@@ -474,10 +474,10 @@ export function OrderSheetView({ embedded = false }) {
                       </div>
 
                       <div
-                        className={`grid transition-all duration-400 ease-out ${showProductDetails ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}
+                        className={`transition-all duration-300 ease-out overflow-hidden ${showProductDetails ? 'max-h-[42vh] opacity-100' : 'max-h-0 opacity-0'}`}
                       >
                         <div className="overflow-hidden">
-                          <div className="p-2.5 space-y-2">
+                          <div className="p-2.5 space-y-2 max-h-[40vh] overflow-y-auto">
                             {productsLoading && (
                               <div className="text-xs text-cool-gray">Loading product details…</div>
                             )}
@@ -563,7 +563,7 @@ export function OrderSheetView({ embedded = false }) {
                   )}
 
                   {/* Payment summary */}
-                  <div className="bg-gradient-to-br from-slate-900 via-midnight-ink to-slate-800 text-white rounded-lg p-3 space-y-1.5 text-xs shadow-lg">
+                  <div className="bg-gradient-to-br from-slate-900 via-midnight-ink to-slate-800 text-white rounded-lg p-3 space-y-1.5 text-xs shadow-lg shrink-0">
                     {/* Header */}
                     <div className="pb-1.5 border-b border-white/30">
                       <h3 className="font-bold text-xs uppercase tracking-widest mb-0.5 text-blue-100">Payment Summary</h3>
@@ -613,7 +613,7 @@ export function OrderSheetView({ embedded = false }) {
 
                   {/* Notes */}
                   {selectedOrder.notes && (
-                    <div className="bg-gradient-to-br from-amber-50 to-yellow-50 rounded-lg p-3 border border-amber-200/60 shadow-sm">
+                    <div className="bg-gradient-to-br from-amber-50 to-yellow-50 rounded-lg p-3 border border-amber-200/60 shadow-sm shrink-0">
                       <h3 className="font-bold text-amber-900 text-xs mb-1 uppercase tracking-wide">Notes</h3>
                       <p className="text-xs text-amber-800/80 leading-tight line-clamp-2">{selectedOrder.notes}</p>
                     </div>
