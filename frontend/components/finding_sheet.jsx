@@ -1,830 +1,566 @@
-'use client';
+﻿'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Search } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Checkbox } from '@/components/ui/checkbox';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import React, { Suspense } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Trash2, Download, Upload, Search, X, ExternalLink } from 'lucide-react';
+import Link from 'next/link';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
 import DateTimeStamp from '@/components/date-time-stamp';
-import GlobalSearchBar from '@/components/global-search-bar';
-import BulkUploadButton from '@/components/bulk-upload-button';
-import LastUpdatedFooter from '@/components/last-updated-footer';
 
-const FINDING_COLUMNS = [
-  { id: 'findingCode', label: 'FINDING CODE' },
-  { id: 'dieNumber', label: 'DIE NUMBER' },
-  { id: 'size', label: 'SIZE' },
-  { id: 'quantity', label: 'QUNATITY' },
-  { id: 'weight', label: 'WEIGHT' },
+const STONE_DEFAULT_ROWS = () => [
+  { id: 1, name: '', cut: '', color: '', size: '', material: '', weight: '', quantity: '' },
+  { id: 2, name: '', cut: '', color: '', size: '', material: '', weight: '', quantity: '' },
+  { id: 3, name: '', cut: '', color: '', size: '', material: '', weight: '', quantity: '' },
 ];
 
-const columnConfig = {
-  findingCode: { minWidth: 'min-w-[180px]', headerBg: 'bg-[#dbeafe]' },
-  dieNumber: { minWidth: 'min-w-[150px]', headerBg: 'bg-[#dbeafe]' },
-  size: { minWidth: 'min-w-[120px]', headerBg: 'bg-[#dbeafe]' },
-  quantity: { minWidth: 'min-w-[140px]', headerBg: 'bg-[#dbeafe]' },
-  weight: { minWidth: 'min-w-[140px]', headerBg: 'bg-[#dbeafe]' },
-};
+const PLATING_DEFAULT_ROWS = () => [
+  { id: 1, type: '', color: '' },
+  { id: 2, type: '', color: '' },
+  { id: 3, type: '', color: '' },
+];
 
-const EMPTY_FINDING_ROW = {
+const EMPTY_FINDING = () => ({
   findingCode: '',
+  image1: '',
+  image2: '',
+  image3: '',
   dieNumber: '',
   size: '',
   quantity: '',
   weight: '',
-};
+  material: '',
+  category: '',
+  notes: '',
+  mechanism: '',
+  stoneRows: STONE_DEFAULT_ROWS(),
+  platingRows: PLATING_DEFAULT_ROWS(),
+});
 
-export default function FindingSheet() {
-  const [lastUpdated, setLastUpdated] = useState(null);
-  const [currentUsername, setCurrentUsername] = useState('');
-  const [searchTerm, setSearchTerm] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [fetchError, setFetchError] = useState('');
-  const [data, setData] = useState([]);
-  const [selectedRows, setSelectedRows] = useState(new Set());
-  const [editingRowIds, setEditingRowIds] = useState(new Set());
-  const [archivedRows, setArchivedRows] = useState(new Set());
-  const [viewMode, setViewMode] = useState('active');
+function FindingSheetContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const findingCodeParam = (searchParams.get('finding_code') || '').trim();
 
-  const [isManageColumnsOpen, setIsManageColumnsOpen] = useState(false);
-  const [selectedColumnsForAction, setSelectedColumnsForAction] = useState(new Set());
-  const [visibleColumns, setVisibleColumns] = useState(new Set(FINDING_COLUMNS.map((col) => col.id)));
+  const imageRef1 = useRef(null);
+  const imageRef2 = useRef(null);
+  const imageRef3 = useRef(null);
+  const bulkUploadRef = useRef(null);
+  const notesMediaRef = useRef(null);
 
-  const [isPrintItemOpen, setIsPrintItemOpen] = useState(false);
-  const [isPrintSheetOpen, setIsPrintSheetOpen] = useState(false);
-  const [selectedFindingForPrint, setSelectedFindingForPrint] = useState(null);
-  const [saveEditStatus, setSaveEditStatus] = useState(null);
-  const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const [searchInput, setSearchInput] = useState(findingCodeParam);
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchError, setSearchError] = useState('');
 
-  const [findingCodeFilter, setFindingCodeFilter] = useState('');
-  const [dieNumberFilter, setDieNumberFilter] = useState('');
-  const [sizeFilter, setSizeFilter] = useState('');
-  const [quantityFilter, setQuantityFilter] = useState('');
-  const [weightFilter, setWeightFilter] = useState('');
-  const [currentPage, setCurrentPage] = useState(1);
-  const [rowsPerPage, setRowsPerPage] = useState(25);
+  const [findingRecordId, setFindingRecordId] = useState(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveStatus, setSaveStatus] = useState(null);
+  const [backendMode, setBackendMode] = useState('');
 
-  useEffect(() => {
-    fetch('/api/auth/session').then(r => r.json()).then(d => { if (d?.user?.username) setCurrentUsername(d.user.username); }).catch(() => {});
-  }, []);
-
-  const loadFindings = useCallback(async () => {
-    setIsLoading(true);
-    setFetchError('');
-    try {
-      const res = await fetch('/api/findings');
-      const json = await res.json();
-      if (!res.ok) throw new Error(json?.detail || 'Failed to load findings');
-      const rows = (json?.data?.results ?? json?.data ?? []).map((r) => ({
-        id: r.id,
-        findingCode: r.finding_code ?? '',
-        dieNumber: r.die_number ?? '',
-        size: r.size ?? '',
-        quantity: r.quantity ?? '',
-        weight: r.weight ?? '',
-      }));
-      setData(rows);
-      setLastUpdated(new Date());
-    } catch (err) {
-      setFetchError(err.message || 'Failed to load findings');
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+  const [finding, setFinding] = useState(EMPTY_FINDING());
+  const [notesMedia, setNotesMedia] = useState([]);
 
   useEffect(() => {
-    loadFindings();
-  }, [loadFindings]);
+    fetch('/api/backend-info', { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((d) => { if (d?.backendMode) setBackendMode(String(d.backendMode)); })
+      .catch(() => {});
+  }, []);
 
-  const activeData = data.filter((row) => !archivedRows.has(row.id));
-  const archivedData = data.filter((row) => archivedRows.has(row.id));
-  const isArchivedView = viewMode === 'archived';
-  const baseData = isArchivedView ? archivedData : activeData;
-
-  const filteredRows = useMemo(() => {
-    const term = searchTerm.trim().toLowerCase();
-
-    return baseData.filter((row) => {
-      const matchesSearch =
-        !term ||
-        row.findingCode.toLowerCase().includes(term) ||
-        row.dieNumber.toLowerCase().includes(term) ||
-        row.size.toLowerCase().includes(term) ||
-        row.quantity.toLowerCase().includes(term) ||
-        row.weight.toLowerCase().includes(term);
-
-      const matchesFindingCode = !findingCodeFilter || row.findingCode.toLowerCase().includes(findingCodeFilter.toLowerCase());
-      const matchesDieNumber = !dieNumberFilter || row.dieNumber.toLowerCase().includes(dieNumberFilter.toLowerCase());
-      const matchesSize = !sizeFilter || row.size.toLowerCase().includes(sizeFilter.toLowerCase());
-      const matchesQuantity = !quantityFilter || row.quantity.toLowerCase().includes(quantityFilter.toLowerCase());
-      const matchesWeight = !weightFilter || row.weight.toLowerCase().includes(weightFilter.toLowerCase());
-
-      return matchesSearch && matchesFindingCode && matchesDieNumber && matchesSize && matchesQuantity && matchesWeight;
+  const populateFromRecord = (record) => {
+    setFindingRecordId(record.id);
+    setFinding({
+      findingCode: record.finding_code || record.code || '',
+      image1: record.image || record.photo || '',
+      image2: record.image2 || record.reference_photo || '',
+      image3: record.image3 || '',
+      dieNumber: record.die_number || '',
+      size: record.size || '',
+      quantity: String(record.quantity || ''),
+      weight: String(record.weight || ''),
+      material: record.material || '',
+      category: record.category || '',
+      notes: record.notes || '',
+      mechanism: record.mechanism || '',
+      stoneRows:
+        Array.isArray(record.stone_entries) && record.stone_entries.length > 0
+          ? record.stone_entries.map((r, i) => ({ id: i + 1, name: r.name || '', cut: r.cut || '', color: r.color || '', size: r.size || '', material: r.material || '', weight: r.weight || '', quantity: r.quantity || '' }))
+          : STONE_DEFAULT_ROWS(),
+      platingRows:
+        Array.isArray(record.plating_entries) && record.plating_entries.length > 0
+          ? record.plating_entries.map((r, i) => ({ id: i + 1, type: r.type || '', color: r.color || '' }))
+          : PLATING_DEFAULT_ROWS(),
     });
-  }, [baseData, searchTerm, findingCodeFilter, dieNumberFilter, sizeFilter, quantityFilter, weightFilter]);
-
-  const totalPages = Math.max(1, Math.ceil(filteredRows.length / rowsPerPage));
-  const safePage = Math.min(currentPage, totalPages);
-  const paginatedRows = filteredRows.slice((safePage - 1) * rowsPerPage, safePage * rowsPerPage);
-
-  const allDisplayedRowsSelected =
-    filteredRows.length > 0 && filteredRows.every((row) => selectedRows.has(row.id));
-
-  const toggleSelectAllRows = (checked) => {
-    if (checked) {
-      setSelectedRows(new Set(filteredRows.map((row) => row.id)));
-      return;
-    }
-    setSelectedRows(new Set());
   };
 
-  const toggleRowSelection = (id) => {
-    const next = new Set(selectedRows);
-    if (next.has(id)) next.delete(id);
-    else next.add(id);
-    setSelectedRows(next);
-  };
-
-  const handleCellChange = (id, field, value) => {
-    setData((prev) =>
-      prev.map((row) => (row.id === id ? { ...row, [field]: value } : row))
-    );
-  };
-
-  const handleAddRow = () => {
-    const tempId = -Date.now();
-    const newRow = { id: tempId, _isNew: true, ...EMPTY_FINDING_ROW };
-    setData((prev) => [newRow, ...prev]);
-    setEditingRowIds((prev) => new Set([...prev, tempId]));
-  };
-
-  const handleEditRow = () => {
-    if (selectedRows.size === 0) {
-      alert('Please select at least one row to edit');
-      return;
-    }
-    setEditingRowIds(new Set(selectedRows));
-  };
-
-  const handleSaveEdit = async () => {
-    setIsSavingEdit(true);
-    const rowsToSave = data.filter((r) => editingRowIds.has(r.id));
+  const loadFindingByCode = useCallback(async (query) => {
+    if (!query) return;
+    setIsSearching(true);
+    setSearchError('');
     try {
-      for (const row of rowsToSave) {
-        const payload = {
-          finding_code: row.findingCode,
-          die_number: row.dieNumber,
-          size: row.size,
-          quantity: row.quantity,
-          weight: row.weight,
-        };
-        if (row._isNew) {
-          const res = await fetch('/api/findings', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
-          });
-          const json = await res.json();
-          if (!res.ok) throw new Error(json?.detail || 'Save failed');
-          const saved = json?.data ?? json;
-          setData((prev) =>
-            prev.map((r) =>
-              r.id === row.id
-                ? { id: saved.id, findingCode: saved.finding_code ?? '', dieNumber: saved.die_number ?? '', size: saved.size ?? '', quantity: saved.quantity ?? '', weight: saved.weight ?? '' }
-                : r
-            )
-          );
-        } else {
-          const res = await fetch(`/api/findings/${row.id}`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
-          });
-          const json = await res.json();
-          if (!res.ok) throw new Error(json?.detail || 'Save failed');
-        }
+      const res = await fetch(`/api/findings?search=${encodeURIComponent(query)}`, { cache: 'no-store' });
+      const json = await res.json();
+      const rows = Array.isArray(json.data) ? json.data : Array.isArray(json.data?.results) ? json.data.results : [];
+      const lq = query.toLowerCase();
+      const record =
+        rows.find((d) => String(d.finding_code || '').trim().toLowerCase() === lq) ||
+        rows[0];
+      if (record) {
+        populateFromRecord(record);
+      } else {
+        setFindingRecordId(null);
+        setFinding(EMPTY_FINDING());
+        setSearchError(`No finding found for "${query}". Fill in the details and save to create a new one.`);
       }
-      setEditingRowIds(new Set());
-      setSelectedRows(new Set());
-      setSaveEditStatus({ success: true, message: 'Rows saved' });
-    } catch (err) {
-      setSaveEditStatus({ success: false, message: err.message || 'Save failed' });
+    } catch {
+      setSearchError('Failed to load finding data.');
     } finally {
-      setIsSavingEdit(false);
-      setTimeout(() => setSaveEditStatus(null), 3000);
+      setIsSearching(false);
     }
+  }, []);
+
+  useEffect(() => {
+    if (findingCodeParam) {
+      setSearchInput(findingCodeParam);
+      loadFindingByCode(findingCodeParam);
+    }
+  }, [findingCodeParam, loadFindingByCode]);
+
+  const handleSearch = (e) => {
+    e.preventDefault();
+    const s = searchInput.trim();
+    if (!s) return;
+    router.replace(`/frontend/finding-sheet?finding_code=${encodeURIComponent(s)}`);
+    loadFindingByCode(s);
   };
 
-  const handleDeleteSelectedRows = async () => {
-    if (selectedRows.size === 0) {
-      alert('Please select at least one row to delete');
-      return;
-    }
-    if (!confirm(`Delete ${selectedRows.size} row(s)? This cannot be undone.`)) return;
-    const ids = Array.from(selectedRows);
+  const handleClear = () => {
+    setSearchInput('');
+    setFindingRecordId(null);
+    setFinding(EMPTY_FINDING());
+    setSearchError('');
+    router.replace('/frontend/finding-sheet');
+  };
+
+  const handleImageUpload = (slot) => (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => setFinding((prev) => ({ ...prev, [slot]: ev.target?.result || '' }));
+    reader.readAsDataURL(file);
+  };
+
+  const handleImageDownload = (slot, label) => {
+    const data = finding[slot];
+    if (!data) return;
+    const a = document.createElement('a');
+    a.href = data;
+    a.download = `${label.replace(/\s+/g, '-').toLowerCase()}.png`;
+    a.click();
+  };
+
+  const addStoneRow = () => {
+    const newId = Math.max(...finding.stoneRows.map((r) => r.id), 0) + 1;
+    setFinding((prev) => ({ ...prev, stoneRows: [...prev.stoneRows, { id: newId, name: '', cut: '', color: '', size: '', material: '', weight: '', quantity: '' }] }));
+  };
+  const updateStoneRow = (id, field, value) => {
+    setFinding((prev) => ({ ...prev, stoneRows: prev.stoneRows.map((r) => (r.id === id ? { ...r, [field]: value } : r)) }));
+  };
+  const deleteStoneRow = (id) => {
+    setFinding((prev) => ({ ...prev, stoneRows: prev.stoneRows.filter((r) => r.id !== id) }));
+  };
+
+  const addPlatingRow = () => {
+    const newId = Math.max(...finding.platingRows.map((r) => r.id), 0) + 1;
+    setFinding((prev) => ({ ...prev, platingRows: [...prev.platingRows, { id: newId, type: '', color: '' }] }));
+  };
+  const updatePlatingRow = (id, field, value) => {
+    setFinding((prev) => ({ ...prev, platingRows: prev.platingRows.map((r) => (r.id === id ? { ...r, [field]: value } : r)) }));
+  };
+  const deletePlatingRow = (id) => {
+    setFinding((prev) => ({ ...prev, platingRows: prev.platingRows.filter((r) => r.id !== id) }));
+  };
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    setSaveStatus(null);
     try {
-      for (const id of ids) {
-        const row = data.find((r) => r.id === id);
-        if (row?._isNew) {
-          setData((prev) => prev.filter((r) => r.id !== id));
-          continue;
-        }
-        const res = await fetch(`/api/findings/${id}`, { method: 'DELETE' });
-        if (!res.ok) {
-          const json = await res.json().catch(() => ({}));
-          throw new Error(json?.detail || 'Delete failed');
-        }
-        setData((prev) => prev.filter((r) => r.id !== id));
-      }
-      setSelectedRows(new Set());
+      const payload = {
+        finding_code: finding.findingCode,
+        image: finding.image1,
+        image2: finding.image2,
+        image3: finding.image3,
+        die_number: finding.dieNumber,
+        size: finding.size,
+        quantity: finding.quantity,
+        weight: finding.weight,
+        material: finding.material,
+        category: finding.category,
+        notes: finding.notes,
+        mechanism: finding.mechanism,
+        stone_entries: finding.stoneRows.map(({ name, cut, color, size, material, weight, quantity }) => ({ name, cut, color, size, material, weight, quantity })),
+        plating_entries: finding.platingRows.map(({ type, color }) => ({ type, color })),
+      };
+      const isUpdate = !!findingRecordId;
+      const url = isUpdate ? `/api/findings/${findingRecordId}` : '/api/findings';
+      const method = isUpdate ? 'PATCH' : 'POST';
+      const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+      const result = await res.json();
+      if (!res.ok || !result.success) throw new Error(result.message || 'Failed to save');
+      const savedId = result.data?.id || findingRecordId;
+      if (savedId) setFindingRecordId(savedId);
+      setSaveStatus({ success: true, message: isUpdate ? 'Finding updated' : 'Finding record created' });
     } catch (err) {
-      alert(err.message || 'Delete failed');
+      setSaveStatus({ success: false, message: err.message });
+    } finally {
+      setIsSaving(false);
+      setTimeout(() => setSaveStatus(null), 4000);
     }
   };
 
-  const handleArchiveRow = () => {
-    if (viewMode === 'archived') {
-      alert('Switch to active rows to archive');
+  const handleDelete = async () => {
+    if (!findingRecordId) {
+      setSaveStatus({ success: false, message: 'No record to delete' });
+      setTimeout(() => setSaveStatus(null), 4000);
       return;
     }
-    if (selectedRows.size === 0) {
-      alert('Please select at least one row to archive');
-      return;
-    }
-    const next = new Set(archivedRows);
-    selectedRows.forEach((id) => next.add(id));
-    setArchivedRows(next);
-    setSelectedRows(new Set());
-  };
-
-  const handleUnarchiveRows = () => {
-    if (selectedRows.size === 0) {
-      alert('Please select at least one row to unarchive');
-      return;
-    }
-    const next = new Set(archivedRows);
-    selectedRows.forEach((id) => next.delete(id));
-    setArchivedRows(next);
-    setSelectedRows(new Set());
-  };
-
-  const handleSetViewMode = (mode) => {
-    setViewMode(mode);
-    setSelectedRows(new Set());
-    setEditingRowIds(new Set());
-  };
-
-  const toggleColumnSelection = (columnId) => {
-    const next = new Set(selectedColumnsForAction);
-    if (next.has(columnId)) next.delete(columnId);
-    else next.add(columnId);
-    setSelectedColumnsForAction(next);
-  };
-
-  const toggleSelectAllColumns = () => {
-    if (selectedColumnsForAction.size === FINDING_COLUMNS.length) {
-      setSelectedColumnsForAction(new Set());
-    } else {
-      setSelectedColumnsForAction(new Set(FINDING_COLUMNS.map((col) => col.id)));
+    if (!window.confirm('Delete this finding record?')) return;
+    setIsSaving(true);
+    setSaveStatus(null);
+    try {
+      const res = await fetch(`/api/findings/${findingRecordId}`, { method: 'DELETE' });
+      if (!res.ok && res.status !== 204) {
+        const result = await res.json().catch(() => ({}));
+        throw new Error(result.message || 'Failed to delete');
+      }
+      setFindingRecordId(null);
+      setFinding(EMPTY_FINDING());
+      setSaveStatus({ success: true, message: 'Finding record deleted' });
+    } catch (err) {
+      setSaveStatus({ success: false, message: err.message });
+    } finally {
+      setIsSaving(false);
+      setTimeout(() => setSaveStatus(null), 4000);
     }
   };
 
-  const handleHideColumns = () => {
-    const next = new Set(visibleColumns);
-    selectedColumnsForAction.forEach((col) => next.delete(col));
-    setVisibleColumns(next);
-    setSelectedColumnsForAction(new Set());
-    setIsManageColumnsOpen(false);
-  };
-
-  const handleShowColumns = () => {
-    const next = new Set(visibleColumns);
-    selectedColumnsForAction.forEach((col) => next.add(col));
-    setVisibleColumns(next);
-    setSelectedColumnsForAction(new Set());
-    setIsManageColumnsOpen(false);
-  };
-
-  const handleExport = () => {
-    console.log('Export data:', filteredRows);
-  };
-
-  const handlePrintItems = () => {
-    if (selectedRows.size === 0) {
-      alert('Please select a row to print');
-      return;
+  const handleBulkUpload = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('sheetType', 'findings');
+    setIsSaving(true);
+    setSaveStatus(null);
+    try {
+      const res = await fetch('/api/bulk-upload', { method: 'POST', body: formData });
+      const result = await res.json().catch(() => null);
+      if (!res.ok || !result?.success) throw new Error(result?.message || 'Bulk upload failed');
+      setSaveStatus({ success: true, message: result.message });
+    } catch (err) {
+      setSaveStatus({ success: false, message: err.message });
+    } finally {
+      setIsSaving(false);
+      setTimeout(() => setSaveStatus(null), 6000);
     }
-    const findingId = Array.from(selectedRows)[0];
-    const finding = data.find((row) => row.id === findingId);
-    setSelectedFindingForPrint(finding || null);
-    setIsPrintItemOpen(true);
   };
 
-  const handlePrintSheet = () => {
-    setIsPrintSheetOpen(true);
-  };
+  const imageSlots = [
+    { slot: 'image1', ref: imageRef1, label: 'Primary Photo' },
+    { slot: 'image2', ref: imageRef2, label: 'Reference Photo' },
+    { slot: 'image3', ref: imageRef3, label: 'Other Photo' },
+  ];
 
-  const selectedFinding = useMemo(() => {
-    const selectedId = selectedRows.values().next().value;
-    if (selectedId === undefined) return null;
-    return data.find((row) => row.id === selectedId) || null;
-  }, [data, selectedRows]);
+  const isLoaded = !!findingRecordId;
 
   return (
-    <div className="relative min-h-screen bg-cloud-gray flex flex-col text-midnight-ink overflow-x-hidden">
-      <Dialog open={isManageColumnsOpen} onOpenChange={setIsManageColumnsOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Manage Columns</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3 max-h-[400px] overflow-y-auto py-4">
-            <div className="flex items-center justify-between gap-3 pb-3 border-b border-soft-border mb-3">
-              <div className="flex items-center gap-3 flex-1">
-                <Checkbox
-                  id="select-all-finding-columns"
-                  checked={selectedColumnsForAction.size === FINDING_COLUMNS.length && FINDING_COLUMNS.length > 0}
-                  onCheckedChange={toggleSelectAllColumns}
-                  className="cursor-pointer"
-                />
-                <label htmlFor="select-all-finding-columns" className="text-sm font-semibold cursor-pointer">
-                  Select All
-                </label>
-              </div>
-            </div>
-            {FINDING_COLUMNS.map((column) => (
-              <div key={column.id} className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-3 flex-1">
-                  <Checkbox
-                    id={column.id}
-                    checked={selectedColumnsForAction.has(column.id)}
-                    onCheckedChange={() => toggleColumnSelection(column.id)}
-                    className="cursor-pointer"
-                  />
-                  <label htmlFor={column.id} className="text-sm cursor-pointer">
-                    {column.label}
-                  </label>
-                </div>
-                <div className="text-sm font-semibold px-2 py-1 rounded">
-                  {!visibleColumns.has(column.id) ? (
-                    <span className="bg-danger/10 text-danger-dark px-2 py-1 rounded-full text-sm">Hidden</span>
-                  ) : (
-                    <span className="bg-success/10 text-success-dark px-2 py-1 rounded-full text-sm">Visible</span>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-          <DialogFooter className="flex gap-2">
-            <Button
-              onClick={handleHideColumns}
-              disabled={selectedColumnsForAction.size === 0}
-              variant="outline"
-              className="text-danger border-danger/40 hover:bg-danger/10"
-            >
-              Hide
-            </Button>
-            <Button
-              onClick={handleShowColumns}
-              disabled={selectedColumnsForAction.size === 0}
-              variant="outline"
-              className="text-success border-green-300 hover:bg-success/10"
-            >
-              Show
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+    <div className="min-h-screen bg-white">
+      <div className="sticky top-0 z-30 bg-white border-b border-soft-border shadow-sm px-3 py-2 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <MasterNavigationDrawer inHeader />
+          <span className="text-sm font-bold text-midnight-ink tracking-wide">MASTER FINDING SHEET</span>
+          {backendMode ? (
+            <span className="text-[10px] px-2 py-0.5 rounded font-semibold bg-trust-blue/10 text-deep-blue border border-trust-blue/30">
+              Backend: {backendMode.toUpperCase()}
+            </span>
+          ) : null}
+        </div>
+        <div className="flex items-center gap-2">
+          <DateTimeStamp />
+          <Link href="/finding-entry" className="px-3 py-1.5 text-xs bg-trust-blue text-white font-semibold rounded-full hover:bg-deep-blue flex items-center gap-1">
+            <ExternalLink className="h-3 w-3" />
+            Finding Entry
+          </Link>
+        </div>
+      </div>
 
-      <Dialog open={isPrintItemOpen} onOpenChange={setIsPrintItemOpen}>
-        <DialogContent className="max-w-xl">
-          <DialogHeader>
-            <DialogTitle>Print Finding Details</DialogTitle>
-          </DialogHeader>
-          {selectedFindingForPrint && (
-            <div className="space-y-4">
-              <div className="border border-soft-border rounded-lg overflow-hidden">
-                <div className="px-3 py-2 bg-trust-blue/40 font-bold text-sm text-midnight-ink border-b border-soft-border">
-                  FINDING DETAILS
-                </div>
-                <div className="p-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <DetailCard label="FINDING CODE" value={selectedFindingForPrint.findingCode} />
-                  <DetailCard label="DIE NUMBER" value={selectedFindingForPrint.dieNumber} />
-                  <DetailCard label="SIZE" value={selectedFindingForPrint.size} />
-                  <DetailCard label="QUNATITY" value={selectedFindingForPrint.quantity} />
-                  <DetailCard label="WEIGHT" value={selectedFindingForPrint.weight} />
-                </div>
-              </div>
-              <div className="flex justify-end gap-2">
-                <Button onClick={() => window.print()} className="bg-trust-blue hover:bg-deep-blue text-white">
-                  Print
-                </Button>
-                <Button onClick={() => setIsPrintItemOpen(false)} variant="outline">
-                  Close
-                </Button>
-              </div>
-            </div>
+      <div className="px-2 py-2">
+        <div className="bg-cloud-gray p-3 rounded-xl mb-4 border border-soft-border shadow-sm">
+          <form onSubmit={handleSearch} className="flex items-center gap-2">
+            <label className="text-xs font-semibold text-midnight-ink whitespace-nowrap">Search by Finding Code</label>
+            <input
+              type="text"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              placeholder="Enter finding code..."
+              className="flex-1 border border-soft-border rounded px-3 py-1.5 text-sm outline-none focus:border-trust-blue bg-white"
+            />
+            <button type="submit" disabled={isSearching} className="px-4 py-1.5 text-xs bg-trust-blue text-white font-semibold rounded-full hover:bg-deep-blue disabled:opacity-50 flex items-center gap-1">
+              <Search className="h-3.5 w-3.5" />
+              {isSearching ? 'Loading...' : 'Load'}
+            </button>
+            {(isLoaded || searchError) && (
+              <button type="button" onClick={handleClear} className="px-3 py-1.5 text-xs bg-soft-border text-midnight-ink font-semibold rounded-full hover:bg-cool-gray/30 flex items-center gap-1">
+                <X className="h-3.5 w-3.5" />
+                Clear
+              </button>
+            )}
+          </form>
+          {searchError && (
+            <p className="mt-2 text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded px-2 py-1">{searchError}</p>
           )}
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={isPrintSheetOpen} onOpenChange={setIsPrintSheetOpen}>
-        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader className="border-b pb-4">
-            <DialogTitle>Print Master Finding Sheet</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="text-center border-b-2 border-midnight-ink pb-4 mb-6">
-              <h2 className="text-2xl font-bold mb-2">MASTER FINDING SHEET</h2>
-              <p className="text-sm text-cool-gray">Date: {new Date().toISOString().split('T')[0]}</p>
-            </div>
-            <div className="border-2 border-midnight-ink rounded overflow-x-auto">
-              <table className="w-full border-collapse text-sm break-words">
-                <thead>
-                  <tr className="bg-gray-900 text-white">
-                    {FINDING_COLUMNS.map((column) => (
-                      <th key={column.id} className="border border-soft-border p-2 text-left break-words">
-                        {column.label}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredRows.map((row, index) => (
-                    <tr key={row.id} className={index % 2 === 0 ? 'bg-white' : 'bg-cloud-gray'}>
-                      <td className="border border-soft-border p-2 break-words">{row.findingCode || '—'}</td>
-                      <td className="border border-soft-border p-2 break-words">{row.dieNumber || '—'}</td>
-                      <td className="border border-soft-border p-2 break-words">{row.size || '—'}</td>
-                      <td className="border border-soft-border p-2 break-words">{row.quantity || '—'}</td>
-                      <td className="border border-soft-border p-2 break-words">{row.weight || '—'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <div className="flex gap-4 justify-end pt-4">
-              <Button onClick={() => window.print()} className="bg-trust-blue hover:bg-deep-blue text-white">
-                Print Sheet
-              </Button>
-              <Button onClick={() => setIsPrintSheetOpen(false)} variant="outline">
-                Close
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      <div className="flex-1 pt-16 px-3 md:px-4 pb-3 md:pb-4">
-        <div className="transition-[left,width] duration-300 ease-in-out fixed top-0 left-0 right-0 z-[60] bg-white/95 py-2 border-b border-soft-border shadow-sm backdrop-blur px-3 md:px-4">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3 shrink-0">
-              <MasterNavigationDrawer inHeader />
-              <h1 className="text-xl font-bold tracking-tight text-midnight-ink">MASTER FINDING SHEET</h1>
-            </div>
-            <GlobalSearchBar />
-            <DateTimeStamp />
-          </div>
+          {isLoaded && (
+            <p className="mt-2 text-xs text-success-dark bg-success/10 border border-success/20 rounded px-2 py-1">
+              Loaded record{finding.findingCode ? ` — Code: ${finding.findingCode}` : ''}
+            </p>
+          )}
         </div>
 
-        <div className="flex flex-wrap gap-2 md:gap-4 justify-end mb-4 items-center">
-          <div className="relative mr-auto">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-cool-gray w-4 h-4" />
-            <Input
+        <div className="bg-cloud-gray p-3 rounded-xl border border-soft-border shadow-sm">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <h2 className="text-sm font-bold text-trust-blue">FINDING</h2>
+              {isLoaded && (
+                <span className="text-xs px-2 py-0.5 rounded-full bg-success/10 text-success-dark border border-success/20 font-semibold">
+                  {finding.findingCode}
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-1.5">
+              {saveStatus && (
+                <span className={`text-xs px-2 py-0.5 rounded ${saveStatus.success ? 'bg-success/10 text-success-dark' : 'bg-danger/10 text-danger-dark'}`}>
+                  {saveStatus.message}
+                </span>
+              )}
+              <button type="button" onClick={handleSave} disabled={isSaving} className="px-2.5 py-1 text-xs bg-success text-white font-semibold rounded-full hover:bg-success/90 disabled:opacity-50">
+                {isSaving ? 'Saving...' : 'SAVE'}
+              </button>
+              <button type="button" onClick={handleDelete} disabled={isSaving || !findingRecordId} className="px-2.5 py-1 text-xs bg-danger text-white font-semibold rounded-full hover:bg-danger/90 disabled:opacity-50">
+                DELETE
+              </button>
+              <button type="button" onClick={() => bulkUploadRef.current?.click()} disabled={isSaving} className="px-2.5 py-1 text-xs bg-trust-blue text-white font-semibold rounded-full hover:bg-deep-blue disabled:opacity-50 flex items-center gap-1">
+                <Upload className="h-3 w-3" />
+                UPLOAD
+              </button>
+              <input ref={bulkUploadRef} type="file" accept=".csv,.xlsx,.xls,.json" onChange={handleBulkUpload} className="hidden" />
+            </div>
+          </div>
+
+          <div className="mb-3">
+            <label className="text-xs font-semibold text-midnight-ink mb-1 block">
+              Finding Code <span className="font-normal text-cool-gray">(primary identifier)</span>
+            </label>
+            <input
               type="text"
-              placeholder="SEARCH BAR"
-              value={searchTerm}
-              onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
-              className="border border-soft-border rounded-lg pl-9 pr-4 h-9 w-64 text-sm"
+              value={finding.findingCode}
+              onChange={(e) => setFinding((prev) => ({ ...prev, findingCode: e.target.value }))}
+              placeholder="e.g. FC-001"
+              className="w-full border border-soft-border rounded px-3 py-1.5 text-sm outline-none focus:border-trust-blue bg-white"
             />
           </div>
 
-          <Button
-            onClick={loadFindings}
-            variant="outline"
-            className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8"
-            disabled={isLoading}
-          >
-            {isLoading ? 'Refreshing...' : 'Refresh'}
-          </Button>
-          <BulkUploadButton sheetType="products" onComplete={loadFindings} />
-          <Button
-            onClick={handleEditRow}
-            variant="outline"
-            className="border-trust-blue text-trust-blue hover:bg-trust-blue/10 rounded-full px-4 text-sm h-8"
-            disabled={isArchivedView}
-          >
-            Edit Row
-          </Button>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="outline"
-                className="border-warning text-warning hover:bg-warning/10 rounded-full px-4 text-sm h-8"
-              >
-                Archive
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              <DropdownMenuItem onClick={handleArchiveRow} disabled={isArchivedView}>
-                Archive Selected Rows
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleSetViewMode(isArchivedView ? 'active' : 'archived')}>
-                {isArchivedView ? 'Show Active Rows' : 'Show Archived Rows'}
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          {isArchivedView && (
-            <Button
-              onClick={handleUnarchiveRows}
-              variant="outline"
-              className="border-green-600 text-success hover:bg-success/10 rounded-full px-4 text-sm h-8"
-              disabled={selectedRows.size === 0}
-            >
-              Unarchive Selected
-            </Button>
-          )}
-          <Button
-            onClick={() => setIsManageColumnsOpen(true)}
-            variant="outline"
-            className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8"
-          >
-            Manage Columns
-          </Button>
-          <Button
-            onClick={handleExport}
-            variant="outline"
-            className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8"
-          >
-            Export
-          </Button>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="outline"
-                className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8"
-              >
-                Print
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              <DropdownMenuItem onClick={handlePrintItems}>Product Details</DropdownMenuItem>
-              <DropdownMenuItem onClick={handlePrintSheet}>Sheet</DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-
-        <div className="mb-4 border border-soft-border rounded-lg bg-white overflow-hidden">
-          <div className="px-3 py-2 bg-trust-blue/40 font-bold text-sm text-midnight-ink border-b border-soft-border">
-            FINDING DETAILS
-          </div>
-          <div className="p-3">
-            {!selectedFinding ? (
-              <div className="text-sm text-cool-gray">Select a row to see finding details.</div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
-                <DetailCard label="FINDING CODE" value={selectedFinding.findingCode} />
-                <DetailCard label="DIE NUMBER" value={selectedFinding.dieNumber} />
-                <DetailCard label="SIZE" value={selectedFinding.size} />
-                <DetailCard label="QUNATITY" value={selectedFinding.quantity} />
-                <DetailCard label="WEIGHT" value={selectedFinding.weight} />
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className="border border-soft-border rounded-lg mb-4 bg-trust-blue/10 p-4">
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2">
-            <div>
-              <label className="text-sm font-semibold text-slate-text block mb-1">FINDING CODE</label>
-              <Input
-                type="text"
-                placeholder="Enter code"
-                value={findingCodeFilter}
-                onChange={(e) => setFindingCodeFilter(e.target.value)}
-                className="h-8 text-sm p-1"
-              />
-            </div>
-            <div>
-              <label className="text-sm font-semibold text-slate-text block mb-1">DIE NUMBER</label>
-              <Input
-                type="text"
-                placeholder="Enter die"
-                value={dieNumberFilter}
-                onChange={(e) => setDieNumberFilter(e.target.value)}
-                className="h-8 text-sm p-1"
-              />
-            </div>
-            <div>
-              <label className="text-sm font-semibold text-slate-text block mb-1">SIZE</label>
-              <Input
-                type="text"
-                placeholder="Enter size"
-                value={sizeFilter}
-                onChange={(e) => setSizeFilter(e.target.value)}
-                className="h-8 text-sm p-1"
-              />
-            </div>
-            <div>
-              <label className="text-sm font-semibold text-slate-text block mb-1">QUNATITY</label>
-              <Input
-                type="text"
-                placeholder="Enter quantity"
-                value={quantityFilter}
-                onChange={(e) => setQuantityFilter(e.target.value)}
-                className="h-8 text-sm p-1"
-              />
-            </div>
-            <div>
-              <label className="text-sm font-semibold text-slate-text block mb-1">WEIGHT</label>
-              <Input
-                type="text"
-                placeholder="Enter weight"
-                value={weightFilter}
-                onChange={(e) => setWeightFilter(e.target.value)}
-                className="h-8 text-sm p-1"
-              />
-            </div>
-          </div>
-        </div>
-
-        {isLoading && (
-          <div className="mb-4 rounded-md border border-trust-blue/30 bg-trust-blue/10 px-4 py-2 text-sm text-deep-blue">
-            Loading findings...
-          </div>
-        )}
-
-        {!isLoading && fetchError && (
-          <div className="mb-4 rounded-md border border-danger/30 bg-danger/10 px-4 py-2 text-sm text-danger-dark flex items-center justify-between gap-3">
-            <span>{fetchError}</span>
-            <Button onClick={loadFindings} variant="outline" className="h-8 px-3 border-danger/40 text-danger-dark hover:bg-danger/10">
-              Retry
-            </Button>
-          </div>
-        )}
-
-        <div className="border border-soft-border rounded-lg bg-white overflow-hidden">
-          <div className="overflow-auto max-h-[500px]">
-            <table className="w-full border-separate border-spacing-0 text-sm">
-              <thead className="sticky top-0 z-20 bg-[#dbeafe]">
-                <tr className="text-midnight-ink font-bold border-b-2 border-soft-border">
-                  <th className="border border-soft-border p-2 w-8 sticky left-0 bg-[#dbeafe] z-30 shadow-[2px_0_4px_-1px_rgba(0,0,0,0.08)]">
-                    <Checkbox
-                      checked={allDisplayedRowsSelected}
-                      onCheckedChange={toggleSelectAllRows}
-                      className="cursor-pointer"
-                      disabled={filteredRows.length === 0 || editingRowIds.size > 0}
-                    />
-                  </th>
-                  {FINDING_COLUMNS.map(
-                    (column) =>
-                      visibleColumns.has(column.id) && (
-                        <th
-                          key={column.id}
-                          className={`border border-soft-border p-2 ${columnConfig[column.id].headerBg} ${columnConfig[column.id].minWidth}`}
-                        >
-                          {column.label}
-                        </th>
-                      )
+          <div className="grid grid-cols-3 gap-2 mb-3">
+            {imageSlots.map(({ slot, ref, label }) => (
+              <div key={slot} className="flex flex-col gap-1">
+                <input ref={ref} type="file" accept="image/*" onChange={handleImageUpload(slot)} className="hidden" />
+                <div className="text-center text-xs font-semibold text-trust-blue py-0.5 bg-trust-blue/10 rounded-t-lg border border-soft-border border-b-0">{label}</div>
+                <div
+                  className="bg-white border border-soft-border rounded-b-xl overflow-hidden flex items-center justify-center cursor-pointer hover:bg-cloud-gray"
+                  style={{ minHeight: '12rem' }}
+                  onClick={() => ref.current?.click()}
+                >
+                  {finding[slot] ? (
+                    <img src={finding[slot]} alt={label} className="w-full h-full object-cover rounded-b-xl" />
+                  ) : (
+                    <span className="text-xs text-cool-gray text-center px-2">Click to upload image</span>
                   )}
-                </tr>
-              </thead>
-              <tbody>
-                {filteredRows.length === 0 && (
-                  <tr>
-                    <td className="border border-soft-border p-4 text-center text-sm text-cool-gray" colSpan={visibleColumns.size + 1}>
-                      No findings found.
-                    </td>
-                  </tr>
-                )}
+                </div>
+                <button type="button" onClick={() => handleImageDownload(slot, label)} disabled={!finding[slot]} className="w-full px-1 py-0.5 text-xs bg-midnight-ink text-white rounded font-semibold hover:bg-midnight-ink/80 disabled:opacity-40 flex items-center justify-center gap-1">
+                  <Download className="h-3 w-3" />
+                  Download
+                </button>
+              </div>
+            ))}
+          </div>
 
-                {paginatedRows.map((row) => {
-                  const isEditing = editingRowIds.has(row.id);
-                  const isAnyRowEditing = editingRowIds.size > 0;
-                  const canEdit = !isArchivedView && isEditing;
-
-                  return (
-                    <tr
-                      key={row.id}
-                      className={`border-b border-soft-border ${
-                        isEditing ? 'bg-trust-blue/10 hover:bg-trust-blue/10' : 'hover:bg-cloud-gray'
-                      }`}
-                    >
-                      <td
-                        className={`border border-soft-border p-2 text-center sticky left-0 z-10 shadow-[2px_0_4px_-1px_rgba(0,0,0,0.08)] ${
-                          isEditing ? 'bg-[#eff6ff]' : 'bg-white'
-                        }`}
-                      >
-                        <Checkbox
-                          checked={selectedRows.has(row.id)}
-                          onCheckedChange={() => toggleRowSelection(row.id)}
-                          className="cursor-pointer"
-                          disabled={isAnyRowEditing}
-                        />
-                      </td>
-                      {FINDING_COLUMNS.map(
-                        (column) =>
-                          visibleColumns.has(column.id) && (
-                            <td key={column.id} className="border border-soft-border p-1" style={isEditing ? { backgroundColor: '#eff6ff' } : {}}>
-                              {canEdit ? (
-                                <Input
-                                  type="text"
-                                  value={row[column.id]}
-                                  onChange={(e) => handleCellChange(row.id, column.id, e.target.value)}
-                                  className="border-0 p-1 text-sm h-8"
-                                />
-                              ) : (
-                                <div className="min-h-8 px-1 py-1 text-sm whitespace-pre-wrap break-words leading-4">{row[column.id] || ''}</div>
-                              )}
-                            </td>
-                          )
-                      )}
+          <div className="mb-3 grid grid-cols-2 gap-3">
+            <div className="bg-white border border-soft-border rounded-xl overflow-hidden">
+              <div className="text-xs font-bold text-midnight-ink px-3 py-2 bg-[#dce8f5] border-b border-soft-border">STONE INFO</div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs border-collapse">
+                  <thead>
+                    <tr className="bg-cloud-gray">
+                      {['NAME','CUT','COLOR','SIZE','MATERIAL','WEIGHT','QUANTITY'].map((h) => (
+                        <th key={h} className="border border-soft-border px-2 py-1.5 font-semibold text-midnight-ink text-left whitespace-nowrap">{h}</th>
+                      ))}
+                      <th className="border border-soft-border px-1 py-1.5 w-6"></th>
                     </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
+                  </thead>
+                  <tbody>
+                    {finding.stoneRows.map((row) => (
+                      <tr key={row.id} className="hover:bg-cloud-gray/40">
+                        {['name','cut','color','size','material','weight','quantity'].map((f) => (
+                          <td key={f} className="border border-soft-border p-0">
+                            <input type="text" value={row[f]} onChange={(e) => updateStoneRow(row.id, f, e.target.value)} className="w-full bg-transparent outline-none px-2 py-1 min-w-[70px] text-xs" />
+                          </td>
+                        ))}
+                        <td className="border border-soft-border p-0 text-center">
+                          <button type="button" onClick={() => deleteStoneRow(row.id)} className="px-1 py-1 text-danger hover:text-danger-dark"><Trash2 className="h-3 w-3" /></button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <button type="button" onClick={addStoneRow} className="w-full text-left px-3 py-1.5 text-xs text-trust-blue font-semibold hover:bg-cloud-gray border-t border-soft-border">+ ADD ROW</button>
+            </div>
 
-        <div className="mt-4 flex gap-2 items-center flex-wrap">
-          <Button
-            onClick={handleAddRow}
-            className="bg-trust-blue hover:bg-deep-blue text-white px-6"
-            disabled={editingRowIds.size > 0}
-          >
-            + Add Row
-          </Button>
-          <Button onClick={handleSaveEdit} className="bg-success hover:bg-success/90 text-white px-6" disabled={editingRowIds.size === 0 || isSavingEdit}>
-            {isSavingEdit ? 'Saving...' : 'Save Changes'}
-          </Button>
-          <Button
-            onClick={handleDeleteSelectedRows}
-            variant="outline"
-            className="border-danger text-danger hover:bg-danger/10 rounded-full px-4 text-sm h-8"
-            disabled={selectedRows.size === 0 || editingRowIds.size > 0}
-          >
-            Delete Selected
-          </Button>
-          {saveEditStatus && (
-            <span className={`ml-2 text-sm font-semibold ${saveEditStatus.success ? 'text-success' : 'text-danger'}`}>
-              {saveEditStatus.message}
-            </span>
-          )}
-        </div>
+            <div className="bg-white border border-soft-border rounded-xl overflow-hidden">
+              <div className="text-xs font-bold text-midnight-ink px-3 py-2 bg-[#dce8f5] border-b border-soft-border">PLATING INFO</div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs border-collapse">
+                  <thead>
+                    <tr className="bg-cloud-gray">
+                      <th className="border border-soft-border px-2 py-1.5 font-semibold text-midnight-ink text-left w-1/2">PLATING TYPE</th>
+                      <th className="border border-soft-border px-2 py-1.5 font-semibold text-midnight-ink text-left w-1/2">PLATING COLOR</th>
+                      <th className="border border-soft-border px-1 py-1.5 w-6"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {finding.platingRows.map((row) => (
+                      <tr key={row.id} className="hover:bg-cloud-gray/40">
+                        <td className="border border-soft-border p-0">
+                          <input type="text" value={row.type} onChange={(e) => updatePlatingRow(row.id, 'type', e.target.value)} className="w-full bg-transparent outline-none px-2 py-1 text-xs" />
+                        </td>
+                        <td className="border border-soft-border p-0">
+                          <input type="text" value={row.color} onChange={(e) => updatePlatingRow(row.id, 'color', e.target.value)} className="w-full bg-transparent outline-none px-2 py-1 text-xs" />
+                        </td>
+                        <td className="border border-soft-border p-0 text-center">
+                          <button type="button" onClick={() => deletePlatingRow(row.id)} className="px-1 py-1 text-danger hover:text-danger-dark"><Trash2 className="h-3 w-3" /></button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <button type="button" onClick={addPlatingRow} className="w-full text-left px-3 py-1.5 text-xs text-trust-blue font-semibold hover:bg-cloud-gray border-t border-soft-border">+ ADD ROW</button>
+            </div>
+          </div>
 
-        {/* Fixed Pagination Footer */}
-        <div className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-soft-border shadow-lg px-4 py-2 flex flex-wrap items-center justify-between gap-3 text-sm text-cool-gray">
-          <div className="flex items-center gap-2">
-            <span>Rows per page:</span>
-            <select
-              value={rowsPerPage}
-              onChange={(e) => { setRowsPerPage(Number(e.target.value)); setCurrentPage(1); }}
-              className="border border-soft-border rounded px-2 py-1 text-sm text-midnight-ink bg-white"
-            >
-              {[25, 50, 75, 100].map((n) => <option key={n} value={n}>{n}</option>)}
-            </select>
+          <div className="mb-3 grid grid-cols-2 gap-3">
+            <div className="bg-white border border-soft-border rounded-xl p-3">
+              <div className="text-xs font-semibold text-midnight-ink mb-2">MATERIAL</div>
+              <div className="flex flex-wrap gap-2">
+                {['GOLD', 'SILVER', 'BRASS', 'ALLOY', 'OTHER'].map((opt) => (
+                  <button key={opt} type="button"
+                    onClick={() => setFinding((prev) => ({ ...prev, material: prev.material === opt ? '' : opt }))}
+                    className={`px-3 py-1.5 text-xs font-semibold rounded-full border transition-colors ${finding.material === opt ? 'bg-midnight-ink text-white border-midnight-ink shadow-sm' : 'bg-white text-midnight-ink border-soft-border hover:bg-cloud-gray'}`}
+                  >{opt}</button>
+                ))}
+              </div>
+            </div>
+            <div className="bg-white border border-soft-border rounded-xl p-3">
+              <div className="text-xs font-semibold text-midnight-ink mb-2">CATEGORY</div>
+              <div className="flex flex-wrap gap-2">
+                {['CLASP', 'RING FINDING', 'EARRING', 'CONNECTOR', 'PIN', 'OTHER'].map((opt) => (
+                  <button key={opt} type="button"
+                    onClick={() => setFinding((prev) => ({ ...prev, category: prev.category === opt ? '' : opt }))}
+                    className={`px-3 py-1.5 text-xs font-semibold rounded-full border transition-colors ${finding.category === opt ? 'bg-trust-blue text-white border-trust-blue shadow-sm' : 'bg-white text-midnight-ink border-soft-border hover:bg-cloud-gray'}`}
+                  >{opt}</button>
+                ))}
+              </div>
+            </div>
           </div>
-          <div className="flex items-center gap-3">
-            <span>
-              {filteredRows.length === 0
-                ? '0'
-                : `${(safePage - 1) * rowsPerPage + 1}-${Math.min(safePage * rowsPerPage, filteredRows.length)}`
-              } of {filteredRows.length}
-            </span>
-            <button onClick={() => setCurrentPage((p) => Math.max(1, p - 1))} disabled={safePage <= 1} className="px-2 py-1 border border-soft-border rounded disabled:opacity-40 hover:bg-cloud-gray">&lsaquo;</button>
-            <span>{safePage} / {totalPages}</span>
-            <button onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))} disabled={safePage >= totalPages} className="px-2 py-1 border border-soft-border rounded disabled:opacity-40 hover:bg-cloud-gray">&rsaquo;</button>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="flex flex-col gap-3">
+              <div className="bg-white border border-soft-border rounded-xl p-3">
+                <label className="text-xs font-semibold text-midnight-ink mb-1 block">Size</label>
+                <input type="text" value={finding.size} onChange={(e) => setFinding((prev) => ({ ...prev, size: e.target.value }))} placeholder="e.g. 10mm" className="w-full border border-soft-border rounded px-2 py-1.5 text-sm outline-none focus:border-trust-blue bg-transparent" />
+              </div>
+              <div className="bg-white border border-soft-border rounded-xl p-3">
+                <label className="text-xs font-semibold text-midnight-ink mb-1 block">Quantity</label>
+                <input type="text" value={finding.quantity} onChange={(e) => setFinding((prev) => ({ ...prev, quantity: e.target.value }))} placeholder="e.g. 100" className="w-full border border-soft-border rounded px-2 py-1.5 text-sm outline-none focus:border-trust-blue bg-transparent" />
+              </div>
+              <div className="flex-1 bg-white border border-soft-border rounded-xl p-3 flex flex-col gap-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-semibold text-midnight-ink">Notes</label>
+                  <button type="button" onClick={() => notesMediaRef.current?.click()} className="flex items-center gap-1 text-[11px] text-trust-blue hover:text-deep-blue font-semibold">
+                    <Upload className="h-3 w-3" />
+                    Attach Photo / Video
+                  </button>
+                  <input ref={notesMediaRef} type="file" accept="image/*,video/*" multiple
+                    onChange={(e) => {
+                      const files = Array.from(e.target.files || []);
+                      files.filter((f) => f.size <= 5 * 1024 * 1024).forEach((file) => {
+                        const reader = new FileReader();
+                        reader.onload = (ev) => setNotesMedia((prev) => [...prev, { name: file.name, type: file.type, dataUrl: ev.target.result }]);
+                        reader.readAsDataURL(file);
+                      });
+                      e.target.value = '';
+                    }}
+                    className="hidden"
+                  />
+                </div>
+                <textarea value={finding.notes} onChange={(e) => setFinding((prev) => ({ ...prev, notes: e.target.value }))} placeholder="Add notes about this finding..." rows={4} className="w-full border border-soft-border rounded px-2 py-1.5 text-sm outline-none focus:border-trust-blue bg-transparent resize-none" />
+                {notesMedia.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-1">
+                    {notesMedia.map((m, i) => (
+                      <div key={i} className="relative group">
+                        {m.type.startsWith('image/') ? (
+                          <img src={m.dataUrl} alt={m.name} className="h-16 w-16 object-cover rounded border border-soft-border" />
+                        ) : (
+                          <video src={m.dataUrl} className="h-16 w-16 object-cover rounded border border-soft-border" />
+                        )}
+                        <button type="button" onClick={() => setNotesMedia((prev) => prev.filter((_, j) => j !== i))} className="absolute -top-1 -right-1 bg-danger text-white rounded-full h-4 w-4 text-[10px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">x</button>
+                        <div className="text-[9px] text-cool-gray truncate max-w-[64px]">{m.name}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="flex flex-col gap-3">
+              <div className="bg-white border border-soft-border rounded-xl p-3">
+                <div className="text-xs font-semibold text-midnight-ink mb-2">Die Number &amp; Weight</div>
+                <div className="flex flex-col gap-2">
+                  <div>
+                    <label className="text-[11px] text-cool-gray block mb-0.5">Die Number</label>
+                    <input type="text" value={finding.dieNumber} onChange={(e) => setFinding((prev) => ({ ...prev, dieNumber: e.target.value }))} placeholder="Die Number" className="w-full border border-soft-border rounded px-2 py-1 text-sm outline-none focus:border-trust-blue bg-transparent" />
+                  </div>
+                  <div>
+                    <label className="text-[11px] text-cool-gray block mb-0.5">Weight (g)</label>
+                    <input type="text" value={finding.weight} onChange={(e) => setFinding((prev) => ({ ...prev, weight: e.target.value }))} placeholder="Weight in grams" className="w-full border border-soft-border rounded px-2 py-1 text-sm outline-none focus:border-trust-blue bg-transparent" />
+                  </div>
+                </div>
+              </div>
+              <div className="flex-1 bg-white border border-soft-border rounded-xl p-3 flex flex-col">
+                <label className="text-xs font-semibold text-midnight-ink mb-1 block">Mechanism / Description</label>
+                <textarea value={finding.mechanism} onChange={(e) => setFinding((prev) => ({ ...prev, mechanism: e.target.value }))} placeholder="Describe the mechanism or usage of this finding" rows={5} className="flex-1 w-full border border-soft-border rounded px-2 py-1.5 text-sm outline-none focus:border-trust-blue bg-transparent resize-none" />
+              </div>
+            </div>
           </div>
-          <div className="flex gap-4">
-            <span>Selected: {selectedRows.size}</span>
-            <span>Archived: {archivedRows.size}</span>
-            {editingRowIds.size > 0 && <span className="text-trust-blue font-semibold">Editing {editingRowIds.size} row(s)</span>}
-          </div>
-          <LastUpdatedFooter timestamp={lastUpdated} username={currentUsername} compact />
         </div>
       </div>
     </div>
   );
 }
 
-function DetailCard({ label, value }) {
+export default function FindingSheet() {
   return (
-    <div className="border border-soft-border rounded-lg bg-white overflow-hidden">
-      <div className="px-2 py-1 bg-cloud-gray font-semibold text-xs text-slate-text border-b border-soft-border">{label}</div>
-      <div className="px-2 py-2 text-sm min-h-[36px] whitespace-pre-wrap break-words">{value || '—'}</div>
-    </div>
+    <Suspense fallback={<div className="p-8 text-center text-cool-gray text-sm">Loading...</div>}>
+      <FindingSheetContent />
+    </Suspense>
   );
 }
