@@ -45,12 +45,12 @@ export default function OrdersPage() {
         </div>
       </div>
 
-      <div className="max-w-6xl mx-auto px-4 md:px-8 pt-20 pb-8">
-        <div className="mb-8">
+      <div className="w-full px-0 pt-20 pb-8">
+        <div className="mb-8 px-4 md:px-6">
           <p className="text-base text-cool-gray">Create and manage orders</p>
         </div>
 
-        <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 px-4 md:px-6">
           <button
             type="button"
             onClick={() => {
@@ -84,7 +84,7 @@ export default function OrdersPage() {
         {showCreateOrderForm && (
           <section
             ref={createOrderSectionRef}
-            className="mt-6 rounded-xl border border-soft-border bg-white p-4 md:p-6"
+            className="mt-6 mx-4 md:mx-6 rounded-xl border border-soft-border bg-white p-4 md:p-6"
           >
             <CreateOrderForm embedded />
           </section>
@@ -93,7 +93,7 @@ export default function OrdersPage() {
         {showOrderSheet && (
           <section
             ref={orderSheetSectionRef}
-            className="mt-6 rounded-xl border border-soft-border bg-white p-4 md:p-6"
+            className="mt-6 rounded-none border-y border-soft-border bg-white p-0"
           >
             <OrderSheetView embedded />
           </section>
