@@ -352,11 +352,11 @@ export default function FindingSheet() {
       <Dialog open={isPrintSheetOpen} onOpenChange={setIsPrintSheetOpen}>
         <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
           <DialogHeader className="border-b pb-4">
-            <DialogTitle>Print Findings Sheet</DialogTitle>
+            <DialogTitle>Print Master Finding Sheet</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="text-center border-b-2 border-midnight-ink pb-4 mb-6">
-              <h2 className="text-2xl font-bold mb-2">FINDINGS SHEET</h2>
+              <h2 className="text-2xl font-bold mb-2">MASTER FINDING SHEET</h2>
               <p className="text-sm text-cool-gray">Date: {new Date().toISOString().split('T')[0]}</p>
             </div>
             <div className="border-2 border-midnight-ink rounded overflow-x-auto">
@@ -400,7 +400,7 @@ export default function FindingSheet() {
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3 shrink-0">
               <MasterNavigationDrawer inHeader />
-              <h1 className="text-xl font-bold tracking-tight text-midnight-ink">FINDINGS SHEET</h1>
+              <h1 className="text-xl font-bold tracking-tight text-midnight-ink">MASTER FINDING SHEET</h1>
             </div>
             <GlobalSearchBar />
             <DateTimeStamp />

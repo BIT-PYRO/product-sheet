@@ -26,7 +26,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { QuickEnrollModal } from '@/components/quick-enroll-modal';
-import { EnrolWorkforceForm } from '@/app/enrol-workforce/page';
+import { EnrolWorkforceForm } from '@/app/frontend/enrol-workforce/page';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
 import GlobalSearchBar from '@/components/global-search-bar';
 import { CreateJobModal } from '@/components/create-job-modal';
