@@ -18,8 +18,8 @@ import {
 import { useDrafts, useDraftLoader } from "@/components/drafts-manager"
 
 const WORK_CATEGORIES = [
-  "Jewelry Making",
   "Electrical Work",
+  "Jewellery Machine Repair",
   "AC Repair & Service",
   "Plumbing",
   "Carpentry",
@@ -29,13 +29,8 @@ const WORK_CATEGORIES = [
   "Machinery Repair",
   "Cleaning Service",
   "Maintenance",
-  "Installation",
-  "Fabrication",
-  "Assembly",
-  "Quality Check",
-  "Packaging",
-  "Transportation",
-  "Other",
+  "Pantry",
+  "House Keeping",
 ]
 
 const WORK_TYPES = ["In-House", "Contract", "Job Work"]

@@ -240,11 +240,21 @@ export function QuickEnrollModal({ open, onOpenChange, onEnroll }) {
                       <SelectValue placeholder="Select" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Cutting">Cutting</SelectItem>
-                      <SelectItem value="Stitching">Stitching</SelectItem>
+                      <SelectItem value="Design / CAD">Design / CAD</SelectItem>
+                      <SelectItem value="3D Print">3D Print</SelectItem>
+                      <SelectItem value="Mold Die">Mold Die</SelectItem>
+                      <SelectItem value="Wax Pieces">Wax Pieces</SelectItem>
+                      <SelectItem value="Wax Setting">Wax Setting</SelectItem>
+                      <SelectItem value="Casting">Casting</SelectItem>
+                      <SelectItem value="Filing / Grinding">Filing / Grinding</SelectItem>
+                      <SelectItem value="Pre-Polish">Pre-Polish</SelectItem>
+                      <SelectItem value="Hand Setting">Hand Setting</SelectItem>
                       <SelectItem value="Polishing">Polishing</SelectItem>
-                      <SelectItem value="Assembly">Assembly</SelectItem>
-                      <SelectItem value="QC">Quality Check</SelectItem>
+                      <SelectItem value="Plating">Plating</SelectItem>
+                      <SelectItem value="Final Quality Check">Final Quality Check</SelectItem>
+                      <SelectItem value="Hallmarking">Hallmarking</SelectItem>
+                      <SelectItem value="Laser Soldering">Laser Soldering</SelectItem>
+                      <SelectItem value="Final Packaging">Final Packaging</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
