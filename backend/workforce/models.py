@@ -13,7 +13,6 @@ class WorkforceMember(AuditModel):
 	department = models.CharField(max_length=100, blank=True)
 	current_address = models.JSONField(default=dict, blank=True)
 	permanent_address = models.JSONField(default=dict, blank=True)
-	designation = models.CharField(max_length=150, blank=True)
 	gst_number = models.CharField(max_length=20, blank=True)
 	current_location = models.CharField(max_length=100, blank=True)
 	first_language = models.CharField(max_length=50, blank=True)

@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useCallback, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -25,11 +25,8 @@ import { CreateJobModal } from '@/components/create-job-modal';
 import { CompanyKYCForm } from '@/components/company-kyc-form';
 import { ReceiveJobModal } from '@/components/receive-job-modal';
 import DateTimeStamp from '@/components/date-time-stamp';
-import LastUpdatedFooter from '@/components/last-updated-footer';
 
 export default function ManagersDashboard() {
-  const [lastUpdated, setLastUpdated] = useState(null);
-  const [currentUsername, setCurrentUsername] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCard, setSelectedCard] = useState(null);
   const [isReceiveJobOpen, setIsReceiveJobOpen] = useState(false);
@@ -149,10 +146,6 @@ export default function ManagersDashboard() {
     return 'new';
   };
 
-  useEffect(() => {
-    fetch('/api/auth/session').then(r => r.json()).then(d => { if (d?.user?.username) setCurrentUsername(d.user.username); }).catch(() => {});
-  }, []);
-
   const loadJobs = useCallback(async () => {
     setIsLoadingJobs(true);
     setJobsError('');
@@ -187,7 +180,6 @@ export default function ManagersDashboard() {
       });
 
       setJobCardsData(nextData);
-      setLastUpdated(new Date());
     } catch {
       setJobsError('Failed to load jobs.');
       setJobCardsData(emptyJobCardsData);
@@ -261,7 +253,7 @@ export default function ManagersDashboard() {
   };
 
   const handleCreateJob = () => {
-    setIsCreateJobModalOpen(true);
+    console.log('Create new job');
   };
 
   const handleManageColumns = () => {
@@ -448,14 +440,14 @@ export default function ManagersDashboard() {
           <div className="flex gap-2 flex-wrap">
             <Button 
               onClick={handleCreateJob}
-              className="bg-success hover:bg-success text-white rounded-full px-4 text-sm h-8"
+              className="bg-success hover:bg-success text-white rounded-full px-6"
             >
               Create a Job
             </Button>
             <Button 
               onClick={handleOpenEdit}
               disabled={!selectedVoucher}
-              className="bg-white border border-trust-blue text-trust-blue hover:bg-trust-blue/10 rounded-full px-3 text-sm h-8 gap-1 disabled:opacity-100 disabled:border-trust-blue disabled:text-trust-blue"
+              className="bg-white border border-trust-blue text-trust-blue hover:bg-trust-blue/10 rounded-full px-5 gap-1.5 disabled:opacity-100 disabled:border-trust-blue disabled:text-trust-blue"
             >
               <Pencil className="w-4 h-4" />
               Edit
@@ -463,7 +455,7 @@ export default function ManagersDashboard() {
             <Button 
               onClick={handleDeleteVoucher}
               disabled={!selectedVoucher}
-              className="bg-white border border-red-500 text-red-500 hover:bg-red-50 rounded-full px-3 text-sm h-8 gap-1 disabled:opacity-100 disabled:border-red-500 disabled:text-red-500"
+              className="bg-white border border-red-500 text-red-500 hover:bg-red-50 rounded-full px-5 gap-1.5 disabled:opacity-100 disabled:border-red-500 disabled:text-red-500"
             >
               <Trash2 className="w-4 h-4" />
               Delete
@@ -471,13 +463,13 @@ export default function ManagersDashboard() {
             <Button 
               onClick={handleManageColumns}
               variant="outline"
-              className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8"
+              className="border-midnight-ink text-midnight-ink rounded-full px-6"
             >
               Manage Columns
             </Button>
             <Button 
               onClick={() => setIsKYCModalOpen(true)}
-              className="bg-trust-blue hover:bg-deep-blue text-white rounded-full px-4 text-sm h-8"
+              className="bg-trust-blue hover:bg-deep-blue text-white rounded-full px-6"
             >
               Company KYC
             </Button>
@@ -677,7 +669,6 @@ export default function ManagersDashboard() {
           <span>Total Vouchers: {Object.values(jobCardsData).reduce((sum, col) => sum + col.new.length + col.wip.length + col.completed.length, 0)}</span>
           {isLoadingJobs && <span className="text-trust-blue">Loading...</span>}
         </div>
-        <LastUpdatedFooter timestamp={lastUpdated} username={currentUsername} compact />
       </div>
 
       <CreateJobModal

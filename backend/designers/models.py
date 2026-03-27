@@ -40,26 +40,13 @@ class DesignerSheet(AuditModel):
 
     # ── Legacy / kept for backward compat ────────────────────────────────────
     image = models.TextField(blank=True, default='')
-    tdm_file = models.TextField(blank=True, default='')   # stores Google Drive link for 3DM
-    stl_file = models.TextField(blank=True, default='')   # stores Google Drive link for STL
+    tdm_file = models.TextField(blank=True, default='')
+    stl_file = models.TextField(blank=True, default='')
     tdm_status = models.CharField(max_length=255, blank=True, default='')
     stl_status = models.CharField(max_length=255, blank=True, default='')
     render_status = models.CharField(max_length=255, blank=True, default='')
     print_3d_status = models.CharField(max_length=255, blank=True, default='')
     die_entries = models.JSONField(default=list, blank=True)
-
-    # ── Designer Panel – multi-image slots ───────────────────────────────────
-    designer_image_2 = models.TextField(blank=True, default='')  # second image slot
-    designer_image_3 = models.TextField(blank=True, default='')  # third image slot
-
-    # ── Design Stage ─────────────────────────────────────────────────────────
-    # Tracks which stage the product is currently at in the design pipeline.
-    # Values: '' | '3DM' | 'STL' | 'RENDER' | '3D PRINT' | 'COMPLETE'
-    design_stage = models.CharField(max_length=50, blank=True, default='')
-
-    # ── Tracking Table ───────────────────────────────────────────────────────
-    # Each row: {id, tdm, stl, designCode, masterNumber, dieCode, moldDieQty}
-    tracking_rows = models.JSONField(default=list, blank=True)
 
     is_active = models.BooleanField(default=True)
 

@@ -25,7 +25,6 @@ export function EnrolWorkforceForm({ onEnroll, onClose, open = true, draftData =
     whatsapp: "",
     department: "",
     departmentOther: "",
-    designation: "",
     currentAddress: {
       line1: "",
       line2: "",
@@ -115,7 +114,6 @@ export function EnrolWorkforceForm({ onEnroll, onClose, open = true, draftData =
           dob: String(form.dob || '').trim() || null,
           gender: String(form.gender || '').trim(),
           department: String(form.department === 'Other' ? (form.departmentOther || '') : (form.department || '')).trim(),
-          designation: String(form.designation || '').trim(),
           current_address: {
             line1: String(form.currentAddress?.line1 || '').trim(),
             line2: String(form.currentAddress?.line2 || '').trim(),
@@ -273,51 +271,6 @@ export function EnrolWorkforceForm({ onEnroll, onClose, open = true, draftData =
                 <div>
                   <label className="block text-sm font-semibold text-slate-text mb-2">WhatsApp Number</label>
                   <input className="w-full border border-soft-border rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-trust-blue focus:border-transparent bg-cloud-gray text-midnight-ink placeholder-slate-400 transition" name="whatsapp" value={form.whatsapp} onChange={handleInput} />
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-slate-text mb-2">Designation / Role</label>
-                  <select
-                    name="designation"
-                    value={form.designation}
-                    onChange={handleInput}
-                    className="w-full border border-soft-border rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-trust-blue focus:border-transparent bg-cloud-gray text-midnight-ink transition"
-                  >
-                    <option value="">Select designation...</option>
-                    <optgroup label="Senior Management">
-                      <option>Chief Operating Officer (COO)</option>
-                      <option>Chief Financial Officer (CFO)</option>
-                      <option>Chief Marketing Officer (CMO)</option>
-                      <option>Head of Merchandising / Product Head</option>
-                      <option>HR Head</option>
-                    </optgroup>
-                    <optgroup label="Middle Management">
-                      <option>Store Manager / Retail Manager</option>
-                      <option>Production Manager</option>
-                      <option>Inventory Manager</option>
-                      <option>Sales Manager</option>
-                      <option>Digital Marketing Manager</option>
-                    </optgroup>
-                    <optgroup label="Supervisors / Team Leads">
-                      <option>Floor Supervisor (Retail)</option>
-                      <option>Workshop Supervisor</option>
-                      <option>Customer Support Lead</option>
-                    </optgroup>
-                    <optgroup label="Core Workforce">
-                      <option>Sales Executive / Showroom Staff</option>
-                      <option>Karigar / Craftsman</option>
-                      <option>Inventory Staff</option>
-                      <option>Digital Team</option>
-                      <option>Customer Support Executive</option>
-                    </optgroup>
-                    <optgroup label="Entry Level">
-                      <option>Intern - Marketing</option>
-                      <option>Intern - Operations</option>
-                      <option>Intern - Tech / Shopify</option>
-                      <option>Trainee - Sales</option>
-                      <option>Trainee - Production</option>
-                    </optgroup>
-                    <option value="Other">Other</option>
-                  </select>
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-slate-text mb-2">Department</label>

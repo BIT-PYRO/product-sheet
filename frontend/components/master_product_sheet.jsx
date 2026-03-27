@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -25,18 +25,13 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
-import Link from 'next/link';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
 import DateTimeStamp from '@/components/date-time-stamp';
 import GlobalSearchBar from '@/components/global-search-bar';
 import BulkUploadButton from '@/components/bulk-upload-button';
-import LastUpdatedFooter from '@/components/last-updated-footer';
 
 export default function MasterProductSheet() {
   const PRODUCT_SHEET_SYNC_KEY = 'product_sheet_updated_at';
-  const PRODUCT_SHEET_SYNC_EVENT = 'product_sheet_sync';
-  const [lastUpdated, setLastUpdated] = useState(null);
-  const [currentUsername, setCurrentUsername] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [fetchError, setFetchError] = useState('');
@@ -52,9 +47,8 @@ export default function MasterProductSheet() {
   const [rowsPerPage, setRowsPerPage] = useState(25);
   const [currentPage, setCurrentPage] = useState(1);
   
-  // Column definitions for products — images is first
+  // Column definitions for products
   const columns = [
-    { id: 'images', label: 'Images' },
     { id: 'sku', label: 'SKU' },
     { id: 'listingName', label: 'Listing Name' },
     { id: 'material', label: 'Material' },
@@ -77,11 +71,11 @@ export default function MasterProductSheet() {
     { id: 'platingType', label: 'Plating Type' },
     { id: 'platingColor', label: 'Plating Color' },
     { id: 'notes', label: 'Notes' },
+    { id: 'images', label: 'Images' },
   ];
   
   // Column configuration with styling
   const columnConfig = {
-    images: { minWidth: 'min-w-[120px]', headerBg: 'bg-[#dbeafe]' },
     sku: { minWidth: 'min-w-[80px]', headerBg: 'bg-[#dbeafe]' },
     listingName: { minWidth: 'min-w-[100px]', headerBg: 'bg-[#dbeafe]' },
     material: { minWidth: 'min-w-[80px]', headerBg: 'bg-[#dbeafe]' },
@@ -104,11 +98,11 @@ export default function MasterProductSheet() {
     platingType: { minWidth: 'min-w-[85px]', headerBg: 'bg-[#dbeafe]' },
     platingColor: { minWidth: 'min-w-[85px]', headerBg: 'bg-[#dbeafe]' },
     notes: { minWidth: 'min-w-[100px]', headerBg: 'bg-[#dbeafe]' },
+    images: { minWidth: 'min-w-[80px]', headerBg: 'bg-[#dbeafe]' },
   };
   
   // Set default visible columns to prevent horizontal scrolling
   const [visibleColumns, setVisibleColumns] = useState(new Set([
-    'images',
     'sku',
     'listingName',
     'material',
@@ -179,10 +173,6 @@ export default function MasterProductSheet() {
 
   const [data, setData] = useState([]);
 
-  useEffect(() => {
-    fetch('/api/auth/session').then(r => r.json()).then(d => { if (d?.user?.username) setCurrentUsername(d.user.username); }).catch(() => {});
-  }, []);
-
   const loadProducts = useCallback(async () => {
     setIsLoading(true);
     setFetchError('');
@@ -227,11 +217,10 @@ export default function MasterProductSheet() {
         platingType: product.plating_type || '',
         platingColor: product.plating_color || '',
         notes: product.notes || '',
-        images: Array.isArray(product.images) ? product.images : [],
+        images: product.images || '',
       }));
 
       setData(mappedRows);
-      setLastUpdated(new Date());
     } catch (error) {
       setFetchError(error.message || 'Failed to load products');
       setData([]);
@@ -251,16 +240,10 @@ export default function MasterProductSheet() {
       }
     };
 
-    const handleProductSync = () => {
-      loadProducts();
-    };
-
     window.addEventListener('storage', handleStorageSync);
-    window.addEventListener(PRODUCT_SHEET_SYNC_EVENT, handleProductSync);
 
     return () => {
       window.removeEventListener('storage', handleStorageSync);
-      window.removeEventListener(PRODUCT_SHEET_SYNC_EVENT, handleProductSync);
     };
   }, [loadProducts]);
 
@@ -366,34 +349,6 @@ export default function MasterProductSheet() {
     }
   };
 
-  const handleFindingCodeLookup = async (rowId, findingCode) => {
-    const code = (findingCode || '').trim();
-    if (!code) return;
-    try {
-      const res = await fetch(`/api/findings?finding_code=${encodeURIComponent(code)}`, { cache: 'no-store' });
-      const json = await res.json().catch(() => null);
-      if (!res.ok || !json?.success) return;
-      const rows = Array.isArray(json.data) ? json.data : (json.data?.results || []);
-      const finding = rows[0] || null;
-      if (!finding) return;
-      setData((prev) =>
-        prev.map((row) => {
-          if (row.id !== rowId) return row;
-          const updates = {};
-          // Enrich dieNumberFindings with die number info from the finding
-          if (finding.die_number && !row.dieNumberFindings.includes('Die:')) {
-            updates.dieNumberFindings = `${code} | Die: ${finding.die_number}`;
-          }
-          // Auto-fill weight from finding if currently empty
-          if (finding.weight && !row.weight) updates.weight = finding.weight;
-          return Object.keys(updates).length > 0 ? { ...row, ...updates } : row;
-        })
-      );
-    } catch {
-      // Silently fail — user can still manually fill fields
-    }
-  };
-
   const handlePrint = () => {
     window.print();
   };
@@ -419,7 +374,8 @@ export default function MasterProductSheet() {
   };
 
   const handleCreateProduct = () => {
-    window.location.assign(`/?new=${Date.now()}`);
+    // Create product functionality
+    console.log('Create new product');
   };
 
   const handleManageColumns = () => {
@@ -453,7 +409,7 @@ export default function MasterProductSheet() {
       platingType: '',
       platingColor: '',
       notes: '',
-      images: [],
+      images: '',
     };
     setData((prev) => [newRow, ...prev]);
     setEditingRowIds((prev) => new Set([...prev, tempId]));
@@ -505,6 +461,7 @@ export default function MasterProductSheet() {
           plating_type: row.platingType,
           plating_color: row.platingColor,
           notes: row.notes,
+          images: row.images,
         };
 
         if (row._isNew) {
@@ -965,7 +922,7 @@ export default function MasterProductSheet() {
           <Button
             onClick={loadProducts}
             variant="outline"
-            className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8"
+            className="border-midnight-ink text-midnight-ink rounded-full px-6"
             disabled={isLoading}
           >
             {isLoading ? 'Refreshing...' : 'Refresh'}
@@ -973,14 +930,14 @@ export default function MasterProductSheet() {
           <BulkUploadButton sheetType="products" onComplete={loadProducts} />
           <Button 
             onClick={handleCreateProduct}
-            className="bg-success hover:bg-success text-white rounded-full px-4 text-sm h-8"
+            className="bg-success hover:bg-success text-white rounded-full px-6"
           >
             Add Product
           </Button>
           <Button 
             onClick={handleEditRow}
             variant="outline"
-            className="border-trust-blue text-trust-blue hover:bg-trust-blue/10 rounded-full px-4 text-sm h-8"
+            className="border-trust-blue text-trust-blue hover:bg-trust-blue/10 rounded-full px-6"
             disabled={isArchivedView}
           >
             Edit Row
@@ -989,7 +946,7 @@ export default function MasterProductSheet() {
             <DropdownMenuTrigger asChild>
               <Button 
                 variant="outline"
-                className="border-warning text-warning hover:bg-warning/10 rounded-full px-4 text-sm h-8"
+                className="border-warning text-warning hover:bg-warning/10 rounded-full px-6"
               >
                 Archive
               </Button>
@@ -1009,7 +966,7 @@ export default function MasterProductSheet() {
             <Button
               onClick={handleUnarchiveRows}
               variant="outline"
-              className="border-green-600 text-success hover:bg-success/10 rounded-full px-4 text-sm h-8"
+              className="border-green-600 text-success hover:bg-success/10 rounded-full px-6"
               disabled={selectedRows.size === 0}
             >
               Unarchive Selected
@@ -1018,14 +975,14 @@ export default function MasterProductSheet() {
           <Button 
             onClick={handleManageColumns}
             variant="outline"
-            className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8"
+            className="border-midnight-ink text-midnight-ink rounded-full px-6"
           >
             Manage Columns
           </Button>
           <Button 
             onClick={handleExport}
             variant="outline"
-            className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8"
+            className="border-midnight-ink text-midnight-ink rounded-full px-6"
           >
             Export
           </Button>
@@ -1035,7 +992,7 @@ export default function MasterProductSheet() {
             <DropdownMenuTrigger asChild>
               <Button 
                 variant="outline"
-                className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8"
+                className="border-midnight-ink text-midnight-ink rounded-full px-6"
               >
                 Print
               </Button>
@@ -1261,15 +1218,7 @@ export default function MasterProductSheet() {
                     {columns.map((column) =>
                       visibleColumns.has(column.id) && (
                         <td key={column.id} className={`border border-soft-border p-1 ${columnConfig[column.id].cellBg || ''}`} style={isEditing ? {backgroundColor: '#eff6ff'} : {}}>
-                          {column.id === 'images' ? (
-                            <ImageCell
-                              images={row.images}
-                              rowId={row.id}
-                              isNew={!!row._isNew}
-                              isEditing={canEdit}
-                              onImagesChange={(newImages) => handleCellChange(row.id, 'images', newImages)}
-                            />
-                          ) : canEdit ? (
+                          {canEdit ? (
                             <Input
                               type="text"
                               value={row[column.id]}
@@ -1278,18 +1227,14 @@ export default function MasterProductSheet() {
                                 if (e.key === 'Enter' || e.key === 'Tab') {
                                   handleMasterSkuLookup(row.id, row.masterSku);
                                 }
-                              } : column.id === 'dieNumberFindings' ? (e) => {
-                                if (e.key === 'Enter' || e.key === 'Tab') {
-                                  handleFindingCodeLookup(row.id, row.dieNumberFindings);
-                                }
                               } : undefined}
-                              onBlur={column.id === 'masterSku' ? () => handleMasterSkuLookup(row.id, row.masterSku) : column.id === 'dieNumberFindings' ? () => handleFindingCodeLookup(row.id, row.dieNumberFindings) : undefined}
+                              onBlur={column.id === 'masterSku' ? () => handleMasterSkuLookup(row.id, row.masterSku) : undefined}
                               className="border-0 p-1 text-sm h-8"
                             />
                           ) : column.id === 'sku' && row[column.id] ? (
                             <div className="min-h-8 px-1 py-1 text-sm whitespace-pre-wrap break-words leading-4">
                               <Link
-                                href={`/frontend?sku=${encodeURIComponent(row[column.id])}`}
+                                href={`/master-product-sheet/product?sku=${encodeURIComponent(row[column.id])}`}
                                 className="text-deep-blue underline hover:text-deep-blue"
                               >
                                 {row[column.id]}
@@ -1367,106 +1312,17 @@ export default function MasterProductSheet() {
           </select>
         </div>
         <div className="flex items-center gap-3">
-          <span>{displayedData.length === 0 ? '0' : `${(safePage - 1) * rowsPerPage + 1}-${Math.min(safePage * rowsPerPage, displayedData.length)}`} of {displayedData.length}</span>
-          <button onClick={() => setCurrentPage((p) => Math.max(1, p - 1))} disabled={safePage <= 1} className="px-2 py-1 border border-soft-border rounded disabled:opacity-40 hover:bg-cloud-gray">&lsaquo;</button>
+          <span>{displayedData.length === 0 ? '0' : `${(safePage - 1) * rowsPerPage + 1}–${Math.min(safePage * rowsPerPage, displayedData.length)}`} of {displayedData.length}</span>
+          <button onClick={() => setCurrentPage((p) => Math.max(1, p - 1))} disabled={safePage <= 1} className="px-2 py-1 border border-soft-border rounded disabled:opacity-40 hover:bg-cloud-gray">‹</button>
           <span>{safePage} / {totalPages}</span>
-          <button onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))} disabled={safePage >= totalPages} className="px-2 py-1 border border-soft-border rounded disabled:opacity-40 hover:bg-cloud-gray">&rsaquo;</button>
+          <button onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))} disabled={safePage >= totalPages} className="px-2 py-1 border border-soft-border rounded disabled:opacity-40 hover:bg-cloud-gray">›</button>
         </div>
         <div className="flex gap-4">
           <span>Selected: {selectedRows.size}</span>
           <span>Archived: {archivedRows.size}</span>
           {editingRowIds.size > 0 && <span className="text-trust-blue font-semibold">Editing {editingRowIds.size} row(s)</span>}
         </div>
-        <LastUpdatedFooter timestamp={lastUpdated} username={currentUsername} compact />
       </div>
-    </div>
-  );
-}
-
-function ImageCell({ images, rowId, isNew, isEditing, onImagesChange }) {
-  const [uploading, setUploading] = useState(false);
-  const [uploadError, setUploadError] = useState('');
-  const inputRef = useRef(null);
-
-  const imageList = Array.isArray(images) ? images : [];
-
-  const backendBase =
-    typeof window !== 'undefined' && window.location.hostname === 'localhost'
-      ? 'http://localhost:8000'
-      : 'https://product-sheet.onrender.com';
-
-  const resolveUrl = (url) => {
-    if (!url) return '';
-    // base64 data URLs and absolute URLs need no prepending
-    if (url.startsWith('data:') || url.startsWith('http://') || url.startsWith('https://')) return url;
-    return `${backendBase}${url}`;
-  };
-
-  const handleFileChange = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (isNew) {
-      setUploadError('Save the row first, then upload an image.');
-      return;
-    }
-    setUploading(true);
-    setUploadError('');
-    try {
-      const formData = new FormData();
-      formData.append('image', file);
-      const res = await fetch(`/api/products/${rowId}/upload-image`, {
-        method: 'POST',
-        body: formData,
-      });
-      const data = await res.json().catch(() => null);
-      if (!res.ok || !data?.success) throw new Error(data?.message || 'Upload failed');
-      onImagesChange(Array.isArray(data.data?.images) ? data.data.images : [...imageList, data.data?.url]);
-    } catch (err) {
-      setUploadError(err.message || 'Upload failed');
-    } finally {
-      setUploading(false);
-      if (inputRef.current) inputRef.current.value = '';
-    }
-  };
-
-  return (
-    <div className="flex flex-col gap-1 min-h-8 px-1 py-1">
-      {imageList.length > 0 && (
-        <div className="flex flex-wrap gap-1">
-          {imageList.map((url, i) => (
-            <img
-              key={i}
-              src={resolveUrl(url)}
-              alt={`product-img-${i + 1}`}
-              className="w-10 h-10 object-cover rounded border border-soft-border"
-              onError={(e) => { e.target.style.display = 'none'; }}
-            />
-          ))}
-        </div>
-      )}
-      {isEditing && (
-        <>
-          <input
-            ref={inputRef}
-            type="file"
-            accept="image/jpeg,image/png,image/webp,image/gif"
-            className="hidden"
-            onChange={handleFileChange}
-          />
-          <button
-            type="button"
-            onClick={() => inputRef.current?.click()}
-            disabled={uploading}
-            className="text-xs px-2 py-0.5 rounded border border-trust-blue text-trust-blue hover:bg-trust-blue/10 disabled:opacity-50 w-fit"
-          >
-            {uploading ? 'Uploading…' : '+ Upload'}
-          </button>
-          {uploadError && <span className="text-xs text-danger">{uploadError}</span>}
-        </>
-      )}
-      {!isEditing && imageList.length === 0 && (
-        <span className="text-xs text-cool-gray">—</span>
-      )}
     </div>
   );
 }

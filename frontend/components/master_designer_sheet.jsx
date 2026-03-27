@@ -1,6 +1,6 @@
-'use client';
+﻿'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -22,16 +22,14 @@ import MasterNavigationDrawer from '@/components/master_navigation_drawer';
 import GlobalSearchBar from '@/components/global-search-bar';
 import DateTimeStamp from '@/components/date-time-stamp';
 import BulkUploadButton from '@/components/bulk-upload-button';
-import LastUpdatedFooter from '@/components/last-updated-footer';
 
 // â”€â”€ Column definitions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Each entry: { id, label, group?, groupLabel?, width }
 // group columns are displayed as a second header row under the group header.
 const COLUMNS = [
+  { id: 'sku',                      label: 'Master SKU',                        width: 'min-w-[120px]' },
   { id: 'rendered_photo',           label: 'Rendered Photo',                    width: 'min-w-[120px]' },
   { id: 'technical_drawing',        label: 'Technical Drawing',                 width: 'min-w-[160px]' },
-  { id: 'sku',                      label: 'Master SKU',                        width: 'min-w-[120px]' },
-  { id: 'other_photo',              label: 'Other Photo',                       width: 'min-w-[120px]' },
   { id: 'design_code',              label: 'Design Code',                       width: 'min-w-[120px]' },
   { id: 'master_number',            label: 'Master Number',                     width: 'min-w-[120px]' },
   { id: 'die_code',                 label: 'Die Code',                          width: 'min-w-[100px]' },
@@ -85,7 +83,6 @@ function mapRow(row) {
     sku: row.sku || '',
     rendered_photo: row.rendered_photo || row.image || '',
     technical_drawing: row.technical_drawing || '',
-    other_photo: row.designer_image_3 || '',
     design_code: row.design_code || '',
     master_number: row.master_number || '',
     die_code: row.die_code || '',
@@ -137,7 +134,6 @@ function toPayload(row) {
     sku: row.sku,
     rendered_photo: row.rendered_photo,
     technical_drawing: row.technical_drawing,
-    designer_image_3: row.other_photo,
     design_code: row.design_code,
     master_number: row.master_number,
     die_code: row.die_code,
@@ -154,8 +150,6 @@ function toPayload(row) {
 }
 
 export default function MasterDesignerSheet() {
-  const [lastUpdated, setLastUpdated] = useState(null);
-  const [currentUsername, setCurrentUsername] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedRows, setSelectedRows] = useState(new Set());
   const [isManageColumnsOpen, setIsManageColumnsOpen] = useState(false);
@@ -202,10 +196,6 @@ export default function MasterDesignerSheet() {
   };
 
   useEffect(() => {
-    fetch('/api/auth/session').then(r => r.json()).then(d => { if (d?.user?.username) setCurrentUsername(d.user.username); }).catch(() => {});
-  }, []);
-
-  useEffect(() => {
     (async () => {
       try {
         const res = await fetch('/api/designers', { cache: 'no-store' });
@@ -215,7 +205,6 @@ export default function MasterDesignerSheet() {
           ? result.data
           : (result?.data?.results || []);
         setData(rows.map(mapRow));
-        setLastUpdated(new Date());
       } catch { /* keep editable with empty state */ }
     })();
   }, []);
@@ -266,7 +255,7 @@ export default function MasterDesignerSheet() {
     const newId = Math.max(...data.map((r) => r.id), -1) + 1;
     setData([...data, {
       id: newId, hasBackendRecord: false, is_active: true,
-      sku: '', rendered_photo: '', technical_drawing: '', other_photo: '',
+      sku: '', rendered_photo: '', technical_drawing: '',
       design_code: '', master_number: '', die_code: '',
       mold_qty_per_die: '', cpx_dead_weight: '',
       design_motive_size: '', total_design_measurements: '',
@@ -503,11 +492,11 @@ export default function MasterDesignerSheet() {
             />
           </div>
           <BulkUploadButton sheetType="designers" onComplete={() => window.location.reload()} />
-          <Button onClick={handleEditRow} variant="outline" className="border-trust-blue text-trust-blue hover:bg-trust-blue/10 rounded-full px-4 text-sm h-8" disabled={isArchivedView}>Edit Row</Button>
-          <Button onClick={handleDeleteSelectedRows} variant="outline" className="border-red-500 text-red-500 hover:bg-red-50 disabled:opacity-100 disabled:border-red-500 disabled:text-red-500 rounded-full px-4 text-sm h-8" disabled={selectedRows.size === 0 || editingRowIds.size > 0}>Delete Selected</Button>
+          <Button onClick={handleEditRow} variant="outline" className="border-trust-blue text-trust-blue hover:bg-trust-blue/10 rounded-full px-6" disabled={isArchivedView}>Edit Row</Button>
+          <Button onClick={handleDeleteSelectedRows} variant="outline" className="border-red-500 text-red-500 hover:bg-red-50 disabled:opacity-100 disabled:border-red-500 disabled:text-red-500 rounded-full px-6" disabled={selectedRows.size === 0 || editingRowIds.size > 0}>Delete Selected</Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="border-trust-blue text-trust-blue hover:bg-trust-blue/10 rounded-full px-4 text-sm h-8">Archive</Button>
+              <Button variant="outline" className="border-trust-blue text-trust-blue hover:bg-trust-blue/10 rounded-full px-6">Archive</Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent>
               <DropdownMenuItem onClick={handleArchiveRow} disabled={isArchivedView}>Archive Selected Rows</DropdownMenuItem>
@@ -515,10 +504,10 @@ export default function MasterDesignerSheet() {
             </DropdownMenuContent>
           </DropdownMenu>
           {isArchivedView && (
-            <Button onClick={handleUnarchiveRows} variant="outline" className="border-green-600 text-success hover:bg-success/10 rounded-full px-4 text-sm h-8" disabled={selectedRows.size === 0}>Unarchive Selected</Button>
+            <Button onClick={handleUnarchiveRows} variant="outline" className="border-green-600 text-success hover:bg-success/10 rounded-full px-6" disabled={selectedRows.size === 0}>Unarchive Selected</Button>
           )}
-          <Button onClick={() => setIsManageColumnsOpen(true)} variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8">Manage Columns</Button>
-          <Button onClick={handleExport} variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8">Export</Button>
+          <Button onClick={() => setIsManageColumnsOpen(true)} variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-6">Manage Columns</Button>
+          <Button onClick={handleExport} variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-6">Export</Button>
         </div>
 
         {/* â”€â”€ Table â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
@@ -569,20 +558,12 @@ export default function MasterDesignerSheet() {
                         />
                       </td>
                       {visibleCols.map((col) => {
-                        const isPhoto = col.id === 'rendered_photo' || col.id === 'technical_drawing' || col.id === 'other_photo';
+                        const isPhoto = col.id === 'rendered_photo' || col.id === 'technical_drawing';
                         const val = row[col.id] ?? '';
-                        const photoFieldName = col.id === 'other_photo' ? 'designer_image_3' : col.id;
                         return (
                           <td key={col.id} className="border border-soft-border p-1" style={isEditing ? { backgroundColor: '#eff6ff' } : {}}>
-                            {isPhoto ? (
-                              <DesignerPhotoCell
-                                value={val}
-                                rowId={row.id}
-                                fieldName={photoFieldName}
-                                isNew={!row.hasBackendRecord}
-                                isEditing={isEditing}
-                                onChange={(newUrl) => handleCellChange(row.id, col.id, newUrl)}
-                              />
+                            {isPhoto && val ? (
+                              <img src={val} alt={col.label} className="w-10 h-10 object-cover rounded border border-soft-border mx-auto" />
                             ) : (
                               <Input
                                 type="text"
@@ -649,100 +630,19 @@ export default function MasterDesignerSheet() {
           <span>
             {displayedData.length === 0
               ? '0'
-              : `${(safePage - 1) * rowsPerPage + 1}-${Math.min(safePage * rowsPerPage, displayedData.length)}`
+              : `${(safePage - 1) * rowsPerPage + 1}â€“${Math.min(safePage * rowsPerPage, displayedData.length)}`
             } of {displayedData.length}
           </span>
-          <button onClick={() => setCurrentPage((p) => Math.max(1, p - 1))} disabled={safePage <= 1} className="px-2 py-1 border border-soft-border rounded disabled:opacity-40 hover:bg-cloud-gray">&lsaquo;</button>
+          <button onClick={() => setCurrentPage((p) => Math.max(1, p - 1))} disabled={safePage <= 1} className="px-2 py-1 border border-soft-border rounded disabled:opacity-40 hover:bg-cloud-gray">â€¹</button>
           <span>{safePage} / {totalPages}</span>
-          <button onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))} disabled={safePage >= totalPages} className="px-2 py-1 border border-soft-border rounded disabled:opacity-40 hover:bg-cloud-gray">&rsaquo;</button>
+          <button onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))} disabled={safePage >= totalPages} className="px-2 py-1 border border-soft-border rounded disabled:opacity-40 hover:bg-cloud-gray">â€º</button>
         </div>
         <div className="flex gap-4">
           <span>Selected: {selectedRows.size}</span>
           <span>Archived: {archivedRows.size}</span>
           {editingRowIds.size > 0 && <span className="text-trust-blue font-semibold">Editing {editingRowIds.size} row(s)</span>}
         </div>
-        <LastUpdatedFooter timestamp={lastUpdated} username={currentUsername} compact />
       </div>
-    </div>
-  );
-}
-
-// ── DesignerPhotoCell ──────────────────────────────────────────────────────────
-function DesignerPhotoCell({ value, rowId, fieldName, isNew, isEditing, onChange }) {
-  const [uploading, setUploading] = useState(false);
-  const [uploadError, setUploadError] = useState('');
-  const inputRef = useRef(null);
-
-  const backendBase =
-    typeof window !== 'undefined' && window.location.hostname === 'localhost'
-      ? 'http://localhost:8000'
-      : 'https://product-sheet.onrender.com';
-
-  const resolveUrl = (url) => {
-    if (!url) return '';
-    if (url.startsWith('data:') || url.startsWith('http://') || url.startsWith('https://')) return url;
-    return `${backendBase}${url}`;
-  };
-
-  const handleFileChange = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (isNew) {
-      setUploadError('Save the row first, then upload a photo.');
-      return;
-    }
-    setUploading(true);
-    setUploadError('');
-    try {
-      const formData = new FormData();
-      formData.append('image', file);
-      const res = await fetch(`/api/designers/${rowId}/upload-photo?field=${fieldName}`, {
-        method: 'POST',
-        body: formData,
-      });
-      const data = await res.json().catch(() => null);
-      if (!res.ok || !data?.success) throw new Error(data?.message || 'Upload failed');
-      onChange(data.data?.url || '');
-    } catch (err) {
-      setUploadError(err.message || 'Upload failed');
-    } finally {
-      setUploading(false);
-      if (inputRef.current) inputRef.current.value = '';
-    }
-  };
-
-  return (
-    <div className="flex flex-col gap-1 min-h-8 px-1 py-1 items-center">
-      {value ? (
-        <img
-          src={resolveUrl(value)}
-          alt={fieldName}
-          className="w-10 h-10 object-cover rounded border border-soft-border"
-          onError={(e) => { e.target.style.display = 'none'; }}
-        />
-      ) : (
-        !isEditing && <span className="text-cool-gray text-xs">—</span>
-      )}
-      {isEditing && (
-        <>
-          <input
-            ref={inputRef}
-            type="file"
-            accept="image/jpeg,image/png,image/webp,image/gif"
-            className="hidden"
-            onChange={handleFileChange}
-          />
-          <button
-            type="button"
-            onClick={() => inputRef.current?.click()}
-            disabled={uploading}
-            className="text-xs px-2 py-0.5 rounded border border-trust-blue text-trust-blue hover:bg-trust-blue/10 disabled:opacity-50 w-fit"
-          >
-            {uploading ? 'Uploading…' : '+ Upload'}
-          </button>
-          {uploadError && <p className="text-xs text-danger text-center">{uploadError}</p>}
-        </>
-      )}
     </div>
   );
 }

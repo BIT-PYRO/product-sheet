@@ -1,7 +1,7 @@
 'use client'
 
 import React, { Suspense } from "react"
-import { Trash2, Download, Eye, Upload, Edit3, Search, X } from 'lucide-react'
+import { Trash2, Download, Eye, Upload, Edit3 } from 'lucide-react'
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -21,9 +21,9 @@ function ProductSheetContent() {
   const skuParam = (searchParams.get('sku') || '').trim()
   const fileInputRef = useRef(null)
   const manufacturingImagesRef = useRef(null)
-  const designerImageRef1 = useRef(null)
-  const designerImageRef2 = useRef(null)
-  const designerImageRef3 = useRef(null)
+  const designerImageRef = useRef(null)
+  const designerTdmFileRef = useRef(null)
+  const designerStlFileRef = useRef(null)
   const designerBulkUploadRef = useRef(null)
   const autoSaveTimeoutRef = useRef(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -153,26 +153,20 @@ function ProductSheetContent() {
     { id: 1, sku: '', value: '', unit: '' },
   ])
 
-  const TRACKING_DEFAULT_ROWS = () => [
-    { id: 1, tdm: '', stl: '', designCode: '', masterNumber: '', dieCode: '', moldDieQty: '' },
-    { id: 2, tdm: '', stl: '', designCode: '', masterNumber: '', dieCode: '', moldDieQty: '' },
-    { id: 3, tdm: '', stl: '', designCode: '', masterNumber: '', dieCode: '', moldDieQty: '' },
-    { id: 4, tdm: '', stl: '', designCode: '', masterNumber: '', dieCode: '', moldDieQty: '' },
-  ]
-
   const [designer, setDesigner] = useState({
-    image1: '',
-    image2: '',
-    image3: '',
-    designStage: '',
-    sizeOfDesignMotive: '',
-    totalDesignMeasurements: '',
-    designMaterial: '',
-    dieCode: '',
-    moldQtyPerDie: '',
-    cpxDeadWeight: '',
-    mechanism: '',
-    trackingRows: TRACKING_DEFAULT_ROWS(),
+    image: '',
+    tdmFile: '',
+    tdmFileName: '',
+    stlFile: '',
+    stlFileName: '',
+    tdmStatus: '',
+    stlStatus: '',
+    renderStatus: '',
+    print3dStatus: '',
+    dieEntries: [
+      { id: 1, value: '' },
+      { id: 2, value: '' },
+    ],
   })
 
   const [isSaving, setIsSaving] = useState(false)
@@ -182,14 +176,6 @@ function ProductSheetContent() {
   const [isDesignerSaving, setIsDesignerSaving] = useState(false)
   const [designerSaveStatus, setDesignerSaveStatus] = useState(null)
   const [designerRecordId, setDesignerRecordId] = useState(null)
-
-  // Edit dialog state
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
-  const [editSearchTerm, setEditSearchTerm] = useState('')
-  const [editSearchResults, setEditSearchResults] = useState([])
-  const [isEditSearching, setIsEditSearching] = useState(false)
-  const [editProductId, setEditProductId] = useState(null)
-  const [isViewMode, setIsViewMode] = useState(false)
 
   useEffect(() => {
     fetch('/api/backend-info', { cache: 'no-store' })
@@ -267,18 +253,19 @@ function ProductSheetContent() {
     })
     setFinalStock([{ id: 1, sku: '', value: '', unit: '' }])
     setDesigner({
-      image1: '',
-      image2: '',
-      image3: '',
-      designStage: '',
-      sizeOfDesignMotive: '',
-      totalDesignMeasurements: '',
-      designMaterial: '',
-      dieCode: '',
-      moldQtyPerDie: '',
-      cpxDeadWeight: '',
-      mechanism: '',
-      trackingRows: TRACKING_DEFAULT_ROWS(),
+      image: '',
+      tdmFile: '',
+      tdmFileName: '',
+      stlFile: '',
+      stlFileName: '',
+      tdmStatus: '',
+      stlStatus: '',
+      renderStatus: '',
+      print3dStatus: '',
+      dieEntries: [
+        { id: 1, value: '' },
+        { id: 2, value: '' },
+      ],
     })
     setIsModalOpen(false)
     setSaveStatus(null)
@@ -434,7 +421,6 @@ function ProductSheetContent() {
     productImages,
     primaryImageIndex,
     designer,
-    existingProductId: editProductId,
     ...overrideValues,
   })
 
@@ -605,52 +591,67 @@ function ProductSheetContent() {
     };
 
     // ── Designer handlers ──────────────────────────────────
-    const handleDesignerImageSlotUpload = (slot) => (e) => {
+    const handleDesignerImageUpload = (e) => {
       const file = e.target.files?.[0];
       if (!file) return;
       const reader = new FileReader();
       reader.onload = (event) => {
-        setDesigner((prev) => ({ ...prev, [slot]: event.target?.result || '' }));
+        setDesigner((prev) => ({ ...prev, image: event.target?.result || '' }));
       };
       reader.readAsDataURL(file);
       e.target.value = '';
     };
 
-    const handleDesignerImageDownload = (slot, index) => {
-      const data = designer[slot];
+    const handleDesignerFileUpload = (field, nameField) => (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setDesigner((prev) => ({
+          ...prev,
+          [field]: event.target?.result || '',
+          [nameField]: file.name,
+        }));
+      };
+      reader.readAsDataURL(file);
+      e.target.value = '';
+    };
+
+    const handleDesignerFileDownload = (field, nameField) => {
+      const data = designer[field];
+      const name = designer[nameField] || `${field}.bin`;
       if (!data) return;
       const a = document.createElement('a');
       a.href = data;
-      a.download = `designer-image-${index}.png`;
+      a.download = name;
       a.click();
     };
 
-    const handleOpenDriveLink = (linkField) => {
-      const url = designer[linkField];
-      if (!url) return;
-      window.open(url, '_blank', 'noopener,noreferrer');
+    const handleDesignerFileView = (field) => {
+      const data = designer[field];
+      if (!data) return;
+      window.open(data, '_blank');
     };
 
-    // ── Designer Tracking Table handlers ──────────────────
-    const addDesignerTrackingRow = () => {
-      const newId = Math.max(...designer.trackingRows.map((r) => r.id), 0) + 1;
+    const addDesignerDieEntry = () => {
+      const newId = Math.max(...designer.dieEntries.map((r) => r.id), 0) + 1;
       setDesigner((prev) => ({
         ...prev,
-        trackingRows: [...prev.trackingRows, { id: newId, tdm: '', stl: '', designCode: '', masterNumber: '', dieCode: '', moldDieQty: '' }],
+        dieEntries: [...prev.dieEntries, { id: newId, value: '' }],
       }));
     };
 
-    const updateDesignerTrackingRow = (id, field, value) => {
+    const updateDesignerDieEntry = (id, value) => {
       setDesigner((prev) => ({
         ...prev,
-        trackingRows: prev.trackingRows.map((r) => (r.id === id ? { ...r, [field]: value } : r)),
+        dieEntries: prev.dieEntries.map((r) => (r.id === id ? { ...r, value } : r)),
       }));
     };
 
-    const deleteDesignerTrackingRow = (id) => {
+    const deleteDesignerDieEntry = (id) => {
       setDesigner((prev) => ({
         ...prev,
-        trackingRows: prev.trackingRows.filter((r) => r.id !== id),
+        dieEntries: prev.dieEntries.filter((r) => r.id !== id),
       }));
     };
 
@@ -666,20 +667,14 @@ function ProductSheetContent() {
       try {
         const payload = {
           sku,
-          image: designer.image1,
-          rendered_photo: designer.image1,
-          designer_image_2: designer.image2,
-          technical_drawing: designer.image2,
-          designer_image_3: designer.image3,
-          design_stage: designer.designStage,
-          design_motive_size: designer.sizeOfDesignMotive,
-          total_design_measurements: designer.totalDesignMeasurements,
-          design_material: designer.designMaterial,
-          die_code: designer.dieCode,
-          mold_qty_per_die: designer.moldQtyPerDie,
-          cpx_dead_weight: designer.cpxDeadWeight,
-          mechanism: designer.mechanism,
-          tracking_rows: designer.trackingRows,
+          image: designer.image,
+          tdm_file: designer.tdmFile,
+          stl_file: designer.stlFile,
+          tdm_status: designer.tdmStatus,
+          stl_status: designer.stlStatus,
+          render_status: designer.renderStatus,
+          print_3d_status: designer.print3dStatus,
+          die_entries: designer.dieEntries.filter((d) => d.value).map((d) => ({ value: d.value })),
         };
         const isUpdate = !!designerRecordId;
         const url = isUpdate ? `/api/designers/${designerRecordId}` : '/api/designers';
@@ -722,16 +717,9 @@ function ProductSheetContent() {
         }
         setDesignerRecordId(null);
         setDesigner({
-          image1: '', image2: '', image3: '',
-          designStage: '',
-          sizeOfDesignMotive: '',
-          totalDesignMeasurements: '',
-          designMaterial: '',
-          dieCode: '',
-          moldQtyPerDie: '',
-          cpxDeadWeight: '',
-          mechanism: '',
-          trackingRows: TRACKING_DEFAULT_ROWS(),
+          image: '', tdmFile: '', tdmFileName: '', stlFile: '', stlFileName: '',
+          tdmStatus: '', stlStatus: '', renderStatus: '', print3dStatus: '',
+          dieEntries: [{ id: 1, value: '' }, { id: 2, value: '' }],
         });
         setDesignerSaveStatus({ success: true, message: 'Designer record deleted' });
       } catch (error) {
@@ -923,121 +911,8 @@ function ProductSheetContent() {
     };
     
     const handleEditProduct = () => {
-    setEditSearchTerm('')
-    setEditSearchResults([])
-    setIsEditDialogOpen(true)
-  }
-
-  const handleEditSearch = async () => {
-    const term = editSearchTerm.trim()
-    if (!term) return
-    setIsEditSearching(true)
-    try {
-      const res = await fetch(`/api/products?search=${encodeURIComponent(term)}`, { cache: 'no-store' })
-      const json = await res.json()
-      if (res.ok && json?.success) {
-        const rows = Array.isArray(json.data) ? json.data : (json.data?.results || [])
-        setEditSearchResults(rows)
-      } else {
-        setEditSearchResults([])
-      }
-    } catch {
-      setEditSearchResults([])
-    } finally {
-      setIsEditSearching(false)
-    }
-  }
-
-  const handleSelectProductForEdit = (product) => {
-    setIsEditDialogOpen(false)
-    setEditProductId(product.id)
-
-    // Populate all form fields from the backend product
-    setSku(product.sku || '')
-    setListingName(product.name || '')
-    setMaterial(product.material || '')
-    setDropdown1(product.material || '')
-    setWeightValue(product.weight || '')
-    setWeightUnit('')
-    setDropdown2(product.category || '')
-    setDropdown3(product.collection || '')
-    setSettingType(product.setting_type || '')
-    setEnamelType(product.enamel_type || '')
-    setShopifyStatus(product.is_active ? 'active' : 'inactive')
-    setMaterialSku(product.master_sku || product.sku || '')
-    setMaterialSkuLocation('')
-
-    // Active channels
-    const ch = product.active_channels || ''
-    if (ch) {
-      setActiveChannels(ch.split(',').map(c => c.trim()).filter(Boolean))
-    } else {
-      setActiveChannels([])
-    }
-
-    // Die numbers / findings
-    const dieRows = Array.isArray(product.die_numbers) ? product.die_numbers : []
-    const findingRows = Array.isArray(product.findings) ? product.findings : []
-    const combined = [
-      ...dieRows.map((d, i) => ({ id: i + 1, type: 'die_number', value: d.value || '', quantity: d.quantity || '', location: d.location || '' })),
-      ...findingRows.map((f, i) => ({ id: dieRows.length + i + 1, type: 'findings', value: f.value || '', quantity: f.quantity || '', location: f.location || '' })),
-    ]
-    // Pad to at least 5 rows
-    while (combined.length < 5) {
-      combined.push({ id: combined.length + 1, type: 'die_number', value: '', quantity: '', location: '' })
-    }
-    setManufacturing(prev => ({ ...prev, dieNumbers: combined, notes: product.notes || '' }))
-
-    // Stone info
-    if (product.stone_name || product.stone_cut || product.stone_color || product.stone_size || product.stone_quantity) {
-      setStoneInfo([
-        { id: 1, name: product.stone_name || '', cut: product.stone_cut || '', color: product.stone_color || '', size: product.stone_size || '', quantity: product.stone_quantity || '', material: '', weight: '' },
-        { id: 2, name: '', cut: '', color: '', size: '', quantity: '', material: '', weight: '' },
-        { id: 3, name: '', cut: '', color: '', size: '', quantity: '', material: '', weight: '' },
-      ])
-    }
-
-    // Plating
-    setPlatingType([
-      { id: 1, col1: product.plating_type || '', col2: product.plating_color || '', col3: '' },
-      { id: 2, col1: '', col2: '', col3: '' },
-      { id: 3, col1: '', col2: '', col3: '' },
-    ])
-
-    // Notes & images
-    setProductImages(product.images ? [product.images] : [])
-    setPrimaryImageIndex(0)
-
-    window.scrollTo({ top: 0, behavior: 'smooth' })
-    setSaveStatus({ success: true, message: `Loaded: ${product.sku} - ${product.name || ''}` })
-    setTimeout(() => setSaveStatus(null), 3000)
-
-    // Load designer data for this SKU
-    fetch(`/api/designers?sku=${encodeURIComponent(product.sku)}`, { cache: 'no-store' })
-      .then(r => r.json())
-      .then(json => {
-        const rows = Array.isArray(json.data) ? json.data : (json.data?.results || [])
-        const d = rows.find(r => String(r.sku || '').trim() === String(product.sku || '').trim())
-        if (d) {
-          setDesignerRecordId(d.id)
-          setDesigner(prev => ({
-            ...prev,
-            image1: d.image || '',
-            image2: d.designer_image_2 || '',
-            image3: d.designer_image_3 || '',
-            designStage: d.design_stage || '',
-            sizeOfDesignMotive: d.design_motive_size || '',
-            totalDesignMeasurements: d.total_design_measurements || '',
-            designMaterial: d.design_material || '',
-            dieCode: d.die_code || '',
-            moldQtyPerDie: d.mold_qty_per_die || '',
-            cpxDeadWeight: d.cpx_dead_weight || '',
-            mechanism: d.mechanism || '',
-            trackingRows: Array.isArray(d.tracking_rows) && d.tracking_rows.length ? d.tracking_rows : TRACKING_DEFAULT_ROWS(),
-          }))
-        }
-      })
-      .catch(() => {})
+    // Add real edit behavior as needed
+    alert('Edit product')
   }
 
   const handleDeleteProduct = async () => {
@@ -1123,32 +998,13 @@ function ProductSheetContent() {
             </span>
           )}
           <DateTimeStamp className="mr-1 text-xs" />
-          {skuParam ? (
-            <>
-              <button onClick={() => router.push('/master-product-sheet')} className="w-fit px-3 h-8 text-sm bg-midnight-ink text-white font-semibold rounded-full shadow-sm hover:bg-midnight-ink/90">
-                ← BACK
-              </button>
-              {isViewMode ? (
-                <button onClick={() => setIsViewMode(false)} className="w-fit px-3 h-8 text-sm bg-trust-blue text-white font-semibold rounded-full shadow-sm hover:bg-deep-blue flex items-center gap-1">
-                  <Edit3 className="h-3.5 w-3.5" />
-                  EDIT
-                </button>
-              ) : (
-                <button onClick={handleSaveProduct} disabled={isSaving} className="w-fit px-3 h-8 text-sm bg-success text-white font-semibold rounded-full shadow-sm hover:bg-success/90 disabled:opacity-50 disabled:cursor-not-allowed">{isSaving ? 'Saving...' : 'SAVE'}</button>
-              )}
-              <button onClick={handleDeleteProduct} disabled={isSaving} className="w-fit px-3 h-8 text-sm bg-danger text-white font-semibold rounded-full shadow-sm hover:bg-danger/90 disabled:opacity-50 disabled:cursor-not-allowed">DELETE</button>
-            </>
-          ) : (
-            <>
-              <button onClick={handleEditProduct} className="w-fit px-3 h-8 text-sm bg-trust-blue text-white font-semibold rounded-full shadow-sm hover:bg-deep-blue flex items-center gap-1">
-                <Edit3 className="h-3.5 w-3.5" />
-                EDIT
-              </button>
-              <button onClick={handleAddProduct} className="w-fit px-3 h-8 text-sm bg-trust-blue text-white font-semibold rounded-full shadow-sm hover:bg-deep-blue">+ ADD PRODUCT</button>
-              <button onClick={handleSaveProduct} disabled={isSaving} className="w-fit px-3 h-8 text-sm bg-success text-white font-semibold rounded-full shadow-sm hover:bg-success/90 disabled:opacity-50 disabled:cursor-not-allowed">{isSaving ? 'Saving...' : 'SAVE'}</button>
-              <button onClick={handleDeleteProduct} disabled={isSaving} className="w-fit px-3 h-8 text-sm bg-danger text-white font-semibold rounded-full shadow-sm hover:bg-danger/90 disabled:opacity-50 disabled:cursor-not-allowed">DELETE</button>
-            </>
-          )}
+          <button onClick={handleEditProduct} className="w-fit px-3 h-8 text-sm bg-trust-blue text-white font-semibold rounded-full shadow-sm hover:bg-deep-blue flex items-center gap-1">
+            <Edit3 className="h-3.5 w-3.5" />
+            EDIT
+          </button>
+          <button onClick={handleAddProduct} className="w-fit px-3 h-8 text-sm bg-trust-blue text-white font-semibold rounded-full shadow-sm hover:bg-deep-blue">+ ADD PRODUCT</button>
+          <button onClick={handleSaveProduct} disabled={isSaving} className="w-fit px-3 h-8 text-sm bg-success text-white font-semibold rounded-full shadow-sm hover:bg-success/90 disabled:opacity-50 disabled:cursor-not-allowed">{isSaving ? 'Saving...' : 'SAVE'}</button>
+          <button onClick={handleDeleteProduct} disabled={isSaving} className="w-fit px-3 h-8 text-sm bg-danger text-white font-semibold rounded-full shadow-sm hover:bg-danger/90 disabled:opacity-50 disabled:cursor-not-allowed">DELETE</button>
           {saveStatus && (
             <div className={`text-sm px-2 py-1 rounded-md ${saveStatus.success ? 'bg-success/10 text-success-dark border border-success/30' : 'bg-danger/10 text-danger-dark border border-danger/30'}`}>
               {saveStatus.message}
@@ -1165,79 +1021,7 @@ function ProductSheetContent() {
         </div>
       </div>
 
-      {/* Edit Product Search Dialog */}
-      {isEditDialogOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 max-h-[80vh] flex flex-col">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-soft-border">
-              <h2 className="text-lg font-bold text-midnight-ink">Edit Product</h2>
-              <button onClick={() => setIsEditDialogOpen(false)} className="p-1 rounded-full hover:bg-cloud-gray">
-                <X className="h-5 w-5 text-cool-gray" />
-              </button>
-            </div>
-            <div className="px-5 py-4">
-              <p className="text-sm text-cool-gray mb-3">Search by Master SKU, SKU, or product name:</p>
-              <div className="flex gap-2">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-cool-gray" />
-                  <input
-                    type="text"
-                    placeholder="Enter Master SKU or SKU..."
-                    value={editSearchTerm}
-                    onChange={(e) => setEditSearchTerm(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === 'Enter') handleEditSearch() }}
-                    className="w-full border border-soft-border rounded-lg pl-9 pr-3 h-10 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue/40"
-                    autoFocus
-                  />
-                </div>
-                <button
-                  onClick={handleEditSearch}
-                  disabled={isEditSearching || !editSearchTerm.trim()}
-                  className="px-4 h-10 bg-trust-blue text-white text-sm font-semibold rounded-lg hover:bg-deep-blue disabled:opacity-50"
-                >
-                  {isEditSearching ? 'Searching...' : 'Search'}
-                </button>
-              </div>
-            </div>
-            <div className="flex-1 overflow-y-auto px-5 pb-5">
-              {editSearchResults.length === 0 && !isEditSearching && editSearchTerm.trim() && (
-                <p className="text-sm text-cool-gray text-center py-6">No products found. Try a different search term.</p>
-              )}
-              {editSearchResults.length > 0 && (
-                <div className="space-y-2">
-                  {editSearchResults.map((product) => (
-                    <button
-                      key={product.id}
-                      onClick={() => handleSelectProductForEdit(product)}
-                      className="w-full text-left p-3 border border-soft-border rounded-lg hover:bg-trust-blue/5 hover:border-trust-blue/40 transition-colors"
-                    >
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-sm font-semibold text-midnight-ink">{product.sku}</p>
-                          <p className="text-xs text-cool-gray">{product.name || 'Unnamed product'}</p>
-                        </div>
-                        <div className="text-right">
-                          {product.master_sku && product.master_sku !== product.sku && (
-                            <p className="text-xs text-cool-gray">Master: {product.master_sku}</p>
-                          )}
-                          <p className="text-xs text-cool-gray">{product.category || ''}</p>
-                        </div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {isViewMode && (
-        <div className="fixed top-[52px] left-0 right-0 z-[65] bg-amber-50 border-b border-amber-300 px-4 py-1.5 text-center text-xs font-semibold text-amber-800">
-          👁 Viewing <strong>{sku}</strong> — click <strong>Edit</strong> to make changes
-        </div>
-      )}
-      <div className={`flex-1 transition-all duration-300 px-3 md:px-4 pb-3 ${isViewMode ? 'pt-24 pointer-events-none select-none opacity-80' : 'pt-16'}`}>
+      <div className="flex-1 pt-16 px-3 md:px-4 pb-3 transition-all duration-300">
       {/* Top Section - Product Details & Variations Combined */}
       <div className="bg-cloud-gray p-1.5 rounded-xl mb-2 border border-soft-border shadow-sm">
         <div className="flex gap-2 h-auto">
@@ -1896,163 +1680,97 @@ function ProductSheetContent() {
             <input ref={designerBulkUploadRef} type="file" accept=".csv,.xlsx,.xls,.json" onChange={handleDesignerBulkUpload} className="hidden"/>
           </div>
         </div>
-        <div>
-          {/* 3 Image Upload Slots – equal columns */}
-          <div className="grid grid-cols-3 gap-1.5">
-            {/* Hidden file inputs */}
-            <input ref={designerImageRef1} type="file" accept="image/*" onChange={handleDesignerImageSlotUpload('image1')} className="hidden"/>
-            <input ref={designerImageRef2} type="file" accept="image/*" onChange={handleDesignerImageSlotUpload('image2')} className="hidden"/>
-            <input ref={designerImageRef3} type="file" accept="image/*" onChange={handleDesignerImageSlotUpload('image3')} className="hidden"/>
-            {[
-              { slot: 'image1', ref: designerImageRef1, label: 'Rendered Photo' },
-              { slot: 'image2', ref: designerImageRef2, label: 'Technical Drawing' },
-              { slot: 'image3', ref: designerImageRef3, label: 'Other Photo' },
-            ].map(({ slot, ref, label }) => (
-              <div key={slot} className="flex flex-col gap-1">
-                <div className="text-center text-xs font-semibold text-trust-blue py-0.5 bg-trust-blue/10 rounded-t-lg border border-soft-border border-b-0">{label}</div>
-                <div
-                  className="bg-white border border-soft-border rounded-b-xl overflow-hidden flex items-center justify-center cursor-pointer hover:bg-cloud-gray"
-                  style={{minHeight: '9rem'}}
-                  onClick={() => ref.current?.click()}
-                >
-                  {designer[slot] ? (
-                    <img src={designer[slot]} alt={label} className="w-full h-full object-cover rounded-b-xl"/>
-                  ) : (
-                    <span className="text-xs text-cool-gray text-center px-2">Click to upload image</span>
-                  )}
-                </div>
-                <button
-                  type="button"
-                  onClick={() => handleDesignerImageDownload(slot, label)}
-                  disabled={!designer[slot]}
-                  className="w-full px-1 py-0.5 text-xs bg-midnight-ink text-white rounded font-semibold hover:bg-midnight-ink/80 disabled:opacity-40 flex items-center justify-center gap-1"
-                >
-                  <Download className="h-3 w-3"/>Download
-                </button>
+        <div className="flex gap-2">
+          {/* Left: Image Upload – 40% */}
+          <div className="bg-white border border-soft-border rounded-xl overflow-hidden flex items-center justify-center cursor-pointer hover:bg-cloud-gray relative" style={{width: '40%', minHeight: '12rem'}} onClick={() => designerImageRef.current?.click()}>
+            {designer.image ? (
+              <img src={designer.image} alt="Designer" className="w-full h-full object-cover rounded-xl"/>
+            ) : (
+              <span className="text-sm text-cool-gray">Click to upload image</span>
+            )}
+            <input ref={designerImageRef} type="file" accept="image/*" onChange={handleDesignerImageUpload} className="hidden"/>
+          </div>
+
+          {/* Right: 3DM + STL fields – 60% */}
+          <div className="flex flex-col gap-2" style={{width: '60%'}}>
+            {/* 3DM Field */}
+            <div className="bg-white border border-soft-border rounded-xl p-2">
+              <label className="text-xs font-semibold text-midnight-ink mb-1 block">3DM</label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={designer.tdmFileName || designer.tdmFile}
+                  onChange={(e) => setDesigner((prev) => ({ ...prev, tdmFile: e.target.value, tdmFileName: '' }))}
+                  placeholder="Type or upload 3DM file"
+                  className="flex-1 text-sm border border-soft-border rounded px-2 py-1 outline-none"
+                />
+                <button type="button" onClick={() => designerTdmFileRef.current?.click()} className="px-2 py-1 text-xs bg-trust-blue text-white rounded font-semibold hover:bg-deep-blue">Upload</button>
+                <button type="button" onClick={() => handleDesignerFileDownload('tdmFile', 'tdmFileName')} disabled={!designer.tdmFile} className="px-2 py-1 text-xs bg-midnight-ink text-white rounded font-semibold hover:bg-midnight-ink/80 disabled:opacity-40"><Download className="h-3 w-3"/></button>
+                <button type="button" onClick={() => handleDesignerFileView('tdmFile')} disabled={!designer.tdmFile} className="px-2 py-1 text-xs bg-midnight-ink text-white rounded font-semibold hover:bg-midnight-ink/80 disabled:opacity-40"><Eye className="h-3 w-3"/></button>
+                <input ref={designerTdmFileRef} type="file" onChange={handleDesignerFileUpload('tdmFile', 'tdmFileName')} className="hidden"/>
               </div>
-            ))}
+            </div>
+
+            {/* STL Field */}
+            <div className="bg-white border border-soft-border rounded-xl p-2">
+              <label className="text-xs font-semibold text-midnight-ink mb-1 block">STL</label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={designer.stlFileName || designer.stlFile}
+                  onChange={(e) => setDesigner((prev) => ({ ...prev, stlFile: e.target.value, stlFileName: '' }))}
+                  placeholder="Type or upload STL file"
+                  className="flex-1 text-sm border border-soft-border rounded px-2 py-1 outline-none"
+                />
+                <button type="button" onClick={() => designerStlFileRef.current?.click()} className="px-2 py-1 text-xs bg-trust-blue text-white rounded font-semibold hover:bg-deep-blue">Upload</button>
+                <button type="button" onClick={() => handleDesignerFileDownload('stlFile', 'stlFileName')} disabled={!designer.stlFile} className="px-2 py-1 text-xs bg-midnight-ink text-white rounded font-semibold hover:bg-midnight-ink/80 disabled:opacity-40"><Download className="h-3 w-3"/></button>
+                <button type="button" onClick={() => handleDesignerFileView('stlFile')} disabled={!designer.stlFile} className="px-2 py-1 text-xs bg-midnight-ink text-white rounded font-semibold hover:bg-midnight-ink/80 disabled:opacity-40"><Eye className="h-3 w-3"/></button>
+                <input ref={designerStlFileRef} type="file" onChange={handleDesignerFileUpload('stlFile', 'stlFileName')} className="hidden"/>
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Tracking Table */}
+        {/* Designer Tracking Table */}
         <div className="mt-2 bg-white border border-soft-border rounded-xl overflow-hidden">
-          <div className="max-h-48 overflow-y-auto">
-            <table className="w-full text-xs border-collapse">
-              <thead className="sticky top-0 z-10">
-                <tr className="bg-[#dce8f5]">
-                  <th className="border border-soft-border px-2 py-1 font-semibold text-midnight-ink text-left">3DM</th>
-                  <th className="border border-soft-border px-2 py-1 font-semibold text-midnight-ink text-left">STL</th>
-                  <th className="border border-soft-border px-2 py-1 font-semibold text-midnight-ink text-left">Design Code</th>
-                  <th className="border border-soft-border px-2 py-1 font-semibold text-midnight-ink text-left">Master Number</th>
-                  <th className="border border-soft-border px-2 py-1 font-semibold text-midnight-ink text-left">Die Code</th>
-                  <th className="border border-soft-border px-2 py-1 font-semibold text-midnight-ink text-left">Mold/Die Qty</th>
-                  <th className="border border-soft-border px-1 py-1 w-6"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {designer.trackingRows.map((row) => (
-                  <tr key={row.id} className="hover:bg-cloud-gray/40">
-                    <td className="border border-soft-border p-0">
-                      <div className="flex items-center">
-                        {row.tdm ? (
-                          <a href={row.tdm} target="_blank" rel="noopener noreferrer" className="flex-1 px-2 py-1 text-trust-blue underline truncate text-xs" title={row.tdm}>{row.tdm}</a>
-                        ) : (
-                          <input type="url" value={row.tdm} onChange={(e) => updateDesignerTrackingRow(row.id, 'tdm', e.target.value)} placeholder="Drive link" className="flex-1 bg-transparent outline-none px-2 py-1 min-w-[60px]"/>
-                        )}
-                        <button type="button" title="Set Drive link" onClick={() => { const url = window.prompt('Paste Google Drive link:', row.tdm); if (url !== null) updateDesignerTrackingRow(row.id, 'tdm', url.trim()); }} className="px-1 py-1 text-cool-gray hover:text-trust-blue flex-shrink-0"><Upload className="h-3 w-3"/></button>
+          <table className="w-full table-fixed text-sm border-collapse text-center">
+            <thead>
+              <tr className="bg-[#dce8f5]">
+                <th className="border border-soft-border px-1 py-1 font-semibold text-midnight-ink">3DM</th>
+                <th className="border border-soft-border px-1 py-1 font-semibold text-midnight-ink">STL</th>
+                <th className="border border-soft-border px-1 py-1 font-semibold text-midnight-ink">RENDER</th>
+                <th className="border border-soft-border px-1 py-1 font-semibold text-midnight-ink">3D PRINT</th>
+                <th className="border border-soft-border px-1 py-1 font-semibold text-midnight-ink">DIE</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td className="border border-soft-border px-1 py-1">
+                  <input type="text" value={designer.tdmStatus} onChange={(e) => setDesigner((prev) => ({ ...prev, tdmStatus: e.target.value }))} className="w-full bg-transparent outline-none text-sm text-center"/>
+                </td>
+                <td className="border border-soft-border px-1 py-1">
+                  <input type="text" value={designer.stlStatus} onChange={(e) => setDesigner((prev) => ({ ...prev, stlStatus: e.target.value }))} className="w-full bg-transparent outline-none text-sm text-center"/>
+                </td>
+                <td className="border border-soft-border px-1 py-1">
+                  <input type="text" value={designer.renderStatus} onChange={(e) => setDesigner((prev) => ({ ...prev, renderStatus: e.target.value }))} className="w-full bg-transparent outline-none text-sm text-center"/>
+                </td>
+                <td className="border border-soft-border px-1 py-1">
+                  <input type="text" value={designer.print3dStatus} onChange={(e) => setDesigner((prev) => ({ ...prev, print3dStatus: e.target.value }))} className="w-full bg-transparent outline-none text-sm text-center"/>
+                </td>
+                <td className="border border-soft-border px-1 py-1">
+                  <div className="flex flex-col gap-1 max-h-32 overflow-y-auto">
+                    {designer.dieEntries.map((die) => (
+                      <div key={die.id} className="flex items-center gap-1">
+                        <input type="text" value={die.value} onChange={(e) => updateDesignerDieEntry(die.id, e.target.value)} className="flex-1 bg-transparent outline-none text-sm text-center border-b border-soft-border" placeholder="Die"/>
+                        <button type="button" onClick={() => deleteDesignerDieEntry(die.id)} className="text-danger hover:text-danger-dark"><Trash2 className="h-3 w-3"/></button>
                       </div>
-                    </td>
-                    <td className="border border-soft-border p-0">
-                      <div className="flex items-center">
-                        {row.stl ? (
-                          <a href={row.stl} target="_blank" rel="noopener noreferrer" className="flex-1 px-2 py-1 text-trust-blue underline truncate text-xs" title={row.stl}>{row.stl}</a>
-                        ) : (
-                          <input type="url" value={row.stl} onChange={(e) => updateDesignerTrackingRow(row.id, 'stl', e.target.value)} placeholder="Drive link" className="flex-1 bg-transparent outline-none px-2 py-1 min-w-[60px]"/>
-                        )}
-                        <button type="button" title="Set Drive link" onClick={() => { const url = window.prompt('Paste Google Drive link:', row.stl); if (url !== null) updateDesignerTrackingRow(row.id, 'stl', url.trim()); }} className="px-1 py-1 text-cool-gray hover:text-trust-blue flex-shrink-0"><Upload className="h-3 w-3"/></button>
-                      </div>
-                    </td>
-                    <td className="border border-soft-border p-0"><input type="text" value={row.designCode} onChange={(e) => updateDesignerTrackingRow(row.id, 'designCode', e.target.value)} className="w-full bg-transparent outline-none px-2 py-1 min-w-[80px]"/></td>
-                    <td className="border border-soft-border p-0"><input type="text" value={row.masterNumber} onChange={(e) => updateDesignerTrackingRow(row.id, 'masterNumber', e.target.value)} className="w-full bg-transparent outline-none px-2 py-1 min-w-[90px]"/></td>
-                    <td className="border border-soft-border p-0"><input type="text" value={row.dieCode} onChange={(e) => updateDesignerTrackingRow(row.id, 'dieCode', e.target.value)} className="w-full bg-transparent outline-none px-2 py-1 min-w-[70px]"/></td>
-                    <td className="border border-soft-border p-0"><input type="text" value={row.moldDieQty} onChange={(e) => updateDesignerTrackingRow(row.id, 'moldDieQty', e.target.value)} className="w-full bg-transparent outline-none px-2 py-1 min-w-[70px]"/></td>
-                    <td className="border border-soft-border p-0 text-center">
-                      <button type="button" onClick={() => deleteDesignerTrackingRow(row.id)} className="px-1 py-1 text-danger hover:text-danger-dark"><Trash2 className="h-3 w-3"/></button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <button type="button" onClick={addDesignerTrackingRow} className="w-full text-left px-3 py-1.5 text-xs text-trust-blue font-semibold hover:bg-cloud-gray border-t border-soft-border">+ Add Row</button>
-        </div>
-
-        {/* Design Stage Buttons */}
-        <div className="mt-2 bg-white border border-soft-border rounded-xl p-2">
-          <div className="text-xs font-semibold text-midnight-ink mb-1.5">DESIGN STAGE</div>
-          <div className="flex flex-wrap gap-2">
-            {['3DM', 'STL', 'RENDER', '3D PRINT', 'COMPLETE'].map((stage) => (
-              <button
-                key={stage}
-                type="button"
-                onClick={() => setDesigner((prev) => ({ ...prev, designStage: prev.designStage === stage ? '' : stage }))}
-                className={`px-3 py-1.5 text-xs font-semibold rounded-full border transition-colors ${
-                  designer.designStage === stage
-                    ? 'bg-trust-blue text-white border-trust-blue shadow-sm'
-                    : 'bg-white text-midnight-ink border-soft-border hover:bg-cloud-gray'
-                }`}
-              >
-                {stage}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* 50/50 split: Left = 3 measurement panels | Right = Die info + Mechanism */}
-        <div className="mt-2 flex gap-2 items-stretch">
-          {/* Left 50%: Size, Measurements, Material */}
-          <div className="flex flex-col gap-2" style={{width:'50%'}}>
-            <div className="bg-white border border-soft-border rounded-xl p-2">
-              <label className="text-xs font-semibold text-midnight-ink mb-1 block">Size of Design Motive</label>
-              <input type="text" value={designer.sizeOfDesignMotive} onChange={(e) => setDesigner((prev) => ({ ...prev, sizeOfDesignMotive: e.target.value }))} placeholder="e.g. 12mm x 8mm" className="w-full bg-transparent outline-none text-sm border border-soft-border rounded px-2 py-1"/>
-            </div>
-            <div className="bg-white border border-soft-border rounded-xl p-2">
-              <label className="text-xs font-semibold text-midnight-ink mb-1 block">Total Design Measurements (Approx)</label>
-              <input type="text" value={designer.totalDesignMeasurements} onChange={(e) => setDesigner((prev) => ({ ...prev, totalDesignMeasurements: e.target.value }))} placeholder="e.g. 25mm x 20mm x 5mm" className="w-full bg-transparent outline-none text-sm border border-soft-border rounded px-2 py-1"/>
-            </div>
-            <div className="flex-1 bg-white border border-soft-border rounded-xl p-2">
-              <label className="text-xs font-semibold text-midnight-ink mb-1 block">Design Material</label>
-              <input type="text" value={designer.designMaterial} onChange={(e) => setDesigner((prev) => ({ ...prev, designMaterial: e.target.value }))} placeholder="e.g. Silver 925" className="w-full bg-transparent outline-none text-sm border border-soft-border rounded px-2 py-1"/>
-            </div>
-          </div>
-
-          {/* Right 50%: Die info + Mechanism */}
-          <div className="flex flex-col gap-2" style={{width:'50%'}}>
-            {/* Die Code / Mold Qty / CPX Dead Weight */}
-            <div className="bg-white border border-soft-border rounded-xl p-2">
-              <div className="text-xs font-semibold text-midnight-ink mb-1">Die Code / Mold Qty &amp; CPX Dead Weight</div>
-              <div className="flex flex-col gap-1">
-                <div>
-                  <label className="text-[11px] text-cool-gray block">Die Code</label>
-                  <input type="text" value={designer.dieCode} onChange={(e) => setDesigner((prev) => ({ ...prev, dieCode: e.target.value }))} placeholder="Die Code" className="w-full bg-transparent outline-none text-xs border border-soft-border rounded px-2 py-0.5"/>
-                </div>
-                <div>
-                  <label className="text-[11px] text-cool-gray block">Mold Qty / Die</label>
-                  <input type="text" value={designer.moldQtyPerDie} onChange={(e) => setDesigner((prev) => ({ ...prev, moldQtyPerDie: e.target.value }))} placeholder="Mold Qty / Die" className="w-full bg-transparent outline-none text-xs border border-soft-border rounded px-2 py-0.5"/>
-                </div>
-                <div>
-                  <label className="text-[11px] text-cool-gray block">CPX Dead Weight</label>
-                  <input type="text" value={designer.cpxDeadWeight} onChange={(e) => setDesigner((prev) => ({ ...prev, cpxDeadWeight: e.target.value }))} placeholder="CPX Dead Weight" className="w-full bg-transparent outline-none text-xs border border-soft-border rounded px-2 py-0.5"/>
-                </div>
-              </div>
-            </div>
-
-            {/* Mechanism */}
-            <div className="flex-1 bg-white border border-soft-border rounded-xl p-2 flex flex-col">
-              <label className="text-xs font-semibold text-midnight-ink mb-1 block">Mechanism</label>
-              <textarea value={designer.mechanism} onChange={(e) => setDesigner((prev) => ({ ...prev, mechanism: e.target.value }))} placeholder="Describe the mechanism used" className="flex-1 w-full bg-transparent outline-none text-xs border border-soft-border rounded px-2 py-0.5 resize-none"/>
-            </div>
-          </div>
+                    ))}
+                    <button type="button" onClick={addDesignerDieEntry} className="text-xs text-trust-blue font-semibold hover:underline">+ Add Die</button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
 
@@ -2733,144 +2451,66 @@ function ProductSheetContent() {
                     <button type="button" onClick={() => designerBulkUploadRef.current?.click()} disabled={isDesignerSaving} className="px-2.5 py-1 text-xs bg-trust-blue text-white font-semibold rounded-full hover:bg-deep-blue disabled:opacity-50 flex items-center gap-1"><Upload className="h-3 w-3"/>UPLOAD</button>
                   </div>
                 </div>
-                <div>
-                  {/* 3 Image Upload Slots – equal columns */}
-                  <div className="grid grid-cols-3 gap-1.5">
-                    {[
-                      { slot: 'image1', ref: designerImageRef1, label: 'Rendered Photo' },
-                      { slot: 'image2', ref: designerImageRef2, label: 'Technical Drawing' },
-                      { slot: 'image3', ref: designerImageRef3, label: 'Other Photo' },
-                    ].map(({ slot, ref, label }) => (
-                      <div key={slot} className="flex flex-col gap-1">
-                        <div className="text-center text-xs font-semibold text-trust-blue py-0.5 bg-trust-blue/10 rounded-t-lg border border-soft-border border-b-0">{label}</div>
-                        <div
-                          className="bg-white border border-soft-border rounded-b-xl overflow-hidden flex items-center justify-center cursor-pointer hover:bg-cloud-gray"
-                          style={{minHeight: '9rem'}}
-                          onClick={() => ref.current?.click()}
-                        >
-                          {designer[slot] ? (
-                            <img src={designer[slot]} alt={label} className="w-full h-full object-cover rounded-b-xl"/>
-                          ) : (
-                            <span className="text-xs text-cool-gray text-center px-2">Click to upload image</span>
-                          )}
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => handleDesignerImageDownload(slot, label)}
-                          disabled={!designer[slot]}
-                          className="w-full px-1 py-0.5 text-xs bg-midnight-ink text-white rounded font-semibold hover:bg-midnight-ink/80 disabled:opacity-40 flex items-center justify-center gap-1"
-                        >
-                          <Download className="h-3 w-3"/>Download
-                        </button>
+                <div className="flex gap-2">
+                  <div className="bg-white border border-soft-border rounded-xl overflow-hidden flex items-center justify-center cursor-pointer hover:bg-cloud-gray relative" style={{width: '40%', minHeight: '12rem'}} onClick={() => designerImageRef.current?.click()}>
+                    {designer.image ? (
+                      <img src={designer.image} alt="Designer" className="w-full h-full object-cover rounded-xl"/>
+                    ) : (
+                      <span className="text-sm text-cool-gray">Click to upload image</span>
+                    )}
+                  </div>
+                  <div className="flex flex-col gap-2" style={{width: '60%'}}>
+                    <div className="bg-white border border-soft-border rounded-xl p-2">
+                      <label className="text-xs font-semibold text-midnight-ink mb-1 block">3DM</label>
+                      <div className="flex items-center gap-2">
+                        <input type="text" value={designer.tdmFileName || designer.tdmFile} onChange={(e) => setDesigner((prev) => ({ ...prev, tdmFile: e.target.value, tdmFileName: '' }))} placeholder="Type or upload 3DM file" className="flex-1 text-sm border border-soft-border rounded px-2 py-1 outline-none"/>
+                        <button type="button" onClick={() => designerTdmFileRef.current?.click()} className="px-2 py-1 text-xs bg-trust-blue text-white rounded font-semibold hover:bg-deep-blue">Upload</button>
+                        <button type="button" onClick={() => handleDesignerFileDownload('tdmFile', 'tdmFileName')} disabled={!designer.tdmFile} className="px-2 py-1 text-xs bg-midnight-ink text-white rounded font-semibold hover:bg-midnight-ink/80 disabled:opacity-40"><Download className="h-3 w-3"/></button>
+                        <button type="button" onClick={() => handleDesignerFileView('tdmFile')} disabled={!designer.tdmFile} className="px-2 py-1 text-xs bg-midnight-ink text-white rounded font-semibold hover:bg-midnight-ink/80 disabled:opacity-40"><Eye className="h-3 w-3"/></button>
                       </div>
-                    ))}
+                    </div>
+                    <div className="bg-white border border-soft-border rounded-xl p-2">
+                      <label className="text-xs font-semibold text-midnight-ink mb-1 block">STL</label>
+                      <div className="flex items-center gap-2">
+                        <input type="text" value={designer.stlFileName || designer.stlFile} onChange={(e) => setDesigner((prev) => ({ ...prev, stlFile: e.target.value, stlFileName: '' }))} placeholder="Type or upload STL file" className="flex-1 text-sm border border-soft-border rounded px-2 py-1 outline-none"/>
+                        <button type="button" onClick={() => designerStlFileRef.current?.click()} className="px-2 py-1 text-xs bg-trust-blue text-white rounded font-semibold hover:bg-deep-blue">Upload</button>
+                        <button type="button" onClick={() => handleDesignerFileDownload('stlFile', 'stlFileName')} disabled={!designer.stlFile} className="px-2 py-1 text-xs bg-midnight-ink text-white rounded font-semibold hover:bg-midnight-ink/80 disabled:opacity-40"><Download className="h-3 w-3"/></button>
+                        <button type="button" onClick={() => handleDesignerFileView('stlFile')} disabled={!designer.stlFile} className="px-2 py-1 text-xs bg-midnight-ink text-white rounded font-semibold hover:bg-midnight-ink/80 disabled:opacity-40"><Eye className="h-3 w-3"/></button>
+                      </div>
+                    </div>
                   </div>
                 </div>
-                {/* Tracking Table (Modal) */}
                 <div className="mt-2 bg-white border border-soft-border rounded-xl overflow-hidden">
-                  <div className="max-h-48 overflow-y-auto">
-                    <table className="w-full text-xs border-collapse">
-                      <thead className="sticky top-0 z-10">
-                        <tr className="bg-[#dce8f5]">
-                          <th className="border border-soft-border px-2 py-1 font-semibold text-midnight-ink text-left">3DM</th>
-                          <th className="border border-soft-border px-2 py-1 font-semibold text-midnight-ink text-left">STL</th>
-                          <th className="border border-soft-border px-2 py-1 font-semibold text-midnight-ink text-left">Design Code</th>
-                          <th className="border border-soft-border px-2 py-1 font-semibold text-midnight-ink text-left">Master Number</th>
-                          <th className="border border-soft-border px-2 py-1 font-semibold text-midnight-ink text-left">Die Code</th>
-                          <th className="border border-soft-border px-2 py-1 font-semibold text-midnight-ink text-left">Mold/Die Qty</th>
-                          <th className="border border-soft-border px-1 py-1 w-6"></th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {designer.trackingRows.map((row) => (
-                          <tr key={row.id} className="hover:bg-cloud-gray/40">
-                            <td className="border border-soft-border p-0">
-                              <div className="flex items-center">
-                                {row.tdm ? (
-                                  <a href={row.tdm} target="_blank" rel="noopener noreferrer" className="flex-1 px-2 py-1 text-trust-blue underline truncate text-xs" title={row.tdm}>{row.tdm}</a>
-                                ) : (
-                                  <input type="url" value={row.tdm} onChange={(e) => updateDesignerTrackingRow(row.id, 'tdm', e.target.value)} placeholder="Drive link" className="flex-1 bg-transparent outline-none px-2 py-1 min-w-[60px]"/>
-                                )}
-                                <button type="button" title="Set Drive link" onClick={() => { const url = window.prompt('Paste Google Drive link:', row.tdm); if (url !== null) updateDesignerTrackingRow(row.id, 'tdm', url.trim()); }} className="px-1 py-1 text-cool-gray hover:text-trust-blue flex-shrink-0"><Upload className="h-3 w-3"/></button>
+                  <table className="w-full table-fixed text-sm border-collapse text-center">
+                    <thead>
+                      <tr className="bg-[#dce8f5]">
+                        <th className="border border-soft-border px-1 py-1 font-semibold text-midnight-ink">3DM</th>
+                        <th className="border border-soft-border px-1 py-1 font-semibold text-midnight-ink">STL</th>
+                        <th className="border border-soft-border px-1 py-1 font-semibold text-midnight-ink">RENDER</th>
+                        <th className="border border-soft-border px-1 py-1 font-semibold text-midnight-ink">3D PRINT</th>
+                        <th className="border border-soft-border px-1 py-1 font-semibold text-midnight-ink">DIE</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td className="border border-soft-border px-1 py-1"><input type="text" value={designer.tdmStatus} onChange={(e) => setDesigner((prev) => ({ ...prev, tdmStatus: e.target.value }))} className="w-full bg-transparent outline-none text-sm text-center"/></td>
+                        <td className="border border-soft-border px-1 py-1"><input type="text" value={designer.stlStatus} onChange={(e) => setDesigner((prev) => ({ ...prev, stlStatus: e.target.value }))} className="w-full bg-transparent outline-none text-sm text-center"/></td>
+                        <td className="border border-soft-border px-1 py-1"><input type="text" value={designer.renderStatus} onChange={(e) => setDesigner((prev) => ({ ...prev, renderStatus: e.target.value }))} className="w-full bg-transparent outline-none text-sm text-center"/></td>
+                        <td className="border border-soft-border px-1 py-1"><input type="text" value={designer.print3dStatus} onChange={(e) => setDesigner((prev) => ({ ...prev, print3dStatus: e.target.value }))} className="w-full bg-transparent outline-none text-sm text-center"/></td>
+                        <td className="border border-soft-border px-1 py-1">
+                          <div className="flex flex-col gap-1 max-h-32 overflow-y-auto">
+                            {designer.dieEntries.map((die) => (
+                              <div key={die.id} className="flex items-center gap-1">
+                                <input type="text" value={die.value} onChange={(e) => updateDesignerDieEntry(die.id, e.target.value)} className="flex-1 bg-transparent outline-none text-sm text-center border-b border-soft-border" placeholder="Die"/>
+                                <button type="button" onClick={() => deleteDesignerDieEntry(die.id)} className="text-danger hover:text-danger-dark"><Trash2 className="h-3 w-3"/></button>
                               </div>
-                            </td>
-                            <td className="border border-soft-border p-0">
-                              <div className="flex items-center">
-                                {row.stl ? (
-                                  <a href={row.stl} target="_blank" rel="noopener noreferrer" className="flex-1 px-2 py-1 text-trust-blue underline truncate text-xs" title={row.stl}>{row.stl}</a>
-                                ) : (
-                                  <input type="url" value={row.stl} onChange={(e) => updateDesignerTrackingRow(row.id, 'stl', e.target.value)} placeholder="Drive link" className="flex-1 bg-transparent outline-none px-2 py-1 min-w-[60px]"/>
-                                )}
-                                <button type="button" title="Set Drive link" onClick={() => { const url = window.prompt('Paste Google Drive link:', row.stl); if (url !== null) updateDesignerTrackingRow(row.id, 'stl', url.trim()); }} className="px-1 py-1 text-cool-gray hover:text-trust-blue flex-shrink-0"><Upload className="h-3 w-3"/></button>
-                              </div>
-                            </td>
-                            <td className="border border-soft-border p-0"><input type="text" value={row.designCode} onChange={(e) => updateDesignerTrackingRow(row.id, 'designCode', e.target.value)} className="w-full bg-transparent outline-none px-2 py-1 min-w-[80px]"/></td>
-                            <td className="border border-soft-border p-0"><input type="text" value={row.masterNumber} onChange={(e) => updateDesignerTrackingRow(row.id, 'masterNumber', e.target.value)} className="w-full bg-transparent outline-none px-2 py-1 min-w-[90px]"/></td>
-                            <td className="border border-soft-border p-0"><input type="text" value={row.dieCode} onChange={(e) => updateDesignerTrackingRow(row.id, 'dieCode', e.target.value)} className="w-full bg-transparent outline-none px-2 py-1 min-w-[70px]"/></td>
-                            <td className="border border-soft-border p-0"><input type="text" value={row.moldDieQty} onChange={(e) => updateDesignerTrackingRow(row.id, 'moldDieQty', e.target.value)} className="w-full bg-transparent outline-none px-2 py-1 min-w-[70px]"/></td>
-                            <td className="border border-soft-border p-0 text-center">
-                              <button type="button" onClick={() => deleteDesignerTrackingRow(row.id)} className="px-1 py-1 text-danger hover:text-danger-dark"><Trash2 className="h-3 w-3"/></button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                  <button type="button" onClick={addDesignerTrackingRow} className="w-full text-left px-3 py-1.5 text-xs text-trust-blue font-semibold hover:bg-cloud-gray border-t border-soft-border">+ Add Row</button>
-                </div>
-
-                {/* Design Stage Buttons */}
-                <div className="mt-2 bg-white border border-soft-border rounded-xl p-2">
-                  <div className="text-xs font-semibold text-midnight-ink mb-1.5">DESIGN STAGE</div>
-                  <div className="flex flex-wrap gap-2">
-                    {['3DM', 'STL', 'RENDER', '3D PRINT', 'COMPLETE'].map((stage) => (
-                      <button
-                        key={stage}
-                        type="button"
-                        onClick={() => setDesigner((prev) => ({ ...prev, designStage: prev.designStage === stage ? '' : stage }))}
-                        className={`px-3 py-1.5 text-xs font-semibold rounded-full border transition-colors ${
-                          designer.designStage === stage
-                            ? 'bg-trust-blue text-white border-trust-blue shadow-sm'
-                            : 'bg-white text-midnight-ink border-soft-border hover:bg-cloud-gray'
-                        }`}
-                      >
-                        {stage}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                {/* 50/50 split: Left = 3 measurement panels | Right = Die info + Mechanism */}
-                <div className="mt-2 flex gap-2 items-stretch">
-                  {/* Left 50% */}
-                  <div className="flex flex-col gap-2" style={{width:'50%'}}>
-                    <div className="bg-white border border-soft-border rounded-xl p-2">
-                      <label className="text-xs font-semibold text-midnight-ink mb-1 block">Size of Design Motive</label>
-                      <input type="text" value={designer.sizeOfDesignMotive} onChange={(e) => setDesigner((prev) => ({ ...prev, sizeOfDesignMotive: e.target.value }))} placeholder="e.g. 12mm x 8mm" className="w-full bg-transparent outline-none text-sm border border-soft-border rounded px-2 py-1"/>
-                    </div>
-                    <div className="bg-white border border-soft-border rounded-xl p-2">
-                      <label className="text-xs font-semibold text-midnight-ink mb-1 block">Total Design Measurements (Approx)</label>
-                      <input type="text" value={designer.totalDesignMeasurements} onChange={(e) => setDesigner((prev) => ({ ...prev, totalDesignMeasurements: e.target.value }))} placeholder="e.g. 25mm x 20mm x 5mm" className="w-full bg-transparent outline-none text-sm border border-soft-border rounded px-2 py-1"/>
-                    </div>
-                    <div className="flex-1 bg-white border border-soft-border rounded-xl p-2">
-                      <label className="text-xs font-semibold text-midnight-ink mb-1 block">Design Material</label>
-                      <input type="text" value={designer.designMaterial} onChange={(e) => setDesigner((prev) => ({ ...prev, designMaterial: e.target.value }))} placeholder="e.g. Silver 925" className="w-full bg-transparent outline-none text-sm border border-soft-border rounded px-2 py-1"/>
-                    </div>
-                  </div>
-                  {/* Right 50% */}
-                  <div className="flex flex-col gap-2" style={{width:'50%'}}>
-                    <div className="bg-white border border-soft-border rounded-xl p-2">
-                      <div className="text-xs font-semibold text-midnight-ink mb-1">Die Code / Mold Qty &amp; CPX Dead Weight</div>
-                      <div className="flex flex-col gap-1">
-                        <div><label className="text-[11px] text-cool-gray block">Die Code</label><input type="text" value={designer.dieCode} onChange={(e) => setDesigner((prev) => ({ ...prev, dieCode: e.target.value }))} placeholder="Die Code" className="w-full bg-transparent outline-none text-xs border border-soft-border rounded px-2 py-0.5"/></div>
-                        <div><label className="text-[11px] text-cool-gray block">Mold Qty / Die</label><input type="text" value={designer.moldQtyPerDie} onChange={(e) => setDesigner((prev) => ({ ...prev, moldQtyPerDie: e.target.value }))} placeholder="Mold Qty / Die" className="w-full bg-transparent outline-none text-xs border border-soft-border rounded px-2 py-0.5"/></div>
-                        <div><label className="text-[11px] text-cool-gray block">CPX Dead Weight</label><input type="text" value={designer.cpxDeadWeight} onChange={(e) => setDesigner((prev) => ({ ...prev, cpxDeadWeight: e.target.value }))} placeholder="CPX Dead Weight" className="w-full bg-transparent outline-none text-xs border border-soft-border rounded px-2 py-0.5"/></div>
-                      </div>
-                    </div>
-                    <div className="flex-1 bg-white border border-soft-border rounded-xl p-2 flex flex-col">
-                      <label className="text-xs font-semibold text-midnight-ink mb-1 block">Mechanism</label>
-                      <textarea value={designer.mechanism} onChange={(e) => setDesigner((prev) => ({ ...prev, mechanism: e.target.value }))} placeholder="Describe the mechanism used" className="flex-1 w-full bg-transparent outline-none text-xs border border-soft-border rounded px-2 py-0.5 resize-none"/>
-                    </div>
-                  </div>
+                            ))}
+                            <button type="button" onClick={addDesignerDieEntry} className="text-xs text-trust-blue font-semibold hover:underline">+ Add Die</button>
+                          </div>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
                 </div>
               </div>
 

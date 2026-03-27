@@ -8,9 +8,6 @@
 			"args": [
 				"dev"
 			],
-			"options": {
-				"cwd": "${workspaceFolder}/frontend"
-			},
 			"isBackground": true,
 			"problemMatcher": [
 				"$nextjs"
@@ -25,9 +22,6 @@
 				"run",
 				"dev"
 			],
-			"options": {
-				"cwd": "${workspaceFolder}/frontend"
-			},
 			"isBackground": true,
 			"problemMatcher": [
 				"$nextjs"

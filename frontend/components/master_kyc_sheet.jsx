@@ -22,7 +22,6 @@ import {
 } from '@/components/ui/dialog';
 import DateTimeStamp from '@/components/date-time-stamp';
 import BulkUploadButton from '@/components/bulk-upload-button';
-import LastUpdatedFooter from '@/components/last-updated-footer';
 
 const KYC_COLUMNS = [
   { key: '__select__', label: '' },
@@ -85,8 +84,6 @@ const columnConfig = {
 };
 
 export default function MasterKYCSheet() {
-  const [lastUpdated, setLastUpdated] = useState(null);
-  const [currentUsername, setCurrentUsername] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [products, setProducts] = useState([]);
@@ -113,10 +110,6 @@ export default function MasterKYCSheet() {
 
   const KYC_TYPE_OPTIONS = ['All', 'Customer', 'Work from Home', 'Vendor', 'Labour', 'Company'];
 
-  useEffect(() => {
-    fetch('/api/auth/session').then(r => r.json()).then(d => { if (d?.user?.username) setCurrentUsername(d.user.username); }).catch(() => {});
-  }, []);
-
   const loadKYCData = useCallback(async () => {
     setIsLoading(true);
     setError('');
@@ -133,7 +126,6 @@ export default function MasterKYCSheet() {
           Array.isArray(data?.results) ? data.results : [];
 
         setProducts(rows);
-        setLastUpdated(new Date());
       }
     } catch (err) {
       console.error('Error loading KYC data:', err);
@@ -331,19 +323,19 @@ export default function MasterKYCSheet() {
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
-            <Button onClick={loadKYCData} variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8" disabled={isLoading}>
+            <Button onClick={loadKYCData} variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-6" disabled={isLoading}>
               {isLoading ? 'Refreshing...' : 'Refresh'}
             </Button>
             <BulkUploadButton sheetType="kyc" onComplete={loadKYCData} />
-            <Button onClick={handleAddEmptyRow} className="bg-success hover:bg-success text-white rounded-full px-4 text-sm h-8">
+            <Button onClick={handleAddEmptyRow} className="bg-success hover:bg-success text-white rounded-full px-6">
               Add KYC
             </Button>
-            <Button variant="outline" className="border-trust-blue text-trust-blue hover:bg-trust-blue/10 rounded-full px-4 text-sm h-8">
+            <Button variant="outline" className="border-trust-blue text-trust-blue hover:bg-trust-blue/10 rounded-full px-6">
               Edit Row
             </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="border-warning text-warning hover:bg-warning/10 rounded-full px-4 text-sm h-8">
+                <Button variant="outline" className="border-warning text-warning hover:bg-warning/10 rounded-full px-6">
                   Archive
                 </Button>
               </DropdownMenuTrigger>
@@ -354,13 +346,13 @@ export default function MasterKYCSheet() {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-            <Button onClick={() => setIsManageColumnsOpen(true)} variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8">
+            <Button onClick={() => setIsManageColumnsOpen(true)} variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-6">
               Manage Columns
             </Button>
-            <Button onClick={handleExport} variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8">
+            <Button onClick={handleExport} variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-6">
               Export
             </Button>
-            <Button onClick={() => window.print()} variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8">
+            <Button onClick={() => window.print()} variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-6">
               Print
             </Button>
           </div>
@@ -491,15 +483,14 @@ export default function MasterKYCSheet() {
           </select>
         </div>
         <div className="flex items-center gap-3">
-          <span>{sortedProducts.length === 0 ? '0' : `${(safePage - 1) * rowsPerPage + 1}-${Math.min(safePage * rowsPerPage, sortedProducts.length)}`} of {sortedProducts.length}</span>
-          <button onClick={() => setCurrentPage((p) => Math.max(1, p - 1))} disabled={safePage <= 1} className="px-2 py-1 border border-soft-border rounded disabled:opacity-40 hover:bg-cloud-gray">&lsaquo;</button>
+          <span>{sortedProducts.length === 0 ? '0' : `${(safePage - 1) * rowsPerPage + 1}–${Math.min(safePage * rowsPerPage, sortedProducts.length)}`} of {sortedProducts.length}</span>
+          <button onClick={() => setCurrentPage((p) => Math.max(1, p - 1))} disabled={safePage <= 1} className="px-2 py-1 border border-soft-border rounded disabled:opacity-40 hover:bg-cloud-gray">‹</button>
           <span>{safePage} / {totalPages}</span>
-          <button onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))} disabled={safePage >= totalPages} className="px-2 py-1 border border-soft-border rounded disabled:opacity-40 hover:bg-cloud-gray">&rsaquo;</button>
+          <button onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))} disabled={safePage >= totalPages} className="px-2 py-1 border border-soft-border rounded disabled:opacity-40 hover:bg-cloud-gray">›</button>
         </div>
         <div className="flex gap-4">
           <span>Selected: {selectedRows.size}</span>
         </div>
-        <LastUpdatedFooter timestamp={lastUpdated} username={currentUsername} compact />
       </div>
 
       {/* Manage Columns Dialog */}

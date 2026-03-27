@@ -22,7 +22,6 @@ import MasterNavigationDrawer from '@/components/master_navigation_drawer';
 import DateTimeStamp from '@/components/date-time-stamp';
 import GlobalSearchBar from '@/components/global-search-bar';
 import BulkUploadButton from '@/components/bulk-upload-button';
-import LastUpdatedFooter from '@/components/last-updated-footer';
 
 const FINDING_COLUMNS = [
   { id: 'findingCode', label: 'FINDING CODE' },
@@ -49,8 +48,6 @@ const EMPTY_FINDING_ROW = {
 };
 
 export default function FindingSheet() {
-  const [lastUpdated, setLastUpdated] = useState(null);
-  const [currentUsername, setCurrentUsername] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [fetchError, setFetchError] = useState('');
@@ -75,32 +72,14 @@ export default function FindingSheet() {
   const [sizeFilter, setSizeFilter] = useState('');
   const [quantityFilter, setQuantityFilter] = useState('');
   const [weightFilter, setWeightFilter] = useState('');
-  const [currentPage, setCurrentPage] = useState(1);
-  const [rowsPerPage, setRowsPerPage] = useState(25);
-
-  useEffect(() => {
-    fetch('/api/auth/session').then(r => r.json()).then(d => { if (d?.user?.username) setCurrentUsername(d.user.username); }).catch(() => {});
-  }, []);
 
   const loadFindings = useCallback(async () => {
     setIsLoading(true);
     setFetchError('');
     try {
-      const res = await fetch('/api/findings');
-      const json = await res.json();
-      if (!res.ok) throw new Error(json?.detail || 'Failed to load findings');
-      const rows = (json?.data?.results ?? json?.data ?? []).map((r) => ({
-        id: r.id,
-        findingCode: r.finding_code ?? '',
-        dieNumber: r.die_number ?? '',
-        size: r.size ?? '',
-        quantity: r.quantity ?? '',
-        weight: r.weight ?? '',
-      }));
-      setData(rows);
-      setLastUpdated(new Date());
-    } catch (err) {
-      setFetchError(err.message || 'Failed to load findings');
+      setData([]);
+    } catch {
+      setFetchError('Failed to load findings');
     } finally {
       setIsLoading(false);
     }
@@ -136,10 +115,6 @@ export default function FindingSheet() {
       return matchesSearch && matchesFindingCode && matchesDieNumber && matchesSize && matchesQuantity && matchesWeight;
     });
   }, [baseData, searchTerm, findingCodeFilter, dieNumberFilter, sizeFilter, quantityFilter, weightFilter]);
-
-  const totalPages = Math.max(1, Math.ceil(filteredRows.length / rowsPerPage));
-  const safePage = Math.min(currentPage, totalPages);
-  const paginatedRows = filteredRows.slice((safePage - 1) * rowsPerPage, safePage * rowsPerPage);
 
   const allDisplayedRowsSelected =
     filteredRows.length > 0 && filteredRows.every((row) => selectedRows.has(row.id));
@@ -180,80 +155,13 @@ export default function FindingSheet() {
     setEditingRowIds(new Set(selectedRows));
   };
 
-  const handleSaveEdit = async () => {
+  const handleSaveEdit = () => {
     setIsSavingEdit(true);
-    const rowsToSave = data.filter((r) => editingRowIds.has(r.id));
-    try {
-      for (const row of rowsToSave) {
-        const payload = {
-          finding_code: row.findingCode,
-          die_number: row.dieNumber,
-          size: row.size,
-          quantity: row.quantity,
-          weight: row.weight,
-        };
-        if (row._isNew) {
-          const res = await fetch('/api/findings', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
-          });
-          const json = await res.json();
-          if (!res.ok) throw new Error(json?.detail || 'Save failed');
-          const saved = json?.data ?? json;
-          setData((prev) =>
-            prev.map((r) =>
-              r.id === row.id
-                ? { id: saved.id, findingCode: saved.finding_code ?? '', dieNumber: saved.die_number ?? '', size: saved.size ?? '', quantity: saved.quantity ?? '', weight: saved.weight ?? '' }
-                : r
-            )
-          );
-        } else {
-          const res = await fetch(`/api/findings/${row.id}`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
-          });
-          const json = await res.json();
-          if (!res.ok) throw new Error(json?.detail || 'Save failed');
-        }
-      }
-      setEditingRowIds(new Set());
-      setSelectedRows(new Set());
-      setSaveEditStatus({ success: true, message: 'Rows saved' });
-    } catch (err) {
-      setSaveEditStatus({ success: false, message: err.message || 'Save failed' });
-    } finally {
-      setIsSavingEdit(false);
-      setTimeout(() => setSaveEditStatus(null), 3000);
-    }
-  };
-
-  const handleDeleteSelectedRows = async () => {
-    if (selectedRows.size === 0) {
-      alert('Please select at least one row to delete');
-      return;
-    }
-    if (!confirm(`Delete ${selectedRows.size} row(s)? This cannot be undone.`)) return;
-    const ids = Array.from(selectedRows);
-    try {
-      for (const id of ids) {
-        const row = data.find((r) => r.id === id);
-        if (row?._isNew) {
-          setData((prev) => prev.filter((r) => r.id !== id));
-          continue;
-        }
-        const res = await fetch(`/api/findings/${id}`, { method: 'DELETE' });
-        if (!res.ok) {
-          const json = await res.json().catch(() => ({}));
-          throw new Error(json?.detail || 'Delete failed');
-        }
-        setData((prev) => prev.filter((r) => r.id !== id));
-      }
-      setSelectedRows(new Set());
-    } catch (err) {
-      alert(err.message || 'Delete failed');
-    }
+    setEditingRowIds(new Set());
+    setSelectedRows(new Set());
+    setIsSavingEdit(false);
+    setSaveEditStatus({ success: true, message: 'Rows saved' });
+    setTimeout(() => setSaveEditStatus(null), 3000);
   };
 
   const handleArchiveRow = () => {
@@ -444,11 +352,11 @@ export default function FindingSheet() {
       <Dialog open={isPrintSheetOpen} onOpenChange={setIsPrintSheetOpen}>
         <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
           <DialogHeader className="border-b pb-4">
-            <DialogTitle>Print Findings Sheet</DialogTitle>
+            <DialogTitle>Print Master Finding Sheet</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="text-center border-b-2 border-midnight-ink pb-4 mb-6">
-              <h2 className="text-2xl font-bold mb-2">FINDINGS SHEET</h2>
+              <h2 className="text-2xl font-bold mb-2">MASTER FINDING SHEET</h2>
               <p className="text-sm text-cool-gray">Date: {new Date().toISOString().split('T')[0]}</p>
             </div>
             <div className="border-2 border-midnight-ink rounded overflow-x-auto">
@@ -492,7 +400,7 @@ export default function FindingSheet() {
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3 shrink-0">
               <MasterNavigationDrawer inHeader />
-              <h1 className="text-xl font-bold tracking-tight text-midnight-ink">FINDINGS SHEET</h1>
+              <h1 className="text-xl font-bold tracking-tight text-midnight-ink">MASTER FINDING SHEET</h1>
             </div>
             <GlobalSearchBar />
             <DateTimeStamp />
@@ -506,7 +414,7 @@ export default function FindingSheet() {
               type="text"
               placeholder="SEARCH BAR"
               value={searchTerm}
-              onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
+              onChange={(e) => setSearchTerm(e.target.value)}
               className="border border-soft-border rounded-lg pl-9 pr-4 h-9 w-64 text-sm"
             />
           </div>
@@ -514,7 +422,7 @@ export default function FindingSheet() {
           <Button
             onClick={loadFindings}
             variant="outline"
-            className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8"
+            className="border-midnight-ink text-midnight-ink rounded-full px-6"
             disabled={isLoading}
           >
             {isLoading ? 'Refreshing...' : 'Refresh'}
@@ -523,7 +431,7 @@ export default function FindingSheet() {
           <Button
             onClick={handleEditRow}
             variant="outline"
-            className="border-trust-blue text-trust-blue hover:bg-trust-blue/10 rounded-full px-4 text-sm h-8"
+            className="border-trust-blue text-trust-blue hover:bg-trust-blue/10 rounded-full px-6"
             disabled={isArchivedView}
           >
             Edit Row
@@ -532,7 +440,7 @@ export default function FindingSheet() {
             <DropdownMenuTrigger asChild>
               <Button
                 variant="outline"
-                className="border-warning text-warning hover:bg-warning/10 rounded-full px-4 text-sm h-8"
+                className="border-warning text-warning hover:bg-warning/10 rounded-full px-6"
               >
                 Archive
               </Button>
@@ -550,7 +458,7 @@ export default function FindingSheet() {
             <Button
               onClick={handleUnarchiveRows}
               variant="outline"
-              className="border-green-600 text-success hover:bg-success/10 rounded-full px-4 text-sm h-8"
+              className="border-green-600 text-success hover:bg-success/10 rounded-full px-6"
               disabled={selectedRows.size === 0}
             >
               Unarchive Selected
@@ -559,14 +467,14 @@ export default function FindingSheet() {
           <Button
             onClick={() => setIsManageColumnsOpen(true)}
             variant="outline"
-            className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8"
+            className="border-midnight-ink text-midnight-ink rounded-full px-6"
           >
             Manage Columns
           </Button>
           <Button
             onClick={handleExport}
             variant="outline"
-            className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8"
+            className="border-midnight-ink text-midnight-ink rounded-full px-6"
           >
             Export
           </Button>
@@ -574,7 +482,7 @@ export default function FindingSheet() {
             <DropdownMenuTrigger asChild>
               <Button
                 variant="outline"
-                className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8"
+                className="border-midnight-ink text-midnight-ink rounded-full px-6"
               >
                 Print
               </Button>
@@ -710,7 +618,7 @@ export default function FindingSheet() {
                   </tr>
                 )}
 
-                {paginatedRows.map((row) => {
+                {filteredRows.map((row) => {
                   const isEditing = editingRowIds.has(row.id);
                   const isAnyRowEditing = editingRowIds.size > 0;
                   const canEdit = !isArchivedView && isEditing;
@@ -770,14 +678,6 @@ export default function FindingSheet() {
           <Button onClick={handleSaveEdit} className="bg-success hover:bg-success/90 text-white px-6" disabled={editingRowIds.size === 0 || isSavingEdit}>
             {isSavingEdit ? 'Saving...' : 'Save Changes'}
           </Button>
-          <Button
-            onClick={handleDeleteSelectedRows}
-            variant="outline"
-            className="border-danger text-danger hover:bg-danger/10 rounded-full px-4 text-sm h-8"
-            disabled={selectedRows.size === 0 || editingRowIds.size > 0}
-          >
-            Delete Selected
-          </Button>
           {saveEditStatus && (
             <span className={`ml-2 text-sm font-semibold ${saveEditStatus.success ? 'text-success' : 'text-danger'}`}>
               {saveEditStatus.message}
@@ -785,35 +685,12 @@ export default function FindingSheet() {
           )}
         </div>
 
-        {/* Fixed Pagination Footer */}
-        <div className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-soft-border shadow-lg px-4 py-2 flex flex-wrap items-center justify-between gap-3 text-sm text-cool-gray">
-          <div className="flex items-center gap-2">
-            <span>Rows per page:</span>
-            <select
-              value={rowsPerPage}
-              onChange={(e) => { setRowsPerPage(Number(e.target.value)); setCurrentPage(1); }}
-              className="border border-soft-border rounded px-2 py-1 text-sm text-midnight-ink bg-white"
-            >
-              {[25, 50, 75, 100].map((n) => <option key={n} value={n}>{n}</option>)}
-            </select>
-          </div>
-          <div className="flex items-center gap-3">
-            <span>
-              {filteredRows.length === 0
-                ? '0'
-                : `${(safePage - 1) * rowsPerPage + 1}-${Math.min(safePage * rowsPerPage, filteredRows.length)}`
-              } of {filteredRows.length}
-            </span>
-            <button onClick={() => setCurrentPage((p) => Math.max(1, p - 1))} disabled={safePage <= 1} className="px-2 py-1 border border-soft-border rounded disabled:opacity-40 hover:bg-cloud-gray">&lsaquo;</button>
-            <span>{safePage} / {totalPages}</span>
-            <button onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))} disabled={safePage >= totalPages} className="px-2 py-1 border border-soft-border rounded disabled:opacity-40 hover:bg-cloud-gray">&rsaquo;</button>
-          </div>
-          <div className="flex gap-4">
-            <span>Selected: {selectedRows.size}</span>
-            <span>Archived: {archivedRows.size}</span>
-            {editingRowIds.size > 0 && <span className="text-trust-blue font-semibold">Editing {editingRowIds.size} row(s)</span>}
-          </div>
-          <LastUpdatedFooter timestamp={lastUpdated} username={currentUsername} compact />
+        <div className="mt-4 text-sm text-cool-gray">
+          <p>Selected Rows: {selectedRows.size}</p>
+          <p>Visible Rows: {filteredRows.length}</p>
+          <p>Archived Rows: {archivedRows.size}</p>
+          <p>View: {isArchivedView ? 'Archived' : 'Active'}</p>
+          {editingRowIds.size > 0 && <p className="text-trust-blue font-semibold">Editing {editingRowIds.size} row(s)</p>}
         </div>
       </div>
     </div>

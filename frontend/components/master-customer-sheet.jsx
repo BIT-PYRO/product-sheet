@@ -17,7 +17,6 @@ import {
 import DateTimeStamp from '@/components/date-time-stamp';
 import { EnrollCustomerForm } from '@/components/enroll-customer';
 import BulkUploadButton from '@/components/bulk-upload-button';
-import LastUpdatedFooter from '@/components/last-updated-footer';
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -99,8 +98,6 @@ function normalizeCustomerRows(payload = {}) {
 }
 
 export default function MasterCustomerSheet() {
-	const [lastUpdated, setLastUpdated] = useState(null);
-	const [currentUsername, setCurrentUsername] = useState('');
 	const [isLoading, setIsLoading] = useState(true);
 	const [error, setError] = useState('');
 	const [customers, setCustomers] = useState([]);
@@ -123,10 +120,6 @@ export default function MasterCustomerSheet() {
 	const [rowsPerPage, setRowsPerPage] = useState(25);
 	const [currentPage, setCurrentPage] = useState(1);
 
-	useEffect(() => {
-		fetch('/api/auth/session').then(r => r.json()).then(d => { if (d?.user?.username) setCurrentUsername(d.user.username); }).catch(() => {});
-	}, []);
-
 	const loadCustomerData = useCallback(async () => {
 		setIsLoading(true);
 		setError('');
@@ -138,7 +131,8 @@ export default function MasterCustomerSheet() {
 
 			const data = await response.json().catch(() => null);
 			if (response.ok && data?.success) {
-				setCustomers(normalizeCustomerRows(data));			setLastUpdated(new Date());			} else {
+				setCustomers(normalizeCustomerRows(data));
+			} else {
 				setError('Failed to load customer data');
 			}
 		} catch (err) {
@@ -310,22 +304,22 @@ export default function MasterCustomerSheet() {
 								className="border border-soft-border rounded-lg pl-9 pr-4 h-9 w-64 text-sm"
 							/>
 						</div>
-						<Button onClick={loadCustomerData} variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8" disabled={isLoading}>
+						<Button onClick={loadCustomerData} variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-6" disabled={isLoading}>
 							{isLoading ? 'Refreshing...' : 'Refresh'}
 						</Button>
 						<BulkUploadButton sheetType="customers" onComplete={loadCustomerData} />
-						<Button onClick={handleAddEmptyRow} className="bg-success hover:bg-success text-white rounded-full px-4 text-sm h-8">
+						<Button onClick={handleAddEmptyRow} className="bg-success hover:bg-success text-white rounded-full px-6">
 							Add Customer
 						</Button>
-						<Button onClick={() => setIsEnrollCustomerOpen(true)} className="bg-midnight-ink hover:bg-midnight-ink/90 text-white rounded-full px-4 text-sm h-8">
+						<Button onClick={() => setIsEnrollCustomerOpen(true)} className="bg-midnight-ink hover:bg-midnight-ink/90 text-white rounded-full px-6">
 							Enroll Customer
 						</Button>
-						<Button variant="outline" className="border-trust-blue text-trust-blue hover:bg-trust-blue/10 rounded-full px-4 text-sm h-8">
+						<Button variant="outline" className="border-trust-blue text-trust-blue hover:bg-trust-blue/10 rounded-full px-6">
 							Edit Row
 						</Button>
 						<DropdownMenu>
 							<DropdownMenuTrigger asChild>
-								<Button variant="outline" className="border-warning text-warning hover:bg-warning/10 rounded-full px-4 text-sm h-8">
+								<Button variant="outline" className="border-warning text-warning hover:bg-warning/10 rounded-full px-6">
 									Archive
 								</Button>
 							</DropdownMenuTrigger>
@@ -336,13 +330,13 @@ export default function MasterCustomerSheet() {
 								</DropdownMenuItem>
 							</DropdownMenuContent>
 						</DropdownMenu>
-						<Button onClick={() => setIsManageColumnsOpen(true)} variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8">
+						<Button onClick={() => setIsManageColumnsOpen(true)} variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-6">
 							Manage Columns
 						</Button>
-						<Button onClick={handleExport} variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8">
+						<Button onClick={handleExport} variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-6">
 							Export
 						</Button>
-						<Button onClick={() => window.print()} variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8">
+						<Button onClick={() => window.print()} variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-6">
 							Print
 						</Button>
 					</div>
@@ -467,16 +461,15 @@ export default function MasterCustomerSheet() {
 					</select>
 				</div>
 				<div className="flex items-center gap-3">
-					<span>{sortedCustomers.length === 0 ? '0' : `${(safePage - 1) * rowsPerPage + 1}-${Math.min(safePage * rowsPerPage, sortedCustomers.length)}`} of {sortedCustomers.length}</span>
-					<button onClick={() => setCurrentPage((p) => Math.max(1, p - 1))} disabled={safePage <= 1} className="px-2 py-1 border border-soft-border rounded disabled:opacity-40 hover:bg-cloud-gray">&lsaquo;</button>
+					<span>{sortedCustomers.length === 0 ? '0' : `${(safePage - 1) * rowsPerPage + 1}–${Math.min(safePage * rowsPerPage, sortedCustomers.length)}`} of {sortedCustomers.length}</span>
+					<button onClick={() => setCurrentPage((p) => Math.max(1, p - 1))} disabled={safePage <= 1} className="px-2 py-1 border border-soft-border rounded disabled:opacity-40 hover:bg-cloud-gray">‹</button>
 					<span>{safePage} / {totalPages}</span>
-					<button onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))} disabled={safePage >= totalPages} className="px-2 py-1 border border-soft-border rounded disabled:opacity-40 hover:bg-cloud-gray">&rsaquo;</button>
+					<button onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))} disabled={safePage >= totalPages} className="px-2 py-1 border border-soft-border rounded disabled:opacity-40 hover:bg-cloud-gray">›</button>
 				</div>
 				<div className="flex gap-4">
 					<span>Selected Rows: {selectedRows.size}</span>
 					<span>Visible Rows: {sortedCustomers.length || emptyRowsData.length}</span>
 				</div>
-				<LastUpdatedFooter timestamp={lastUpdated} username={currentUsername} compact />
 			</div>
 
 			<Dialog open={isManageColumnsOpen} onOpenChange={setIsManageColumnsOpen}>

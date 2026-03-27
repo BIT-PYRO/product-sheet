@@ -19,9 +19,6 @@ frontend/.env*.local
 backend/.env
 backend/.venv/
 backend/db.sqlite3
-backend/celerybeat-schedule.*
-
-# ── Python ──────────────────────────────────────────────────
 **/__pycache__/
 *.pyc
 *.pyo

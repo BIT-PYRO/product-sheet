@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import {
   Camera, ArrowLeft, User, Phone, MapPin,
   Briefcase, Globe, FileText, Pencil, Check, X, Shield,
-  GitFork, Lock, ChevronDown, ChevronRight,
+  GitFork, Lock, ChevronDown, ChevronRight, UserCheck,
   LayoutDashboard, Plus,
 } from 'lucide-react';
 
@@ -88,277 +88,76 @@ function AddressBlock({ label, addr }) {
   );
 }
 
-/* ─── Member Detail Modal ─────────────────────────────── */
-function MemberDetailModal({ member, onClose }) {
-  if (!member) return null;
-  const addr = (a) => {
-    const parts = [a?.line1, a?.line2, a?.city, a?.state, a?.pincode].filter(Boolean);
-    return parts.length ? parts.join(', ') : '—';
-  };
+/* ─── Hierarchy node ─────────────────────────────────── */
+function HierarchyNode({ member, isSelf, isAbove, canExpand, onViewProfile, onAssignJob, depth = 0 }) {
+  const [open, setOpen] = useState(depth === 0);
+  const hasChildren = member.children && member.children.length > 0;
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-        {/* header */}
-        <div className="bg-midnight-ink rounded-t-2xl px-6 py-5 flex items-center gap-4">
-          <div className="w-14 h-14 rounded-full bg-trust-blue flex items-center justify-center text-white text-xl font-bold shrink-0">
-            {initials(member.full_name || member.email || '?')}
-          </div>
-          <div className="flex-1 min-w-0">
-            <h3 className="text-lg font-bold text-white truncate">{member.full_name || '—'}</h3>
-            {member.designation && <p className="text-xs text-white/60 mt-0.5">{member.designation}</p>}
-            {member.department && <p className="text-xs text-white/40">{member.department}</p>}
-          </div>
-          <button onClick={onClose} className="text-white/50 hover:text-white transition shrink-0">
-            <X className="h-5 w-5" />
-          </button>
+    <div className={`${depth > 0 ? 'ml-6 border-l-2 border-soft-border pl-4 mt-2' : ''}`}>
+      <div className={`relative flex items-center gap-3 rounded-xl px-4 py-3 border transition
+        ${isSelf ? 'bg-trust-blue/10 border-trust-blue/40' : isAbove ? 'bg-cloud-gray border-soft-border opacity-80' : 'bg-white border-soft-border hover:border-trust-blue/40 hover:shadow-sm'}`}>
+
+        {/* avatar */}
+        <div className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold shrink-0
+          ${isSelf ? 'bg-trust-blue text-white' : isAbove ? 'bg-slate-300 text-slate-600' : 'bg-midnight-ink/10 text-midnight-ink'}`}>
+          {initials(member.full_name || member.username)}
         </div>
-        {/* body */}
-        <div className="px-6 py-5 space-y-4">
-          <div className="grid grid-cols-2 gap-x-6 gap-y-3">
-            {[
-              { label: 'Email',    val: member.email },
-              { label: 'Phone',    val: member.phone },
-              { label: 'WhatsApp', val: member.whatsapp },
-              { label: 'Gender',   val: member.gender },
-              { label: 'DOB',      val: member.dob },
-              { label: 'GST',      val: member.gst_number },
-              { label: 'Location', val: member.current_location },
-              { label: 'Lang 1',   val: member.first_language },
-              { label: 'Lang 2',   val: member.second_language },
-            ].map(({ label, val }) => val ? (
-              <div key={label}>
-                <p className="text-[10px] font-semibold text-cool-gray uppercase tracking-wide">{label}</p>
-                <p className="text-sm font-medium text-midnight-ink">{val}</p>
-              </div>
-            ) : null)}
-          </div>
-          {member.current_address && Object.values(member.current_address || {}).some(Boolean) && (
-            <div>
-              <p className="text-[10px] font-semibold text-cool-gray uppercase tracking-wide mb-0.5">Current Address</p>
-              <p className="text-sm font-medium text-midnight-ink">{addr(member.current_address)}</p>
-            </div>
-          )}
-          {member.permanent_address && Object.values(member.permanent_address || {}).some(Boolean) && (
-            <div>
-              <p className="text-[10px] font-semibold text-cool-gray uppercase tracking-wide mb-0.5">Permanent Address</p>
-              <p className="text-sm font-medium text-midnight-ink">{addr(member.permanent_address)}</p>
-            </div>
-          )}
-          {member.notes && (
-            <div>
-              <p className="text-[10px] font-semibold text-cool-gray uppercase tracking-wide mb-0.5">Notes</p>
-              <p className="text-sm text-midnight-ink whitespace-pre-wrap">{member.notes}</p>
-            </div>
-          )}
-          {!member.active && (
-            <span className="inline-block text-xs font-semibold px-3 py-1 rounded-full bg-red-50 text-red-600 border border-red-200">
-              Inactive
+
+        {/* info */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-sm font-semibold text-midnight-ink truncate">
+              {member.full_name || member.username}
+              {isSelf && <span className="ml-1.5 text-xs text-trust-blue font-normal">(You)</span>}
             </span>
+            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${ROLE_COLORS[member.role] || ROLE_COLORS.staff}`}>
+              {ROLE_LABELS[member.role] || member.role}
+            </span>
+          </div>
+          {member.department && <p className="text-xs text-cool-gray mt-0.5">{member.department}</p>}
+        </div>
+
+        {/* right actions */}
+        <div className="flex items-center gap-1.5 shrink-0">
+          {isAbove ? (
+            <span className="flex items-center gap-1 text-[10px] text-cool-gray bg-cloud-gray border border-soft-border rounded-full px-2 py-0.5">
+              <Lock className="h-2.5 w-2.5" /> Locked
+            </span>
+          ) : !isSelf && (
+            <>
+              <button onClick={() => onViewProfile && onViewProfile(member)}
+                className="text-[10px] font-semibold text-trust-blue border border-trust-blue/40 rounded-full px-2.5 py-0.5 hover:bg-trust-blue hover:text-white transition">
+                View
+              </button>
+              <button onClick={() => onAssignJob && onAssignJob(member)}
+                className="text-[10px] font-semibold text-white bg-midnight-ink border border-midnight-ink rounded-full px-2.5 py-0.5 hover:bg-trust-blue hover:border-trust-blue transition flex items-center gap-1">
+                <Plus className="h-2.5 w-2.5" /> Job
+              </button>
+            </>
+          )}
+          {hasChildren && !isAbove && (
+            <button onClick={() => setOpen(o => !o)} className="text-cool-gray hover:text-midnight-ink transition">
+              {open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+            </button>
           )}
         </div>
       </div>
-    </div>
-  );
-}
 
-/* ─── Hierarchy Tier Section (extracted to avoid hooks-in-loop) ─── */
-const HIERARCHY_TIERS = [
-  {
-    key: 'senior',
-    label: 'Senior Management',
-    subtitle: 'C-Level / Department Heads',
-    icon: null,
-    color: 'bg-blue-400',
-    textColor: 'text-white',
-    lockColor: 'bg-blue-50 border-blue-100',
-    designations: [
-      'Chief Operating Officer (COO)',
-      'Chief Financial Officer (CFO)',
-      'Chief Marketing Officer (CMO)',
-      'Head of Merchandising / Product Head',
-      'HR Head',
-    ],
-  },
-  {
-    key: 'middle',
-    label: 'Middle Management',
-    subtitle: 'Managers & Department Leads',
-    icon: null,
-    color: 'bg-blue-500',
-    textColor: 'text-white',
-    lockColor: 'bg-blue-50 border-blue-100',
-    designations: [
-      'Store Manager / Retail Manager',
-      'Production Manager',
-      'Inventory Manager',
-      'Sales Manager',
-      'Digital Marketing Manager',
-    ],
-  },
-  {
-    key: 'supervisors',
-    label: 'Supervisors / Team Leads',
-    subtitle: 'Floor & Workshop Supervisors',
-    icon: null,
-    color: 'bg-blue-700',
-    textColor: 'text-white',
-    lockColor: 'bg-blue-50 border-blue-100',
-    designations: [
-      'Floor Supervisor (Retail)',
-      'Workshop Supervisor',
-      'Customer Support Lead',
-    ],
-  },
-  {
-    key: 'core',
-    label: 'Core Workforce',
-    subtitle: 'Primary Operations Staff',
-    icon: null,
-    color: 'bg-blue-800',
-    textColor: 'text-white',
-    lockColor: 'bg-blue-50 border-blue-100',
-    designations: [
-      'Sales Executive / Showroom Staff',
-      'Karigar / Craftsman',
-      'Inventory Staff',
-      'Digital Team',
-      'Customer Support Executive',
-    ],
-  },
-  {
-    key: 'entry',
-    label: 'Entry-Level Roles',
-    subtitle: 'Interns & Trainees',
-    icon: null,
-    color: 'bg-blue-950',
-    textColor: 'text-white',
-    lockColor: 'bg-blue-50 border-blue-100',
-    designations: [
-      'Intern - Marketing',
-      'Intern - Operations',
-      'Intern - Tech / Shopify',
-      'Trainee - Sales',
-      'Trainee - Production',
-    ],
-  },
-];
-
-// Tier rank: lower = more senior (used for lock logic based on Django role)
-const TIER_RANK = {
-  senior: 0,
-  middle: 1,
-  supervisors: 2,
-  core: 3,
-  entry: 4,
-};
-
-// Map Django user roles to a tier rank (admin = senior, manager = middle/supervisor, staff = core/entry)
-function userRoleToTierRank(role) {
-  if (role === 'admin') return 0;
-  if (role === 'manager') return 2;
-  return 3; // staff
-}
-
-function getDesignationTier(designation) {
-  if (!designation) return 'core';
-  const d = designation.toLowerCase();
-  if (HIERARCHY_TIERS[0].designations.some(x => x.toLowerCase() === d)) return 'senior';
-  if (HIERARCHY_TIERS[1].designations.some(x => x.toLowerCase() === d)) return 'middle';
-  if (HIERARCHY_TIERS[2].designations.some(x => x.toLowerCase() === d)) return 'supervisors';
-  if (HIERARCHY_TIERS[4].designations.some(x => x.toLowerCase() === d)) return 'entry';
-  return 'core';
-}
-
-function TierSection({ tier, members, myTierRank, sessionUser, onSelectMember, onAssignJob }) {
-  const [open, setOpen] = useState(true);
-  const tierRank = TIER_RANK[tier.key];
-  const isAbove = tierRank < myTierRank;
-
-  return (
-    <div className="rounded-xl border border-soft-border overflow-hidden shadow-sm">
-      {/* tier header */}
-      <button
-        onClick={() => setOpen(o => !o)}
-        className={`w-full flex items-center justify-between px-5 py-3.5 text-left transition
-          ${isAbove ? 'bg-slate-100' : tier.color}`}
-      >
-        <div className="flex items-center gap-3 min-w-0">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className={`text-xs font-bold uppercase tracking-widest ${isAbove ? 'text-slate-500' : tier.textColor}`}>
-                {tier.label}
-              </span>
-              <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full
-                ${isAbove ? 'bg-slate-200 text-slate-500' : 'bg-black/10 ' + tier.textColor}`}>
-                {members.length} {members.length === 1 ? 'member' : 'members'}
-              </span>
-              {isAbove && <Lock className="h-3 w-3 text-slate-400" />}
-            </div>
-            <p className={`text-[10px] mt-0.5 ${isAbove ? 'text-slate-400' : tier.textColor + ' opacity-70'}`}>{tier.subtitle}</p>
-          </div>
-        </div>
-        {open
-          ? <ChevronDown className={`h-4 w-4 shrink-0 ${isAbove ? 'text-slate-400' : tier.textColor}`} />
-          : <ChevronRight className={`h-4 w-4 shrink-0 ${isAbove ? 'text-slate-400' : tier.textColor}`} />
-        }
-      </button>
-
-      {/* members list */}
-      {open && (
-        <div className={`divide-y divide-soft-border ${isAbove ? tier.lockColor : 'bg-white'}`}>
-          {members.length === 0 ? (
-            <p className="px-5 py-4 text-xs text-cool-gray italic">No members in this tier yet.</p>
-          ) : members.map(m => {
-            const isSelf = m.email === sessionUser?.email;
-            return (
-              <div
-                key={m.id}
-                onClick={() => onSelectMember(m)}
-                className={`flex items-center gap-3 px-5 py-3.5 cursor-pointer transition
-                  ${isSelf ? 'bg-trust-blue/5' : isAbove ? 'opacity-70' : 'hover:bg-cloud-gray'}`}
-              >
-                {/* avatar */}
-                <div className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold shrink-0
-                  ${isSelf ? 'bg-trust-blue text-white' : isAbove ? 'bg-slate-200 text-slate-500' : 'bg-midnight-ink/10 text-midnight-ink'}`}>
-                  {initials(m.full_name || m.email || '?')}
-                </div>
-                {/* info */}
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-midnight-ink truncate">
-                    {m.full_name || m.email || 'Unknown'}
-                    {isSelf && <span className="ml-1.5 text-xs font-normal text-trust-blue">(You)</span>}
-                  </p>
-                  <p className="text-xs text-cool-gray truncate">
-                    {m.designation || m.department || m.email || ''}
-                  </p>
-                </div>
-                {/* actions */}
-                <div className="flex items-center gap-1.5 shrink-0" onClick={e => e.stopPropagation()}>
-                  {isAbove ? (
-                    <span className="flex items-center gap-1 text-[10px] text-slate-400 bg-slate-100 border border-slate-200 rounded-full px-2 py-0.5">
-                      <Lock className="h-2.5 w-2.5" /> Locked
-                    </span>
-                  ) : (
-                    <>
-                      <button
-                        onClick={() => onSelectMember(m)}
-                        className="text-[10px] font-semibold text-trust-blue border border-trust-blue/40 rounded-full px-2.5 py-1 hover:bg-trust-blue hover:text-white transition">
-                        Details
-                      </button>
-                      {!isSelf && (
-                        <button
-                          onClick={() => onAssignJob && onAssignJob(m)}
-                          className="text-[10px] font-semibold text-white bg-midnight-ink rounded-full px-2.5 py-1 hover:bg-trust-blue transition flex items-center gap-1">
-                          <Plus className="h-2.5 w-2.5" /> Job
-                        </button>
-                      )}
-                    </>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
+      {/* children */}
+      {hasChildren && open && !isAbove && (
+        member.children.map(child => (
+          <HierarchyNode
+            key={child.id || child.username}
+            member={child}
+            isSelf={child._isSelf}
+            isAbove={false}
+            canExpand={true}
+            onViewProfile={onViewProfile}
+            onAssignJob={onAssignJob}
+            depth={depth + 1}
+          />
+        ))
       )}
     </div>
   );
@@ -366,60 +165,108 @@ function TierSection({ tier, members, myTierRank, sessionUser, onSelectMember, o
 
 /* ─── Hierarchy panel ────────────────────────────────── */
 function HierarchyPanel({ sessionUser, allMembers, onAssignJob }) {
-  const [selectedMember, setSelectedMember] = useState(null);
-  const myTierRank = userRoleToTierRank(sessionUser?.role || 'staff');
+  const router = useRouter();
+  const myRole = sessionUser?.role || 'staff';
+  const myRank = ROLE_ORDER[myRole] ?? 2;
 
-  // Group all workforce members into their hierarchy tiers
-  const tierMembers = {};
-  HIERARCHY_TIERS.forEach(t => { tierMembers[t.key] = []; });
+  // Group members by role rank
+  const above  = allMembers.filter(m => (ROLE_ORDER[m.role] ?? 2) < myRank);
+  const peers  = allMembers.filter(m => (ROLE_ORDER[m.role] ?? 2) === myRank && m.username !== sessionUser?.username);
+  const below  = allMembers.filter(m => (ROLE_ORDER[m.role] ?? 2) > myRank);
 
-  allMembers.forEach(m => {
-    const tk = getDesignationTier(m.designation);
-    tierMembers[tk].push(m);
-  });
+  // Build a simple 3-tier tree: Admins > Managers > Staff
+  const tiers = [
+    { label: 'Admins',   role: 'admin',   members: allMembers.filter(m => m.role === 'admin') },
+    { label: 'Managers', role: 'manager', members: allMembers.filter(m => m.role === 'manager') },
+    { label: 'Staff',    role: 'staff',   members: allMembers.filter(m => m.role === 'staff') },
+  ].filter(t => t.members.length > 0);
 
-  // Also put admin-role users who have no designation in senior tier
-  // and manager-role users with no designation in middle tier
-  allMembers.forEach(m => {
-    if (!m.designation) {
-      // already added to 'core' above by getDesignationTier, which returns 'core' for no designation
-      // rebalance: move based on Django role if no designation
-      const defaultTier = m.role === 'admin' ? 'senior' : m.role === 'manager' ? 'middle' : 'core';
-      if (defaultTier !== 'core') {
-        // remove from core, add to correct tier
-        tierMembers['core'] = tierMembers['core'].filter(x => x.id !== m.id);
-        if (!tierMembers[defaultTier].find(x => x.id === m.id)) {
-          tierMembers[defaultTier].push(m);
-        }
-      }
-    }
-  });
+  function handleView(member) {
+    router.push(`/master-workforce-sheet`);
+  }
 
   return (
     <div className="space-y-4">
       {/* legend */}
-      <div className="flex flex-wrap items-center gap-4 text-[11px] text-cool-gray bg-white rounded-xl border border-soft-border px-4 py-3">
-        <span className="flex items-center gap-1.5"><Lock className="h-3 w-3" /> Locked = above your access level</span>
-        <span className="flex items-center gap-1.5 text-trust-blue"><User className="h-3 w-3" /> Click any member to view details</span>
-        <span className="flex items-center gap-1.5"><Plus className="h-3 w-3 text-midnight-ink" /> Assign job to members below you</span>
+      <div className="flex flex-wrap items-center gap-3 text-xs text-cool-gray">
+        <span className="flex items-center gap-1"><Lock className="h-3 w-3" /> Locked = above your level</span>
+        <span className="flex items-center gap-1"><UserCheck className="h-3 w-3 text-trust-blue" /> You can assign jobs to levels below</span>
       </div>
 
-      {HIERARCHY_TIERS.map(tier => (
-        <TierSection
-          key={tier.key}
-          tier={tier}
-          members={tierMembers[tier.key] || []}
-          myTierRank={myTierRank}
-          sessionUser={sessionUser}
-          onSelectMember={setSelectedMember}
-          onAssignJob={onAssignJob}
-        />
-      ))}
+      {tiers.map(tier => {
+        const tierRank = ROLE_ORDER[tier.role] ?? 2;
+        const isAboveTier = tierRank < myRank;
+        const [tierOpen, setTierOpen] = useState(true);
 
-      {/* Member detail modal */}
-      {selectedMember && (
-        <MemberDetailModal member={selectedMember} onClose={() => setSelectedMember(null)} />
-      )}
+        return (
+          <div key={tier.role} className="rounded-xl border border-soft-border overflow-hidden">
+            <button
+              onClick={() => setTierOpen(o => !o)}
+              className={`w-full flex items-center justify-between px-4 py-3 text-left transition
+                ${isAboveTier ? 'bg-slate-100' : 'bg-midnight-ink'}`}
+            >
+              <div className="flex items-center gap-2">
+                <span className={`w-2 h-2 rounded-full ${ROLE_DOT[tier.role]}`} />
+                <span className={`text-xs font-bold uppercase tracking-widest ${isAboveTier ? 'text-slate-500' : 'text-white'}`}>
+                  {tier.label}
+                </span>
+                <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold
+                  ${isAboveTier ? 'bg-slate-200 text-slate-500' : 'bg-white/20 text-white'}`}>
+                  {tier.members.length}
+                </span>
+                {isAboveTier && <Lock className="h-3 w-3 text-slate-400" />}
+              </div>
+              {tierOpen ? <ChevronDown className={`h-4 w-4 ${isAboveTier ? 'text-slate-400' : 'text-white/60'}`} />
+                        : <ChevronRight className={`h-4 w-4 ${isAboveTier ? 'text-slate-400' : 'text-white/60'}`} />}
+            </button>
+
+            {tierOpen && (
+              <div className="divide-y divide-soft-border">
+                {tier.members.map(m => {
+                  const isSelf = m.username === sessionUser?.username;
+                  return (
+                    <div key={m.id || m.username}
+                      className={`flex items-center gap-3 px-4 py-3 transition
+                        ${isSelf ? 'bg-trust-blue/5' : isAboveTier ? 'bg-slate-50' : 'bg-white hover:bg-cloud-gray'}`}>
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0
+                        ${isSelf ? 'bg-trust-blue text-white' : isAboveTier ? 'bg-slate-200 text-slate-500' : 'bg-midnight-ink/10 text-midnight-ink'}`}>
+                        {initials(m.full_name || m.username)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-midnight-ink truncate">
+                          {m.full_name || m.username}
+                          {isSelf && <span className="ml-1.5 text-xs font-normal text-trust-blue">(You)</span>}
+                        </p>
+                        <p className="text-xs text-cool-gray">{m.department || m.email || ''}</p>
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {isAboveTier ? (
+                          <span className="flex items-center gap-1 text-[10px] text-slate-400 bg-slate-100 border border-slate-200 rounded-full px-2 py-0.5">
+                            <Lock className="h-2.5 w-2.5" /> Locked
+                          </span>
+                        ) : !isSelf && (
+                          <>
+                            <button
+                              onClick={handleView}
+                              className="text-[10px] font-semibold text-trust-blue border border-trust-blue/40 rounded-full px-2.5 py-0.5 hover:bg-trust-blue hover:text-white transition">
+                              View
+                            </button>
+                            <button
+                              onClick={() => onAssignJob && onAssignJob(m)}
+                              className="text-[10px] font-semibold text-white bg-midnight-ink rounded-full px-2.5 py-0.5 hover:bg-trust-blue transition flex items-center gap-1">
+                              <Plus className="h-2.5 w-2.5" /> Job
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -519,7 +366,6 @@ export default function ProfilePage() {
     setEditData({
       full_name: wf.full_name || '', dob: wf.dob || '', gender: wf.gender || '',
       phone: wf.phone || '', whatsapp: wf.whatsapp || '', department: wf.department || '',
-      designation: wf.designation || '',
       current_location: wf.current_location || '', first_language: wf.first_language || '',
       second_language: wf.second_language || '', gst_number: wf.gst_number || '', notes: wf.notes || '',
     });
@@ -607,6 +453,7 @@ export default function ProfilePage() {
 
       {/* ══ Full-width dark profile hero ══ */}
       <div className="w-full bg-midnight-ink border-b border-white/10 relative overflow-hidden">
+        <div className="absolute inset-0 pointer-events-none" style={{ backgroundImage: 'radial-gradient(ellipse at 70% 50%, rgba(37,99,235,0.18) 0%, transparent 70%)' }} />
         <div className="relative w-full px-6 md:px-12 py-6 flex flex-col md:flex-row items-center md:items-end gap-5">
 
           {/* big avatar */}
@@ -730,7 +577,6 @@ export default function ProfilePage() {
                     <span className="text-xs font-bold text-midnight-ink uppercase tracking-widest">Work</span>
                   </div>
                   <div className="px-5 py-4 space-y-3">
-                    <FieldRow label="Designation" value={wf?.designation} />
                     <FieldRow label="Department" value={wf?.department} />
                     <FieldRow label="Location" value={wf?.current_location} />
                     <FieldRow label="GST" value={wf?.gst_number} />
@@ -760,7 +606,6 @@ export default function ProfilePage() {
 
               <SectionCard icon={Briefcase} title="Work Details">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4">
-                  <EditableField label="Designation"      name="designation"      value={wf?.designation}      editValue={editData.designation}      isEditing={isEditing} onChange={handleEditChange} />
                   <EditableField label="Department"       name="department"       value={wf?.department}       editValue={editData.department}       isEditing={isEditing} onChange={handleEditChange} />
                   <EditableField label="Current Location" name="current_location" value={wf?.current_location} editValue={editData.current_location} isEditing={isEditing} onChange={handleEditChange} />
                 </div>
