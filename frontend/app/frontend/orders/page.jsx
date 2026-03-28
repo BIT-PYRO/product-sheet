@@ -57,7 +57,7 @@ export default function OrdersPage() {
               setShowCreateOrderForm((prev) => !prev);
               setShowOrderSheet(false);
             }}
-            className="block text-left rounded-xl border border-soft-border bg-white p-6 hover:border-trust-blue hover:shadow-md transition"
+            className="block text-left rounded-xl border border-soft-border bg-white p-6 hover:border-slate-text hover:shadow-md transition"
           >
             <h2 className="text-lg font-semibold text-midnight-ink">Create Order</h2>
             <p className="text-sm text-cool-gray mt-2">
@@ -71,7 +71,7 @@ export default function OrdersPage() {
               setShowOrderSheet((prev) => !prev);
               setShowCreateOrderForm(false);
             }}
-            className="block text-left rounded-xl border border-soft-border bg-white p-6 hover:border-trust-blue hover:shadow-md transition"
+            className="block text-left rounded-xl border border-soft-border bg-white p-6 hover:border-slate-text hover:shadow-md transition"
           >
             <h2 className="text-lg font-semibold text-midnight-ink">Order Sheet</h2>
             <p className="text-sm text-cool-gray mt-2">
