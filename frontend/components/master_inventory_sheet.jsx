@@ -54,7 +54,6 @@ const INVENTORY_COLUMNS = [
   { key: 'finalStockSku', label: 'Final Stock SKU' },
   { key: 'finalStockValue', label: 'Final Stock Value' },
   { key: 'finalStockUnit', label: 'Final Stock Unit' },
-  { key: 'dieNumbers', label: 'Die Number / Findings' },
   { key: 'dieLocation', label: 'Location' },
 ];
 

@@ -44,6 +44,9 @@ export default function MasterProductSheet() {
   const [isManageColumnsOpen, setIsManageColumnsOpen] = useState(false);
   const [selectedColumnsForAction, setSelectedColumnsForAction] = useState(new Set());
   const [isPrintProductOpen, setIsPrintProductOpen] = useState(false);
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+  const [isDeletingRows, setIsDeletingRows] = useState(false);
+  const [deleteStatus, setDeleteStatus] = useState(null);
   const [selectedProductForPrint, setSelectedProductForPrint] = useState(null);
   const [isPrintSheetOpen, setIsPrintSheetOpen] = useState(false);
   const [editingRowIds, setEditingRowIds] = useState(new Set());
@@ -65,7 +68,8 @@ export default function MasterProductSheet() {
     { id: 'enamelType', label: 'Enamel Type' },
     { id: 'activeChannels', label: 'Active Channels' },
     { id: 'shopifyStatus', label: 'Shopify Status' },
-    { id: 'dieNumberFindings', label: 'Die Number/Findings' },
+    { id: 'dieNumber', label: 'Die Number' },
+    { id: 'findings', label: 'Findings' },
     { id: 'masterSku', label: 'Master SKU' },
     { id: 'color', label: 'Color' },
     { id: 'enamel', label: 'Enamel' },
@@ -92,7 +96,8 @@ export default function MasterProductSheet() {
     enamelType: { minWidth: 'min-w-[75px]', headerBg: 'bg-[#dbeafe]' },
     activeChannels: { minWidth: 'min-w-[100px]', headerBg: 'bg-[#dbeafe]' },
     shopifyStatus: { minWidth: 'min-w-[90px]', headerBg: 'bg-[#dbeafe]' },
-    dieNumberFindings: { minWidth: 'min-w-[100px]', headerBg: 'bg-[#dbeafe]' },
+    dieNumber: { minWidth: 'min-w-[100px]', headerBg: 'bg-[#dbeafe]' },
+    findings: { minWidth: 'min-w-[100px]', headerBg: 'bg-[#dbeafe]' },
     masterSku: { minWidth: 'min-w-[85px]', headerBg: 'bg-[#dbeafe]' },
     color: { minWidth: 'min-w-[70px]', headerBg: 'bg-[#dbeafe]' },
     enamel: { minWidth: 'min-w-[70px]', headerBg: 'bg-[#dbeafe]' },
@@ -215,7 +220,12 @@ export default function MasterProductSheet() {
         enamelType: product.enamel_type || '',
         activeChannels: product.active_channels || '',
         shopifyStatus: product.is_active ? 'active' : 'inactive',
-        dieNumberFindings: '',
+        dieNumber: Array.isArray(product.die_numbers) && product.die_numbers.length > 0
+          ? product.die_numbers.map((d) => d.value || '').filter(Boolean).join(', ')
+          : '',
+        findings: Array.isArray(product.findings) && product.findings.length > 0
+          ? product.findings.map((f) => f.value || '').filter(Boolean).join(', ')
+          : '',
         masterSku: product.master_sku || product.sku || '',
         color: product.color || '',
         enamel: product.enamel || '',
@@ -328,12 +338,8 @@ export default function MasterProductSheet() {
             // Die/Findings from designer
             const dieInfo = designer.die_code || '';
             const findingsInfo = Array.isArray(designer.findings_entries) && designer.findings_entries[0];
-            if ((dieInfo || findingsInfo) && !row.dieNumberFindings) {
-              const parts = [];
-              if (dieInfo) parts.push(`Die: ${dieInfo}`);
-              if (findingsInfo?.code) parts.push(`Findings: ${findingsInfo.code}`);
-              updates.dieNumberFindings = parts.join(', ');
-            }
+            if (dieInfo && !row.dieNumber) updates.dieNumber = dieInfo;
+            if (findingsInfo?.code && !row.findings) updates.findings = findingsInfo.code;
           }
 
           // Auto-fill from product data (if a product with this SKU exists)
@@ -380,10 +386,8 @@ export default function MasterProductSheet() {
         prev.map((row) => {
           if (row.id !== rowId) return row;
           const updates = {};
-          // Enrich dieNumberFindings with die number info from the finding
-          if (finding.die_number && !row.dieNumberFindings.includes('Die:')) {
-            updates.dieNumberFindings = `${code} | Die: ${finding.die_number}`;
-          }
+          // Auto-fill dieNumber from finding's die_number if currently empty
+          if (finding.die_number && !row.dieNumber) updates.dieNumber = finding.die_number;
           // Auto-fill weight from finding if currently empty
           if (finding.weight && !row.weight) updates.weight = finding.weight;
           return Object.keys(updates).length > 0 ? { ...row, ...updates } : row;
@@ -441,7 +445,8 @@ export default function MasterProductSheet() {
       enamelType: '',
       activeChannels: '',
       shopifyStatus: 'active',
-      dieNumberFindings: '',
+      dieNumber: '',
+      findings: '',
       masterSku: '',
       color: '',
       enamel: '',
@@ -505,6 +510,12 @@ export default function MasterProductSheet() {
           plating_type: row.platingType,
           plating_color: row.platingColor,
           notes: row.notes,
+          die_numbers: row.dieNumber
+            ? row.dieNumber.split(',').map((v) => ({ value: v.trim(), quantity: '', location: '' })).filter((d) => d.value)
+            : [],
+          findings: row.findings
+            ? row.findings.split(',').map((v) => ({ value: v.trim(), quantity: '', location: '' })).filter((f) => f.value)
+            : [],
         };
 
         if (row._isNew) {
@@ -553,6 +564,46 @@ export default function MasterProductSheet() {
 
   const handleCancelEdit = () => {
     setEditingRowIds(new Set());
+  };
+
+  const handleDeleteRows = async () => {
+    const toDelete = Array.from(selectedRows);
+    if (toDelete.length === 0) return;
+    setIsDeletingRows(true);
+    setDeleteStatus(null);
+    const errors = [];
+    for (const id of toDelete) {
+      const row = data.find((r) => r.id === id);
+      if (row?._isNew) {
+        // Not yet saved to backend — just remove from local state
+        continue;
+      }
+      try {
+        const res = await fetch(`/api/products/${id}`, { method: 'DELETE' });
+        if (!res.ok) {
+          const json = await res.json().catch(() => null);
+          throw new Error(json?.message || `Failed to delete row ${id}`);
+        }
+      } catch (err) {
+        errors.push(err.message);
+      }
+    }
+    // Remove successfully deleted rows from local state
+    const failedIds = new Set(
+      errors.length > 0
+        ? toDelete.filter((id) => errors.some((e) => e.includes(String(id))))
+        : []
+    );
+    setData((prev) => prev.filter((r) => !toDelete.includes(r.id) || failedIds.has(r.id)));
+    setSelectedRows(new Set());
+    setIsDeleteConfirmOpen(false);
+    setIsDeletingRows(false);
+    if (errors.length > 0) {
+      setDeleteStatus({ success: false, message: errors.join('; ') });
+    } else {
+      setDeleteStatus({ success: true, message: `${toDelete.length} row(s) deleted` });
+      setTimeout(() => setDeleteStatus(null), 3000);
+    }
   };
 
   const handleArchiveRow = () => {
@@ -936,6 +987,34 @@ export default function MasterProductSheet() {
         </DialogContent>
       </Dialog>
 
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={isDeleteConfirmOpen} onOpenChange={setIsDeleteConfirmOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Delete {selectedRows.size} row(s)?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-cool-gray py-2">
+            This will permanently delete the selected row(s) from the database. This action cannot be undone.
+          </p>
+          <DialogFooter className="flex gap-2">
+            <Button
+              onClick={() => setIsDeleteConfirmOpen(false)}
+              variant="outline"
+              disabled={isDeletingRows}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleDeleteRows}
+              className="bg-danger hover:bg-danger/90 text-white"
+              disabled={isDeletingRows}
+            >
+              {isDeletingRows ? 'Deleting...' : 'Delete'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <div className="flex-1 pt-16 px-3 md:px-4 pb-16">
         {/* Header Section */}
         <div className="transition-[left,width] duration-300 ease-in-out fixed top-0 left-0 right-0 z-[60] bg-white/95 py-2 border-b border-soft-border shadow-sm backdrop-blur px-3 md:px-4">
@@ -984,6 +1063,17 @@ export default function MasterProductSheet() {
             disabled={isArchivedView}
           >
             Edit Row
+          </Button>
+          <Button
+            onClick={() => {
+              if (selectedRows.size === 0) { alert('Please select at least one row to delete'); return; }
+              setIsDeleteConfirmOpen(true);
+            }}
+            variant="outline"
+            className="border-danger text-danger hover:bg-danger/10 rounded-full px-4 text-sm h-8"
+            disabled={editingRowIds.size > 0}
+          >
+            Delete Row
           </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -1050,30 +1140,6 @@ export default function MasterProductSheet() {
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
-
-        <div className="mb-4 border border-soft-border rounded-lg bg-white overflow-hidden">
-          <div className="px-3 py-2 bg-trust-blue/40 font-bold text-sm text-midnight-ink border-b border-soft-border">
-            PRODUCT DETAILS
-          </div>
-          <div className="p-3">
-            {!selectedProduct ? (
-              <div className="text-sm text-cool-gray">Select a row to see product details.</div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
-                <DetailCard label="SKU" value={selectedProduct.sku} />
-                <DetailCard label="LISTING NAME" value={selectedProduct.listingName} />
-                <DetailCard label="MATERIAL" value={selectedProduct.material} />
-                <DetailCard label="CATEGORY" value={selectedProduct.category} />
-                <DetailCard label="COLLECTION" value={selectedProduct.collection} />
-                <DetailCard label="DIE NUMBER/FINDINGS" value={selectedProduct.dieNumberFindings} />
-                <DetailCard label="MASTER SKU" value={selectedProduct.masterSku} />
-                <DetailCard label="COLOR" value={selectedProduct.color} />
-                <DetailCard label="IMAGES" value={selectedProduct.images} />
-              </div>
-            )}
-          </div>
-        </div>
-
 
       {/* Filter Row */}
       <div className="border border-soft-border rounded-lg mb-4 bg-trust-blue/10 p-4">
@@ -1278,12 +1344,12 @@ export default function MasterProductSheet() {
                                 if (e.key === 'Enter' || e.key === 'Tab') {
                                   handleMasterSkuLookup(row.id, row.masterSku);
                                 }
-                              } : column.id === 'dieNumberFindings' ? (e) => {
+                              } : column.id === 'findings' ? (e) => {
                                 if (e.key === 'Enter' || e.key === 'Tab') {
-                                  handleFindingCodeLookup(row.id, row.dieNumberFindings);
+                                  handleFindingCodeLookup(row.id, row.findings);
                                 }
                               } : undefined}
-                              onBlur={column.id === 'masterSku' ? () => handleMasterSkuLookup(row.id, row.masterSku) : column.id === 'dieNumberFindings' ? () => handleFindingCodeLookup(row.id, row.dieNumberFindings) : undefined}
+                              onBlur={column.id === 'masterSku' ? () => handleMasterSkuLookup(row.id, row.masterSku) : column.id === 'findings' ? () => handleFindingCodeLookup(row.id, row.findings) : undefined}
                               className="border-0 p-1 text-sm h-8"
                             />
                           ) : column.id === 'sku' && row[column.id] ? (
@@ -1348,6 +1414,11 @@ export default function MasterProductSheet() {
         {!editingRowIds.size && saveEditStatus && (
           <span className={`ml-4 text-sm font-semibold ${saveEditStatus.success ? 'text-success' : 'text-danger'}`}>
             {saveEditStatus.message}
+          </span>
+        )}
+        {deleteStatus && (
+          <span className={`ml-4 text-sm font-semibold ${deleteStatus.success ? 'text-success' : 'text-danger'}`}>
+            {deleteStatus.message}
           </span>
         )}
       </div>

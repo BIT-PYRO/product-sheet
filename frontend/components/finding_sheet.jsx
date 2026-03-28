@@ -28,8 +28,17 @@ const FINDING_COLUMNS = [
   { id: 'findingCode', label: 'FINDING CODE' },
   { id: 'dieNumber', label: 'DIE NUMBER' },
   { id: 'size', label: 'SIZE' },
-  { id: 'quantity', label: 'QUNATITY' },
+  { id: 'quantity', label: 'QUANTITY' },
   { id: 'weight', label: 'WEIGHT' },
+  { id: 'material', label: 'MATERIAL' },
+  { id: 'findingStage', label: 'FINDING STAGE' },
+  { id: 'polish', label: 'POLISH' },
+  { id: 'mechanism', label: 'MECHANISM' },
+  { id: 'designMaterial', label: 'DESIGN MATERIAL' },
+  { id: 'moldQtyPerDie', label: 'MOLD QTY/DIE' },
+  { id: 'deadWeight', label: 'DEAD WEIGHT' },
+  { id: 'totalMeasurements', label: 'TOTAL MEASUREMENTS' },
+  { id: 'notes', label: 'NOTES' },
 ];
 
 const columnConfig = {
@@ -38,6 +47,15 @@ const columnConfig = {
   size: { minWidth: 'min-w-[120px]', headerBg: 'bg-[#dbeafe]' },
   quantity: { minWidth: 'min-w-[140px]', headerBg: 'bg-[#dbeafe]' },
   weight: { minWidth: 'min-w-[140px]', headerBg: 'bg-[#dbeafe]' },
+  material: { minWidth: 'min-w-[130px]', headerBg: 'bg-[#dbeafe]' },
+  findingStage: { minWidth: 'min-w-[140px]', headerBg: 'bg-[#dbeafe]' },
+  polish: { minWidth: 'min-w-[120px]', headerBg: 'bg-[#dbeafe]' },
+  mechanism: { minWidth: 'min-w-[140px]', headerBg: 'bg-[#dbeafe]' },
+  designMaterial: { minWidth: 'min-w-[150px]', headerBg: 'bg-[#dbeafe]' },
+  moldQtyPerDie: { minWidth: 'min-w-[130px]', headerBg: 'bg-[#dbeafe]' },
+  deadWeight: { minWidth: 'min-w-[130px]', headerBg: 'bg-[#dbeafe]' },
+  totalMeasurements: { minWidth: 'min-w-[170px]', headerBg: 'bg-[#dbeafe]' },
+  notes: { minWidth: 'min-w-[200px]', headerBg: 'bg-[#dbeafe]' },
 };
 
 const EMPTY_FINDING_ROW = {
@@ -46,6 +64,15 @@ const EMPTY_FINDING_ROW = {
   size: '',
   quantity: '',
   weight: '',
+  material: '',
+  findingStage: '',
+  polish: '',
+  mechanism: '',
+  designMaterial: '',
+  moldQtyPerDie: '',
+  deadWeight: '',
+  totalMeasurements: '',
+  notes: '',
 };
 
 export default function FindingSheet() {
@@ -75,6 +102,9 @@ export default function FindingSheet() {
   const [sizeFilter, setSizeFilter] = useState('');
   const [quantityFilter, setQuantityFilter] = useState('');
   const [weightFilter, setWeightFilter] = useState('');
+  const [materialFilter, setMaterialFilter] = useState('');
+  const [findingStageFilter, setFindingStageFilter] = useState('');
+  const [mechanismFilter, setMechanismFilter] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(25);
 
@@ -96,6 +126,15 @@ export default function FindingSheet() {
         size: r.size ?? '',
         quantity: r.quantity ?? '',
         weight: r.weight ?? '',
+        material: r.material ?? '',
+        findingStage: r.finding_stage ?? '',
+        polish: r.polish ?? '',
+        mechanism: r.mechanism ?? '',
+        designMaterial: r.design_material ?? '',
+        moldQtyPerDie: r.mold_qty_per_die ?? '',
+        deadWeight: r.dead_weight ?? '',
+        totalMeasurements: r.total_measurements ?? '',
+        notes: r.notes ?? '',
       }));
       setData(rows);
       setLastUpdated(new Date());
@@ -116,26 +155,30 @@ export default function FindingSheet() {
   const baseData = isArchivedView ? archivedData : activeData;
 
   const filteredRows = useMemo(() => {
-    const term = searchTerm.trim().toLowerCase();
-
     return baseData.filter((row) => {
+      const term = searchTerm.trim().toLowerCase();
       const matchesSearch =
         !term ||
         row.findingCode.toLowerCase().includes(term) ||
         row.dieNumber.toLowerCase().includes(term) ||
         row.size.toLowerCase().includes(term) ||
         row.quantity.toLowerCase().includes(term) ||
-        row.weight.toLowerCase().includes(term);
+        row.weight.toLowerCase().includes(term) ||
+        row.material.toLowerCase().includes(term) ||
+        row.mechanism.toLowerCase().includes(term);
 
       const matchesFindingCode = !findingCodeFilter || row.findingCode.toLowerCase().includes(findingCodeFilter.toLowerCase());
       const matchesDieNumber = !dieNumberFilter || row.dieNumber.toLowerCase().includes(dieNumberFilter.toLowerCase());
       const matchesSize = !sizeFilter || row.size.toLowerCase().includes(sizeFilter.toLowerCase());
       const matchesQuantity = !quantityFilter || row.quantity.toLowerCase().includes(quantityFilter.toLowerCase());
       const matchesWeight = !weightFilter || row.weight.toLowerCase().includes(weightFilter.toLowerCase());
+      const matchesMaterial = !materialFilter || row.material.toLowerCase().includes(materialFilter.toLowerCase());
+      const matchesFindingStage = !findingStageFilter || row.findingStage.toLowerCase().includes(findingStageFilter.toLowerCase());
+      const matchesMechanism = !mechanismFilter || row.mechanism.toLowerCase().includes(mechanismFilter.toLowerCase());
 
-      return matchesSearch && matchesFindingCode && matchesDieNumber && matchesSize && matchesQuantity && matchesWeight;
+      return matchesSearch && matchesFindingCode && matchesDieNumber && matchesSize && matchesQuantity && matchesWeight && matchesMaterial && matchesFindingStage && matchesMechanism;
     });
-  }, [baseData, searchTerm, findingCodeFilter, dieNumberFilter, sizeFilter, quantityFilter, weightFilter]);
+  }, [baseData, searchTerm, findingCodeFilter, dieNumberFilter, sizeFilter, quantityFilter, weightFilter, materialFilter, findingStageFilter, mechanismFilter]);
 
   const totalPages = Math.max(1, Math.ceil(filteredRows.length / rowsPerPage));
   const safePage = Math.min(currentPage, totalPages);
@@ -191,6 +234,15 @@ export default function FindingSheet() {
           size: row.size,
           quantity: row.quantity,
           weight: row.weight,
+          material: row.material,
+          finding_stage: row.findingStage,
+          polish: row.polish,
+          mechanism: row.mechanism,
+          design_material: row.designMaterial,
+          mold_qty_per_die: row.moldQtyPerDie,
+          dead_weight: row.deadWeight,
+          total_measurements: row.totalMeasurements,
+          notes: row.notes,
         };
         if (row._isNew) {
           const res = await fetch('/api/findings', {
@@ -204,7 +256,23 @@ export default function FindingSheet() {
           setData((prev) =>
             prev.map((r) =>
               r.id === row.id
-                ? { id: saved.id, findingCode: saved.finding_code ?? '', dieNumber: saved.die_number ?? '', size: saved.size ?? '', quantity: saved.quantity ?? '', weight: saved.weight ?? '' }
+                ? {
+                    id: saved.id,
+                    findingCode: saved.finding_code ?? '',
+                    dieNumber: saved.die_number ?? '',
+                    size: saved.size ?? '',
+                    quantity: saved.quantity ?? '',
+                    weight: saved.weight ?? '',
+                    material: saved.material ?? '',
+                    findingStage: saved.finding_stage ?? '',
+                    polish: saved.polish ?? '',
+                    mechanism: saved.mechanism ?? '',
+                    designMaterial: saved.design_material ?? '',
+                    moldQtyPerDie: saved.mold_qty_per_die ?? '',
+                    deadWeight: saved.dead_weight ?? '',
+                    totalMeasurements: saved.total_measurements ?? '',
+                    notes: saved.notes ?? '',
+                  }
                 : r
             )
           );
@@ -424,8 +492,17 @@ export default function FindingSheet() {
                   <DetailCard label="FINDING CODE" value={selectedFindingForPrint.findingCode} />
                   <DetailCard label="DIE NUMBER" value={selectedFindingForPrint.dieNumber} />
                   <DetailCard label="SIZE" value={selectedFindingForPrint.size} />
-                  <DetailCard label="QUNATITY" value={selectedFindingForPrint.quantity} />
+                  <DetailCard label="QUANTITY" value={selectedFindingForPrint.quantity} />
                   <DetailCard label="WEIGHT" value={selectedFindingForPrint.weight} />
+                  <DetailCard label="MATERIAL" value={selectedFindingForPrint.material} />
+                  <DetailCard label="FINDING STAGE" value={selectedFindingForPrint.findingStage} />
+                  <DetailCard label="POLISH" value={selectedFindingForPrint.polish} />
+                  <DetailCard label="MECHANISM" value={selectedFindingForPrint.mechanism} />
+                  <DetailCard label="DESIGN MATERIAL" value={selectedFindingForPrint.designMaterial} />
+                  <DetailCard label="MOLD QTY/DIE" value={selectedFindingForPrint.moldQtyPerDie} />
+                  <DetailCard label="DEAD WEIGHT" value={selectedFindingForPrint.deadWeight} />
+                  <DetailCard label="TOTAL MEASUREMENTS" value={selectedFindingForPrint.totalMeasurements} />
+                  <DetailCard label="NOTES" value={selectedFindingForPrint.notes} />
                 </div>
               </div>
               <div className="flex justify-end gap-2">
@@ -519,7 +596,7 @@ export default function FindingSheet() {
           >
             {isLoading ? 'Refreshing...' : 'Refresh'}
           </Button>
-          <BulkUploadButton sheetType="products" onComplete={loadFindings} />
+          <BulkUploadButton sheetType="findings" onComplete={loadFindings} />
           <Button
             onClick={handleEditRow}
             variant="outline"
@@ -594,68 +671,59 @@ export default function FindingSheet() {
             {!selectedFinding ? (
               <div className="text-sm text-cool-gray">Select a row to see finding details.</div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-3">
                 <DetailCard label="FINDING CODE" value={selectedFinding.findingCode} />
                 <DetailCard label="DIE NUMBER" value={selectedFinding.dieNumber} />
                 <DetailCard label="SIZE" value={selectedFinding.size} />
-                <DetailCard label="QUNATITY" value={selectedFinding.quantity} />
+                <DetailCard label="QUANTITY" value={selectedFinding.quantity} />
                 <DetailCard label="WEIGHT" value={selectedFinding.weight} />
+                <DetailCard label="MATERIAL" value={selectedFinding.material} />
+                <DetailCard label="FINDING STAGE" value={selectedFinding.findingStage} />
+                <DetailCard label="POLISH" value={selectedFinding.polish} />
+                <DetailCard label="MECHANISM" value={selectedFinding.mechanism} />
+                <DetailCard label="DESIGN MATERIAL" value={selectedFinding.designMaterial} />
+                <DetailCard label="MOLD QTY/DIE" value={selectedFinding.moldQtyPerDie} />
+                <DetailCard label="DEAD WEIGHT" value={selectedFinding.deadWeight} />
+                <DetailCard label="TOTAL MEASUREMENTS" value={selectedFinding.totalMeasurements} />
+                <DetailCard label="NOTES" value={selectedFinding.notes} />
               </div>
             )}
           </div>
         </div>
 
         <div className="border border-soft-border rounded-lg mb-4 bg-trust-blue/10 p-4">
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2">
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-2">
             <div>
               <label className="text-sm font-semibold text-slate-text block mb-1">FINDING CODE</label>
-              <Input
-                type="text"
-                placeholder="Enter code"
-                value={findingCodeFilter}
-                onChange={(e) => setFindingCodeFilter(e.target.value)}
-                className="h-8 text-sm p-1"
-              />
+              <Input type="text" placeholder="Enter code" value={findingCodeFilter} onChange={(e) => setFindingCodeFilter(e.target.value)} className="h-8 text-sm p-1" />
             </div>
             <div>
               <label className="text-sm font-semibold text-slate-text block mb-1">DIE NUMBER</label>
-              <Input
-                type="text"
-                placeholder="Enter die"
-                value={dieNumberFilter}
-                onChange={(e) => setDieNumberFilter(e.target.value)}
-                className="h-8 text-sm p-1"
-              />
+              <Input type="text" placeholder="Enter die" value={dieNumberFilter} onChange={(e) => setDieNumberFilter(e.target.value)} className="h-8 text-sm p-1" />
             </div>
             <div>
               <label className="text-sm font-semibold text-slate-text block mb-1">SIZE</label>
-              <Input
-                type="text"
-                placeholder="Enter size"
-                value={sizeFilter}
-                onChange={(e) => setSizeFilter(e.target.value)}
-                className="h-8 text-sm p-1"
-              />
+              <Input type="text" placeholder="Enter size" value={sizeFilter} onChange={(e) => setSizeFilter(e.target.value)} className="h-8 text-sm p-1" />
             </div>
             <div>
-              <label className="text-sm font-semibold text-slate-text block mb-1">QUNATITY</label>
-              <Input
-                type="text"
-                placeholder="Enter quantity"
-                value={quantityFilter}
-                onChange={(e) => setQuantityFilter(e.target.value)}
-                className="h-8 text-sm p-1"
-              />
+              <label className="text-sm font-semibold text-slate-text block mb-1">QUANTITY</label>
+              <Input type="text" placeholder="Enter quantity" value={quantityFilter} onChange={(e) => setQuantityFilter(e.target.value)} className="h-8 text-sm p-1" />
             </div>
             <div>
               <label className="text-sm font-semibold text-slate-text block mb-1">WEIGHT</label>
-              <Input
-                type="text"
-                placeholder="Enter weight"
-                value={weightFilter}
-                onChange={(e) => setWeightFilter(e.target.value)}
-                className="h-8 text-sm p-1"
-              />
+              <Input type="text" placeholder="Enter weight" value={weightFilter} onChange={(e) => setWeightFilter(e.target.value)} className="h-8 text-sm p-1" />
+            </div>
+            <div>
+              <label className="text-sm font-semibold text-slate-text block mb-1">MATERIAL</label>
+              <Input type="text" placeholder="Enter material" value={materialFilter} onChange={(e) => setMaterialFilter(e.target.value)} className="h-8 text-sm p-1" />
+            </div>
+            <div>
+              <label className="text-sm font-semibold text-slate-text block mb-1">FINDING STAGE</label>
+              <Input type="text" placeholder="Enter stage" value={findingStageFilter} onChange={(e) => setFindingStageFilter(e.target.value)} className="h-8 text-sm p-1" />
+            </div>
+            <div>
+              <label className="text-sm font-semibold text-slate-text block mb-1">MECHANISM</label>
+              <Input type="text" placeholder="Enter mechanism" value={mechanismFilter} onChange={(e) => setMechanismFilter(e.target.value)} className="h-8 text-sm p-1" />
             </div>
           </div>
         </div>
