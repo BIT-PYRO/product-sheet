@@ -82,7 +82,7 @@ const EMPTY_DESIGNER = () => ({
 function DesignerSheetContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const designCodeParam = (searchParams.get('motive_code') || '').trim()
+  const designCodeParam = (searchParams.get('master_sku') || searchParams.get('motive_code') || '').trim()
   const skuParam = (searchParams.get('sku') || '').trim()
 
   const designerImageRef1 = useRef(null)
@@ -160,8 +160,9 @@ function DesignerSheetContent() {
 
       const lq = query.toLowerCase()
       const record =
-        rows.find((d) => String(d.motive_code || '').trim().toLowerCase() === lq) ||
+        rows.find((d) => String(d.master_sku || '').trim().toLowerCase() === lq) ||
         rows.find((d) => String(d.sku || '').trim().toLowerCase() === lq) ||
+        rows.find((d) => String(d.motive_code || '').trim().toLowerCase() === lq) ||
         rows[0]
 
       if (record) {
@@ -190,7 +191,7 @@ function DesignerSheetContent() {
     e.preventDefault()
     const s = searchInput.trim()
     if (!s) return
-    router.replace(`/frontend/designer-sheet?motive_code=${encodeURIComponent(s)}`)
+    router.replace(`/frontend/designer-sheet?master_sku=${encodeURIComponent(s)}`)
     loadDesignerByDesignCode(s)
   }
 
@@ -394,12 +395,12 @@ function DesignerSheetContent() {
       <div className="px-2 py-2">
         <div className="bg-cloud-gray p-3 rounded-xl mb-4 border border-soft-border shadow-sm">
           <form onSubmit={handleSearch} className="flex items-center gap-2">
-            <label className="text-xs font-semibold text-midnight-ink whitespace-nowrap">Search by Motive Code</label>
+            <label className="text-xs font-semibold text-midnight-ink whitespace-nowrap">Search by Master SKU</label>
             <input
               type="text"
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
-              placeholder="Enter motive code…"
+              placeholder="Enter master SKU…"
               className="flex-1 border border-soft-border rounded px-3 py-1.5 text-sm outline-none focus:border-trust-blue bg-white"
             />
             <button type="submit" disabled={isSearching} className="px-4 py-1.5 text-xs bg-trust-blue text-white font-semibold rounded-full hover:bg-deep-blue disabled:opacity-50 flex items-center gap-1">
@@ -455,7 +456,7 @@ function DesignerSheetContent() {
 
           <div className="mb-3">
             <label className="text-xs font-semibold text-midnight-ink mb-1 block">
-              SKU <span className="font-normal text-cool-gray">(optional — auto-generated if left blank)</span>
+              Designer SKU <span className="font-normal text-cool-gray">(optional — auto-generated if left blank)</span>
             </label>
             <input
               type="text"

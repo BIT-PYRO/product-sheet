@@ -7,7 +7,7 @@ from common.models import AuditModel
 class DesignerSheet(AuditModel):
     """Stores designer data linked to a product SKU."""
 
-    sku = models.CharField(max_length=60, unique=True, blank=True, default='')
+    sku = models.CharField(max_length=60, unique=True, blank=True, default='', verbose_name='Designer SKU')
 
     # ── Images / Drawings ────────────────────────────────────────────────────
     rendered_photo = models.TextField(blank=True, default='')      # Rendered Photo (URL/base64)

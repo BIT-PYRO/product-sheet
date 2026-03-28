@@ -30,7 +30,7 @@ import LastUpdatedFooter from '@/components/last-updated-footer';
 const COLUMNS = [
   { id: 'rendered_photo',           label: 'Rendered Photo',                    width: 'min-w-[120px]' },
   { id: 'technical_drawing',        label: 'Technical Drawing',                 width: 'min-w-[160px]' },
-  { id: 'sku',                      label: 'Master SKU',                        width: 'min-w-[120px]' },
+  { id: 'sku',                      label: 'Designer SKU',                      width: 'min-w-[120px]' },
   { id: 'other_photo',              label: 'Other Photo',                       width: 'min-w-[120px]' },
   { id: 'motive_code',             label: 'Motive Code',                       width: 'min-w-[120px]' },
   { id: 'master_sku',              label: 'Master SKU',                        width: 'min-w-[120px]' },
