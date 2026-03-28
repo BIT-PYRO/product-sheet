@@ -94,7 +94,6 @@ export default function OthersInventoryPage() {
         <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
           <div>
             <p className="text-base text-cool-gray">Track consumables and purchased items like coffee powder, water bottles, tissue, and more.</p>
-            <p className="text-sm text-cool-gray mt-1">For now this is frontend-only. Later we can auto-sync purchases from Accounts.</p>
           </div>
           <Link
             href="/inventory"
