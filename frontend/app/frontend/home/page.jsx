@@ -27,6 +27,7 @@ const SHEET_BLOCKS = [
   { href: '/master-designer-sheet', title: 'Master Designer Sheet', subtitle: 'Designer records and details', keywords: ['designer', 'records', 'details', 'master', 'design'] },
   { href: '/finding-sheet', title: 'Master Finding Sheet', subtitle: 'Finding records and details', keywords: ['finding', 'findings', 'die number', 'size', 'quantity', 'weight', 'sheet', 'master'] },
   { href: '/finding-entry', title: 'Finding Sheet', subtitle: 'Finding entry with image upload', keywords: ['finding', 'findings', 'image', 'die number', 'size', 'quantity', 'weight', 'entry', 'upload'] },
+  { href: '/inventory', title: 'Inventory', subtitle: 'Inventory final stocks', keywords: ['inventory', 'final stock', 'stock', 'quantity'] },
 ];
 
 export default function HomePage() {
