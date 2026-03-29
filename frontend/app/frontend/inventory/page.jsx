@@ -5,9 +5,11 @@ import MasterNavigationDrawer from '@/components/master_navigation_drawer';
 
 const INVENTORY_BUTTONS = [
   { href: '/inventory/product-inventory', title: 'Product inventory', subtitle: 'Track and manage final product stock' },
-  { href: '#', title: 'Stone inventory', subtitle: 'View and update stone stock balances' },
+  { href: '/inventory/stone-inventory', title: 'Stone inventory', subtitle: 'View and update stone stock balances' },
   { href: '/inventory/finding-inventory', title: 'Finding inventory', subtitle: 'Monitor findings stock and movement' },
   { href: '/inventory/others', title: 'Others', subtitle: 'Manage consumables and purchased items stock' },
+  { href: '/inventory/tools', title: 'Tools', subtitle: 'Track tools by department and purchase value' },
+  { href: '/inventory/machines', title: 'Machines', subtitle: 'Track machine stock and condition-wise availability' },
 ];
 
 export default function InventoryPage() {

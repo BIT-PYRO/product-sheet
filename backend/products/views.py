@@ -50,8 +50,8 @@ from .serializers import ProductSerializer
 class ProductViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 	queryset = Product.objects.all().order_by('-created_at')
 	serializer_class = ProductSerializer
-	filterset_fields = ['is_active', 'category', 'sku', 'master_sku']
-	search_fields = ['sku', 'name', 'master_sku']
+	filterset_fields = ['is_active', 'category', 'master_sku', 'designer_sku']
+	search_fields = ['master_sku', 'name', 'designer_sku']
 
 	@extend_schema(summary='Upload image for product', tags=['Products'])
 	@action(detail=True, methods=['post'], url_path='upload-image', parser_classes=[MultiPartParser])

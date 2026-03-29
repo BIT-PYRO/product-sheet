@@ -3,11 +3,18 @@
 import { Suspense, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
 import DateTimeStamp from '@/components/date-time-stamp';
+
+const STONE_DEFAULT_ROWS = () => [
+  { id: 1, type: '', species: '', variety: '', color: '', cut: '', shape: '', length: '', width: '', height: '', qty: '' },
+  { id: 2, type: '', species: '', variety: '', color: '', cut: '', shape: '', length: '', width: '', height: '', qty: '' },
+  { id: 3, type: '', species: '', variety: '', color: '', cut: '', shape: '', length: '', width: '', height: '', qty: '' },
+];
 
 const LIVE_STOCK_ROWS = [
   ['Minimum Suggested', 'min'],
@@ -81,7 +88,7 @@ function ProductDetailContent() {
 
   const product = useMemo(() => {
     const normalizedSku = sku.toLowerCase();
-    return products.find((item) => String(item.sku || '').trim().toLowerCase() === normalizedSku) || null;
+    return products.find((item) => String(item.masterSku || item.sku || '').trim().toLowerCase() === normalizedSku) || null;
   }, [products, sku]);
 
   // Initialise editData whenever the loaded product changes
@@ -100,11 +107,9 @@ function ProductDetailContent() {
         masterSku: product.masterSku || '',
         color: product.color || '',
         enamel: product.enamel || '',
-        stoneName: product.stoneName || '',
-        stoneCut: product.stoneCut || '',
-        stoneColor: product.stoneColor || '',
-        stoneSize: product.stoneSize || '',
-        stoneQuantity: product.stoneQuantity || '',
+        stoneEntries: Array.isArray(product.stone_entries) && product.stone_entries.length > 0
+          ? product.stone_entries.map((r, i) => ({ id: i + 1, type: r.type || '', species: r.species || '', variety: r.variety || '', color: r.color || '', cut: r.cut || '', shape: r.shape || '', length: r.length || '', width: r.width || '', height: r.height || '', qty: r.qty || '' }))
+          : STONE_DEFAULT_ROWS(),
         platingType: product.platingType || '',
         platingColor: product.platingColor || '',
         notes: product.notes || '',
@@ -133,11 +138,9 @@ function ProductDetailContent() {
         masterSku: product.masterSku || '',
         color: product.color || '',
         enamel: product.enamel || '',
-        stoneName: product.stoneName || '',
-        stoneCut: product.stoneCut || '',
-        stoneColor: product.stoneColor || '',
-        stoneSize: product.stoneSize || '',
-        stoneQuantity: product.stoneQuantity || '',
+        stoneEntries: Array.isArray(product.stone_entries) && product.stone_entries.length > 0
+          ? product.stone_entries.map((r, i) => ({ id: i + 1, type: r.type || '', species: r.species || '', variety: r.variety || '', color: r.color || '', cut: r.cut || '', shape: r.shape || '', length: r.length || '', width: r.width || '', height: r.height || '', qty: r.qty || '' }))
+          : STONE_DEFAULT_ROWS(),
         platingType: product.platingType || '',
         platingColor: product.platingColor || '',
         notes: product.notes || '',
@@ -146,6 +149,22 @@ function ProductDetailContent() {
     }
     setSaveError('');
     setIsEditing(false);
+  };
+
+  const addStoneRow = () => {
+    setEditData((prev) => {
+      const rows = prev?.stoneEntries || [];
+      const newId = Math.max(...rows.map((r) => r.id || 0), 0) + 1;
+      return { ...prev, stoneEntries: [...rows, { id: newId, type: '', species: '', variety: '', color: '', cut: '', shape: '', length: '', width: '', height: '', qty: '' }] };
+    });
+  };
+
+  const updateStoneRow = (id, field, value) => {
+    setEditData((prev) => ({ ...prev, stoneEntries: (prev.stoneEntries || []).map((r) => (r.id === id ? { ...r, [field]: value } : r)) }));
+  };
+
+  const deleteStoneRow = (id) => {
+    setEditData((prev) => ({ ...prev, stoneEntries: (prev.stoneEntries || []).filter((r) => r.id !== id) }));
   };
 
   const handleSave = async () => {
@@ -166,11 +185,7 @@ function ProductDetailContent() {
         master_sku: editData.masterSku,
         color: editData.color,
         enamel: editData.enamel,
-        stone_name: editData.stoneName,
-        stone_cut: editData.stoneCut,
-        stone_color: editData.stoneColor,
-        stone_size: editData.stoneSize,
-        stone_quantity: editData.stoneQuantity,
+        stone_entries: (editData.stoneEntries || []).map(({ type, species, variety, color, cut, shape, length, width, height, qty }) => ({ type, species, variety, color, cut, shape, length, width, height, qty })),
         plating_type: editData.platingType,
         plating_color: editData.platingColor,
         notes: editData.notes,
@@ -203,11 +218,7 @@ function ProductDetailContent() {
                 masterSku: editData.masterSku,
                 color: editData.color,
                 enamel: editData.enamel,
-                stoneName: editData.stoneName,
-                stoneCut: editData.stoneCut,
-                stoneColor: editData.stoneColor,
-                stoneSize: editData.stoneSize,
-                stoneQuantity: editData.stoneQuantity,
+                stone_entries: editData.stoneEntries,
                 platingType: editData.platingType,
                 platingColor: editData.platingColor,
                 notes: editData.notes,
@@ -360,7 +371,7 @@ function ProductDetailContent() {
 
             {/* Top identity row — SKU never editable */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
-              <InfoCard label="SKU" value={product.sku} />
+              <InfoCard label="MASTER SKU" value={product.masterSku || product.sku} />
               <EditableCard label="LISTING NAME" field="listingName" editData={editData} isEditing={isEditing} onChange={handleFieldChange} />
               <EditableCard label="SHOPIFY STATUS" field="shopifyStatus" editData={editData} isEditing={isEditing} onChange={handleFieldChange} hint="active / inactive" />
               <InfoCard label="LAST UPDATED" value={product.lastUpdated} />
@@ -388,14 +399,60 @@ function ProductDetailContent() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
               <EditableCard label="COLOR" field="color" editData={editData} isEditing={isEditing} onChange={handleFieldChange} />
               <EditableCard label="ENAMEL" field="enamel" editData={editData} isEditing={isEditing} onChange={handleFieldChange} />
-              <EditableCard label="STONE NAME" field="stoneName" editData={editData} isEditing={isEditing} onChange={handleFieldChange} />
-              <EditableCard label="STONE CUT" field="stoneCut" editData={editData} isEditing={isEditing} onChange={handleFieldChange} />
-              <EditableCard label="STONE COLOR" field="stoneColor" editData={editData} isEditing={isEditing} onChange={handleFieldChange} />
-              <EditableCard label="STONE SIZE" field="stoneSize" editData={editData} isEditing={isEditing} onChange={handleFieldChange} />
-              <EditableCard label="STONE QUANTITY" field="stoneQuantity" editData={editData} isEditing={isEditing} onChange={handleFieldChange} />
               <EditableCard label="PLATING TYPE" field="platingType" editData={editData} isEditing={isEditing} onChange={handleFieldChange} />
               <EditableCard label="PLATING COLOR" field="platingColor" editData={editData} isEditing={isEditing} onChange={handleFieldChange} />
               <EditableCard label="IMAGES" field="images" editData={editData} isEditing={isEditing} onChange={handleFieldChange} />
+            </div>
+
+            {/* Stone Info */}
+            <div className="mb-4 border border-soft-border rounded-lg bg-white overflow-hidden">
+              <div className={`px-3 py-2 font-bold text-sm text-midnight-ink border-b border-soft-border ${isEditing ? 'bg-amber-50' : 'bg-trust-blue/40'}`}>
+                STONE INFO {isEditing && <span className="text-xs font-normal text-amber-700 ml-1">(editable)</span>}
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs border-collapse">
+                  <thead>
+                    <tr className="bg-cloud-gray">
+                      {['TYPE','SPECIES','VARIETY','COLOR','CUT','SHAPE','LENGTH','WIDTH','HEIGHT','QTY'].map((h) => (
+                        <th key={h} className="border border-soft-border px-2 py-1.5 font-semibold text-midnight-ink text-left whitespace-nowrap">{h}</th>
+                      ))}
+                      {isEditing && <th className="border border-soft-border px-1 py-1.5 w-6"></th>}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(editData?.stoneEntries || product.stone_entries || []).map((row, idx) => (
+                      <tr key={row.id ?? idx} className="hover:bg-cloud-gray/40">
+                        {['type','species','variety','color','cut','shape','length','width','height','qty'].map((f) => (
+                          <td key={f} className="border border-soft-border p-0">
+                            {isEditing ? (
+                              <input
+                                type="text"
+                                value={row[f] || ''}
+                                onChange={(e) => updateStoneRow(row.id, f, e.target.value)}
+                                className="w-full bg-transparent outline-none px-2 py-1 min-w-[70px] text-xs"
+                              />
+                            ) : (
+                              <span className="block px-2 py-1 min-w-[70px]">{row[f] || '—'}</span>
+                            )}
+                          </td>
+                        ))}
+                        {isEditing && (
+                          <td className="border border-soft-border p-0 text-center">
+                            <button type="button" onClick={() => deleteStoneRow(row.id)} className="px-1 py-1 text-danger hover:text-danger-dark">
+                              <Trash2 className="h-3 w-3" />
+                            </button>
+                          </td>
+                        )}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {isEditing && (
+                <button type="button" onClick={addStoneRow} className="w-full text-left px-3 py-1.5 text-xs text-trust-blue font-semibold hover:bg-cloud-gray border-t border-soft-border">
+                  + ADD ROW
+                </button>
+              )}
             </div>
 
             {/* Notes */}

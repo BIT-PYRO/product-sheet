@@ -211,7 +211,7 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
       }
 
       const selectedProduct =
-        productsData.find((item) => String(item.sku || '').toLowerCase() === primarySku.toLowerCase()) ||
+        productsData.find((item) => String(item.master_sku || '').toLowerCase() === primarySku.toLowerCase()) ||
         productsData[0]
 
       const title = `${voucherNo} - ${issuedTo || 'Unassigned'} - ${primarySku}`

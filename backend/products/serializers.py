@@ -18,10 +18,10 @@ class ProductSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError('Product name cannot be blank.')
         return value.strip()
 
-    def validate_sku(self, value):
+    def validate_master_sku(self, value):
         sku = value.strip()
         if not sku:
-            raise serializers.ValidationError('SKU cannot be blank.')
+            raise serializers.ValidationError('Master SKU cannot be blank.')
         return sku
 
     class Meta:

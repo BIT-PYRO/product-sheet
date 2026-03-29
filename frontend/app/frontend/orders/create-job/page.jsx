@@ -61,7 +61,7 @@ function EditableRow({ label, value, inputValue, onInputChange, placeholder }) {
             type="number"
             min="0"
             step="0.01"
-            className="w-28 border border-input rounded px-2 py-1 text-sm text-right focus:outline-none focus:ring-2 focus:ring-ring"
+            className="w-28 border border-soft-border bg-white rounded px-2 py-1 text-sm text-right focus:outline-none focus:ring-2 focus:ring-midnight-ink/20"
             placeholder={placeholder}
             value={inputValue}
             onChange={(e) => onInputChange(e.target.value)}
@@ -235,7 +235,7 @@ export function CreateOrderForm({ embedded = false }) {
   const filteredProducts = products.filter((p) =>
     !productSearch ||
     p.name?.toLowerCase().includes(productSearch.toLowerCase()) ||
-    p.sku?.toLowerCase().includes(productSearch.toLowerCase())
+    p.master_sku?.toLowerCase().includes(productSearch.toLowerCase())
   );
 
   const filteredCustomers = customers.filter((c) =>
@@ -253,7 +253,7 @@ export function CreateOrderForm({ embedded = false }) {
       .map((p) => ({
         id: `product-${p.id}`,
         name: p.name,
-        sku: p.sku,
+        sku: p.master_sku,
         price: parseFloat(p.selling_price) || 0,
         quantity: 1,
       }));
@@ -550,7 +550,7 @@ export function CreateOrderForm({ embedded = false }) {
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-cool-gray pointer-events-none" />
                 <input
                   readOnly
-                  className="w-full pl-9 pr-3 py-2 text-sm border border-input rounded-md bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer"
+                  className="w-full pl-9 pr-3 py-2 text-sm border border-soft-border rounded-md bg-white placeholder:text-cool-gray focus:outline-none focus:ring-2 focus:ring-midnight-ink/20 cursor-pointer"
                   placeholder="Search products"
                   onClick={() => { loadProducts(); setIsBrowseOpen(true); }}
                 />
@@ -577,7 +577,7 @@ export function CreateOrderForm({ embedded = false }) {
             {orderItems.length > 0 && (
               <div className="mt-4 border border-soft-border rounded-lg overflow-hidden">
                 <table className="w-full text-sm">
-                  <thead className="bg-gray-50 border-b border-soft-border">
+                  <thead className="bg-cloud-gray border-b border-soft-border">
                     <tr>
                       <th className="text-left px-4 py-2.5 text-xs font-medium text-cool-gray uppercase tracking-wide">
                         Product
@@ -607,7 +607,7 @@ export function CreateOrderForm({ embedded = false }) {
                           <div className="flex items-center justify-center gap-2">
                             <button
                               onClick={() => updateItemQty(item.id, Math.max(1, item.quantity - 1))}
-                              className="flex items-center justify-center w-7 h-7 rounded border border-soft-border hover:bg-gray-100 transition-colors text-cool-gray hover:text-midnight-ink"
+                              className="flex items-center justify-center w-7 h-7 rounded border border-soft-border hover:bg-cloud-gray transition-colors text-cool-gray hover:text-midnight-ink"
                             >
                               −
                             </button>
@@ -616,11 +616,11 @@ export function CreateOrderForm({ embedded = false }) {
                               min="1"
                               value={item.quantity}
                               onChange={(e) => updateItemQty(item.id, parseInt(e.target.value) || 1)}
-                              className="w-12 text-center border border-input rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                              className="w-12 text-center border border-soft-border bg-white rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-midnight-ink/20"
                             />
                             <button
                               onClick={() => updateItemQty(item.id, item.quantity + 1)}
-                              className="flex items-center justify-center w-7 h-7 rounded border border-soft-border hover:bg-gray-100 transition-colors text-cool-gray hover:text-midnight-ink"
+                              className="flex items-center justify-center w-7 h-7 rounded border border-soft-border hover:bg-cloud-gray transition-colors text-cool-gray hover:text-midnight-ink"
                             >
                               +
                             </button>
@@ -635,7 +635,7 @@ export function CreateOrderForm({ embedded = false }) {
                         <td className="px-4 py-3 text-center">
                           <button
                             onClick={() => removeItem(item.id)}
-                            className="text-cool-gray hover:text-red-500 transition-colors"
+                            className="text-cool-gray hover:text-midnight-ink transition-colors"
                           >
                             <X className="h-4 w-4" />
                           </button>
@@ -676,7 +676,7 @@ export function CreateOrderForm({ embedded = false }) {
                   <span className="text-cool-gray">Not calculated</span>
                 </div>
               </div>
-              <div className="flex items-center justify-between px-4 py-3 border-t border-soft-border bg-gray-50">
+              <div className="flex items-center justify-between px-4 py-3 border-t border-soft-border bg-cloud-gray">
                 <span className="font-semibold text-midnight-ink">Total</span>
                 <span className="font-semibold text-midnight-ink">{fmt(total)}</span>
               </div>
@@ -707,7 +707,7 @@ export function CreateOrderForm({ embedded = false }) {
               <textarea
                 autoFocus
                 rows={3}
-                className="w-full text-sm border border-input rounded-md px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-ring placeholder:text-muted-foreground"
+                className="w-full text-sm border border-soft-border bg-white rounded-md px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-midnight-ink/20 placeholder:text-cool-gray"
                 placeholder="Add notes..."
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
@@ -731,7 +731,7 @@ export function CreateOrderForm({ embedded = false }) {
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-cool-gray pointer-events-none" />
                 <input
-                  className="w-full pl-9 pr-3 py-2 text-sm border border-input rounded-md bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                  className="w-full pl-9 pr-3 py-2 text-sm border border-soft-border rounded-md bg-white placeholder:text-cool-gray focus:outline-none focus:ring-2 focus:ring-midnight-ink/20"
                   placeholder="Search or create a customer"
                   value={customerSearch}
                   onChange={(e) => {
@@ -748,7 +748,7 @@ export function CreateOrderForm({ embedded = false }) {
                 <div className="absolute top-full left-0 right-0 z-50 bg-white border border-soft-border rounded-md shadow-lg mt-1 max-h-64 overflow-y-auto">
                   {/* Create new */}
                   <button
-                    className="w-full flex items-center gap-2 px-3 py-2.5 text-sm hover:bg-gray-50 border-b border-soft-border"
+                    className="w-full flex items-center gap-2 px-3 py-2.5 text-sm hover:bg-cloud-gray border-b border-soft-border"
                     onMouseDown={() => {
                       setIsCreateCustomerOpen(true);
                       setCustomerDropdownOpen(false);
@@ -767,7 +767,7 @@ export function CreateOrderForm({ embedded = false }) {
                   {filteredCustomers.map((c, i) => (
                     <button
                       key={i}
-                      className="w-full text-left px-3 py-2.5 hover:bg-gray-50 border-b border-soft-border last:border-0"
+                      className="w-full text-left px-3 py-2.5 hover:bg-cloud-gray border-b border-soft-border last:border-0"
                       onMouseDown={() => selectCustomer(c)}
                     >
                       <div className="text-sm font-medium text-midnight-ink">
@@ -784,7 +784,7 @@ export function CreateOrderForm({ embedded = false }) {
 
             {/* Selected customer pill */}
             {selectedCustomer && (
-              <div className="mt-3 flex items-start justify-between p-3 bg-gray-50 rounded-lg">
+              <div className="mt-3 flex items-start justify-between p-3 bg-cloud-gray rounded-lg border border-soft-border">
                 <div className="text-sm">
                   <div className="font-medium text-midnight-ink">
                     {selectedCustomer.companyName || selectedCustomer.authorizedPersonName}
@@ -813,13 +813,13 @@ export function CreateOrderForm({ embedded = false }) {
           <div className="bg-white rounded-xl border border-soft-border p-5">
             <h2 className="text-base font-semibold text-midnight-ink mb-3">Markets</h2>
             <div className="mb-3">
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-gray-100 text-sm font-medium text-midnight-ink">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-cloud-gray border border-soft-border text-sm font-medium text-midnight-ink">
                 🌐 India
               </span>
             </div>
             <div>
               <p className="text-xs font-medium text-midnight-ink mb-1.5">Currency</p>
-              <div className="flex items-center justify-between border border-input rounded-md px-3 py-2 text-sm bg-background">
+              <div className="flex items-center justify-between border border-soft-border rounded-md px-3 py-2 text-sm bg-white">
                 <span className="text-midnight-ink">Indian Rupee (INR ₹)</span>
                 <span className="text-cool-gray text-xs">⇅</span>
               </div>
@@ -836,8 +836,8 @@ export function CreateOrderForm({ embedded = false }) {
         {orderMessage.text && (
           <div className={`mb-4 p-4 rounded-lg text-sm ${
             orderMessage.type === 'success'
-              ? 'bg-green-50 border border-green-200 text-green-800'
-              : 'bg-red-50 border border-red-200 text-red-800'
+              ? 'bg-cloud-gray border border-soft-border text-midnight-ink'
+              : 'bg-cloud-gray border border-soft-border text-midnight-ink'
           }`}>
             {orderMessage.text}
           </div>
@@ -853,7 +853,7 @@ export function CreateOrderForm({ embedded = false }) {
           <Button
             onClick={handleCreateOrder}
             disabled={isCreatingOrder || orderItems.length === 0}
-            className="px-8 py-2.5 font-semibold"
+            className="px-8 py-2.5 font-semibold bg-midnight-ink text-white hover:opacity-95"
           >
             {isCreatingOrder ? 'Creating order...' : 'Create order'}
           </Button>
@@ -891,7 +891,7 @@ export function CreateOrderForm({ embedded = false }) {
             )}
             {!productsLoading && filteredProducts.length === 0 && (
               <div className="flex flex-col items-center justify-center py-16 text-sm text-cool-gray gap-2">
-                <Search className="h-8 w-8 text-gray-300" />
+                <Search className="h-8 w-8 text-cool-gray" />
                 <p>No products found</p>
               </div>
             )}
@@ -899,7 +899,7 @@ export function CreateOrderForm({ embedded = false }) {
               filteredProducts.map((p) => (
                 <label
                   key={p.id}
-                  className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 cursor-pointer border-b border-soft-border last:border-0"
+                  className="flex items-center gap-3 px-4 py-3 hover:bg-cloud-gray cursor-pointer border-b border-soft-border last:border-0"
                 >
                   <Checkbox
                     checked={selectedProductIds.has(p.id)}
@@ -912,12 +912,12 @@ export function CreateOrderForm({ embedded = false }) {
                     }}
                   />
                   {/* Product colour swatch placeholder */}
-                  <div className="w-10 h-10 rounded-md bg-gray-100 border border-soft-border shrink-0 flex items-center justify-center text-xs text-cool-gray font-medium uppercase">
+                  <div className="w-10 h-10 rounded-md bg-cloud-gray border border-soft-border shrink-0 flex items-center justify-center text-xs text-cool-gray font-medium uppercase">
                     {(p.name || '?').charAt(0)}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="text-sm font-medium text-midnight-ink truncate">{p.name}</div>
-                    {p.sku && <div className="text-xs text-cool-gray">SKU: {p.sku}</div>}
+                    {p.master_sku && <div className="text-xs text-cool-gray">SKU: {p.master_sku}</div>}
                     {p.category && <div className="text-xs text-cool-gray">{p.category}</div>}
                   </div>
                   <div className="text-sm font-semibold text-midnight-ink shrink-0">
@@ -940,7 +940,7 @@ export function CreateOrderForm({ embedded = false }) {
               >
                 Cancel
               </Button>
-              <Button onClick={addSelectedProducts} disabled={selectedProductIds.size === 0}>
+              <Button onClick={addSelectedProducts} disabled={selectedProductIds.size === 0} className="bg-midnight-ink text-white hover:opacity-95">
                 Add {selectedProductIds.size > 0 ? selectedProductIds.size : ''}{' '}
                 {selectedProductIds.size === 1 ? 'item' : 'items'}
               </Button>
@@ -1000,7 +1000,7 @@ export function CreateOrderForm({ embedded = false }) {
             {/* Reference Images */}
             <div>
               <label className="text-sm font-medium text-midnight-ink mb-1.5 block">Reference images</label>
-              <div className="relative border-2 border-dashed border-soft-border rounded-md p-4 flex flex-col items-center justify-center cursor-pointer hover:bg-gray-50 transition-colors">
+              <div className="relative border-2 border-dashed border-soft-border rounded-md p-4 flex flex-col items-center justify-center cursor-pointer hover:bg-cloud-gray transition-colors">
                 <input
                   type="file"
                   accept="image/*"
@@ -1038,7 +1038,7 @@ export function CreateOrderForm({ embedded = false }) {
                                 images: v.images.filter((_, i) => i !== idx),
                               }));
                             }}
-                            className="absolute -top-2 -right-2 bg-red-500 hover:bg-red-600 text-white rounded-full p-1 transition-colors"
+                            className="absolute -top-2 -right-2 bg-midnight-ink hover:bg-slate-text text-white rounded-full p-1 transition-colors"
                           >
                             <X size={14} />
                           </button>
@@ -1061,7 +1061,7 @@ export function CreateOrderForm({ embedded = false }) {
               <label className="text-sm font-medium text-midnight-ink mb-1.5 block">Note</label>
               <textarea
                 rows={3}
-                className="w-full text-sm border border-input rounded-md px-3 py-2 resize-none bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                className="w-full text-sm border border-soft-border bg-white rounded-md px-3 py-2 resize-none placeholder:text-cool-gray focus:outline-none focus:ring-2 focus:ring-midnight-ink/20"
                 placeholder="Add any notes..."
                 value={customItem.note}
                 onChange={(e) => setCustomItem((v) => ({ ...v, note: e.target.value }))}
@@ -1070,9 +1070,10 @@ export function CreateOrderForm({ embedded = false }) {
           </div>
           <div className="flex justify-end gap-2 pt-2 border-t border-soft-border">
             <Button variant="outline" onClick={() => setIsCustomItemOpen(false)}>Cancel</Button>
-            <Button
+              <Button
               onClick={addCustomItem}
               disabled={!customItem.name.trim() || !customItem.price}
+                className="bg-midnight-ink text-white hover:opacity-95"
             >
               Add item
             </Button>
@@ -1121,7 +1122,7 @@ export function CreateOrderForm({ embedded = false }) {
             <div>
               <label className="text-sm font-medium text-midnight-ink mb-1.5 block">Language</label>
               <select
-                className="w-full border border-input rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+                className="w-full border border-soft-border rounded-md px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-midnight-ink/20"
                 value={newCustomer.language}
                 onChange={(e) => setNewCustomer((v) => ({ ...v, language: e.target.value }))}
               >
@@ -1198,7 +1199,7 @@ export function CreateOrderForm({ embedded = false }) {
             </div>
 
             {createCustomerError && (
-              <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+              <div className="rounded-md border border-soft-border bg-cloud-gray px-3 py-2 text-sm text-midnight-ink">
                 {createCustomerError}
               </div>
             )}
@@ -1237,7 +1238,7 @@ export function CreateOrderForm({ embedded = false }) {
               <div>
                 <label className="text-sm font-medium text-midnight-ink mb-1.5 block">State</label>
                 <select
-                  className="w-full border border-input rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+                  className="w-full border border-soft-border rounded-md px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-midnight-ink/20"
                   value={newCustomer.state}
                   onChange={(e) => setNewCustomer((v) => ({ ...v, state: e.target.value }))}
                 >
@@ -1263,7 +1264,7 @@ export function CreateOrderForm({ embedded = false }) {
             <div>
               <label className="text-sm font-medium text-midnight-ink mb-1.5 block">Phone</label>
               <div className="flex gap-2">
-                <div className="flex items-center gap-1.5 border border-input rounded-md px-3 py-2 text-sm bg-background shrink-0">
+                <div className="flex items-center gap-1.5 border border-soft-border rounded-md px-3 py-2 text-sm bg-white shrink-0">
                   <span>🇮🇳</span>
                   <span className="text-cool-gray">+91</span>
                   <span className="text-cool-gray text-xs">⇅</span>
@@ -1286,7 +1287,7 @@ export function CreateOrderForm({ embedded = false }) {
             >
               Cancel
             </Button>
-            <Button onClick={handleCreateCustomer} disabled={isSavingCustomer}>
+            <Button onClick={handleCreateCustomer} disabled={isSavingCustomer} className="bg-midnight-ink text-white hover:opacity-95">
               {isSavingCustomer ? 'Saving...' : 'Save'}
             </Button>
           </div>

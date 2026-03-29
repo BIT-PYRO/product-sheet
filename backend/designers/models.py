@@ -15,12 +15,12 @@ class DesignerSheet(AuditModel):
 
     # ── Design Identity ───────────────────────────────────────────────────────
     motive_code = models.CharField(max_length=120, blank=True, default='')
-    master_sku = models.CharField(max_length=120, blank=True, default='')
+    motive_sku = models.CharField(max_length=120, blank=True, default='')
 
-    # ── Die & Mold ────────────────────────────────────────────────────────────
-    die_code = models.CharField(max_length=120, blank=True, default='')
-    mold_qty_per_die = models.CharField(max_length=60, blank=True, default='')
-    cpx_dead_weight = models.CharField(max_length=60, blank=True, default='')
+    # ── Totals: Die, Mold & CPX Dead Weight ──────────────────────────────────
+    total_die_code = models.DecimalField(max_digits=12, decimal_places=4, null=True, blank=True)
+    total_mold_qty_per_die = models.DecimalField(max_digits=12, decimal_places=4, null=True, blank=True)
+    total_cpx_dead_weight = models.DecimalField(max_digits=12, decimal_places=4, null=True, blank=True)
 
     # ── Physical Dimensions ───────────────────────────────────────────────────
     design_motive_size = models.CharField(max_length=120, blank=True, default='')
@@ -30,7 +30,7 @@ class DesignerSheet(AuditModel):
     design_material = models.CharField(max_length=120, blank=True, default='')
 
     # ── Stone Information (list of stones per SKU) ───────────────────────────
-    # Each entry: {name, material, color, cut, size, quantity, weight}
+    # Each entry: {type, species, variety, color, cut, shape, length, width, height, qty}
     stone_entries = models.JSONField(default=list, blank=True)
 
     # ── Mechanism ─────────────────────────────────────────────────────────────
@@ -70,7 +70,7 @@ class DesignerSheet(AuditModel):
     design_stage = models.CharField(max_length=50, blank=True, default='')
 
     # ── Tracking Table ───────────────────────────────────────────────────────
-    # Each row: {id, tdm, stl, motiveCode, masterSku, dieCode, moldDieQty}
+    # Each row: {id, tdm, stl, motiveCode, motiveSku, dieCode, moldDieQty}
     tracking_rows = models.JSONField(default=list, blank=True)
 
     # ── Notes ─────────────────────────────────────────────────────────────────

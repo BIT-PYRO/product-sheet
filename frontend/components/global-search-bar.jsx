@@ -70,7 +70,7 @@ export default function GlobalSearchBar() {
     );
 
     const productMatches = liveData.products.filter(p =>
-      (p.sku || '').toLowerCase().includes(q) ||
+      (p.master_sku || '').toLowerCase().includes(q) ||
       (p.name || '').toLowerCase().includes(q) ||
       (p.category || '').toLowerCase().includes(q)
     ).slice(0, 8);
@@ -183,8 +183,8 @@ export default function GlobalSearchBar() {
                     >
                       <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-bold shrink-0">P</span>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-midnight-ink truncate">{p.name || p.sku}</p>
-                        <p className="text-xs text-cool-gray">SKU: {p.sku}{p.category ? ` · ${p.category}` : ''}</p>
+                        <p className="text-sm font-semibold text-midnight-ink truncate">{p.name || p.master_sku}</p>
+                        <p className="text-xs text-cool-gray">Master SKU: {p.master_sku}{p.category ? ` · ${p.category}` : ''}</p>
                       </div>
                       <span className="text-[10px] text-cool-gray shrink-0">Master Product Sheet</span>
                     </button>

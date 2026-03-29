@@ -9,6 +9,33 @@ function getBackendBaseUrl() {
   return (process.env.BACKEND_BASE_URL || DEFAULT_BACKEND_URL).replace(/\/$/, '');
 }
 
+function extractTokens(payload) {
+  const access =
+    payload?.data?.access ||
+    payload?.access ||
+    payload?.tokens?.access ||
+    '';
+  const refresh =
+    payload?.data?.refresh ||
+    payload?.refresh ||
+    payload?.tokens?.refresh ||
+    '';
+
+  return {
+    access: String(access || '').trim(),
+    refresh: String(refresh || '').trim(),
+  };
+}
+
+function extractErrorMessage(payload, fallback) {
+  return (
+    payload?.error?.details?.detail ||
+    payload?.error?.message ||
+    payload?.message ||
+    fallback
+  );
+}
+
 export async function POST(request) {
   try {
     const body = await request.json();
@@ -36,15 +63,13 @@ export async function POST(request) {
     });
 
     const loginResult = await loginResponse.json().catch(() => null);
-    const tokenData = loginResult?.data || {};
-    const access = tokenData?.access;
-    const refresh = tokenData?.refresh;
+    const { access, refresh } = extractTokens(loginResult);
 
     if (!loginResponse.ok || !access || !refresh) {
       return NextResponse.json(
         {
           success: false,
-          message: loginResult?.message || 'Invalid user ID or password.',
+          message: extractErrorMessage(loginResult, 'Invalid user ID or password.'),
         },
         { status: loginResponse.status || 401 }
       );
@@ -59,7 +84,7 @@ export async function POST(request) {
     });
 
     const meResult = await meResponse.json().catch(() => null);
-    const user = meResult?.data || null;
+    const user = meResult?.data || meResult || null;
 
     const response = NextResponse.json({
       success: true,

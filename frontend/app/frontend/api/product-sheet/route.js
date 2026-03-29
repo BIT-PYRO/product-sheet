@@ -99,15 +99,14 @@ function normalizeDieFindings(dieNumbers = []) {
 
 function mapIncomingToProductPayload(data) {
   const listingName = String(data?.listingName || '').trim();
-  const sku = String(data?.sku || '').trim();
+  const masterSku = String(data?.sku || '').trim();
   const weightAsPrice = parseWeightToNumber(data?.weightValue, data?.weightUnit);
   const { die_numbers, findings } = normalizeDieFindings(data?.manufacturing?.dieNumbers);
 
-  const firstStone = Array.isArray(data?.stoneInfo) ? data.stoneInfo.find(s => s && (s.name || s.cut || s.color || s.size || s.quantity)) : null;
-
   return {
-    sku,
-    name: listingName || sku,
+    master_sku: masterSku,
+    designer_sku: String(data?.designerSku || '').trim(),
+    name: listingName || masterSku,
     category: String(data?.dropdown2 || data?.category || '').trim(),
     selling_price: weightAsPrice,
     cost_price: weightAsPrice,
@@ -120,14 +119,9 @@ function mapIncomingToProductPayload(data) {
     setting_type: String(data?.settingType || '').trim(),
     enamel_type: String(data?.enamelType || '').trim(),
     active_channels: String(data?.activeChannels || '').trim(),
-    master_sku: String(data?.masterSku || data?.materialSku || sku).trim(),
-    color: String(data?.color || '').trim(),
-    enamel: String(data?.enamel || '').trim(),
-    stone_name: String(data?.stoneName || firstStone?.name || '').trim(),
-    stone_cut: String(data?.stoneCut || firstStone?.cut || '').trim(),
-    stone_color: String(data?.stoneColor || firstStone?.color || '').trim(),
-    stone_size: String(data?.stoneSize || firstStone?.size || '').trim(),
-    stone_quantity: String(data?.stoneQuantity || firstStone?.quantity || '').trim(),
+    color: (() => { const vars = Array.isArray(data?.variations) ? data.variations : []; const vals = vars.filter(v => String(v?.label || '').toUpperCase() === 'COLOR').map(v => { const c1 = String(v?.col1 || '').trim(); const c2 = String(v?.col2 || '').trim(); return c1 ? (c2 ? `${c1}[${c2}]` : c1) : ''; }).filter(Boolean); return vals.length ? vals.join('\n') : String(data?.color || '').trim(); })(),
+    enamel: (() => { const vars = Array.isArray(data?.variations) ? data.variations : []; const vals = vars.filter(v => String(v?.label || '').toUpperCase() === 'ENAMEL').map(v => { const c1 = String(v?.col1 || '').trim(); const c2 = String(v?.col2 || '').trim(); return c1 ? (c2 ? `${c1}[${c2}]` : c1) : ''; }).filter(Boolean); return vals.length ? vals.join('\n') : String(data?.enamel || '').trim(); })(),
+    stone_entries: Array.isArray(data?.stoneInfo) ? data.stoneInfo.map(({ type, species, variety, color, cut, shape, length, width, height, qty }) => ({ type: type || '', species: species || '', variety: variety || '', color: color || '', cut: cut || '', shape: shape || '', length: length || '', width: width || '', height: height || '', qty: qty || '' })) : (Array.isArray(data?.stoneEntries) ? data.stoneEntries : []),
     plating_type: String(Array.isArray(data?.platingType) ? (data.platingType.find(r => r?.col1)?.col1 || '') : (data?.platingType || '')).trim(),
     plating_color: String(Array.isArray(data?.platingType) ? (data.platingType.find(r => r?.col2)?.col2 || '') : (data?.platingColor || '')).trim(),
     notes: String(data?.notes || data?.manufacturing?.notes || '').trim(),
@@ -143,7 +137,7 @@ function mapProductSummaryRows(products = [], inventorySummaryRows = []) {
   );
 
   return products.map((product, index) => {
-    const sku = String(product?.sku || '').trim();
+    const sku = String(product?.master_sku || '').trim();
     const summary = bySku.get(sku) || null;
 
     return {
@@ -167,14 +161,10 @@ function mapProductSummaryRows(products = [], inventorySummaryRows = []) {
         ...(Array.isArray(product?.die_numbers) ? product.die_numbers.map((item, i) => ({ id: i + 1, type: 'die_number', ...item })) : []),
         ...(Array.isArray(product?.findings) ? product.findings.map((item, i) => ({ id: (product?.die_numbers?.length || 0) + i + 1, type: 'findings', ...item })) : []),
       ],
-      masterSku: product?.master_sku || sku,
+      masterSku: sku,
       color: product?.color || '',
       enamel: product?.enamel || '',
-      stoneName: product?.stone_name || '',
-      stoneCut: product?.stone_cut || '',
-      stoneColor: product?.stone_color || '',
-      stoneSize: product?.stone_size || '',
-      stoneQuantity: product?.stone_quantity || '',
+      stone_entries: Array.isArray(product?.stone_entries) ? product.stone_entries : [],
       platingType: product?.plating_type || '',
       platingColor: product?.plating_color || '',
       notes: product?.notes || '',
@@ -262,7 +252,7 @@ async function resolveProductBySku(request, sku) {
   }
 
   const rows = asArray(payload.data);
-  return rows.find((item) => String(item?.sku || '').trim().toLowerCase() === sku.toLowerCase()) || null;
+    return rows.find((item) => String(item?.master_sku || '').trim().toLowerCase() === sku.toLowerCase()) || null;
 }
 
 async function syncInventoryToFinalStock(request, productId, sku, finalStock) {
@@ -346,7 +336,7 @@ export async function GET(request) {
     const summaryRows = products.map((p) => {
       const currentStock = qtyByProduct.get(p.id) || 0;
       return {
-        sku: p.sku || '',
+        sku: p.master_sku || '',
         liveStock: {
           rawMaterial: { min: '', current: String(currentStock), wip: '', location: '' },
           rawSetting: { min: '', current: '', wip: '', location: '' },
@@ -357,7 +347,7 @@ export async function GET(request) {
           finalPolish: { min: '', current: '', wip: '', location: '' },
           readyForPlacing: { min: '', current: '', wip: '', location: '' },
         },
-        finalStock: [{ sku: p.sku || '', value: String(currentStock), unit: 'pcs' }],
+        finalStock: [{ sku: p.master_sku || '', value: String(currentStock), unit: 'pcs' }],
       };
     });
 

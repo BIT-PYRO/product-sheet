@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -31,25 +32,34 @@ const COLUMNS = [
   { id: 'rendered_photo',           label: 'Rendered Photo',                    width: 'min-w-[120px]' },
   { id: 'technical_drawing',        label: 'Technical Drawing',                 width: 'min-w-[160px]' },
   { id: 'sku',                      label: 'Designer SKU',                      width: 'min-w-[120px]' },
+  { id: 'design_stage',             label: 'Design Stage',                      width: 'min-w-[120px]' },
   { id: 'other_photo',              label: 'Other Photo',                       width: 'min-w-[120px]' },
-  { id: 'motive_code',             label: 'Motive Code',                       width: 'min-w-[120px]' },
-  { id: 'master_sku',              label: 'Master SKU',                        width: 'min-w-[120px]' },
-  { id: 'die_code',                 label: 'Die Code',                          width: 'min-w-[100px]' },
-  { id: 'mold_qty_per_die',         label: 'Mold Qty / Die',                    width: 'min-w-[110px]' },
-  { id: 'cpx_dead_weight',          label: 'CPX Dead Weight',                   width: 'min-w-[120px]' },
+  // Tracking rows – one column per field
+  { id: 'track_tdm',          label: '3DM',         group: 'tracking', readOnly: true, width: 'min-w-[90px]'  },
+  { id: 'track_stl',          label: 'STL',         group: 'tracking', readOnly: true, width: 'min-w-[90px]'  },
+  { id: 'track_motive_code',  label: 'Motive Code', group: 'tracking', readOnly: true, width: 'min-w-[110px]' },
+  { id: 'track_motive_sku',   label: 'Motive SKU',  group: 'tracking', readOnly: true, width: 'min-w-[110px]' },
+  { id: 'track_die_code',     label: 'Die Code',    group: 'tracking', readOnly: true, width: 'min-w-[90px]'  },
+  { id: 'track_mold_die_qty', label: 'Mold/Die Qty',group: 'tracking', readOnly: true, width: 'min-w-[90px]'  },
+  { id: 'total_die_code',         label: 'Total Die Code',         width: 'min-w-[120px]' },
+  { id: 'total_mold_qty_per_die', label: 'Total Mold Qty / Die',   width: 'min-w-[130px]' },
+  { id: 'total_cpx_dead_weight',  label: 'Total CPX Dead Weight',  width: 'min-w-[140px]' },
   { id: 'design_motive_size',       label: 'Size of Design Motive',             width: 'min-w-[140px]' },
   { id: 'total_design_measurements',label: 'Total Design Measurements (Approx)',width: 'min-w-[200px]' },
   { id: 'design_material',          label: 'Design Material',                   width: 'min-w-[130px]' },
   { id: 'setting_type',             label: 'Setting Type',                      width: 'min-w-[120px]' },
   { id: 'enamel',                   label: 'Enamel',                            width: 'min-w-[80px]'  },
-  // Stone Information group
-  { id: 'stone_name',               label: 'Name',      group: 'stone', width: 'min-w-[100px]' },
-  { id: 'stone_material',           label: 'Stone Material', group: 'stone', width: 'min-w-[120px]' },
-  { id: 'stone_color',              label: 'Color',     group: 'stone', width: 'min-w-[90px]' },
-  { id: 'stone_cut',                label: 'Cut',       group: 'stone', width: 'min-w-[90px]' },
-  { id: 'stone_size',               label: 'Size',      group: 'stone', width: 'min-w-[90px]' },
-  { id: 'stone_quantity',           label: 'Quantity',  group: 'stone', width: 'min-w-[90px]' },
-  { id: 'stone_weight',             label: 'Stone Weight', group: 'stone', width: 'min-w-[110px]' },
+  // Stone Information – one column per field
+  { id: 'stone_type',     label: 'Type',    group: 'stone', readOnly: true, width: 'min-w-[80px]'  },
+  { id: 'stone_species',  label: 'Species', group: 'stone', readOnly: true, width: 'min-w-[80px]'  },
+  { id: 'stone_variety',  label: 'Variety', group: 'stone', readOnly: true, width: 'min-w-[80px]'  },
+  { id: 'stone_color',    label: 'Color',   group: 'stone', readOnly: true, width: 'min-w-[80px]'  },
+  { id: 'stone_cut',      label: 'Cut',     group: 'stone', readOnly: true, width: 'min-w-[80px]'  },
+  { id: 'stone_shape',    label: 'Shape',   group: 'stone', readOnly: true, width: 'min-w-[80px]'  },
+  { id: 'stone_length',   label: 'Length',  group: 'stone', readOnly: true, width: 'min-w-[70px]'  },
+  { id: 'stone_width',    label: 'Width',   group: 'stone', readOnly: true, width: 'min-w-[70px]'  },
+  { id: 'stone_height',   label: 'Height',  group: 'stone', readOnly: true, width: 'min-w-[70px]'  },
+  { id: 'stone_qty',      label: 'Qty',     group: 'stone', readOnly: true, width: 'min-w-[60px]'  },
   // Mechanism
   { id: 'mechanism',                label: 'Mechanism',                         width: 'min-w-[110px]' },
   // Findings group
@@ -58,83 +68,84 @@ const COLUMNS = [
   { id: 'findings_size',            label: 'Size',     group: 'findings', width: 'min-w-[90px]' },
   { id: 'findings_quantity',        label: 'Quantity', group: 'findings', width: 'min-w-[90px]' },
   { id: 'findings_weight',          label: 'Weight',   group: 'findings', width: 'min-w-[90px]' },
-  // Plating group
-  { id: 'plating_type',             label: 'Plating Type',  group: 'plating', width: 'min-w-[130px]' },
-  { id: 'plating_color',            label: 'Plating Color', group: 'plating', width: 'min-w-[120px]' },
+  // Plating – one column per field
+  { id: 'plating_type',  label: 'Plating Type',  group: 'plating', readOnly: true, width: 'min-w-[100px]' },
+  { id: 'plating_color', label: 'Plating Color', group: 'plating', readOnly: true, width: 'min-w-[100px]' },
+  { id: 'designer_notes',           label: 'Designer Notes',                    width: 'min-w-[180px]' },
 ];
 
-// Group meta â€“ defines the spanning header cells
+// Group meta — defines the spanning header cells
 const GROUPS = {
-  stone:    { label: 'Stone Information', span: 7 },
-  findings: { label: 'Findings',          span: 5 },
-  plating:  { label: 'Plating Info',      span: 2 },
+  tracking: { label: 'Tracking Info',      span: 6  },
+  stone:    { label: 'Stone Information',  span: 10 },
+  findings: { label: 'Findings',           span: 5  },
+  plating:  { label: 'Plating Info',       span: 2  },
 };
 
-// Totals footer â€” which columns show a numeric sum
+// Totals footer — which columns show a numeric sum
 const TOTAL_COLS = new Set([
-  'die_code', 'mold_qty_per_die', 'cpx_dead_weight',
-  'stone_quantity', 'stone_weight',
+  'total_die_code', 'total_mold_qty_per_die', 'total_cpx_dead_weight',
   'findings_quantity', 'findings_weight',
 ]);
 
 // Map a backend row â†’ flat UI row
 function mapRow(row) {
-  // Stone entries â€” flatten first entry; store all for tooltip/expansion
-  const s = (Array.isArray(row.stone_entries) && row.stone_entries[0]) || {};
-  // Findings entries â€” flatten first entry
-  const f = (Array.isArray(row.findings_entries) && row.findings_entries[0]) || {};  // Plating entries — flatten first entry
-  const p = (Array.isArray(row.plating_entries) && row.plating_entries[0]) || {};
+  // Findings entries — flatten first entry
+  const f = (Array.isArray(row.findings_entries) && row.findings_entries[0]) || {};
   return {
     id: row.id,
     hasBackendRecord: true,
     is_active: row.is_active,
     sku: row.sku || '',
     rendered_photo: row.rendered_photo || row.image || '',
-    technical_drawing: row.technical_drawing || '',
+    technical_drawing: row.technical_drawing || row.designer_image_2 || '',
     other_photo: row.designer_image_3 || '',
-    motive_code: row.motive_code || '',
-    master_sku: row.master_sku || '',
-    die_code: row.die_code || '',
-    mold_qty_per_die: row.mold_qty_per_die || '',
-    cpx_dead_weight: row.cpx_dead_weight || '',
+    design_stage: row.design_stage || '',
+    total_die_code: row.total_die_code != null ? String(row.total_die_code) : '',
+    total_mold_qty_per_die: row.total_mold_qty_per_die != null ? String(row.total_mold_qty_per_die) : '',
+    total_cpx_dead_weight: row.total_cpx_dead_weight != null ? String(row.total_cpx_dead_weight) : '',
     design_motive_size: row.design_motive_size || '',
     total_design_measurements: row.total_design_measurements || '',
     design_material: row.design_material || '',
     setting_type: row.setting_type || '',
     enamel: row.enamel || '',
-    stone_name: s.name || '',
-    stone_material: s.material || '',
-    stone_color: s.color || '',
-    stone_cut: s.cut || '',
-    stone_size: s.size || '',
-    stone_quantity: s.quantity || '',
-    stone_weight: s.weight || '',
     mechanism: row.mechanism || '',
+    designer_notes: row.designer_notes || '',
     findings_code: f.code || '',
     findings_die: f.die || '',
     findings_size: f.size || '',
     findings_quantity: f.quantity || '',
     findings_weight: f.weight || '',
-    plating_type: p.type || '',
-    plating_color: p.color || '',
-    // keep full arrays for save
     _stone_entries: Array.isArray(row.stone_entries) ? row.stone_entries : [],
     _findings_entries: Array.isArray(row.findings_entries) ? row.findings_entries : [],
     _plating_entries: Array.isArray(row.plating_entries) ? row.plating_entries : [],
+    _tracking_rows: Array.isArray(row.tracking_rows) ? row.tracking_rows : [],
+    // Flat display fields for tracking rows (joined with ' / ' when multiple)
+    ...(() => {
+      const tRows = (Array.isArray(row.tracking_rows) ? row.tracking_rows : []).filter((r) =>
+        ['tdm','stl','motiveCode','motiveSku','dieCode','moldDieQty'].some((k) => String(r[k] || '').trim()));
+      const join = (key) => tRows.map((r) => r[key] || '').filter(Boolean).join(' / ');
+      return { track_tdm: join('tdm'), track_stl: join('stl'), track_motive_code: join('motiveCode'), track_motive_sku: join('motiveSku'), track_die_code: join('dieCode'), track_mold_die_qty: join('moldDieQty') };
+    })(),
+    // Flat display fields for stone entries
+    ...(() => {
+      const sRows = (Array.isArray(row.stone_entries) ? row.stone_entries : []).filter((s) =>
+        Object.values(s).some((v) => String(v || '').trim()));
+      const join = (key) => sRows.map((s) => s[key] || '').filter(Boolean).join(' / ');
+      return { stone_type: join('type'), stone_species: join('species'), stone_variety: join('variety'), stone_color: join('color'), stone_cut: join('cut'), stone_shape: join('shape'), stone_length: join('length'), stone_width: join('width'), stone_height: join('height'), stone_qty: join('qty') };
+    })(),
+    // Flat display fields for plating entries
+    ...(() => {
+      const pRows = (Array.isArray(row.plating_entries) ? row.plating_entries : []).filter((p) =>
+        Object.values(p).some((v) => String(v || '').trim()));
+      return { plating_type: pRows.map((p) => p.type || '').filter(Boolean).join(' / '), plating_color: pRows.map((p) => p.color || '').filter(Boolean).join(' / ') };
+    })(),
   };
 }
 
 // Convert flat UI row back to backend payload
 function toPayload(row) {
-  const stoneEntries = row._stone_entries.length > 0
-    ? [{ ...row._stone_entries[0],
-        name: row.stone_name, material: row.stone_material,
-        color: row.stone_color, cut: row.stone_cut, size: row.stone_size,
-        quantity: row.stone_quantity, weight: row.stone_weight,
-      }, ...row._stone_entries.slice(1)]
-    : (row.stone_name ? [{ name: row.stone_name, material: row.stone_material,
-        color: row.stone_color, cut: row.stone_cut, size: row.stone_size,
-        quantity: row.stone_quantity, weight: row.stone_weight }] : []);
+  const stoneEntries = row._stone_entries || [];
 
   const findingsEntries = row._findings_entries.length > 0
     ? [{ ...row._findings_entries[0],
@@ -144,20 +155,20 @@ function toPayload(row) {
     : (row.findings_code ? [{ code: row.findings_code, die: row.findings_die,
         size: row.findings_size, quantity: row.findings_quantity, weight: row.findings_weight }] : []);
 
-  const platingEntries = row._plating_entries && row._plating_entries.length > 0
-    ? [{ ...row._plating_entries[0], type: row.plating_type, color: row.plating_color }, ...row._plating_entries.slice(1)]
-    : (row.plating_type ? [{ type: row.plating_type, color: row.plating_color }] : []);
+  const platingEntries = row._plating_entries || [];
+  const trackingRowsPayload = row._tracking_rows || [];
 
   return {
     sku: row.sku,
     rendered_photo: row.rendered_photo,
     technical_drawing: row.technical_drawing,
     designer_image_3: row.other_photo,
-    motive_code: row.motive_code,
-    master_sku: row.master_sku,
-    die_code: row.die_code,
-    mold_qty_per_die: row.mold_qty_per_die,
-    cpx_dead_weight: row.cpx_dead_weight,
+    design_stage: row.design_stage,
+    designer_notes: row.designer_notes,
+    tracking_rows: trackingRowsPayload,
+    total_die_code: row.total_die_code !== '' ? Number(row.total_die_code) : null,
+    total_mold_qty_per_die: row.total_mold_qty_per_die !== '' ? Number(row.total_mold_qty_per_die) : null,
+    total_cpx_dead_weight: row.total_cpx_dead_weight !== '' ? Number(row.total_cpx_dead_weight) : null,
     design_motive_size: row.design_motive_size,
     total_design_measurements: row.total_design_measurements,
     design_material: row.design_material,
@@ -172,6 +183,7 @@ function toPayload(row) {
 }
 
 export default function MasterDesignerSheet() {
+  const router = useRouter();
   const [lastUpdated, setLastUpdated] = useState(null);
   const [currentUsername, setCurrentUsername] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
@@ -248,7 +260,49 @@ export default function MasterDesignerSheet() {
     setData(data.map((row) => (row.id === id ? { ...row, [field]: value } : row)));
   };
 
-  // Fetch product data when Master SKU is typed and Enter/Tab pressed
+  const handleStoneChange = (rowId, idx, field, value) => {
+    setData((prev) => prev.map((row) => {
+      if (row.id !== rowId) return row;
+      const entries = [...(row._stone_entries || [])];
+      entries[idx] = { ...entries[idx], [field]: value };
+      return { ...row, _stone_entries: entries };
+    }));
+  };
+  const handleAddStoneEntry = (rowId) => {
+    setData((prev) => prev.map((row) => row.id !== rowId ? row : {
+      ...row, _stone_entries: [...(row._stone_entries || []), { type: '', species: '', variety: '', color: '', cut: '', shape: '', length: '', width: '', height: '', qty: '' }],
+    }));
+  };
+  const handleDeleteStoneEntry = (rowId, idx) => {
+    setData((prev) => prev.map((row) => {
+      if (row.id !== rowId) return row;
+      const entries = [...(row._stone_entries || [])]; entries.splice(idx, 1);
+      return { ...row, _stone_entries: entries };
+    }));
+  };
+
+  const handlePlatingChange = (rowId, idx, field, value) => {
+    setData((prev) => prev.map((row) => {
+      if (row.id !== rowId) return row;
+      const entries = [...(row._plating_entries || [])];
+      entries[idx] = { ...entries[idx], [field]: value };
+      return { ...row, _plating_entries: entries };
+    }));
+  };
+  const handleAddPlatingEntry = (rowId) => {
+    setData((prev) => prev.map((row) => row.id !== rowId ? row : {
+      ...row, _plating_entries: [...(row._plating_entries || []), { type: '', color: '' }],
+    }));
+  };
+  const handleDeletePlatingEntry = (rowId, idx) => {
+    setData((prev) => prev.map((row) => {
+      if (row.id !== rowId) return row;
+      const entries = [...(row._plating_entries || [])]; entries.splice(idx, 1);
+      return { ...row, _plating_entries: entries };
+    }));
+  };
+
+  // Fetch product data when Motive SKU is typed and Enter/Tab pressed
   const handleSkuLookup = async (rowId, sku) => {
     const s = (sku || '').trim();
     if (!s) return;
@@ -267,11 +321,6 @@ export default function MasterDesignerSheet() {
           if (row.id !== rowId) return row;
           const updates = {};
           if (product.material && !row.design_material) updates.design_material = product.material;
-          if (product.stone_name && !row.stone_name) updates.stone_name = product.stone_name;
-          if (product.stone_cut && !row.stone_cut) updates.stone_cut = product.stone_cut;
-          if (product.stone_color && !row.stone_color) updates.stone_color = product.stone_color;
-          if (product.stone_size && !row.stone_size) updates.stone_size = product.stone_size;
-          if (product.stone_quantity && !row.stone_quantity) updates.stone_quantity = product.stone_quantity;
           return Object.keys(updates).length > 0 ? { ...row, ...updates } : row;
         })
       );
@@ -285,18 +334,14 @@ export default function MasterDesignerSheet() {
     setData([...data, {
       id: newId, hasBackendRecord: false, is_active: true,
       sku: '', rendered_photo: '', technical_drawing: '', other_photo: '',
-      motive_code: '', master_sku: '', die_code: '',
-      mold_qty_per_die: '', cpx_dead_weight: '',
+      total_die_code: '', total_mold_qty_per_die: '', total_cpx_dead_weight: '',
       design_motive_size: '', total_design_measurements: '',
       design_material: '',
       setting_type: '', enamel: '',
-      stone_name: '', stone_material: '', stone_color: '',
-      stone_cut: '', stone_size: '', stone_quantity: '', stone_weight: '',
       mechanism: '',
       findings_code: '', findings_die: '', findings_size: '',
       findings_quantity: '', findings_weight: '',
-      plating_type: '', plating_color: '',
-      _stone_entries: [], _findings_entries: [], _plating_entries: [],
+      _stone_entries: [], _findings_entries: [], _plating_entries: [], _tracking_rows: [],
     }]);
   };
 
@@ -324,8 +369,12 @@ export default function MasterDesignerSheet() {
   };
 
   const handleEditRow = () => {
-    if (selectedRows.size === 0) { alert('Select at least one row to edit'); return; }
-    setEditingRowIds(new Set(selectedRows));
+    if (selectedRows.size === 0) { alert('Select a row to edit'); return; }
+    if (selectedRows.size > 1) { alert('Select only one row to open in Designer Sheet'); return; }
+    const rowId = Array.from(selectedRows)[0];
+    const row = data.find((r) => r.id === rowId);
+    if (!row) return;
+    router.push(`/frontend/designer-sheet?id=${row.id}`);
   };
 
   const handleSaveEdit = async () => {
@@ -590,11 +639,14 @@ export default function MasterDesignerSheet() {
                       </td>
                       {visibleCols.map((col) => {
                         const isPhoto = col.id === 'rendered_photo' || col.id === 'technical_drawing' || col.id === 'other_photo';
+                        const isReadOnly = !!col.readOnly;
                         const val = row[col.id] ?? '';
                         const photoFieldName = col.id === 'other_photo' ? 'designer_image_3' : col.id;
                         return (
                           <td key={col.id} className="border border-soft-border p-1" style={isEditing ? { backgroundColor: '#eff6ff' } : {}}>
-                            {isPhoto ? (
+                            {isReadOnly ? (
+                              <span className="px-1 py-0.5 block text-xs">{val}</span>
+                            ) : isPhoto ? (
                               <DesignerPhotoCell
                                 value={val}
                                 rowId={row.id}

@@ -25,6 +25,7 @@ const SHEET_BLOCKS = [
   { href: '#my-desk', title: 'My Desk', subtitle: 'Coming soon', keywords: ['desk', 'personal', 'my work'] },
   { href: '#create-generic-job', title: 'Create Generic Job', subtitle: 'Create jobs for any type of work', keywords: ['job', 'generic', 'create', 'work', 'assignment', 'electrical', 'plumbing', 'labour'] },
   { href: '/master-designer-sheet', title: 'Master Designer Sheet', subtitle: 'Designer records and details', keywords: ['designer', 'records', 'details', 'master', 'design'] },
+  { href: '/designer-sheet', title: 'Designer Sheet', subtitle: 'Designer entry and design data', keywords: ['designer', 'design', 'entry', 'die code', 'alloy', 'motive', 'tracking'] },
   { href: '/finding-sheet', title: 'Master Finding Sheet', subtitle: 'Finding records and details', keywords: ['finding', 'findings', 'die number', 'size', 'quantity', 'weight', 'sheet', 'master'] },
   { href: '/finding-entry', title: 'Finding Sheet', subtitle: 'Finding entry with image upload', keywords: ['finding', 'findings', 'image', 'die number', 'size', 'quantity', 'weight', 'entry', 'upload'] },
   { href: '/inventory', title: 'Inventory', subtitle: 'Inventory final stocks', keywords: ['inventory', 'final stock', 'stock', 'quantity'] },
@@ -89,7 +90,7 @@ export default function HomePage() {
     );
 
     const productMatches = liveData.products.filter(p =>
-      (p.sku || '').toLowerCase().includes(q) ||
+      (p.master_sku || '').toLowerCase().includes(q) ||
       (p.name || '').toLowerCase().includes(q) ||
       (p.category || '').toLowerCase().includes(q)
     ).slice(0, 8);
@@ -296,8 +297,8 @@ export default function HomePage() {
                         >
                           <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-bold shrink-0">P</span>
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-semibold text-midnight-ink truncate">{p.name || p.sku}</p>
-                            <p className="text-xs text-cool-gray">SKU: {p.sku}{p.category ? ` · ${p.category}` : ''}</p>
+                            <p className="text-sm font-semibold text-midnight-ink truncate">{p.name || p.master_sku}</p>
+                            <p className="text-xs text-cool-gray">SKU: {p.master_sku}{p.category ? ` · ${p.category}` : ''}</p>
                           </div>
                           <span className="text-[10px] text-cool-gray shrink-0">Master Product Sheet</span>
                         </button>

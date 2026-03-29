@@ -115,12 +115,12 @@ export function OrderSheetView({ embedded = false }) {
   const buildProductMap = (products) => {
     const map = {};
     products.forEach((product) => {
-      const key = normalizeSku(product?.sku);
+      const key = normalizeSku(product?.master_sku || product?.masterSku || product?.sku);
       if (!key) {
         return;
       }
       map[key] = {
-        sku: product?.sku || '',
+        sku: product?.master_sku || product?.masterSku || product?.sku || '',
         listingName: product?.name || product?.listingName || '',
         material: product?.material || '',
         weight: product?.weight || '',
@@ -240,10 +240,10 @@ export function OrderSheetView({ embedded = false }) {
   };
 
   return (
-    <main className={embedded ? '' : 'h-screen bg-[radial-gradient(circle_at_top_right,_#dbeafe_0%,_#f8fafc_32%,_#ffffff_72%)] overflow-hidden'}>
+    <main className={embedded ? '' : 'h-screen bg-cloud-gray overflow-hidden'}>
       {/* Header */}
       {!embedded && (
-      <div className="bg-white/85 backdrop-blur-xl border-b border-soft-border shadow-sm">
+      <div className="bg-white border-b border-soft-border shadow-sm">
         <div className="max-w-7xl mx-auto px-5 py-3">
           <div className="flex items-center gap-1.5 text-xs text-cool-gray mb-2">
             <Link href="/orders" className="hover:text-midnight-ink">Orders</Link>
@@ -257,7 +257,7 @@ export function OrderSheetView({ embedded = false }) {
             </div>
             <button
               onClick={handleRefresh}
-              className="gap-2 text-xs px-3 py-1.5 rounded-md border border-slate-300 bg-white hover:bg-slate-50 text-midnight-ink font-medium transition-colors flex items-center"
+              className="gap-2 text-xs px-3 py-1.5 rounded-md border border-soft-border bg-white hover:bg-cloud-gray text-midnight-ink font-medium transition-colors flex items-center"
             >
               <RefreshCw className="h-4 w-4" />
               Refresh
@@ -271,7 +271,7 @@ export function OrderSheetView({ embedded = false }) {
       <div className={`${embedded ? 'w-full h-full px-0 py-2' : 'h-[calc(100vh-90px)] max-w-7xl mx-auto px-5 py-4'} min-h-0`}>
         {/* Error message */}
         {error && (
-          <div className="mb-4 p-3 rounded-lg bg-red-50 border border-red-200 text-red-800 text-xs">
+          <div className="mb-4 p-3 rounded-lg bg-danger-soft border border-danger text-danger-dark text-xs">
             {error}
           </div>
         )}
@@ -279,11 +279,11 @@ export function OrderSheetView({ embedded = false }) {
         {/* Vertical split layout: top list, bottom details */}
         <div className="flex flex-col gap-3 h-full min-h-0">
           {/* Top area - Orders table */}
-          <div className="w-full h-[52vh] min-h-[360px] max-h-[56vh] shrink-0 bg-white/95 rounded-2xl border border-slate-200/70 shadow-md overflow-hidden flex flex-col hover:shadow-lg transition-all">
-            <div className="px-4 py-3 border-b border-slate-200/70 bg-gradient-to-r from-slate-50 to-slate-100/70">
+          <div className="w-full h-[52vh] min-h-[360px] max-h-[56vh] shrink-0 bg-white rounded-2xl border border-soft-border shadow-sm overflow-hidden flex flex-col">
+            <div className="px-4 py-3 border-b border-soft-border bg-cloud-gray">
               <div className="flex items-center justify-between">
-                <h3 className="text-xs font-bold uppercase tracking-wide text-slate-700">Orders</h3>
-                <span className="text-[11px] font-semibold text-slate-500">{orders.length} total</span>
+                <h3 className="text-xs font-bold uppercase tracking-wide text-midnight-ink">Orders</h3>
+                <span className="text-[11px] font-semibold text-cool-gray">{orders.length} total</span>
               </div>
             </div>
             {loading ? (
@@ -293,14 +293,14 @@ export function OrderSheetView({ embedded = false }) {
             ) : orders.length === 0 ? (
               <div className="flex flex-col items-center justify-center min-h-[220px] text-xs text-cool-gray gap-2">
                 <p>No orders found</p>
-                <Link href="/orders/create-job" className="text-trust-blue hover:underline font-medium">
+                <Link href="/orders/create-job" className="text-sky-info hover:text-trust-blue hover:underline font-medium">
                   Create an order
                 </Link>
               </div>
             ) : (
               <div className="overflow-y-auto overflow-x-hidden max-h-[360px] min-h-[220px]">
                 <table className="w-full table-fixed border-collapse text-sm">
-                  <thead className="bg-gradient-to-r from-slate-50 via-white to-blue-50 border-b border-soft-border/60 sticky top-0 z-10">
+                  <thead className="bg-cloud-gray border-b border-soft-border sticky top-0 z-10">
                     <tr>
                       <th className="text-left px-4 py-3 text-xs font-bold text-cool-gray uppercase tracking-wide w-[22%]">
                         Date
@@ -319,7 +319,7 @@ export function OrderSheetView({ embedded = false }) {
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-soft-border/50">
+                  <tbody className="divide-y divide-soft-border">
                     {orders.map((order) => (
                       <tr
                         key={order.id}
@@ -327,10 +327,10 @@ export function OrderSheetView({ embedded = false }) {
                           setSelectedOrder(order);
                           setCustomerDetailsUnlocked(false);
                         }}
-                        className={`hover:bg-gradient-to-r hover:from-blue-50/40 hover:to-transparent transition-all cursor-pointer group border-l-4 ${
+                        className={`hover:bg-cloud-gray transition-colors cursor-pointer group border-l-4 ${
                           selectedOrder?.id === order.id
-                            ? 'bg-gradient-to-r from-blue-50/60 to-transparent border-l-trust-blue shadow-sm'
-                            : 'border-l-transparent even:bg-slate-50/30'
+                            ? 'bg-cloud-gray border-l-trust-blue'
+                            : 'border-l-transparent even:bg-white'
                         }`}
                       >
                         <td className="px-4 py-3">
@@ -339,7 +339,7 @@ export function OrderSheetView({ embedded = false }) {
                           </span>
                         </td>
                         <td className="px-4 py-3">
-                          <span className="font-bold text-trust-blue group-hover:text-trust-blue/80 transition-colors text-xs">
+                          <span className="font-bold text-trust-blue group-hover:text-deep-blue transition-colors text-xs">
                             #{order.id}
                           </span>
                         </td>
@@ -367,15 +367,15 @@ export function OrderSheetView({ embedded = false }) {
           </div>
 
           {/* Bottom area - Order details (shown only after selecting an order) */}
-          <div className="w-full flex-1 min-h-0 bg-white/95 rounded-2xl border border-slate-200/70 shadow-lg overflow-hidden flex flex-col">
+          <div className="w-full flex-1 min-h-0 bg-white rounded-2xl border border-soft-border shadow-sm overflow-hidden flex flex-col">
             {selectedOrder ? (
               <div className="flex-1 overflow-y-auto">
                 {/* Header */}
-                <div className="sticky top-0 bg-gradient-to-r from-midnight-ink via-slate-800 to-midnight-ink/80 text-white p-2 z-20 shadow-md">
+                <div className="sticky top-0 bg-trust-blue border-b border-soft-border p-2 z-20 shadow-sm">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h2 className="text-sm font-bold">Order #{selectedOrder.id}</h2>
-                      <p className="text-xs text-white/70 mt-0.5 leading-tight">
+                      <h2 className="text-sm font-bold text-white">Order #{selectedOrder.id}</h2>
+                      <p className="text-xs text-white/80 mt-0.5 leading-tight">
                         Status: <span className="font-medium text-white">{selectedOrder.status || 'Pending'}</span>
                       </p>
                     </div>
@@ -386,13 +386,13 @@ export function OrderSheetView({ embedded = false }) {
                 <div className="p-3 space-y-3 min-h-0 flex flex-col">
                   {/* Summary cards */}
                   <div className="grid grid-cols-2 gap-2">
-                    <div className="p-2 bg-gradient-to-br from-slate-50 to-white rounded-lg border border-soft-border/60 shadow-sm hover:shadow-md transition-shadow">
+                    <div className="p-2 bg-white rounded-lg border border-soft-border">
                       <p className="text-xs text-cool-gray mb-0.5">Created</p>
                       <p className="font-bold text-midnight-ink text-xs leading-tight">
                         {new Date(selectedOrder.created_at).toLocaleDateString('en-GB')}
                       </p>
                     </div>
-                    <div className="p-2 bg-gradient-to-br from-slate-50 to-white rounded-lg border border-soft-border/60 shadow-sm hover:shadow-md transition-shadow">
+                    <div className="p-2 bg-white rounded-lg border border-soft-border">
                       <p className="text-xs text-cool-gray mb-0.5">Total</p>
                       <p className="font-bold text-midnight-ink text-xs leading-tight">
                         {fmt(selectedOrder.total)}
@@ -404,27 +404,27 @@ export function OrderSheetView({ embedded = false }) {
                   {!customerDetailsUnlocked ? (
                     <div
                       onClick={handleOpenPasswordDialog}
-                      className="p-3 rounded-lg border border-slate-300/40 bg-gradient-to-br from-slate-50/80 to-slate-100/40 hover:from-slate-100/80 hover:to-slate-100/60 cursor-pointer transition-all group shadow-sm hover:shadow-md"
+                      className="p-3 rounded-lg border border-soft-border bg-cloud-gray hover:bg-white cursor-pointer transition-colors group"
                     >
                       <div className="flex items-center gap-3">
-                        <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-gradient-to-br from-slate-400 to-slate-500 group-hover:from-slate-500 group-hover:to-slate-600 transition-all shadow-md">
+                        <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-trust-blue group-hover:bg-deep-blue transition-colors">
                           <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
                             <path d="M12 1C6.48 1 2 5.48 2 11v10c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V11c0-5.52-4.48-10-10-10zm-2 15h4v2h-4v-2zm6-9H8V6h8v1z"/>
                           </svg>
                         </div>
                         <div>
                           <p className="font-bold text-midnight-ink text-xs uppercase tracking-wide">Customer Details</p>
-                          <p className="text-xs text-slate-600 leading-tight">Enter passcode to unlock</p>
+                          <p className="text-xs text-cool-gray leading-tight">Enter passcode to unlock</p>
                         </div>
                       </div>
                     </div>
                   ) : (
-                    <div className="p-3 rounded-lg bg-gradient-to-br from-slate-50/90 to-blue-50/50 border border-slate-300/40 shadow-sm animate-fade-in">
+                    <div className="p-3 rounded-lg bg-white border border-soft-border shadow-sm animate-fade-in">
                       <div className="flex items-center justify-between mb-2">
                         <h3 className="font-bold text-midnight-ink text-xs uppercase tracking-wide">Customer Details</h3>
                         <button
                           onClick={() => setCustomerDetailsUnlocked(false)}
-                          className="text-xs text-slate-500 hover:text-midnight-ink transition-colors underline"
+                          className="text-xs text-cool-gray hover:text-midnight-ink transition-colors underline"
                         >
                           Lock
                         </button>
@@ -440,7 +440,7 @@ export function OrderSheetView({ embedded = false }) {
                           { label: 'Zip', value: selectedOrder.customer_zip },
                         ].map((detail, idx) => (
                           <div key={idx} className="text-xs">
-                            <p className="text-slate-600 font-medium mb-0.5 leading-tight">{detail.label}</p>
+                            <p className="text-cool-gray font-medium mb-0.5 leading-tight">{detail.label}</p>
                             <p className="text-midnight-ink font-semibold text-xs leading-tight">{detail.value || '—'}</p>
                           </div>
                         ))}
@@ -450,23 +450,23 @@ export function OrderSheetView({ embedded = false }) {
 
                   {/* Unified product details (includes order item info) */}
                   {selectedOrder.items && selectedOrder.items.length > 0 && (
-                    <div className={`mt-1 rounded-xl border border-slate-200/80 bg-gradient-to-b from-white to-slate-50/70 shadow-sm overflow-hidden flex flex-col min-h-0 ${showProductDetails ? 'flex-1' : ''}`}>
-                      <div className="px-3 py-2.5 border-b border-slate-200/80 flex items-center justify-between gap-2">
-                        <span className="text-xs font-bold text-slate-700 uppercase tracking-wide">
+                    <div className={`mt-1 rounded-xl border border-soft-border bg-white shadow-sm overflow-hidden flex flex-col min-h-0 ${showProductDetails ? 'flex-1' : ''}`}>
+                      <div className="px-3 py-2.5 border-b border-soft-border flex items-center justify-between gap-2 bg-cloud-gray">
+                        <span className="text-xs font-bold text-midnight-ink uppercase tracking-wide">
                           Product Details
                         </span>
                         <div className="flex items-center gap-3">
                           <button
                             type="button"
                             onClick={() => setShowManageDetailsColumns(true)}
-                            className="text-xs font-semibold text-slate-600 hover:text-slate-900 transition-colors"
+                            className="text-xs font-semibold text-sky-info hover:text-trust-blue transition-colors"
                           >
                             Manage Columns
                           </button>
                           <button
                             type="button"
                             onClick={() => setShowProductDetails((prev) => !prev)}
-                            className="inline-flex items-center gap-1 text-xs font-semibold text-trust-blue hover:text-deep-blue transition-colors"
+                            className="inline-flex items-center gap-1 text-xs font-semibold text-sky-info hover:text-trust-blue transition-colors"
                           >
                             {showProductDetails ? 'Show less' : 'Show more'}
                             <ChevronRight className={`h-3.5 w-3.5 transition-transform duration-300 ${showProductDetails ? 'rotate-90' : 'rotate-0'}`} />
@@ -483,26 +483,26 @@ export function OrderSheetView({ embedded = false }) {
                               <div className="text-xs text-cool-gray">Loading product details…</div>
                             )}
                             {!productsLoading && productsError && (
-                              <div className="text-xs text-red-700">{productsError}</div>
+                              <div className="text-xs text-midnight-ink">{productsError}</div>
                             )}
                             {!productsLoading && !productsError && (
-                              <div className="rounded-lg bg-white border border-slate-200/70 shadow-sm overflow-hidden">
+                              <div className="rounded-lg bg-white border border-soft-border shadow-sm overflow-hidden">
                                 {PRODUCT_DETAIL_FIELDS.some((field) => visibleDetailFields.has(field.key)) ? (
                                   <div className="overflow-x-auto">
                                     <table className="min-w-full text-xs">
-                                      <thead className="bg-gradient-to-r from-slate-50 to-blue-50 border-b border-soft-border/60">
+                                      <thead className="bg-cloud-gray border-b border-soft-border">
                                         <tr>
                                           {PRODUCT_DETAIL_FIELDS.filter((field) => visibleDetailFields.has(field.key)).map((field) => (
                                             <th
                                               key={field.key}
-                                              className="text-left px-2 py-1.5 font-bold text-slate-700 whitespace-nowrap"
+                                              className="text-left px-2 py-1.5 font-bold text-midnight-ink whitespace-nowrap"
                                             >
                                               {field.label}
                                             </th>
                                           ))}
                                         </tr>
                                       </thead>
-                                      <tbody className="divide-y divide-soft-border/40">
+                                      <tbody className="divide-y divide-soft-border">
                                         {selectedOrder.items.map((item, idx) => {
                                           const productDetails = productsBySku[normalizeSku(item.sku)] || {};
                                           const details = {
@@ -535,7 +535,7 @@ export function OrderSheetView({ embedded = false }) {
                                           };
 
                                           return (
-                                            <tr key={item.id || idx} className="hover:bg-blue-50/60 transition-all">
+                                            <tr key={item.id || idx} className="hover:bg-cloud-gray transition-colors">
                                               {PRODUCT_DETAIL_FIELDS.filter((field) => visibleDetailFields.has(field.key)).map((field) => (
                                                 <td
                                                   key={`${item.id || idx}-${field.key}`}
@@ -563,60 +563,11 @@ export function OrderSheetView({ embedded = false }) {
                     </div>
                   )}
 
-                  {/* Payment summary */}
-                  <div className="bg-gradient-to-br from-slate-900 via-midnight-ink to-slate-800 text-white rounded-lg p-3 space-y-1.5 text-xs shadow-lg shrink-0">
-                    {/* Header */}
-                    <div className="pb-1.5 border-b border-white/30">
-                      <h3 className="font-bold text-xs uppercase tracking-widest mb-0.5 text-blue-100">Payment Summary</h3>
-                      <p className="text-white/50 text-xs leading-tight">Detailed breakdown</p>
-                    </div>
-
-                    {/* Breakdown */}
-                    <div className="space-y-1.5 py-1.5 border-y border-white/30\">
-                      <div className="flex items-center justify-between hover:bg-white/5 px-1.5 py-0.5 rounded transition-colors">
-                        <div className="flex items-center gap-2\">
-                          <div className="w-1.5 h-1.5 rounded-full bg-blue-300/70\"></div>
-                          <span className="text-white/80 text-xs font-medium\">Subtotal</span>
-                        </div>
-                        <span className="font-bold text-xs text-white\">{fmt(selectedOrder.subtotal || selectedOrder.total)}</span>
-                      </div>
-                      
-                      {selectedOrder.discount > 0 && (
-                        <div className="flex items-center justify-between hover:bg-white/5 px-1.5 py-0.5 rounded transition-colors\">
-                          <div className="flex items-center gap-2\">
-                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-400/80\"></div>
-                            <span className="text-white/80 text-xs font-medium\">Discount</span>
-                          </div>
-                          <span className="font-bold text-xs text-emerald-300">-{fmt(selectedOrder.discount)}</span>
-                        </div>
-                      )}
-                      
-                      {selectedOrder.shipping > 0 && (
-                        <div className="flex items-center justify-between hover:bg-white/5 px-1.5 py-0.5 rounded transition-colors\">
-                          <div className="flex items-center gap-2\">
-                            <div className="w-1.5 h-1.5 rounded-full bg-amber-400/80\"></div>
-                            <span className="text-white/80 text-xs font-medium\">Shipping</span>
-                          </div>
-                          <span className="font-bold text-xs text-amber-300">{fmt(selectedOrder.shipping)}</span>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Total */}
-                    <div className="pt-1 bg-gradient-to-r from-white/5 to-transparent rounded px-1.5 py-1\">
-                      <div className="flex items-baseline justify-between\">
-                        <span className="font-bold text-xs uppercase tracking-widest text-blue-100\">Amount Due</span>
-                        <span className="font-bold text-lg text-blue-300\">{fmt(selectedOrder.total)}</span>
-                      </div>
-                      <p className="text-white/40 text-xs mt-0.5 text-right italic\">All inclusive charges</p>
-                    </div>
-                  </div>
-
                   {/* Notes */}
                   {selectedOrder.notes && (
-                    <div className="bg-gradient-to-br from-amber-50 to-yellow-50 rounded-lg p-3 border border-amber-200/60 shadow-sm shrink-0">
-                      <h3 className="font-bold text-amber-900 text-xs mb-1 uppercase tracking-wide">Notes</h3>
-                      <p className="text-xs text-amber-800/80 leading-tight line-clamp-2">{selectedOrder.notes}</p>
+                    <div className="bg-white rounded-lg p-3 border border-soft-border shadow-sm shrink-0">
+                      <h3 className="font-bold text-midnight-ink text-xs mb-1 uppercase tracking-wide">Notes</h3>
+                      <p className="text-xs text-cool-gray leading-tight line-clamp-2">{selectedOrder.notes}</p>
                     </div>
                   )}
                 </div>
@@ -635,28 +586,28 @@ export function OrderSheetView({ embedded = false }) {
       {/* Password Dialog */}
       {showManageDetailsColumns && (
         <div className="fixed inset-0 bg-black/35 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-xl w-full max-h-[80vh] overflow-hidden border border-slate-200/80">
-            <div className="px-6 py-4 border-b border-slate-200/80 flex items-center justify-between">
-              <h3 className="text-2xl font-bold text-slate-800">Manage Columns</h3>
+          <div className="bg-white rounded-2xl shadow-xl max-w-xl w-full max-h-[80vh] overflow-hidden border border-soft-border">
+            <div className="px-6 py-4 border-b border-soft-border flex items-center justify-between bg-cloud-gray">
+              <h3 className="text-2xl font-bold text-midnight-ink">Manage Columns</h3>
               <button
                 type="button"
                 onClick={() => setShowManageDetailsColumns(false)}
-                className="text-slate-500 hover:text-slate-800 text-2xl leading-none"
+                className="text-cool-gray hover:text-midnight-ink text-2xl leading-none"
               >
                 ×
               </button>
             </div>
 
             <div className="px-6 pt-4 pb-3 max-h-[50vh] overflow-y-auto">
-              <label className="flex items-center justify-between gap-3 py-2 border-b border-slate-200/80 mb-2">
+              <label className="flex items-center justify-between gap-3 py-2 border-b border-soft-border mb-2">
                 <div className="flex items-center gap-3">
                   <input
                     type="checkbox"
                     checked={selectedDetailFields.size === PRODUCT_DETAIL_FIELDS.length && PRODUCT_DETAIL_FIELDS.length > 0}
                     onChange={toggleSelectAllDetailFields}
-                    className="h-5 w-5 rounded border-slate-300 text-trust-blue"
+                    className="h-5 w-5 rounded border-soft-border text-midnight-ink"
                   />
-                  <span className="text-xl font-semibold text-slate-800">Select All</span>
+                  <span className="text-xl font-semibold text-midnight-ink">Select All</span>
                 </div>
               </label>
 
@@ -668,11 +619,11 @@ export function OrderSheetView({ embedded = false }) {
                         type="checkbox"
                         checked={selectedDetailFields.has(field.key)}
                         onChange={() => toggleDetailFieldSelection(field.key)}
-                        className="h-5 w-5 rounded border-slate-300 text-trust-blue"
+                        className="h-5 w-5 rounded border-soft-border text-midnight-ink"
                       />
-                      <span className="text-sm text-slate-800">{field.label}</span>
+                      <span className="text-sm text-midnight-ink">{field.label}</span>
                     </div>
-                    <span className={`px-3 py-1 rounded-full text-sm font-semibold ${visibleDetailFields.has(field.key) ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>
+                    <span className={`px-3 py-1 rounded-full text-sm font-semibold ${visibleDetailFields.has(field.key) ? 'bg-cloud-gray text-midnight-ink border border-soft-border' : 'bg-white text-cool-gray border border-soft-border'}`}>
                       {visibleDetailFields.has(field.key) ? 'Visible' : 'Hidden'}
                     </span>
                   </label>
@@ -680,12 +631,12 @@ export function OrderSheetView({ embedded = false }) {
               </div>
             </div>
 
-            <div className="px-6 py-4 border-t border-slate-200/80 flex items-center justify-end gap-3">
+            <div className="px-6 py-4 border-t border-soft-border flex items-center justify-end gap-3">
               <button
                 type="button"
                 onClick={handleHideDetailFields}
                 disabled={selectedDetailFields.size === 0}
-                className="px-6 py-2 rounded-xl border border-rose-200 text-rose-400 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-rose-50 transition-colors text-sm font-semibold"
+                className="px-6 py-2 rounded-xl border border-soft-border text-cool-gray disabled:opacity-50 disabled:cursor-not-allowed hover:bg-cloud-gray transition-colors text-sm font-semibold"
               >
                 Hide
               </button>
@@ -693,7 +644,7 @@ export function OrderSheetView({ embedded = false }) {
                 type="button"
                 onClick={handleShowDetailFields}
                 disabled={selectedDetailFields.size === 0}
-                className="px-6 py-2 rounded-xl border border-emerald-200 text-emerald-400 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-emerald-50 transition-colors text-sm font-semibold"
+                className="px-6 py-2 rounded-xl border border-soft-border bg-trust-blue text-white disabled:opacity-50 disabled:cursor-not-allowed hover:bg-deep-blue transition-colors text-sm font-semibold"
               >
                 Show
               </button>
@@ -704,10 +655,10 @@ export function OrderSheetView({ embedded = false }) {
 
       {showPasswordDialog && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
-          <div className="bg-white rounded-xl shadow-xl max-w-sm w-full transform transition-all">
+          <div className="bg-white rounded-xl shadow-xl max-w-sm w-full transform transition-all border border-soft-border">
             <div className="p-6">
               <div className="flex justify-center mb-3">
-                <div className="flex items-center justify-center w-12 h-12 rounded-full bg-gradient-to-br from-trust-blue to-trust-blue/80">
+                <div className="flex items-center justify-center w-12 h-12 rounded-full bg-trust-blue">
                   <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M12 1C6.48 1 2 5.48 2 11v10c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V11c0-5.52-4.48-10-10-10zm-2 15h4v2h-4v-2zm6-9H8V6h8v1z"/>
                   </svg>
@@ -722,13 +673,13 @@ export function OrderSheetView({ embedded = false }) {
                 value={passwordInput}
                 onChange={(e) => setPasswordInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleVerifyPassword()}
-                className="w-full px-3 py-2 border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-trust-blue/50 focus:border-trust-blue mb-3 text-center text-lg tracking-[0.3em] font-semibold transition-all"
+                className="w-full px-3 py-2 border border-soft-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring focus:border-trust-blue mb-3 text-center text-lg tracking-[0.3em] font-semibold transition-all"
                 autoFocus
               />
               
               {passwordError && (
-                <div className="mb-3 p-2 bg-red-50 border border-red-200 rounded-lg">
-                  <p className="text-xs text-red-700 text-center font-medium">{passwordError}</p>
+                <div className="mb-3 p-2 bg-danger-soft border border-danger rounded-lg">
+                  <p className="text-xs text-danger-dark text-center font-medium">{passwordError}</p>
                 </div>
               )}
               
@@ -739,13 +690,13 @@ export function OrderSheetView({ embedded = false }) {
                     setPasswordInput('');
                     setPasswordError('');
                   }}
-                  className="flex-1 rounded-lg border border-soft-border hover:bg-gray-50 text-sm font-medium transition-colors"
+                  className="flex-1 rounded-lg border border-soft-border hover:bg-cloud-gray text-sm font-medium transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleVerifyPassword}
-                  className="flex-1 rounded-lg bg-trust-blue hover:bg-trust-blue/90 text-white font-medium transition-all text-sm"
+                  className="flex-1 rounded-lg bg-trust-blue hover:bg-deep-blue text-white font-medium transition-all text-sm"
                 >
                   Unlock
                 </button>
