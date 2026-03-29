@@ -357,6 +357,15 @@ function ProductSheetContent() {
         ])
         setProductImages(Array.isArray(product.images) ? product.images : (product.images ? [product.images] : []))
         setPrimaryImageIndex(0)
+        const parseVarStr = (str) => (str || '').split('\n').map(s => s.trim()).filter(Boolean).map(s => { const m = s.match(/^([^\[]+?)(?:\[([^\]]*)\])?$/); return m ? { col1: m[1].trim(), col2: (m[2] || '').trim() } : { col1: s, col2: '' }; })
+        const savedColors = parseVarStr(product.color)
+        const savedEnamels = parseVarStr(product.enamel)
+        const restoredVariations = [
+          ...savedColors.map((c, i) => ({ id: i + 1, label: 'COLOR', col1: c.col1, col2: c.col2 })),
+          ...savedEnamels.map((e, i) => ({ id: savedColors.length + i + 1, label: 'ENAMEL', col1: e.col1, col2: e.col2 })),
+        ]
+        while (restoredVariations.length < 4) restoredVariations.push({ id: restoredVariations.length + 1, label: '', col1: '', col2: '' })
+        setVariations(restoredVariations)
         setIsViewMode(true)
         window.scrollTo({ top: 0, behavior: 'smooth' })
 
@@ -382,7 +391,9 @@ function ProductSheetContent() {
                 moldQtyPerDie: d.mold_qty_per_die || '',
                 cpxDeadWeight: d.cpx_dead_weight || '',
                 mechanism: d.mechanism || '',
-                trackingRows: Array.isArray(d.tracking_rows) && d.tracking_rows.length ? d.tracking_rows : TRACKING_DEFAULT_ROWS(),
+                trackingRows: Array.isArray(d.tracking_rows) && d.tracking_rows.length
+                  ? d.tracking_rows.map((r, i) => ({ id: r.id ?? i + 1, tdm: r.tdm ?? '', stl: r.stl ?? '', motiveCode: r.motiveCode ?? '', masterSku: r.masterSku ?? '', dieCode: r.dieCode ?? '', moldDieQty: r.moldDieQty ?? '' }))
+                  : TRACKING_DEFAULT_ROWS(),
               }))
             }
           })
@@ -417,6 +428,20 @@ function ProductSheetContent() {
       }
     }
   }, [])
+
+  // Auto-sync finalStock SKU rows from variation col2 values
+  useEffect(() => {
+    const varSkus = [...new Set(variations.map(v => String(v.col2 || '').trim()).filter(Boolean))]
+    setFinalStock(prev => {
+      const manualRows = prev.filter(r => !r.fromVariation)
+      const existingVarMap = new Map(prev.filter(r => r.fromVariation).map(r => [r.sku, r]))
+      const varRows = varSkus.map(sku => existingVarMap.get(sku) || { sku, value: '', unit: '', fromVariation: true })
+      const allRows = [...varRows, ...manualRows]
+      return allRows.length > 0
+        ? allRows.map((r, i) => ({ ...r, id: i + 1 }))
+        : [{ id: 1, sku: '', value: '', unit: '', fromVariation: false }]
+    })
+  }, [variations])
 
   const buildProductData = (overrideValues = {}) => ({
     sku,
@@ -521,7 +546,7 @@ function ProductSheetContent() {
 
   const addFinalStockRow = () => {
     const newId = Math.max(...finalStock.map(r => r.id), 0) + 1
-    setFinalStock([...finalStock, { id: newId, sku: '', value: '', unit: '' }])
+    setFinalStock([...finalStock, { id: newId, sku: '', value: '', unit: '', fromVariation: false }])
   }
 
   const deleteFinalStock = (id) => {
@@ -1719,7 +1744,7 @@ function ProductSheetContent() {
             <div className="flex-1 overflow-y-auto min-h-0">
               {finalStock.map((row) => (
                 <div key={row.id} className="flex border-b border-soft-border">
-                  <input className="flex-1 min-w-0 px-1 py-1 text-sm bg-transparent outline-none text-center border-r border-soft-border" placeholder="SKU" value={row.sku} onChange={(e) => updateFinalStock(row.id, 'sku', e.target.value)} />
+                  <input className={`flex-1 min-w-0 px-1 py-1 text-sm outline-none text-center border-r border-soft-border ${row.fromVariation ? 'bg-blue-50 text-trust-blue font-medium cursor-default' : 'bg-transparent'}`} placeholder="SKU" value={row.sku} onChange={(e) => !row.fromVariation && updateFinalStock(row.id, 'sku', e.target.value)} readOnly={!!row.fromVariation} />
                   <input className="flex-1 min-w-0 px-1 py-1 text-sm bg-transparent outline-none text-center border-r border-soft-border" placeholder="Value" value={row.value} onChange={(e) => updateFinalStock(row.id, 'value', e.target.value)} />
                   <input className="flex-1 min-w-0 px-1 py-1 text-sm bg-transparent outline-none text-center border-r border-soft-border" placeholder="Unit" value={row.unit} onChange={(e) => updateFinalStock(row.id, 'unit', e.target.value)} />
                   <div className="w-6 flex items-center justify-center flex-shrink-0">
@@ -2528,7 +2553,7 @@ function ProductSheetContent() {
                         <tbody>
                           {finalStock.map((row) => (
                             <tr key={row.id} className="border-b">
-                              <td className="px-0.5 py-0.5"><input className="w-full text-sm px-0.5 py-0.5 border rounded" placeholder="SKU" value={row.sku} onChange={(e) => updateFinalStock(row.id, 'sku', e.target.value)} /></td>
+                              <td className="px-0.5 py-0.5"><input className={`w-full text-sm px-0.5 py-0.5 border rounded ${row.fromVariation ? 'bg-blue-50 text-trust-blue font-medium cursor-default' : ''}`} placeholder="SKU" value={row.sku} onChange={(e) => !row.fromVariation && updateFinalStock(row.id, 'sku', e.target.value)} readOnly={!!row.fromVariation} /></td>
                               <td className="px-0.5 py-0.5"><input className="w-full text-sm px-0.5 py-0.5 border rounded" placeholder="Value" value={row.value} onChange={(e) => updateFinalStock(row.id, 'value', e.target.value)} /></td>
                               <td className="px-0.5 py-0.5"><input className="w-full text-sm px-0.5 py-0.5 border rounded" placeholder="Unit" value={row.unit} onChange={(e) => updateFinalStock(row.id, 'unit', e.target.value)} /></td>
                               <td className="px-0.5 py-0.5 text-center">

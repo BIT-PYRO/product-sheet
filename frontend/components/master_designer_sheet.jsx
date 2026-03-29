@@ -32,6 +32,7 @@ const COLUMNS = [
   { id: 'rendered_photo',           label: 'Rendered Photo',                    width: 'min-w-[120px]' },
   { id: 'technical_drawing',        label: 'Technical Drawing',                 width: 'min-w-[160px]' },
   { id: 'sku',                      label: 'Designer SKU',                      width: 'min-w-[120px]' },
+  { id: 'design_stage',             label: 'Design Stage',                      width: 'min-w-[120px]' },
   { id: 'other_photo',              label: 'Other Photo',                       width: 'min-w-[120px]' },
   // Tracking rows – one column per field
   { id: 'track_tdm',          label: '3DM',         group: 'tracking', readOnly: true, width: 'min-w-[90px]'  },
@@ -70,6 +71,7 @@ const COLUMNS = [
   // Plating – one column per field
   { id: 'plating_type',  label: 'Plating Type',  group: 'plating', readOnly: true, width: 'min-w-[100px]' },
   { id: 'plating_color', label: 'Plating Color', group: 'plating', readOnly: true, width: 'min-w-[100px]' },
+  { id: 'designer_notes',           label: 'Designer Notes',                    width: 'min-w-[180px]' },
 ];
 
 // Group meta — defines the spanning header cells
@@ -96,8 +98,9 @@ function mapRow(row) {
     is_active: row.is_active,
     sku: row.sku || '',
     rendered_photo: row.rendered_photo || row.image || '',
-    technical_drawing: row.technical_drawing || '',
+    technical_drawing: row.technical_drawing || row.designer_image_2 || '',
     other_photo: row.designer_image_3 || '',
+    design_stage: row.design_stage || '',
     total_die_code: row.total_die_code != null ? String(row.total_die_code) : '',
     total_mold_qty_per_die: row.total_mold_qty_per_die != null ? String(row.total_mold_qty_per_die) : '',
     total_cpx_dead_weight: row.total_cpx_dead_weight != null ? String(row.total_cpx_dead_weight) : '',
@@ -107,6 +110,7 @@ function mapRow(row) {
     setting_type: row.setting_type || '',
     enamel: row.enamel || '',
     mechanism: row.mechanism || '',
+    designer_notes: row.designer_notes || '',
     findings_code: f.code || '',
     findings_die: f.die || '',
     findings_size: f.size || '',
@@ -159,6 +163,8 @@ function toPayload(row) {
     rendered_photo: row.rendered_photo,
     technical_drawing: row.technical_drawing,
     designer_image_3: row.other_photo,
+    design_stage: row.design_stage,
+    designer_notes: row.designer_notes,
     tracking_rows: trackingRowsPayload,
     total_die_code: row.total_die_code !== '' ? Number(row.total_die_code) : null,
     total_mold_qty_per_die: row.total_mold_qty_per_die !== '' ? Number(row.total_mold_qty_per_die) : null,

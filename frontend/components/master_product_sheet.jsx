@@ -59,6 +59,7 @@ export default function MasterProductSheet() {
   const columns = [
     { id: 'images', label: 'Images' },
     { id: 'sku', label: 'Master SKU' },
+    { id: 'designerSku', label: 'Designer SKU' },
     { id: 'listingName', label: 'Listing Name' },
     { id: 'material', label: 'Material' },
     { id: 'weight', label: 'Weight' },
@@ -92,6 +93,7 @@ export default function MasterProductSheet() {
   const columnConfig = {
     images: { minWidth: 'min-w-[120px]', headerBg: 'bg-[#dbeafe]' },
     sku: { minWidth: 'min-w-[80px]', headerBg: 'bg-[#dbeafe]' },
+    designerSku: { minWidth: 'min-w-[90px]', headerBg: 'bg-[#dbeafe]' },
     listingName: { minWidth: 'min-w-[100px]', headerBg: 'bg-[#dbeafe]' },
     material: { minWidth: 'min-w-[80px]', headerBg: 'bg-[#dbeafe]' },
     weight: { minWidth: 'min-w-[70px]', headerBg: 'bg-[#dbeafe]' },
@@ -231,12 +233,13 @@ export default function MasterProductSheet() {
         activeChannels: product.active_channels || '',
         shopifyStatus: product.is_active ? 'active' : 'inactive',
         dieNumber: Array.isArray(product.die_numbers) && product.die_numbers.length > 0
-          ? product.die_numbers.map((d) => d.value || '').filter(Boolean).join(', ')
+          ? product.die_numbers.filter(d => d.value).map((d) => { const p = [d.value]; if (d.quantity) p.push(`[${d.quantity}]`); if (d.location) p.push(`[${d.location}]`); return p.join(''); }).filter(Boolean).join(', ')
           : '',
         findings: Array.isArray(product.findings) && product.findings.length > 0
-          ? product.findings.map((f) => f.value || '').filter(Boolean).join(', ')
+          ? product.findings.filter(f => f.value).map((f) => { const p = [f.value]; if (f.quantity) p.push(`[${f.quantity}]`); if (f.location) p.push(`[${f.location}]`); return p.join(''); }).filter(Boolean).join(', ')
           : '',
         masterSku: product.master_sku || '',
+        designerSku: product.designer_sku || '',
         color: product.color || '',
         enamel: product.enamel || '',
         ...(() => {
@@ -480,6 +483,7 @@ export default function MasterProductSheet() {
       dieNumber: '',
       findings: '',
       masterSku: '',
+      designerSku: '',
       color: '',
       enamel: '',
       stoneType: '',
@@ -538,6 +542,7 @@ export default function MasterProductSheet() {
           enamel_type: row.enamelType,
           active_channels: row.activeChannels,
           master_sku: row.masterSku,
+          designer_sku: row.designerSku || '',
           color: row.color,
           enamel: row.enamel,
           stone_entries: Array.isArray(row.stoneEntries) ? row.stoneEntries : [],
