@@ -25,6 +25,9 @@ class Product(AuditModel):
 	enamel = models.CharField(max_length=120, blank=True, default='')
 	# Each entry: {type, species, variety, color, cut, shape, length, width, height, qty}
 	stone_entries = models.JSONField(default=list, blank=True)
+	# Each entry: {type, color} — full multi-row plating information
+	plating_entries = models.JSONField(default=list, blank=True)
+	# Legacy single-row fields kept for backward compatibility; new saves use plating_entries
 	plating_type = models.CharField(max_length=120, blank=True, default='')
 	plating_color = models.CharField(max_length=120, blank=True, default='')
 	notes = models.TextField(blank=True, default='')

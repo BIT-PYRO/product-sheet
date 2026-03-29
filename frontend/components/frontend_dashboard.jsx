@@ -27,6 +27,7 @@ function ProductSheetContent() {
   const designerImageRef3 = useRef(null)
   const designerBulkUploadRef = useRef(null)
   const autoSaveTimeoutRef = useRef(null)
+  const designerSkuLookupRef = useRef(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isCreateJobModalOpen, setIsCreateJobModalOpen] = useState(false)
   const [isGenericJobModalOpen, setIsGenericJobModalOpen] = useState(false)
@@ -139,6 +140,16 @@ function ProductSheetContent() {
     { id: 3, type: '', species: '', variety: '', color: '', cut: '', shape: '', length: '', width: '', height: '', qty: '' },
   ])
 
+  // Designer Panel stone/plating – separate from product's own stone/plating
+  const DESIGNER_STONE_DEFAULT = () => [
+    { id: 1, type: '', species: '', variety: '', color: '', cut: '', shape: '', length: '', width: '', height: '', qty: '' },
+  ]
+  const DESIGNER_PLATING_DEFAULT = () => [
+    { id: 1, type: '', color: '' },
+  ]
+  const [designerStoneRows, setDesignerStoneRows] = useState(DESIGNER_STONE_DEFAULT())
+  const [designerPlatingRows, setDesignerPlatingRows] = useState(DESIGNER_PLATING_DEFAULT())
+
   const [liveStock, setLiveStock] = useState({
     rawMaterial: { min: '', current: '', wip: '', location: '' },
     rawSetting: { min: '', current: '', wip: '', location: '' },
@@ -156,10 +167,10 @@ function ProductSheetContent() {
   ])
 
   const TRACKING_DEFAULT_ROWS = () => [
-    { id: 1, tdm: '', stl: '', motiveCode: '', masterSku: '', dieCode: '', moldDieQty: '' },
-    { id: 2, tdm: '', stl: '', motiveCode: '', masterSku: '', dieCode: '', moldDieQty: '' },
-    { id: 3, tdm: '', stl: '', motiveCode: '', masterSku: '', dieCode: '', moldDieQty: '' },
-    { id: 4, tdm: '', stl: '', motiveCode: '', masterSku: '', dieCode: '', moldDieQty: '' },
+    { id: 1, tdm: '', stl: '', motiveCode: '', motiveSku: '', dieCode: '', moldDieQty: '' },
+    { id: 2, tdm: '', stl: '', motiveCode: '', motiveSku: '', dieCode: '', moldDieQty: '' },
+    { id: 3, tdm: '', stl: '', motiveCode: '', motiveSku: '', dieCode: '', moldDieQty: '' },
+    { id: 4, tdm: '', stl: '', motiveCode: '', motiveSku: '', dieCode: '', moldDieQty: '' },
   ]
 
   const [designer, setDesigner] = useState({
@@ -167,6 +178,8 @@ function ProductSheetContent() {
     image2: '',
     image3: '',
     designStage: '',
+    settingType: '',
+    enamel: '',
     sizeOfDesignMotive: '',
     totalDesignMeasurements: '',
     designMaterial: '',
@@ -174,6 +187,7 @@ function ProductSheetContent() {
     moldQtyPerDie: '',
     cpxDeadWeight: '',
     mechanism: '',
+    notes: '',
     trackingRows: TRACKING_DEFAULT_ROWS(),
   })
 
@@ -269,11 +283,15 @@ function ProductSheetContent() {
       readyForPlacing: { min: '', current: '', wip: '', location: '' },
     })
     setFinalStock([{ id: 1, sku: '', value: '', unit: '' }])
+    setDesignerStoneRows(DESIGNER_STONE_DEFAULT())
+    setDesignerPlatingRows(DESIGNER_PLATING_DEFAULT())
     setDesigner({
       image1: '',
       image2: '',
       image3: '',
       designStage: '',
+      settingType: '',
+      enamel: '',
       sizeOfDesignMotive: '',
       totalDesignMeasurements: '',
       designMaterial: '',
@@ -281,6 +299,7 @@ function ProductSheetContent() {
       moldQtyPerDie: '',
       cpxDeadWeight: '',
       mechanism: '',
+      notes: '',
       trackingRows: TRACKING_DEFAULT_ROWS(),
     })
     setIsModalOpen(false)
@@ -350,11 +369,16 @@ function ProductSheetContent() {
             { id: 3, type: '', species: '', variety: '', color: '', cut: '', shape: '', length: '', width: '', height: '', qty: '' },
           ])
         }
-        setPlatingType([
-          { id: 1, col1: product.plating_type || '', col2: product.plating_color || '', col3: '' },
-          { id: 2, col1: '', col2: '', col3: '' },
-          { id: 3, col1: '', col2: '', col3: '' },
-        ])
+        setPlatingType((() => {
+          const entries = Array.isArray(product.platingEntries) && product.platingEntries.length > 0
+            ? product.platingEntries
+            : (product.plating_entries && product.plating_entries.length > 0
+              ? product.plating_entries
+              : (product.plating_type ? [{ type: product.plating_type, color: product.plating_color || '' }] : []));
+          const rows = entries.map((e, i) => ({ id: i + 1, col1: e.type || '', col2: e.color || '', col3: '' }));
+          while (rows.length < 3) rows.push({ id: rows.length + 1, col1: '', col2: '', col3: '' });
+          return rows;
+        })())
         setProductImages(Array.isArray(product.images) ? product.images : (product.images ? [product.images] : []))
         setPrimaryImageIndex(0)
         const parseVarStr = (str) => (str || '').split('\n').map(s => s.trim()).filter(Boolean).map(s => { const m = s.match(/^([^\[]+?)(?:\[([^\]]*)\])?$/); return m ? { col1: m[1].trim(), col2: (m[2] || '').trim() } : { col1: s, col2: '' }; })
@@ -369,6 +393,72 @@ function ProductSheetContent() {
         setIsViewMode(true)
         window.scrollTo({ top: 0, behavior: 'smooth' })
 
+        // Load live stock situation and final stock values from saved inventory transactions
+        fetch(`/api/inventory?product=${encodeURIComponent(product.id)}`, { cache: 'no-store' })
+          .then(r => r.json())
+          .then(invJson => {
+            if (cancelled) return
+            const txns = Array.isArray(invJson.data)
+              ? invJson.data
+              : Array.isArray(invJson.data?.results)
+              ? invJson.data.results
+              : []
+
+            // Build running totals per stage__stock_type
+            const totals = new Map()
+            txns.forEach((txn) => {
+              if (String(txn?.txn_type || '').toLowerCase() === 'demand') return
+              const stage = String(txn?.stage || '').trim() || 'default'
+              const stockType = String(txn?.stock_type || 'current').trim() || 'current'
+              const qty = Number(txn?.quantity || 0)
+              const key = `${stage}__${stockType}`
+              const delta = String(txn?.txn_type || '').toLowerCase() === 'out' ? -qty : qty
+              totals.set(key, (totals.get(key) || 0) + delta)
+            })
+
+            const get = (stage, type) => {
+              const v = totals.get(`${stage}__${type}`)
+              return v != null && v !== 0 ? String(v) : ''
+            }
+
+            // Stage key → liveStock frontend key
+            const STAGE_TO_KEY = {
+              wax_piece:        'rawMaterial',
+              wax_setting:      'rawSetting',
+              casting:          'wipLiquidCasting',
+              filling:          'filing',
+              pre_polish:       'packing',
+              setting:          'setting',
+              final_polish:     'finalPolish',
+              ready_for_plating:'readyForPlacing',
+            }
+
+            setLiveStock(prev => {
+              const next = { ...prev }
+              for (const [stageKey, frontendKey] of Object.entries(STAGE_TO_KEY)) {
+                next[frontendKey] = {
+                  min:      get(stageKey, 'min'),
+                  current:  get(stageKey, 'current'),
+                  wip:      get(stageKey, 'wip'),
+                  location: prev[frontendKey]?.location || '',
+                }
+              }
+              return next
+            })
+
+            // Populate per-variation final stock values from final_stock__{varSku} transactions
+            setFinalStock(prev =>
+              prev.map(row => {
+                const varSku = String(row.sku || '').trim()
+                if (!varSku) return row
+                const varStageKey = `final_stock__${varSku.toLowerCase()}`
+                const value = get(varStageKey, 'current')
+                return value !== '' ? { ...row, value } : row
+              })
+            )
+          })
+          .catch(() => {})
+
         // Load designer data for this SKU
         fetch(`/api/designers?sku=${encodeURIComponent(product.master_sku)}`, { cache: 'no-store' })
           .then(r => r.json())
@@ -380,21 +470,34 @@ function ProductSheetContent() {
               setDesignerRecordId(d.id)
               setDesigner(prev => ({
                 ...prev,
-                image1: d.image || '',
-                image2: d.designer_image_2 || '',
+                image1: d.rendered_photo || d.image || '',
+                image2: d.technical_drawing || d.designer_image_2 || '',
                 image3: d.designer_image_3 || '',
                 designStage: d.design_stage || '',
+                settingType: d.setting_type || '',
+                enamel: d.enamel || '',
                 sizeOfDesignMotive: d.design_motive_size || '',
                 totalDesignMeasurements: d.total_design_measurements || '',
                 designMaterial: d.design_material || '',
-                dieCode: d.die_code || '',
-                moldQtyPerDie: d.mold_qty_per_die || '',
-                cpxDeadWeight: d.cpx_dead_weight || '',
+                dieCode: d.total_die_code != null ? String(d.total_die_code) : '',
+                moldQtyPerDie: d.total_mold_qty_per_die != null ? String(d.total_mold_qty_per_die) : '',
+                cpxDeadWeight: d.total_cpx_dead_weight != null ? String(d.total_cpx_dead_weight) : '',
                 mechanism: d.mechanism || '',
+                notes: d.designer_notes || '',
                 trackingRows: Array.isArray(d.tracking_rows) && d.tracking_rows.length
-                  ? d.tracking_rows.map((r, i) => ({ id: r.id ?? i + 1, tdm: r.tdm ?? '', stl: r.stl ?? '', motiveCode: r.motiveCode ?? '', masterSku: r.masterSku ?? '', dieCode: r.dieCode ?? '', moldDieQty: r.moldDieQty ?? '' }))
+                  ? d.tracking_rows.map((r, i) => ({ id: r.id ?? i + 1, tdm: r.tdm ?? '', stl: r.stl ?? '', motiveCode: r.motiveCode ?? '', motiveSku: r.motiveSku ?? r.masterSku ?? '', dieCode: r.dieCode ?? '', moldDieQty: r.moldDieQty ?? '' }))
                   : TRACKING_DEFAULT_ROWS(),
               }))
+              if (Array.isArray(d.stone_entries) && d.stone_entries.length > 0) {
+                setDesignerStoneRows(d.stone_entries.map((s, i) => ({ id: i + 1, type: s.type || '', species: s.species || '', variety: s.variety || '', color: s.color || '', cut: s.cut || '', shape: s.shape || '', length: s.length || '', width: s.width || '', height: s.height || '', qty: s.qty || '' })))
+              } else {
+                setDesignerStoneRows(DESIGNER_STONE_DEFAULT())
+              }
+              if (Array.isArray(d.plating_entries) && d.plating_entries.length > 0) {
+                setDesignerPlatingRows(d.plating_entries.map((p, i) => ({ id: i + 1, type: p.type || '', color: p.color || '' })))
+              } else {
+                setDesignerPlatingRows(DESIGNER_PLATING_DEFAULT())
+              }
             }
           })
           .catch(() => {})
@@ -402,6 +505,51 @@ function ProductSheetContent() {
       .catch(() => {})
     return () => { cancelled = true }
   }, [skuParam])
+
+  // Auto-fill designer panel, stone info, and plating when Designer SKU is typed
+  useEffect(() => {
+    const dSku = designerSku.trim()
+    if (!dSku) return
+    if (designerSkuLookupRef.current) clearTimeout(designerSkuLookupRef.current)
+    designerSkuLookupRef.current = setTimeout(() => {
+      fetch(`/api/designers?sku=${encodeURIComponent(dSku)}`, { cache: 'no-store' })
+        .then(r => r.json())
+        .then(json => {
+          const rows = Array.isArray(json.data) ? json.data : (json.data?.results || [])
+          const d = rows.find(r => String(r.sku || '').trim().toLowerCase() === dSku.toLowerCase())
+          if (!d) return
+          setDesignerRecordId(d.id)
+          setDesigner(prev => ({
+            ...prev,
+            image1: d.rendered_photo || d.image || prev.image1,
+            image2: d.technical_drawing || d.designer_image_2 || prev.image2,
+            image3: d.designer_image_3 || prev.image3,
+            designStage: d.design_stage || prev.designStage,
+            settingType: d.setting_type || prev.settingType,
+            enamel: d.enamel || prev.enamel,
+            sizeOfDesignMotive: d.design_motive_size || prev.sizeOfDesignMotive,
+            totalDesignMeasurements: d.total_design_measurements || prev.totalDesignMeasurements,
+            designMaterial: d.design_material || prev.designMaterial,
+            dieCode: d.total_die_code != null ? String(d.total_die_code) : (d.die_code || prev.dieCode),
+            moldQtyPerDie: d.total_mold_qty_per_die != null ? String(d.total_mold_qty_per_die) : (d.mold_qty_per_die || prev.moldQtyPerDie),
+            cpxDeadWeight: d.total_cpx_dead_weight != null ? String(d.total_cpx_dead_weight) : (d.cpx_dead_weight || prev.cpxDeadWeight),
+            mechanism: d.mechanism || prev.mechanism,
+            notes: d.designer_notes || prev.notes,
+            trackingRows: Array.isArray(d.tracking_rows) && d.tracking_rows.length
+              ? d.tracking_rows.map((r, i) => ({ id: r.id ?? i + 1, tdm: r.tdm ?? '', stl: r.stl ?? '', motiveCode: r.motiveCode ?? '', motiveSku: r.motiveSku ?? r.masterSku ?? '', dieCode: r.dieCode ?? '', moldDieQty: r.moldDieQty ?? '' }))
+              : prev.trackingRows,
+          }))
+          if (Array.isArray(d.stone_entries) && d.stone_entries.length > 0) {
+            setDesignerStoneRows(d.stone_entries.map((s, i) => ({ id: i + 1, type: s.type || '', species: s.species || '', variety: s.variety || '', color: s.color || '', cut: s.cut || '', shape: s.shape || '', length: s.length || '', width: s.width || '', height: s.height || '', qty: s.qty || '' })))
+          }
+          if (Array.isArray(d.plating_entries) && d.plating_entries.length > 0) {
+            setDesignerPlatingRows(d.plating_entries.map((p, i) => ({ id: i + 1, type: p.type || '', color: p.color || '' })))
+          }
+        })
+        .catch(() => {})
+    }, 600)
+    return () => { if (designerSkuLookupRef.current) clearTimeout(designerSkuLookupRef.current) }
+  }, [designerSku])
 
   useEffect(() => {
     const pendingDraft = localStorage.getItem('pending_draft_load')
@@ -706,13 +854,19 @@ function ProductSheetContent() {
           technical_drawing: designer.image2,
           designer_image_3: designer.image3,
           design_stage: designer.designStage,
+          setting_type: designer.settingType,
+          enamel: designer.enamel,
           design_motive_size: designer.sizeOfDesignMotive,
           total_design_measurements: designer.totalDesignMeasurements,
           design_material: designer.designMaterial,
-          die_code: designer.dieCode,
-          mold_qty_per_die: designer.moldQtyPerDie,
-          cpx_dead_weight: designer.cpxDeadWeight,
+          total_die_code: designer.dieCode !== '' ? Number(designer.dieCode) || null : null,
+          total_mold_qty_per_die: designer.moldQtyPerDie !== '' ? Number(designer.moldQtyPerDie) || null : null,
+          total_cpx_dead_weight: designer.cpxDeadWeight !== '' ? Number(designer.cpxDeadWeight) || null : null,
           mechanism: designer.mechanism,
+          designer_notes: designer.notes,
+          stone_entries: designerStoneRows.map(({ type, species, variety, color, cut, shape, length, width, height, qty }) => ({ type, species, variety, color, cut, shape, length, width, height, qty })),
+          plating_entries: designerPlatingRows.map(({ type, color }) => ({ type, color })),
+          tracking_rows: designer.trackingRows,
           tracking_rows: designer.trackingRows,
         };
         const isUpdate = !!designerRecordId;
@@ -758,6 +912,8 @@ function ProductSheetContent() {
         setDesigner({
           image1: '', image2: '', image3: '',
           designStage: '',
+          settingType: '',
+          enamel: '',
           sizeOfDesignMotive: '',
           totalDesignMeasurements: '',
           designMaterial: '',
@@ -765,6 +921,7 @@ function ProductSheetContent() {
           moldQtyPerDie: '',
           cpxDeadWeight: '',
           mechanism: '',
+          notes: '',
           trackingRows: TRACKING_DEFAULT_ROWS(),
         });
         setDesignerSaveStatus({ success: true, message: 'Designer record deleted' });
@@ -800,7 +957,7 @@ function ProductSheetContent() {
       }
     };
 
-    // Handlers for Plating Type
+    // Handlers for Plating Type (product sheet – saved to Product model)
     const updatePlatingType = (id, field, value) => {
         setPlatingType(platingType.map(row => row.id === id ? { ...row, [field]: value } : row));
     };
@@ -814,6 +971,23 @@ function ProductSheetContent() {
     const deletePlatingType = (id) => {
         setPlatingType(platingType.filter(row => row.id !== id));
     };
+
+    // Handlers for Designer Panel Stone rows (saved to DesignerSheet model)
+    const updateDesignerStoneRow = (id, field, value) => setDesignerStoneRows(prev => prev.map(r => r.id === id ? { ...r, [field]: value } : r));
+    const addDesignerStoneRow = () => {
+      const newId = Math.max(...designerStoneRows.map(r => r.id), 0) + 1;
+      setDesignerStoneRows(prev => [...prev, { id: newId, type: '', species: '', variety: '', color: '', cut: '', shape: '', length: '', width: '', height: '', qty: '' }]);
+    };
+    const deleteDesignerStoneRow = (id) => setDesignerStoneRows(prev => prev.filter(r => r.id !== id));
+
+    // Handlers for Designer Panel Plating rows (saved to DesignerSheet model)
+    const updateDesignerPlatingRow = (id, field, value) => setDesignerPlatingRows(prev => prev.map(r => r.id === id ? { ...r, [field]: value } : r));
+    const addDesignerPlatingRow = () => {
+      const newId = Math.max(...designerPlatingRows.map(r => r.id), 0) + 1;
+      setDesignerPlatingRows(prev => [...prev, { id: newId, type: '', color: '' }]);
+    };
+    const deleteDesignerPlatingRow = (id) => setDesignerPlatingRows(prev => prev.filter(r => r.id !== id));
+
     // Handlers for Others
     const updateOthers = (id, field, value) => {
         setOthers(others.map(row => row.id === id ? { ...row, [field]: value } : row));
@@ -1037,11 +1211,16 @@ function ProductSheetContent() {
     }
 
     // Plating
-    setPlatingType([
-      { id: 1, col1: product.plating_type || '', col2: product.plating_color || '', col3: '' },
-      { id: 2, col1: '', col2: '', col3: '' },
-      { id: 3, col1: '', col2: '', col3: '' },
-    ])
+    setPlatingType((() => {
+      const entries = Array.isArray(product.platingEntries) && product.platingEntries.length > 0
+        ? product.platingEntries
+        : (Array.isArray(product.plating_entries) && product.plating_entries.length > 0
+          ? product.plating_entries
+          : (product.plating_type ? [{ type: product.plating_type, color: product.plating_color || '' }] : []));
+      const rows = entries.map((e, i) => ({ id: i + 1, col1: e.type || '', col2: e.color || '', col3: '' }));
+      while (rows.length < 3) rows.push({ id: rows.length + 1, col1: '', col2: '', col3: '' });
+      return rows;
+    })())
 
     // Notes & images
     setProductImages(product.images ? [product.images] : [])
@@ -1952,7 +2131,7 @@ function ProductSheetContent() {
                   <th className="border border-soft-border px-2 py-1 font-semibold text-midnight-ink text-left">3DM</th>
                   <th className="border border-soft-border px-2 py-1 font-semibold text-midnight-ink text-left">STL</th>
                   <th className="border border-soft-border px-2 py-1 font-semibold text-midnight-ink text-left">Motive Code</th>
-                  <th className="border border-soft-border px-2 py-1 font-semibold text-midnight-ink text-left">Master SKU</th>
+                  <th className="border border-soft-border px-2 py-1 font-semibold text-midnight-ink text-left">Motive SKU</th>
                   <th className="border border-soft-border px-2 py-1 font-semibold text-midnight-ink text-left">Die Code</th>
                   <th className="border border-soft-border px-2 py-1 font-semibold text-midnight-ink text-left">Mold/Die Qty</th>
                   <th className="border border-soft-border px-1 py-1 w-6"></th>
@@ -1982,7 +2161,7 @@ function ProductSheetContent() {
                       </div>
                     </td>
                     <td className="border border-soft-border p-0"><input type="text" value={row.motiveCode} onChange={(e) => updateDesignerTrackingRow(row.id, 'motiveCode', e.target.value)} className="w-full bg-transparent outline-none px-2 py-1 min-w-[80px]"/></td>
-                    <td className="border border-soft-border p-0"><input type="text" value={row.masterSku} onChange={(e) => updateDesignerTrackingRow(row.id, 'masterSku', e.target.value)} className="w-full bg-transparent outline-none px-2 py-1 min-w-[90px]"/></td>
+                    <td className="border border-soft-border p-0"><input type="text" value={row.motiveSku} onChange={(e) => updateDesignerTrackingRow(row.id, 'motiveSku', e.target.value)} className="w-full bg-transparent outline-none px-2 py-1 min-w-[90px]"/></td>
                     <td className="border border-soft-border p-0"><input type="text" value={row.dieCode} onChange={(e) => updateDesignerTrackingRow(row.id, 'dieCode', e.target.value)} className="w-full bg-transparent outline-none px-2 py-1 min-w-[70px]"/></td>
                     <td className="border border-soft-border p-0"><input type="text" value={row.moldDieQty} onChange={(e) => updateDesignerTrackingRow(row.id, 'moldDieQty', e.target.value)} className="w-full bg-transparent outline-none px-2 py-1 min-w-[70px]"/></td>
                     <td className="border border-soft-border p-0 text-center">
@@ -1994,6 +2173,98 @@ function ProductSheetContent() {
             </table>
           </div>
           <button type="button" onClick={addDesignerTrackingRow} className="w-full text-left px-3 py-1.5 text-xs text-trust-blue font-semibold hover:bg-cloud-gray border-t border-soft-border">+ Add Row</button>
+        </div>
+
+        {/* Stone Info + Plating Info (Designer Sheet data) */}
+        <div className="mt-2 grid gap-2" style={{ gridTemplateColumns: '3fr 2fr' }}>
+          {/* Stone Info */}
+          <div className="bg-white border border-soft-border rounded-xl overflow-hidden">
+            <div className="text-xs font-bold text-midnight-ink px-3 py-1.5 bg-[#dce8f5] border-b border-soft-border">STONE INFO</div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs border-collapse">
+                <thead>
+                  <tr className="bg-cloud-gray">
+                    {['TYPE','SPECIES','VARIETY','COLOR','CUT','SHAPE','LENGTH','WIDTH','HEIGHT','QTY'].map((h) => (
+                      <th key={h} className="border border-soft-border px-2 py-1 font-semibold text-midnight-ink text-left whitespace-nowrap">{h}</th>
+                    ))}
+                    <th className="border border-soft-border px-1 py-1 w-6"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {designerStoneRows.map((row) => (
+                    <tr key={row.id} className="hover:bg-cloud-gray/40">
+                      {['type','species','variety','color','cut','shape','length','width','height','qty'].map((f) => (
+                        <td key={f} className="border border-soft-border p-0">
+                          <input type="text" value={row[f]} onChange={(e) => updateDesignerStoneRow(row.id, f, e.target.value)} className="w-full bg-transparent outline-none px-2 py-1 min-w-[60px] text-xs"/>
+                        </td>
+                      ))}
+                      <td className="border border-soft-border p-0 text-center">
+                        <button type="button" onClick={() => deleteDesignerStoneRow(row.id)} className="px-1 py-1 text-danger hover:text-danger-dark"><Trash2 className="h-3 w-3"/></button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <button type="button" onClick={addDesignerStoneRow} className="w-full text-left px-3 py-1.5 text-xs text-trust-blue font-semibold hover:bg-cloud-gray border-t border-soft-border">+ ADD ROW</button>
+          </div>
+          {/* Plating Info */}
+          <div className="bg-white border border-soft-border rounded-xl overflow-hidden">
+            <div className="text-xs font-bold text-midnight-ink px-3 py-1.5 bg-[#dce8f5] border-b border-soft-border">PLATING INFO</div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs border-collapse">
+                <thead>
+                  <tr className="bg-cloud-gray">
+                    <th className="border border-soft-border px-2 py-1 font-semibold text-midnight-ink text-left w-1/2">PLATING TYPE</th>
+                    <th className="border border-soft-border px-2 py-1 font-semibold text-midnight-ink text-left w-1/2">PLATING COLOR</th>
+                    <th className="border border-soft-border px-1 py-1 w-6"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {designerPlatingRows.map((row) => (
+                    <tr key={row.id} className="hover:bg-cloud-gray/40">
+                      <td className="border border-soft-border p-0">
+                        <input type="text" value={row.type} onChange={(e) => updateDesignerPlatingRow(row.id, 'type', e.target.value)} className="w-full bg-transparent outline-none px-2 py-1 text-xs"/>
+                      </td>
+                      <td className="border border-soft-border p-0">
+                        <input type="text" value={row.color} onChange={(e) => updateDesignerPlatingRow(row.id, 'color', e.target.value)} className="w-full bg-transparent outline-none px-2 py-1 text-xs"/>
+                      </td>
+                      <td className="border border-soft-border p-0 text-center">
+                        <button type="button" onClick={() => deleteDesignerPlatingRow(row.id)} className="px-1 py-1 text-danger hover:text-danger-dark"><Trash2 className="h-3 w-3"/></button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <button type="button" onClick={addDesignerPlatingRow} className="w-full text-left px-3 py-1.5 text-xs text-trust-blue font-semibold hover:bg-cloud-gray border-t border-soft-border">+ ADD ROW</button>
+          </div>
+        </div>
+
+        {/* Setting Type + Enamel */}
+        <div className="mt-2 grid grid-cols-2 gap-2">
+          <div className="bg-white border border-soft-border rounded-xl p-2">
+            <div className="text-xs font-semibold text-midnight-ink mb-1.5">SETTING TYPE</div>
+            <div className="flex gap-2">
+              {['WAX SETTING', 'HAND SETTING'].map((opt) => (
+                <button key={opt} type="button" onClick={() => setDesigner((prev) => ({ ...prev, settingType: prev.settingType === opt ? '' : opt }))}
+                  className={`flex-1 px-3 py-1.5 text-xs font-semibold rounded-full border transition-colors ${designer.settingType === opt ? 'bg-midnight-ink text-white border-midnight-ink shadow-sm' : 'bg-white text-midnight-ink border-soft-border hover:bg-cloud-gray'}`}>
+                  {opt}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="bg-white border border-soft-border rounded-xl p-2">
+            <div className="text-xs font-semibold text-midnight-ink mb-1.5">ENAMEL</div>
+            <div className="flex gap-2">
+              {['YES', 'NO'].map((opt) => (
+                <button key={opt} type="button" onClick={() => setDesigner((prev) => ({ ...prev, enamel: prev.enamel === opt ? '' : opt }))}
+                  className={`flex-1 px-3 py-1.5 text-xs font-semibold rounded-full border transition-colors ${designer.enamel === opt ? 'bg-midnight-ink text-white border-midnight-ink shadow-sm' : 'bg-white text-midnight-ink border-soft-border hover:bg-cloud-gray'}`}>
+                  {opt}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
 
         {/* Design Stage Buttons */}
@@ -2017,9 +2288,9 @@ function ProductSheetContent() {
           </div>
         </div>
 
-        {/* 50/50 split: Left = 3 measurement panels | Right = Die info + Mechanism */}
+        {/* 50/50 split: Left = measurements + notes | Right = Total Die info + Mechanism */}
         <div className="mt-2 flex gap-2 items-stretch">
-          {/* Left 50%: Size, Measurements, Material */}
+          {/* Left 50%: Size, Measurements, Material, Notes */}
           <div className="flex flex-col gap-2" style={{width:'50%'}}>
             <div className="bg-white border border-soft-border rounded-xl p-2">
               <label className="text-xs font-semibold text-midnight-ink mb-1 block">Size of Design Motive</label>
@@ -2029,29 +2300,33 @@ function ProductSheetContent() {
               <label className="text-xs font-semibold text-midnight-ink mb-1 block">Total Design Measurements (Approx)</label>
               <input type="text" value={designer.totalDesignMeasurements} onChange={(e) => setDesigner((prev) => ({ ...prev, totalDesignMeasurements: e.target.value }))} placeholder="e.g. 25mm x 20mm x 5mm" className="w-full bg-transparent outline-none text-sm border border-soft-border rounded px-2 py-1"/>
             </div>
-            <div className="flex-1 bg-white border border-soft-border rounded-xl p-2">
+            <div className="bg-white border border-soft-border rounded-xl p-2">
               <label className="text-xs font-semibold text-midnight-ink mb-1 block">Design Material</label>
               <input type="text" value={designer.designMaterial} onChange={(e) => setDesigner((prev) => ({ ...prev, designMaterial: e.target.value }))} placeholder="e.g. Silver 925" className="w-full bg-transparent outline-none text-sm border border-soft-border rounded px-2 py-1"/>
             </div>
+            <div className="flex-1 bg-white border border-soft-border rounded-xl p-2 flex flex-col">
+              <label className="text-xs font-semibold text-midnight-ink mb-1 block">Notes</label>
+              <textarea value={designer.notes} onChange={(e) => setDesigner((prev) => ({ ...prev, notes: e.target.value }))} placeholder="Add notes about this design..." className="flex-1 w-full bg-transparent outline-none text-xs border border-soft-border rounded px-2 py-1 resize-none min-h-[4rem]"/>
+            </div>
           </div>
 
-          {/* Right 50%: Die info + Mechanism */}
+          {/* Right 50%: Total Die info + Mechanism */}
           <div className="flex flex-col gap-2" style={{width:'50%'}}>
-            {/* Die Code / Mold Qty / CPX Dead Weight */}
+            {/* Total Die Code / Total Mold Qty / Total CPX Dead Weight */}
             <div className="bg-white border border-soft-border rounded-xl p-2">
-              <div className="text-xs font-semibold text-midnight-ink mb-1">Die Code / Mold Qty &amp; CPX Dead Weight</div>
+              <div className="text-xs font-semibold text-midnight-ink mb-1">Total Die Code, Mold Qty &amp; CPX Dead Weight</div>
               <div className="flex flex-col gap-1">
                 <div>
-                  <label className="text-[11px] text-cool-gray block">Die Code</label>
-                  <input type="text" value={designer.dieCode} onChange={(e) => setDesigner((prev) => ({ ...prev, dieCode: e.target.value }))} placeholder="Die Code" className="w-full bg-transparent outline-none text-xs border border-soft-border rounded px-2 py-0.5"/>
+                  <label className="text-[11px] text-cool-gray block">Total Die Code</label>
+                  <input type="text" value={designer.dieCode} onChange={(e) => setDesigner((prev) => ({ ...prev, dieCode: e.target.value }))} placeholder="Total Die Code" className="w-full bg-transparent outline-none text-xs border border-soft-border rounded px-2 py-0.5"/>
                 </div>
                 <div>
-                  <label className="text-[11px] text-cool-gray block">Mold Qty / Die</label>
-                  <input type="text" value={designer.moldQtyPerDie} onChange={(e) => setDesigner((prev) => ({ ...prev, moldQtyPerDie: e.target.value }))} placeholder="Mold Qty / Die" className="w-full bg-transparent outline-none text-xs border border-soft-border rounded px-2 py-0.5"/>
+                  <label className="text-[11px] text-cool-gray block">Total Mold Qty / Die</label>
+                  <input type="text" value={designer.moldQtyPerDie} onChange={(e) => setDesigner((prev) => ({ ...prev, moldQtyPerDie: e.target.value }))} placeholder="Total Mold Qty / Die" className="w-full bg-transparent outline-none text-xs border border-soft-border rounded px-2 py-0.5"/>
                 </div>
                 <div>
-                  <label className="text-[11px] text-cool-gray block">CPX Dead Weight</label>
-                  <input type="text" value={designer.cpxDeadWeight} onChange={(e) => setDesigner((prev) => ({ ...prev, cpxDeadWeight: e.target.value }))} placeholder="CPX Dead Weight" className="w-full bg-transparent outline-none text-xs border border-soft-border rounded px-2 py-0.5"/>
+                  <label className="text-[11px] text-cool-gray block">Total CPX Dead Weight</label>
+                  <input type="text" value={designer.cpxDeadWeight} onChange={(e) => setDesigner((prev) => ({ ...prev, cpxDeadWeight: e.target.value }))} placeholder="Total CPX Dead Weight" className="w-full bg-transparent outline-none text-xs border border-soft-border rounded px-2 py-0.5"/>
                 </div>
               </div>
             </div>

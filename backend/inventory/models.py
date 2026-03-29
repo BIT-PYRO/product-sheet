@@ -30,7 +30,7 @@ class InventoryTransaction(AuditModel):
 	remark = models.CharField(max_length=255, blank=True)
 
 	def __str__(self):
-		return f'{self.product.sku} | {self.txn_type} | {self.quantity}'
+		return f'{self.product.master_sku} | {self.txn_type} | {self.quantity}'
 
 
 class PicklistGroup(AuditModel):

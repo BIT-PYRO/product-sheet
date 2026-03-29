@@ -21,6 +21,7 @@ import {
 } from '@/components/ui/dialog';
 import DateTimeStamp from '@/components/date-time-stamp';
 import LastUpdatedFooter from '@/components/last-updated-footer';
+import { CreateJobModal } from '@/components/create-job-modal';
 
 // Component to render composite WIP/Current Stock values
 function CompositeStockDisplay({ value }) {
@@ -42,7 +43,7 @@ const INVENTORY_SYNC_EVENT = 'inventory_sheet_sync';
 
 const INVENTORY_COLUMNS = [
   { key: '__select__', label: '' },
-  { key: 'sku', label: 'SKU' },
+  { key: 'sku', label: 'Master SKU' },
   { key: 'waxPiece', label: 'Wax Piece' },
   { key: 'waxSetting', label: 'Wax Setting' },
   { key: 'casting', label: 'Casting' },
@@ -85,6 +86,9 @@ const STOCK_FIELDS_MAP = {
 
 const NON_EDITABLE_KEYS = new Set(['__select__', 'sku', 'finalStockSku']);
 
+// Columns that render once per variation row (not spanning)
+const VARIATION_COLUMN_KEYS = new Set(['finalStockSku', 'finalStockValue', 'finalStockUnit', 'dieLocation']);
+
 const STOCK_FILTER_OPTIONS = [
   { value: 'min', label: 'Minimum Suggested' },
   { value: 'current', label: 'Current Stock' },
@@ -94,7 +98,7 @@ const STOCK_FILTER_OPTIONS = [
 ];
 
 const PRODUCT_SORT_FIELDS = [
-  { value: 'sku', label: 'SKU' },
+  { value: 'sku', label: 'Master SKU' },
   { value: 'listingName', label: 'Listing Name' },
   { value: 'material', label: 'Material' },
   { value: 'weight', label: 'Weight' },
@@ -249,6 +253,14 @@ function buildInventoryRow(product, stockField) {
     finalStockUnit: formatFinalStockColumn(finalStock, 'unit'),
     dieNumbers: dieParts.join(' | '),
     dieLocation: locationParts.join(' | '),
+    finalStockVariations: finalStock.length > 0
+      ? finalStock.map((item) => ({
+          sku: String(item?.sku || '').trim(),
+          value: String(item?.value || '').trim(),
+          unit: String(item?.unit || '').trim(),
+          location: String(item?.location || '').trim(),
+        }))
+      : [{ sku: '', value: '', unit: '', location: '' }],
   };
 }
 
@@ -325,6 +337,7 @@ export default function MasterInventorySheet() {
   const [isSkuDropdownOpen, setIsSkuDropdownOpen] = useState(false);
   const [stockField, setStockField] = useState('current');
   const [isManageColumnsOpen, setIsManageColumnsOpen] = useState(false);
+  const [isCreateJobModalOpen, setIsCreateJobModalOpen] = useState(false);
   const [selectedRows, setSelectedRows] = useState(new Set());
   const [sortField, setSortField] = useState('');
   const [sortDirection, setSortDirection] = useState('asc');
@@ -1423,6 +1436,12 @@ export default function MasterInventorySheet() {
             </Button>
             <Button variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8" onClick={handleExport}>Export</Button>
             <Button variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8" onClick={() => window.print()}>Print</Button>
+            <Button
+              onClick={() => setIsCreateJobModalOpen(true)}
+              className="bg-success text-white rounded-full px-4 text-sm h-8 hover:bg-success/90"
+            >
+              Create Job
+            </Button>
             <input
               ref={picklistFileInputRef}
               type="file"
@@ -1522,10 +1541,10 @@ export default function MasterInventorySheet() {
                   <div className="relative">
                     <button
                       onClick={() => setIsPicklistDropdownOpen(!isPicklistDropdownOpen)}
-                      className="w-full text-left px-1 rounded hover:bg-trust-blue/10 transition-colors whitespace-nowrap leading-tight text-[11px] tracking-wide"
+                      className="w-full text-left px-1 rounded hover:bg-trust-blue/10 transition-colors leading-tight text-[11px] tracking-wide block overflow-hidden text-ellipsis whitespace-nowrap"
                     >
                       {selectedPicklistData
-                        ? `${selectedPicklistData.number ? `#${selectedPicklistData.number} — ` : ''}${selectedPicklistData.name}`
+                        ? `#${selectedPicklistData.number ?? ''}`
                         : 'ORDER PICK LIST'}
                     </button>
                     {isPicklistDropdownOpen && (
@@ -1577,127 +1596,179 @@ export default function MasterInventorySheet() {
               </tr>
             </thead>
             <tbody>
-              {rowsToRender.map((row, index) => {
-                const isRowEditing = isEditMode && !row.isEmpty && editDraft.has(row.id);
-                const editData = editDraft.get(row.id);
+              {rowsToRender.flatMap((row) => {
                 const isDeleting = deletingRows.has(row.id);
 
-                return (
-                <tr key={row.id} className={isDeleting ? 'opacity-40 pointer-events-none' : ''}>
-                  {/* ── Main inventory cells ── */}
-                  {visibleColumnList.map((column) => (
-                    <td
-                      key={`${row.id}-${column.key}`}
-                      className={`border-b border-r border-soft-border px-2 h-9 text-center ${
-                        column.key === '__select__' ? 'sticky left-0 z-10 bg-white border-l shadow-[2px_0_4px_-1px_rgba(0,0,0,0.08)]' : ''
-                      } ${isEditMode && !row.isEmpty && !NON_EDITABLE_KEYS.has(column.key) && (() => {
-                        if (editFieldType === 'location') return column.key === 'dieLocation';
-                        if (editFieldType === 'wip-vs-current') return STOCK_STAGE_MAP[column.key] !== undefined;
-                        return STOCK_STAGE_MAP[column.key] !== undefined || column.key === 'finalStockValue' || column.key === 'dieNumbers' || column.key === 'dieLocation';
-                      })() ? 'bg-blue-50/40' : ''}`}
-                    >
-                      {column.key === '__select__' ? (
-                    row.isEmpty ? null : (
-                      <Checkbox
-                        checked={selectedRows.has(row.id)}
-                        onCheckedChange={() => toggleRowSelection(row.id)}
-                      />
-                    )
-                  ) : row.isEmpty ? (
-                    ''
-                  ) : isRowEditing ? (
-                    (() => {
-                      const isStockCol = STOCK_STAGE_MAP[column.key] !== undefined;
+                // ── Empty padding rows ──
+                if (row.isEmpty) {
+                  return [(
+                    <tr key={row.id}>
+                      {visibleColumnList.map((column) => (
+                        <td
+                          key={`${row.id}-${column.key}`}
+                          className={`border-b border-r border-soft-border px-2 h-9 text-center ${
+                            column.key === '__select__' ? 'sticky left-0 z-10 bg-white border-l shadow-[2px_0_4px_-1px_rgba(0,0,0,0.08)]' : ''
+                          }`}
+                        />
+                      ))}
+                      <td className="border-0 p-0" style={{ width: '32px', minWidth: '32px', position: 'sticky', right: '292px', backgroundColor: 'white', zIndex: 12 }} aria-hidden="true" />
+                      <td className="border-b border-l border-r border-soft-border px-2 h-9 text-center text-sm text-midnight-ink bg-white" style={{ position: 'sticky', right: '192px', zIndex: 12, boxShadow: '-4px 0 6px -2px rgba(0,0,0,0.10)' }} />
+                      <td className="border-0 p-0" style={{ width: '32px', minWidth: '32px', position: 'sticky', right: '160px', backgroundColor: 'white', zIndex: 12 }} aria-hidden="true" />
+                      <td className="border-b border-l border-r border-soft-border px-2 h-9 text-sm text-midnight-ink bg-white" style={{ position: 'sticky', right: '0', zIndex: 12 }} />
+                    </tr>
+                  )];
+                }
 
-                      // Location mode: only dieLocation is editable
-                      if (editFieldType === 'location') {
-                        if (column.key === 'dieLocation') {
-                          return (
-                            <input
-                              type="text"
-                              value={editData?.dieLocation ?? ''}
-                              onChange={(e) => handleEditFieldChange(row.id, 'dieLocation', e.target.value)}
-                              className="w-full min-w-[80px] border border-trust-blue/50 rounded px-1 py-0.5 text-xs text-center bg-blue-50 focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                const isRowEditing = isEditMode && editDraft.has(row.id);
+                const editData = editDraft.get(row.id);
+                const variations = row.finalStockVariations || [{ sku: '', value: '', unit: '', location: '' }];
+                const variationCount = variations.length;
+                const spanningCols = visibleColumnList.filter((col) => !VARIATION_COLUMN_KEYS.has(col.key));
+                const variationCols = visibleColumnList.filter((col) => VARIATION_COLUMN_KEYS.has(col.key));
+
+                return variations.map((variation, varIdx) => {
+                  const isFirst = varIdx === 0;
+
+                  return (
+                    <tr key={`${row.id}-v${varIdx}`} className={isDeleting ? 'opacity-40 pointer-events-none' : ''}>
+
+                      {/* ── Spanning cells — Master SKU through Ready for Plating (first variation only) ── */}
+                      {isFirst && spanningCols.map((column) => (
+                        <td
+                          key={`${row.id}-${column.key}`}
+                          rowSpan={variationCount > 1 ? variationCount : undefined}
+                          className={`border-b border-r border-soft-border px-2 h-9 text-center ${
+                            column.key === '__select__' ? 'sticky left-0 z-10 bg-white border-l shadow-[2px_0_4px_-1px_rgba(0,0,0,0.08)]' : ''
+                          } ${isEditMode && !NON_EDITABLE_KEYS.has(column.key) && (() => {
+                            if (editFieldType === 'location') return false;
+                            if (editFieldType === 'wip-vs-current') return STOCK_STAGE_MAP[column.key] !== undefined;
+                            return STOCK_STAGE_MAP[column.key] !== undefined;
+                          })() ? 'bg-blue-50/40' : ''}`}
+                        >
+                          {column.key === '__select__' ? (
+                            <Checkbox
+                              checked={selectedRows.has(row.id)}
+                              onCheckedChange={() => toggleRowSelection(row.id)}
                             />
-                          );
-                        }
-                        return <CompositeStockDisplay value={row[column.key]} />;
-                      }
+                          ) : isRowEditing ? (
+                            (() => {
+                              const isStockCol = STOCK_STAGE_MAP[column.key] !== undefined;
 
-                      // WIP vs Current mode: two stacked inputs per stock column
-                      if (editFieldType === 'wip-vs-current' && isStockCol) {
+                              if (editFieldType === 'location') {
+                                return <CompositeStockDisplay value={row[column.key]} />;
+                              }
+
+                              if (editFieldType === 'wip-vs-current' && isStockCol) {
+                                return (
+                                  <div className="flex flex-col gap-0.5">
+                                    <input
+                                      type="number"
+                                      value={editData?.[`${column.key}_wip`] ?? ''}
+                                      min="0"
+                                      onChange={(e) => handleEditFieldChange(row.id, `${column.key}_wip`, e.target.value)}
+                                      className="w-full min-w-[56px] border border-trust-blue/50 rounded px-1 py-0.5 text-[11px] text-center bg-blue-50 focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                                      placeholder="WIP"
+                                    />
+                                    <input
+                                      type="number"
+                                      value={editData?.[`${column.key}_current`] ?? ''}
+                                      min="0"
+                                      onChange={(e) => handleEditFieldChange(row.id, `${column.key}_current`, e.target.value)}
+                                      className="w-full min-w-[56px] border border-success/50 rounded px-1 py-0.5 text-[11px] text-center bg-green-50 focus:outline-none focus:ring-1 focus:ring-success"
+                                      placeholder="Cur"
+                                    />
+                                  </div>
+                                );
+                              }
+
+                              if (isStockCol) {
+                                return (
+                                  <input
+                                    type="number"
+                                    value={editData?.[column.key] ?? ''}
+                                    min="0"
+                                    onChange={(e) => handleEditFieldChange(row.id, column.key, e.target.value)}
+                                    className="w-full min-w-[60px] border border-trust-blue/50 rounded px-1 py-0.5 text-xs text-center bg-blue-50 focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                                  />
+                                );
+                              }
+
+                              return <CompositeStockDisplay value={row[column.key]} />;
+                            })()
+                          ) : (
+                            <CompositeStockDisplay value={row[column.key]} />
+                          )}
+                        </td>
+                      ))}
+
+                      {/* ── Per-variation cells — Final Stock SKU, Value, Unit, Location ── */}
+                      {variationCols.map((column) => {
+                        let displayValue = '';
+                        if (column.key === 'finalStockSku') displayValue = variation.sku;
+                        else if (column.key === 'finalStockValue') displayValue = variation.value;
+                        else if (column.key === 'finalStockUnit') displayValue = variation.unit;
+                        else if (column.key === 'dieLocation') displayValue = variation.location || (isFirst ? row.dieLocation : '');
+
+                        const isVariationEditable = isFirst && isRowEditing && !NON_EDITABLE_KEYS.has(column.key) && (() => {
+                          if (editFieldType === 'location') return column.key === 'dieLocation';
+                          return column.key === 'finalStockValue' || column.key === 'dieLocation';
+                        })();
+
+                        const isVariationHighlighted = isEditMode && !NON_EDITABLE_KEYS.has(column.key) && (() => {
+                          if (editFieldType === 'location') return isFirst && column.key === 'dieLocation';
+                          if (editFieldType === 'wip-vs-current') return false;
+                          return isFirst && (column.key === 'finalStockValue' || column.key === 'dieLocation');
+                        })();
+
                         return (
-                          <div className="flex flex-col gap-0.5">
-                            <input
-                              type="number"
-                              value={editData?.[`${column.key}_wip`] ?? ''}
-                              min="0"
-                              onChange={(e) => handleEditFieldChange(row.id, `${column.key}_wip`, e.target.value)}
-                              className="w-full min-w-[56px] border border-trust-blue/50 rounded px-1 py-0.5 text-[11px] text-center bg-blue-50 focus:outline-none focus:ring-1 focus:ring-trust-blue"
-                              placeholder="WIP"
-                            />
-                            <input
-                              type="number"
-                              value={editData?.[`${column.key}_current`] ?? ''}
-                              min="0"
-                              onChange={(e) => handleEditFieldChange(row.id, `${column.key}_current`, e.target.value)}
-                              className="w-full min-w-[56px] border border-success/50 rounded px-1 py-0.5 text-[11px] text-center bg-green-50 focus:outline-none focus:ring-1 focus:ring-success"
-                              placeholder="Cur"
-                            />
-                          </div>
+                          <td
+                            key={`${row.id}-${column.key}-v${varIdx}`}
+                            className={`border-b border-r border-soft-border px-2 h-9 text-center ${isVariationHighlighted ? 'bg-blue-50/40' : ''}`}
+                          >
+                            {isVariationEditable ? (
+                              column.key === 'finalStockValue' ? (
+                                <input
+                                  type="number"
+                                  value={editData?.finalStockValue ?? ''}
+                                  min="0"
+                                  onChange={(e) => handleEditFieldChange(row.id, 'finalStockValue', e.target.value)}
+                                  className="w-full min-w-[60px] border border-trust-blue/50 rounded px-1 py-0.5 text-xs text-center bg-blue-50 focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                                />
+                              ) : (
+                                <input
+                                  type="text"
+                                  value={editData?.dieLocation ?? ''}
+                                  onChange={(e) => handleEditFieldChange(row.id, 'dieLocation', e.target.value)}
+                                  className="w-full min-w-[80px] border border-trust-blue/50 rounded px-1 py-0.5 text-xs text-center bg-blue-50 focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                                />
+                              )
+                            ) : (
+                              <span>{displayValue}</span>
+                            )}
+                          </td>
                         );
-                      }
+                      })}
 
-                      // min / current / wip: numeric inputs for stock columns
-                      if (isStockCol || column.key === 'finalStockValue') {
-                        return (
-                          <input
-                            type="number"
-                            value={editData?.[column.key] ?? ''}
-                            min="0"
-                            onChange={(e) => handleEditFieldChange(row.id, column.key, e.target.value)}
-                            className="w-full min-w-[60px] border border-trust-blue/50 rounded px-1 py-0.5 text-xs text-center bg-blue-50 focus:outline-none focus:ring-1 focus:ring-trust-blue"
-                          />
-                        );
-                      }
-
-                      // dieNumbers / dieLocation: text input (only in non-location modes)
-                      if (column.key === 'dieNumbers' || column.key === 'dieLocation') {
-                        return (
-                          <input
-                            type="text"
-                            value={editData?.[column.key] ?? ''}
-                            onChange={(e) => handleEditFieldChange(row.id, column.key, e.target.value)}
-                            className="w-full min-w-[80px] border border-trust-blue/50 rounded px-1 py-0.5 text-xs text-center bg-blue-50 focus:outline-none focus:ring-1 focus:ring-trust-blue"
-                          />
-                        );
-                      }
-
-                      return <CompositeStockDisplay value={row[column.key]} />;
-                    })()
-                  ) : (
-                    <CompositeStockDisplay value={row[column.key]} />
-                  )}
-                    </td>
-                  ))}
-
-                  {/* ── Gap spacer ── */}
-                  <td className="border-0 p-0" style={{ width: '32px', minWidth: '32px', position: 'sticky', right: '292px', backgroundColor: 'white', zIndex: 12 }} aria-hidden="true" />
-
-                  {/* ── TOTAL IN DEMAND cell ── */}
-                  <td className="border-b border-l border-r border-soft-border px-2 h-9 text-center text-sm text-midnight-ink bg-white" style={{ position: 'sticky', right: '192px', zIndex: 12, boxShadow: '-4px 0 6px -2px rgba(0,0,0,0.10)' }}>
-                    {row.isEmpty ? '' : (totalInDemandByRowId.get(row.id) ?? '')}
-                  </td>
-
-                  {/* ── Gap spacer ── */}
-                  <td className="border-0 p-0" style={{ width: '32px', minWidth: '32px', position: 'sticky', right: '160px', backgroundColor: 'white', zIndex: 12 }} aria-hidden="true" />
-
-                  {/* ── ORDER PICK LIST cell ── */}
-                  <td className="border-b border-l border-r border-soft-border px-2 h-9 text-sm text-midnight-ink bg-white" style={{ position: 'sticky', right: '0', zIndex: 12 }}>
-                    {row.isEmpty ? '' : (sortedProducts[index]?.sku || '')}
-                  </td>
-                </tr>
-                );
+                      {/* ── Sticky right: gap + Total In Demand (per variation) + gap + Order Pick List (per variation = Final Stock SKU) ── */}
+                      <td className="border-0 p-0" style={{ width: '32px', minWidth: '32px', position: 'sticky', right: '292px', backgroundColor: 'white', zIndex: 12 }} aria-hidden="true" />
+                      <td className="border-b border-l border-r border-soft-border px-2 h-9 text-center text-sm text-midnight-ink bg-white" style={{ position: 'sticky', right: '192px', zIndex: 12, boxShadow: '-4px 0 6px -2px rgba(0,0,0,0.10)' }}>
+                        {(() => {
+                          const varSkuUpper = String(variation.sku || '').trim().toUpperCase();
+                          if (selectedPicklistData) {
+                            return varSkuUpper ? (picklistNeededBySku.get(varSkuUpper) ?? '') : '';
+                          }
+                          // No picklist — show product-level demand on every variation row
+                          return row.totalInDemand || '';
+                        })()}
+                      </td>
+                      <td className="border-0 p-0" style={{ width: '32px', minWidth: '32px', position: 'sticky', right: '160px', backgroundColor: 'white', zIndex: 12 }} aria-hidden="true" />
+                      {/* ORDER PICK LIST: shows this variation's Final Stock SKU */}
+                      <td className="border-b border-l border-r border-soft-border px-2 h-9 text-sm text-midnight-ink bg-white" style={{ position: 'sticky', right: '0', zIndex: 12 }}>
+                        {variation.sku || ''}
+                      </td>
+                    </tr>
+                  );
+                });
               })}
             </tbody>
           </table>
@@ -1735,6 +1806,10 @@ export default function MasterInventorySheet() {
         <LastUpdatedFooter timestamp={lastUpdated} username={currentUsername} compact />
       </div>
 
+      <CreateJobModal
+        open={isCreateJobModalOpen}
+        onOpenChange={setIsCreateJobModalOpen}
+      />
     </div>
   );
 }

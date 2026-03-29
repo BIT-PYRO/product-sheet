@@ -351,17 +351,24 @@ export default function MasterProductSheet() {
           // Auto-fill from designer data
           if (designer) {
             if (designer.design_material && !row.material) updates.material = designer.design_material;
-            // Stone info from first stone entry
-            const s = Array.isArray(designer.stone_entries) && designer.stone_entries[0];
-            if (s) {
-              if (s.name && !row.stoneName) updates.stoneName = s.name;
-              if (s.cut && !row.stoneCut) updates.stoneCut = s.cut;
-              if (s.color && !row.stoneColor) updates.stoneColor = s.color;
-              if (s.size && !row.stoneSize) updates.stoneSize = s.size;
-              if (s.quantity && !row.stoneQuantity) updates.stoneQuantity = s.quantity;
+            // Stone info — fill all columns from all designer stone entries
+            if (Array.isArray(designer.stone_entries) && designer.stone_entries.length > 0 && (!row.stoneEntries || row.stoneEntries.length === 0)) {
+              const sRows = designer.stone_entries;
+              const j = (key) => sRows.map((r) => String(r[key] || '')).filter(Boolean).join(' / ');
+              updates.stoneEntries = sRows;
+              updates.stoneType = j('type');
+              updates.stoneSpecies = j('species');
+              updates.stoneVariety = j('variety');
+              updates.stoneColor = j('color');
+              updates.stoneCut = j('cut');
+              updates.stoneShape = j('shape');
+              updates.stoneLength = j('length');
+              updates.stoneWidth = j('width');
+              updates.stoneHeight = j('height');
+              updates.stoneQty = j('qty');
             }
             // Die/Findings from designer
-            const dieInfo = designer.die_code || '';
+            const dieInfo = designer.total_die_code != null ? String(designer.total_die_code) : '';
             const findingsInfo = Array.isArray(designer.findings_entries) && designer.findings_entries[0];
             if (dieInfo && !row.dieNumber) updates.dieNumber = dieInfo;
             if (findingsInfo?.code && !row.findings) updates.findings = findingsInfo.code;

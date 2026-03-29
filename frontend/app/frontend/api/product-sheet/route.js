@@ -122,6 +122,7 @@ function mapIncomingToProductPayload(data) {
     color: (() => { const vars = Array.isArray(data?.variations) ? data.variations : []; const vals = vars.filter(v => String(v?.label || '').toUpperCase() === 'COLOR').map(v => { const c1 = String(v?.col1 || '').trim(); const c2 = String(v?.col2 || '').trim(); return c1 ? (c2 ? `${c1}[${c2}]` : c1) : ''; }).filter(Boolean); return vals.length ? vals.join('\n') : String(data?.color || '').trim(); })(),
     enamel: (() => { const vars = Array.isArray(data?.variations) ? data.variations : []; const vals = vars.filter(v => String(v?.label || '').toUpperCase() === 'ENAMEL').map(v => { const c1 = String(v?.col1 || '').trim(); const c2 = String(v?.col2 || '').trim(); return c1 ? (c2 ? `${c1}[${c2}]` : c1) : ''; }).filter(Boolean); return vals.length ? vals.join('\n') : String(data?.enamel || '').trim(); })(),
     stone_entries: Array.isArray(data?.stoneInfo) ? data.stoneInfo.map(({ type, species, variety, color, cut, shape, length, width, height, qty }) => ({ type: type || '', species: species || '', variety: variety || '', color: color || '', cut: cut || '', shape: shape || '', length: length || '', width: width || '', height: height || '', qty: qty || '' })) : (Array.isArray(data?.stoneEntries) ? data.stoneEntries : []),
+    plating_entries: Array.isArray(data?.platingType) ? data.platingType.filter(r => String(r?.col1 || '').trim() || String(r?.col2 || '').trim()).map(r => ({ type: String(r?.col1 || '').trim(), color: String(r?.col2 || '').trim() })) : [],
     plating_type: String(Array.isArray(data?.platingType) ? (data.platingType.find(r => r?.col1)?.col1 || '') : (data?.platingType || '')).trim(),
     plating_color: String(Array.isArray(data?.platingType) ? (data.platingType.find(r => r?.col2)?.col2 || '') : (data?.platingColor || '')).trim(),
     notes: String(data?.notes || data?.manufacturing?.notes || '').trim(),
@@ -165,6 +166,9 @@ function mapProductSummaryRows(products = [], inventorySummaryRows = []) {
       color: product?.color || '',
       enamel: product?.enamel || '',
       stone_entries: Array.isArray(product?.stone_entries) ? product.stone_entries : [],
+      platingEntries: Array.isArray(product?.plating_entries) && product.plating_entries.length > 0
+        ? product.plating_entries
+        : (product?.plating_type ? [{ type: product.plating_type, color: product?.plating_color || '' }] : []),
       platingType: product?.plating_type || '',
       platingColor: product?.plating_color || '',
       notes: product?.notes || '',
@@ -255,47 +259,106 @@ async function resolveProductBySku(request, sku) {
     return rows.find((item) => String(item?.master_sku || '').trim().toLowerCase() === sku.toLowerCase()) || null;
 }
 
-async function syncInventoryToFinalStock(request, productId, sku, finalStock) {
-  const desiredQuantity = (Array.isArray(finalStock) ? finalStock : []).reduce(
-    (sum, row) => sum + toNumber(row?.value),
-    0
-  );
+// Maps frontend liveStock key → Django stage key stored in InventoryTransaction.stage
+const LIVE_STOCK_STAGE_MAP = {
+  rawMaterial:      'wax_piece',
+  rawSetting:       'wax_setting',
+  wipLiquidCasting: 'casting',
+  filing:           'filling',
+  packing:          'pre_polish',
+  setting:          'setting',
+  finalPolish:      'final_polish',
+  readyForPlacing:  'ready_for_plating',
+};
 
+const STOCK_TYPES = ['min', 'current', 'wip'];
+
+/**
+ * Syncs all liveStock stage values + per-variation final stock values to the
+ * backend as InventoryTransactions.  Each call computes deltas against the
+ * existing running total for the same stage+stock_type, then POSTs an
+ * "adjust" transaction only when the desired value differs.
+ */
+async function syncAllInventoryStages(request, productId, sku, liveStock, finalStock) {
   const { response, payload } = await fetchJsonWithSession(
     request,
     `/api/inventory?product=${encodeURIComponent(productId)}`
   );
 
-  if (!response.ok || !payload?.success) {
-    return;
-  }
+  const transactions = response.ok && payload?.success ? asArray(payload.data) : [];
 
-  const transactions = asArray(payload.data);
-  const currentStock = transactions.reduce((sum, txn) => {
-    const quantity = toNumber(txn?.quantity);
-    if (String(txn?.txn_type || '').toLowerCase() === 'out') {
-      return sum - quantity;
-    }
-    return sum + quantity;
-  }, 0);
-
-  const delta = Math.round(desiredQuantity - currentStock);
-  if (delta === 0) {
-    return;
-  }
-
-  await fetchJsonWithSession(request, '/api/inventory', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      product: productId,
-      txn_type: 'adjust',
-      quantity: delta,
-      remark: `Product sheet sync for ${sku}`,
-    }),
+  // Build running-total map: `${stage}__${stock_type}` → running quantity
+  const currentByKey = new Map();
+  transactions.forEach((txn) => {
+    if (String(txn?.txn_type || '').toLowerCase() === 'demand') return;
+    const stage = String(txn?.stage || '').trim() || 'default';
+    const stockType = String(txn?.stock_type || 'current').trim() || 'current';
+    const qty = toNumber(txn?.quantity);
+    const key = `${stage}__${stockType}`;
+    const delta = String(txn?.txn_type || '').toLowerCase() === 'out' ? -qty : qty;
+    currentByKey.set(key, (currentByKey.get(key) || 0) + delta);
   });
+
+  const calls = [];
+
+  // 1. Sync per-stage live stock values (min, current, wip)
+  const normalizedLiveStock = normalizeLiveStockKeys(liveStock || {});
+  for (const [frontendKey, stageKey] of Object.entries(LIVE_STOCK_STAGE_MAP)) {
+    const stageData = normalizedLiveStock[frontendKey] || {};
+    for (const stockType of STOCK_TYPES) {
+      const desiredRaw = String(stageData[stockType] || '').trim();
+      if (desiredRaw === '') continue;
+      const desired = Math.round(toNumber(desiredRaw));
+      const mapKey = `${stageKey}__${stockType}`;
+      const current = Math.round(currentByKey.get(mapKey) || 0);
+      const delta = desired - current;
+      if (delta === 0) continue;
+      calls.push(fetchJsonWithSession(request, '/api/inventory', {
+        method: 'POST',
+        body: JSON.stringify({
+          product: productId,
+          txn_type: 'adjust',
+          quantity: delta,
+          stage: stageKey,
+          stock_type: stockType,
+          remark: `Product sheet sync — ${stageKey} (${stockType})`,
+        }),
+      }));
+    }
+  }
+
+  // 2. Sync per-variation final stock values
+  const validFinalStock = (Array.isArray(finalStock) ? finalStock : []).filter(
+    (row) => String(row?.sku || '').trim()
+  );
+  for (const row of validFinalStock) {
+    const varSku = String(row.sku || '').trim();
+    if (!varSku) continue;
+    const desiredRaw = String(row?.value || '').trim();
+    if (desiredRaw === '') continue;
+    const desired = Math.round(toNumber(desiredRaw));
+    // Use lowercase so it matches how buildProductStockMap reads stage names
+    const varStageKey = `final_stock__${varSku.toLowerCase()}`;
+    const mapKey = `${varStageKey}__current`;
+    const current = Math.round(currentByKey.get(mapKey) || 0);
+    const delta = desired - current;
+    if (delta === 0) continue;
+    calls.push(fetchJsonWithSession(request, '/api/inventory', {
+      method: 'POST',
+      body: JSON.stringify({
+        product: productId,
+        txn_type: 'adjust',
+        quantity: delta,
+        stage: varStageKey,
+        stock_type: 'current',
+        remark: `Product sheet sync — final stock ${varSku}`,
+      }),
+    }));
+  }
+
+  if (calls.length > 0) {
+    await Promise.all(calls);
+  }
 }
 
 export async function GET(request) {
@@ -442,7 +505,7 @@ export async function POST(request) {
 
     if (savedProduct?.id) {
       try {
-        await syncInventoryToFinalStock(request, savedProduct.id, sku, data?.finalStock);
+        await syncAllInventoryStages(request, savedProduct.id, sku, data?.liveStock, data?.finalStock);
       } catch {
         // Inventory sync is best-effort; do not fail the whole save.
       }

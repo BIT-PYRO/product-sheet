@@ -18,6 +18,25 @@ async function readJsonSafe(response) {
   return response.json().catch(() => null);
 }
 
+/**
+ * Parses variation SKUs from the product's color/enamel fields.
+ * Format stored in DB: "GOLD[KARTIK/G]\nSILVER[KARTIK/S]"
+ * Returns an array of variation SKUs e.g. ["KARTIK/G", "KARTIK/S"].
+ */
+function parseVariationSkus(colorStr, enamelStr) {
+  const result = [];
+  const parse = (str) => {
+    if (!str) return;
+    String(str).split('\n').forEach((line) => {
+      const m = line.trim().match(/\[([^\]]+)\]/);
+      if (m) result.push(m[1].trim());
+    });
+  };
+  parse(colorStr);
+  parse(enamelStr);
+  return result;
+}
+
 function buildProductStockMap(products, transactions) {
   // stockByProductKey: productId -> Map<`${stage}__${stock_type}`, running_qty>
   // stock_type is one of: 'current', 'min', 'wip'  (default 'current' for old txns)
@@ -85,15 +104,30 @@ function buildProductStockMap(products, transactions) {
       ],
       color: product.color || '',
       enamel: product.enamel || '',
-      stoneName: product.stone_name || '',
-      stoneCut: product.stone_cut || '',
-      stoneColor: product.stone_color || '',
-      stoneSize: product.stone_size || '',
-      stoneQuantity: product.stone_quantity || '',
+      ...(() => {
+        const sRows = Array.isArray(product.stone_entries) ? product.stone_entries : [];
+        const j = (key) => sRows.map((r) => String(r[key] || '')).filter(Boolean).join(' / ');
+        return {
+          stone_entries: sRows,
+          stoneType: j('type'),
+          stoneSpecies: j('species'),
+          stoneVariety: j('variety'),
+          stoneColor: j('color'),
+          stoneCut: j('cut'),
+          stoneShape: j('shape'),
+          stoneLength: j('length'),
+          stoneWidth: j('width'),
+          stoneHeight: j('height'),
+          stoneQty: j('qty'),
+        };
+      })(),
       platingType: product.plating_type || '',
       platingColor: product.plating_color || '',
+      platingEntries: Array.isArray(product.plating_entries) && product.plating_entries.length > 0
+        ? product.plating_entries
+        : (product.plating_type ? [{ type: product.plating_type, color: product.plating_color || '' }] : []),
       notes: product.notes || '',
-      images: product.images || '',
+      images: Array.isArray(product.images) ? product.images : [],
       liveStock: {
         rawMaterial:     { ...stageVals('wax_piece'),         current: val('wax_piece', 'current') || defaultCurrent },
         rawSetting:      stageVals('wax_setting'),
@@ -104,13 +138,23 @@ function buildProductStockMap(products, transactions) {
         finalPolish:     stageVals('final_polish'),
         readyForPlacing: stageVals('ready_for_plating'),
       },
-      finalStock: [
-        {
+      finalStock: (() => {
+        const variationSkus = parseVariationSkus(product.color, product.enamel);
+        if (variationSkus.length > 0) {
+          return variationSkus.map((varSku) => ({
+            sku: varSku,
+            // Stage keys are lowercased in buildProductStockMap — match that casing here
+            value: val(`final_stock__${varSku.toLowerCase()}`, 'current') || '',
+            unit: 'pcs',
+          }));
+        }
+        // No variations — fall back to master SKU with aggregate final_stock value
+        return [{
           sku: product.master_sku || '',
           value: val('final_stock', 'current') || defaultCurrent,
           unit: 'pcs',
-        },
-      ],
+        }];
+      })(),
       totalInDemand,
     };
   });
