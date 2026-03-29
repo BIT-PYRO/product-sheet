@@ -13,8 +13,24 @@ const createToolRow = (id) => ({
   particulars: '',
   department: '',
   quantity: '',
-  price: '',
+  unit: '',
+  location: '',
 });
+
+const normalizeToolRow = (row, id) => {
+  const safeRow = row && typeof row === 'object' ? row : {};
+  return {
+    ...createToolRow(id),
+    ...safeRow,
+    id,
+    toolName: String(safeRow.toolName ?? ''),
+    particulars: String(safeRow.particulars ?? ''),
+    department: String(safeRow.department ?? ''),
+    quantity: String(safeRow.quantity ?? ''),
+    unit: String(safeRow.unit ?? ''),
+    location: String(safeRow.location ?? ''),
+  };
+};
 
 export default function ToolsInventoryPage() {
   const [rows, setRows] = useState([createToolRow(1)]);
@@ -26,23 +42,16 @@ export default function ToolsInventoryPage() {
       if (!stored) return;
       const parsed = JSON.parse(stored);
       if (!Array.isArray(parsed) || parsed.length === 0) return;
-      setRows(
-        parsed.map((row, index) => ({
-          id: index + 1,
-          toolName: String(row.toolName || ''),
-          particulars: String(row.particulars || ''),
-          department: String(row.department || ''),
-          quantity: String(row.quantity || ''),
-          price: String(row.price || ''),
-        }))
-      );
+      setRows(parsed.map((row, index) => normalizeToolRow(row, index + 1)));
     } catch {
       // Keep the page usable if stored data is malformed.
     }
   }, []);
 
   const updateRow = (id, key, nextValue) => {
-    setRows((prev) => prev.map((row) => (row.id === id ? { ...row, [key]: nextValue } : row)));
+    setRows((prev) =>
+      prev.map((row) => (row.id === id ? { ...normalizeToolRow(row, id), [key]: nextValue } : normalizeToolRow(row, row.id)))
+    );
   };
 
   const addRow = () => {
@@ -77,7 +86,7 @@ export default function ToolsInventoryPage() {
       <div className="w-full px-4 md:px-6 pt-20 pb-8">
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
           <div>
-            <p className="text-base text-cool-gray">Manage tools with details, owning department, quantity, and price</p>
+            <p className="text-base text-cool-gray">Manage tools with details, owning department, quantity, unit, and location</p>
           </div>
           <Link
             href="/inventory"
@@ -96,7 +105,7 @@ export default function ToolsInventoryPage() {
 
         <section className="rounded-xl border border-soft-border bg-white p-4 md:p-6 shadow-sm">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[980px] border-collapse text-sm">
+            <table className="w-full min-w-[1120px] border-collapse text-sm">
               <thead>
                 <tr className="bg-cloud-gray border-b border-soft-border">
                   <th className="px-3 py-2 text-left text-xs font-bold uppercase tracking-wide text-cool-gray w-16">S. No.</th>
@@ -104,7 +113,8 @@ export default function ToolsInventoryPage() {
                   <th className="px-3 py-2 text-left text-xs font-bold uppercase tracking-wide text-cool-gray">Particulars</th>
                   <th className="px-3 py-2 text-left text-xs font-bold uppercase tracking-wide text-cool-gray">Department</th>
                   <th className="px-3 py-2 text-left text-xs font-bold uppercase tracking-wide text-cool-gray">Quantity</th>
-                  <th className="px-3 py-2 text-left text-xs font-bold uppercase tracking-wide text-cool-gray">Price</th>
+                  <th className="px-3 py-2 text-left text-xs font-bold uppercase tracking-wide text-cool-gray">Unit</th>
+                  <th className="px-3 py-2 text-left text-xs font-bold uppercase tracking-wide text-cool-gray">Location</th>
                   <th className="px-3 py-2 text-left text-xs font-bold uppercase tracking-wide text-cool-gray w-24">Action</th>
                 </tr>
               </thead>
@@ -115,7 +125,7 @@ export default function ToolsInventoryPage() {
                     <td className="px-3 py-2">
                       <input
                         type="text"
-                        value={row.toolName}
+                        value={row.toolName ?? ''}
                         onChange={(e) => updateRow(row.id, 'toolName', e.target.value)}
                         placeholder="Enter tool name"
                         className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue"
@@ -124,7 +134,7 @@ export default function ToolsInventoryPage() {
                     <td className="px-3 py-2">
                       <input
                         type="text"
-                        value={row.particulars}
+                        value={row.particulars ?? ''}
                         onChange={(e) => updateRow(row.id, 'particulars', e.target.value)}
                         placeholder="Enter particulars"
                         className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue"
@@ -133,7 +143,7 @@ export default function ToolsInventoryPage() {
                     <td className="px-3 py-2">
                       <input
                         type="text"
-                        value={row.department}
+                        value={row.department ?? ''}
                         onChange={(e) => updateRow(row.id, 'department', e.target.value)}
                         placeholder="Enter department"
                         className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue"
@@ -142,7 +152,7 @@ export default function ToolsInventoryPage() {
                     <td className="px-3 py-2">
                       <input
                         type="number"
-                        value={row.quantity}
+                        value={row.quantity ?? ''}
                         onChange={(e) => updateRow(row.id, 'quantity', e.target.value)}
                         placeholder="0"
                         className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue"
@@ -150,11 +160,19 @@ export default function ToolsInventoryPage() {
                     </td>
                     <td className="px-3 py-2">
                       <input
-                        type="number"
-                        step="0.01"
-                        value={row.price}
-                        onChange={(e) => updateRow(row.id, 'price', e.target.value)}
-                        placeholder="0.00"
+                        type="text"
+                        value={row.unit ?? ''}
+                        onChange={(e) => updateRow(row.id, 'unit', e.target.value)}
+                        placeholder="PCS"
+                        className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue"
+                      />
+                    </td>
+                    <td className="px-3 py-2">
+                      <input
+                        type="text"
+                        value={row.location ?? ''}
+                        onChange={(e) => updateRow(row.id, 'location', e.target.value)}
+                        placeholder="Store room A"
                         className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue"
                       />
                     </td>
