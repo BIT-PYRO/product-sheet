@@ -58,7 +58,7 @@ export default function MasterProductSheet() {
   // Column definitions for products — images is first
   const columns = [
     { id: 'images', label: 'Images' },
-    { id: 'sku', label: 'SKU' },
+    { id: 'sku', label: 'Master SKU' },
     { id: 'listingName', label: 'Listing Name' },
     { id: 'material', label: 'Material' },
     { id: 'weight', label: 'Weight' },
@@ -73,11 +73,16 @@ export default function MasterProductSheet() {
     { id: 'masterSku', label: 'Master SKU' },
     { id: 'color', label: 'Color' },
     { id: 'enamel', label: 'Enamel' },
-    { id: 'stoneName', label: 'Stone Name' },
-    { id: 'stoneCut', label: 'Stone Cut' },
-    { id: 'stoneColor', label: 'Stone Color' },
-    { id: 'stoneSize', label: 'Stone Size' },
-    { id: 'stoneQuantity', label: 'Stone Quantity' },
+    { id: 'stoneType', label: 'Stone Type', readOnly: true },
+    { id: 'stoneSpecies', label: 'Stone Species', readOnly: true },
+    { id: 'stoneVariety', label: 'Stone Variety', readOnly: true },
+    { id: 'stoneColor', label: 'Stone Color', readOnly: true },
+    { id: 'stoneCut', label: 'Stone Cut', readOnly: true },
+    { id: 'stoneShape', label: 'Stone Shape', readOnly: true },
+    { id: 'stoneLength', label: 'Stone Length', readOnly: true },
+    { id: 'stoneWidth', label: 'Stone Width', readOnly: true },
+    { id: 'stoneHeight', label: 'Stone Height', readOnly: true },
+    { id: 'stoneQty', label: 'Stone Qty', readOnly: true },
     { id: 'platingType', label: 'Plating Type' },
     { id: 'platingColor', label: 'Plating Color' },
     { id: 'notes', label: 'Notes' },
@@ -101,11 +106,16 @@ export default function MasterProductSheet() {
     masterSku: { minWidth: 'min-w-[85px]', headerBg: 'bg-[#dbeafe]' },
     color: { minWidth: 'min-w-[70px]', headerBg: 'bg-[#dbeafe]' },
     enamel: { minWidth: 'min-w-[70px]', headerBg: 'bg-[#dbeafe]' },
-    stoneName: { minWidth: 'min-w-[80px]', headerBg: 'bg-[#dbeafe]' },
-    stoneCut: { minWidth: 'min-w-[75px]', headerBg: 'bg-[#dbeafe]' },
+    stoneType: { minWidth: 'min-w-[80px]', headerBg: 'bg-[#dbeafe]' },
+    stoneSpecies: { minWidth: 'min-w-[90px]', headerBg: 'bg-[#dbeafe]' },
+    stoneVariety: { minWidth: 'min-w-[90px]', headerBg: 'bg-[#dbeafe]' },
     stoneColor: { minWidth: 'min-w-[80px]', headerBg: 'bg-[#dbeafe]' },
-    stoneSize: { minWidth: 'min-w-[70px]', headerBg: 'bg-[#dbeafe]' },
-    stoneQuantity: { minWidth: 'min-w-[80px]', headerBg: 'bg-[#dbeafe]' },
+    stoneCut: { minWidth: 'min-w-[75px]', headerBg: 'bg-[#dbeafe]' },
+    stoneShape: { minWidth: 'min-w-[80px]', headerBg: 'bg-[#dbeafe]' },
+    stoneLength: { minWidth: 'min-w-[80px]', headerBg: 'bg-[#dbeafe]' },
+    stoneWidth: { minWidth: 'min-w-[75px]', headerBg: 'bg-[#dbeafe]' },
+    stoneHeight: { minWidth: 'min-w-[75px]', headerBg: 'bg-[#dbeafe]' },
+    stoneQty: { minWidth: 'min-w-[70px]', headerBg: 'bg-[#dbeafe]' },
     platingType: { minWidth: 'min-w-[85px]', headerBg: 'bg-[#dbeafe]' },
     platingColor: { minWidth: 'min-w-[85px]', headerBg: 'bg-[#dbeafe]' },
     notes: { minWidth: 'min-w-[100px]', headerBg: 'bg-[#dbeafe]' },
@@ -210,7 +220,7 @@ export default function MasterProductSheet() {
 
       const mappedRows = rows.map((product) => ({
         id: product.id,
-        sku: product.sku || '',
+        sku: product.master_sku || '',
         listingName: product.name || '',
         material: product.material || '',
         weight: product.weight || '',
@@ -226,14 +236,26 @@ export default function MasterProductSheet() {
         findings: Array.isArray(product.findings) && product.findings.length > 0
           ? product.findings.map((f) => f.value || '').filter(Boolean).join(', ')
           : '',
-        masterSku: product.master_sku || product.sku || '',
+        masterSku: product.master_sku || '',
         color: product.color || '',
         enamel: product.enamel || '',
-        stoneName: product.stone_name || '',
-        stoneCut: product.stone_cut || '',
-        stoneColor: product.stone_color || '',
-        stoneSize: product.stone_size || '',
-        stoneQuantity: product.stone_quantity || '',
+        ...(() => {
+          const sRows = Array.isArray(product.stone_entries) ? product.stone_entries : [];
+          const j = (key) => sRows.map((r) => String(r[key] || '')).filter(Boolean).join(' / ');
+          return {
+            stoneType: j('type'),
+            stoneSpecies: j('species'),
+            stoneVariety: j('variety'),
+            stoneColor: j('color'),
+            stoneCut: j('cut'),
+            stoneShape: j('shape'),
+            stoneLength: j('length'),
+            stoneWidth: j('width'),
+            stoneHeight: j('height'),
+            stoneQty: j('qty'),
+            stoneEntries: sRows,
+          };
+        })(),
         platingType: product.plating_type || '',
         platingColor: product.plating_color || '',
         notes: product.notes || '',
@@ -300,7 +322,7 @@ export default function MasterProductSheet() {
       // Fetch designer data by SKU
       const [designerRes, productRes] = await Promise.all([
         fetch(`/api/designers?sku=${encodeURIComponent(sku)}`, { cache: 'no-store' }),
-        fetch(`/api/products?sku=${encodeURIComponent(sku)}`, { cache: 'no-store' }),
+        fetch(`/api/products?master_sku=${encodeURIComponent(sku)}`, { cache: 'no-store' }),
       ]);
 
       const designerResult = await designerRes.json().catch(() => null);
@@ -354,11 +376,21 @@ export default function MasterProductSheet() {
             if (product.active_channels && !row.activeChannels) updates.activeChannels = product.active_channels;
             if (product.color && !row.color) updates.color = product.color;
             if (product.enamel && !row.enamel) updates.enamel = product.enamel;
-            if (product.stone_name && !row.stoneName) updates.stoneName = product.stone_name;
-            if (product.stone_cut && !row.stoneCut) updates.stoneCut = product.stone_cut;
-            if (product.stone_color && !row.stoneColor) updates.stoneColor = product.stone_color;
-            if (product.stone_size && !row.stoneSize) updates.stoneSize = product.stone_size;
-            if (product.stone_quantity && !row.stoneQuantity) updates.stoneQuantity = product.stone_quantity;
+            if (Array.isArray(product.stone_entries) && product.stone_entries.length > 0 && (!row.stoneEntries || row.stoneEntries.length === 0)) {
+              const sRows = product.stone_entries;
+              const j = (key) => sRows.map((r) => String(r[key] || '')).filter(Boolean).join(' / ');
+              updates.stoneEntries = sRows;
+              updates.stoneType = j('type');
+              updates.stoneSpecies = j('species');
+              updates.stoneVariety = j('variety');
+              updates.stoneColor = j('color');
+              updates.stoneCut = j('cut');
+              updates.stoneShape = j('shape');
+              updates.stoneLength = j('length');
+              updates.stoneWidth = j('width');
+              updates.stoneHeight = j('height');
+              updates.stoneQty = j('qty');
+            }
             if (product.plating_type && !row.platingType) updates.platingType = product.plating_type;
             if (product.plating_color && !row.platingColor) updates.platingColor = product.plating_color;
             if (product.notes && !row.notes) updates.notes = product.notes;
@@ -450,11 +482,17 @@ export default function MasterProductSheet() {
       masterSku: '',
       color: '',
       enamel: '',
-      stoneName: '',
-      stoneCut: '',
+      stoneType: '',
+      stoneSpecies: '',
+      stoneVariety: '',
       stoneColor: '',
-      stoneSize: '',
-      stoneQuantity: '',
+      stoneCut: '',
+      stoneShape: '',
+      stoneLength: '',
+      stoneWidth: '',
+      stoneHeight: '',
+      stoneQty: '',
+      stoneEntries: [],
       platingType: '',
       platingColor: '',
       notes: '',
@@ -502,11 +540,7 @@ export default function MasterProductSheet() {
           master_sku: row.masterSku,
           color: row.color,
           enamel: row.enamel,
-          stone_name: row.stoneName,
-          stone_cut: row.stoneCut,
-          stone_color: row.stoneColor,
-          stone_size: row.stoneSize,
-          stone_quantity: row.stoneQuantity,
+          stone_entries: Array.isArray(row.stoneEntries) ? row.stoneEntries : [],
           plating_type: row.platingType,
           plating_color: row.platingColor,
           notes: row.notes,
@@ -526,7 +560,7 @@ export default function MasterProductSheet() {
           const response = await fetch('/api/products', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ...payload, sku: row.sku }),
+            body: JSON.stringify({ ...payload, master_sku: row.sku }),
           });
           const result = await response.json().catch(() => null);
           if (!response.ok || !result?.success) throw new Error(result?.message || 'Failed to create product');
@@ -1335,7 +1369,7 @@ export default function MasterProductSheet() {
                               isEditing={canEdit}
                               onImagesChange={(newImages) => handleCellChange(row.id, 'images', newImages)}
                             />
-                          ) : canEdit ? (
+                          ) : canEdit && !column.readOnly ? (
                             <Input
                               type="text"
                               value={row[column.id]}

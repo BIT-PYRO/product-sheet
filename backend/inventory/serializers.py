@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from django.db import transaction
 
-from .models import InventoryTransaction, PicklistGroup, PicklistItem
+from .models import InventoryTransaction, PicklistGroup, PicklistItem, StoneItem, StoneStockEntry
 
 
 class InventoryTransactionSerializer(serializers.ModelSerializer):
@@ -91,3 +91,33 @@ class PicklistGroupSerializer(serializers.ModelSerializer):
             ])
 
         return instance
+
+
+class StoneItemSerializer(serializers.ModelSerializer):
+    averageWeightStock = serializers.SerializerMethodField()
+
+    def get_averageWeightStock(self, obj):
+        return obj.average_weight_stock
+
+    class Meta:
+        model = StoneItem
+        fields = [
+            'id', 'stone_type', 'species', 'variety', 'color', 'quality',
+            'wax_setting', 'cut', 'dos', 'donts', 'shape', 'length', 'width', 'height',
+            'qty', 'weight_cts', 'averageWeightStock', 'created_at', 'updated_at',
+        ]
+
+
+class StoneStockEntrySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = StoneStockEntry
+        fields = ['id', 'stone', 'qty_added', 'weight_cts_added', 'price', 'price_by', 'amount', 'remark', 'created_at']
+
+    @transaction.atomic
+    def create(self, validated_data):
+        entry = super().create(validated_data)
+        stone = entry.stone
+        stone.qty = float(stone.qty or 0) + float(entry.qty_added)
+        stone.weight_cts = float(stone.weight_cts or 0) + float(entry.weight_cts_added)
+        stone.save(update_fields=['qty', 'weight_cts'])
+        return entry

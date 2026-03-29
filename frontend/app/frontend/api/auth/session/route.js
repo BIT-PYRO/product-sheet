@@ -8,6 +8,11 @@ function getBackendBaseUrl() {
   return (process.env.BACKEND_BASE_URL || DEFAULT_BACKEND_URL).replace(/\/$/, '');
 }
 
+function extractAccessToken(payload) {
+  const access = payload?.data?.access || payload?.access || payload?.tokens?.access || '';
+  return String(access || '').trim();
+}
+
 export async function GET(request) {
   const backendBaseUrl = getBackendBaseUrl();
   const accessToken = request.cookies.get(ACCESS_COOKIE)?.value || '';
@@ -44,7 +49,7 @@ export async function GET(request) {
     });
 
     const refreshResult = await refreshResponse.json().catch(() => null);
-    const newAccessToken = refreshResult?.data?.access;
+    const newAccessToken = extractAccessToken(refreshResult);
 
     if (refreshResponse.ok && newAccessToken) {
       activeAccessToken = newAccessToken;
@@ -82,7 +87,7 @@ export async function GET(request) {
   }
 
   const meResult = await meResponse.json().catch(() => null);
-  const user = meResult?.data;
+  const user = meResult?.data || meResult;
 
   const response = NextResponse.json({
     success: true,

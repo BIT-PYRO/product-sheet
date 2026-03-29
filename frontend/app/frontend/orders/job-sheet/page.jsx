@@ -115,12 +115,12 @@ export function OrderSheetView({ embedded = false }) {
   const buildProductMap = (products) => {
     const map = {};
     products.forEach((product) => {
-      const key = normalizeSku(product?.sku);
+      const key = normalizeSku(product?.master_sku || product?.masterSku || product?.sku);
       if (!key) {
         return;
       }
       map[key] = {
-        sku: product?.sku || '',
+        sku: product?.master_sku || product?.masterSku || product?.sku || '',
         listingName: product?.name || product?.listingName || '',
         material: product?.material || '',
         weight: product?.weight || '',

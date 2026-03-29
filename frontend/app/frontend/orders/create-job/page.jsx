@@ -235,7 +235,7 @@ export function CreateOrderForm({ embedded = false }) {
   const filteredProducts = products.filter((p) =>
     !productSearch ||
     p.name?.toLowerCase().includes(productSearch.toLowerCase()) ||
-    p.sku?.toLowerCase().includes(productSearch.toLowerCase())
+    p.master_sku?.toLowerCase().includes(productSearch.toLowerCase())
   );
 
   const filteredCustomers = customers.filter((c) =>
@@ -253,7 +253,7 @@ export function CreateOrderForm({ embedded = false }) {
       .map((p) => ({
         id: `product-${p.id}`,
         name: p.name,
-        sku: p.sku,
+        sku: p.master_sku,
         price: parseFloat(p.selling_price) || 0,
         quantity: 1,
       }));
@@ -917,7 +917,7 @@ export function CreateOrderForm({ embedded = false }) {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="text-sm font-medium text-midnight-ink truncate">{p.name}</div>
-                    {p.sku && <div className="text-xs text-cool-gray">SKU: {p.sku}</div>}
+                    {p.master_sku && <div className="text-xs text-cool-gray">SKU: {p.master_sku}</div>}
                     {p.category && <div className="text-xs text-cool-gray">{p.category}</div>}
                   </div>
                   <div className="text-sm font-semibold text-midnight-ink shrink-0">

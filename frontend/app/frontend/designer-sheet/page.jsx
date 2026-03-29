@@ -40,9 +40,9 @@ const WEIGHT_UNITS = [
 ]
 
 const STONE_DEFAULT_ROWS = () => [
-  { id: 1, name: '', cut: '', color: '', size: '', material: '', weight: '', quantity: '' },
-  { id: 2, name: '', cut: '', color: '', size: '', material: '', weight: '', quantity: '' },
-  { id: 3, name: '', cut: '', color: '', size: '', material: '', weight: '', quantity: '' },
+  { id: 1, type: '', species: '', variety: '', color: '', cut: '', shape: '', length: '', width: '', height: '', qty: '' },
+  { id: 2, type: '', species: '', variety: '', color: '', cut: '', shape: '', length: '', width: '', height: '', qty: '' },
+  { id: 3, type: '', species: '', variety: '', color: '', cut: '', shape: '', length: '', width: '', height: '', qty: '' },
 ]
 
 const PLATING_DEFAULT_ROWS = () => [
@@ -52,10 +52,10 @@ const PLATING_DEFAULT_ROWS = () => [
 ]
 
 const TRACKING_DEFAULT_ROWS = () => [
-  { id: 1, tdm: '', stl: '', motiveCode: '', masterSku: '', dieCode: '', moldDieQty: '' },
-  { id: 2, tdm: '', stl: '', motiveCode: '', masterSku: '', dieCode: '', moldDieQty: '' },
-  { id: 3, tdm: '', stl: '', motiveCode: '', masterSku: '', dieCode: '', moldDieQty: '' },
-  { id: 4, tdm: '', stl: '', motiveCode: '', masterSku: '', dieCode: '', moldDieQty: '' },
+  { id: 1, tdm: '', stl: '', motiveCode: '', motiveSku: '', dieCode: '', moldDieQty: '' },
+  { id: 2, tdm: '', stl: '', motiveCode: '', motiveSku: '', dieCode: '', moldDieQty: '' },
+  { id: 3, tdm: '', stl: '', motiveCode: '', motiveSku: '', dieCode: '', moldDieQty: '' },
+  { id: 4, tdm: '', stl: '', motiveCode: '', motiveSku: '', dieCode: '', moldDieQty: '' },
 ]
 
 const EMPTY_DESIGNER = () => ({
@@ -69,9 +69,9 @@ const EMPTY_DESIGNER = () => ({
   sizeOfDesignMotive: '',
   totalDesignMeasurements: '',
   designMaterial: '',
-  dieCode: '',
-  moldQtyPerDie: '',
-  cpxDeadWeight: '',
+  totalDieCode: '',
+  totalMoldQtyPerDie: '',
+  totalCpxDeadWeight: '',
   mechanism: '',
   notes: '',
   stoneRows: STONE_DEFAULT_ROWS(),
@@ -82,7 +82,8 @@ const EMPTY_DESIGNER = () => ({
 function DesignerSheetContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const designCodeParam = (searchParams.get('master_sku') || searchParams.get('motive_code') || '').trim()
+  const idParam = (searchParams.get('id') || '').trim()
+  const designCodeParam = (searchParams.get('motive_sku') || searchParams.get('motive_code') || '').trim()
   const skuParam = (searchParams.get('sku') || '').trim()
 
   const designerImageRef1 = useRef(null)
@@ -93,6 +94,7 @@ function DesignerSheetContent() {
   const [searchInput, setSearchInput] = useState(designCodeParam || skuParam)
   const [isSearching, setIsSearching] = useState(false)
   const [searchError, setSearchError] = useState('')
+  const [isEditing, setIsEditing] = useState(false)
 
   const [designerRecordId, setDesignerRecordId] = useState(null)
   const [isSaving, setIsSaving] = useState(false)
@@ -125,14 +127,14 @@ function DesignerSheetContent() {
       sizeOfDesignMotive: record.design_motive_size || '',
       totalDesignMeasurements: record.total_design_measurements || '',
       designMaterial: record.design_material || '',
-      dieCode: record.die_code || '',
-      moldQtyPerDie: record.mold_qty_per_die || '',
-      cpxDeadWeight: record.cpx_dead_weight || '',
+      totalDieCode: record.total_die_code != null ? String(record.total_die_code) : '',
+      totalMoldQtyPerDie: record.total_mold_qty_per_die != null ? String(record.total_mold_qty_per_die) : '',
+      totalCpxDeadWeight: record.total_cpx_dead_weight != null ? String(record.total_cpx_dead_weight) : '',
       mechanism: record.mechanism || '',
       notes: record.designer_notes || '',
       stoneRows:
         Array.isArray(record.stone_entries) && record.stone_entries.length > 0
-          ? record.stone_entries.map((r, i) => ({ id: i + 1, name: r.name || '', cut: r.cut || '', color: r.color || '', size: r.size || '', material: r.material || '', weight: r.weight || '', quantity: r.quantity || '' }))
+          ? record.stone_entries.map((r, i) => ({ id: i + 1, type: r.type || '', species: r.species || '', variety: r.variety || '', color: r.color || '', cut: r.cut || '', shape: r.shape || '', length: r.length || '', width: r.width || '', height: r.height || '', qty: r.qty || '' }))
           : STONE_DEFAULT_ROWS(),
       platingRows:
         Array.isArray(record.plating_entries) && record.plating_entries.length > 0
@@ -140,7 +142,10 @@ function DesignerSheetContent() {
           : PLATING_DEFAULT_ROWS(),
       trackingRows:
         Array.isArray(record.tracking_rows) && record.tracking_rows.length > 0
-          ? record.tracking_rows
+          ? record.tracking_rows.map((r) => ({
+              ...r,
+              motiveSku: r.motiveSku ?? r.masterSku ?? '',
+            }))
           : TRACKING_DEFAULT_ROWS(),
     })
   }
@@ -149,6 +154,7 @@ function DesignerSheetContent() {
     if (!query) return
     setIsSearching(true)
     setSearchError('')
+    setIsEditing(false)
     try {
       const res = await fetch(`/api/designers?search=${encodeURIComponent(query)}`, { cache: 'no-store' })
       const json = await res.json()
@@ -160,7 +166,7 @@ function DesignerSheetContent() {
 
       const lq = query.toLowerCase()
       const record =
-        rows.find((d) => String(d.master_sku || '').trim().toLowerCase() === lq) ||
+        rows.find((d) => String(d.motive_sku || '').trim().toLowerCase() === lq) ||
         rows.find((d) => String(d.sku || '').trim().toLowerCase() === lq) ||
         rows.find((d) => String(d.motive_code || '').trim().toLowerCase() === lq) ||
         rows[0]
@@ -179,19 +185,45 @@ function DesignerSheetContent() {
     }
   }, [])
 
-  useEffect(() => {
-    const initial = designCodeParam || skuParam
-    if (initial) {
-      setSearchInput(initial)
-      loadDesignerByDesignCode(initial)
+  // Load by backend record ID (coming from Master Designer Sheet)
+  const loadDesignerById = useCallback(async (id) => {
+    if (!id) return
+    setIsSearching(true)
+    setSearchError('')
+    setIsEditing(false)
+    try {
+      const res = await fetch(`/api/designers/${id}`, { cache: 'no-store' })
+      const json = await res.json()
+      const record = json.data || json
+      if (record && record.id) {
+        populateFromRecord(record)
+      } else {
+        setSearchError('Record not found')
+      }
+    } catch {
+      setSearchError('Failed to load record')
+    } finally {
+      setIsSearching(false)
     }
-  }, [designCodeParam, skuParam, loadDesignerByDesignCode])
+  }, [])  // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (idParam) {
+      loadDesignerById(idParam)
+    } else {
+      const initial = designCodeParam || skuParam
+      if (initial) {
+        setSearchInput(initial)
+        loadDesignerByDesignCode(initial)
+      }
+    }
+  }, [idParam, designCodeParam, skuParam, loadDesignerById, loadDesignerByDesignCode])
 
   const handleSearch = (e) => {
     e.preventDefault()
     const s = searchInput.trim()
     if (!s) return
-    router.replace(`/frontend/designer-sheet?master_sku=${encodeURIComponent(s)}`)
+    router.replace(`/frontend/designer-sheet?motive_sku=${encodeURIComponent(s)}`)
     loadDesignerByDesignCode(s)
   }
 
@@ -224,7 +256,7 @@ function DesignerSheetContent() {
     const newId = Math.max(...designer.trackingRows.map((r) => r.id), 0) + 1
     setDesigner((prev) => ({
       ...prev,
-      trackingRows: [...prev.trackingRows, { id: newId, tdm: '', stl: '', motiveCode: '', masterSku: '', dieCode: '', moldDieQty: '' }],
+      trackingRows: [...prev.trackingRows, { id: newId, tdm: '', stl: '', motiveCode: '', motiveSku: '', dieCode: '', moldDieQty: '' }],
     }))
   }
 
@@ -241,7 +273,7 @@ function DesignerSheetContent() {
 
   const addStoneRow = () => {
     const newId = Math.max(...designer.stoneRows.map((r) => r.id), 0) + 1
-    setDesigner((prev) => ({ ...prev, stoneRows: [...prev.stoneRows, { id: newId, name: '', cut: '', color: '', size: '', material: '', weight: '', quantity: '' }] }))
+    setDesigner((prev) => ({ ...prev, stoneRows: [...prev.stoneRows, { id: newId, type: '', species: '', variety: '', color: '', cut: '', shape: '', length: '', width: '', height: '', qty: '' }] }))
   }
   const updateStoneRow = (id, field, value) => {
     setDesigner((prev) => ({ ...prev, stoneRows: prev.stoneRows.map((r) => (r.id === id ? { ...r, [field]: value } : r)) }))
@@ -278,12 +310,12 @@ function DesignerSheetContent() {
         design_motive_size: designer.sizeOfDesignMotive,
         total_design_measurements: designer.totalDesignMeasurements,
         design_material: designer.designMaterial,
-        die_code: designer.dieCode,
-        mold_qty_per_die: designer.moldQtyPerDie,
-        cpx_dead_weight: designer.cpxDeadWeight,
+        total_die_code: designer.totalDieCode !== '' ? Number(designer.totalDieCode) : null,
+        total_mold_qty_per_die: designer.totalMoldQtyPerDie !== '' ? Number(designer.totalMoldQtyPerDie) : null,
+        total_cpx_dead_weight: designer.totalCpxDeadWeight !== '' ? Number(designer.totalCpxDeadWeight) : null,
         mechanism: designer.mechanism,
         designer_notes: designer.notes,
-        stone_entries: designer.stoneRows.map(({ name, cut, color, size, material, weight, quantity }) => ({ name, cut, color, size, material, weight, quantity })),
+        stone_entries: designer.stoneRows.map(({ type, species, variety, color, cut, shape, length, width, height, qty }) => ({ type, species, variety, color, cut, shape, length, width, height, qty })),
         plating_entries: designer.platingRows.map(({ type, color }) => ({ type, color })),
         tracking_rows: designer.trackingRows,
       }
@@ -303,6 +335,8 @@ function DesignerSheetContent() {
         setDesigner((prev) => ({ ...prev, sku: result.data.sku }))
       }
       setSaveStatus({ success: true, message: isUpdate ? 'Designer updated' : 'Designer record created' })
+      // Navigate back to master designer sheet after a short delay
+      setTimeout(() => router.push('/frontend/master-designer-sheet'), 1200)
     } catch (err) {
       setSaveStatus({ success: false, message: err.message })
     } finally {
@@ -395,12 +429,12 @@ function DesignerSheetContent() {
       <div className="px-2 py-2">
         <div className="bg-cloud-gray p-3 rounded-xl mb-4 border border-soft-border shadow-sm">
           <form onSubmit={handleSearch} className="flex items-center gap-2">
-            <label className="text-xs font-semibold text-midnight-ink whitespace-nowrap">Search by Master SKU</label>
+            <label className="text-xs font-semibold text-midnight-ink whitespace-nowrap">Search by Motive SKU</label>
             <input
               type="text"
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
-              placeholder="Enter master SKU…"
+              placeholder="Enter motive SKU…"
               className="flex-1 border border-soft-border rounded px-3 py-1.5 text-sm outline-none focus:border-trust-blue bg-white"
             />
             <button type="submit" disabled={isSearching} className="px-4 py-1.5 text-xs bg-trust-blue text-white font-semibold rounded-full hover:bg-deep-blue disabled:opacity-50 flex items-center gap-1">
@@ -440,19 +474,29 @@ function DesignerSheetContent() {
                   {saveStatus.message}
                 </span>
               )}
-              <button type="button" onClick={handleSave} disabled={isSaving} className="px-2.5 py-1 text-xs bg-success text-white font-semibold rounded-full hover:bg-success/90 disabled:opacity-50">
-                {isSaving ? 'Saving…' : 'SAVE'}
-              </button>
-              <button type="button" onClick={handleDelete} disabled={isSaving || !designerRecordId} className="px-2.5 py-1 text-xs bg-danger text-white font-semibold rounded-full hover:bg-danger/90 disabled:opacity-50">
-                DELETE
-              </button>
-              <button type="button" onClick={() => bulkUploadRef.current?.click()} disabled={isSaving} className="px-2.5 py-1 text-xs bg-trust-blue text-white font-semibold rounded-full hover:bg-deep-blue disabled:opacity-50 flex items-center gap-1">
-                <Upload className="h-3 w-3" />
-                UPLOAD
-              </button>
-              <input ref={bulkUploadRef} type="file" accept=".csv,.xlsx,.xls,.json" onChange={handleBulkUpload} className="hidden" />
+              {isLoaded && !isEditing && (
+                <button type="button" onClick={() => setIsEditing(true)} className="px-2.5 py-1 text-xs bg-trust-blue text-white font-semibold rounded-full hover:bg-deep-blue">
+                  EDIT
+                </button>
+              )}
+              {(!isLoaded || isEditing) && (
+                <>
+                  <button type="button" onClick={handleSave} disabled={isSaving} className="px-2.5 py-1 text-xs bg-success text-white font-semibold rounded-full hover:bg-success/90 disabled:opacity-50">
+                    {isSaving ? 'Saving…' : 'SAVE'}
+                  </button>
+                  <button type="button" onClick={handleDelete} disabled={isSaving || !designerRecordId} className="px-2.5 py-1 text-xs bg-danger text-white font-semibold rounded-full hover:bg-danger/90 disabled:opacity-50">
+                    DELETE
+                  </button>
+                  <button type="button" onClick={() => bulkUploadRef.current?.click()} disabled={isSaving} className="px-2.5 py-1 text-xs bg-trust-blue text-white font-semibold rounded-full hover:bg-deep-blue disabled:opacity-50 flex items-center gap-1">
+                    <Upload className="h-3 w-3" />
+                    UPLOAD
+                  </button>
+                  <input ref={bulkUploadRef} type="file" accept=".csv,.xlsx,.xls,.json" onChange={handleBulkUpload} className="hidden" />
+                </>
+              )}
             </div>
           </div>
+          <fieldset disabled={isLoaded && !isEditing} className="contents">
 
           <div className="mb-3">
             <label className="text-xs font-semibold text-midnight-ink mb-1 block">
@@ -463,7 +507,8 @@ function DesignerSheetContent() {
               value={designer.sku}
               onChange={(e) => setDesigner((prev) => ({ ...prev, sku: e.target.value }))}
               placeholder="e.g. RING-001 (leave blank to auto-generate)"
-              className="w-full border border-soft-border rounded px-3 py-1.5 text-sm outline-none focus:border-trust-blue bg-white"
+              disabled={isLoaded && !isEditing}
+              className="w-full border border-soft-border rounded px-3 py-1.5 text-sm outline-none focus:border-trust-blue bg-white disabled:bg-cloud-gray disabled:text-cool-gray disabled:cursor-default"
             />
           </div>
 
@@ -499,7 +544,7 @@ function DesignerSheetContent() {
                     <th className="border border-soft-border px-2 py-1.5 font-semibold text-midnight-ink text-left">3DM</th>
                     <th className="border border-soft-border px-2 py-1.5 font-semibold text-midnight-ink text-left">STL</th>
                     <th className="border border-soft-border px-2 py-1.5 font-semibold text-midnight-ink text-left">Motive Code</th>
-                    <th className="border border-soft-border px-2 py-1.5 font-semibold text-midnight-ink text-left">Master SKU</th>
+                    <th className="border border-soft-border px-2 py-1.5 font-semibold text-midnight-ink text-left">Motive SKU</th>
                     <th className="border border-soft-border px-2 py-1.5 font-semibold text-midnight-ink text-left">Die Code</th>
                     <th className="border border-soft-border px-2 py-1.5 font-semibold text-midnight-ink text-left">Mold/Die Qty</th>
                     <th className="border border-soft-border px-1 py-1.5 w-6"></th>
@@ -533,7 +578,7 @@ function DesignerSheetContent() {
                         </div>
                       </td>
                       <td className="border border-soft-border p-0"><input type="text" value={row.motiveCode} onChange={(e) => updateTrackingRow(row.id, 'motiveCode', e.target.value)} className="w-full bg-transparent outline-none px-2 py-1 min-w-[100px]" /></td>
-                      <td className="border border-soft-border p-0"><input type="text" value={row.masterSku} onChange={(e) => updateTrackingRow(row.id, 'masterSku', e.target.value)} className="w-full bg-transparent outline-none px-2 py-1 min-w-[110px]" /></td>
+                      <td className="border border-soft-border p-0"><input type="text" value={row.motiveSku} onChange={(e) => updateTrackingRow(row.id, 'motiveSku', e.target.value)} className="w-full bg-transparent outline-none px-2 py-1 min-w-[110px]" /></td>
                       <td className="border border-soft-border p-0"><input type="text" value={row.dieCode} onChange={(e) => updateTrackingRow(row.id, 'dieCode', e.target.value)} className="w-full bg-transparent outline-none px-2 py-1 min-w-[90px]" /></td>
                       <td className="border border-soft-border p-0"><input type="text" value={row.moldDieQty} onChange={(e) => updateTrackingRow(row.id, 'moldDieQty', e.target.value)} className="w-full bg-transparent outline-none px-2 py-1 min-w-[90px]" /></td>
                       <td className="border border-soft-border p-0 text-center">
@@ -551,7 +596,7 @@ function DesignerSheetContent() {
             </button>
           </div>
 
-          <div className="mb-3 grid grid-cols-2 gap-3">
+          <div className="mb-3 grid gap-3" style={{ gridTemplateColumns: '3fr 2fr' }}>
             {/* STONE INFO */}
             <div className="bg-white border border-soft-border rounded-xl overflow-hidden">
               <div className="text-xs font-bold text-midnight-ink px-3 py-2 bg-[#dce8f5] border-b border-soft-border">STONE INFO</div>
@@ -559,7 +604,7 @@ function DesignerSheetContent() {
                 <table className="w-full text-xs border-collapse">
                   <thead>
                     <tr className="bg-cloud-gray">
-                      {['NAME','CUT','COLOR','SIZE','MATERIAL','WEIGHT','QUANTITY'].map((h) => (
+                      {['TYPE','SPECIES','VARIETY','COLOR','CUT','SHAPE','LENGTH','WIDTH','HEIGHT','QTY'].map((h) => (
                         <th key={h} className="border border-soft-border px-2 py-1.5 font-semibold text-midnight-ink text-left whitespace-nowrap">{h}</th>
                       ))}
                       <th className="border border-soft-border px-1 py-1.5 w-6"></th>
@@ -568,7 +613,7 @@ function DesignerSheetContent() {
                   <tbody>
                     {designer.stoneRows.map((row) => (
                       <tr key={row.id} className="hover:bg-cloud-gray/40">
-                        {['name','cut','color','size','material','weight','quantity'].map((f) => (
+                        {['type','species','variety','color','cut','shape','length','width','height','qty'].map((f) => (
                           <td key={f} className="border border-soft-border p-0">
                             <input type="text" value={row[f]} onChange={(e) => updateStoneRow(row.id, f, e.target.value)} className="w-full bg-transparent outline-none px-2 py-1 min-w-[70px] text-xs" />
                           </td>
@@ -744,19 +789,19 @@ function DesignerSheetContent() {
             </div>
             <div className="flex flex-col gap-3">
               <div className="bg-white border border-soft-border rounded-xl p-3">
-                <div className="text-xs font-semibold text-midnight-ink mb-2">Die Code / Mold Qty &amp; CPX Dead Weight</div>
+                <div className="text-xs font-semibold text-midnight-ink mb-2">Total Die Code, Mold Qty &amp; CPX Dead Weight</div>
                 <div className="flex flex-col gap-2">
                   <div>
-                    <label className="text-[11px] text-cool-gray block mb-0.5">Die Code</label>
-                    <input type="text" value={designer.dieCode} onChange={(e) => setDesigner((prev) => ({ ...prev, dieCode: e.target.value }))} placeholder="Die Code" className="w-full border border-soft-border rounded px-2 py-1 text-sm outline-none focus:border-trust-blue bg-transparent" />
+                    <label className="text-[11px] text-cool-gray block mb-0.5">Total Die Code</label>
+                    <input type="number" min="0" value={designer.totalDieCode} onChange={(e) => setDesigner((prev) => ({ ...prev, totalDieCode: e.target.value }))} placeholder="Total Die Code" className="w-full border border-soft-border rounded px-2 py-1 text-sm outline-none focus:border-trust-blue bg-transparent" />
                   </div>
                   <div>
-                    <label className="text-[11px] text-cool-gray block mb-0.5">Mold Qty / Die</label>
-                    <input type="text" value={designer.moldQtyPerDie} onChange={(e) => setDesigner((prev) => ({ ...prev, moldQtyPerDie: e.target.value }))} placeholder="Mold Qty / Die" className="w-full border border-soft-border rounded px-2 py-1 text-sm outline-none focus:border-trust-blue bg-transparent" />
+                    <label className="text-[11px] text-cool-gray block mb-0.5">Total Mold Qty / Die</label>
+                    <input type="number" min="0" value={designer.totalMoldQtyPerDie} onChange={(e) => setDesigner((prev) => ({ ...prev, totalMoldQtyPerDie: e.target.value }))} placeholder="Total Mold Qty / Die" className="w-full border border-soft-border rounded px-2 py-1 text-sm outline-none focus:border-trust-blue bg-transparent" />
                   </div>
                   <div>
-                    <label className="text-[11px] text-cool-gray block mb-0.5">CPX Dead Weight</label>
-                    <input type="text" value={designer.cpxDeadWeight} onChange={(e) => setDesigner((prev) => ({ ...prev, cpxDeadWeight: e.target.value }))} placeholder="CPX Dead Weight" className="w-full border border-soft-border rounded px-2 py-1 text-sm outline-none focus:border-trust-blue bg-transparent" />
+                    <label className="text-[11px] text-cool-gray block mb-0.5">Total CPX Dead Weight</label>
+                    <input type="number" min="0" step="0.0001" value={designer.totalCpxDeadWeight} onChange={(e) => setDesigner((prev) => ({ ...prev, totalCpxDeadWeight: e.target.value }))} placeholder="Total CPX Dead Weight" className="w-full border border-soft-border rounded px-2 py-1 text-sm outline-none focus:border-trust-blue bg-transparent" />
                   </div>
                 </div>
               </div>
@@ -857,17 +902,20 @@ function DesignerSheetContent() {
               <ExternalLink className="h-3 w-3" />
               View all records in Master Designer Sheet
             </Link>
-            <div className="flex items-center gap-2">
-              {saveStatus && (
-                <span className={`text-xs px-2 py-0.5 rounded ${saveStatus.success ? 'bg-success/10 text-success-dark' : 'bg-danger/10 text-danger-dark'}`}>
-                  {saveStatus.message}
-                </span>
-              )}
-              <button type="button" onClick={handleSave} disabled={isSaving} className="px-4 py-1.5 text-xs bg-success text-white font-semibold rounded-full hover:bg-success/90 disabled:opacity-50">
-                {isSaving ? 'Saving…' : 'SAVE'}
-              </button>
-            </div>
+            {(!isLoaded || isEditing) && (
+              <div className="flex items-center gap-2">
+                {saveStatus && (
+                  <span className={`text-xs px-2 py-0.5 rounded ${saveStatus.success ? 'bg-success/10 text-success-dark' : 'bg-danger/10 text-danger-dark'}`}>
+                    {saveStatus.message}
+                  </span>
+                )}
+                <button type="button" onClick={handleSave} disabled={isSaving} className="px-4 py-1.5 text-xs bg-success text-white font-semibold rounded-full hover:bg-success/90 disabled:opacity-50">
+                  {isSaving ? 'Saving…' : 'SAVE'}
+                </button>
+              </div>
+            )}
           </div>
+          </fieldset>
         </div>
       </div>
     </div>

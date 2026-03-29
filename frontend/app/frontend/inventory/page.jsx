@@ -5,7 +5,7 @@ import MasterNavigationDrawer from '@/components/master_navigation_drawer';
 
 const INVENTORY_BUTTONS = [
   { href: '/inventory/product-inventory', title: 'Product inventory', subtitle: 'Track and manage final product stock' },
-  { href: '#', title: 'Stone inventory', subtitle: 'View and update stone stock balances' },
+  { href: '/inventory/stone-inventory', title: 'Stone inventory', subtitle: 'View and update stone stock balances' },
   { href: '#', title: 'Finding inventory', subtitle: 'Monitor findings stock and movement' },
   { href: '/inventory/others', title: 'Others', subtitle: 'Manage consumables and purchased items stock' },
 ];

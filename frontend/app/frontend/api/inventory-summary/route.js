@@ -68,8 +68,8 @@ function buildProductStockMap(products, transactions) {
 
     return {
       id: product.id,
-      sku: product.sku || '',
-      masterSku: product.sku || '',
+      sku: product.master_sku || '',
+      masterSku: product.master_sku || '',
       listingName: product.name || '',
       material: product.material || '',
       weight: product.weight || '',
@@ -106,7 +106,7 @@ function buildProductStockMap(products, transactions) {
       },
       finalStock: [
         {
-          sku: product.sku || '',
+          sku: product.master_sku || '',
           value: val('final_stock', 'current') || defaultCurrent,
           unit: 'pcs',
         },

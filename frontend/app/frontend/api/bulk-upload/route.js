@@ -271,7 +271,7 @@ async function fetchCollection(client, path) {
 async function uploadProducts(client, rows) {
   const existingProducts = await fetchCollection(client, '/api/v1/products/');
   const productBySku = new Map(
-    existingProducts.map((product) => [String(product.sku || '').trim().toUpperCase(), product])
+    existingProducts.map((product) => [String(product.master_sku || '').trim().toUpperCase(), product])
   );
 
   let createdCount = 0;
@@ -501,7 +501,7 @@ async function uploadCustomers(client, rows) {
 async function uploadJobs(client, rows) {
   const existingProducts = await fetchCollection(client, '/api/v1/products/');
   const productBySku = new Map(
-    existingProducts.map((product) => [String(product.sku || '').trim().toUpperCase(), product])
+    existingProducts.map((product) => [String(product.master_sku || '').trim().toUpperCase(), product])
   );
 
   let createdCount = 0;

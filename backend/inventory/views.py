@@ -3,8 +3,8 @@ from rest_framework.viewsets import ModelViewSet
 
 from common.mixins import StandardizedSuccessResponseMixin
 
-from .models import InventoryTransaction, PicklistGroup
-from .serializers import InventoryTransactionSerializer, PicklistGroupSerializer
+from .models import InventoryTransaction, PicklistGroup, StoneItem, StoneStockEntry
+from .serializers import InventoryTransactionSerializer, PicklistGroupSerializer, StoneItemSerializer, StoneStockEntrySerializer
 
 
 @extend_schema_view(
@@ -36,3 +36,29 @@ class PicklistGroupViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 	lookup_field = 'group_id'
 	filterset_fields = ['number', 'group_id']
 	search_fields = ['name', 'uploaded_by', 'group_id', 'items__sku', 'items__listing_name']
+
+
+@extend_schema_view(
+	list=extend_schema(summary='List stone items', tags=['Stone Inventory']),
+	retrieve=extend_schema(summary='Get stone item details', tags=['Stone Inventory']),
+	create=extend_schema(summary='Create stone item', tags=['Stone Inventory']),
+	update=extend_schema(summary='Update stone item', tags=['Stone Inventory']),
+	partial_update=extend_schema(summary='Partially update stone item', tags=['Stone Inventory']),
+	destroy=extend_schema(summary='Delete stone item', tags=['Stone Inventory']),
+)
+class StoneItemViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
+	queryset = StoneItem.objects.all().order_by('-created_at')
+	serializer_class = StoneItemSerializer
+	filterset_fields = ['stone_type', 'species', 'variety', 'color', 'quality', 'shape', 'wax_setting']
+	search_fields = ['stone_type', 'species', 'variety', 'color', 'quality', 'shape']
+
+
+@extend_schema_view(
+	list=extend_schema(summary='List stone stock entries', tags=['Stone Inventory']),
+	create=extend_schema(summary='Add stone stock', tags=['Stone Inventory']),
+)
+class StoneStockEntryViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
+	queryset = StoneStockEntry.objects.select_related('stone').all().order_by('-created_at')
+	serializer_class = StoneStockEntrySerializer
+	filterset_fields = ['stone']
+	http_method_names = ['get', 'post', 'head', 'options']

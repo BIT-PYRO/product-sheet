@@ -8,6 +8,11 @@ function backendBaseUrl() {
   return (process.env.BACKEND_BASE_URL || DEFAULT_BACKEND_URL).replace(/\/$/, '');
 }
 
+function extractAccessToken(payload) {
+  const access = payload?.data?.access || payload?.access || payload?.tokens?.access || '';
+  return String(access || '').trim();
+}
+
 function applyAuthCookies(response, accessToken) {
   if (accessToken) {
     response.cookies.set({
@@ -51,7 +56,7 @@ async function requestTokenRefresh(refreshToken) {
   });
 
   const payload = await response.json().catch(() => null);
-  const access = payload?.data?.access;
+  const access = extractAccessToken(payload);
 
   if (!response.ok || !access) {
     return null;
