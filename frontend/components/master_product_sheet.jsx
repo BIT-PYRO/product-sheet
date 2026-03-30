@@ -351,15 +351,24 @@ export default function MasterProductSheet() {
           // Auto-fill from designer data
           if (designer) {
             if (designer.design_material && !row.material) updates.material = designer.design_material;
-            // Stone info — fill all columns from all designer stone entries
-            if (Array.isArray(designer.stone_entries) && designer.stone_entries.length > 0 && (!row.stoneEntries || row.stoneEntries.length === 0)) {
+            // Stone info — auto-fill only cut/shape/length/width/height/qty from designer; type/species/variety/color stay manual
+            if (Array.isArray(designer.stone_entries) && designer.stone_entries.length > 0) {
               const sRows = designer.stone_entries;
-              const j = (key) => sRows.map((r) => String(r[key] || '')).filter(Boolean).join(' / ');
-              updates.stoneEntries = sRows;
-              updates.stoneType = j('type');
-              updates.stoneSpecies = j('species');
-              updates.stoneVariety = j('variety');
-              updates.stoneColor = j('color');
+              const existingEntries = Array.isArray(row.stoneEntries) ? row.stoneEntries : [];
+              const mergedEntries = sRows.map((s, i) => ({
+                type: existingEntries[i]?.type || '',
+                species: existingEntries[i]?.species || '',
+                variety: existingEntries[i]?.variety || '',
+                color: existingEntries[i]?.color || '',
+                cut: s.cut || '',
+                shape: s.shape || '',
+                length: s.length || '',
+                width: s.width || '',
+                height: s.height || '',
+                qty: s.qty || '',
+              }));
+              const j = (key) => mergedEntries.map((r) => String(r[key] || '')).filter(Boolean).join(' / ');
+              updates.stoneEntries = mergedEntries;
               updates.stoneCut = j('cut');
               updates.stoneShape = j('shape');
               updates.stoneLength = j('length');

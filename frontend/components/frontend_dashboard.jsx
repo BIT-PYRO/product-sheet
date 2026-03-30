@@ -558,6 +558,22 @@ function ProductSheetContent() {
           }))
           if (Array.isArray(d.stone_entries) && d.stone_entries.length > 0) {
             setDesignerStoneRows(d.stone_entries.map((s, i) => ({ id: i + 1, type: s.type || '', species: s.species || '', variety: s.variety || '', color: s.color || '', cut: s.cut || '', shape: s.shape || '', length: s.length || '', width: s.width || '', height: s.height || '', qty: s.qty || '' })))
+            // Auto-fill product stone: cut/shape/length/width/height/qty; type/species/variety/color stay manual
+            setStoneInfo(prev => {
+              return d.stone_entries.map((s, i) => ({
+                id: i + 1,
+                type: prev[i]?.type || '',
+                species: prev[i]?.species || '',
+                variety: prev[i]?.variety || '',
+                color: prev[i]?.color || '',
+                cut: s.cut || '',
+                shape: s.shape || '',
+                length: s.length || '',
+                width: s.width || '',
+                height: s.height || '',
+                qty: s.qty || '',
+              }))
+            })
           }
           if (Array.isArray(d.plating_entries) && d.plating_entries.length > 0) {
             setDesignerPlatingRows(d.plating_entries.map((p, i) => ({ id: i + 1, type: p.type || '', color: p.color || '' })))
@@ -3294,6 +3310,7 @@ function ProductSheetContent() {
       <CreateJobModal 
         open={isCreateJobModalOpen}
         onOpenChange={setIsCreateJobModalOpen}
+        initialSku={sku}
         onQuickEnroll={() => {
           // Handle quick enroll action
           console.log('Quick enroll clicked')

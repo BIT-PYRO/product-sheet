@@ -53,7 +53,19 @@ class Job(AuditModel):
 	materials = models.JSONField(default=list, blank=True, help_text='List of materials required')
 	tools = models.JSONField(default=list, blank=True, help_text='List of tools/equipment needed')
 	uploaded_files = models.JSONField(default=list, blank=True, help_text='List of uploaded files (photos, documents, etc.)')
-	
+
+	# Voucher-specific fields
+	voucher_no = models.CharField(max_length=30, blank=True, default='', help_text='e.g. JJ-01')
+	voucher_type = models.CharField(max_length=20, blank=True, default='New', choices=[('New', 'New'), ('Re-Issue', 'Re-Issue')], help_text='New or Re-Issue voucher')
+	dept_from = models.CharField(max_length=100, blank=True, default='', help_text='Source department')
+	dept_to = models.CharField(max_length=100, blank=True, default='', help_text='Destination department')
+	# Each entry: {sku, category, metal, issued_qty, unit1, issued_weight, unit2}
+	material_rows = models.JSONField(default=list, blank=True, help_text='Issued material rows from SKU table')
+	# Each entry: {variety, color, cut, shape, length, width, height, qty}
+	stone_rows = models.JSONField(default=list, blank=True, help_text='Stone issuance rows')
+	# Each entry: {die_number, quantity, weight, unit}
+	die_weight_rows = models.JSONField(default=list, blank=True, help_text='Die/findings rows')
+
 	status = models.CharField(max_length=30, choices=JobStatus.choices, default=JobStatus.CREATED)
 
 	def __str__(self):

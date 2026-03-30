@@ -33,7 +33,7 @@ function generateVoucherNo() {
   return `JJ-${String(currentCount).padStart(2, '0')}`
 }
 
-export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated }) {
+export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated, initialSku = '' }) {
   const { saveDraft } = useDrafts()
   const loadedDraft = useDraftLoader()
   const [isQuickEnrollModalOpen, setIsQuickEnrollModalOpen] = useState(false)
@@ -58,7 +58,7 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
   const [issuedByName, setIssuedByName] = useState("")
   const [issuedByContact, setIssuedByContact] = useState("")
   const [stoneRows, setStoneRows] = useState([
-    { id: 1, name: "", cut: "", color: "", size: "", quantity: "" },
+    { id: 1, variety: "", color: "", cut: "", shape: "", length: "", width: "", height: "", qty: "" },
   ])
   const [dieWeightRows, setDieWeightRows] = useState([
     { id: 1, dieNumber: "", quantity: "", weight: "", unit: "" },
@@ -83,6 +83,13 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
     setVoucherNo(generateVoucherNo())
   }, [])
 
+  // Pre-fill first SKU row when initialSku is provided
+  useEffect(() => {
+    if (initialSku && open) {
+      setRows(prev => prev.map((r, i) => i === 0 ? { ...r, sku: initialSku } : r))
+    }
+  }, [initialSku, open])
+
   // Refresh enrolled people from backend when modal opens
   useEffect(() => {
     if (open) {
@@ -100,7 +107,7 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
       if (draft.deptFrom) setDeptFrom(draft.deptFrom)
       if (draft.deptTo) setDeptTo(draft.deptTo)
       if (draft.rows) setRows(draft.rows)
-      if (draft.stoneRows) setStoneRows(draft.stoneRows)
+      if (draft.stoneRows) setStoneRows(draft.stoneRows.map(r => ({ id: r.id, variety: r.variety ?? r.name ?? '', color: r.color ?? '', cut: r.cut ?? '', shape: r.shape ?? r.size ?? '', length: r.length ?? '', width: r.width ?? '', height: r.height ?? '', qty: r.qty ?? r.quantity ?? '' })))
       if (draft.dieWeightRows) setDieWeightRows(draft.dieWeightRows)
       if (draft.voucherType) setVoucherType(draft.voucherType)
       if (draft.workType) setWorkType(draft.workType)
@@ -129,7 +136,7 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
   function addStoneRow() {
     setStoneRows((prev) => [
       ...prev,
-      { id: Date.now(), name: "", cut: "", color: "", size: "", quantity: "" },
+      { id: Date.now(), variety: "", color: "", cut: "", shape: "", length: "", width: "", height: "", qty: "" },
     ])
   }
 
@@ -155,6 +162,37 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
   function updateDieWeightRow(id, field, value) {
     setDieWeightRows((prev) => prev.map((r) => (r.id === id ? { ...r, [field]: value } : r)))
   }
+
+  // Auto-fill stone rows when any SKU row changes
+  useEffect(() => {
+    const skuValues = rows.map(r => String(r.sku || '').trim()).filter(Boolean)
+    if (!skuValues.length) return
+    const primarySku = skuValues[0]
+    const timer = setTimeout(() => {
+      fetch(`/api/products?search=${encodeURIComponent(primarySku)}`, { cache: 'no-store' })
+        .then(r => r.json())
+        .then(result => {
+          const items = Array.isArray(result?.data) ? result.data : (result?.data?.results || [])
+          const product = items.find(p => String(p.master_sku || '').toLowerCase() === primarySku.toLowerCase()) || items[0]
+          if (!product) return
+          if (Array.isArray(product.stone_entries) && product.stone_entries.length > 0) {
+            setStoneRows(product.stone_entries.map((s, i) => ({
+              id: i + 1,
+              variety: s.variety || '',
+              color: s.color || '',
+              cut: s.cut || '',
+              shape: s.shape || '',
+              length: s.length || '',
+              width: s.width || '',
+              height: s.height || '',
+              qty: s.qty || '',
+            })))
+          }
+        })
+        .catch(() => {})
+    }, 600)
+    return () => clearTimeout(timer)
+  }, [rows])
 
   async function handleEnrollPerson(personName) {
     const normalizedName = String(personName || '').trim()
@@ -224,6 +262,19 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
           title,
           product: selectedProduct.id,
           status: 'created',
+          voucher_no: voucherNo,
+          voucher_type: voucherType,
+          issued_to: issuedTo,
+          issued_by: issuedByName,
+          contact: issuedByContact,
+          work_type: workType,
+          schedule: scheduleFuture || null,
+          dept_from: deptFrom,
+          dept_to: deptTo,
+          notes: noteByIssuer,
+          material_rows: rows.map(({ sku, category, metal, issuedQty, unit1, issuedWeight, unit2 }) => ({ sku, category, metal, issued_qty: issuedQty, unit1, issued_weight: issuedWeight, unit2 })),
+          stone_rows: stoneRows.map(({ variety, color, cut, shape, length, width, height, qty }) => ({ variety, color, cut, shape, length, width, height, qty })),
+          die_weight_rows: dieWeightRows.map(({ dieNumber, quantity, weight, unit }) => ({ die_number: dieNumber, quantity, weight, unit })),
         }),
       })
 
@@ -445,7 +496,7 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
           <div className="rounded-md overflow-hidden border border-border">
             {/* Table Header - blue */}
             <div className="grid grid-cols-[1fr_1fr_1fr_0.8fr_60px_0.8fr_60px_32px] gap-0 bg-trust-blue text-white text-[9px] font-bold uppercase tracking-wider">
-              <div className="px-1.5 py-2">SKU</div>
+              <div className="px-1.5 py-2">Master SKU</div>
               <div className="px-1.5 py-2">Category</div>
               <div className="px-1.5 py-2">Metal</div>
               <div className="px-1.5 py-2">Qty</div>
@@ -460,7 +511,7 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
                 className="grid grid-cols-[1fr_1fr_1fr_0.8fr_60px_0.8fr_60px_32px] gap-0 border-t border-border items-center bg-background"
               >
                 <div className="px-0.5 py-0.5">
-                  <Input className="h-6 text-sm bg-background border-border" placeholder="SKU" value={row.sku} onChange={(e) => updateRow(row.id, "sku", e.target.value)} />
+                  <Input className="h-6 text-sm bg-background border-border" placeholder="Master SKU" value={row.sku} onChange={(e) => updateRow(row.id, "sku", e.target.value)} />
                 </div>
                 <div className="px-0.5 py-0.5">
                   <Input className="h-6 text-sm bg-background border-border" placeholder="Category" value={row.category} onChange={(e) => updateRow(row.id, "category", e.target.value)} />
@@ -564,33 +615,45 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
             <TabsContent value="stone" className="mt-2">
               <div className="flex flex-col gap-1">
                 <div className="rounded-md overflow-hidden border border-border">
-                  <div className="grid grid-cols-[1fr_1fr_1fr_1fr_1fr_32px] gap-0 bg-trust-blue text-white text-[9px] font-bold uppercase tracking-wider">
-                    <div className="px-1.5 py-2">Name</div>
-                    <div className="px-1.5 py-2">Cut</div>
+                  <div className="grid grid-cols-[1fr_1fr_1fr_1fr_0.7fr_0.7fr_0.7fr_0.7fr_32px] gap-0 bg-trust-blue text-white text-[9px] font-bold uppercase tracking-wider">
+                    <div className="px-1.5 py-2">Variety</div>
                     <div className="px-1.5 py-2">Color</div>
-                    <div className="px-1.5 py-2">Size</div>
+                    <div className="px-1.5 py-2">Cut</div>
+                    <div className="px-1.5 py-2">Shape</div>
+                    <div className="px-1.5 py-2">L</div>
+                    <div className="px-1.5 py-2">W</div>
+                    <div className="px-1.5 py-2">H</div>
                     <div className="px-1.5 py-2">Qty</div>
                     <div className="px-1.5 py-2"></div>
                   </div>
                   {stoneRows.map((row) => (
                     <div
                       key={row.id}
-                      className="grid grid-cols-[1fr_1fr_1fr_1fr_1fr_32px] gap-0 border-t border-border items-center bg-background"
+                      className="grid grid-cols-[1fr_1fr_1fr_1fr_0.7fr_0.7fr_0.7fr_0.7fr_32px] gap-0 border-t border-border items-center bg-background"
                     >
                       <div className="px-0.5 py-0.5">
-                        <Input className="h-6 text-sm bg-background border-border" placeholder="Stone name" value={row.name} onChange={(e) => updateStoneRow(row.id, "name", e.target.value)} />
-                      </div>
-                      <div className="px-0.5 py-0.5">
-                        <Input className="h-6 text-sm bg-background border-border" placeholder="Cut" value={row.cut} onChange={(e) => updateStoneRow(row.id, "cut", e.target.value)} />
+                        <Input className="h-6 text-sm bg-background border-border" placeholder="Variety" value={row.variety} onChange={(e) => updateStoneRow(row.id, "variety", e.target.value)} />
                       </div>
                       <div className="px-0.5 py-0.5">
                         <Input className="h-6 text-sm bg-background border-border" placeholder="Color" value={row.color} onChange={(e) => updateStoneRow(row.id, "color", e.target.value)} />
                       </div>
                       <div className="px-0.5 py-0.5">
-                        <Input className="h-6 text-sm bg-background border-border" placeholder="Size" value={row.size} onChange={(e) => updateStoneRow(row.id, "size", e.target.value)} />
+                        <Input className="h-6 text-sm bg-background border-border" placeholder="Cut" value={row.cut} onChange={(e) => updateStoneRow(row.id, "cut", e.target.value)} />
                       </div>
                       <div className="px-0.5 py-0.5">
-                      <Input className="h-6 text-sm bg-background border-border" type="number" placeholder="0" value={row.quantity} onChange={(e) => updateStoneRow(row.id, "quantity", e.target.value)} />
+                        <Input className="h-6 text-sm bg-background border-border" placeholder="Shape" value={row.shape} onChange={(e) => updateStoneRow(row.id, "shape", e.target.value)} />
+                      </div>
+                      <div className="px-0.5 py-0.5">
+                        <Input className="h-6 text-sm bg-background border-border" placeholder="L" value={row.length} onChange={(e) => updateStoneRow(row.id, "length", e.target.value)} />
+                      </div>
+                      <div className="px-0.5 py-0.5">
+                        <Input className="h-6 text-sm bg-background border-border" placeholder="W" value={row.width} onChange={(e) => updateStoneRow(row.id, "width", e.target.value)} />
+                      </div>
+                      <div className="px-0.5 py-0.5">
+                        <Input className="h-6 text-sm bg-background border-border" placeholder="H" value={row.height} onChange={(e) => updateStoneRow(row.id, "height", e.target.value)} />
+                      </div>
+                      <div className="px-0.5 py-0.5">
+                        <Input className="h-6 text-sm bg-background border-border" type="number" placeholder="0" value={row.qty} onChange={(e) => updateStoneRow(row.id, "qty", e.target.value)} />
                       </div>
                       <div className="flex items-center justify-center">
                         <button type="button" onClick={() => deleteStoneRow(row.id)} className="text-danger hover:text-danger-dark transition-colors" aria-label="Delete row">
@@ -697,6 +760,13 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
               onClick={handleSaveDraft}
             >
               Save as Draft
+            </Button>
+            <Button
+              className="flex-1 h-7 bg-amber-500 hover:bg-amber-600 text-white font-bold text-sm rounded"
+              onClick={() => {}}
+              type="button"
+            >
+              Issue Stone
             </Button>
             <Button
               className="flex-1 h-7 bg-success hover:bg-success text-white font-bold text-sm rounded"
