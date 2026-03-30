@@ -2,11 +2,51 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, RefreshCw, Search, X } from 'lucide-react';
+import { ArrowLeft, Plus, RefreshCw, Search, X } from 'lucide-react';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
 
 const MATERIAL_OPTIONS = ['Gold', 'Silver', 'Brass', 'Alloy', 'Platinum'];
 const STAGE_OPTIONS = ['Raw', 'Wax', 'Casting', 'Filing', 'Polish', 'Setting', 'Ready', 'Finished'];
+
+function emptyFinding() {
+  return {
+    finding_code: '',
+    die_number: '',
+    size: '',
+    material: '',
+    finding_stage: '',
+    mechanism: '',
+    quantity: '',
+    weight: '',
+    dead_weight: '',
+    mold_qty_per_die: '',
+    polish: '',
+    total_measurements: '',
+    design_material: '',
+    notes: '',
+  };
+}
+
+function Field({ label, value, onChange, textarea = false, type = 'text', children }) {
+  const base = 'w-full rounded-md border border-soft-border px-3 py-1.5 text-sm text-midnight-ink placeholder:text-cool-gray focus:outline-none focus:ring-1 focus:ring-trust-blue bg-white';
+  return (
+    <div className="flex flex-col gap-1">
+      <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">{label}</label>
+      {children ? children : textarea ? (
+        <textarea className={`${base} resize-none`} rows={2} value={value} onChange={(e) => onChange(e.target.value)} />
+      ) : (
+        <input className={base} type={type} value={value} onChange={(e) => onChange(e.target.value)} />
+      )}
+    </div>
+  );
+}
 
 export default function FindingInventoryPage() {
   const [findings, setFindings] = useState([]);
@@ -16,6 +56,12 @@ export default function FindingInventoryPage() {
   const [search, setSearch] = useState('');
   const [filterMaterial, setFilterMaterial] = useState('');
   const [filterStage, setFilterStage] = useState('');
+
+  // Add New Finding dialog
+  const [addOpen, setAddOpen] = useState(false);
+  const [form, setForm] = useState(emptyFinding());
+  const [saving, setSaving] = useState(false);
+  const [statusMsg, setStatusMsg] = useState('');
 
   const fetchFindings = async () => {
     setLoading(true);
@@ -57,6 +103,38 @@ export default function FindingInventoryPage() {
 
   const hasActiveFilters = search || filterMaterial || filterStage;
 
+  function ff(key) {
+    return (val) => setForm((prev) => ({ ...prev, [key]: val }));
+  }
+
+  async function handleSaveFinding() {
+    if (!form.finding_code.trim()) {
+      setStatusMsg('Finding Code is required.');
+      return;
+    }
+    setSaving(true);
+    setStatusMsg('');
+    try {
+      const res = await fetch('/api/findings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(JSON.stringify(err));
+      }
+      setStatusMsg('Finding added successfully.');
+      setAddOpen(false);
+      setForm(emptyFinding());
+      fetchFindings();
+    } catch (err) {
+      setStatusMsg(`Error: ${err.message}`);
+    } finally {
+      setSaving(false);
+    }
+  }
+
   return (
     <main className="min-h-screen bg-cloud-gray">
       {/* Header */}
@@ -66,18 +144,36 @@ export default function FindingInventoryPage() {
             <MasterNavigationDrawer inHeader />
             <h1 className="text-xl font-bold tracking-tight text-midnight-ink">FINDING INVENTORY</h1>
           </div>
-          <button
-            type="button"
-            onClick={fetchFindings}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-soft-border bg-white px-3 py-1.5 text-sm font-medium text-midnight-ink hover:border-trust-blue transition"
-          >
-            <RefreshCw className="h-3.5 w-3.5" />
-            Refresh
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={fetchFindings}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-soft-border bg-white px-3 py-1.5 text-sm font-medium text-midnight-ink hover:border-trust-blue transition"
+            >
+              <RefreshCw className="h-3.5 w-3.5" />
+              Refresh
+            </button>
+            <button
+              type="button"
+              onClick={() => { setForm(emptyFinding()); setStatusMsg(''); setAddOpen(true); }}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-trust-blue px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 transition"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Add New Finding
+            </button>
+          </div>
         </div>
       </div>
 
       <div className="w-full px-4 md:px-6 pt-20 pb-8">
+        {/* Status message */}
+        {statusMsg && (
+          <div className="fixed top-16 right-4 z-50 flex items-center justify-between gap-3 rounded-lg border border-soft-border bg-white px-4 py-2 text-sm text-midnight-ink shadow-md">
+            <span>{statusMsg}</span>
+            <button onClick={() => setStatusMsg('')}><X className="h-3.5 w-3.5 text-cool-gray hover:text-midnight-ink" /></button>
+          </div>
+        )}
+
         {/* Back + summary row */}
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
@@ -248,6 +344,66 @@ export default function FindingInventoryPage() {
           )}
         </section>
       </div>
+
+      {/* ── Add New Finding dialog ── */}
+      <Dialog open={addOpen} onOpenChange={setAddOpen}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-semibold text-midnight-ink">Add New Finding</DialogTitle>
+          </DialogHeader>
+
+          <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+            <Field label="Finding Code *" value={form.finding_code} onChange={ff('finding_code')} />
+            <Field label="Die Number" value={form.die_number} onChange={ff('die_number')} />
+            <Field label="Size" value={form.size} onChange={ff('size')} />
+
+            <Field label="Material">
+              <select
+                value={form.material}
+                onChange={(e) => ff('material')(e.target.value)}
+                className="w-full rounded-md border border-soft-border bg-white px-3 py-1.5 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+              >
+                <option value="">Select material</option>
+                {MATERIAL_OPTIONS.map((m) => <option key={m} value={m}>{m}</option>)}
+              </select>
+            </Field>
+
+            <Field label="Stage">
+              <select
+                value={form.finding_stage}
+                onChange={(e) => ff('finding_stage')(e.target.value)}
+                className="w-full rounded-md border border-soft-border bg-white px-3 py-1.5 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+              >
+                <option value="">Select stage</option>
+                {STAGE_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </Field>
+
+            <Field label="Mechanism" value={form.mechanism} onChange={ff('mechanism')} />
+            <Field label="Quantity" value={form.quantity} onChange={ff('quantity')} />
+            <Field label="Weight" value={form.weight} onChange={ff('weight')} />
+            <Field label="Dead Weight" value={form.dead_weight} onChange={ff('dead_weight')} />
+            <Field label="Mold Qty / Die" value={form.mold_qty_per_die} onChange={ff('mold_qty_per_die')} />
+            <Field label="Polish" value={form.polish} onChange={ff('polish')} />
+            <Field label="Total Measurements" value={form.total_measurements} onChange={ff('total_measurements')} />
+            <Field label="Design Material" value={form.design_material} onChange={ff('design_material')} />
+            <div className="sm:col-span-2 md:col-span-3">
+              <Field label="Notes" value={form.notes} onChange={ff('notes')} textarea />
+            </div>
+          </div>
+
+          {statusMsg && !addOpen && null}
+
+          <div className="mt-5 flex justify-end gap-3">
+            <Button variant="outline" onClick={() => setAddOpen(false)} disabled={saving}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveFinding} disabled={saving}>
+              {saving ? 'Saving...' : 'Save Finding'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </main>
   );
 }
