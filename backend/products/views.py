@@ -1,4 +1,6 @@
+from django.db import transaction as db_transaction
 from drf_spectacular.utils import OpenApiExample, extend_schema_view, extend_schema
+from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.parsers import MultiPartParser
 from rest_framework.response import Response
@@ -52,6 +54,16 @@ class ProductViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 	serializer_class = ProductSerializer
 	filterset_fields = ['is_active', 'category', 'master_sku', 'designer_sku']
 	search_fields = ['master_sku', 'name', 'designer_sku']
+
+	def destroy(self, request, *args, **kwargs):
+		instance = self.get_object()
+		with db_transaction.atomic():
+			# Nullable FK — detach jobs so the product can be deleted
+			instance.jobs.update(product=None)
+			# Protected FK — delete inventory transactions first
+			instance.inventory_transactions.all().delete()
+			instance.delete()
+		return Response(status=status.HTTP_204_NO_CONTENT)
 
 	@extend_schema(summary='Upload image for product', tags=['Products'])
 	@action(detail=True, methods=['post'], url_path='upload-image', parser_classes=[MultiPartParser])

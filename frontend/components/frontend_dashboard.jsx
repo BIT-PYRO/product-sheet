@@ -167,10 +167,15 @@ function ProductSheetContent() {
   ])
 
   const TRACKING_DEFAULT_ROWS = () => [
-    { id: 1, tdm: '', stl: '', motiveCode: '', motiveSku: '', dieCode: '', moldDieQty: '' },
-    { id: 2, tdm: '', stl: '', motiveCode: '', motiveSku: '', dieCode: '', moldDieQty: '' },
-    { id: 3, tdm: '', stl: '', motiveCode: '', motiveSku: '', dieCode: '', moldDieQty: '' },
-    { id: 4, tdm: '', stl: '', motiveCode: '', motiveSku: '', dieCode: '', moldDieQty: '' },
+    { id: 1, tdm: '', stl: '', motiveCode: '', motiveSku: '', dieCode: '', moldDieQty: '', length: '', width: '', height: '' },
+    { id: 2, tdm: '', stl: '', motiveCode: '', motiveSku: '', dieCode: '', moldDieQty: '', length: '', width: '', height: '' },
+    { id: 3, tdm: '', stl: '', motiveCode: '', motiveSku: '', dieCode: '', moldDieQty: '', length: '', width: '', height: '' },
+    { id: 4, tdm: '', stl: '', motiveCode: '', motiveSku: '', dieCode: '', moldDieQty: '', length: '', width: '', height: '' },
+  ]
+
+  const DESIGNER_FINDINGS_DEFAULT = () => [
+    { id: 1, code: '', quantity: '' },
+    { id: 2, code: '', quantity: '' },
   ]
 
   const [designer, setDesigner] = useState({
@@ -180,8 +185,9 @@ function ProductSheetContent() {
     designStage: '',
     settingType: '',
     enamel: '',
-    sizeOfDesignMotive: '',
-    totalDesignMeasurements: '',
+    tdmLength: '',
+    tdmWidth: '',
+    tdmHeight: '',
     designMaterial: '',
     dieCode: '',
     moldQtyPerDie: '',
@@ -189,6 +195,7 @@ function ProductSheetContent() {
     mechanism: '',
     notes: '',
     trackingRows: TRACKING_DEFAULT_ROWS(),
+    findingsRows: DESIGNER_FINDINGS_DEFAULT(),
   })
 
   const [isSaving, setIsSaving] = useState(false)
@@ -292,8 +299,9 @@ function ProductSheetContent() {
       designStage: '',
       settingType: '',
       enamel: '',
-      sizeOfDesignMotive: '',
-      totalDesignMeasurements: '',
+      tdmLength: '',
+      tdmWidth: '',
+      tdmHeight: '',
       designMaterial: '',
       dieCode: '',
       moldQtyPerDie: '',
@@ -301,6 +309,7 @@ function ProductSheetContent() {
       mechanism: '',
       notes: '',
       trackingRows: TRACKING_DEFAULT_ROWS(),
+      findingsRows: DESIGNER_FINDINGS_DEFAULT(),
     })
     setIsModalOpen(false)
     setSaveStatus(null)
@@ -476,8 +485,9 @@ function ProductSheetContent() {
                 designStage: d.design_stage || '',
                 settingType: d.setting_type || '',
                 enamel: d.enamel || '',
-                sizeOfDesignMotive: d.design_motive_size || '',
-                totalDesignMeasurements: d.total_design_measurements || '',
+                tdmLength: (d.total_design_measurements?.length) || '',
+                tdmWidth: (d.total_design_measurements?.width) || '',
+                tdmHeight: (d.total_design_measurements?.height) || '',
                 designMaterial: d.design_material || '',
                 dieCode: d.total_die_code != null ? String(d.total_die_code) : '',
                 moldQtyPerDie: d.total_mold_qty_per_die != null ? String(d.total_mold_qty_per_die) : '',
@@ -485,8 +495,11 @@ function ProductSheetContent() {
                 mechanism: d.mechanism || '',
                 notes: d.designer_notes || '',
                 trackingRows: Array.isArray(d.tracking_rows) && d.tracking_rows.length
-                  ? d.tracking_rows.map((r, i) => ({ id: r.id ?? i + 1, tdm: r.tdm ?? '', stl: r.stl ?? '', motiveCode: r.motiveCode ?? '', motiveSku: r.motiveSku ?? r.masterSku ?? '', dieCode: r.dieCode ?? '', moldDieQty: r.moldDieQty ?? '' }))
+                  ? d.tracking_rows.map((r, i) => ({ id: r.id ?? i + 1, tdm: r.tdm ?? '', stl: r.stl ?? '', motiveCode: r.motiveCode ?? '', motiveSku: r.motiveSku ?? r.masterSku ?? '', dieCode: r.dieCode ?? '', moldDieQty: r.moldDieQty ?? '', length: r.length ?? '', width: r.width ?? '', height: r.height ?? '' }))
                   : TRACKING_DEFAULT_ROWS(),
+                findingsRows: Array.isArray(d.findings_entries) && d.findings_entries.length
+                  ? d.findings_entries.map((r, i) => ({ id: i + 1, code: r.code || '', quantity: r.quantity || '' }))
+                  : DESIGNER_FINDINGS_DEFAULT(),
               }))
               if (Array.isArray(d.stone_entries) && d.stone_entries.length > 0) {
                 setDesignerStoneRows(d.stone_entries.map((s, i) => ({ id: i + 1, type: s.type || '', species: s.species || '', variety: s.variety || '', color: s.color || '', cut: s.cut || '', shape: s.shape || '', length: s.length || '', width: s.width || '', height: s.height || '', qty: s.qty || '' })))
@@ -527,8 +540,9 @@ function ProductSheetContent() {
             designStage: d.design_stage || prev.designStage,
             settingType: d.setting_type || prev.settingType,
             enamel: d.enamel || prev.enamel,
-            sizeOfDesignMotive: d.design_motive_size || prev.sizeOfDesignMotive,
-            totalDesignMeasurements: d.total_design_measurements || prev.totalDesignMeasurements,
+            tdmLength: (d.total_design_measurements?.length) || prev.tdmLength || '',
+            tdmWidth: (d.total_design_measurements?.width) || prev.tdmWidth || '',
+            tdmHeight: (d.total_design_measurements?.height) || prev.tdmHeight || '',
             designMaterial: d.design_material || prev.designMaterial,
             dieCode: d.total_die_code != null ? String(d.total_die_code) : (d.die_code || prev.dieCode),
             moldQtyPerDie: d.total_mold_qty_per_die != null ? String(d.total_mold_qty_per_die) : (d.mold_qty_per_die || prev.moldQtyPerDie),
@@ -536,8 +550,11 @@ function ProductSheetContent() {
             mechanism: d.mechanism || prev.mechanism,
             notes: d.designer_notes || prev.notes,
             trackingRows: Array.isArray(d.tracking_rows) && d.tracking_rows.length
-              ? d.tracking_rows.map((r, i) => ({ id: r.id ?? i + 1, tdm: r.tdm ?? '', stl: r.stl ?? '', motiveCode: r.motiveCode ?? '', motiveSku: r.motiveSku ?? r.masterSku ?? '', dieCode: r.dieCode ?? '', moldDieQty: r.moldDieQty ?? '' }))
+              ? d.tracking_rows.map((r, i) => ({ id: r.id ?? i + 1, tdm: r.tdm ?? '', stl: r.stl ?? '', motiveCode: r.motiveCode ?? '', motiveSku: r.motiveSku ?? r.masterSku ?? '', dieCode: r.dieCode ?? '', moldDieQty: r.moldDieQty ?? '', length: r.length ?? '', width: r.width ?? '', height: r.height ?? '' }))
               : prev.trackingRows,
+            findingsRows: Array.isArray(d.findings_entries) && d.findings_entries.length
+              ? d.findings_entries.map((r, i) => ({ id: i + 1, code: r.code || '', quantity: r.quantity || '' }))
+              : prev.findingsRows,
           }))
           if (Array.isArray(d.stone_entries) && d.stone_entries.length > 0) {
             setDesignerStoneRows(d.stone_entries.map((s, i) => ({ id: i + 1, type: s.type || '', species: s.species || '', variety: s.variety || '', color: s.color || '', cut: s.cut || '', shape: s.shape || '', length: s.length || '', width: s.width || '', height: s.height || '', qty: s.qty || '' })))
@@ -545,6 +562,31 @@ function ProductSheetContent() {
           if (Array.isArray(d.plating_entries) && d.plating_entries.length > 0) {
             setDesignerPlatingRows(d.plating_entries.map((p, i) => ({ id: i + 1, type: p.type || '', color: p.color || '' })))
           }
+          // Auto-fill product sheet: die codes from tracking_rows, findings from findings_entries
+          const dieEntries = Array.isArray(d.tracking_rows)
+            ? d.tracking_rows.filter(r => r.dieCode).map((r, i) => ({ id: i + 1, type: 'die_number', value: r.dieCode || '', quantity: r.moldDieQty || '', location: '' }))
+            : []
+          const findingEntries = Array.isArray(d.findings_entries)
+            ? d.findings_entries.filter(r => r.code).map((r, i) => ({ id: dieEntries.length + i + 1, type: 'findings', value: r.code || '', quantity: r.quantity || '', location: '' }))
+            : []
+          const combined = [...dieEntries, ...findingEntries]
+          if (combined.length > 0) {
+            while (combined.length < 5) combined.push({ id: combined.length + 1, type: 'die_number', value: '', quantity: '', location: '' })
+            setManufacturing(prev => ({ ...prev, dieNumbers: combined }))
+          }
+          // Auto-fill product sheet: setting type and enamel
+          if (d.setting_type) {
+            const st = d.setting_type.toLowerCase()
+            if (st.includes('wax')) setSettingType('wax')
+            else if (st.includes('hand')) setSettingType('hand')
+          }
+          if (d.enamel) {
+            const en = d.enamel.toLowerCase()
+            if (en === 'yes') setEnamelType('yes')
+            else if (en === 'no') setEnamelType('no')
+          }
+          setDesignerSaveStatus({ success: true, message: `Designer data loaded for "${dSku}"` })
+          setTimeout(() => setDesignerSaveStatus(null), 3000)
         })
         .catch(() => {})
     }, 600)
@@ -818,7 +860,7 @@ function ProductSheetContent() {
       const newId = Math.max(...designer.trackingRows.map((r) => r.id), 0) + 1;
       setDesigner((prev) => ({
         ...prev,
-        trackingRows: [...prev.trackingRows, { id: newId, tdm: '', stl: '', motiveCode: '', masterSku: '', dieCode: '', moldDieQty: '' }],
+        trackingRows: [...prev.trackingRows, { id: newId, tdm: '', stl: '', motiveCode: '', motiveSku: '', dieCode: '', moldDieQty: '', length: '', width: '', height: '' }],
       }));
     };
 
@@ -834,6 +876,17 @@ function ProductSheetContent() {
         ...prev,
         trackingRows: prev.trackingRows.filter((r) => r.id !== id),
       }));
+    };
+
+    const addDesignerFindingsRow = () => {
+      const newId = Math.max(...designer.findingsRows.map((r) => r.id), 0) + 1;
+      setDesigner((prev) => ({ ...prev, findingsRows: [...prev.findingsRows, { id: newId, code: '', quantity: '' }] }));
+    };
+    const updateDesignerFindingsRow = (id, field, value) => {
+      setDesigner((prev) => ({ ...prev, findingsRows: prev.findingsRows.map((r) => (r.id === id ? { ...r, [field]: value } : r)) }));
+    };
+    const deleteDesignerFindingsRow = (id) => {
+      setDesigner((prev) => ({ ...prev, findingsRows: prev.findingsRows.filter((r) => r.id !== id) }));
     };
 
     // ── Designer Save / Delete / Bulk Upload ──────────────
@@ -856,8 +909,8 @@ function ProductSheetContent() {
           design_stage: designer.designStage,
           setting_type: designer.settingType,
           enamel: designer.enamel,
-          design_motive_size: designer.sizeOfDesignMotive,
-          total_design_measurements: designer.totalDesignMeasurements,
+          design_motive_size: '',
+          total_design_measurements: { length: designer.tdmLength, width: designer.tdmWidth, height: designer.tdmHeight },
           design_material: designer.designMaterial,
           total_die_code: designer.dieCode !== '' ? Number(designer.dieCode) || null : null,
           total_mold_qty_per_die: designer.moldQtyPerDie !== '' ? Number(designer.moldQtyPerDie) || null : null,
@@ -867,7 +920,7 @@ function ProductSheetContent() {
           stone_entries: designerStoneRows.map(({ type, species, variety, color, cut, shape, length, width, height, qty }) => ({ type, species, variety, color, cut, shape, length, width, height, qty })),
           plating_entries: designerPlatingRows.map(({ type, color }) => ({ type, color })),
           tracking_rows: designer.trackingRows,
-          tracking_rows: designer.trackingRows,
+          findings_entries: designer.findingsRows.map(({ code, quantity }) => ({ code, quantity })),
         };
         const isUpdate = !!designerRecordId;
         const url = isUpdate ? `/api/designers/${designerRecordId}` : '/api/designers';
@@ -914,8 +967,9 @@ function ProductSheetContent() {
           designStage: '',
           settingType: '',
           enamel: '',
-          sizeOfDesignMotive: '',
-          totalDesignMeasurements: '',
+          tdmLength: '',
+          tdmWidth: '',
+          tdmHeight: '',
           designMaterial: '',
           dieCode: '',
           moldQtyPerDie: '',
@@ -923,6 +977,7 @@ function ProductSheetContent() {
           mechanism: '',
           notes: '',
           trackingRows: TRACKING_DEFAULT_ROWS(),
+          findingsRows: DESIGNER_FINDINGS_DEFAULT(),
         });
         setDesignerSaveStatus({ success: true, message: 'Designer record deleted' });
       } catch (error) {
@@ -1244,14 +1299,20 @@ function ProductSheetContent() {
             image2: d.designer_image_2 || '',
             image3: d.designer_image_3 || '',
             designStage: d.design_stage || '',
-            sizeOfDesignMotive: d.design_motive_size || '',
-            totalDesignMeasurements: d.total_design_measurements || '',
+            tdmLength: (d.total_design_measurements?.length) || '',
+            tdmWidth: (d.total_design_measurements?.width) || '',
+            tdmHeight: (d.total_design_measurements?.height) || '',
             designMaterial: d.design_material || '',
             dieCode: d.die_code || '',
             moldQtyPerDie: d.mold_qty_per_die || '',
             cpxDeadWeight: d.cpx_dead_weight || '',
             mechanism: d.mechanism || '',
-            trackingRows: Array.isArray(d.tracking_rows) && d.tracking_rows.length ? d.tracking_rows : TRACKING_DEFAULT_ROWS(),
+            trackingRows: Array.isArray(d.tracking_rows) && d.tracking_rows.length
+              ? d.tracking_rows.map((r, i) => ({ id: r.id ?? i + 1, tdm: r.tdm ?? '', stl: r.stl ?? '', motiveCode: r.motiveCode ?? '', motiveSku: r.motiveSku ?? r.masterSku ?? '', dieCode: r.dieCode ?? '', moldDieQty: r.moldDieQty ?? '', length: r.length ?? '', width: r.width ?? '', height: r.height ?? '' }))
+              : TRACKING_DEFAULT_ROWS(),
+            findingsRows: Array.isArray(d.findings_entries) && d.findings_entries.length
+              ? d.findings_entries.map((r, i) => ({ id: i + 1, code: r.code || '', quantity: r.quantity || '' }))
+              : DESIGNER_FINDINGS_DEFAULT(),
           }))
         }
       })
@@ -1371,6 +1432,11 @@ function ProductSheetContent() {
           {saveStatus && (
             <div className={`text-sm px-2 py-1 rounded-md ${saveStatus.success ? 'bg-success/10 text-success-dark border border-success/30' : 'bg-danger/10 text-danger-dark border border-danger/30'}`}>
               {saveStatus.message}
+            </div>
+          )}
+          {designerSaveStatus && (
+            <div className={`text-sm px-2 py-1 rounded-md ${designerSaveStatus.success ? 'bg-success/10 text-success-dark border border-success/30' : 'bg-danger/10 text-danger-dark border border-danger/30'}`}>
+              {designerSaveStatus.message}
             </div>
           )}
           {showViewSheetButton && saveStatus?.success && (
@@ -2134,6 +2200,9 @@ function ProductSheetContent() {
                   <th className="border border-soft-border px-2 py-1 font-semibold text-midnight-ink text-left">Motive SKU</th>
                   <th className="border border-soft-border px-2 py-1 font-semibold text-midnight-ink text-left">Die Code</th>
                   <th className="border border-soft-border px-2 py-1 font-semibold text-midnight-ink text-left">Mold/Die Qty</th>
+                  <th className="border border-soft-border px-2 py-1 font-semibold text-midnight-ink text-left">Length</th>
+                  <th className="border border-soft-border px-2 py-1 font-semibold text-midnight-ink text-left">Width</th>
+                  <th className="border border-soft-border px-2 py-1 font-semibold text-midnight-ink text-left">Height</th>
                   <th className="border border-soft-border px-1 py-1 w-6"></th>
                 </tr>
               </thead>
@@ -2164,6 +2233,9 @@ function ProductSheetContent() {
                     <td className="border border-soft-border p-0"><input type="text" value={row.motiveSku} onChange={(e) => updateDesignerTrackingRow(row.id, 'motiveSku', e.target.value)} className="w-full bg-transparent outline-none px-2 py-1 min-w-[90px]"/></td>
                     <td className="border border-soft-border p-0"><input type="text" value={row.dieCode} onChange={(e) => updateDesignerTrackingRow(row.id, 'dieCode', e.target.value)} className="w-full bg-transparent outline-none px-2 py-1 min-w-[70px]"/></td>
                     <td className="border border-soft-border p-0"><input type="text" value={row.moldDieQty} onChange={(e) => updateDesignerTrackingRow(row.id, 'moldDieQty', e.target.value)} className="w-full bg-transparent outline-none px-2 py-1 min-w-[70px]"/></td>
+                    <td className="border border-soft-border p-0"><input type="text" value={row.length ?? ''} onChange={(e) => updateDesignerTrackingRow(row.id, 'length', e.target.value)} className="w-full bg-transparent outline-none px-2 py-1 min-w-[55px]"/></td>
+                    <td className="border border-soft-border p-0"><input type="text" value={row.width ?? ''} onChange={(e) => updateDesignerTrackingRow(row.id, 'width', e.target.value)} className="w-full bg-transparent outline-none px-2 py-1 min-w-[55px]"/></td>
+                    <td className="border border-soft-border p-0"><input type="text" value={row.height ?? ''} onChange={(e) => updateDesignerTrackingRow(row.id, 'height', e.target.value)} className="w-full bg-transparent outline-none px-2 py-1 min-w-[55px]"/></td>
                     <td className="border border-soft-border p-0 text-center">
                       <button type="button" onClick={() => deleteDesignerTrackingRow(row.id)} className="px-1 py-1 text-danger hover:text-danger-dark"><Trash2 className="h-3 w-3"/></button>
                     </td>
@@ -2248,7 +2320,7 @@ function ProductSheetContent() {
             <div className="flex gap-2">
               {['WAX SETTING', 'HAND SETTING'].map((opt) => (
                 <button key={opt} type="button" onClick={() => setDesigner((prev) => ({ ...prev, settingType: prev.settingType === opt ? '' : opt }))}
-                  className={`flex-1 px-3 py-1.5 text-xs font-semibold rounded-full border transition-colors ${designer.settingType === opt ? 'bg-midnight-ink text-white border-midnight-ink shadow-sm' : 'bg-white text-midnight-ink border-soft-border hover:bg-cloud-gray'}`}>
+                  className={`flex-1 px-3 py-1.5 text-xs font-semibold rounded-full border transition-colors ${designer.settingType === opt ? 'bg-trust-blue text-white border-trust-blue shadow-sm' : 'bg-white text-midnight-ink border-soft-border hover:bg-cloud-gray'}`}>
                   {opt}
                 </button>
               ))}
@@ -2259,7 +2331,7 @@ function ProductSheetContent() {
             <div className="flex gap-2">
               {['YES', 'NO'].map((opt) => (
                 <button key={opt} type="button" onClick={() => setDesigner((prev) => ({ ...prev, enamel: prev.enamel === opt ? '' : opt }))}
-                  className={`flex-1 px-3 py-1.5 text-xs font-semibold rounded-full border transition-colors ${designer.enamel === opt ? 'bg-midnight-ink text-white border-midnight-ink shadow-sm' : 'bg-white text-midnight-ink border-soft-border hover:bg-cloud-gray'}`}>
+                  className={`flex-1 px-3 py-1.5 text-xs font-semibold rounded-full border transition-colors ${designer.enamel === opt ? 'bg-trust-blue text-white border-trust-blue shadow-sm' : 'bg-white text-midnight-ink border-soft-border hover:bg-cloud-gray'}`}>
                   {opt}
                 </button>
               ))}
@@ -2290,15 +2362,26 @@ function ProductSheetContent() {
 
         {/* 50/50 split: Left = measurements + notes | Right = Total Die info + Mechanism */}
         <div className="mt-2 flex gap-2 items-stretch">
-          {/* Left 50%: Size, Measurements, Material, Notes */}
+          {/* Left 50%: Measurements, Material, Notes */}
           <div className="flex flex-col gap-2" style={{width:'50%'}}>
-            <div className="bg-white border border-soft-border rounded-xl p-2">
-              <label className="text-xs font-semibold text-midnight-ink mb-1 block">Size of Design Motive</label>
-              <input type="text" value={designer.sizeOfDesignMotive} onChange={(e) => setDesigner((prev) => ({ ...prev, sizeOfDesignMotive: e.target.value }))} placeholder="e.g. 12mm x 8mm" className="w-full bg-transparent outline-none text-sm border border-soft-border rounded px-2 py-1"/>
-            </div>
-            <div className="bg-white border border-soft-border rounded-xl p-2">
-              <label className="text-xs font-semibold text-midnight-ink mb-1 block">Total Design Measurements (Approx)</label>
-              <input type="text" value={designer.totalDesignMeasurements} onChange={(e) => setDesigner((prev) => ({ ...prev, totalDesignMeasurements: e.target.value }))} placeholder="e.g. 25mm x 20mm x 5mm" className="w-full bg-transparent outline-none text-sm border border-soft-border rounded px-2 py-1"/>
+            <div className="bg-white border border-soft-border rounded-xl overflow-hidden">
+              <div className="text-xs font-semibold text-midnight-ink px-2 py-1.5 bg-[#dce8f5] border-b border-soft-border">Total Design Measurements (Approx)</div>
+              <table className="w-full text-xs border-collapse">
+                <thead>
+                  <tr className="bg-cloud-gray">
+                    <th className="border border-soft-border px-2 py-1 font-semibold text-midnight-ink text-left">LENGTH</th>
+                    <th className="border border-soft-border px-2 py-1 font-semibold text-midnight-ink text-left">WIDTH</th>
+                    <th className="border border-soft-border px-2 py-1 font-semibold text-midnight-ink text-left">HEIGHT</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td className="border border-soft-border p-0"><input type="text" value={designer.tdmLength} onChange={(e) => setDesigner((prev) => ({ ...prev, tdmLength: e.target.value }))} placeholder="e.g. 25mm" className="w-full bg-transparent outline-none text-xs px-2 py-1" /></td>
+                    <td className="border border-soft-border p-0"><input type="text" value={designer.tdmWidth} onChange={(e) => setDesigner((prev) => ({ ...prev, tdmWidth: e.target.value }))} placeholder="e.g. 20mm" className="w-full bg-transparent outline-none text-xs px-2 py-1" /></td>
+                    <td className="border border-soft-border p-0"><input type="text" value={designer.tdmHeight} onChange={(e) => setDesigner((prev) => ({ ...prev, tdmHeight: e.target.value }))} placeholder="e.g. 5mm" className="w-full bg-transparent outline-none text-xs px-2 py-1" /></td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
             <div className="bg-white border border-soft-border rounded-xl p-2">
               <label className="text-xs font-semibold text-midnight-ink mb-1 block">Design Material</label>
@@ -2307,6 +2390,33 @@ function ProductSheetContent() {
             <div className="flex-1 bg-white border border-soft-border rounded-xl p-2 flex flex-col">
               <label className="text-xs font-semibold text-midnight-ink mb-1 block">Notes</label>
               <textarea value={designer.notes} onChange={(e) => setDesigner((prev) => ({ ...prev, notes: e.target.value }))} placeholder="Add notes about this design..." className="flex-1 w-full bg-transparent outline-none text-xs border border-soft-border rounded px-2 py-1 resize-none min-h-[4rem]"/>
+            </div>
+            {/* Findings Table */}
+            <div className="bg-white border border-soft-border rounded-xl overflow-hidden">
+              <div className="text-xs font-bold text-midnight-ink px-2 py-1.5 bg-[#dce8f5] border-b border-soft-border">FINDINGS</div>
+              <table className="w-full text-xs border-collapse">
+                <thead>
+                  <tr className="bg-cloud-gray">
+                    <th className="border border-soft-border px-2 py-1 font-semibold text-midnight-ink text-left">FINDINGS CODE</th>
+                    <th className="border border-soft-border px-2 py-1 font-semibold text-midnight-ink text-left">QUANTITY</th>
+                    <th className="border border-soft-border px-1 py-1 w-6"></th>
+                  </tr>
+                </thead>
+              </table>
+              <div className={designer.findingsRows.length > 2 ? 'overflow-y-auto max-h-[5.5rem]' : ''}>
+                <table className="w-full text-xs border-collapse">
+                  <tbody>
+                    {designer.findingsRows.map((row) => (
+                      <tr key={row.id} className="hover:bg-cloud-gray/40">
+                        <td className="border border-soft-border p-0"><input type="text" value={row.code} onChange={(e) => updateDesignerFindingsRow(row.id, 'code', e.target.value)} className="w-full bg-transparent outline-none px-2 py-1 text-xs" /></td>
+                        <td className="border border-soft-border p-0"><input type="text" value={row.quantity} onChange={(e) => updateDesignerFindingsRow(row.id, 'quantity', e.target.value)} className="w-full bg-transparent outline-none px-2 py-1 text-xs" /></td>
+                        <td className="border border-soft-border p-0 text-center w-6"><button type="button" onClick={() => deleteDesignerFindingsRow(row.id)} className="px-1 py-1 text-danger hover:text-danger-dark"><Trash2 className="h-3 w-3" /></button></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <button type="button" onClick={addDesignerFindingsRow} className="w-full text-left px-2 py-1 text-xs text-trust-blue font-semibold hover:bg-cloud-gray border-t border-soft-border">+ Add Row</button>
             </div>
           </div>
 
@@ -3094,21 +3204,59 @@ function ProductSheetContent() {
                     ))}
                   </div>
                 </div>
-                {/* 50/50 split: Left = 3 measurement panels | Right = Die info + Mechanism */}
+                {/* 50/50 split: Left = measurements + material | Right = Die info + Mechanism */}
                 <div className="mt-2 flex gap-2 items-stretch">
                   {/* Left 50% */}
                   <div className="flex flex-col gap-2" style={{width:'50%'}}>
-                    <div className="bg-white border border-soft-border rounded-xl p-2">
-                      <label className="text-xs font-semibold text-midnight-ink mb-1 block">Size of Design Motive</label>
-                      <input type="text" value={designer.sizeOfDesignMotive} onChange={(e) => setDesigner((prev) => ({ ...prev, sizeOfDesignMotive: e.target.value }))} placeholder="e.g. 12mm x 8mm" className="w-full bg-transparent outline-none text-sm border border-soft-border rounded px-2 py-1"/>
-                    </div>
-                    <div className="bg-white border border-soft-border rounded-xl p-2">
-                      <label className="text-xs font-semibold text-midnight-ink mb-1 block">Total Design Measurements (Approx)</label>
-                      <input type="text" value={designer.totalDesignMeasurements} onChange={(e) => setDesigner((prev) => ({ ...prev, totalDesignMeasurements: e.target.value }))} placeholder="e.g. 25mm x 20mm x 5mm" className="w-full bg-transparent outline-none text-sm border border-soft-border rounded px-2 py-1"/>
+                    <div className="bg-white border border-soft-border rounded-xl overflow-hidden">
+                      <div className="text-xs font-semibold text-midnight-ink px-2 py-1.5 bg-[#dce8f5] border-b border-soft-border">Total Design Measurements (Approx)</div>
+                      <table className="w-full text-xs border-collapse">
+                        <thead>
+                          <tr className="bg-cloud-gray">
+                            <th className="border border-soft-border px-2 py-1 font-semibold text-midnight-ink text-left">LENGTH</th>
+                            <th className="border border-soft-border px-2 py-1 font-semibold text-midnight-ink text-left">WIDTH</th>
+                            <th className="border border-soft-border px-2 py-1 font-semibold text-midnight-ink text-left">HEIGHT</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr>
+                            <td className="border border-soft-border p-0"><input type="text" value={designer.tdmLength} onChange={(e) => setDesigner((prev) => ({ ...prev, tdmLength: e.target.value }))} placeholder="e.g. 25mm" className="w-full bg-transparent outline-none text-xs px-2 py-1" /></td>
+                            <td className="border border-soft-border p-0"><input type="text" value={designer.tdmWidth} onChange={(e) => setDesigner((prev) => ({ ...prev, tdmWidth: e.target.value }))} placeholder="e.g. 20mm" className="w-full bg-transparent outline-none text-xs px-2 py-1" /></td>
+                            <td className="border border-soft-border p-0"><input type="text" value={designer.tdmHeight} onChange={(e) => setDesigner((prev) => ({ ...prev, tdmHeight: e.target.value }))} placeholder="e.g. 5mm" className="w-full bg-transparent outline-none text-xs px-2 py-1" /></td>
+                          </tr>
+                        </tbody>
+                      </table>
                     </div>
                     <div className="flex-1 bg-white border border-soft-border rounded-xl p-2">
                       <label className="text-xs font-semibold text-midnight-ink mb-1 block">Design Material</label>
                       <input type="text" value={designer.designMaterial} onChange={(e) => setDesigner((prev) => ({ ...prev, designMaterial: e.target.value }))} placeholder="e.g. Silver 925" className="w-full bg-transparent outline-none text-sm border border-soft-border rounded px-2 py-1"/>
+                    </div>
+                    {/* Findings Table */}
+                    <div className="bg-white border border-soft-border rounded-xl overflow-hidden">
+                      <div className="text-xs font-bold text-midnight-ink px-2 py-1.5 bg-[#dce8f5] border-b border-soft-border">FINDINGS</div>
+                      <table className="w-full text-xs border-collapse">
+                        <thead>
+                          <tr className="bg-cloud-gray">
+                            <th className="border border-soft-border px-2 py-1 font-semibold text-midnight-ink text-left">FINDINGS CODE</th>
+                            <th className="border border-soft-border px-2 py-1 font-semibold text-midnight-ink text-left">QUANTITY</th>
+                            <th className="border border-soft-border px-1 py-1 w-6"></th>
+                          </tr>
+                        </thead>
+                      </table>
+                      <div className={designer.findingsRows.length > 2 ? 'overflow-y-auto max-h-[5.5rem]' : ''}>
+                        <table className="w-full text-xs border-collapse">
+                          <tbody>
+                            {designer.findingsRows.map((row) => (
+                              <tr key={row.id} className="hover:bg-cloud-gray/40">
+                                <td className="border border-soft-border p-0"><input type="text" value={row.code} onChange={(e) => updateDesignerFindingsRow(row.id, 'code', e.target.value)} className="w-full bg-transparent outline-none px-2 py-1 text-xs" /></td>
+                                <td className="border border-soft-border p-0"><input type="text" value={row.quantity} onChange={(e) => updateDesignerFindingsRow(row.id, 'quantity', e.target.value)} className="w-full bg-transparent outline-none px-2 py-1 text-xs" /></td>
+                                <td className="border border-soft-border p-0 text-center w-6"><button type="button" onClick={() => deleteDesignerFindingsRow(row.id)} className="px-1 py-1 text-danger hover:text-danger-dark"><Trash2 className="h-3 w-3" /></button></td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                      <button type="button" onClick={addDesignerFindingsRow} className="w-full text-left px-2 py-1 text-xs text-trust-blue font-semibold hover:bg-cloud-gray border-t border-soft-border">+ Add Row</button>
                     </div>
                   </div>
                   {/* Right 50% */}
