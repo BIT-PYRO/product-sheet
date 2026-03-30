@@ -158,7 +158,7 @@ export function QuickEnrollModal({ open, onOpenChange, onEnroll }) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-[640px] bg-white text-midnight-ink p-0 gap-0 [&>button]:hidden rounded-xl shadow-xl overflow-hidden">
         {/* Header */}
-        <DialogHeader className="px-5 py-3 border-b border-soft-border bg-midnight-ink relative">
+        <DialogHeader className="px-5 py-3 border-b border-soft-border bg-trust-blue relative">
           <div className="flex items-center justify-center">
             <DialogTitle className="text-sm font-bold tracking-widest text-white">
               QUICK ENROLMENT

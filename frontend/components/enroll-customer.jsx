@@ -159,7 +159,7 @@ export function EnrollCustomerForm({ onEnroll, onClose, open = true, draftData =
         className="max-w-4xl max-h-[90vh] overflow-y-auto bg-gradient-to-br from-cloud-gray to-cloud-gray text-midnight-ink p-0 gap-0 [&>button]:hidden"
       >
         {/* Header */}
-        <DialogHeader className="px-5 pt-4 pb-3 border-b border-soft-border bg-gradient-to-r from-midnight-ink to-midnight-ink/90 relative">
+        <DialogHeader className="px-5 pt-4 pb-3 border-b border-soft-border bg-gradient-to-r from-trust-blue to-trust-blue/90 relative">
           <div className="flex items-center justify-center">
             <DialogTitle className="text-lg font-bold text-white">ENROLL CUSTOMER</DialogTitle>
           </div>
