@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, Upload } from 'lucide-react';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
 import GlobalSearchBar from '@/components/global-search-bar';
 import { Button } from '@/components/ui/button';
@@ -1385,8 +1385,10 @@ export default function MasterInventorySheet() {
             <Button
               onClick={handlePicklistUploadClick}
               disabled={isUploadingPicklist || isEditMode}
-              className="bg-midnight-ink text-white rounded-full px-4 text-sm h-8 hover:bg-midnight-ink/90 disabled:opacity-50 disabled:cursor-not-allowed"
+              variant="outline"
+              className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8 hover:bg-cloud-gray disabled:opacity-50 disabled:cursor-not-allowed"
             >
+              <Upload className="mr-2 h-4 w-4" />
               {isUploadingPicklist ? 'Uploading...' : 'Bulk Upload'}
             </Button>
             {/* Edit / Save / Cancel */}

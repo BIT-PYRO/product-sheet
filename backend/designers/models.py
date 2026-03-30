@@ -23,8 +23,8 @@ class DesignerSheet(AuditModel):
     total_cpx_dead_weight = models.DecimalField(max_digits=12, decimal_places=4, null=True, blank=True)
 
     # ── Physical Dimensions ───────────────────────────────────────────────────
-    design_motive_size = models.CharField(max_length=120, blank=True, default='')
-    total_design_measurements = models.CharField(max_length=120, blank=True, default='')
+    # total_design_measurements stores {"length": "", "width": "", "height": ""}
+    total_design_measurements = models.JSONField(default=dict, blank=True)
 
     # ── Material ─────────────────────────────────────────────────────────────
     design_material = models.CharField(max_length=120, blank=True, default='')

@@ -218,7 +218,7 @@ export function CompanyKYCForm({ onClose }) {
   return (
     <div className="w-full max-h-[90vh] overflow-y-auto">
       {/* Header */}
-      <div className="bg-gradient-to-r from-midnight-ink to-midnight-ink/90 text-white px-5 py-4 rounded-t-lg border-b border-white/10 flex items-center justify-between relative">
+      <div className="bg-gradient-to-r from-trust-blue to-trust-blue/90 text-white px-5 py-4 rounded-t-lg border-b border-white/10 flex items-center justify-between relative">
         <div className="flex-1" />
         <h1 className="text-lg font-bold tracking-widest uppercase">B2B Business KYC Form</h1>
         <div className="flex-1 flex justify-end">
@@ -500,7 +500,7 @@ export function CompanyKYCForm({ onClose }) {
           </Button>
           <Button
             onClick={handleSubmit}
-            className="flex-1 h-10 rounded-lg bg-midnight-ink hover:bg-midnight-ink/90 text-white font-bold text-sm tracking-widest uppercase"
+            className="flex-1 h-10 rounded-lg bg-success hover:bg-success-dark text-white font-bold text-sm tracking-widest uppercase"
           >
             Submit KYC
           </Button>

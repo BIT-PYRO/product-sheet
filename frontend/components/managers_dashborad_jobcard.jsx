@@ -175,14 +175,25 @@ export default function ManagersDashboard() {
 
       jobs.forEach((job) => {
         const bucket = mapBackendStatusToBucket(job.status);
+        // Derive qty and weight from material_rows if available
+        const materialRows = Array.isArray(job.material_rows) ? job.material_rows : []
+        const totalQty = materialRows.reduce((sum, r) => sum + (parseFloat(r.issued_qty) || 0), 0)
+        const totalWeight = materialRows.reduce((sum, r) => sum + (parseFloat(r.issued_weight) || 0), 0)
         nextData['3D Print'][bucket].push({
           id: job.id,
-          voucherNo: `JOB-${job.id}`,
-          name: job.assignee || 'Unassigned',
+          voucherNo: job.voucher_no || `JOB-${job.id}`,
+          voucherType: job.voucher_type || 'New',
+          name: job.issued_to || job.assignee_name || 'Unassigned',
           category: job.title,
-          qty: job.quantity ?? '-',
-          weight: job.weight ?? '-',
+          qty: totalQty || job.quantity || '-',
+          weight: totalWeight || job.weight || '-',
           status: job.status,
+          deptFrom: job.dept_from || '',
+          deptTo: job.dept_to || '',
+          issuedBy: job.issued_by || '',
+          workType: job.work_type || '',
+          stoneRows: Array.isArray(job.stone_rows) ? job.stone_rows : [],
+          materialRows,
         });
       });
 
@@ -313,10 +324,10 @@ export default function ManagersDashboard() {
         onClick={() => handleCardClick(card)}
         className={`border-2 ${isSelected ? 'border-trust-blue ring-2 ring-trust-blue/40' : s.border} rounded-lg overflow-hidden cursor-pointer hover:shadow-md transition-shadow ${isSelected ? 'shadow-md' : ''}`}
       >
-        {/* Header row: Voucher No. | NEW/Reissue badge */}
+        {/* Header row: Voucher No. | NEW/Re-issue badge */}
         <div className={`${s.header} flex items-center justify-between px-2 py-1`}>
           <span className={`text-[11px] font-bold ${s.headerText} truncate`}>{card.voucherNo}</span>
-          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${s.badge} whitespace-nowrap`}>{s.label}</span>
+          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${s.badge} whitespace-nowrap`}>{card.voucherType || s.label}</span>
         </div>
         {/* Name */}
         <div className="bg-white border-t border-gray-200 px-2 py-1 text-center">

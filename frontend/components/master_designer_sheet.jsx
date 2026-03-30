@@ -41,11 +41,16 @@ const COLUMNS = [
   { id: 'track_motive_sku',   label: 'Motive SKU',  group: 'tracking', readOnly: true, width: 'min-w-[110px]' },
   { id: 'track_die_code',     label: 'Die Code',    group: 'tracking', readOnly: true, width: 'min-w-[90px]'  },
   { id: 'track_mold_die_qty', label: 'Mold/Die Qty',group: 'tracking', readOnly: true, width: 'min-w-[90px]'  },
+  { id: 'track_length',       label: 'Length',      group: 'tracking', readOnly: true, width: 'min-w-[70px]'  },
+  { id: 'track_width',        label: 'Width',       group: 'tracking', readOnly: true, width: 'min-w-[70px]'  },
+  { id: 'track_height',       label: 'Height',      group: 'tracking', readOnly: true, width: 'min-w-[70px]'  },
   { id: 'total_die_code',         label: 'Total Die Code',         width: 'min-w-[120px]' },
   { id: 'total_mold_qty_per_die', label: 'Total Mold Qty / Die',   width: 'min-w-[130px]' },
   { id: 'total_cpx_dead_weight',  label: 'Total CPX Dead Weight',  width: 'min-w-[140px]' },
-  { id: 'design_motive_size',       label: 'Size of Design Motive',             width: 'min-w-[140px]' },
-  { id: 'total_design_measurements',label: 'Total Design Measurements (Approx)',width: 'min-w-[200px]' },
+  // Total Design Measurements group
+  { id: 'tdm_length', label: 'Length', group: 'tdm', width: 'min-w-[90px]' },
+  { id: 'tdm_width',  label: 'Width',  group: 'tdm', width: 'min-w-[90px]' },
+  { id: 'tdm_height', label: 'Height', group: 'tdm', width: 'min-w-[90px]' },
   { id: 'design_material',          label: 'Design Material',                   width: 'min-w-[130px]' },
   { id: 'setting_type',             label: 'Setting Type',                      width: 'min-w-[120px]' },
   { id: 'enamel',                   label: 'Enamel',                            width: 'min-w-[80px]'  },
@@ -64,10 +69,7 @@ const COLUMNS = [
   { id: 'mechanism',                label: 'Mechanism',                         width: 'min-w-[110px]' },
   // Findings group
   { id: 'findings_code',            label: 'Code',     group: 'findings', width: 'min-w-[90px]' },
-  { id: 'findings_die',             label: 'Die',      group: 'findings', width: 'min-w-[90px]' },
-  { id: 'findings_size',            label: 'Size',     group: 'findings', width: 'min-w-[90px]' },
   { id: 'findings_quantity',        label: 'Quantity', group: 'findings', width: 'min-w-[90px]' },
-  { id: 'findings_weight',          label: 'Weight',   group: 'findings', width: 'min-w-[90px]' },
   // Plating – one column per field
   { id: 'plating_type',  label: 'Plating Type',  group: 'plating', readOnly: true, width: 'min-w-[100px]' },
   { id: 'plating_color', label: 'Plating Color', group: 'plating', readOnly: true, width: 'min-w-[100px]' },
@@ -76,22 +78,25 @@ const COLUMNS = [
 
 // Group meta — defines the spanning header cells
 const GROUPS = {
-  tracking: { label: 'Tracking Info',      span: 6  },
-  stone:    { label: 'Stone Information',  span: 10 },
-  findings: { label: 'Findings',           span: 5  },
-  plating:  { label: 'Plating Info',       span: 2  },
+  tracking: { label: 'Tracking Info',              span: 9  },
+  tdm:      { label: 'Total Design Measurements',  span: 3  },
+  stone:    { label: 'Stone Information',          span: 10 },
+  findings: { label: 'Findings',                   span: 2  },
+  plating:  { label: 'Plating Info',               span: 2  },
 };
 
 // Totals footer — which columns show a numeric sum
 const TOTAL_COLS = new Set([
   'total_die_code', 'total_mold_qty_per_die', 'total_cpx_dead_weight',
-  'findings_quantity', 'findings_weight',
+  'findings_quantity',
 ]);
 
 // Map a backend row â†’ flat UI row
 function mapRow(row) {
-  // Findings entries — flatten first entry
-  const f = (Array.isArray(row.findings_entries) && row.findings_entries[0]) || {};
+  // Findings entries — join all entries for display
+  const findings = Array.isArray(row.findings_entries) ? row.findings_entries.filter(f => f.code) : [];
+  const tdm = (row.total_design_measurements && typeof row.total_design_measurements === 'object')
+    ? row.total_design_measurements : {};
   return {
     id: row.id,
     hasBackendRecord: true,
@@ -104,18 +109,16 @@ function mapRow(row) {
     total_die_code: row.total_die_code != null ? String(row.total_die_code) : '',
     total_mold_qty_per_die: row.total_mold_qty_per_die != null ? String(row.total_mold_qty_per_die) : '',
     total_cpx_dead_weight: row.total_cpx_dead_weight != null ? String(row.total_cpx_dead_weight) : '',
-    design_motive_size: row.design_motive_size || '',
-    total_design_measurements: row.total_design_measurements || '',
+    tdm_length: tdm.length || '',
+    tdm_width: tdm.width || '',
+    tdm_height: tdm.height || '',
     design_material: row.design_material || '',
     setting_type: row.setting_type || '',
     enamel: row.enamel || '',
     mechanism: row.mechanism || '',
     designer_notes: row.designer_notes || '',
-    findings_code: f.code || '',
-    findings_die: f.die || '',
-    findings_size: f.size || '',
-    findings_quantity: f.quantity || '',
-    findings_weight: f.weight || '',
+    findings_code: findings.map(f => f.code || '').join(' / '),
+    findings_quantity: findings.map(f => f.quantity || '').join(' / '),
     _stone_entries: Array.isArray(row.stone_entries) ? row.stone_entries : [],
     _findings_entries: Array.isArray(row.findings_entries) ? row.findings_entries : [],
     _plating_entries: Array.isArray(row.plating_entries) ? row.plating_entries : [],
@@ -125,7 +128,12 @@ function mapRow(row) {
       const tRows = (Array.isArray(row.tracking_rows) ? row.tracking_rows : []).filter((r) =>
         ['tdm','stl','motiveCode','motiveSku','dieCode','moldDieQty'].some((k) => String(r[k] || '').trim()));
       const join = (key) => tRows.map((r) => r[key] || '').filter(Boolean).join(' / ');
-      return { track_tdm: join('tdm'), track_stl: join('stl'), track_motive_code: join('motiveCode'), track_motive_sku: join('motiveSku'), track_die_code: join('dieCode'), track_mold_die_qty: join('moldDieQty') };
+      return {
+        track_tdm: join('tdm'), track_stl: join('stl'),
+        track_motive_code: join('motiveCode'), track_motive_sku: join('motiveSku'),
+        track_die_code: join('dieCode'), track_mold_die_qty: join('moldDieQty'),
+        track_length: join('length'), track_width: join('width'), track_height: join('height'),
+      };
     })(),
     // Flat display fields for stone entries
     ...(() => {
@@ -147,13 +155,7 @@ function mapRow(row) {
 function toPayload(row) {
   const stoneEntries = row._stone_entries || [];
 
-  const findingsEntries = row._findings_entries.length > 0
-    ? [{ ...row._findings_entries[0],
-        code: row.findings_code, die: row.findings_die, size: row.findings_size,
-        quantity: row.findings_quantity, weight: row.findings_weight,
-      }, ...row._findings_entries.slice(1)]
-    : (row.findings_code ? [{ code: row.findings_code, die: row.findings_die,
-        size: row.findings_size, quantity: row.findings_quantity, weight: row.findings_weight }] : []);
+  const findingsEntries = row._findings_entries || [];
 
   const platingEntries = row._plating_entries || [];
   const trackingRowsPayload = row._tracking_rows || [];
@@ -169,8 +171,7 @@ function toPayload(row) {
     total_die_code: row.total_die_code !== '' ? Number(row.total_die_code) : null,
     total_mold_qty_per_die: row.total_mold_qty_per_die !== '' ? Number(row.total_mold_qty_per_die) : null,
     total_cpx_dead_weight: row.total_cpx_dead_weight !== '' ? Number(row.total_cpx_dead_weight) : null,
-    design_motive_size: row.design_motive_size,
-    total_design_measurements: row.total_design_measurements,
+    total_design_measurements: { length: row.tdm_length || '', width: row.tdm_width || '', height: row.tdm_height || '' },
     design_material: row.design_material,
     setting_type: row.setting_type,
     enamel: row.enamel,
@@ -335,12 +336,11 @@ export default function MasterDesignerSheet() {
       id: newId, hasBackendRecord: false, is_active: true,
       sku: '', rendered_photo: '', technical_drawing: '', other_photo: '',
       total_die_code: '', total_mold_qty_per_die: '', total_cpx_dead_weight: '',
-      design_motive_size: '', total_design_measurements: '',
+      tdm_length: '', tdm_width: '', tdm_height: '',
       design_material: '',
       setting_type: '', enamel: '',
       mechanism: '',
-      findings_code: '', findings_die: '', findings_size: '',
-      findings_quantity: '', findings_weight: '',
+      findings_code: '', findings_quantity: '',
       _stone_entries: [], _findings_entries: [], _plating_entries: [], _tracking_rows: [],
     }]);
   };
@@ -466,10 +466,21 @@ export default function MasterDesignerSheet() {
   // â”€â”€ Column totals â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const colTotals = {};
   TOTAL_COLS.forEach((cid) => {
-    const sum = displayedData.reduce((acc, r) => {
-      const n = parseFloat(String(r[cid] || '').replace(',', ''));
-      return acc + (isNaN(n) ? 0 : n);
-    }, 0);
+    let sum;
+    if (cid === 'findings_quantity') {
+      sum = displayedData.reduce((acc, r) => {
+        const entries = Array.isArray(r._findings_entries) ? r._findings_entries : [];
+        return acc + entries.reduce((s, f) => {
+          const n = parseFloat(String(f.quantity || '').replace(',', ''));
+          return s + (isNaN(n) ? 0 : n);
+        }, 0);
+      }, 0);
+    } else {
+      sum = displayedData.reduce((acc, r) => {
+        const n = parseFloat(String(r[cid] || '').replace(',', ''));
+        return acc + (isNaN(n) ? 0 : n);
+      }, 0);
+    }
     colTotals[cid] = sum % 1 === 0 ? sum : sum.toFixed(2);
   });
 
@@ -642,9 +653,20 @@ export default function MasterDesignerSheet() {
                         const isReadOnly = !!col.readOnly;
                         const val = row[col.id] ?? '';
                         const photoFieldName = col.id === 'other_photo' ? 'designer_image_3' : col.id;
+                        const isFindings = col.id === 'findings_code' || col.id === 'findings_quantity';
+                        const findingsKey = col.id === 'findings_code' ? 'code' : 'quantity';
                         return (
                           <td key={col.id} className="border border-soft-border p-1" style={isEditing ? { backgroundColor: '#eff6ff' } : {}}>
-                            {isReadOnly ? (
+                            {isFindings ? (
+                              <div className="px-1 py-0.5 text-xs flex flex-col gap-0.5">
+                                {(row._findings_entries || []).filter(f => f.code).length > 0
+                                  ? (row._findings_entries).filter(f => f.code).map((f, i) => (
+                                      <span key={i} className="block whitespace-normal break-words leading-tight">{f[findingsKey] || ''}</span>
+                                    ))
+                                  : <span className="text-cool-gray">—</span>
+                                }
+                              </div>
+                            ) : isReadOnly ? (
                               <span className="px-1 py-0.5 block text-xs">{val}</span>
                             ) : isPhoto ? (
                               <DesignerPhotoCell
