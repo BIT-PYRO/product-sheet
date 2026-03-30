@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Plus, Trash2 } from 'lucide-react';
+import { ArrowLeft, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
 
 const STORAGE_KEY = 'inventory_tools_v1';
@@ -35,17 +35,33 @@ const normalizeToolRow = (row, id) => {
 export default function ToolsInventoryPage() {
   const [rows, setRows] = useState([createToolRow(1)]);
   const [status, setStatus] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
+  const loadRows = () => {
+    setLoading(true);
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
-      if (!stored) return;
+      if (!stored) {
+        setRows([createToolRow(1)]);
+        return;
+      }
       const parsed = JSON.parse(stored);
-      if (!Array.isArray(parsed) || parsed.length === 0) return;
+      if (!Array.isArray(parsed) || parsed.length === 0) {
+        setRows([createToolRow(1)]);
+        return;
+      }
       setRows(parsed.map((row, index) => normalizeToolRow(row, index + 1)));
+      setStatus('Tools inventory refreshed.');
     } catch {
-      // Keep the page usable if stored data is malformed.
+      setStatus('Unable to refresh saved tools data.');
+    } finally {
+      setLoading(false);
     }
+  };
+
+  useEffect(() => {
+    loadRows();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const updateRow = (id, key, nextValue) => {
@@ -84,17 +100,41 @@ export default function ToolsInventoryPage() {
       </div>
 
       <div className="w-full px-4 md:px-6 pt-20 pb-8">
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <p className="text-base text-cool-gray">Manage tools with details, owning department, quantity, unit, and location</p>
-          </div>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <Link
             href="/inventory"
             className="inline-flex items-center gap-2 rounded-lg border border-soft-border bg-white px-3 py-2 text-sm font-medium text-midnight-ink hover:border-trust-blue transition"
           >
             <ArrowLeft className="h-4 w-4" />
-            Back to Inventory
+            Back
           </Link>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={loadRows}
+              disabled={loading}
+              className="inline-flex items-center gap-2 rounded-lg border border-soft-border bg-white px-3 py-2 text-sm font-medium text-midnight-ink hover:border-trust-blue transition disabled:opacity-50"
+            >
+              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+              Refresh
+            </button>
+            <button
+              type="button"
+              onClick={addRow}
+              className="inline-flex items-center gap-2 rounded-lg border border-trust-blue bg-white px-3 py-2 text-sm font-medium text-trust-blue hover:bg-blue-50 transition"
+            >
+              <Plus className="h-4 w-4" />
+              Add Tool Row
+            </button>
+            <button
+              type="button"
+              onClick={saveRows}
+              className="inline-flex items-center gap-2 rounded-lg bg-trust-blue px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 transition"
+            >
+              Save
+            </button>
+          </div>
         </div>
 
         {status && (
@@ -103,26 +143,26 @@ export default function ToolsInventoryPage() {
           </div>
         )}
 
-        <section className="rounded-xl border border-soft-border bg-white p-4 md:p-6 shadow-sm">
+        <section className="rounded-xl border border-soft-border bg-white shadow-sm">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[1120px] border-collapse text-sm">
+            <table className="w-full min-w-[1120px] text-sm">
               <thead>
-                <tr className="bg-cloud-gray border-b border-soft-border">
-                  <th className="px-3 py-2 text-left text-xs font-bold uppercase tracking-wide text-cool-gray w-16">S. No.</th>
-                  <th className="px-3 py-2 text-left text-xs font-bold uppercase tracking-wide text-cool-gray">Tool name</th>
-                  <th className="px-3 py-2 text-left text-xs font-bold uppercase tracking-wide text-cool-gray">Particulars</th>
-                  <th className="px-3 py-2 text-left text-xs font-bold uppercase tracking-wide text-cool-gray">Department</th>
-                  <th className="px-3 py-2 text-left text-xs font-bold uppercase tracking-wide text-cool-gray">Quantity</th>
-                  <th className="px-3 py-2 text-left text-xs font-bold uppercase tracking-wide text-cool-gray">Unit</th>
-                  <th className="px-3 py-2 text-left text-xs font-bold uppercase tracking-wide text-cool-gray">Location</th>
-                  <th className="px-3 py-2 text-left text-xs font-bold uppercase tracking-wide text-cool-gray w-24">Action</th>
+                <tr className="border-b border-soft-border bg-[#F8F9FA]">
+                  <th className="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray w-16">S. No.</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray">Tool name</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray">Particulars</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray">Department</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray">Quantity</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray">Unit</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray">Location</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray w-24">Action</th>
                 </tr>
               </thead>
               <tbody>
                 {rows.map((row) => (
-                  <tr key={row.id} className="border-b border-soft-border/70 last:border-b-0">
-                    <td className="px-3 py-2 text-midnight-ink">{row.id}</td>
-                    <td className="px-3 py-2">
+                  <tr key={row.id} className="border-b border-soft-border last:border-0 transition hover:bg-[#F8F9FA]">
+                    <td className="px-3 py-2.5 text-midnight-ink">{row.id}</td>
+                    <td className="px-4 py-2.5">
                       <input
                         type="text"
                         value={row.toolName ?? ''}
@@ -131,7 +171,7 @@ export default function ToolsInventoryPage() {
                         className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue"
                       />
                     </td>
-                    <td className="px-3 py-2">
+                    <td className="px-4 py-2.5">
                       <input
                         type="text"
                         value={row.particulars ?? ''}
@@ -140,7 +180,7 @@ export default function ToolsInventoryPage() {
                         className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue"
                       />
                     </td>
-                    <td className="px-3 py-2">
+                    <td className="px-4 py-2.5">
                       <input
                         type="text"
                         value={row.department ?? ''}
@@ -149,7 +189,7 @@ export default function ToolsInventoryPage() {
                         className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue"
                       />
                     </td>
-                    <td className="px-3 py-2">
+                    <td className="px-4 py-2.5">
                       <input
                         type="number"
                         value={row.quantity ?? ''}
@@ -158,7 +198,7 @@ export default function ToolsInventoryPage() {
                         className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue"
                       />
                     </td>
-                    <td className="px-3 py-2">
+                    <td className="px-4 py-2.5">
                       <input
                         type="text"
                         value={row.unit ?? ''}
@@ -167,7 +207,7 @@ export default function ToolsInventoryPage() {
                         className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue"
                       />
                     </td>
-                    <td className="px-3 py-2">
+                    <td className="px-4 py-2.5">
                       <input
                         type="text"
                         value={row.location ?? ''}
@@ -176,7 +216,7 @@ export default function ToolsInventoryPage() {
                         className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue"
                       />
                     </td>
-                    <td className="px-3 py-2">
+                    <td className="px-4 py-2.5">
                       <button
                         type="button"
                         onClick={() => deleteRow(row.id)}
@@ -192,23 +232,6 @@ export default function ToolsInventoryPage() {
             </table>
           </div>
 
-          <div className="mt-4 flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={addRow}
-              className="inline-flex items-center gap-2 rounded-lg border border-soft-border bg-white px-3 py-2 text-sm font-medium text-midnight-ink hover:border-trust-blue transition"
-            >
-              <Plus className="h-4 w-4" />
-              Add Row
-            </button>
-            <button
-              type="button"
-              onClick={saveRows}
-              className="rounded-lg border border-trust-blue bg-trust-blue px-3 py-2 text-sm font-semibold text-white hover:opacity-95 transition"
-            >
-              Save
-            </button>
-          </div>
         </section>
       </div>
     </main>

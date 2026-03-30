@@ -3,8 +3,8 @@ from rest_framework.viewsets import ModelViewSet
 
 from common.mixins import StandardizedSuccessResponseMixin
 
-from .models import InventoryTransaction, PicklistGroup, StoneItem, StoneStockEntry
-from .serializers import InventoryTransactionSerializer, PicklistGroupSerializer, StoneItemSerializer, StoneStockEntrySerializer
+from .models import InventoryTransaction, PicklistGroup, StoneItem, StoneStockEntry, ToolItem, OtherItem, MachineItem
+from .serializers import InventoryTransactionSerializer, PicklistGroupSerializer, StoneItemSerializer, StoneStockEntrySerializer, ToolItemSerializer, OtherItemSerializer, MachineItemSerializer
 
 
 @extend_schema_view(
@@ -62,3 +62,46 @@ class StoneStockEntryViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 	serializer_class = StoneStockEntrySerializer
 	filterset_fields = ['stone']
 	http_method_names = ['get', 'post', 'head', 'options']
+
+
+@extend_schema_view(
+	list=extend_schema(summary='List tool items', tags=['Tools Inventory']),
+	retrieve=extend_schema(summary='Get tool item', tags=['Tools Inventory']),
+	create=extend_schema(summary='Create tool item', tags=['Tools Inventory']),
+	update=extend_schema(summary='Update tool item', tags=['Tools Inventory']),
+	partial_update=extend_schema(summary='Partially update tool item', tags=['Tools Inventory']),
+	destroy=extend_schema(summary='Delete tool item', tags=['Tools Inventory']),
+)
+class ToolItemViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
+	queryset = ToolItem.objects.all()
+	serializer_class = ToolItemSerializer
+	search_fields = ['tool_name', 'department', 'location']
+
+
+@extend_schema_view(
+	list=extend_schema(summary='List other items', tags=['Others Inventory']),
+	retrieve=extend_schema(summary='Get other item', tags=['Others Inventory']),
+	create=extend_schema(summary='Create other item', tags=['Others Inventory']),
+	update=extend_schema(summary='Update other item', tags=['Others Inventory']),
+	partial_update=extend_schema(summary='Partially update other item', tags=['Others Inventory']),
+	destroy=extend_schema(summary='Delete other item', tags=['Others Inventory']),
+)
+class OtherItemViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
+	queryset = OtherItem.objects.all()
+	serializer_class = OtherItemSerializer
+	filterset_fields = ['category']
+	search_fields = ['item_name', 'category', 'notes']
+
+
+@extend_schema_view(
+	list=extend_schema(summary='List machine items', tags=['Machines Inventory']),
+	retrieve=extend_schema(summary='Get machine item', tags=['Machines Inventory']),
+	create=extend_schema(summary='Create machine item', tags=['Machines Inventory']),
+	update=extend_schema(summary='Update machine item', tags=['Machines Inventory']),
+	partial_update=extend_schema(summary='Partially update machine item', tags=['Machines Inventory']),
+	destroy=extend_schema(summary='Delete machine item', tags=['Machines Inventory']),
+)
+class MachineItemViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
+	queryset = MachineItem.objects.all()
+	serializer_class = MachineItemSerializer
+	search_fields = ['machine_name', 'department']

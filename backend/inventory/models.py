@@ -120,3 +120,58 @@ class StoneStockEntry(AuditModel):
 
 	def __str__(self):
 		return f'{self.stone} | +{self.qty_added}'
+
+
+class ToolItem(AuditModel):
+	tool_name = models.CharField(max_length=255)
+	particulars = models.CharField(max_length=255, blank=True, default='')
+	department = models.CharField(max_length=120, blank=True, default='')
+	quantity = models.DecimalField(max_digits=12, decimal_places=3, default=0)
+	unit = models.CharField(max_length=60, blank=True, default='')
+	location = models.CharField(max_length=255, blank=True, default='')
+
+	class Meta:
+		ordering = ('id',)
+
+	def __str__(self):
+		return self.tool_name
+
+
+class OtherItem(AuditModel):
+	item_name = models.CharField(max_length=255)
+	category = models.CharField(max_length=60, blank=True, default='')
+	quantity = models.DecimalField(max_digits=12, decimal_places=3, default=0)
+	unit = models.CharField(max_length=60, blank=True, default='PCS')
+	min_level = models.DecimalField(max_digits=12, decimal_places=3, default=0)
+	notes = models.TextField(blank=True, default='')
+
+	class Meta:
+		ordering = ('id',)
+
+	def __str__(self):
+		return self.item_name
+
+
+class MachineItem(AuditModel):
+	machine_name = models.CharField(max_length=255)
+	particulars = models.CharField(max_length=255, blank=True, default='')
+	department = models.CharField(max_length=120, blank=True, default='')
+	min_required_stock = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+	running_qty = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+	running_unit = models.CharField(max_length=60, blank=True, default='')
+	running_location = models.CharField(max_length=255, blank=True, default='')
+	idle_qty = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+	idle_unit = models.CharField(max_length=60, blank=True, default='')
+	idle_location = models.CharField(max_length=255, blank=True, default='')
+	breakdown_qty = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+	breakdown_unit = models.CharField(max_length=60, blank=True, default='')
+	breakdown_location = models.CharField(max_length=255, blank=True, default='')
+	maintenance_qty = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+	maintenance_unit = models.CharField(max_length=60, blank=True, default='')
+	maintenance_location = models.CharField(max_length=255, blank=True, default='')
+
+	class Meta:
+		ordering = ('id',)
+
+	def __str__(self):
+		return self.machine_name

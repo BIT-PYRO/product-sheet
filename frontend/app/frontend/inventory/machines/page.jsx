@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Plus, Trash2 } from 'lucide-react';
+import { ArrowLeft, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
 
 const STORAGE_KEY = 'inventory_machines_v1';
@@ -68,21 +68,37 @@ const normalizeMachineRow = (row, id) => {
 export default function MachinesInventoryPage() {
   const [rows, setRows] = useState([createMachineRow(1)]);
   const [status, setStatus] = useState('');
+  const [loading, setLoading] = useState(false);
   const [activePanel, setActivePanel] = useState('');
   const [newMachine, setNewMachine] = useState({ machineName: '', particulars: '', department: '', minRequiredStock: '' });
   const [addStockForm, setAddStockForm] = useState({ machineId: '', stateKey: 'running', qty: '', unit: '', location: '' });
   const [updateStockForm, setUpdateStockForm] = useState({ machineId: '', fromState: 'idle', toState: 'running', qty: '' });
 
-  useEffect(() => {
+  const loadRows = () => {
+    setLoading(true);
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
-      if (!stored) return;
+      if (!stored) {
+        setRows([createMachineRow(1)]);
+        return;
+      }
       const parsed = JSON.parse(stored);
-      if (!Array.isArray(parsed) || parsed.length === 0) return;
+      if (!Array.isArray(parsed) || parsed.length === 0) {
+        setRows([createMachineRow(1)]);
+        return;
+      }
       setRows(parsed.map((row, index) => normalizeMachineRow(row, index + 1)));
+      setStatus('Machines inventory refreshed.');
     } catch {
-      // Keep page usable if local data is malformed.
+      setStatus('Unable to refresh saved machines data.');
+    } finally {
+      setLoading(false);
     }
+  };
+
+  useEffect(() => {
+    loadRows();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const updateRow = (id, key, nextValue) => {
@@ -238,17 +254,41 @@ export default function MachinesInventoryPage() {
       </div>
 
       <div className="w-full px-4 md:px-6 pt-20 pb-8">
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <p className="text-base text-cool-gray">Track machine stock and condition-wise quantities, units, and locations.</p>
-          </div>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <Link
             href="/inventory"
             className="inline-flex items-center gap-2 rounded-lg border border-soft-border bg-white px-3 py-2 text-sm font-medium text-midnight-ink hover:border-trust-blue transition"
           >
             <ArrowLeft className="h-4 w-4" />
-            Back to Inventory
+            Back
           </Link>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={loadRows}
+              disabled={loading}
+              className="inline-flex items-center gap-2 rounded-lg border border-soft-border bg-white px-3 py-2 text-sm font-medium text-midnight-ink hover:border-trust-blue transition disabled:opacity-50"
+            >
+              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+              Refresh
+            </button>
+            <button
+              type="button"
+              onClick={addRow}
+              className="inline-flex items-center gap-2 rounded-lg border border-trust-blue bg-white px-3 py-2 text-sm font-medium text-trust-blue hover:bg-blue-50 transition"
+            >
+              <Plus className="h-4 w-4" />
+              Add Machine Row
+            </button>
+            <button
+              type="button"
+              onClick={saveRows}
+              className="inline-flex items-center gap-2 rounded-lg bg-trust-blue px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 transition"
+            >
+              Save
+            </button>
+          </div>
         </div>
 
         {status && (
@@ -262,21 +302,21 @@ export default function MachinesInventoryPage() {
             <button
               type="button"
               onClick={() => setActivePanel((prev) => (prev === 'addMachine' ? '' : 'addMachine'))}
-              className="rounded-lg border border-soft-border bg-white px-3 py-2 text-sm font-semibold text-midnight-ink hover:border-trust-blue transition"
+              className="inline-flex items-center gap-2 rounded-lg border border-soft-border bg-white px-3 py-2 text-sm font-medium text-midnight-ink hover:border-trust-blue transition"
             >
               Add Machine
             </button>
             <button
               type="button"
               onClick={() => setActivePanel((prev) => (prev === 'addStock' ? '' : 'addStock'))}
-              className="rounded-lg border border-soft-border bg-white px-3 py-2 text-sm font-semibold text-midnight-ink hover:border-trust-blue transition"
+              className="inline-flex items-center gap-2 rounded-lg border border-soft-border bg-white px-3 py-2 text-sm font-medium text-midnight-ink hover:border-trust-blue transition"
             >
               Add Machine Stock
             </button>
             <button
               type="button"
               onClick={() => setActivePanel((prev) => (prev === 'updateStock' ? '' : 'updateStock'))}
-              className="rounded-lg border border-soft-border bg-white px-3 py-2 text-sm font-semibold text-midnight-ink hover:border-trust-blue transition"
+              className="inline-flex items-center gap-2 rounded-lg border border-soft-border bg-white px-3 py-2 text-sm font-medium text-midnight-ink hover:border-trust-blue transition"
             >
               Update Machine Stock
             </button>
@@ -336,99 +376,99 @@ export default function MachinesInventoryPage() {
           )}
         </section>
 
-        <section className="rounded-xl border border-soft-border bg-white p-4 md:p-6 shadow-sm">
+        <section className="rounded-xl border border-soft-border bg-white shadow-sm">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[2360px] border-collapse text-sm">
+            <table className="w-full min-w-[2360px] text-sm">
               <thead>
-                <tr className="bg-cloud-gray border-b border-soft-border">
-                  <th rowSpan={2} className="px-3 py-2 text-left text-xs font-bold uppercase tracking-wide text-cool-gray w-16">S. No.</th>
-                  <th rowSpan={2} className="px-3 py-2 text-left text-xs font-bold uppercase tracking-wide text-cool-gray min-w-[170px]">Machine Name</th>
-                  <th rowSpan={2} className="px-3 py-2 text-left text-xs font-bold uppercase tracking-wide text-cool-gray min-w-[170px]">Particulars</th>
-                  <th rowSpan={2} className="px-3 py-2 text-left text-xs font-bold uppercase tracking-wide text-cool-gray min-w-[170px]">Department</th>
-                  <th colSpan={3} className="px-3 py-2 text-left text-xs font-bold uppercase tracking-wide text-midnight-ink">Running</th>
-                  <th colSpan={3} className="px-3 py-2 text-left text-xs font-bold uppercase tracking-wide text-midnight-ink">Idle</th>
-                  <th colSpan={3} className="px-3 py-2 text-left text-xs font-bold uppercase tracking-wide text-midnight-ink">Breakdown</th>
-                  <th colSpan={3} className="px-3 py-2 text-left text-xs font-bold uppercase tracking-wide text-midnight-ink">Under Maintenance</th>
-                  <th rowSpan={2} className="px-3 py-2 text-left text-xs font-bold uppercase tracking-wide text-cool-gray min-w-[210px]">Minimum Required in Stock</th>
-                  <th rowSpan={2} className="px-3 py-2 text-left text-xs font-bold uppercase tracking-wide text-cool-gray w-24">Action</th>
+                <tr className="border-b border-soft-border bg-[#F8F9FA]">
+                  <th rowSpan={2} className="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray w-16">S. No.</th>
+                  <th rowSpan={2} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray min-w-[170px]">Machine Name</th>
+                  <th rowSpan={2} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray min-w-[170px]">Particulars</th>
+                  <th rowSpan={2} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray min-w-[170px]">Department</th>
+                  <th colSpan={3} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-midnight-ink">Running</th>
+                  <th colSpan={3} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-midnight-ink">Idle</th>
+                  <th colSpan={3} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-midnight-ink">Breakdown</th>
+                  <th colSpan={3} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-midnight-ink">Under Maintenance</th>
+                  <th rowSpan={2} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray min-w-[210px]">Minimum Required in Stock</th>
+                  <th rowSpan={2} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray w-24">Action</th>
                 </tr>
-                <tr className="bg-cloud-gray border-b border-soft-border">
-                  <th className="px-3 py-2 text-left text-xs font-bold uppercase tracking-wide text-cool-gray min-w-[90px]">Qty</th>
-                  <th className="px-3 py-2 text-left text-xs font-bold uppercase tracking-wide text-cool-gray min-w-[120px]">Unit</th>
-                  <th className="px-3 py-2 text-left text-xs font-bold uppercase tracking-wide text-cool-gray min-w-[140px]">Location</th>
+                <tr className="border-b border-soft-border bg-[#F8F9FA]">
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray min-w-[90px]">Qty</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray min-w-[120px]">Unit</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray min-w-[140px]">Location</th>
 
-                  <th className="px-3 py-2 text-left text-xs font-bold uppercase tracking-wide text-cool-gray min-w-[90px]">Qty</th>
-                  <th className="px-3 py-2 text-left text-xs font-bold uppercase tracking-wide text-cool-gray min-w-[120px]">Unit</th>
-                  <th className="px-3 py-2 text-left text-xs font-bold uppercase tracking-wide text-cool-gray min-w-[140px]">Location</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray min-w-[90px]">Qty</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray min-w-[120px]">Unit</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray min-w-[140px]">Location</th>
 
-                  <th className="px-3 py-2 text-left text-xs font-bold uppercase tracking-wide text-cool-gray min-w-[90px]">Qty</th>
-                  <th className="px-3 py-2 text-left text-xs font-bold uppercase tracking-wide text-cool-gray min-w-[120px]">Unit</th>
-                  <th className="px-3 py-2 text-left text-xs font-bold uppercase tracking-wide text-cool-gray min-w-[140px]">Location</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray min-w-[90px]">Qty</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray min-w-[120px]">Unit</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray min-w-[140px]">Location</th>
 
-                  <th className="px-3 py-2 text-left text-xs font-bold uppercase tracking-wide text-cool-gray min-w-[90px]">Qty</th>
-                  <th className="px-3 py-2 text-left text-xs font-bold uppercase tracking-wide text-cool-gray min-w-[120px]">Unit</th>
-                  <th className="px-3 py-2 text-left text-xs font-bold uppercase tracking-wide text-cool-gray min-w-[140px]">Location</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray min-w-[90px]">Qty</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray min-w-[120px]">Unit</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray min-w-[140px]">Location</th>
                 </tr>
               </thead>
               <tbody>
                 {rows.map((row) => (
-                  <tr key={row.id} className="border-b border-soft-border/70 last:border-b-0">
-                    <td className="px-3 py-2 text-midnight-ink">{row.id}</td>
-                    <td className="px-3 py-2">
+                  <tr key={row.id} className="border-b border-soft-border last:border-0 transition hover:bg-[#F8F9FA]">
+                    <td className="px-3 py-2.5 text-midnight-ink">{row.id}</td>
+                    <td className="px-4 py-2.5">
                       <input type="text" value={row.machineName ?? ''} onChange={(e) => updateRow(row.id, 'machineName', e.target.value)} placeholder="Enter machine name" className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue" />
                     </td>
-                    <td className="px-3 py-2">
+                    <td className="px-4 py-2.5">
                       <input type="text" value={row.particulars ?? ''} onChange={(e) => updateRow(row.id, 'particulars', e.target.value)} placeholder="Enter particulars" className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue" />
                     </td>
-                    <td className="px-3 py-2">
+                    <td className="px-4 py-2.5">
                       <input type="text" value={row.department ?? ''} onChange={(e) => updateRow(row.id, 'department', e.target.value)} placeholder="Enter department" className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue" />
                     </td>
 
-                    <td className="px-3 py-2">
+                    <td className="px-4 py-2.5">
                       <input type="number" value={row.runningQty ?? ''} onChange={(e) => updateRow(row.id, 'runningQty', e.target.value)} placeholder="0" className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue" />
                     </td>
-                    <td className="px-3 py-2">
+                    <td className="px-4 py-2.5">
                       <input type="text" value={row.runningUnit ?? ''} onChange={(e) => updateRow(row.id, 'runningUnit', e.target.value)} placeholder="PCS" className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue" />
                     </td>
-                    <td className="px-3 py-2">
+                    <td className="px-4 py-2.5">
                       <input type="text" value={row.runningLocation ?? ''} onChange={(e) => updateRow(row.id, 'runningLocation', e.target.value)} placeholder="Line 1" className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue" />
                     </td>
 
-                    <td className="px-3 py-2">
+                    <td className="px-4 py-2.5">
                       <input type="number" value={row.idleQty ?? ''} onChange={(e) => updateRow(row.id, 'idleQty', e.target.value)} placeholder="0" className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue" />
                     </td>
-                    <td className="px-3 py-2">
+                    <td className="px-4 py-2.5">
                       <input type="text" value={row.idleUnit ?? ''} onChange={(e) => updateRow(row.id, 'idleUnit', e.target.value)} placeholder="PCS" className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue" />
                     </td>
-                    <td className="px-3 py-2">
+                    <td className="px-4 py-2.5">
                       <input type="text" value={row.idleLocation ?? ''} onChange={(e) => updateRow(row.id, 'idleLocation', e.target.value)} placeholder="Warehouse" className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue" />
                     </td>
 
-                    <td className="px-3 py-2">
+                    <td className="px-4 py-2.5">
                       <input type="number" value={row.breakdownQty ?? ''} onChange={(e) => updateRow(row.id, 'breakdownQty', e.target.value)} placeholder="0" className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue" />
                     </td>
-                    <td className="px-3 py-2">
+                    <td className="px-4 py-2.5">
                       <input type="text" value={row.breakdownUnit ?? ''} onChange={(e) => updateRow(row.id, 'breakdownUnit', e.target.value)} placeholder="PCS" className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue" />
                     </td>
-                    <td className="px-3 py-2">
+                    <td className="px-4 py-2.5">
                       <input type="text" value={row.breakdownLocation ?? ''} onChange={(e) => updateRow(row.id, 'breakdownLocation', e.target.value)} placeholder="Repair bay" className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue" />
                     </td>
 
-                    <td className="px-3 py-2">
+                    <td className="px-4 py-2.5">
                       <input type="number" value={row.maintenanceQty ?? ''} onChange={(e) => updateRow(row.id, 'maintenanceQty', e.target.value)} placeholder="0" className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue" />
                     </td>
-                    <td className="px-3 py-2">
+                    <td className="px-4 py-2.5">
                       <input type="text" value={row.maintenanceUnit ?? ''} onChange={(e) => updateRow(row.id, 'maintenanceUnit', e.target.value)} placeholder="PCS" className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue" />
                     </td>
-                    <td className="px-3 py-2">
+                    <td className="px-4 py-2.5">
                       <input type="text" value={row.maintenanceLocation ?? ''} onChange={(e) => updateRow(row.id, 'maintenanceLocation', e.target.value)} placeholder="Service center" className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue" />
                     </td>
 
-                    <td className="px-3 py-2">
+                    <td className="px-4 py-2.5">
                       <input type="number" value={row.minRequiredStock ?? ''} onChange={(e) => updateRow(row.id, 'minRequiredStock', e.target.value)} placeholder="0" className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue" />
                     </td>
 
-                    <td className="px-3 py-2">
+                    <td className="px-4 py-2.5">
                       <button type="button" onClick={() => deleteRow(row.id)} className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-rose-200 text-rose-600 hover:bg-rose-50 transition" aria-label={`Delete row ${row.id}`}>
                         <Trash2 className="h-4 w-4" />
                       </button>
@@ -439,23 +479,6 @@ export default function MachinesInventoryPage() {
             </table>
           </div>
 
-          <div className="mt-4 flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={addRow}
-              className="inline-flex items-center gap-2 rounded-lg border border-soft-border bg-white px-3 py-2 text-sm font-medium text-midnight-ink hover:border-trust-blue transition"
-            >
-              <Plus className="h-4 w-4" />
-              Add Row
-            </button>
-            <button
-              type="button"
-              onClick={saveRows}
-              className="rounded-lg border border-trust-blue bg-trust-blue px-3 py-2 text-sm font-semibold text-white hover:opacity-95 transition"
-            >
-              Save
-            </button>
-          </div>
         </section>
       </div>
     </main>

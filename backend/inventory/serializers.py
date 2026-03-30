@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from django.db import transaction
 
-from .models import InventoryTransaction, PicklistGroup, PicklistItem, StoneItem, StoneStockEntry
+from .models import InventoryTransaction, PicklistGroup, PicklistItem, StoneItem, StoneStockEntry, ToolItem, OtherItem, MachineItem
 
 
 class InventoryTransactionSerializer(serializers.ModelSerializer):
@@ -121,3 +121,28 @@ class StoneStockEntrySerializer(serializers.ModelSerializer):
         stone.weight_cts = float(stone.weight_cts or 0) + float(entry.weight_cts_added)
         stone.save(update_fields=['qty', 'weight_cts'])
         return entry
+
+
+class ToolItemSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ToolItem
+        fields = ['id', 'tool_name', 'particulars', 'department', 'quantity', 'unit', 'location', 'created_at', 'updated_at']
+
+
+class OtherItemSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = OtherItem
+        fields = ['id', 'item_name', 'category', 'quantity', 'unit', 'min_level', 'notes', 'created_at', 'updated_at']
+
+
+class MachineItemSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MachineItem
+        fields = [
+            'id', 'machine_name', 'particulars', 'department', 'min_required_stock',
+            'running_qty', 'running_unit', 'running_location',
+            'idle_qty', 'idle_unit', 'idle_location',
+            'breakdown_qty', 'breakdown_unit', 'breakdown_location',
+            'maintenance_qty', 'maintenance_unit', 'maintenance_location',
+            'created_at', 'updated_at',
+        ]
