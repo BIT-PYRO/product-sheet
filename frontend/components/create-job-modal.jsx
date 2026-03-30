@@ -547,9 +547,6 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
               <button type="button" className="flex-1 py-1 text-trust-blue hover:text-deep-blue text-sm font-semibold transition-colors" onClick={addRow}>
                 + Add Row
               </button>
-              <button type="button" className="flex-1 py-1 text-trust-blue hover:text-deep-blue text-sm font-semibold transition-colors border-l border-border" disabled>
-                + Add Column
-              </button>
             </div>
           </div>
 

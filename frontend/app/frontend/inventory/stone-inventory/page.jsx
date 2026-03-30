@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Plus, RefreshCw, Trash2, X } from 'lucide-react';
+import { ArrowLeft, Plus, Printer, RefreshCw, Trash2, X } from 'lucide-react';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
 import {
   Dialog,
@@ -11,6 +11,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+
+const ISSUE_REQUESTS_KEY = 'stone_issue_requests_v1';
 
 // â”€â”€â”€ helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
@@ -61,6 +63,7 @@ function Field({ label, value, onChange, textarea = false, type = 'text', disabl
         <input
           className={cls}
           type={type}
+          min={type === 'number' ? 0 : undefined}
           value={value}
           onChange={(e) => onChange && onChange(e.target.value)}
           disabled={disabled}
@@ -114,6 +117,15 @@ export default function StoneInventoryPage() {
   const [deleteId, setDeleteId] = useState(null);
   const [deleting, setDeleting] = useState(false);
 
+  // Issue Job workflow
+  const [issueJobOpen, setIssueJobOpen] = useState(false);
+  const [requestsPanelOpen, setRequestsPanelOpen] = useState(false);
+  const [requestDetailsOpen, setRequestDetailsOpen] = useState(false);
+  const [activeRequestId, setActiveRequestId] = useState(null);
+  const [issueRequests, setIssueRequests] = useState([]);
+  const [issueRequestsReady, setIssueRequestsReady] = useState(false);
+  const [issueForm, setIssueForm] = useState({ stoneId: '', quantity: '', issuedTo: '', reason: '' });
+
   // â”€â”€ load â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   const loadStones = useCallback(async () => {
@@ -135,6 +147,24 @@ export default function StoneInventoryPage() {
   useEffect(() => {
     loadStones();
   }, [loadStones]);
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(ISSUE_REQUESTS_KEY);
+      if (!stored) return;
+      const parsed = JSON.parse(stored);
+      if (Array.isArray(parsed)) setIssueRequests(parsed);
+    } catch {
+      // Ignore malformed local data and keep UI usable.
+    } finally {
+      setIssueRequestsReady(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!issueRequestsReady) return;
+    localStorage.setItem(ISSUE_REQUESTS_KEY, JSON.stringify(issueRequests));
+  }, [issueRequests, issueRequestsReady]);
 
   // â”€â”€ row selection â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
@@ -206,6 +236,157 @@ export default function StoneInventoryPage() {
     () => stones.filter((s) => selectedIds.has(s.id)),
     [stones, selectedIds]
   );
+
+  const pendingIssueRequests = useMemo(
+    () => issueRequests.filter((r) => r.status === 'pending'),
+    [issueRequests]
+  );
+
+  const sortedIssueRequests = useMemo(
+    () => [...issueRequests].sort((a, b) => new Date(b.requestedAt) - new Date(a.requestedAt)),
+    [issueRequests]
+  );
+
+  const activeRequest = useMemo(
+    () => issueRequests.find((r) => r.id === activeRequestId) || null,
+    [issueRequests, activeRequestId]
+  );
+
+  function stoneName(stone) {
+    if (!stone) return 'Stone';
+    return [stone.stone_type, stone.species, stone.variety].filter(Boolean).join(' / ') || `Stone #${stone.id}`;
+  }
+
+  function openIssueJobPopup() {
+    if (selectedStones.length === 0) {
+      setStatusMsg('Select at least one stone to raise an issue request.');
+      return;
+    }
+    setIssueForm({
+      stoneId: String(selectedStones[0].id),
+      quantity: '',
+      issuedTo: '',
+      reason: '',
+    });
+    setIssueJobOpen(true);
+  }
+
+  function createIssueRequest() {
+    const stoneIdNum = Number(issueForm.stoneId);
+    const quantityNum = Number(issueForm.quantity);
+    const issuedTo = issueForm.issuedTo.trim();
+    const reason = issueForm.reason.trim();
+
+    if (!stoneIdNum) {
+      setStatusMsg('Please select a stone for the request.');
+      return;
+    }
+    if (!Number.isFinite(quantityNum) || quantityNum <= 0) {
+      setStatusMsg('Please enter a valid issue quantity greater than 0.');
+      return;
+    }
+    if (!issuedTo) {
+      setStatusMsg('Please enter who the stone is issued to.');
+      return;
+    }
+    if (!reason) {
+      setStatusMsg('Please enter reason of issue.');
+      return;
+    }
+
+    const stone = stones.find((s) => s.id === stoneIdNum);
+    const request = {
+      id: Date.now(),
+      stoneId: stoneIdNum,
+      stoneName: stoneName(stone),
+      quantity: quantityNum,
+      issuedTo,
+      reason,
+      status: 'pending',
+      requestedAt: new Date().toISOString(),
+      reviewedAt: null,
+    };
+
+    setIssueRequests((prev) => [request, ...prev]);
+    setIssueJobOpen(false);
+    setStatusMsg('Issue request created.');
+  }
+
+  function openRequestDetails(requestId) {
+    setActiveRequestId(requestId);
+    setRequestDetailsOpen(true);
+  }
+
+  function reviewIssueRequest(nextStatus) {
+    if (!activeRequest) return;
+    setIssueRequests((prev) =>
+      prev.map((r) =>
+        r.id === activeRequest.id
+          ? { ...r, status: nextStatus, reviewedAt: new Date().toISOString() }
+          : r
+      )
+    );
+    setRequestDetailsOpen(false);
+    setStatusMsg(`Request ${nextStatus}.`);
+  }
+
+  function relativeTime(iso) {
+    if (!iso) return '';
+    const diff = Date.now() - new Date(iso).getTime();
+    const min = Math.floor(diff / 60000);
+    if (min < 1) return 'just now';
+    if (min < 60) return `${min}m`;
+    const hr = Math.floor(min / 60);
+    if (hr < 24) return `${hr}h`;
+    const day = Math.floor(hr / 24);
+    return `${day}d`;
+  }
+
+  function printIssueVoucher(request) {
+    if (!request) return;
+    const opened = window.open('', '_blank', 'width=900,height=700');
+    if (!opened) {
+      setStatusMsg('Popup blocked. Please allow popups to print voucher.');
+      return;
+    }
+    const requestedAt = request.requestedAt ? new Date(request.requestedAt).toLocaleString() : '-';
+    const reviewedAt = request.reviewedAt ? new Date(request.reviewedAt).toLocaleString() : '-';
+    const html = `
+      <html>
+        <head>
+          <title>Stone Issue Voucher</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 24px; color: #111827; }
+            h1 { margin: 0 0 4px; font-size: 22px; }
+            p { margin: 0 0 16px; color: #6B7280; }
+            table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+            th, td { border: 1px solid #E5E7EB; padding: 10px; text-align: left; font-size: 14px; }
+            th { background: #F8F9FA; width: 220px; }
+            .badge { display: inline-block; padding: 4px 10px; border-radius: 999px; background: #DCFCE7; color: #166534; font-weight: 600; }
+          </style>
+        </head>
+        <body>
+          <h1>Stone Issue Voucher</h1>
+          <p>Generated from Stone Inventory requests panel</p>
+          <table>
+            <tr><th>Request ID</th><td>${request.id}</td></tr>
+            <tr><th>Stone Name</th><td>${request.stoneName}</td></tr>
+            <tr><th>Quantity</th><td>${request.quantity}</td></tr>
+            <tr><th>Issued To</th><td>${request.issuedTo}</td></tr>
+            <tr><th>Reason of Issue</th><td>${request.reason || '-'}</td></tr>
+            <tr><th>Status</th><td><span class="badge">${String(request.status || '').toUpperCase()}</span></td></tr>
+            <tr><th>Requested At</th><td>${requestedAt}</td></tr>
+            <tr><th>Reviewed At</th><td>${reviewedAt}</td></tr>
+          </table>
+        </body>
+      </html>
+    `;
+    opened.document.open();
+    opened.document.write(html);
+    opened.document.close();
+    opened.focus();
+    opened.print();
+  }
 
   // â”€â”€ add new stone â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
@@ -428,6 +609,26 @@ export default function StoneInventoryPage() {
                 </span>
               )}
             </button>
+
+            <button
+              onClick={openIssueJobPopup}
+              disabled={selectedIds.size === 0}
+              className="inline-flex items-center gap-2 rounded-lg border border-trust-blue bg-white px-3 py-2 text-sm font-medium text-trust-blue hover:bg-blue-50 transition disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              Issue Stone
+            </button>
+
+            <button
+              onClick={() => setRequestsPanelOpen((prev) => !prev)}
+              className="inline-flex items-center gap-2 rounded-xl border border-soft-border bg-white px-3 py-2 text-sm font-medium text-midnight-ink hover:border-trust-blue transition"
+            >
+              Requests
+              {pendingIssueRequests.length > 0 && (
+                <span className="rounded-full bg-danger px-1.5 py-0.5 text-[10px] text-white leading-none">
+                  {pendingIssueRequests.length}
+                </span>
+              )}
+            </button>
           </div>
         </div>
 
@@ -585,6 +786,86 @@ export default function StoneInventoryPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {requestsPanelOpen && (
+        <>
+          <div
+            className="fixed inset-0 z-[75] bg-black/20"
+            onClick={() => setRequestsPanelOpen(false)}
+          />
+          <aside className="fixed right-2 top-[64px] z-[80] h-[calc(100vh-72px)] w-full max-w-[390px] rounded-2xl border border-soft-border bg-white shadow-2xl">
+            <div className="flex h-full flex-col">
+              <div className="flex items-center justify-between border-b border-soft-border px-4 py-3">
+                <div>
+                  <h3 className="text-base font-semibold text-midnight-ink">Notifications</h3>
+                  <p className="text-xs text-cool-gray">Issue requests for stones</p>
+                </div>
+                <button
+                  onClick={() => setRequestsPanelOpen(false)}
+                  className="rounded-md p-1 text-cool-gray hover:bg-[#F3F4F6] hover:text-midnight-ink"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto">
+                {sortedIssueRequests.length === 0 ? (
+                  <div className="px-4 py-6 text-sm text-cool-gray">No requests yet.</div>
+                ) : (
+                  <div className="divide-y divide-soft-border">
+                    {sortedIssueRequests.map((req) => {
+                      const statusClass =
+                        req.status === 'approved'
+                          ? 'bg-emerald-100 text-emerald-800'
+                          : req.status === 'declined'
+                            ? 'bg-red-100 text-red-700'
+                            : 'bg-amber-100 text-amber-800';
+                      return (
+                        <button
+                          key={req.id}
+                          onClick={() => openRequestDetails(req.id)}
+                          className="w-full rounded-xl px-4 py-3 text-left transition hover:bg-[#F9FAFB]"
+                        >
+                          <div className="flex items-start gap-3">
+                            <div className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-full bg-[#EEF2FF] text-xs font-semibold text-trust-blue">
+                              {String(req.stoneName || 'S').charAt(0).toUpperCase()}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-sm text-midnight-ink">
+                                <span className="font-semibold">{req.issuedTo}</span> requested <span className="font-semibold">{req.quantity}</span> of {req.stoneName}
+                              </p>
+                              <p className="mt-0.5 truncate text-xs text-cool-gray">Reason: {req.reason || '-'}</p>
+                              <div className="mt-1 flex items-center gap-2">
+                                <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${statusClass}`}>
+                                  {req.status}
+                                </span>
+                                {req.status === 'approved' && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      printIssueVoucher(req);
+                                    }}
+                                    className="inline-flex items-center gap-1 rounded-full border border-soft-border px-2 py-0.5 text-[10px] font-semibold text-midnight-ink hover:border-trust-blue"
+                                  >
+                                    <Printer size={10} />
+                                    Print
+                                  </button>
+                                )}
+                                <span className="text-[11px] text-cool-gray">{relativeTime(req.requestedAt)}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          </aside>
+        </>
+      )}
 
       {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
           Add Stone Stock dialog â€” table of selected stones
@@ -810,6 +1091,104 @@ export default function StoneInventoryPage() {
             <Button variant="destructive" onClick={handleDeleteConfirm} disabled={deleting}>
               {deleting ? 'Deleting...' : 'Delete'}
             </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={issueJobOpen} onOpenChange={setIssueJobOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-semibold text-midnight-ink">Issue Job Request</DialogTitle>
+          </DialogHeader>
+
+          <div className="mt-2 grid grid-cols-1 gap-4">
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Name of Stone</label>
+              <select
+                value={issueForm.stoneId}
+                onChange={(e) => setIssueForm((prev) => ({ ...prev, stoneId: e.target.value }))}
+                className="w-full rounded-md border border-soft-border bg-white px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+              >
+                <option value="">Select stone</option>
+                {selectedStones.map((stone) => (
+                  <option key={stone.id} value={stone.id}>{stoneName(stone)}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <Field
+                label="Quantity"
+                type="number"
+                value={issueForm.quantity}
+                onChange={(value) => {
+                  if (value === '') {
+                    setIssueForm((prev) => ({ ...prev, quantity: '' }));
+                    return;
+                  }
+                  const num = Number(value);
+                  setIssueForm((prev) => ({ ...prev, quantity: String(Number.isFinite(num) ? Math.max(0, num) : 0) }));
+                }}
+              />
+
+              <Field
+                label="Issued To"
+                value={issueForm.issuedTo}
+                onChange={(value) => setIssueForm((prev) => ({ ...prev, issuedTo: value }))}
+              />
+            </div>
+
+            <Field
+              label="Reason of Issue"
+              value={issueForm.reason}
+              onChange={(value) => setIssueForm((prev) => ({ ...prev, reason: value }))}
+            />
+          </div>
+
+          <div className="mt-5 flex justify-end gap-3">
+            <Button variant="outline" onClick={() => setIssueJobOpen(false)}>Cancel</Button>
+            <Button onClick={createIssueRequest}>Request</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={requestDetailsOpen} onOpenChange={setRequestDetailsOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-semibold text-midnight-ink">Issue Request Details</DialogTitle>
+          </DialogHeader>
+
+          {activeRequest ? (
+            <div className="mt-2 grid grid-cols-1 gap-3">
+              <Field label="Name of Stone" value={activeRequest.stoneName} disabled />
+              <Field label="Quantity" value={String(activeRequest.quantity)} disabled />
+              <Field label="Issued To" value={activeRequest.issuedTo} disabled />
+              <Field label="Reason of Issue" value={activeRequest.reason || '-'} disabled />
+              <Field label="Status" value={activeRequest.status.toUpperCase()} disabled />
+              <Field
+                label="Requested At"
+                value={new Date(activeRequest.requestedAt).toLocaleString()}
+                disabled
+              />
+            </div>
+          ) : (
+            <p className="text-sm text-cool-gray">Request not found.</p>
+          )}
+
+          <div className="mt-5 flex justify-end gap-3">
+            <Button variant="outline" onClick={() => setRequestDetailsOpen(false)}>Close</Button>
+            {activeRequest?.status === 'pending' && (
+              <>
+                <Button variant="destructive" onClick={() => reviewIssueRequest('declined')}>Decline</Button>
+                <Button onClick={() => reviewIssueRequest('approved')}>Approve</Button>
+              </>
+            )}
+            {activeRequest?.status === 'approved' && (
+              <Button variant="outline" onClick={() => printIssueVoucher(activeRequest)}>
+                <Printer size={14} className="mr-2" />
+                Print
+              </Button>
+            )}
           </div>
         </DialogContent>
       </Dialog>
