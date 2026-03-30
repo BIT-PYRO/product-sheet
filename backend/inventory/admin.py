@@ -1,6 +1,25 @@
 from django.contrib import admin
 
-from inventory.models import InventoryTransaction, PicklistGroup, PicklistItem
+from inventory.models import InventoryTransaction, MachineItem, OtherItem, PicklistGroup, PicklistItem, ToolItem
+
+
+@admin.register(ToolItem)
+class ToolItemAdmin(admin.ModelAdmin):
+    list_display = ("id", "tool_name", "particulars", "department", "quantity", "unit", "location")
+    search_fields = ("tool_name", "department")
+
+
+@admin.register(OtherItem)
+class OtherItemAdmin(admin.ModelAdmin):
+    list_display = ("id", "item_name", "category", "quantity", "unit", "min_level")
+    list_filter = ("category",)
+    search_fields = ("item_name",)
+
+
+@admin.register(MachineItem)
+class MachineItemAdmin(admin.ModelAdmin):
+    list_display = ("id", "machine_name", "department", "running_qty", "idle_qty", "breakdown_qty", "maintenance_qty")
+    search_fields = ("machine_name", "department")
 
 
 @admin.register(InventoryTransaction)
