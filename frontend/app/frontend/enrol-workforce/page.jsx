@@ -42,22 +42,30 @@ const COUNTRIES = [
 ];
 
 const INDIAN_LANGUAGES = [
-  'Assamese','Bengali','Bodo','Dogri','Gujarati','Hindi','Kannada','Kashmiri',
+  'Assamese','Bengali','Bodo','Dogri','English','Gujarati','Hindi','Kannada','Kashmiri',
   'Konkani','Maithili','Malayalam','Manipuri','Marathi','Nepali','Odia',
   'Punjabi','Sanskrit','Santali','Sindhi','Tamil','Telugu','Urdu',
 ];
 
 const WORKING_STYLES = ['On-site','Remote','Hybrid','Field Work','Part-time','Contractual'];
 
-const DESIGNATIONS = {
-  'Senior Management': ['Chief Operating Officer (COO)','Chief Financial Officer (CFO)','Chief Marketing Officer (CMO)','Head of Merchandising / Product Head','HR Head'],
-  'Middle Management': ['Store Manager / Retail Manager','Production Manager','Inventory Manager','Sales Manager','Digital Marketing Manager'],
-  'Supervisors / Team Leads': ['Floor Supervisor (Retail)','Workshop Supervisor','Customer Support Lead'],
-  'Core Workforce': ['Sales Executive / Showroom Staff','Karigar / Craftsman','Inventory Staff','Digital Team','Customer Support Executive'],
-  'Entry Level': ['Intern - Marketing','Intern - Operations','Intern - Tech / Shopify','Trainee - Sales','Trainee - Production'],
+const DEPT_DATA = {
+  'Marketing':                    { categories: ['Performance','Offline','International','Social Media'], roles: ['Intern','Associate','Manager','Department Head','Director'] },
+  'Customer Relation Management': { categories: ['Inbound Calls','Outbound Calls','Social Media','Emails','Offline'], roles: ['Intern','Associate','Manager','Department Head','Director'] },
+  'Operations':                   { categories: [], roles: ['Intern','Associate','Manager','Department Head','Director'] },
+  'Design':                       { categories: ['Jewellery','Branding','Visuals','Photographer / Videographer'], roles: ['Intern','Associate','Manager','Department Head','Director'] },
+  'Logistics':                    { categories: [], roles: ['Intern','Associate','Manager','Department Head','Director'] },
+  'Purchase':                     { categories: ['Tools / Machinery','Metals','Gemstones'], roles: ['Associate','Manager','Department Head','Director'] },
+  'Sales / Business Development': { categories: ['Domestic','International'], roles: ['Intern','Associate','Manager','Department Head','Director'] },
+  'Finance':                      { categories: [], roles: ['Intern','Associate','Manager','Department Head','Director'] },
+  'Information Technology':       { categories: ['Shopify','Software'], roles: ['Intern','Associate','Developer','Project Manager','General Manager','Director'] },
+  'Human Resource':               { categories: [], roles: ['Intern','Associate','Manager','Department Head','Director'] },
+  'Production':                   { categories: ['3D Printing','Die Cutting','Master Making','Wax','Wax Setting','Casting','Filing','Polish','Enamel','Hand Setting','Plating','Quality Check'], roles: ['Labour','Supervisor','Manager','General Manager','Department Head','Director'] },
+  'Services':                     { categories: [], roles: ['Security','Electrician','Plumber','CCTV Operator','Carpenter','Ironsmith','Locksmith'] },
+  'House Keeping':                { categories: [], roles: ['Cook','Pantry Boy','Janitor','Messenger'] },
 };
 
-const DEPARTMENTS = ['IT','Customer Care','TSF','JANKI'];
+const DEPARTMENTS = Object.keys(DEPT_DATA);
 
 const emptyAddress = () => ({
   line1: '', line2: '', country: '', countryOther: '', state: '', stateOther: '', city: '', cityOther: '', pincode: '',
@@ -80,6 +88,8 @@ export function EnrolWorkforceForm({ onEnroll, onClose, open = true, draftData =
     designationOther: '',
     workingStyle: '',
     workingStyleOther: '',
+    category: '',
+    categoryOther: '',
     currentAddress: emptyAddress(),
     permanentAddress: emptyAddress(),
     sameAsCurrent: false,
@@ -158,6 +168,7 @@ export function EnrolWorkforceForm({ onEnroll, onClose, open = true, draftData =
           department: String(form.department === 'Other' ? (form.departmentOther || '') : (form.department || '')).trim(),
           designation: String(form.designation === 'Other' ? (form.designationOther || '') : (form.designation || '')).trim(),
           working_style: String(form.workingStyle === 'Other' ? (form.workingStyleOther || '') : (form.workingStyle || '')).trim(),
+          category: String(form.category === 'Other' ? (form.categoryOther || '') : (form.category || '')).trim(),
           current_address: resolveAddr(form.currentAddress),
           permanent_address: resolveAddr(form.permanentAddress),
           current_location: String(form.currentLocation || '').trim(),
@@ -375,41 +386,66 @@ export function EnrolWorkforceForm({ onEnroll, onClose, open = true, draftData =
                 </svg>
                 Job Details
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {/* Designation */}
-                <div>
-                  <label className="block text-sm font-semibold text-slate-text mb-2">Designation / Role</label>
-                  <select className={INPUT_CLS} name="designation" value={form.designation} onChange={handleInput}>
-                    <option value="">Select designation...</option>
-                    {Object.entries(DESIGNATIONS).map(([group, opts]) => (
-                      <optgroup key={group} label={group}>
-                        {opts.map(o => <option key={o} value={o}>{o}</option>)}
-                      </optgroup>
-                    ))}
-                    <option value="Other">Other</option>
-                  </select>
-                  {form.designation === 'Other' && (
-                    <input className={`${INPUT_CLS} mt-2`} name="designationOther" value={form.designationOther} onChange={handleInput} placeholder="Enter designation" />
-                  )}
-                </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Department */}
                 <div>
                   <label className="block text-sm font-semibold text-slate-text mb-2">Department</label>
                   <select
                     className={INPUT_CLS}
                     name="department"
-                    value={DEPARTMENTS.includes(form.department) ? form.department : (form.department ? 'Other' : '')}
+                    value={form.department}
                     onChange={(e) => {
                       const val = e.target.value;
-                      setForm((prev) => ({ ...prev, department: val, departmentOther: val !== 'Other' ? '' : prev.departmentOther }));
+                      setForm((prev) => ({ ...prev, department: val, departmentOther: '', category: '', categoryOther: '', designation: '', designationOther: '' }));
                     }}
                   >
                     <option value="">Select department...</option>
                     {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
                     <option value="Other">Other</option>
                   </select>
-                  {(form.department === 'Other' || (!DEPARTMENTS.includes(form.department) && form.department !== '')) && (
+                  {form.department === 'Other' && (
                     <input className={`${INPUT_CLS} mt-2`} name="departmentOther" value={form.departmentOther} onChange={handleInput} placeholder="Enter department name" />
+                  )}
+                </div>
+                {/* Category — filters based on department */}
+                <div>
+                  <label className="block text-sm font-semibold text-slate-text mb-2">Category</label>
+                  {!form.department || form.department === 'Other' ? (
+                    <p className="text-sm text-cool-gray italic mt-1">Select a department first</p>
+                  ) : DEPT_DATA[form.department]?.categories?.length > 0 ? (
+                    <>
+                      <select className={INPUT_CLS} name="category" value={form.category} onChange={handleInput}>
+                        <option value="">Select category...</option>
+                        {DEPT_DATA[form.department].categories.map(c => <option key={c} value={c}>{c}</option>)}
+                        <option value="Other">Other</option>
+                      </select>
+                      {form.category === 'Other' && (
+                        <input className={`${INPUT_CLS} mt-2`} name="categoryOther" value={form.categoryOther} onChange={handleInput} placeholder="Enter category" />
+                      )}
+                    </>
+                  ) : (
+                    <p className="text-sm text-cool-gray italic mt-1">No sub-categories for this department</p>
+                  )}
+                </div>
+                {/* Role / Designation — filters based on department */}
+                <div>
+                  <label className="block text-sm font-semibold text-slate-text mb-2">Role / Designation</label>
+                  <select className={INPUT_CLS} name="designation" value={form.designation} onChange={handleInput}>
+                    <option value="">Select role...</option>
+                    <optgroup label="Leadership">
+                      <option value="Chairman">Chairman</option>
+                      <option value="CEO">CEO</option>
+                      <option value="Director">Director</option>
+                    </optgroup>
+                    {form.department && DEPT_DATA[form.department]?.roles?.length > 0 && (
+                      <optgroup label="Department Roles">
+                        {DEPT_DATA[form.department].roles.map(r => <option key={r} value={r}>{r}</option>)}
+                      </optgroup>
+                    )}
+                    <option value="Other">Other</option>
+                  </select>
+                  {form.designation === 'Other' && (
+                    <input className={`${INPUT_CLS} mt-2`} name="designationOther" value={form.designationOther} onChange={handleInput} placeholder="Enter role / designation" />
                   )}
                 </div>
                 {/* Working Style */}
