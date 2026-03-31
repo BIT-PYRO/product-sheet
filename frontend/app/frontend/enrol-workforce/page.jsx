@@ -71,7 +71,7 @@ const emptyAddress = () => ({
   line1: '', line2: '', country: '', countryOther: '', state: '', stateOther: '', city: '', cityOther: '', pincode: '',
 });
 
-export function EnrolWorkforceForm({ onEnroll, onClose, open = true, draftData = null }) {
+export function EnrolWorkforceForm({ onEnroll, onClose, open = true, draftData = null, editingId = null }) {
   const { saveDraft } = useDrafts();
   const loadedDraft = useDraftLoader();
   const formScrollRef = React.useRef(null);
@@ -124,6 +124,46 @@ export function EnrolWorkforceForm({ onEnroll, onClose, open = true, draftData =
     if (loadedDraft && loadedDraft.section === 'Enroll Workforce') setForm(loadedDraft.data);
   }, [loadedDraft]);
 
+  useEffect(() => {
+    if (!editingId) return;
+    fetch(`/api/workforce/${editingId}`, { cache: 'no-store' })
+      .then(r => r.json())
+      .then(result => {
+        const d = result?.data || result;
+        if (!d?.full_name && !d?.id) return;
+        setForm({
+          fullName: d.full_name || '',
+          dob: d.dob || '',
+          gender: d.gender || '',
+          email: d.email || '',
+          contact: d.phone || '',
+          whatsapp: d.whatsapp || '',
+          department: d.department || '',
+          departmentOther: '',
+          designation: d.designation || '',
+          designationOther: '',
+          workingStyle: d.working_style || '',
+          workingStyleOther: '',
+          category: d.category || '',
+          categoryOther: '',
+          currentAddress: { ...emptyAddress(), ...(d.current_address || {}) },
+          permanentAddress: { ...emptyAddress(), ...(d.permanent_address || {}) },
+          sameAsCurrent: false,
+          currentLocation: d.current_location || '',
+          firstLang: d.first_language || '',
+          firstLangOther: '',
+          secondLang: d.second_language || '',
+          secondLangOther: '',
+          accountName: d.account_name || '',
+          bankName: d.bank_name || '',
+          accountNumber: d.account_number || '',
+          ifsc: d.ifsc || '',
+          notes: d.notes || '',
+        });
+      })
+      .catch(() => {});
+  }, [editingId]);
+
   const handleSameAsCurrent = (checked) => {
     setForm((prev) => ({
       ...prev,
@@ -153,8 +193,10 @@ export function EnrolWorkforceForm({ onEnroll, onClose, open = true, draftData =
     });
 
     try {
-      const response = await fetch('/api/workforce', {
-        method: 'POST',
+      const url = editingId ? `/api/workforce/${editingId}` : '/api/workforce';
+      const method = editingId ? 'PATCH' : 'POST';
+      const response = await fetch(url, {
+        method,
         headers: {
           'Content-Type': 'application/json',
         },
@@ -191,7 +233,7 @@ export function EnrolWorkforceForm({ onEnroll, onClose, open = true, draftData =
         return;
       }
 
-      setSubmitStatus({ success: true, message: `${fullName} enrolled successfully.` });
+      setSubmitStatus({ success: true, message: `${fullName} ${editingId ? 'updated' : 'enrolled'} successfully.` });
       formScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
 
       if (onEnroll) onEnroll(fullName);
@@ -314,7 +356,7 @@ export function EnrolWorkforceForm({ onEnroll, onClose, open = true, draftData =
         <DialogHeader className="px-5 pt-4 pb-3 border-b border-soft-border bg-trust-blue relative">
           <div className="flex items-center justify-center">
             <DialogTitle className="text-lg font-bold text-white">
-              ENROLL WORKFORCE
+              {editingId ? 'EDIT WORKFORCE' : 'ENROLL WORKFORCE'}
             </DialogTitle>
           </div>
           <button

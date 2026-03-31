@@ -51,36 +51,57 @@ export default function MasterWorkforceSheet() {
   const [rowsPerPage, setRowsPerPage] = useState(25);
   const [currentPage, setCurrentPage] = useState(1);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [editingWorkforceId, setEditingWorkforceId] = useState(null);
 
   // Column definitions — mirrors all Enroll Workforce fields
   const columns = [
-    { id: 'fullName',       label: 'Full Name' },
-    { id: 'department',     label: 'Department' },
-    { id: 'category',       label: 'Category' },
-    { id: 'designation',    label: 'Role / Designation' },
-    { id: 'workingStyle',   label: 'Working Style' },
-    { id: 'status',         label: 'Status' },
-    { id: 'gender',         label: 'Gender' },
-    { id: 'phone',          label: 'Phone' },
-    { id: 'whatsapp',       label: 'WhatsApp' },
-    { id: 'email',          label: 'Email' },
-    { id: 'dob',            label: 'Date of Birth' },
-    { id: 'firstLanguage',  label: 'First Language' },
-    { id: 'secondLanguage', label: 'Second Language' },
-    { id: 'currentLocation',label: 'Current Location' },
-    { id: 'accountName',    label: 'Account Name' },
-    { id: 'bankName',       label: 'Bank Name' },
-    { id: 'accountNumber',  label: 'Account Number' },
-    { id: 'ifsc',           label: 'IFSC' },
-    { id: 'notes',          label: 'Notes' },
+    { id: 'fullName',           label: 'Full Name' },
+    { id: 'department',         label: 'Department' },
+    { id: 'category',           label: 'Category' },
+    { id: 'designation',        label: 'Role / Designation' },
+    { id: 'workingStyle',       label: 'Working Style' },
+    { id: 'status',             label: 'Status' },
+    { id: 'gender',             label: 'Gender' },
+    { id: 'phone',              label: 'Phone' },
+    { id: 'whatsapp',           label: 'WhatsApp' },
+    { id: 'email',              label: 'Email' },
+    { id: 'dob',                label: 'Date of Birth' },
+    { id: 'firstLanguage',      label: 'First Language' },
+    { id: 'secondLanguage',     label: 'Second Language' },
+    { id: 'currentLocation',    label: 'Current Location' },
+    { id: 'currAddrLine1',      label: 'Curr. Address Line 1' },
+    { id: 'currAddrLine2',      label: 'Curr. Address Line 2' },
+    { id: 'currAddrCountry',    label: 'Curr. Country' },
+    { id: 'currAddrState',      label: 'Curr. State' },
+    { id: 'currAddrCity',       label: 'Curr. City' },
+    { id: 'currAddrPincode',    label: 'Curr. Pincode' },
+    { id: 'permAddrLine1',      label: 'Perm. Address Line 1' },
+    { id: 'permAddrLine2',      label: 'Perm. Address Line 2' },
+    { id: 'permAddrCountry',    label: 'Perm. Country' },
+    { id: 'permAddrState',      label: 'Perm. State' },
+    { id: 'permAddrCity',       label: 'Perm. City' },
+    { id: 'permAddrPincode',    label: 'Perm. Pincode' },
+    { id: 'accountName',        label: 'Account Name' },
+    { id: 'bankName',           label: 'Bank Name' },
+    { id: 'accountNumber',      label: 'Account Number' },
+    { id: 'ifsc',               label: 'IFSC' },
+    { id: 'notes',              label: 'Notes' },
   ];
 
+  const ADDRESS_COLUMN_IDS = new Set([
+    'currAddrLine1','currAddrLine2','currAddrCountry','currAddrState','currAddrCity','currAddrPincode',
+    'permAddrLine1','permAddrLine2','permAddrCountry','permAddrState','permAddrCity','permAddrPincode',
+  ]);
+
   const columnConfig = Object.fromEntries(
-    columns.map(c => [c.id, { minWidth: 'min-w-[120px]', headerBg: 'bg-[#dbeafe]' }])
+    columns.map(c => [c.id, {
+      minWidth: ADDRESS_COLUMN_IDS.has(c.id) ? 'min-w-[160px]' : 'min-w-[120px]',
+      headerBg: ADDRESS_COLUMN_IDS.has(c.id) ? 'bg-[#e0f2fe]' : 'bg-[#dbeafe]',
+    }])
   );
 
   const [visibleColumns, setVisibleColumns] = useState(new Set([
-    'fullName', 'department', 'category', 'designation', 'workingStyle', 'status', 'phone', 'email',
+    'fullName', 'department', 'category', 'designation', 'workingStyle', 'status', 'phone', 'email', 'currentLocation',
   ]));
   
   // Toggle column selection in the manage columns dialog
@@ -157,25 +178,37 @@ export default function MasterWorkforceSheet() {
           id: row.id,
           hasBackendRecord: true,
           sNo: index + 1,
-          fullName:        row.full_name || '',
-          department:      row.department || '',
-          category:        row.category || '',
-          designation:     row.designation || '',
-          workingStyle:    row.working_style || '',
-          status:          row.active ? 'Active' : 'Inactive',
-          gender:          row.gender || '',
-          phone:           row.phone || '',
-          whatsapp:        row.whatsapp || '',
-          email:           row.email || '',
-          dob:             row.dob || '',
-          firstLanguage:   row.first_language || '',
-          secondLanguage:  row.second_language || '',
-          currentLocation: row.current_location || '',
-          accountName:     row.account_name || '',
-          bankName:        row.bank_name || '',
-          accountNumber:   row.account_number || '',
-          ifsc:            row.ifsc || '',
-          notes:           row.notes || '',
+          fullName:           row.full_name || '',
+          department:         row.department || '',
+          category:           row.category || '',
+          designation:        row.designation || '',
+          workingStyle:       row.working_style || '',
+          status:             row.active ? 'Active' : 'Inactive',
+          gender:             row.gender || '',
+          phone:              row.phone || '',
+          whatsapp:           row.whatsapp || '',
+          email:              row.email || '',
+          dob:                row.dob || '',
+          firstLanguage:      row.first_language || '',
+          secondLanguage:     row.second_language || '',
+          currentLocation:    row.current_location || '',
+          currAddrLine1:      row.current_address?.line1 || '',
+          currAddrLine2:      row.current_address?.line2 || '',
+          currAddrCountry:    row.current_address?.country || '',
+          currAddrState:      row.current_address?.state || '',
+          currAddrCity:       row.current_address?.city || '',
+          currAddrPincode:    row.current_address?.pincode || '',
+          permAddrLine1:      row.permanent_address?.line1 || '',
+          permAddrLine2:      row.permanent_address?.line2 || '',
+          permAddrCountry:    row.permanent_address?.country || '',
+          permAddrState:      row.permanent_address?.state || '',
+          permAddrCity:       row.permanent_address?.city || '',
+          permAddrPincode:    row.permanent_address?.pincode || '',
+          accountName:        row.account_name || '',
+          bankName:           row.bank_name || '',
+          accountNumber:      row.account_number || '',
+          ifsc:               row.ifsc || '',
+          notes:              row.notes || '',
         }));
 
         setData(mappedRows);
@@ -231,8 +264,9 @@ export default function MasterWorkforceSheet() {
   };
 
   const handleEnrollWorkforceComplete = () => {
-    // Form already POSTed to backend — just close and refresh the table
+    // Form already POSTed/PATCHed to backend — just close and refresh the table
     setIsEnrollWorkforceOpen(false);
+    setEditingWorkforceId(null);
     setRefreshKey(k => k + 1);
   };
 
@@ -938,14 +972,33 @@ export default function MasterWorkforceSheet() {
                     </td>
                     {columns.map((column) =>
                       visibleColumns.has(column.id) && (
-                        <td key={column.id} className={`border border-soft-border p-1 ${columnConfig[column.id].cellBg || ''}`} style={isEditing ? {backgroundColor: '#eff6ff'} : {}}>
-                          <Input
-                            type="text"
-                            value={row[column.id]}
-                            onChange={(e) => handleCellChange(row.id, column.id, e.target.value)}
-                            className="border-0 p-1 text-sm h-8"
-                            disabled={!canEdit}
-                          />
+                        <td key={column.id} className={`border border-soft-border p-2 ${columnConfig[column.id].cellBg || ''}`} style={isEditing ? {backgroundColor: '#eff6ff'} : {}}>
+                          {column.id === 'fullName' && !isEditing ? (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (row.hasBackendRecord) {
+                                  setEditingWorkforceId(row.id);
+                                  setIsEnrollWorkforceOpen(true);
+                                }
+                              }}
+                              className="w-full text-left px-1 py-1 text-sm text-trust-blue hover:underline font-medium whitespace-normal break-words leading-snug"
+                            >
+                              {row.fullName || '—'}
+                            </button>
+                          ) : isEditing ? (
+                            <Input
+                              type="text"
+                              value={row[column.id]}
+                              onChange={(e) => handleCellChange(row.id, column.id, e.target.value)}
+                              className="border-0 p-1 text-sm h-8"
+                              disabled={!canEdit}
+                            />
+                          ) : (
+                            <div className="text-sm text-midnight-ink whitespace-normal break-words leading-snug px-1 py-0.5">
+                              {row[column.id] || '—'}
+                            </div>
+                          )}
                         </td>
                       )
                     )}
@@ -1023,7 +1076,7 @@ export default function MasterWorkforceSheet() {
           <DialogHeader>
             <DialogTitle>Enroll Workforce</DialogTitle>
           </DialogHeader>
-          <EnrolWorkforceForm onEnroll={handleEnrollWorkforceComplete} onClose={() => setIsEnrollWorkforceOpen(false)} />
+          <EnrolWorkforceForm onEnroll={handleEnrollWorkforceComplete} onClose={() => { setIsEnrollWorkforceOpen(false); setEditingWorkforceId(null); }} editingId={editingWorkforceId} />
         </DialogContent>
       </Dialog>
     </div>
