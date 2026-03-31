@@ -7,31 +7,9 @@ import { RefreshCw, ChevronRight, ArrowLeft } from 'lucide-react';
 const fmt = (n) => `₹${Number(n).toFixed(2)}`;
 
 const PRODUCT_DETAIL_FIELDS = [
-  { key: 'orderProduct', label: 'Product' },
-  { key: 'orderQty', label: 'Qty' },
-  { key: 'orderPrice', label: 'Price' },
-  { key: 'sku', label: 'SKU' },
-  { key: 'material', label: 'Material' },
-  { key: 'weight', label: 'Weight' },
-  { key: 'category', label: 'Category' },
-  { key: 'collection', label: 'Collection' },
-  { key: 'settingType', label: 'Setting Type' },
-  { key: 'enamelType', label: 'Enamel Type' },
-  { key: 'activeChannels', label: 'Active Channels' },
-  { key: 'shopifyStatus', label: 'Shopify Status' },
-  { key: 'dieNumberFindings', label: 'Die Number/Findings' },
   { key: 'masterSku', label: 'Master SKU' },
-  { key: 'color', label: 'Color' },
-  { key: 'enamel', label: 'Enamel' },
-  { key: 'stoneName', label: 'Stone Name' },
-  { key: 'stoneCut', label: 'Stone Cut' },
-  { key: 'stoneColor', label: 'Stone Color' },
-  { key: 'stoneSize', label: 'Stone Size' },
-  { key: 'stoneQuantity', label: 'Stone Quantity' },
-  { key: 'platingType', label: 'Plating Type' },
-  { key: 'platingColor', label: 'Plating Color' },
-  { key: 'notes', label: 'Notes' },
-  { key: 'images', label: 'Images' },
+  { key: 'sku', label: 'SKU (Variation)' },
+  { key: 'orderQty', label: 'Quantity' },
 ];
 
 export function OrderSheetView({ embedded = false }) {
@@ -302,21 +280,14 @@ export function OrderSheetView({ embedded = false }) {
                 <table className="w-full table-fixed border-collapse text-sm">
                   <thead className="bg-cloud-gray border-b border-soft-border sticky top-0 z-10">
                     <tr>
-                      <th className="text-left px-4 py-3 text-xs font-bold text-cool-gray uppercase tracking-wide w-[22%]">
-                        Date
-                      </th>
-                      <th className="text-left px-4 py-3 text-xs font-bold text-cool-gray uppercase tracking-wide w-[16%]">
-                        Order ID
-                      </th>
-                      <th className="text-left px-4 py-3 text-xs font-bold text-cool-gray uppercase tracking-wide w-[14%]">
-                        Ref. ID
-                      </th>
-                      <th className="text-left px-4 py-3 text-xs font-bold text-cool-gray uppercase tracking-wide w-[30%]">
-                        Channel
-                      </th>
-                      <th className="text-right px-4 py-3 text-xs font-bold text-cool-gray uppercase tracking-wide w-[18%]">
-                        Price
-                      </th>
+                      <th className="text-left px-4 py-3 text-xs font-bold text-cool-gray uppercase tracking-wide w-[12%]">Date</th>
+                      <th className="text-left px-4 py-3 text-xs font-bold text-cool-gray uppercase tracking-wide w-[10%]">Time</th>
+                      <th className="text-left px-4 py-3 text-xs font-bold text-cool-gray uppercase tracking-wide w-[12%]">Order Type</th>
+                      <th className="text-left px-4 py-3 text-xs font-bold text-cool-gray uppercase tracking-wide w-[14%]">Order Reference</th>
+                      <th className="text-left px-4 py-3 text-xs font-bold text-cool-gray uppercase tracking-wide w-[18%]">Order Name</th>
+                      <th className="text-left px-4 py-3 text-xs font-bold text-cool-gray uppercase tracking-wide w-[10%]">Order No</th>
+                      <th className="text-right px-4 py-3 text-xs font-bold text-cool-gray uppercase tracking-wide w-[12%]">Total Pieces</th>
+                      <th className="text-right px-4 py-3 text-xs font-bold text-cool-gray uppercase tracking-wide w-[12%]">Units</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-soft-border">
@@ -335,27 +306,42 @@ export function OrderSheetView({ embedded = false }) {
                       >
                         <td className="px-4 py-3">
                           <span className="text-midnight-ink text-xs">
-                            {new Date(order.created_at).toLocaleDateString('en-GB') /* dd/mm/yyyy */}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className="font-bold text-trust-blue group-hover:text-deep-blue transition-colors text-xs">
-                            #{order.id}
+                            {new Date(order.created_at).toLocaleDateString('en-GB')}
                           </span>
                         </td>
                         <td className="px-4 py-3">
                           <span className="text-midnight-ink text-xs">
-                            {order.customer_id || '—'}
+                            {new Date(order.created_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
                           </span>
                         </td>
                         <td className="px-4 py-3">
-                          <span className="text-midnight-ink text-xs truncate block" title={order.customer_name || `Customer #${order.customer_id || 'N/A'}`}>
-                            {order.customer_name || `Customer #${order.customer_id || 'N/A'}`}
+                          <span className="text-midnight-ink text-xs">
+                            {order.order_type || '—'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className="text-midnight-ink text-xs">
+                            {order.order_reference || '—'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className="text-midnight-ink text-xs truncate block" title={order.order_name || '—'}>
+                            {order.order_name || '—'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className="font-bold text-trust-blue group-hover:text-deep-blue transition-colors text-xs">
+                            {order.order_no || order.id}
                           </span>
                         </td>
                         <td className="px-4 py-3 text-right">
                           <span className="font-bold text-midnight-ink text-xs">
-                            {fmt(order.total)}
+                            {order.total_pieces || '—'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <span className="font-bold text-midnight-ink text-xs">
+                            {order.units || '—'}
                           </span>
                         </td>
                       </tr>
@@ -374,9 +360,16 @@ export function OrderSheetView({ embedded = false }) {
                 <div className="sticky top-0 bg-trust-blue border-b border-soft-border p-2 z-20 shadow-sm">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h2 className="text-sm font-bold text-white">Order #{selectedOrder.id}</h2>
+                      <h2 className="text-sm font-bold text-white">
+                        Order #{selectedOrder.order_no || selectedOrder.id}
+                      </h2>
                       <p className="text-xs text-white/80 mt-0.5 leading-tight">
-                        Status: <span className="font-medium text-white">{selectedOrder.status || 'Pending'}</span>
+                        {(() => {
+                          const src = selectedOrder.order_source;
+                          if (src === 'shopify' || src === 'Shopify') return 'Shopify';
+                          if (src === 'sample' || src === 'Sample') return 'Sample';
+                          return 'Custom';
+                        })()}
                       </p>
                     </div>
                   </div>

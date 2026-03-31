@@ -124,7 +124,17 @@ export default function StoneInventoryPage() {
   const [activeRequestId, setActiveRequestId] = useState(null);
   const [issueRequests, setIssueRequests] = useState([]);
   const [issueRequestsReady, setIssueRequestsReady] = useState(false);
-  const [issueForm, setIssueForm] = useState({ stoneId: '', quantity: '', issuedTo: '', reason: '' });
+  const [issueForm, setIssueForm] = useState({
+    stoneId: '',
+    quantity: '',
+    issuedTo: '',
+    reason: '',
+    cut: '',
+    shape: '',
+    length: '',
+    width: '',
+    height: '',
+  });
 
   // â”€â”€ load â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
@@ -262,11 +272,17 @@ export default function StoneInventoryPage() {
       setStatusMsg('Select at least one stone to raise an issue request.');
       return;
     }
+    const selectedStone = selectedStones[0];
     setIssueForm({
       stoneId: String(selectedStones[0].id),
       quantity: '',
       issuedTo: '',
       reason: '',
+      cut: String(selectedStone?.cut || ''),
+      shape: String(selectedStone?.shape || ''),
+      length: String(selectedStone?.length || ''),
+      width: String(selectedStone?.width || ''),
+      height: String(selectedStone?.height || ''),
     });
     setIssueJobOpen(true);
   }
@@ -302,6 +318,11 @@ export default function StoneInventoryPage() {
       quantity: quantityNum,
       issuedTo,
       reason,
+      cut: issueForm.cut.trim(),
+      shape: issueForm.shape.trim(),
+      length: issueForm.length.trim(),
+      width: issueForm.width.trim(),
+      height: issueForm.height.trim(),
       status: 'pending',
       requestedAt: new Date().toISOString(),
       reviewedAt: null,
@@ -374,6 +395,11 @@ export default function StoneInventoryPage() {
             <tr><th>Quantity</th><td>${request.quantity}</td></tr>
             <tr><th>Issued To</th><td>${request.issuedTo}</td></tr>
             <tr><th>Reason of Issue</th><td>${request.reason || '-'}</td></tr>
+            <tr><th>Cut</th><td>${request.cut || '-'}</td></tr>
+            <tr><th>Shape</th><td>${request.shape || '-'}</td></tr>
+            <tr><th>Length</th><td>${request.length || '-'}</td></tr>
+            <tr><th>Width</th><td>${request.width || '-'}</td></tr>
+            <tr><th>Height</th><td>${request.height || '-'}</td></tr>
             <tr><th>Status</th><td><span class="badge">${String(request.status || '').toUpperCase()}</span></td></tr>
             <tr><th>Requested At</th><td>${requestedAt}</td></tr>
             <tr><th>Reviewed At</th><td>${reviewedAt}</td></tr>
@@ -834,6 +860,9 @@ export default function StoneInventoryPage() {
                               <p className="truncate text-sm text-midnight-ink">
                                 <span className="font-semibold">{req.issuedTo}</span> requested <span className="font-semibold">{req.quantity}</span> of {req.stoneName}
                               </p>
+                              <p className="mt-0.5 truncate text-xs text-cool-gray">
+                                Cut: {req.cut || '-'} | Shape: {req.shape || '-'} | L/W/H: {req.length || '-'} / {req.width || '-'} / {req.height || '-'}
+                              </p>
                               <p className="mt-0.5 truncate text-xs text-cool-gray">Reason: {req.reason || '-'}</p>
                               <div className="mt-1 flex items-center gap-2">
                                 <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${statusClass}`}>
@@ -1106,7 +1135,19 @@ export default function StoneInventoryPage() {
               <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Name of Stone</label>
               <select
                 value={issueForm.stoneId}
-                onChange={(e) => setIssueForm((prev) => ({ ...prev, stoneId: e.target.value }))}
+                onChange={(e) => {
+                  const stoneId = e.target.value;
+                  const selectedStone = selectedStones.find((stone) => String(stone.id) === stoneId);
+                  setIssueForm((prev) => ({
+                    ...prev,
+                    stoneId,
+                    cut: String(selectedStone?.cut || ''),
+                    shape: String(selectedStone?.shape || ''),
+                    length: String(selectedStone?.length || ''),
+                    width: String(selectedStone?.width || ''),
+                    height: String(selectedStone?.height || ''),
+                  }));
+                }}
                 className="w-full rounded-md border border-soft-border bg-white px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
               >
                 <option value="">Select stone</option>
@@ -1143,6 +1184,34 @@ export default function StoneInventoryPage() {
               value={issueForm.reason}
               onChange={(value) => setIssueForm((prev) => ({ ...prev, reason: value }))}
             />
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+              <Field
+                label="Cut"
+                value={issueForm.cut}
+                onChange={(value) => setIssueForm((prev) => ({ ...prev, cut: value }))}
+              />
+              <Field
+                label="Shape"
+                value={issueForm.shape}
+                onChange={(value) => setIssueForm((prev) => ({ ...prev, shape: value }))}
+              />
+              <Field
+                label="Length"
+                value={issueForm.length}
+                onChange={(value) => setIssueForm((prev) => ({ ...prev, length: value }))}
+              />
+              <Field
+                label="Width"
+                value={issueForm.width}
+                onChange={(value) => setIssueForm((prev) => ({ ...prev, width: value }))}
+              />
+              <Field
+                label="Height"
+                value={issueForm.height}
+                onChange={(value) => setIssueForm((prev) => ({ ...prev, height: value }))}
+              />
+            </div>
           </div>
 
           <div className="mt-5 flex justify-end gap-3">
@@ -1164,6 +1233,13 @@ export default function StoneInventoryPage() {
               <Field label="Quantity" value={String(activeRequest.quantity)} disabled />
               <Field label="Issued To" value={activeRequest.issuedTo} disabled />
               <Field label="Reason of Issue" value={activeRequest.reason || '-'} disabled />
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+                <Field label="Cut" value={activeRequest.cut || '-'} disabled />
+                <Field label="Shape" value={activeRequest.shape || '-'} disabled />
+                <Field label="Length" value={activeRequest.length || '-'} disabled />
+                <Field label="Width" value={activeRequest.width || '-'} disabled />
+                <Field label="Height" value={activeRequest.height || '-'} disabled />
+              </div>
               <Field label="Status" value={activeRequest.status.toUpperCase()} disabled />
               <Field
                 label="Requested At"
