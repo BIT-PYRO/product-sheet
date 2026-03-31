@@ -1,25 +1,34 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { Suspense, useEffect, useMemo, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
-export default function LoginPage() {
+function LoginContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const redirectPath = useMemo(() => '/home', []);
+  // Use the ?next= param if present, otherwise go to /home.
+  // Only allow same-origin relative paths to prevent open-redirect.
+  const redirectPath = useMemo(() => {
+    const next = searchParams.get('next') || '';
+    if (next && next.startsWith('/') && !next.startsWith('//')) {
+      return next;
+    }
+    return '/home';
+  }, [searchParams]);
 
   useEffect(() => {
     const checkSession = async () => {
       try {
         const response = await fetch('/api/auth/session', { cache: 'no-store' });
         if (response.ok) {
-          router.replace('/home');
+          router.replace(redirectPath);
         }
       } catch {
         // Keep user on login page when session check fails
@@ -27,7 +36,7 @@ export default function LoginPage() {
     };
 
     checkSession();
-  }, [router]);
+  }, [router, redirectPath]);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -105,5 +114,17 @@ export default function LoginPage() {
         </form>
       </section>
     </main>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <main className="min-h-screen bg-cloud-gray flex items-center justify-center px-4">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-300 border-t-gray-700" />
+      </main>
+    }>
+      <LoginContent />
+    </Suspense>
   );
 }
