@@ -13,14 +13,14 @@ import {
 const ROLE_LABELS   = { admin: 'Admin', manager: 'Manager', staff: 'Staff' };
 const ROLE_ORDER    = { admin: 0, manager: 1, staff: 2 };   // lower = higher rank
 const ROLE_COLORS   = {
-  admin:   'bg-red-100 text-red-700 border border-red-200',
-  manager: 'bg-amber-100 text-amber-700 border border-amber-200',
-  staff:   'bg-sky-100 text-sky-700 border border-sky-200',
+  admin:   'bg-trust-blue text-white border border-trust-blue',
+  manager: 'bg-midnight-ink text-white border border-midnight-ink',
+  staff:   'bg-soft-border text-slate-text border border-soft-border',
 };
 const ROLE_DOT = {
-  admin:   'bg-red-500',
-  manager: 'bg-amber-500',
-  staff:   'bg-sky-500',
+  admin:   'bg-trust-blue',
+  manager: 'bg-midnight-ink',
+  staff:   'bg-cool-gray',
 };
 
 /* ─── helpers ────────────────────────────────────────── */
@@ -164,108 +164,94 @@ function MemberDetailModal({ member, onClose }) {
 /* ─── Hierarchy Tier Section (extracted to avoid hooks-in-loop) ─── */
 const HIERARCHY_TIERS = [
   {
+    key: 'leadership',
+    label: 'Leadership',
+    subtitle: 'Chairman & CEO',
+    icon: null,
+    color: 'bg-trust-blue',
+    textColor: 'text-white',
+    lockColor: 'bg-trust-blue/5 border-trust-blue/10',
+    designations: ['Chairman', 'CEO'],
+  },
+  {
+    key: 'directors',
+    label: 'Directors',
+    subtitle: 'Department Directors',
+    icon: null,
+    color: 'bg-trust-blue',
+    textColor: 'text-white',
+    lockColor: 'bg-trust-blue/5 border-trust-blue/10',
+    designations: ['Director'],
+  },
+  {
     key: 'senior',
     label: 'Senior Management',
-    subtitle: 'C-Level / Department Heads',
+    subtitle: 'General Managers & Department Heads',
     icon: null,
-    color: 'bg-blue-400',
+    color: 'bg-trust-blue',
     textColor: 'text-white',
-    lockColor: 'bg-blue-50 border-blue-100',
-    designations: [
-      'Chief Operating Officer (COO)',
-      'Chief Financial Officer (CFO)',
-      'Chief Marketing Officer (CMO)',
-      'Head of Merchandising / Product Head',
-      'HR Head',
-    ],
+    lockColor: 'bg-cloud-gray border-soft-border',
+    designations: ['General Manager', 'Department Head'],
   },
   {
     key: 'middle',
-    label: 'Middle Management',
-    subtitle: 'Managers & Department Leads',
+    label: 'Management / Technical',
+    subtitle: 'Managers, Project Managers & Developers',
     icon: null,
-    color: 'bg-blue-500',
+    color: 'bg-trust-blue',
     textColor: 'text-white',
-    lockColor: 'bg-blue-50 border-blue-100',
-    designations: [
-      'Store Manager / Retail Manager',
-      'Production Manager',
-      'Inventory Manager',
-      'Sales Manager',
-      'Digital Marketing Manager',
-    ],
-  },
-  {
-    key: 'supervisors',
-    label: 'Supervisors / Team Leads',
-    subtitle: 'Floor & Workshop Supervisors',
-    icon: null,
-    color: 'bg-blue-700',
-    textColor: 'text-white',
-    lockColor: 'bg-blue-50 border-blue-100',
-    designations: [
-      'Floor Supervisor (Retail)',
-      'Workshop Supervisor',
-      'Customer Support Lead',
-    ],
+    lockColor: 'bg-cloud-gray border-soft-border',
+    designations: ['Manager', 'Project Manager', 'Developer', 'Supervisor'],
   },
   {
     key: 'core',
-    label: 'Core Workforce',
-    subtitle: 'Primary Operations Staff',
+    label: 'Core Staff',
+    subtitle: 'Associates & Specialized Roles',
     icon: null,
-    color: 'bg-blue-800',
+    color: 'bg-trust-blue',
     textColor: 'text-white',
-    lockColor: 'bg-blue-50 border-blue-100',
+    lockColor: 'bg-cloud-gray border-soft-border',
     designations: [
-      'Sales Executive / Showroom Staff',
-      'Karigar / Craftsman',
-      'Inventory Staff',
-      'Digital Team',
-      'Customer Support Executive',
+      'Associate', 'Labour',
+      'Security', 'Electrician', 'Plumber', 'CCTV Operator', 'Carpenter', 'Ironsmith', 'Locksmith',
+      'Cook', 'Pantry Boy', 'Janitor', 'Messenger',
     ],
   },
   {
     key: 'entry',
-    label: 'Entry-Level Roles',
+    label: 'Entry Level',
     subtitle: 'Interns & Trainees',
     icon: null,
-    color: 'bg-blue-950',
+    color: 'bg-trust-blue',
     textColor: 'text-white',
-    lockColor: 'bg-blue-50 border-blue-100',
-    designations: [
-      'Intern - Marketing',
-      'Intern - Operations',
-      'Intern - Tech / Shopify',
-      'Trainee - Sales',
-      'Trainee - Production',
-    ],
+    lockColor: 'bg-cloud-gray border-soft-border',
+    designations: ['Intern', 'Trainee'],
   },
 ];
 
-// Tier rank: lower = more senior (used for lock logic based on Django role)
+// Tier rank: lower = more senior
 const TIER_RANK = {
-  senior: 0,
-  middle: 1,
-  supervisors: 2,
-  core: 3,
-  entry: 4,
+  leadership: 0,
+  directors: 1,
+  senior: 2,
+  middle: 3,
+  core: 4,
+  entry: 5,
 };
 
-// Map Django user roles to a tier rank (admin = senior, manager = middle/supervisor, staff = core/entry)
+// Map Django user roles to a tier rank
 function userRoleToTierRank(role) {
-  if (role === 'admin') return 0;
-  if (role === 'manager') return 2;
-  return 3; // staff
+  if (role === 'admin') return 0;   // Leadership
+  if (role === 'manager') return 3; // Management/Technical
+  return 4; // staff → Core
 }
 
 function getDesignationTier(designation) {
   if (!designation) return 'core';
   const d = designation.toLowerCase();
-  if (HIERARCHY_TIERS[0].designations.some(x => x.toLowerCase() === d)) return 'senior';
-  if (HIERARCHY_TIERS[1].designations.some(x => x.toLowerCase() === d)) return 'middle';
-  if (HIERARCHY_TIERS[2].designations.some(x => x.toLowerCase() === d)) return 'supervisors';
-  if (HIERARCHY_TIERS[4].designations.some(x => x.toLowerCase() === d)) return 'entry';
+  for (const tier of HIERARCHY_TIERS) {
+    if (tier.designations.some(x => x.toLowerCase() === d)) return tier.key;
+  }
   return 'core';
 }
 
@@ -280,26 +266,25 @@ function TierSection({ tier, members, myTierRank, sessionUser, onSelectMember, o
       <button
         onClick={() => setOpen(o => !o)}
         className={`w-full flex items-center justify-between px-5 py-3.5 text-left transition
-          ${isAbove ? 'bg-slate-100' : tier.color}`}
+          ${tier.color}`}
       >
         <div className="flex items-center gap-3 min-w-0">
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className={`text-xs font-bold uppercase tracking-widest ${isAbove ? 'text-slate-500' : tier.textColor}`}>
+              <span className={`text-xs font-bold uppercase tracking-widest ${tier.textColor}`}>
                 {tier.label}
               </span>
-              <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full
-                ${isAbove ? 'bg-slate-200 text-slate-500' : 'bg-black/10 ' + tier.textColor}`}>
+              <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-black/10 ${tier.textColor}`}>
                 {members.length} {members.length === 1 ? 'member' : 'members'}
               </span>
-              {isAbove && <Lock className="h-3 w-3 text-slate-400" />}
+              {isAbove && <Lock className={`h-3 w-3 ${tier.textColor} opacity-60`} />}
             </div>
-            <p className={`text-[10px] mt-0.5 ${isAbove ? 'text-slate-400' : tier.textColor + ' opacity-70'}`}>{tier.subtitle}</p>
+            <p className={`text-[10px] mt-0.5 ${tier.textColor} opacity-70`}>{tier.subtitle}</p>
           </div>
         </div>
         {open
-          ? <ChevronDown className={`h-4 w-4 shrink-0 ${isAbove ? 'text-slate-400' : tier.textColor}`} />
-          : <ChevronRight className={`h-4 w-4 shrink-0 ${isAbove ? 'text-slate-400' : tier.textColor}`} />
+          ? <ChevronDown className={`h-4 w-4 shrink-0 ${tier.textColor}`} />
+          : <ChevronRight className={`h-4 w-4 shrink-0 ${tier.textColor}`} />
         }
       </button>
 
@@ -315,11 +300,11 @@ function TierSection({ tier, members, myTierRank, sessionUser, onSelectMember, o
                 key={m.id}
                 onClick={() => onSelectMember(m)}
                 className={`flex items-center gap-3 px-5 py-3.5 cursor-pointer transition
-                  ${isSelf ? 'bg-trust-blue/5' : isAbove ? 'opacity-70' : 'hover:bg-cloud-gray'}`}
+                  ${isSelf ? 'bg-trust-blue/5' : isAbove ? 'opacity-60' : 'hover:bg-cloud-gray'}`}
               >
                 {/* avatar */}
                 <div className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold shrink-0
-                  ${isSelf ? 'bg-trust-blue text-white' : isAbove ? 'bg-slate-200 text-slate-500' : 'bg-midnight-ink/10 text-midnight-ink'}`}>
+                  ${isSelf ? 'bg-trust-blue text-white' : isAbove ? 'bg-soft-border text-cool-gray' : 'bg-midnight-ink/10 text-midnight-ink'}`}>
                   {initials(m.full_name || m.email || '?')}
                 </div>
                 {/* info */}
@@ -335,7 +320,7 @@ function TierSection({ tier, members, myTierRank, sessionUser, onSelectMember, o
                 {/* actions */}
                 <div className="flex items-center gap-1.5 shrink-0" onClick={e => e.stopPropagation()}>
                   {isAbove ? (
-                    <span className="flex items-center gap-1 text-[10px] text-slate-400 bg-slate-100 border border-slate-200 rounded-full px-2 py-0.5">
+                    <span className="flex items-center gap-1 text-[10px] text-cool-gray bg-cloud-gray border border-soft-border rounded-full px-2 py-0.5">
                       <Lock className="h-2.5 w-2.5" /> Locked
                     </span>
                   ) : (
@@ -568,7 +553,7 @@ export default function ProfilePage() {
     <div className="min-h-screen bg-cloud-gray flex flex-col font-sans">
 
       {/* ══ Full-width top nav bar ══ */}
-      <header className="w-full bg-midnight-ink flex items-center gap-4 px-6 py-0 h-14 shrink-0">
+      <header className="w-full bg-trust-blue flex items-center gap-4 px-6 py-0 h-14 shrink-0">
         <button onClick={() => router.push('/home')} className="text-white/60 hover:text-white transition shrink-0" aria-label="Back">
           <ArrowLeft className="h-5 w-5" />
         </button>
@@ -581,7 +566,7 @@ export default function ProfilePage() {
           >
             {profilePhoto
               ? <img src={profilePhoto} alt="" className="w-full h-full object-cover" />
-              : <div className="w-full h-full bg-trust-blue flex items-center justify-center text-white text-xs font-bold">{getInitials()}</div>
+              : <div className="w-full h-full bg-white flex items-center justify-center text-trust-blue text-xs font-bold">{getInitials()}</div>
             }
           </div>
           <div className="min-w-0">
@@ -606,7 +591,7 @@ export default function ProfilePage() {
       </header>
 
       {/* ══ Full-width dark profile hero ══ */}
-      <div className="w-full bg-midnight-ink border-b border-white/10 relative overflow-hidden">
+      <div className="w-full bg-trust-blue border-b border-white/10 relative overflow-hidden">
         <div className="relative w-full px-6 md:px-12 py-6 flex flex-col md:flex-row items-center md:items-end gap-5">
 
           {/* big avatar */}
@@ -615,7 +600,7 @@ export default function ProfilePage() {
               onClick={() => fileInputRef.current?.click()} title="Click to change photo">
               {profilePhoto
                 ? <img src={profilePhoto} alt="Profile" className="w-full h-full object-cover" />
-                : <div className="w-full h-full bg-trust-blue flex items-center justify-center text-white text-3xl font-bold">{getInitials()}</div>
+                : <div className="w-full h-full bg-white flex items-center justify-center text-trust-blue text-3xl font-bold">{getInitials()}</div>
               }
             </div>
             <button onClick={() => fileInputRef.current?.click()}
