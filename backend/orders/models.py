@@ -5,6 +5,12 @@ from django.core.validators import MinValueValidator
 from common.models import AuditModel
 from products.models import Product
 
+class OrderSource(models.TextChoices):
+    CUSTOM = 'custom', 'Custom'
+    PICKLIST = 'picklist', 'Picklist'
+    SHOPIFY = 'shopify', 'Shopify'
+    SAMPLE = 'sample', 'Sample'
+
 
 class OrderStatus(models.TextChoices):
     DRAFT = 'draft', 'Draft'
@@ -64,6 +70,20 @@ class Order(AuditModel):
         validators=[MinValueValidator(0)]
     )
     notes = models.TextField(blank=True, default='')
+    order_type = models.CharField(max_length=100, blank=True, default='JANKI')
+    units = models.CharField(max_length=50, blank=True, default='Pieces')
+    picklist_number = models.IntegerField(
+        null=True,
+        blank=True,
+        db_index=True,
+        help_text='Picklist number this order was generated from'
+    )
+    order_source = models.CharField(
+        max_length=20,
+        choices=OrderSource.choices,
+        default=OrderSource.CUSTOM,
+        help_text='Origin of the order: custom, picklist, shopify, or sample'
+    )
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,

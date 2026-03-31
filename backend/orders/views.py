@@ -18,8 +18,15 @@ class OrderViewSet(viewsets.ModelViewSet):
         return OrderDetailSerializer
 
     def get_queryset(self):
-        """Return all orders so team members can view shared order details."""
-        return Order.objects.all().prefetch_related('items')
+        """Return all orders, optionally filtered by order_source and picklist_number."""
+        qs = Order.objects.all().prefetch_related('items')
+        source = self.request.query_params.get('order_source')
+        if source:
+            qs = qs.filter(order_source=source)
+        picklist_num = self.request.query_params.get('picklist_number')
+        if picklist_num:
+            qs = qs.filter(picklist_number=picklist_num)
+        return qs
 
     def create(self, request, *args, **kwargs):
         """Create a new order"""
@@ -31,6 +38,29 @@ class OrderViewSet(viewsets.ModelViewSet):
             serializer.save(created_by=request.user)
         else:
             serializer.save()
+
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    @action(detail=False, methods=['post'], url_path='from-picklist')
+    def from_picklist(self, request):
+        """Idempotently create or replace a picklist order."""
+        picklist_number = request.data.get('picklist_number')
+        if not picklist_number:
+            return Response(
+                {'detail': 'picklist_number is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Delete any existing order(s) for this picklist number
+        Order.objects.filter(order_source='picklist', picklist_number=picklist_number).delete()
+
+        serializer = OrderDetailSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        if request.user and request.user.is_authenticated:
+            serializer.save(order_source='picklist', created_by=request.user)
+        else:
+            serializer.save(order_source='picklist')
 
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 

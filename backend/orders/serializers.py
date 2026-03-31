@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Order, OrderItem, OrderStatus
+from .models import Order, OrderItem, OrderSource, OrderStatus
 
 
 class OrderItemSerializer(serializers.ModelSerializer):
@@ -42,6 +42,10 @@ class OrderListSerializer(serializers.ModelSerializer):
             'tax',
             'total',
             'notes',
+            'order_type',
+            'units',
+            'picklist_number',
+            'order_source',
             'created_at',
             'updated_at',
             'items',
@@ -80,6 +84,10 @@ class OrderDetailSerializer(serializers.ModelSerializer):
             'tax',
             'total',
             'notes',
+            'order_type',
+            'units',
+            'picklist_number',
+            'order_source',
             'created_at',
             'updated_at',
             'items',
@@ -113,6 +121,8 @@ class OrderDetailSerializer(serializers.ModelSerializer):
         instance.discount = validated_data.get('discount', instance.discount)
         instance.shipping = validated_data.get('shipping', instance.shipping)
         instance.notes = validated_data.get('notes', instance.notes)
+        instance.order_type = validated_data.get('order_type', instance.order_type)
+        instance.units = validated_data.get('units', instance.units)
 
         if items_data is not None:
             instance.items.all().delete()

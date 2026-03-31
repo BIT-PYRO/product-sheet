@@ -487,6 +487,7 @@ export function CreateOrderForm({ embedded = false }) {
           discount: parseFloat(discount) || 0,
           shipping: parseFloat(shipping) || 0,
           notes: notes,
+          order_source: 'custom',
         }),
       });
 
@@ -500,7 +501,7 @@ export function CreateOrderForm({ embedded = false }) {
       }
 
       setOrderMessage({ type: 'success', text: 'Order created successfully!' });
-      // Reset form and redirect to order sheet after success
+      // Reset form after success
       setTimeout(() => {
         setOrderItems([]);
         setSelectedCustomer(null);
@@ -510,7 +511,6 @@ export function CreateOrderForm({ embedded = false }) {
         setShipping('');
         setActiveDraftId(null);
         setOrderMessage({ type: '', text: '' });
-        router.push('/orders/job-sheet');
       }, 2000);
     } catch (error) {
       setOrderMessage({ type: 'error', text: error.message || 'Error creating order' });
