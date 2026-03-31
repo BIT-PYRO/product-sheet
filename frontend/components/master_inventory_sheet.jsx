@@ -278,7 +278,7 @@ function getFilterValue(product, fieldKey) {
 
 const PSD_PICKLISTS_KEY = 'psd_picklists';
 
-const PICKLIST_SKU_RE = /^(?=.*\d)(?=.*\/)[A-Z][A-Z0-9]{1,24}\/[A-Z0-9]{1,4}$/i;
+const PICKLIST_SKU_RE = /^(?=.*\/)[A-Z][A-Z0-9]{1,24}\/[A-Z0-9]{1,4}$/i;
 
 function isValidPicklistSku(value) {
   return PICKLIST_SKU_RE.test(String(value || '').trim().toUpperCase());
@@ -498,33 +498,57 @@ export default function MasterInventorySheet() {
     const normalizedSearch = effectiveSearch.toLowerCase();
 
     // When a picklist is selected, drive rows from the picklist items themselves.
-    // For any item whose SKU matches a product in the DB we use full product data;
-    // for items with no matching product we synthesise a minimal row so they still appear.
+    // Picklist items use Final Stock SKUs (e.g. AJE55/G), so we match against
+    // product.finalStock[].sku rather than the master SKU.
     if (selectedPicklist) {
       const currentPicklist = picklists.find((p) => p.id === selectedPicklist);
       const items = currentPicklist?.items || [];
 
       if (items.length > 0) {
-        const productBySku = new Map(
-          products.map((p) => [String(p.sku || p.masterSku || '').trim().toUpperCase(), p])
-        );
-
-        return items.map((item) => {
-          const sku = String(item.sku || '').trim().toUpperCase();
-          const existing = productBySku.get(sku);
-          if (existing) return existing;
-          // Picklist item with no matching product in DB — show row with SKU only
-          return {
-            id: `pl-${sku}`,
-            sku,
-            masterSku: sku,
-            listingName: item.listingName || sku,
-            totalInDemand: 0,
-            liveStock: {},
-            finalStock: [],
-            dieNumberFindings: [],
-          };
+        // Build a map: Final Stock SKU (uppercase) → product
+        const productByFinalStockSku = new Map();
+        products.forEach((p) => {
+          const finalStock = Array.isArray(p.finalStock) ? p.finalStock : [];
+          finalStock.forEach((fs) => {
+            const fsSku = String(fs.sku || '').trim().toUpperCase();
+            if (fsSku && !productByFinalStockSku.has(fsSku)) {
+              productByFinalStockSku.set(fsSku, p);
+            }
+          });
         });
+
+        // Return unique products whose Final Stock SKU appears in the picklist,
+        // preserving picklist order. Dedup by product.id so a product with
+        // multiple variations (AJE55/G + AJE55/S) only appears once — the table
+        // renders all its variation rows automatically.
+        const seen = new Set();
+        return items.reduce((acc, item) => {
+          const sku = String(item.sku || '').trim().toUpperCase();
+          const product = productByFinalStockSku.get(sku);
+          if (product) {
+            if (!seen.has(product.id)) {
+              seen.add(product.id);
+              acc.push(product);
+            }
+          } else {
+            // Picklist item has no matching product in DB — synthesise a minimal row
+            if (!seen.has(sku)) {
+              seen.add(sku);
+              const masterBase = sku.includes('/') ? sku.substring(0, sku.lastIndexOf('/')) : sku;
+              acc.push({
+                id: `pl-${sku}`,
+                sku: masterBase,
+                masterSku: masterBase,
+                listingName: item.listingName || sku,
+                totalInDemand: 0,
+                liveStock: {},
+                finalStock: [{ sku, value: '', unit: 'pcs', location: '' }],
+                dieNumberFindings: [],
+              });
+            }
+          }
+          return acc;
+        }, []);
       }
     }
 

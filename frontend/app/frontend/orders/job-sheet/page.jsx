@@ -1,18 +1,17 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import Link from 'next/link';
-import { RefreshCw, ChevronRight, ArrowLeft } from 'lucide-react';
+import { RefreshCw, ChevronRight, ArrowLeft, Upload } from 'lucide-react';
 
 const fmt = (n) => `₹${Number(n).toFixed(2)}`;
 
-const PRODUCT_DETAIL_FIELDS = [
-  { key: 'masterSku', label: 'Master SKU' },
-  { key: 'sku', label: 'SKU (Variation)' },
-  { key: 'orderQty', label: 'Quantity' },
-];
+const PSD_PICKLISTS_KEY = 'psd_picklists';
 
 export function OrderSheetView({ embedded = false }) {
+  const picklistFileInputRef = useRef(null);
+  const [isUploadingPicklist, setIsUploadingPicklist] = useState(false);
+  const [currentUsername, setCurrentUsername] = useState('');
   const [orders, setOrders] = useState([]);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -21,9 +20,11 @@ export function OrderSheetView({ embedded = false }) {
   const [productsLoading, setProductsLoading] = useState(false);
   const [productsError, setProductsError] = useState(null);
   const [showProductDetails, setShowProductDetails] = useState(true);
-  const [showManageDetailsColumns, setShowManageDetailsColumns] = useState(false);
-  const [visibleDetailFields, setVisibleDetailFields] = useState(new Set(PRODUCT_DETAIL_FIELDS.map((field) => field.key)));
-  const [selectedDetailFields, setSelectedDetailFields] = useState(new Set());
+  const [selectedPicklistNum, setSelectedPicklistNum] = useState(null);
+  const [sourceFilter, setSourceFilter] = useState('all');
+  const [editingCell, setEditingCell] = useState(null); // { orderId, field }
+  const [editingValue, setEditingValue] = useState('');
+  const [savingCell, setSavingCell] = useState(null);
   const [showPasswordDialog, setShowPasswordDialog] = useState(false);
   const [customerDetailsUnlocked, setCustomerDetailsUnlocked] = useState(false);
   const [passwordInput, setPasswordInput] = useState('');
@@ -32,63 +33,6 @@ export function OrderSheetView({ embedded = false }) {
   const CUSTOMER_DETAILS_PASSCODE = process.env.NEXT_PUBLIC_CUSTOMER_PASSCODE || '1234';
 
   const normalizeSku = (value) => String(value || '').trim().toLowerCase();
-
-  const displayValue = (value) => {
-    if (Array.isArray(value)) {
-      return value.length ? value.join(', ') : '—';
-    }
-    if (value && typeof value === 'object') {
-      return Object.keys(value).length ? JSON.stringify(value) : '—';
-    }
-    return value || '—';
-  };
-
-  const toggleDetailFieldSelection = (fieldKey) => {
-    setSelectedDetailFields((prev) => {
-      const next = new Set(prev);
-      if (next.has(fieldKey)) {
-        next.delete(fieldKey);
-      } else {
-        next.add(fieldKey);
-      }
-      return next;
-    });
-  };
-
-  const toggleSelectAllDetailFields = () => {
-    setSelectedDetailFields((prev) => {
-      if (prev.size === PRODUCT_DETAIL_FIELDS.length) {
-        return new Set();
-      }
-      return new Set(PRODUCT_DETAIL_FIELDS.map((field) => field.key));
-    });
-  };
-
-  const handleHideDetailFields = () => {
-    if (selectedDetailFields.size === 0) {
-      return;
-    }
-    setVisibleDetailFields((prev) => {
-      const next = new Set(prev);
-      selectedDetailFields.forEach((fieldKey) => next.delete(fieldKey));
-      return next;
-    });
-    setSelectedDetailFields(new Set());
-    setShowManageDetailsColumns(false);
-  };
-
-  const handleShowDetailFields = () => {
-    if (selectedDetailFields.size === 0) {
-      return;
-    }
-    setVisibleDetailFields((prev) => {
-      const next = new Set(prev);
-      selectedDetailFields.forEach((fieldKey) => next.add(fieldKey));
-      return next;
-    });
-    setSelectedDetailFields(new Set());
-    setShowManageDetailsColumns(false);
-  };
 
   const buildProductMap = (products) => {
     const map = {};
@@ -136,15 +80,11 @@ export function OrderSheetView({ embedded = false }) {
       const [ordersResponse, productsResponse] = await Promise.all([
         fetch('/frontend/api/orders', {
           method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers: { 'Content-Type': 'application/json' },
         }),
         fetch('/frontend/api/products', {
           method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers: { 'Content-Type': 'application/json' },
         }),
       ]);
 
@@ -195,6 +135,91 @@ export function OrderSheetView({ embedded = false }) {
     loadOrdersAndProducts();
   }, []);
 
+  useEffect(() => {
+    fetch('/api/auth/session', { cache: 'no-store' })
+      .then((res) => res.json())
+      .then((data) => { if (data?.user?.id) setCurrentUsername(data.user.id); })
+      .catch(() => {});
+  }, []);
+
+  const handlePicklistUploadClick = () => {
+    picklistFileInputRef.current?.click();
+  };
+
+  const handlePicklistFileChange = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+
+    setIsUploadingPicklist(true);
+
+    try {
+      const syncTimestamp = Date.now().toString();
+      const uploadedAt = new Date();
+
+      let plannedPicklistNumber = 1;
+      try {
+        const existingPicklists = JSON.parse(localStorage.getItem(PSD_PICKLISTS_KEY) || '[]');
+        plannedPicklistNumber =
+          existingPicklists.length > 0
+            ? Math.max(...existingPicklists.map((p) => p.number || 0)) + 1
+            : 1;
+      } catch {
+        plannedPicklistNumber = 1;
+      }
+
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('picklistGroupId', `picklist-${syncTimestamp}`);
+      formData.append('picklistNumber', String(plannedPicklistNumber));
+      formData.append('uploadedBy', currentUsername || '');
+      formData.append('uploadedAt', uploadedAt.toISOString());
+      formData.append('picklistName', file.name);
+
+      const response = await fetch('/api/picklist-upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const result = await response.json().catch(() => null);
+
+      if (!response.ok || !result?.success) {
+        throw new Error(result?.message || 'Failed to upload picklist');
+      }
+
+      localStorage.setItem('inventory_sheet_updated_at', syncTimestamp);
+
+      try {
+        const existingPicklists = JSON.parse(localStorage.getItem(PSD_PICKLISTS_KEY) || '[]');
+        const parsedItems = Array.isArray(result.picklistItems) ? result.picklistItems : [];
+        const backendGroup = result?.picklistGroup || {};
+        const newPicklist = {
+          id: backendGroup.id || `picklist-${syncTimestamp}`,
+          number: backendGroup.number || plannedPicklistNumber,
+          name: backendGroup.name || file.name,
+          date: backendGroup.date || uploadedAt.toISOString(),
+          dateFormatted: backendGroup.dateFormatted || uploadedAt.toLocaleString(),
+          uploadedBy: backendGroup.uploadedBy || currentUsername || 'Unknown',
+          items: parsedItems,
+        };
+        const updated = [newPicklist, ...existingPicklists].slice(0, 20);
+        localStorage.setItem(PSD_PICKLISTS_KEY, JSON.stringify(updated));
+      } catch {
+        // ignore localStorage write failures
+      }
+
+      window.dispatchEvent(
+        new CustomEvent('inventory_sheet_sync', { detail: { updatedAt: syncTimestamp } })
+      );
+
+      await loadOrdersAndProducts();
+    } catch (uploadError) {
+      setError(`Upload failed: ${uploadError.message}`);
+    } finally {
+      setIsUploadingPicklist(false);
+    }
+  };
+
   const handleVerifyPassword = () => {
     setPasswordError('');
     if (passwordInput === CUSTOMER_DETAILS_PASSCODE) {
@@ -217,6 +242,109 @@ export function OrderSheetView({ embedded = false }) {
     await loadOrdersAndProducts();
   };
 
+  // ── Inline-cell editing ──────────────────────────────────────────────────
+  const startEdit = (e, orderId, field, currentValue) => {
+    e.stopPropagation();
+    setEditingCell({ orderId, field });
+    setEditingValue(currentValue);
+  };
+
+  const cancelEdit = (e) => {
+    e?.stopPropagation();
+    setEditingCell(null);
+    setEditingValue('');
+  };
+
+  const commitEdit = async (e, orderId) => {
+    e?.stopPropagation();
+    if (!editingCell) return;
+    const { field } = editingCell;
+    const trimmed = editingValue.trim();
+    setSavingCell({ orderId, field });
+    try {
+      const res = await fetch(`/frontend/api/orders/${orderId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ [field]: trimmed || (field === 'order_type' ? 'JANKI' : 'Pieces') }),
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, ...updated } : o)));
+        if (selectedOrder?.id === orderId) setSelectedOrder((prev) => ({ ...prev, ...updated }));
+      }
+    } catch {/* ignore */} finally {
+      setSavingCell(null);
+      setEditingCell(null);
+      setEditingValue('');
+    }
+  };
+
+  const handleCellKeyDown = (e, orderId) => {
+    if (e.key === 'Enter') commitEdit(e, orderId);
+    if (e.key === 'Escape') cancelEdit(e);
+  };
+
+  // Filter orders by the selected picklist.
+  // Picklist items use Final Stock / variation SKUs (e.g. AJE55/G).
+  // Order items may store just the base master SKU (e.g. AJE55) OR the full variation SKU.
+  // We match both cases: exact match OR the order item SKU is the base part of a picklist variation.
+  // Distinct picklist numbers derived from picklist-sourced orders (sorted ascending)
+  const picklistNumbers = useMemo(() => {
+    return [
+      ...new Set(
+        orders
+          .filter((o) => o.order_source === 'picklist' && o.picklist_number != null)
+          .map((o) => o.picklist_number)
+      ),
+    ].sort((a, b) => a - b);
+  }, [orders]);
+
+  const filteredOrders = useMemo(() => {
+    if (sourceFilter === 'custom') {
+      return orders.filter((order) => order.order_source === 'custom');
+    }
+
+    if (sourceFilter === 'picklist') {
+      const picklistOrders = orders.filter((order) => order.order_source === 'picklist');
+
+      if (selectedPicklistNum != null) {
+        return picklistOrders.filter((order) => order.picklist_number === selectedPicklistNum);
+      }
+
+      // No specific picklist — sort by total item quantity descending
+      return [...picklistOrders].sort((a, b) => {
+        const totalA = (a.items || []).reduce((sum, i) => sum + (Number(i.quantity) || 0), 0);
+        const totalB = (b.items || []).reduce((sum, i) => sum + (Number(i.quantity) || 0), 0);
+        return totalB - totalA;
+      });
+    }
+
+    // 'all'
+    return orders;
+  }, [orders, selectedPicklistNum, sourceFilter]);
+
+  // Group order items by their base master SKU for hierarchical display.
+  // Order item sku may be a full variation SKU (AJE55/G) or a plain master SKU (AJE55).
+  // Strip the /suffix to get the display master SKU, and keep the full SKU as the variation.
+  const groupedItems = useMemo(() => {
+    if (!selectedOrder?.items) return [];
+    const groups = new Map();
+    selectedOrder.items.forEach((item) => {
+      const fullSku = item.sku || '—';
+      const masterSkuDisplay = fullSku.includes('/')
+        ? fullSku.substring(0, fullSku.lastIndexOf('/'))
+        : fullSku;
+      if (!groups.has(masterSkuDisplay)) {
+        groups.set(masterSkuDisplay, []);
+      }
+      groups.get(masterSkuDisplay).push({
+        variationSku: fullSku,
+        quantity: item.quantity ?? '—',
+      });
+    });
+    return Array.from(groups.entries()).map(([masterSku, items]) => ({ masterSku, items }));
+  }, [selectedOrder]);
+
   return (
     <main className={embedded ? '' : 'h-screen bg-cloud-gray overflow-hidden'}>
       {/* Header */}
@@ -233,17 +361,36 @@ export function OrderSheetView({ embedded = false }) {
               <h1 className="text-xl font-bold text-midnight-ink">Order Sheet</h1>
               <p className="text-xs text-cool-gray mt-0.5">View all confirmed orders</p>
             </div>
-            <button
-              onClick={handleRefresh}
-              className="gap-2 text-xs px-3 py-1.5 rounded-md border border-soft-border bg-white hover:bg-cloud-gray text-midnight-ink font-medium transition-colors flex items-center"
-            >
-              <RefreshCw className="h-4 w-4" />
-              Refresh
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handlePicklistUploadClick}
+                disabled={isUploadingPicklist}
+                className="gap-2 text-xs px-3 py-1.5 rounded-md border border-soft-border bg-white hover:bg-cloud-gray text-midnight-ink font-medium transition-colors flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Upload className="h-4 w-4" />
+                {isUploadingPicklist ? 'Uploading...' : 'Bulk Upload'}
+              </button>
+              <button
+                onClick={handleRefresh}
+                className="gap-2 text-xs px-3 py-1.5 rounded-md border border-soft-border bg-white hover:bg-cloud-gray text-midnight-ink font-medium transition-colors flex items-center"
+              >
+                <RefreshCw className="h-4 w-4" />
+                Refresh
+              </button>
+            </div>
           </div>
         </div>
       </div>
       )}
+
+      {/* Hidden file input — always mounted so the ref is valid in both embedded and standalone mode */}
+      <input
+        ref={picklistFileInputRef}
+        type="file"
+        accept="*/*"
+        onChange={handlePicklistFileChange}
+        className="hidden"
+      />
 
       {/* Main content */}
       <div className={`${embedded ? 'w-full h-full px-0 py-2' : 'h-[calc(100vh-90px)] max-w-7xl mx-auto px-5 py-4'} min-h-0`}>
@@ -258,22 +405,100 @@ export function OrderSheetView({ embedded = false }) {
         <div className="flex flex-col gap-3 h-full min-h-0">
           {/* Top area - Orders table */}
           <div className="w-full h-[52vh] min-h-[360px] max-h-[56vh] shrink-0 bg-white rounded-2xl border border-soft-border shadow-sm overflow-hidden flex flex-col">
-            <div className="px-4 py-3 border-b border-soft-border bg-cloud-gray">
+            <div className="px-4 py-3 border-b border-soft-border bg-cloud-gray space-y-2">
               <div className="flex items-center justify-between">
                 <h3 className="text-xs font-bold uppercase tracking-wide text-midnight-ink">Orders</h3>
-                <span className="text-[11px] font-semibold text-cool-gray">{orders.length} total</span>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handlePicklistUploadClick}
+                    disabled={isUploadingPicklist}
+                    className="gap-1.5 text-xs px-3 py-1 rounded-md border border-soft-border bg-white hover:bg-white/80 text-midnight-ink font-medium transition-colors flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Upload className="h-3.5 w-3.5" />
+                    {isUploadingPicklist ? 'Uploading...' : 'Bulk Upload'}
+                  </button>
+                  <span className="text-[11px] font-semibold text-cool-gray">{filteredOrders.length} total</span>
+                </div>
               </div>
+              {/* Source type tabs */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-[11px] text-cool-gray font-medium shrink-0">Source:</span>
+                {[
+                  { value: 'all', label: 'All' },
+                  { value: 'custom', label: 'Custom Orders' },
+                  { value: 'picklist', label: 'Picklist' },
+                ].map(({ value, label }) => (
+                  <button
+                    key={value}
+                    onClick={() => {
+                      setSourceFilter(value);
+                      setSelectedPicklistNum(null);
+                    }}
+                    className={`px-2.5 py-0.5 rounded-full text-[11px] font-semibold border transition-colors ${
+                      sourceFilter === value
+                        ? 'bg-trust-blue text-white border-trust-blue'
+                        : 'bg-white text-cool-gray border-soft-border hover:border-trust-blue hover:text-trust-blue'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              {/* Picklist sub-selector — only shown when Picklist tab is active */}
+              {sourceFilter === 'picklist' && picklistNumbers.length > 0 && (
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-[11px] text-cool-gray font-medium shrink-0">Picklist:</span>
+                  <button
+                    onClick={() => setSelectedPicklistNum(null)}
+                    className={`px-2.5 py-0.5 rounded-full text-[11px] font-semibold border transition-colors ${
+                      selectedPicklistNum === null
+                        ? 'bg-trust-blue/20 text-trust-blue border-trust-blue'
+                        : 'bg-white text-cool-gray border-soft-border hover:border-trust-blue hover:text-trust-blue'
+                    }`}
+                  >
+                    All Picklists
+                  </button>
+                  {picklistNumbers.map((num) => (
+                    <button
+                      key={num}
+                      onClick={() => setSelectedPicklistNum(num)}
+                      className={`px-2.5 py-0.5 rounded-full text-[11px] font-semibold border transition-colors ${
+                        selectedPicklistNum === num
+                          ? 'bg-trust-blue/20 text-trust-blue border-trust-blue'
+                          : 'bg-white text-cool-gray border-soft-border hover:border-trust-blue hover:text-trust-blue'
+                      }`}
+                    >
+                      #{num}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
             {loading ? (
               <div className="flex items-center justify-center min-h-[220px] text-xs text-cool-gray">
                 Loading orders…
               </div>
-            ) : orders.length === 0 ? (
+            ) : filteredOrders.length === 0 ? (
               <div className="flex flex-col items-center justify-center min-h-[220px] text-xs text-cool-gray gap-2">
-                <p>No orders found</p>
-                <Link href="/orders/create-job" className="text-sky-info hover:text-trust-blue hover:underline font-medium">
-                  Create an order
-                </Link>
+                <p>
+                  {sourceFilter === 'picklist' && selectedPicklistNum
+                    ? `No orders found for picklist #${selectedPicklistNum}`
+                    : sourceFilter === 'picklist'
+                      ? 'No picklist orders found. Upload a picklist in the Master Inventory Sheet.'
+                      : sourceFilter === 'custom'
+                        ? 'No custom orders yet'
+                        : 'No orders found'}
+                </p>
+                {sourceFilter === 'custom' && (
+                  <Link href="/orders/create-job" className="text-sky-info hover:text-trust-blue hover:underline font-medium">
+                    Create an order
+                  </Link>
+                )}
+                {sourceFilter === 'all' && (
+                  <Link href="/orders/create-job" className="text-sky-info hover:text-trust-blue hover:underline font-medium">
+                    Create an order
+                  </Link>
+                )}
               </div>
             ) : (
               <div className="overflow-y-auto overflow-x-hidden max-h-[360px] min-h-[220px]">
@@ -291,10 +516,21 @@ export function OrderSheetView({ embedded = false }) {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-soft-border">
-                    {orders.map((order) => (
+                    {filteredOrders.map((order) => {
+                      const orderRef = order.order_source === 'picklist' ? 'PICKLIST' : 'CUSTOM';
+                      const orderName = order.order_source === 'picklist'
+                        ? `PICKLIST-${order.picklist_number ?? order.id}`
+                        : `CUSTOM-${order.id}`;
+                      const totalPieces = (order.items || []).reduce((sum, i) => sum + (Number(i.quantity) || 0), 0);
+                      const isEditingType = editingCell?.orderId === order.id && editingCell?.field === 'order_type';
+                      const isEditingUnits = editingCell?.orderId === order.id && editingCell?.field === 'units';
+                      const isSavingType = savingCell?.orderId === order.id && savingCell?.field === 'order_type';
+                      const isSavingUnits = savingCell?.orderId === order.id && savingCell?.field === 'units';
+                      return (
                       <tr
                         key={order.id}
                         onClick={() => {
+                          if (editingCell) return;
                           setSelectedOrder(order);
                           setCustomerDetailsUnlocked(false);
                         }}
@@ -314,38 +550,95 @@ export function OrderSheetView({ embedded = false }) {
                             {new Date(order.created_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
                           </span>
                         </td>
-                        <td className="px-4 py-3">
-                          <span className="text-midnight-ink text-xs">
-                            {order.order_type || '—'}
-                          </span>
+                        {/* Order Type — editable */}
+                        <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                          {isEditingType ? (
+                            <div className="flex items-center gap-1">
+                              <input
+                                autoFocus
+                                className="w-full text-xs border border-trust-blue rounded px-1.5 py-0.5 focus:outline-none"
+                                value={editingValue}
+                                onChange={(e) => setEditingValue(e.target.value)}
+                                onKeyDown={(e) => handleCellKeyDown(e, order.id)}
+                              />
+                              <button onClick={(e) => commitEdit(e, order.id)} className="text-trust-blue hover:text-deep-blue shrink-0" title="Save">
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
+                              </button>
+                              <button onClick={cancelEdit} className="text-cool-gray hover:text-midnight-ink shrink-0" title="Cancel">
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" /></svg>
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-1 group/cell">
+                              <span className="text-midnight-ink text-xs font-medium">{isSavingType ? '…' : (order.order_type || 'JANKI')}</span>
+                              <button
+                                onClick={(e) => startEdit(e, order.id, 'order_type', order.order_type || 'JANKI')}
+                                className="opacity-0 group-hover/cell:opacity-100 transition-opacity text-cool-gray hover:text-trust-blue"
+                                title="Edit order type"
+                              >
+                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536M9 11l6.536-6.536a2 2 0 012.828 0l.172.172a2 2 0 010 2.828L12 14H9v-3z" /></svg>
+                              </button>
+                            </div>
+                          )}
                         </td>
+                        {/* Order Reference — computed */}
                         <td className="px-4 py-3">
-                          <span className="text-midnight-ink text-xs">
-                            {order.order_reference || '—'}
-                          </span>
+                          <span className={`text-xs font-semibold px-1.5 py-0.5 rounded ${
+                            orderRef === 'PICKLIST'
+                              ? 'bg-trust-blue/10 text-trust-blue'
+                              : 'bg-cloud-gray text-cool-gray'
+                          }`}>{orderRef}</span>
                         </td>
+                        {/* Order Name — computed */}
                         <td className="px-4 py-3">
-                          <span className="text-midnight-ink text-xs truncate block" title={order.order_name || '—'}>
-                            {order.order_name || '—'}
-                          </span>
+                          <span className="text-midnight-ink text-xs font-semibold">{orderName}</span>
                         </td>
+                        {/* Order No */}
                         <td className="px-4 py-3">
                           <span className="font-bold text-trust-blue group-hover:text-deep-blue transition-colors text-xs">
                             {order.order_no || order.id}
                           </span>
                         </td>
+                        {/* Total Pieces — computed */}
                         <td className="px-4 py-3 text-right">
                           <span className="font-bold text-midnight-ink text-xs">
-                            {order.total_pieces || '—'}
+                            {totalPieces > 0 ? totalPieces : '—'}
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-right">
-                          <span className="font-bold text-midnight-ink text-xs">
-                            {order.units || '—'}
-                          </span>
+                        {/* Units — editable */}
+                        <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
+                          {isEditingUnits ? (
+                            <div className="flex items-center gap-1 justify-end">
+                              <input
+                                autoFocus
+                                className="w-20 text-xs border border-trust-blue rounded px-1.5 py-0.5 focus:outline-none text-right"
+                                value={editingValue}
+                                onChange={(e) => setEditingValue(e.target.value)}
+                                onKeyDown={(e) => handleCellKeyDown(e, order.id)}
+                              />
+                              <button onClick={(e) => commitEdit(e, order.id)} className="text-trust-blue hover:text-deep-blue shrink-0" title="Save">
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
+                              </button>
+                              <button onClick={cancelEdit} className="text-cool-gray hover:text-midnight-ink shrink-0" title="Cancel">
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" /></svg>
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-1 justify-end group/cell">
+                              <button
+                                onClick={(e) => startEdit(e, order.id, 'units', order.units || 'Pieces')}
+                                className="opacity-0 group-hover/cell:opacity-100 transition-opacity text-cool-gray hover:text-trust-blue"
+                                title="Edit units"
+                              >
+                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536M9 11l6.536-6.536a2 2 0 012.828 0l.172.172a2 2 0 010 2.828L12 14H9v-3z" /></svg>
+                              </button>
+                              <span className="font-semibold text-midnight-ink text-xs">{isSavingUnits ? '…' : (order.units || 'Pieces')}</span>
+                            </div>
+                          )}
                         </td>
                       </tr>
-                    ))}
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -441,117 +734,60 @@ export function OrderSheetView({ embedded = false }) {
                     </div>
                   )}
 
-                  {/* Unified product details (includes order item info) */}
+                  {/* Product details - grouped by Master SKU */}
                   {selectedOrder.items && selectedOrder.items.length > 0 && (
                     <div className={`mt-1 rounded-xl border border-soft-border bg-white shadow-sm overflow-hidden flex flex-col min-h-0 ${showProductDetails ? 'flex-1' : ''}`}>
                       <div className="px-3 py-2.5 border-b border-soft-border flex items-center justify-between gap-2 bg-cloud-gray">
                         <span className="text-xs font-bold text-midnight-ink uppercase tracking-wide">
                           Product Details
                         </span>
-                        <div className="flex items-center gap-3">
-                          <button
-                            type="button"
-                            onClick={() => setShowManageDetailsColumns(true)}
-                            className="text-xs font-semibold text-sky-info hover:text-trust-blue transition-colors"
-                          >
-                            Manage Columns
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setShowProductDetails((prev) => !prev)}
-                            className="inline-flex items-center gap-1 text-xs font-semibold text-sky-info hover:text-trust-blue transition-colors"
-                          >
-                            {showProductDetails ? 'Show less' : 'Show more'}
-                            <ChevronRight className={`h-3.5 w-3.5 transition-transform duration-300 ${showProductDetails ? 'rotate-90' : 'rotate-0'}`} />
-                          </button>
-                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setShowProductDetails((prev) => !prev)}
+                          className="inline-flex items-center gap-1 text-xs font-semibold text-sky-info hover:text-trust-blue transition-colors"
+                        >
+                          {showProductDetails ? 'Show less' : 'Show more'}
+                          <ChevronRight className={`h-3.5 w-3.5 transition-transform duration-300 ${showProductDetails ? 'rotate-90' : 'rotate-0'}`} />
+                        </button>
                       </div>
 
-                      <div
-                        className={`transition-all duration-300 ease-out overflow-hidden ${showProductDetails ? 'max-h-[42vh] opacity-100' : 'max-h-0 opacity-0'}`}
-                      >
-                        <div className="overflow-hidden">
-                          <div className="p-2.5 space-y-2 max-h-[40vh] overflow-y-auto">
-                            {productsLoading && (
-                              <div className="text-xs text-cool-gray">Loading product details…</div>
-                            )}
-                            {!productsLoading && productsError && (
-                              <div className="text-xs text-midnight-ink">{productsError}</div>
-                            )}
-                            {!productsLoading && !productsError && (
-                              <div className="rounded-lg bg-white border border-soft-border shadow-sm overflow-hidden">
-                                {PRODUCT_DETAIL_FIELDS.some((field) => visibleDetailFields.has(field.key)) ? (
-                                  <div className="overflow-x-auto">
-                                    <table className="min-w-full text-xs">
-                                      <thead className="bg-cloud-gray border-b border-soft-border">
-                                        <tr>
-                                          {PRODUCT_DETAIL_FIELDS.filter((field) => visibleDetailFields.has(field.key)).map((field) => (
-                                            <th
-                                              key={field.key}
-                                              className="text-left px-2 py-1.5 font-bold text-midnight-ink whitespace-nowrap"
-                                            >
-                                              {field.label}
-                                            </th>
-                                          ))}
-                                        </tr>
-                                      </thead>
-                                      <tbody className="divide-y divide-soft-border">
-                                        {selectedOrder.items.map((item, idx) => {
-                                          const productDetails = productsBySku[normalizeSku(item.sku)] || {};
-                                          const details = {
-                                            orderProduct: item.name || '—',
-                                            orderQty: item.quantity ?? '—',
-                                            orderPrice: fmt(item.price || 0),
-                                            sku: productDetails.sku || item.sku || '—',
-                                            listingName: productDetails.listingName || item.name || '—',
-                                            material: productDetails.material || '—',
-                                            weight: productDetails.weight || '—',
-                                            category: productDetails.category || '—',
-                                            collection: productDetails.collection || '—',
-                                            settingType: productDetails.settingType || '—',
-                                            enamelType: productDetails.enamelType || '—',
-                                            activeChannels: productDetails.activeChannels || '—',
-                                            shopifyStatus: productDetails.shopifyStatus || '—',
-                                            dieNumberFindings: productDetails.dieNumberFindings || '—',
-                                            masterSku: productDetails.masterSku || '—',
-                                            color: productDetails.color || '—',
-                                            enamel: productDetails.enamel || '—',
-                                            stoneName: productDetails.stoneName || '—',
-                                            stoneCut: productDetails.stoneCut || '—',
-                                            stoneColor: productDetails.stoneColor || '—',
-                                            stoneSize: productDetails.stoneSize || '—',
-                                            stoneQuantity: productDetails.stoneQuantity || '—',
-                                            platingType: productDetails.platingType || '—',
-                                            platingColor: productDetails.platingColor || '—',
-                                            notes: productDetails.notes || item.note || selectedOrder.notes || '—',
-                                            images: productDetails.images || item.images || '—',
-                                          };
-
-                                          return (
-                                            <tr key={item.id || idx} className="hover:bg-cloud-gray transition-colors">
-                                              {PRODUCT_DETAIL_FIELDS.filter((field) => visibleDetailFields.has(field.key)).map((field) => (
-                                                <td
-                                                  key={`${item.id || idx}-${field.key}`}
-                                                  className="px-2 py-1.5 text-midnight-ink whitespace-nowrap"
-                                                >
-                                                  {displayValue(details[field.key])}
-                                                </td>
-                                              ))}
-                                            </tr>
-                                          );
-                                        })}
-                                      </tbody>
-                                    </table>
-                                  </div>
-                                ) : (
-                                  <div className="p-3 text-xs text-cool-gray">
-                                    No detail columns are visible. Use Manage Columns to show fields.
-                                  </div>
+                      <div className={`transition-all duration-300 ease-out overflow-hidden ${showProductDetails ? 'max-h-[42vh] opacity-100' : 'max-h-0 opacity-0'}`}>
+                        {productsLoading ? (
+                          <div className="p-3 text-xs text-cool-gray">Loading product details…</div>
+                        ) : (
+                          <div className="overflow-x-auto max-h-[40vh] overflow-y-auto">
+                            <table className="min-w-full text-xs border-collapse">
+                              <thead className="bg-cloud-gray border-b border-soft-border sticky top-0">
+                                <tr>
+                                  <th className="text-left px-3 py-2 font-bold text-midnight-ink whitespace-nowrap border-r border-soft-border">Master SKU</th>
+                                  <th className="text-left px-3 py-2 font-bold text-midnight-ink whitespace-nowrap">SKU (Variation)</th>
+                                  <th className="text-left px-3 py-2 font-bold text-midnight-ink whitespace-nowrap">Quantity</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {groupedItems.map((group) =>
+                                  group.items.map((item, idx) => (
+                                    <tr
+                                      key={`${group.masterSku}-${idx}`}
+                                      className={`hover:bg-cloud-gray transition-colors ${idx < group.items.length - 1 ? 'border-b border-dashed border-soft-border' : 'border-b border-soft-border'}`}
+                                    >
+                                      {idx === 0 && (
+                                        <td
+                                          rowSpan={group.items.length}
+                                          className="px-3 py-2 font-semibold text-midnight-ink align-middle border-r border-soft-border bg-cloud-gray/40 whitespace-nowrap"
+                                        >
+                                          {group.masterSku}
+                                        </td>
+                                      )}
+                                      <td className="px-3 py-2 text-midnight-ink whitespace-nowrap">{item.variationSku}</td>
+                                      <td className="px-3 py-2 text-midnight-ink font-semibold">{item.quantity}</td>
+                                    </tr>
+                                  ))
                                 )}
-                              </div>
-                            )}
+                              </tbody>
+                            </table>
                           </div>
-                        </div>
+                        )}
                       </div>
                     </div>
                   )}
@@ -577,75 +813,6 @@ export function OrderSheetView({ embedded = false }) {
       </div>
 
       {/* Password Dialog */}
-      {showManageDetailsColumns && (
-        <div className="fixed inset-0 bg-black/35 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
-          <div className="bg-white rounded-2xl shadow-xl max-w-xl w-full max-h-[80vh] overflow-hidden border border-soft-border">
-            <div className="px-6 py-4 border-b border-soft-border flex items-center justify-between bg-cloud-gray">
-              <h3 className="text-2xl font-bold text-midnight-ink">Manage Columns</h3>
-              <button
-                type="button"
-                onClick={() => setShowManageDetailsColumns(false)}
-                className="text-cool-gray hover:text-midnight-ink text-2xl leading-none"
-              >
-                ×
-              </button>
-            </div>
-
-            <div className="px-6 pt-4 pb-3 max-h-[50vh] overflow-y-auto">
-              <label className="flex items-center justify-between gap-3 py-2 border-b border-soft-border mb-2">
-                <div className="flex items-center gap-3">
-                  <input
-                    type="checkbox"
-                    checked={selectedDetailFields.size === PRODUCT_DETAIL_FIELDS.length && PRODUCT_DETAIL_FIELDS.length > 0}
-                    onChange={toggleSelectAllDetailFields}
-                    className="h-5 w-5 rounded border-soft-border text-midnight-ink"
-                  />
-                  <span className="text-xl font-semibold text-midnight-ink">Select All</span>
-                </div>
-              </label>
-
-              <div className="space-y-1">
-                {PRODUCT_DETAIL_FIELDS.map((field) => (
-                  <label key={field.key} className="flex items-center justify-between gap-3 py-2">
-                    <div className="flex items-center gap-3">
-                      <input
-                        type="checkbox"
-                        checked={selectedDetailFields.has(field.key)}
-                        onChange={() => toggleDetailFieldSelection(field.key)}
-                        className="h-5 w-5 rounded border-soft-border text-midnight-ink"
-                      />
-                      <span className="text-sm text-midnight-ink">{field.label}</span>
-                    </div>
-                    <span className={`px-3 py-1 rounded-full text-sm font-semibold ${visibleDetailFields.has(field.key) ? 'bg-cloud-gray text-midnight-ink border border-soft-border' : 'bg-white text-cool-gray border border-soft-border'}`}>
-                      {visibleDetailFields.has(field.key) ? 'Visible' : 'Hidden'}
-                    </span>
-                  </label>
-                ))}
-              </div>
-            </div>
-
-            <div className="px-6 py-4 border-t border-soft-border flex items-center justify-end gap-3">
-              <button
-                type="button"
-                onClick={handleHideDetailFields}
-                disabled={selectedDetailFields.size === 0}
-                className="px-6 py-2 rounded-xl border border-soft-border text-cool-gray disabled:opacity-50 disabled:cursor-not-allowed hover:bg-cloud-gray transition-colors text-sm font-semibold"
-              >
-                Hide
-              </button>
-              <button
-                type="button"
-                onClick={handleShowDetailFields}
-                disabled={selectedDetailFields.size === 0}
-                className="px-6 py-2 rounded-xl border border-soft-border bg-trust-blue text-white disabled:opacity-50 disabled:cursor-not-allowed hover:bg-deep-blue transition-colors text-sm font-semibold"
-              >
-                Show
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {showPasswordDialog && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
           <div className="bg-white rounded-xl shadow-xl max-w-sm w-full transform transition-all border border-soft-border">

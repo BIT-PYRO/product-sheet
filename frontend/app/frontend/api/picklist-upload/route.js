@@ -23,11 +23,11 @@ function toInt(value) {
 // SKUs in picklist PDFs look like: AJB11/G, AJB3/S, AJC1/G
 // Pattern used here is intentionally strict so random UI text like "D"
 // or "OneDesk" is never treated as a SKU.
-const PDF_SKU_RE = /^(?=.*\d)(?=.*\/)[A-Z][A-Z0-9]{1,24}\/[A-Z0-9]{1,4}$/i;
+const PDF_SKU_RE = /^(?=.*\/)[A-Z][A-Z0-9]{1,24}\/[A-Z0-9]{1,4}$/i;
 
 // Full-row pattern: SKU  product-name  number  (columns sep by 2+ spaces).
 const PDF_FULL_ROW_RE =
-  /^((?=.*\d)(?=.*\/)[A-Z][A-Z0-9]{1,24}\/[A-Z0-9]{1,4})\s{2,}(.+?)\s{2,}(\d+)(?:\s+\d+)?(?:\s.*)?$/i;
+  /^((?=.*\/)[A-Z][A-Z0-9]{1,24}\/[A-Z0-9]{1,4})\s{2,}(.+?)\s{2,}(\d+)(?:\s+\d+)?(?:\s.*)?$/i;
 
 function isPicklistSku(value) {
   return PDF_SKU_RE.test(String(value || '').trim().toUpperCase());
@@ -519,6 +519,42 @@ async function savePicklistGroup(request, groupMeta, items) {
   return mapBackendPicklist(backendPayload?.data, groupMeta);
 }
 
+async function savePicklistOrder(request, savedGroup) {
+  const orderItems = savedGroup.items.map((item) => ({
+    name: item.listingName || item.sku,
+    sku: String(item.sku || '').trim().toUpperCase(),
+    quantity: item.needed || 1,
+    price: '0.00',
+    taxable: false,
+    images: [],
+    note: '',
+  }));
+
+  const orderPayload = {
+    order_source: 'picklist',
+    picklist_number: savedGroup.number,
+    notes: `Picklist #${savedGroup.number}`,
+    items: orderItems,
+    discount: 0,
+    shipping: 0,
+  };
+
+  try {
+    const response = await proxyAuthenticatedRequest(request, '/api/v1/orders/from-picklist/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(orderPayload),
+    });
+
+    if (!response.ok) {
+      const errBody = await response.json().catch(() => null);
+      console.error('Failed to create picklist order:', errBody);
+    }
+  } catch (err) {
+    console.error('Error saving picklist order:', err);
+  }
+}
+
 // -- Route handler ------------------------------------------------------------
 
 export async function POST(request) {
@@ -558,6 +594,9 @@ export async function POST(request) {
     }
 
     const savedGroup = await savePicklistGroup(request, groupMeta, items);
+
+    // Also create / replace the corresponding order in the Order Sheet
+    await savePicklistOrder(request, savedGroup);
 
     return Response.json({
       success: true,
