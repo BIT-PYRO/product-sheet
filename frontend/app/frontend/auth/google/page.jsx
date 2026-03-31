@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 
-export default function GoogleAuthPage() {
+function GoogleAuthHandler() {
   const router = useRouter();
   const params = useSearchParams();
   const [status, setStatus] = useState('Signing you in...');
@@ -41,5 +41,20 @@ export default function GoogleAuthPage() {
       <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-300 border-t-gray-700" />
       <p className="text-sm text-gray-500">{status}</p>
     </div>
+  );
+}
+
+export default function GoogleAuthPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex h-screen flex-col items-center justify-center gap-3">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-300 border-t-gray-700" />
+          <p className="text-sm text-gray-500">Signing you in...</p>
+        </div>
+      }
+    >
+      <GoogleAuthHandler />
+    </Suspense>
   );
 }
