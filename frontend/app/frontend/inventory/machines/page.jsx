@@ -486,25 +486,6 @@ export default function MachinesInventoryPage() {
             >
               Save
             </button>
-            <button
-              type="button"
-              onClick={openIssuePopup}
-              disabled={selectedIds.size === 0}
-              className="inline-flex items-center gap-2 rounded-lg border border-trust-blue bg-white px-3 py-2 text-sm font-medium text-trust-blue hover:bg-blue-50 transition disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              Issue Machine
-            </button>
-            <button
-              onClick={() => setRequestsPanelOpen((prev) => !prev)}
-              className="inline-flex items-center gap-2 rounded-xl border border-soft-border bg-white px-3 py-2 text-sm font-medium text-midnight-ink hover:border-trust-blue transition"
-            >
-              Requests
-              {pendingIssueRequests.length > 0 && (
-                <span className="rounded-full bg-danger px-1.5 py-0.5 text-[10px] text-white leading-none">
-                  {pendingIssueRequests.length}
-                </span>
-              )}
-            </button>
           </div>
         </div>
 
