@@ -127,6 +127,8 @@ SIMPLE_JWT = {
     'SIGNING_KEY': env('JWT_SIGNING_KEY', default='please-change-this-jwt-signing-key-32b'),
 }
 
+GOOGLE_CLIENT_ID = env('GOOGLE_CLIENT_ID', default='')
+
 CORS_ALLOWED_ORIGINS = env.list('CORS_ALLOWED_ORIGINS', default=['http://localhost:3000'])
 
 

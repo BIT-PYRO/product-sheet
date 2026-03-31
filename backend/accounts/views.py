@@ -1,9 +1,15 @@
+from django.conf import settings
+from django.contrib.auth import get_user_model
 from drf_spectacular.utils import OpenApiExample, extend_schema
-from rest_framework.permissions import IsAuthenticated
+from google.auth.transport import requests as google_requests
+from google.oauth2 import id_token
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.views import APIView
+from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 from common.api import api_success
+from workforce.models import WorkforceMember
 
 from .serializers import UserSerializer
 
@@ -81,3 +87,67 @@ class MeView(APIView):
 			serializer.save()
 			return api_success(serializer.data, message='Profile updated successfully.')
 		return api_success(serializer.errors, message='Invalid data.', status_code=400)
+
+
+class GoogleLoginView(APIView):
+	permission_classes = [AllowAny]
+
+	@extend_schema(summary='Login via Google ID token (SSO)', tags=['Auth'])
+	def post(self, request):
+		token = request.data.get('id_token', '').strip()
+		if not token:
+			from rest_framework.response import Response
+			return Response({'success': False, 'message': 'id_token is required.'}, status=400)
+
+		try:
+			idinfo = id_token.verify_oauth2_token(
+				token,
+				google_requests.Request(),
+				settings.GOOGLE_CLIENT_ID,
+			)
+		except ValueError as e:
+			from rest_framework.response import Response
+			return Response({'success': False, 'message': f'Invalid Google token: {e}'}, status=401)
+
+		email = idinfo.get('email', '')
+		first_name = idinfo.get('given_name', '')
+		last_name = idinfo.get('family_name', '')
+		full_name = idinfo.get('name', f'{first_name} {last_name}'.strip())
+		picture = idinfo.get('picture', '')
+
+		if not email:
+			from rest_framework.response import Response
+			return Response({'success': False, 'message': 'Google account has no email.'}, status=400)
+
+		User = get_user_model()
+		user, created = User.objects.get_or_create(
+			username=email,
+			defaults={
+				'email': email,
+				'first_name': first_name,
+				'last_name': last_name,
+			},
+		)
+		if created:
+			user.set_unusable_password()
+			user.save()
+
+		WorkforceMember.objects.get_or_create(
+			email=email,
+			defaults={'full_name': full_name},
+		)
+
+		refresh = RefreshToken.for_user(user)
+		return api_success(
+			{
+				'access': str(refresh.access_token),
+				'refresh': str(refresh),
+				'user': {
+					'email': email,
+					'full_name': full_name,
+					'picture': picture,
+					'is_new': created,
+				},
+			},
+			message='Google login successful.',
+		)
