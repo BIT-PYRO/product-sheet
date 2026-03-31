@@ -1229,7 +1229,7 @@ export default function StoneInventoryPage() {
 
           {activeRequest ? (
             <div className="mt-2 grid grid-cols-1 gap-3">
-              <Field label="Name of Stone" value={activeRequest.stoneName} disabled />
+              <Field label="Name of Stone" value={activeRequest.nameOfStone || activeRequest.variety || ''} disabled />
               <Field label="Quantity" value={String(activeRequest.quantity)} disabled />
               <Field label="Issued To" value={activeRequest.issuedTo} disabled />
               <Field label="Reason of Issue" value={activeRequest.reason || '-'} disabled />

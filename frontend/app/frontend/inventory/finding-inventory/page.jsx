@@ -794,7 +794,7 @@ export default function FindingInventoryPage() {
 
           {activeRequest ? (
             <div className="mt-2 grid grid-cols-1 gap-3">
-              <Field label="Name of Finding" value={activeRequest.findingName} disabled />
+              <Field label="Finding Code" value={activeRequest.findingName} disabled />
               <Field label="Quantity" value={String(activeRequest.quantity)} disabled />
               <Field label="Issued To" value={activeRequest.issuedTo} disabled />
               <Field label="Reason of Issue" value={activeRequest.reason || '-'} disabled />

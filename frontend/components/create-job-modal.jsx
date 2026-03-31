@@ -673,7 +673,7 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
               <div className="flex flex-col gap-1">
                 <div className="rounded-md overflow-hidden border border-border">
                   <div className="grid grid-cols-[1fr_1fr_1fr_1fr_32px] gap-0 bg-trust-blue text-white text-[9px] font-bold uppercase tracking-wider">
-                    <div className="px-1.5 py-2">Die Number</div>
+                    <div className="px-1.5 py-2">Finding Code</div>
                     <div className="px-1.5 py-2">Qty</div>
                     <div className="px-1.5 py-2">Weight</div>
                     <div className="px-1.5 py-2">Unit</div>
@@ -685,7 +685,7 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
                       className="grid grid-cols-[1fr_1fr_1fr_1fr_32px] gap-0 border-t border-border items-center bg-background"
                     >
                       <div className="px-0.5 py-0.5">
-                        <Input className="h-6 text-sm bg-background border-border" placeholder="Die Number" value={row.dieNumber} onChange={(e) => updateDieWeightRow(row.id, "dieNumber", e.target.value)} />
+                        <Input className="h-6 text-sm bg-background border-border" placeholder="Finding Code" value={row.finding_code || row.dieNumber} onChange={(e) => updateDieWeightRow(row.id, "finding_code", e.target.value)} />
                       </div>
                       <div className="px-0.5 py-0.5">
                         <Input className="h-6 text-sm bg-background border-border" type="number" placeholder="0" value={row.quantity} onChange={(e) => updateDieWeightRow(row.id, "quantity", e.target.value)} />
@@ -760,10 +760,75 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
             </Button>
             <Button
               className="flex-1 h-7 bg-amber-500 hover:bg-amber-600 text-white font-bold text-sm rounded"
-              onClick={() => {}}
+              onClick={() => {
+                if (activeTab === 'stone') {
+                  // Prepare request object for each stone row
+                  const requests = stoneRows.map(row => ({
+                    nameOfStone: row.variety,
+                    variety: row.variety,
+                    color: row.color,
+                    cut: row.cut,
+                    shape: row.shape,
+                    length: row.length,
+                    width: row.width,
+                    height: row.height,
+                    quantity: row.qty,
+                    issuedBy: issuedByName,
+                    contact: issuedByContact,
+                    date,
+                    voucherNo,
+                    issuedTo,
+                    workType,
+                    deptFrom,
+                    deptTo,
+                    reason: `From voucher no ${voucherNo}`,
+                    note: noteByIssuer,
+                    status: 'pending',
+                    requestedAt: new Date().toISOString(),
+                  }));
+                  try {
+                    const key = 'stone_issue_requests_v1';
+                    const prev = JSON.parse(localStorage.getItem(key) || '[]');
+                    localStorage.setItem(key, JSON.stringify([...requests, ...prev]));
+                    alert('Stone issue request(s) sent!');
+                  } catch (e) {
+                    alert('Failed to save stone request.');
+                  }
+                } else if (activeTab === 'die') {
+                  // Prepare request object for each finding row
+                  const requests = dieWeightRows.map(row => ({
+                    findingName: row.finding_code || row.dieNumber,
+                    finding_code: row.finding_code || row.dieNumber,
+                    dieNumber: row.dieNumber,
+                    quantity: row.quantity,
+                    weight: row.weight,
+                    unit: row.unit,
+                    issuedBy: issuedByName,
+                    contact: issuedByContact,
+                    date,
+                    voucherNo,
+                    issuedTo,
+                    workType,
+                    deptFrom,
+                    deptTo,
+                    reason: `From voucher no ${voucherNo}`,
+                    note: noteByIssuer,
+                    status: 'pending',
+                    requestedAt: new Date().toISOString(),
+                  }));
+                  try {
+                    const key = 'finding_issue_requests_v1';
+                    const prev = JSON.parse(localStorage.getItem(key) || '[]');
+                    localStorage.setItem(key, JSON.stringify([...requests, ...prev]));
+                    alert('Finding issue request(s) sent!');
+                  } catch (e) {
+                    alert('Failed to save finding request.');
+                  }
+                }
+              }}
               type="button"
             >
-              Issue Stone
+              {activeTab === 'die' ? 'Issue Finding' : 'Issue Stone'}
             </Button>
             <Button
               className="flex-1 h-7 bg-success hover:bg-success text-white font-bold text-sm rounded"
