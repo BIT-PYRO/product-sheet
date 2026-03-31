@@ -50,47 +50,37 @@ export default function MasterWorkforceSheet() {
   const [viewMode, setViewMode] = useState('active');
   const [rowsPerPage, setRowsPerPage] = useState(25);
   const [currentPage, setCurrentPage] = useState(1);
-  
-  // Column definitions for workforce
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  // Column definitions — mirrors all Enroll Workforce fields
   const columns = [
-    { id: 'firstName', label: 'First Name' },
-    { id: 'lastName', label: 'Last Name' },
-    { id: 'department', label: 'Department' },
-    { id: 'contactNumber', label: 'Contact Number' },
-    { id: 'type', label: 'Status' },
-    { id: 'aadharCard', label: 'Aadhar Card' },
-    { id: 'paymentType', label: 'Payment Type' },
-    { id: 'origin', label: 'Origin' },
-    { id: 'bankAccount', label: 'Bank A/C' },
-    { id: 'ifsc', label: 'IFSC' },
-    { id: 'bank', label: 'Bank' },
-    { id: 'branch', label: 'Branch' },
+    { id: 'fullName',       label: 'Full Name' },
+    { id: 'department',     label: 'Department' },
+    { id: 'category',       label: 'Category' },
+    { id: 'designation',    label: 'Role / Designation' },
+    { id: 'workingStyle',   label: 'Working Style' },
+    { id: 'status',         label: 'Status' },
+    { id: 'gender',         label: 'Gender' },
+    { id: 'phone',          label: 'Phone' },
+    { id: 'whatsapp',       label: 'WhatsApp' },
+    { id: 'email',          label: 'Email' },
+    { id: 'dob',            label: 'Date of Birth' },
+    { id: 'firstLanguage',  label: 'First Language' },
+    { id: 'secondLanguage', label: 'Second Language' },
+    { id: 'currentLocation',label: 'Current Location' },
+    { id: 'accountName',    label: 'Account Name' },
+    { id: 'bankName',       label: 'Bank Name' },
+    { id: 'accountNumber',  label: 'Account Number' },
+    { id: 'ifsc',           label: 'IFSC' },
+    { id: 'notes',          label: 'Notes' },
   ];
-  
-  // Column configuration with styling
-  const columnConfig = {
-    department: { minWidth: 'min-w-[100px]', headerBg: 'bg-[#dbeafe]' },
-    firstName: { minWidth: 'min-w-[100px]', headerBg: 'bg-[#dbeafe]' },
-    lastName: { minWidth: 'min-w-[100px]', headerBg: 'bg-[#dbeafe]' },
-    contactNumber: { minWidth: 'min-w-[120px]', headerBg: 'bg-[#dbeafe]' },
-    type: { minWidth: 'min-w-[80px]', headerBg: 'bg-[#dbeafe]' },
-    aadharCard: { minWidth: 'min-w-[120px]', headerBg: 'bg-[#dbeafe]' },
-    paymentType: { minWidth: 'min-w-[100px]', headerBg: 'bg-[#dbeafe]' },
-    origin: { minWidth: 'min-w-[80px]', headerBg: 'bg-[#dbeafe]' },
-    bankAccount: { minWidth: 'min-w-[120px]', headerBg: 'bg-[#dbeafe]' },
-    ifsc: { minWidth: 'min-w-[80px]', headerBg: 'bg-[#dbeafe]' },
-    bank: { minWidth: 'min-w-[100px]', headerBg: 'bg-[#dbeafe]' },
-    branch: { minWidth: 'min-w-[100px]', headerBg: 'bg-[#dbeafe]' },
-  };
-  
-  // Set default visible columns to prevent horizontal scrolling
+
+  const columnConfig = Object.fromEntries(
+    columns.map(c => [c.id, { minWidth: 'min-w-[120px]', headerBg: 'bg-[#dbeafe]' }])
+  );
+
   const [visibleColumns, setVisibleColumns] = useState(new Set([
-    'firstName',
-    'lastName',
-    'department',
-    'contactNumber',
-    'type',
-    'paymentType',
+    'fullName', 'department', 'category', 'designation', 'workingStyle', 'status', 'phone', 'email',
   ]));
   
   // Toggle column selection in the manage columns dialog
@@ -135,16 +125,19 @@ export default function MasterWorkforceSheet() {
   const hiddenColumns = columns.filter(col => !visibleColumns.has(col.id));
   
   // Filter states
-  const [departmentFilter, setDepartmentFilter] = useState('');
-  const [typeFilter, setTypeFilter] = useState('');
-  const [originFilter, setOriginFilter] = useState('');
-  const [paymentTypeFilter, setPaymentTypeFilter] = useState('');
-  
-  // Sample data for dropdowns
-  const departmentOptions = ['HR', 'Operations', 'Sales', 'Finance', 'IT', 'Manufacturing'];
-  const typeOptions = ['Full-time', 'Part-time', 'Contract', 'Intern'];
-  const originOptions = ['Local', 'Permanent', 'Temporary'];
-  const paymentTypeOptions = ['Salary', 'Hourly', 'Contract', 'Commission'];
+  const [departmentFilter, setDepartmentFilter] = useState('all');
+  const [categoryFilter, setCategoryFilter] = useState('all');
+  const [roleFilter, setRoleFilter] = useState('all');
+  const [workingStyleFilter, setWorkingStyleFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [genderFilter, setGenderFilter] = useState('all');
+
+  const DEPARTMENTS = [
+    'Marketing','Customer Relation Management','Operations','Design','Logistics',
+    'Purchase','Sales / Business Development','Finance','Information Technology',
+    'Human Resource','Production','Services','House Keeping',
+  ];
+  const WORKING_STYLES = ['On-site','Remote','Hybrid','Field Work','Part-time','Contractual'];
 
   const [data, setData] = useState([]);
 
@@ -157,44 +150,42 @@ export default function MasterWorkforceSheet() {
       try {
         const response = await fetch('/api/workforce', { cache: 'no-store' });
         const result = await response.json().catch(() => null);
-        if (!response.ok || !result?.success) {
-          return;
-        }
+        if (!response.ok || !result?.success) return;
 
-        const workforceRows = Array.isArray(result?.data) ? result.data : (result?.data?.results || []);
-        const mappedRows = workforceRows.map((row, index) => {
-          const parts = String(row.full_name || '').trim().split(/\s+/);
-          const firstName = parts[0] || '';
-          const lastName = parts.slice(1).join(' ');
-
-          return {
-            id: row.id,
-            hasBackendRecord: true,
-            sNo: index + 1,
-            department: '',
-            firstName,
-            lastName,
-            contactNumber: row.phone || '',
-            type: row.active ? 'Active' : 'Inactive',
-            aadharCard: '',
-            paymentType: '',
-            origin: '',
-            bankAccount: '',
-            ifsc: '',
-            bank: '',
-            branch: '',
-          };
-        });
+        const rows = Array.isArray(result?.data) ? result.data : (result?.data?.results || []);
+        const mappedRows = rows.map((row, index) => ({
+          id: row.id,
+          hasBackendRecord: true,
+          sNo: index + 1,
+          fullName:        row.full_name || '',
+          department:      row.department || '',
+          category:        row.category || '',
+          designation:     row.designation || '',
+          workingStyle:    row.working_style || '',
+          status:          row.active ? 'Active' : 'Inactive',
+          gender:          row.gender || '',
+          phone:           row.phone || '',
+          whatsapp:        row.whatsapp || '',
+          email:           row.email || '',
+          dob:             row.dob || '',
+          firstLanguage:   row.first_language || '',
+          secondLanguage:  row.second_language || '',
+          currentLocation: row.current_location || '',
+          accountName:     row.account_name || '',
+          bankName:        row.bank_name || '',
+          accountNumber:   row.account_number || '',
+          ifsc:            row.ifsc || '',
+          notes:           row.notes || '',
+        }));
 
         setData(mappedRows);
         setLastUpdated(new Date());
       } catch {
-        // Keep table editable with local rows when backend load fails.
+        // keep table editable with local rows when backend fails
       }
     };
-
     loadWorkforce();
-  }, []);
+  }, [refreshKey]);
 
   const toggleRowSelection = (id) => {
     const newSelected = new Set(selectedRows);
@@ -235,46 +226,26 @@ export default function MasterWorkforceSheet() {
     setIsQuickEnrollOpen(true);
   };
 
-  const handleQuickEnrollComplete = async (personName) => {
-    try {
-      await fetch('/api/workforce', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          full_name: String(personName || '').trim(),
-          phone: '',
-          active: true,
-        }),
-      });
-    } catch {
-      // Non-blocking: close modal even if API call fails.
-    }
-    setIsQuickEnrollOpen(false);
-  };
-
   const handleEnrollWorkforce = () => {
     setIsEnrollWorkforceOpen(true);
   };
 
-  const handleEnrollWorkforceComplete = async (personName) => {
+  const handleEnrollWorkforceComplete = () => {
+    // Form already POSTed to backend — just close and refresh the table
+    setIsEnrollWorkforceOpen(false);
+    setRefreshKey(k => k + 1);
+  };
+
+  const handleQuickEnrollComplete = async (personName) => {
     try {
       await fetch('/api/workforce', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          full_name: String(personName || '').trim(),
-          phone: '',
-          active: true,
-        }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ full_name: String(personName || '').trim(), phone: '', active: true }),
       });
-    } catch {
-      // Non-blocking: close modal even if API call fails.
-    }
-    setIsEnrollWorkforceOpen(false);
+    } catch { /* non-blocking */ }
+    setIsQuickEnrollOpen(false);
+    setRefreshKey(k => k + 1);
   };
 
   const handleManageColumns = () => {
@@ -287,18 +258,10 @@ export default function MasterWorkforceSheet() {
       id: newId,
       hasBackendRecord: false,
       sNo: data.length + 1,
-      department: '',
-      firstName: '',
-      lastName: '',
-      contactNumber: '',
-      type: '',
-      aadharCard: '',
-      paymentType: '',
-      origin: '',
-      bankAccount: '',
-      ifsc: '',
-      bank: '',
-      branch: '',
+      fullName: '', department: '', category: '', designation: '', workingStyle: '',
+      status: '', gender: '', phone: '', whatsapp: '', email: '', dob: '',
+      firstLanguage: '', secondLanguage: '', currentLocation: '',
+      accountName: '', bankName: '', accountNumber: '', ifsc: '', notes: '',
     };
     setData([...data, newRow]);
   };
@@ -418,7 +381,22 @@ export default function MasterWorkforceSheet() {
   const activeData = data.filter(row => !archivedRows.has(row.id));
   const archivedData = data.filter(row => archivedRows.has(row.id));
   const isArchivedView = viewMode === 'archived';
-  const displayedData = isArchivedView ? archivedData : activeData;
+
+  // Apply filters + search
+  const displayedData = (isArchivedView ? archivedData : activeData).filter(row => {
+    const q = searchTerm.toLowerCase();
+    if (q && ![
+      row.fullName, row.department, row.category, row.designation,
+      row.phone, row.email, row.workingStyle,
+    ].some(v => (v || '').toLowerCase().includes(q))) return false;
+    if (departmentFilter !== 'all' && row.department !== departmentFilter) return false;
+    if (categoryFilter !== 'all' && row.category !== categoryFilter) return false;
+    if (roleFilter !== 'all' && row.designation !== roleFilter) return false;
+    if (workingStyleFilter !== 'all' && row.workingStyle !== workingStyleFilter) return false;
+    if (statusFilter !== 'all' && row.status !== statusFilter) return false;
+    if (genderFilter !== 'all' && row.gender !== genderFilter) return false;
+    return true;
+  });
 
   const totalPages = Math.max(1, Math.ceil(displayedData.length / rowsPerPage));
   const safePage = Math.min(currentPage, totalPages);
@@ -840,65 +818,70 @@ export default function MasterWorkforceSheet() {
 
       {/* Filter Row */}
       <div className="border border-soft-border rounded-lg mb-4 bg-[#dbeafe] p-4">
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2">
-          {/* Department Filter */}
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
+          {/* Department */}
           <div>
             <label className="text-sm font-semibold text-black block mb-1">DEPARTMENT</label>
-            <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
+            <Select value={departmentFilter} onValueChange={v => { setDepartmentFilter(v); setCategoryFilter('all'); setRoleFilter('all'); }}>
               <SelectTrigger className="h-8 text-sm focus:ring-0 focus:ring-offset-0">
-                <SelectValue placeholder="Select Department" />
+                <SelectValue placeholder="All" />
               </SelectTrigger>
               <SelectContent>
-                {departmentOptions.map(option => (
-                  <SelectItem key={option} value={option}>{option}</SelectItem>
-                ))}
+                <SelectItem value="all">All</SelectItem>
+                {DEPARTMENTS.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
-
-          {/* Type Filter */}
+          {/* Working Style */}
           <div>
-            <label className="text-sm font-semibold text-black block mb-1">TYPE</label>
-            <Select value={typeFilter} onValueChange={setTypeFilter}>
+            <label className="text-sm font-semibold text-black block mb-1">WORKING STYLE</label>
+            <Select value={workingStyleFilter} onValueChange={setWorkingStyleFilter}>
               <SelectTrigger className="h-8 text-sm focus:ring-0 focus:ring-offset-0">
-                <SelectValue placeholder="Select Type" />
+                <SelectValue placeholder="All" />
               </SelectTrigger>
               <SelectContent>
-                {typeOptions.map(option => (
-                  <SelectItem key={option} value={option}>{option}</SelectItem>
-                ))}
+                <SelectItem value="all">All</SelectItem>
+                {WORKING_STYLES.map(w => <SelectItem key={w} value={w}>{w}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
-
-          {/* Origin Filter */}
+          {/* Status */}
           <div>
-            <label className="text-sm font-semibold text-black block mb-1">ORIGIN</label>
-            <Select value={originFilter} onValueChange={setOriginFilter}>
+            <label className="text-sm font-semibold text-black block mb-1">STATUS</label>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger className="h-8 text-sm focus:ring-0 focus:ring-offset-0">
-                <SelectValue placeholder="Select Origin" />
+                <SelectValue placeholder="All" />
               </SelectTrigger>
               <SelectContent>
-                {originOptions.map(option => (
-                  <SelectItem key={option} value={option}>{option}</SelectItem>
-                ))}
+                <SelectItem value="all">All</SelectItem>
+                <SelectItem value="Active">Active</SelectItem>
+                <SelectItem value="Inactive">Inactive</SelectItem>
               </SelectContent>
             </Select>
           </div>
-
-          {/* Payment Type Filter */}
+          {/* Gender */}
           <div>
-            <label className="text-sm font-semibold text-black block mb-1">PAYMENT TYPE</label>
-            <Select value={paymentTypeFilter} onValueChange={setPaymentTypeFilter}>
+            <label className="text-sm font-semibold text-black block mb-1">GENDER</label>
+            <Select value={genderFilter} onValueChange={setGenderFilter}>
               <SelectTrigger className="h-8 text-sm focus:ring-0 focus:ring-offset-0">
-                <SelectValue placeholder="Select Payment Type" />
+                <SelectValue placeholder="All" />
               </SelectTrigger>
               <SelectContent>
-                {paymentTypeOptions.map(option => (
-                  <SelectItem key={option} value={option}>{option}</SelectItem>
-                ))}
+                <SelectItem value="all">All</SelectItem>
+                <SelectItem value="Male">Male</SelectItem>
+                <SelectItem value="Female">Female</SelectItem>
+                <SelectItem value="Other">Other</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+          {/* Clear filters */}
+          <div className="flex items-end">
+            <button
+              onClick={() => { setDepartmentFilter('all'); setCategoryFilter('all'); setRoleFilter('all'); setWorkingStyleFilter('all'); setStatusFilter('all'); setGenderFilter('all'); }}
+              className="text-xs text-trust-blue underline hover:text-deep-blue transition"
+            >
+              Clear Filters
+            </button>
           </div>
         </div>
       </div>

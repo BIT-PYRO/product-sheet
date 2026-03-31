@@ -432,15 +432,20 @@ export function EnrolWorkforceForm({ onEnroll, onClose, open = true, draftData =
                   <label className="block text-sm font-semibold text-slate-text mb-2">Role / Designation</label>
                   <select className={INPUT_CLS} name="designation" value={form.designation} onChange={handleInput}>
                     <option value="">Select role...</option>
-                    <optgroup label="Leadership">
-                      <option value="Chairman">Chairman</option>
-                      <option value="CEO">CEO</option>
-                      <option value="Director">Director</option>
-                    </optgroup>
-                    {form.department && DEPT_DATA[form.department]?.roles?.length > 0 && (
-                      <optgroup label="Department Roles">
-                        {DEPT_DATA[form.department].roles.map(r => <option key={r} value={r}>{r}</option>)}
+                    {!form.department || form.department === 'Other' ? (
+                      <optgroup label="Leadership">
+                        <option value="Chairman">Chairman</option>
+                        <option value="CEO">CEO</option>
                       </optgroup>
+                    ) : (
+                      <>
+                        <option value="Director">Director</option>
+                        {DEPT_DATA[form.department]?.roles?.length > 0 && (
+                          <optgroup label="Department Roles">
+                            {DEPT_DATA[form.department].roles.map(r => <option key={r} value={r}>{r}</option>)}
+                          </optgroup>
+                        )}
+                      </>
                     )}
                     <option value="Other">Other</option>
                   </select>
