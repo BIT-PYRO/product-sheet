@@ -20,11 +20,21 @@ import {
 import { CalendarIcon, Trash2, X, ArrowRight } from "lucide-react"
 
 const jewelleryDepartments = [
-  { label: "Cutting", value: "Cutting" },
-  { label: "Stitching", value: "Stitching" },
-  { label: "Polishing", value: "Polishing" },
-  { label: "Assembly", value: "Assembly" },
-  { label: "Quality Check", value: "Quality Check" },
+  { value: "design", label: "Design / CAD" },
+  { value: "3d-print", label: "3D Print" },
+  { value: "mold-die", label: "Mold Die" },
+  { value: "wax-pieces", label: "Wax Pieces" },
+  { value: "wax-setting", label: "Wax Setting" },
+  { value: "casting", label: "Casting" },
+  { value: "filing", label: "Filing / Grinding" },
+  { value: "pre-polish", label: "Pre-Polish" },
+  { value: "hand-setting", label: "Hand Setting" },
+  { value: "polishing", label: "Polishing" },
+  { value: "plating", label: "Plating" },
+  { value: "final-qc", label: "Final Quality Check" },
+  { value: "hallmarking", label: "Hallmarking" },
+  { value: "laser-soldering", label: "Laser Soldering" },
+  { value: "final-packaging", label: "Final Packaging" },
 ]
 
 export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData }) {
