@@ -70,25 +70,70 @@ function ProductSheetContent() {
   const [materialSkuLocation, setMaterialSkuLocation] = useState('')
   const [dropdown1, setDropdown1] = useState('')
   const [weightValue, setWeightValue] = useState('')
-  const [weightUnit, setWeightUnit] = useState('')
+  const [weightUnit, setWeightUnit] = useState('cts')
   const [dropdown2, setDropdown2] = useState('')
   const [dropdown3, setDropdown3] = useState('')
+  const [collectionsList, setCollectionsList] = useState([])
+  const [isAddCollectionOpen, setIsAddCollectionOpen] = useState(false)
+  const [newCollectionName, setNewCollectionName] = useState('')
+  const [addCollectionError, setAddCollectionError] = useState('')
+  const [materialsList, setMaterialsList] = useState([])
+  const [isAddMaterialOpen, setIsAddMaterialOpen] = useState(false)
+  const [newMaterialName, setNewMaterialName] = useState('')
+  const [addMaterialError, setAddMaterialError] = useState('')
+  const [categoriesList, setCategoriesList] = useState([])
+  const [isAddCategoryOpen, setIsAddCategoryOpen] = useState(false)
+  const [newCategoryName, setNewCategoryName] = useState('')
+  const [addCategoryError, setAddCategoryError] = useState('')
+
+  // Dynamic table columns
+  const DEFAULT_LIVE_STOCK_COLS = [
+    { key: 'wax_piece', label: 'Wax Piece' },
+    { key: 'wax_setting', label: 'Wax Setting' },
+    { key: 'casting', label: 'Casting' },
+    { key: 'filling', label: 'Filling' },
+    { key: 'pre_polish', label: 'Pre Polish' },
+    { key: 'setting', label: 'Setting' },
+    { key: 'final_polish', label: 'Final Polish' },
+    { key: 'ready_for_plating', label: 'Ready for Plating' },
+  ]
+  const DEFAULT_STONE_INFO_COLS = [
+    { key: 'type', label: 'Type' },
+    { key: 'species', label: 'Species' },
+    { key: 'variety', label: 'Variety' },
+    { key: 'color', label: 'Color' },
+    { key: 'cut', label: 'Cut' },
+    { key: 'shape', label: 'Shape' },
+    { key: 'length', label: 'Length' },
+    { key: 'width', label: 'Width' },
+    { key: 'height', label: 'Height' },
+    { key: 'qty', label: 'Qty' },
+  ]
+  const DEFAULT_PLATING_INFO_COLS = [
+    { key: 'plating_type', label: 'Plating Type' },
+    { key: 'plating_color', label: 'Plating Color' },
+  ]
+  const [liveStockCols, setLiveStockCols] = useState(DEFAULT_LIVE_STOCK_COLS)
+  const [stoneInfoCols, setStoneInfoCols] = useState(DEFAULT_STONE_INFO_COLS)
+  const [platingInfoCols, setPlatingInfoCols] = useState(DEFAULT_PLATING_INFO_COLS)
+  const [colMgmtOpen, setColMgmtOpen] = useState(null) // 'live_stock' | 'stone_info' | 'plating_info' | null
+  const [colMgmtAnchor, setColMgmtAnchor] = useState(null) // { tableType, colKey }
+  const [newColLabel, setNewColLabel] = useState('')
+  const [newColInsertDir, setNewColInsertDir] = useState('after') // 'before' | 'after'
+  const [isAddColOpen, setIsAddColOpen] = useState(false)
+  const [addColTableType, setAddColTableType] = useState('')
+  const [addColAnchorKey, setAddColAnchorKey] = useState('')
+  const [addColDir, setAddColDir] = useState('after')
+
   const [settingType, setSettingType] = useState('')
   const [enamelType, setEnamelType] = useState('')
   const [activeChannels, setActiveChannels] = useState([])
   const [isChannelDropdownOpen, setIsChannelDropdownOpen] = useState(false)
   const [shopifyStatus, setShopifyStatus] = useState('active')
   const [isStatusDropdownOpen, setIsStatusDropdownOpen] = useState(false)
-
-  const channelOptions = [
-    'Amazon',
-    'eBay',
-    'Shopify',
-    'Etsy',
-    'Website',
-    'Wholesale',
-    'Retail Store'
-  ]
+  const [channelOptions, setChannelOptions] = useState([])
+  const [newChannelName, setNewChannelName] = useState('')
+  const [isAddingChannel, setIsAddingChannel] = useState(false)
 
   const colorOptions = [
     'BLACK',
@@ -223,6 +268,167 @@ function ProductSheetContent() {
       .catch(() => {})
   }, [])
 
+  const fetchCollections = useCallback(() => {
+    fetch('/frontend/api/collections', { cache: 'no-store' })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.data) setCollectionsList(data.data.map((c) => c.name))
+      })
+      .catch(() => {})
+  }, [])
+
+  useEffect(() => { fetchCollections() }, [fetchCollections])
+
+  const handleAddCollection = useCallback(async () => {
+    const name = newCollectionName.trim()
+    if (!name) { setAddCollectionError('Collection name cannot be empty.'); return }
+    const res = await fetch('/frontend/api/collections', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name }),
+    })
+    const data = await res.json()
+    if (!res.ok) {
+      setAddCollectionError(data?.name?.[0] || 'Failed to add collection.')
+      return
+    }
+    setNewCollectionName('')
+    setAddCollectionError('')
+    setIsAddCollectionOpen(false)
+    fetchCollections()
+  }, [newCollectionName, fetchCollections])
+
+  const fetchMaterials = useCallback(() => {
+    fetch('/frontend/api/materials', { cache: 'no-store' })
+      .then((res) => res.json())
+      .then((data) => { if (data?.data) setMaterialsList(data.data.map((m) => m.name)) })
+      .catch(() => {})
+  }, [])
+
+  useEffect(() => { fetchMaterials() }, [fetchMaterials])
+
+  const handleAddMaterial = useCallback(async () => {
+    const name = newMaterialName.trim()
+    if (!name) { setAddMaterialError('Material name cannot be empty.'); return }
+    const res = await fetch('/frontend/api/materials', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name }),
+    })
+    const data = await res.json()
+    if (!res.ok) { setAddMaterialError(data?.name?.[0] || 'Failed to add material.'); return }
+    setNewMaterialName('')
+    setAddMaterialError('')
+    setIsAddMaterialOpen(false)
+    fetchMaterials()
+  }, [newMaterialName, fetchMaterials])
+
+  const fetchCategories = useCallback(() => {
+    fetch('/frontend/api/categories', { cache: 'no-store' })
+      .then((res) => res.json())
+      .then((data) => { if (data?.data) setCategoriesList(data.data.map((c) => c.name)) })
+      .catch(() => {})
+  }, [])
+
+  useEffect(() => { fetchCategories() }, [fetchCategories])
+
+  const handleAddCategory = useCallback(async () => {
+    const name = newCategoryName.trim()
+    if (!name) { setAddCategoryError('Category name cannot be empty.'); return }
+    const res = await fetch('/frontend/api/categories', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name }),
+    })
+    const data = await res.json()
+    if (!res.ok) { setAddCategoryError(data?.name?.[0] || 'Failed to add category.'); return }
+    setNewCategoryName('')
+    setAddCategoryError('')
+    setIsAddCategoryOpen(false)
+    fetchCategories()
+  }, [newCategoryName, fetchCategories])
+
+  const fetchChannels = useCallback(() => {
+    fetch('/frontend/api/channels', { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((data) => { if (data?.data) setChannelOptions(data.data.map((c) => c.name)) })
+      .catch(() => {})
+  }, [])
+
+  useEffect(() => { fetchChannels() }, [fetchChannels])
+
+  const handleAddChannel = useCallback(async () => {
+    const name = newChannelName.trim()
+    if (!name) return
+    const res = await fetch('/frontend/api/channels', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name }),
+    })
+    const data = await res.json()
+    if (!res.ok) return
+    setNewChannelName('')
+    setIsAddingChannel(false)
+    fetchChannels()
+  }, [newChannelName, fetchChannels])
+
+  const fetchTableCols = useCallback(() => {
+    fetch('/frontend/api/table-columns', { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((data) => {
+        if (!data?.data) return
+        const byCols = (type) =>
+          data.data
+            .filter((c) => c.table_type === type)
+            .sort((a, b) => a.order - b.order)
+            .map((c) => ({ key: c.key, label: c.label, id: c.id }))
+        const ls = byCols('live_stock'); if (ls.length) setLiveStockCols(ls)
+        const si = byCols('stone_info'); if (si.length) setStoneInfoCols(si)
+        const pi = byCols('plating_info'); if (pi.length) setPlatingInfoCols(pi)
+      })
+      .catch(() => {})
+  }, [])
+
+  useEffect(() => { fetchTableCols() }, [fetchTableCols])
+
+  const handleAddColumn = useCallback(async () => {
+    const label = newColLabel.trim()
+    if (!label) return
+    const key = label.toLowerCase().replace(/[^a-z0-9]+/g, '_')
+    const setCols = addColTableType === 'live_stock' ? setLiveStockCols
+      : addColTableType === 'stone_info' ? setStoneInfoCols : setPlatingInfoCols
+    const getCols = addColTableType === 'live_stock' ? liveStockCols
+      : addColTableType === 'stone_info' ? stoneInfoCols : platingInfoCols
+    const anchorIdx = getCols.findIndex((c) => c.key === addColAnchorKey)
+    const insertIdx = addColDir === 'after' ? anchorIdx + 1 : anchorIdx
+    const newCols = [...getCols]
+    newCols.splice(insertIdx, 0, { key, label })
+    // Persist to backend
+    await fetch('/frontend/api/table-columns', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        table_type: addColTableType,
+        key,
+        label,
+        order: insertIdx,
+      }),
+    })
+    // Re-fetch to get IDs and correct order
+    fetchTableCols()
+    setNewColLabel('')
+    setIsAddColOpen(false)
+  }, [newColLabel, addColTableType, addColAnchorKey, addColDir, liveStockCols, stoneInfoCols, platingInfoCols, fetchTableCols])
+
+  const handleDeleteColumn = useCallback(async (tableType, colKey) => {
+    const getCols = tableType === 'live_stock' ? liveStockCols
+      : tableType === 'stone_info' ? stoneInfoCols : platingInfoCols
+    const col = getCols.find((c) => c.key === colKey)
+    if (!col?.id) return
+    await fetch(`/frontend/api/table-columns?id=${col.id}`, { method: 'DELETE' })
+    fetchTableCols()
+  }, [liveStockCols, stoneInfoCols, platingInfoCols, fetchTableCols])
+
   const resetProductForm = useCallback(() => {
     setProductImages([])
     setPrimaryImageIndex(0)
@@ -349,7 +555,7 @@ function ProductSheetContent() {
         setMaterial(product.material || '')
         setDropdown1(product.material || '')
         setWeightValue(product.weight || '')
-        setWeightUnit('')
+        setWeightUnit(product.weightUnit || product.weight_unit || 'cts')
         setDropdown2(product.category || '')
         setDropdown3(product.collection || '')
         setSettingType(product.setting_type || '')
@@ -1238,7 +1444,7 @@ function ProductSheetContent() {
     setMaterial(product.material || '')
     setDropdown1(product.material || '')
     setWeightValue(product.weight || '')
-    setWeightUnit('')
+    setWeightUnit(product.weightUnit || product.weight_unit || 'cts')
     setDropdown2(product.category || '')
     setDropdown3(product.collection || '')
     setSettingType(product.setting_type || '')
@@ -1617,18 +1823,16 @@ function ProductSheetContent() {
                   <div className="font-semibold text-sm mb-1">Material</div>
                   <select value={dropdown1} onChange={(e) => setDropdown1(e.target.value)} className="w-full bg-transparent outline-none text-sm border border-soft-border rounded px-2 py-1">
                     <option value="">Select...</option>
-                    <option value="Silver">Silver</option>
-                    <option value="Gold">Gold</option>
-                    <option value="Brass">Brass</option>
-                    <option value="Copper">Copper</option>
+                    {materialsList.map((m) => <option key={m} value={m}>{m}</option>)}
                   </select>
+                  <button type="button" onClick={() => { setIsAddMaterialOpen(true); setNewMaterialName(''); setAddMaterialError('') }} className="mt-1 text-xs text-trust-blue underline">+ Add Material</button>
                 </div>
                 <div className="flex-1 bg-white border-2 border-soft-border rounded-xl shadow-sm px-2 py-1">
                   <div className="font-semibold text-sm mb-1">Weight</div>
                   <div className="flex gap-1">
                     <input type="text" placeholder="Value" value={weightValue} onChange={(e) => setWeightValue(e.target.value)} className="flex-1 bg-transparent outline-none text-sm border border-soft-border rounded px-2 py-1"/>
                     <select value={weightUnit} onChange={(e) => setWeightUnit(e.target.value)} className="flex-1 bg-transparent outline-none text-sm border border-soft-border rounded px-2 py-1">
-                      <option value="">Unit</option>
+                      <option value="cts">cts</option>
                       <option value="kg">kg</option>
                       <option value="lbs">lbs</option>
                       <option value="grams">grams</option>
@@ -1643,22 +1847,25 @@ function ProductSheetContent() {
                   <div className="font-semibold text-sm mb-1">Category</div>
                   <select value={dropdown2} onChange={(e) => setDropdown2(e.target.value)} className="w-full bg-transparent outline-none text-sm border border-soft-border rounded px-2 py-1">
                     <option value="">Select...</option>
-                    <option value="Ring">Ring</option>
-                    <option value="Necklace">Necklace</option>
-                    <option value="Bracelet">Bracelet</option>
-                    <option value="Earring">Earring</option>
-                    <option value="Pendant">Pendant</option>
+                    {categoriesList.map((c) => <option key={c} value={c}>{c}</option>)}
                   </select>
+                  <button type="button" onClick={() => { setIsAddCategoryOpen(true); setNewCategoryName(''); setAddCategoryError('') }} className="mt-1 text-xs text-trust-blue underline">+ Add Category</button>
                 </div>
                 <div className="flex-1 bg-white border-2 border-soft-border rounded-xl shadow-sm px-2 py-1">
                   <div className="font-semibold text-sm mb-1">Collection</div>
                   <select value={dropdown3} onChange={(e) => setDropdown3(e.target.value)} className="w-full bg-transparent outline-none text-sm border border-soft-border rounded px-2 py-1">
                     <option value="">Select...</option>
-                    <option value="Classic">Classic</option>
-                    <option value="Modern">Modern</option>
-                    <option value="Vintage">Vintage</option>
-                    <option value="Contemporary">Contemporary</option>
+                    {collectionsList.map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
                   </select>
+                  <button
+                    type="button"
+                    onClick={() => { setIsAddCollectionOpen(true); setNewCollectionName(''); setAddCollectionError('') }}
+                    className="mt-1 text-xs text-trust-blue underline"
+                  >
+                    + Add Collection
+                  </button>
                 </div>
               </div>
             </div>
@@ -1738,7 +1945,7 @@ function ProductSheetContent() {
                       </svg>
                     </div>
                     {isChannelDropdownOpen && (
-                      <div className="absolute z-10 mt-1 w-full bg-white border border-soft-border rounded shadow-lg max-h-40 overflow-y-auto">
+                      <div className="absolute z-10 mt-1 w-full bg-white border border-soft-border rounded shadow-lg max-h-52 overflow-y-auto">
                         {channelOptions.map(channel => (
                           <div
                             key={channel}
@@ -1756,6 +1963,30 @@ function ProductSheetContent() {
                             {channel}
                           </div>
                         ))}
+                        <div className="border-t border-soft-border">
+                          {isAddingChannel ? (
+                            <div className="flex items-center gap-1 px-2 py-1">
+                              <input
+                                autoFocus
+                                type="text"
+                                value={newChannelName}
+                                onChange={(e) => setNewChannelName(e.target.value)}
+                                onKeyDown={(e) => { if (e.key === 'Enter') handleAddChannel(); if (e.key === 'Escape') { setIsAddingChannel(false); setNewChannelName('') } }}
+                                placeholder="Channel name..."
+                                className="flex-1 text-sm border border-soft-border rounded px-1 py-0.5 outline-none focus:border-trust-blue"
+                              />
+                              <button onClick={handleAddChannel} className="text-xs text-white bg-trust-blue px-2 py-0.5 rounded hover:bg-trust-blue/80">Add</button>
+                              <button onClick={() => { setIsAddingChannel(false); setNewChannelName('') }} className="text-xs text-cool-gray hover:text-danger">✕</button>
+                            </div>
+                          ) : (
+                            <div
+                              onClick={(e) => { e.stopPropagation(); setIsAddingChannel(true) }}
+                              className="px-2 py-1.5 text-sm text-trust-blue cursor-pointer hover:bg-cloud-gray flex items-center gap-1"
+                            >
+                              <span className="font-bold">+</span> Add Channel
+                            </div>
+                          )}
+                        </div>
                       </div>
                     )}
                   </div>
@@ -1928,66 +2159,67 @@ function ProductSheetContent() {
         <h2 className="text-sm font-semibold mb-1.5 text-center text-warning">LIVE STOCK SITUATION</h2>
         <div className="flex gap-2 items-start">
           {/* Main Live Stock Table - 80% */}
-          <div className="flex-shrink-0 bg-white border border-soft-border rounded-xl overflow-hidden" style={{width: '80%'}}>
+          <div className="flex-shrink-0 bg-white border border-soft-border rounded-xl" style={{width: '80%'}}>
             <table className="w-full table-fixed text-sm border-collapse text-center">
               <thead>
                 <tr className="bg-[#dce8f5]">
-                  <th className="border border-soft-border px-1 py-1 text-left font-semibold text-midnight-ink w-36 whitespace-nowrap"></th>
-                  <th className="border border-soft-border px-0.5 py-1 font-semibold text-midnight-ink">Wax Piece</th>
-                  <th className="border border-soft-border px-0.5 py-1 font-semibold text-midnight-ink">Wax Setting</th>
-                  <th className="border border-soft-border px-0.5 py-1 font-semibold text-midnight-ink">Casting</th>
-                  <th className="border border-soft-border px-0.5 py-1 font-semibold text-midnight-ink">Filling</th>
-                  <th className="border border-soft-border px-0.5 py-1 font-semibold text-midnight-ink">Pre Polish</th>
-                  <th className="border border-soft-border px-0.5 py-1 font-semibold text-midnight-ink">Setting</th>
-                  <th className="border border-soft-border px-0.5 py-1 font-semibold text-midnight-ink">Final Polish</th>
-                  <th className="border border-soft-border px-0.5 py-1 font-semibold text-midnight-ink">Ready for Plating</th>
+                  <th className="border border-soft-border px-1 py-1 text-left font-semibold text-midnight-ink w-36 whitespace-nowrap rounded-tl-xl"></th>
+                  {liveStockCols.map((col, colIdx) => {
+                    const menuOpen = colMgmtAnchor?.tableType === 'live_stock' && colMgmtAnchor?.colKey === col.key
+                    const isLast = colIdx === liveStockCols.length - 1
+                    return (
+                    <th key={col.key} className={`border border-soft-border px-0.5 py-1 font-semibold text-midnight-ink text-center relative${isLast ? ' rounded-tr-xl' : ''}`}>
+                      <span className="block truncate text-xs pr-5 text-center">{col.label}</span>
+                      {/* Three-dot menu trigger */}
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); setColMgmtAnchor(menuOpen ? null : { tableType: 'live_stock', colKey: col.key }) }}
+                        className="absolute right-0.5 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center rounded hover:bg-slate-200 text-cool-gray hover:text-midnight-ink transition-colors text-base leading-none"
+                        title="Column options"
+                      >⋮</button>
+                      {/* Dropdown — rendered in a portal-like fixed layer via high z-index */}
+                      {menuOpen && (
+                        <>
+                          <div className="fixed inset-0 z-40" onClick={() => setColMgmtAnchor(null)} />
+                          <div className="absolute right-0 top-full z-50 mt-1 w-44 bg-white border border-slate-200 rounded-lg shadow-xl py-1 text-left" onClick={(e) => e.stopPropagation()}>
+                            <button type="button" className="flex items-center gap-2 w-full px-3 py-2 text-xs hover:bg-slate-50 text-midnight-ink" onClick={() => { setAddColTableType('live_stock'); setAddColAnchorKey(col.key); setAddColDir('before'); setColMgmtAnchor(null); setIsAddColOpen(true) }}>
+                              <span className="text-base">←</span> Insert column left
+                            </button>
+                            <button type="button" className="flex items-center gap-2 w-full px-3 py-2 text-xs hover:bg-slate-50 text-midnight-ink" onClick={() => { setAddColTableType('live_stock'); setAddColAnchorKey(col.key); setAddColDir('after'); setColMgmtAnchor(null); setIsAddColOpen(true) }}>
+                              <span className="text-base">→</span> Insert column right
+                            </button>
+                            <div className="border-t border-slate-200 my-1" />
+                            <button type="button" className="flex items-center gap-2 w-full px-3 py-2 text-xs hover:bg-red-50 text-red-500" onClick={() => { handleDeleteColumn('live_stock', col.key); setColMgmtAnchor(null) }}>
+                              <span className="text-base">🗑</span> Delete
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </th>
+                  )})}
                 </tr>
               </thead>
               <tbody>
-                <tr>
-                  <td className="border border-soft-border px-1 py-1 font-semibold text-left text-midnight-ink bg-[#f5f8fc] whitespace-nowrap">Minimum Suggested</td>
-                  <td className="border border-soft-border p-0"><input className="w-full h-full px-1 py-1 text-sm bg-transparent outline-none text-center" value={liveStock.rawMaterial.min} onChange={(e) => updateLiveStock('rawMaterial','min', e.target.value)} /></td>
-                  <td className="border border-soft-border p-0"><input className="w-full h-full px-1 py-1 text-sm bg-transparent outline-none text-center" value={liveStock.rawSetting.min} onChange={(e) => updateLiveStock('rawSetting','min', e.target.value)} /></td>
-                  <td className="border border-soft-border p-0"><input className="w-full h-full px-1 py-1 text-sm bg-transparent outline-none text-center" value={liveStock.wipLiquidCasting.min} onChange={(e) => updateLiveStock('wipLiquidCasting','min', e.target.value)} /></td>
-                  <td className="border border-soft-border p-0"><input className="w-full h-full px-1 py-1 text-sm bg-transparent outline-none text-center" value={liveStock.filing.min} onChange={(e) => updateLiveStock('filing','min', e.target.value)} /></td>
-                  <td className="border border-soft-border p-0"><input className="w-full h-full px-1 py-1 text-sm bg-transparent outline-none text-center" value={liveStock.packing.min} onChange={(e) => updateLiveStock('packing','min', e.target.value)} /></td>
-                  <td className="border border-soft-border p-0"><input className="w-full h-full px-1 py-1 text-sm bg-transparent outline-none text-center" value={liveStock.setting.min} onChange={(e) => updateLiveStock('setting','min', e.target.value)} /></td>
-                  <td className="border border-soft-border p-0"><input className="w-full h-full px-1 py-1 text-sm bg-transparent outline-none text-center" value={liveStock.finalPolish.min} onChange={(e) => updateLiveStock('finalPolish','min', e.target.value)} /></td>
-                  <td className="border border-soft-border p-0"><input className="w-full h-full px-1 py-1 text-sm bg-transparent outline-none text-center" value={liveStock.readyForPlacing.min} onChange={(e) => updateLiveStock('readyForPlacing','min', e.target.value)} /></td>
-                </tr>
-                <tr>
-                  <td className="border border-soft-border px-1 py-1 font-semibold text-left text-midnight-ink bg-[#f5f8fc] whitespace-nowrap">Current Stock</td>
-                  <td className="border border-soft-border p-0"><input className="w-full h-full px-1 py-1 text-sm bg-transparent outline-none text-center" value={liveStock.rawMaterial.current} onChange={(e) => updateLiveStock('rawMaterial','current', e.target.value)} /></td>
-                  <td className="border border-soft-border p-0"><input className="w-full h-full px-1 py-1 text-sm bg-transparent outline-none text-center" value={liveStock.rawSetting.current} onChange={(e) => updateLiveStock('rawSetting','current', e.target.value)} /></td>
-                  <td className="border border-soft-border p-0"><input className="w-full h-full px-1 py-1 text-sm bg-transparent outline-none text-center" value={liveStock.wipLiquidCasting.current} onChange={(e) => updateLiveStock('wipLiquidCasting','current', e.target.value)} /></td>
-                  <td className="border border-soft-border p-0"><input className="w-full h-full px-1 py-1 text-sm bg-transparent outline-none text-center" value={liveStock.filing.current} onChange={(e) => updateLiveStock('filing','current', e.target.value)} /></td>
-                  <td className="border border-soft-border p-0"><input className="w-full h-full px-1 py-1 text-sm bg-transparent outline-none text-center" value={liveStock.packing.current} onChange={(e) => updateLiveStock('packing','current', e.target.value)} /></td>
-                  <td className="border border-soft-border p-0"><input className="w-full h-full px-1 py-1 text-sm bg-transparent outline-none text-center" value={liveStock.setting.current} onChange={(e) => updateLiveStock('setting','current', e.target.value)} /></td>
-                  <td className="border border-soft-border p-0"><input className="w-full h-full px-1 py-1 text-sm bg-transparent outline-none text-center" value={liveStock.finalPolish.current} onChange={(e) => updateLiveStock('finalPolish','current', e.target.value)} /></td>
-                  <td className="border border-soft-border p-0"><input className="w-full h-full px-1 py-1 text-sm bg-transparent outline-none text-center" value={liveStock.readyForPlacing.current} onChange={(e) => updateLiveStock('readyForPlacing','current', e.target.value)} /></td>
-                </tr>
-                <tr>
-                  <td className="border border-soft-border px-1 py-1 font-semibold text-left text-midnight-ink bg-[#f5f8fc] whitespace-nowrap">WIP</td>
-                  <td className="border border-soft-border p-0"><input className="w-full h-full px-1 py-1 text-sm bg-transparent outline-none text-center" value={liveStock.rawMaterial.wip} onChange={(e) => updateLiveStock('rawMaterial','wip', e.target.value)} /></td>
-                  <td className="border border-soft-border p-0"><input className="w-full h-full px-1 py-1 text-sm bg-transparent outline-none text-center" value={liveStock.rawSetting.wip} onChange={(e) => updateLiveStock('rawSetting','wip', e.target.value)} /></td>
-                  <td className="border border-soft-border p-0"><input className="w-full h-full px-1 py-1 text-sm bg-transparent outline-none text-center" value={liveStock.wipLiquidCasting.wip} onChange={(e) => updateLiveStock('wipLiquidCasting','wip', e.target.value)} /></td>
-                  <td className="border border-soft-border p-0"><input className="w-full h-full px-1 py-1 text-sm bg-transparent outline-none text-center" value={liveStock.filing.wip} onChange={(e) => updateLiveStock('filing','wip', e.target.value)} /></td>
-                  <td className="border border-soft-border p-0"><input className="w-full h-full px-1 py-1 text-sm bg-transparent outline-none text-center" value={liveStock.packing.wip} onChange={(e) => updateLiveStock('packing','wip', e.target.value)} /></td>
-                  <td className="border border-soft-border p-0"><input className="w-full h-full px-1 py-1 text-sm bg-transparent outline-none text-center" value={liveStock.setting.wip} onChange={(e) => updateLiveStock('setting','wip', e.target.value)} /></td>
-                  <td className="border border-soft-border p-0"><input className="w-full h-full px-1 py-1 text-sm bg-transparent outline-none text-center" value={liveStock.finalPolish.wip} onChange={(e) => updateLiveStock('finalPolish','wip', e.target.value)} /></td>
-                  <td className="border border-soft-border p-0"><input className="w-full h-full px-1 py-1 text-sm bg-transparent outline-none text-center" value={liveStock.readyForPlacing.wip} onChange={(e) => updateLiveStock('readyForPlacing','wip', e.target.value)} /></td>
-                </tr>
-                <tr>
-                  <td className="border border-soft-border px-1 py-1 font-semibold text-left text-midnight-ink bg-[#f5f8fc] whitespace-nowrap">Location</td>
-                  <td className="border border-soft-border p-0"><input className="w-full h-full px-1 py-1 text-sm bg-transparent outline-none text-center" value={liveStock.rawMaterial.location} onChange={(e) => updateLiveStock('rawMaterial','location', e.target.value)} /></td>
-                  <td className="border border-soft-border p-0"><input className="w-full h-full px-1 py-1 text-sm bg-transparent outline-none text-center" value={liveStock.rawSetting.location} onChange={(e) => updateLiveStock('rawSetting','location', e.target.value)} /></td>
-                  <td className="border border-soft-border p-0"><input className="w-full h-full px-1 py-1 text-sm bg-transparent outline-none text-center" value={liveStock.wipLiquidCasting.location} onChange={(e) => updateLiveStock('wipLiquidCasting','location', e.target.value)} /></td>
-                  <td className="border border-soft-border p-0"><input className="w-full h-full px-1 py-1 text-sm bg-transparent outline-none text-center" value={liveStock.filing.location} onChange={(e) => updateLiveStock('filing','location', e.target.value)} /></td>
-                  <td className="border border-soft-border p-0"><input className="w-full h-full px-1 py-1 text-sm bg-transparent outline-none text-center" value={liveStock.packing.location} onChange={(e) => updateLiveStock('packing','location', e.target.value)} /></td>
-                  <td className="border border-soft-border p-0"><input className="w-full h-full px-1 py-1 text-sm bg-transparent outline-none text-center" value={liveStock.setting.location} onChange={(e) => updateLiveStock('setting','location', e.target.value)} /></td>
-                  <td className="border border-soft-border p-0"><input className="w-full h-full px-1 py-1 text-sm bg-transparent outline-none text-center" value={liveStock.finalPolish.location} onChange={(e) => updateLiveStock('finalPolish','location', e.target.value)} /></td>
-                  <td className="border border-soft-border p-0"><input className="w-full h-full px-1 py-1 text-sm bg-transparent outline-none text-center" value={liveStock.readyForPlacing.location} onChange={(e) => updateLiveStock('readyForPlacing','location', e.target.value)} /></td>
-                </tr>
+                {['Minimum Suggested','Current Stock','WIP','Location'].map((rowLabel, ri) => {
+                  const rowField = ['min','current','wip','location'][ri]
+                  const STAGE_TO_KEY = { wax_piece:'rawMaterial', wax_setting:'rawSetting', casting:'wipLiquidCasting', filling:'filing', pre_polish:'packing', setting:'setting', final_polish:'finalPolish', ready_for_plating:'readyForPlacing' }
+                  return (
+                    <tr key={rowLabel}>
+                      <td className="border border-soft-border px-1 py-1 font-semibold text-left text-midnight-ink bg-[#f5f8fc] whitespace-nowrap">{rowLabel}</td>
+                      {liveStockCols.map((col) => {
+                        const legacyKey = STAGE_TO_KEY[col.key]
+                        const val = legacyKey ? (liveStock[legacyKey]?.[rowField] ?? '') : (liveStock[col.key]?.[rowField] ?? '')
+                        return (
+                          <td key={col.key} className="border border-soft-border p-0">
+                            <input className="w-full h-full px-1 py-1 text-sm bg-transparent outline-none text-center"
+                              value={val}
+                              onChange={(e) => updateLiveStock(legacyKey || col.key, rowField, e.target.value)} />
+                          </td>
+                        )
+                      })}
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>
@@ -2034,18 +2266,45 @@ function ProductSheetContent() {
               <table className="w-full border-2 border-soft-border table-fixed break-words">
               <thead>
                 <tr className="border-b-2 border-soft-border">
-                  {['TYPE','SPECIES','VARIETY','COLOR','CUT','SHAPE','LENGTH','WIDTH','HEIGHT','QTY'].map((h) => (
-                    <th key={h} className="px-2 py-1 text-left font-semibold text-sm border-r-2 border-soft-border bg-white break-words whitespace-nowrap">{h}</th>
-                  ))}
+                  {stoneInfoCols.map((col) => {
+                    const menuOpen = colMgmtAnchor?.tableType === 'stone_info' && colMgmtAnchor?.colKey === col.key
+                    return (
+                    <th key={col.key} className="px-2 py-1 text-center font-semibold text-sm border-r-2 border-soft-border bg-white whitespace-nowrap relative">
+                      <span className="block pr-5 text-center">{col.label.toUpperCase()}</span>
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); setColMgmtAnchor(menuOpen ? null : { tableType: 'stone_info', colKey: col.key }) }}
+                        className="absolute right-0.5 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center rounded hover:bg-slate-200 text-cool-gray hover:text-midnight-ink transition-colors text-base leading-none"
+                        title="Column options"
+                      >⋮</button>
+                      {menuOpen && (
+                        <>
+                          <div className="fixed inset-0 z-40" onClick={() => setColMgmtAnchor(null)} />
+                          <div className="absolute right-0 top-full z-50 mt-1 w-44 bg-white border border-slate-200 rounded-lg shadow-xl py-1 text-left" onClick={(e) => e.stopPropagation()}>
+                            <button type="button" className="flex items-center gap-2 w-full px-3 py-2 text-xs hover:bg-slate-50 text-midnight-ink" onClick={() => { setAddColTableType('stone_info'); setAddColAnchorKey(col.key); setAddColDir('before'); setColMgmtAnchor(null); setIsAddColOpen(true) }}>
+                              <span className="text-base">←</span> Insert column left
+                            </button>
+                            <button type="button" className="flex items-center gap-2 w-full px-3 py-2 text-xs hover:bg-slate-50 text-midnight-ink" onClick={() => { setAddColTableType('stone_info'); setAddColAnchorKey(col.key); setAddColDir('after'); setColMgmtAnchor(null); setIsAddColOpen(true) }}>
+                              <span className="text-base">→</span> Insert column right
+                            </button>
+                            <div className="border-t border-slate-200 my-1" />
+                            <button type="button" className="flex items-center gap-2 w-full px-3 py-2 text-xs hover:bg-red-50 text-red-500" onClick={() => { handleDeleteColumn('stone_info', col.key); setColMgmtAnchor(null) }}>
+                              <span className="text-base">🗑</span> Delete
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </th>
+                  )})}
                   <th className="w-6 bg-white"></th>
                 </tr>
               </thead>
               <tbody>
                 {stoneInfo.map((stone, index) => (
                   <tr key={stone.id} className={index < stoneInfo.length - 1 ? 'border-b-2 border-soft-border' : ''}>
-                    {['type','species','variety','color','cut','shape','length','width','height','qty'].map((f) => (
-                      <td key={f} className="px-2 py-1 border-r-2 border-soft-border bg-white">
-                        <input type="text" value={stone[f]} onChange={(e) => updateStoneInfo(stone.id, f, e.target.value)} className="w-full bg-transparent outline-none text-sm min-w-[60px]"/>
+                    {stoneInfoCols.map((col) => (
+                      <td key={col.key} className="px-2 py-1 border-r-2 border-soft-border bg-white">
+                        <input type="text" value={stone[col.key] ?? ''} onChange={(e) => updateStoneInfo(stone.id, col.key, e.target.value)} className="w-full bg-transparent outline-none text-sm min-w-[60px]"/>
                       </td>
                     ))}
                     <td className="w-4 px-2 py-1 bg-white text-center" style={{maxWidth: '1.5rem'}}>
@@ -2071,26 +2330,47 @@ function ProductSheetContent() {
               <table className="w-full border-2 border-soft-border table-fixed break-words">
               <thead>
                 <tr className="border-b-2 border-soft-border">
-                  <th className="w-32 px-2 py-1 text-left font-semibold text-sm border-r-2 border-soft-border bg-white break-words">
-                    PLATING TYPE
-                  </th>
-                  <th className="w-32 px-2 py-1 text-left font-semibold text-sm border-r-2 border-soft-border bg-white break-words">
-                    PLATING COLOR
-                  </th>
-                  <th className="w-6 px-2 py-1 text-center font-semibold text-sm bg-white break-words">
-                    
-                  </th>
+                  {platingInfoCols.map((col) => {
+                    const menuOpen = colMgmtAnchor?.tableType === 'plating_info' && colMgmtAnchor?.colKey === col.key
+                    return (
+                    <th key={col.key} className="w-32 px-2 py-1 text-center font-semibold text-sm border-r-2 border-soft-border bg-white relative">
+                      <span className="block pr-5 text-center">{col.label.toUpperCase()}</span>
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); setColMgmtAnchor(menuOpen ? null : { tableType: 'plating_info', colKey: col.key }) }}
+                        className="absolute right-0.5 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center rounded hover:bg-slate-200 text-cool-gray hover:text-midnight-ink transition-colors text-base leading-none"
+                        title="Column options"
+                      >⋮</button>
+                      {menuOpen && (
+                        <>
+                          <div className="fixed inset-0 z-40" onClick={() => setColMgmtAnchor(null)} />
+                          <div className="absolute right-0 top-full z-50 mt-1 w-44 bg-white border border-slate-200 rounded-lg shadow-xl py-1 text-left" onClick={(e) => e.stopPropagation()}>
+                            <button type="button" className="flex items-center gap-2 w-full px-3 py-2 text-xs hover:bg-slate-50 text-midnight-ink" onClick={() => { setAddColTableType('plating_info'); setAddColAnchorKey(col.key); setAddColDir('before'); setColMgmtAnchor(null); setIsAddColOpen(true) }}>
+                              <span className="text-base">←</span> Insert column left
+                            </button>
+                            <button type="button" className="flex items-center gap-2 w-full px-3 py-2 text-xs hover:bg-slate-50 text-midnight-ink" onClick={() => { setAddColTableType('plating_info'); setAddColAnchorKey(col.key); setAddColDir('after'); setColMgmtAnchor(null); setIsAddColOpen(true) }}>
+                              <span className="text-base">→</span> Insert column right
+                            </button>
+                            <div className="border-t border-slate-200 my-1" />
+                            <button type="button" className="flex items-center gap-2 w-full px-3 py-2 text-xs hover:bg-red-50 text-red-500" onClick={() => { handleDeleteColumn('plating_info', col.key); setColMgmtAnchor(null) }}>
+                              <span className="text-base">🗑</span> Delete
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </th>
+                  )})}
+                  <th className="w-6 px-2 py-1 text-center font-semibold text-sm bg-white"></th>
                 </tr>
               </thead>
               <tbody>
                 {platingType.map((row, index) => (
                   <tr key={row.id} className={index < platingType.length - 1 ? 'border-b-2 border-soft-border' : ''}>
-                    <td className="w-32 px-2 py-1 border-r-2 border-soft-border bg-white break-words">
-                      <input type="text" value={row.col1} onChange={(e) => updatePlatingType(row.id, 'col1', e.target.value)} className="w-full bg-transparent outline-none text-sm"/>
-                    </td>
-                    <td className="w-32 px-2 py-1 border-r-2 border-soft-border bg-white">
-                      <input type="text" value={row.col2} onChange={(e) => updatePlatingType(row.id, 'col2', e.target.value)} className="w-full bg-transparent outline-none text-sm"/>
-                    </td>
+                    {platingInfoCols.map((col, ci) => (
+                      <td key={col.key} className="w-32 px-2 py-1 border-r-2 border-soft-border bg-white break-words">
+                        <input type="text" value={row[col.key] ?? row[`col${ci+1}`] ?? ''} onChange={(e) => updatePlatingType(row.id, col.key, e.target.value)} className="w-full bg-transparent outline-none text-sm"/>
+                      </td>
+                    ))}
                     <td className="w-6 px-2 py-1 bg-white text-center">
                       <button type="button" onClick={() => deletePlatingType(row.id)} className="text-danger hover:text-danger-dark transition-colors">
                         <Trash2 className="h-3 w-3" />
@@ -2466,6 +2746,115 @@ function ProductSheetContent() {
         </div>
       </div>
 
+      {/* Add Collection Dialog */}
+      {isAddCollectionOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-[200] flex items-center justify-center">
+          <div className="bg-white rounded-lg p-6 w-80 shadow-xl">
+            <h3 className="text-lg font-bold mb-3">Add New Collection</h3>
+            <input
+              type="text"
+              value={newCollectionName}
+              onChange={(e) => setNewCollectionName(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleAddCollection()}
+              placeholder="Collection name"
+              className="w-full border border-soft-border rounded px-3 py-2 text-sm mb-1 outline-none focus:border-trust-blue"
+              autoFocus
+            />
+            {addCollectionError && <p className="text-red-500 text-xs mb-2">{addCollectionError}</p>}
+            <div className="flex gap-2 mt-3 justify-end">
+              <button
+                onClick={() => setIsAddCollectionOpen(false)}
+                className="px-4 py-1.5 text-sm rounded border border-soft-border"
+              >Cancel</button>
+              <button
+                onClick={handleAddCollection}
+                className="px-4 py-1.5 text-sm rounded bg-trust-blue text-white"
+              >Add</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Material Dialog */}
+      {isAddMaterialOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-[200] flex items-center justify-center">
+          <div className="bg-white rounded-lg p-6 w-80 shadow-xl">
+            <h3 className="text-lg font-bold mb-3">Add New Material</h3>
+            <input
+              type="text"
+              value={newMaterialName}
+              onChange={(e) => setNewMaterialName(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleAddMaterial()}
+              placeholder="Material name"
+              className="w-full border border-soft-border rounded px-3 py-2 text-sm mb-1 outline-none focus:border-trust-blue"
+              autoFocus
+            />
+            {addMaterialError && <p className="text-red-500 text-xs mb-2">{addMaterialError}</p>}
+            <div className="flex gap-2 mt-3 justify-end">
+              <button onClick={() => setIsAddMaterialOpen(false)} className="px-4 py-1.5 text-sm rounded border border-soft-border">Cancel</button>
+              <button onClick={handleAddMaterial} className="px-4 py-1.5 text-sm rounded bg-trust-blue text-white">Add</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Category Dialog */}
+      {isAddCategoryOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-[200] flex items-center justify-center">
+          <div className="bg-white rounded-lg p-6 w-80 shadow-xl">
+            <h3 className="text-lg font-bold mb-3">Add New Category</h3>
+            <input
+              type="text"
+              value={newCategoryName}
+              onChange={(e) => setNewCategoryName(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleAddCategory()}
+              placeholder="Category name"
+              className="w-full border border-soft-border rounded px-3 py-2 text-sm mb-1 outline-none focus:border-trust-blue"
+              autoFocus
+            />
+            {addCategoryError && <p className="text-red-500 text-xs mb-2">{addCategoryError}</p>}
+            <div className="flex gap-2 mt-3 justify-end">
+              <button onClick={() => setIsAddCategoryOpen(false)} className="px-4 py-1.5 text-sm rounded border border-soft-border">Cancel</button>
+              <button onClick={handleAddCategory} className="px-4 py-1.5 text-sm rounded bg-trust-blue text-white">Add</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Column Dialog */}
+      {/* Close column menu on outside click */}
+      {colMgmtAnchor && (
+        <div className="fixed inset-0 z-40" onClick={() => setColMgmtAnchor(null)} />
+      )}
+
+      {isAddColOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-40 z-[200] flex items-center justify-center">
+          <div className="bg-white rounded-xl p-6 w-80 shadow-2xl border border-soft-border">
+            <h3 className="text-base font-bold text-midnight-ink mb-1">Add Column</h3>
+            <p className="text-xs text-cool-gray mb-4 flex items-center gap-1">
+              <span className="inline-flex items-center gap-1 bg-slate-100 rounded px-2 py-0.5 font-medium text-midnight-ink">
+                {addColDir === 'before' ? '← Before' : 'After →'}
+              </span>
+              <span className="font-semibold text-midnight-ink">{addColAnchorKey.replace(/_/g,' ')}</span>
+              <span className="text-cool-gray">in {addColTableType.replace(/_/g,' ')}</span>
+            </p>
+            <input
+              type="text"
+              value={newColLabel}
+              onChange={(e) => setNewColLabel(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleAddColumn()}
+              placeholder="Column header name"
+              className="w-full border border-soft-border rounded-lg px-3 py-2 text-sm outline-none focus:border-trust-blue focus:ring-1 focus:ring-trust-blue/20"
+              autoFocus
+            />
+            <div className="flex gap-2 mt-4 justify-end">
+              <button onClick={() => { setIsAddColOpen(false); setNewColLabel('') }} className="px-4 py-1.5 text-sm rounded-lg border border-soft-border text-midnight-ink hover:bg-slate-50">Cancel</button>
+              <button onClick={handleAddColumn} disabled={!newColLabel.trim()} className="px-4 py-1.5 text-sm rounded-lg bg-trust-blue text-white hover:bg-trust-blue/90 disabled:opacity-40">Add Column</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Modal Overlay */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-[100] flex items-center justify-center overflow-y-auto">
@@ -2561,18 +2950,16 @@ function ProductSheetContent() {
                           <div className="font-semibold text-sm mb-1">Material</div>
                           <select value={dropdown1} onChange={(e) => setDropdown1(e.target.value)} className="w-full bg-transparent outline-none text-sm border border-soft-border rounded px-2 py-1">
                             <option value="">Select...</option>
-                            <option value="Silver">Silver</option>
-                            <option value="Gold">Gold</option>
-                            <option value="Brass">Brass</option>
-                            <option value="Copper">Copper</option>
+                            {materialsList.map((m) => <option key={m} value={m}>{m}</option>)}
                           </select>
+                          <button type="button" onClick={() => { setIsAddMaterialOpen(true); setNewMaterialName(''); setAddMaterialError('') }} className="mt-1 text-xs text-trust-blue underline">+ Add Material</button>
                         </div>
                         <div className="flex-1 bg-white border-2 border-soft-border px-2 py-1">
                           <div className="font-semibold text-sm mb-1">Weight</div>
                           <div className="flex gap-1">
                             <input type="text" placeholder="Value" value={weightValue} onChange={(e) => setWeightValue(e.target.value)} className="flex-1 bg-transparent outline-none text-sm border border-soft-border rounded px-2 py-1"/>
                             <select value={weightUnit} onChange={(e) => setWeightUnit(e.target.value)} className="flex-1 bg-transparent outline-none text-sm border border-soft-border rounded px-2 py-1">
-                              <option value="">Unit</option>
+                              <option value="cts">cts</option>
                               <option value="kg">kg</option>
                               <option value="lbs">lbs</option>
                               <option value="grams">grams</option>
@@ -2587,22 +2974,25 @@ function ProductSheetContent() {
                           <div className="font-semibold text-sm mb-1">Category</div>
                           <select value={dropdown2} onChange={(e) => setDropdown2(e.target.value)} className="w-full bg-transparent outline-none text-sm border border-soft-border rounded px-2 py-1">
                             <option value="">Select...</option>
-                            <option value="Ring">Ring</option>
-                            <option value="Necklace">Necklace</option>
-                            <option value="Bracelet">Bracelet</option>
-                            <option value="Earring">Earring</option>
-                            <option value="Pendant">Pendant</option>
+                            {categoriesList.map((c) => <option key={c} value={c}>{c}</option>)}
                           </select>
+                          <button type="button" onClick={() => { setIsAddCategoryOpen(true); setNewCategoryName(''); setAddCategoryError('') }} className="mt-1 text-xs text-trust-blue underline">+ Add Category</button>
                         </div>
                         <div className="flex-1 bg-white border-2 border-soft-border px-2 py-1">
                           <div className="font-semibold text-sm mb-1">Collection</div>
                           <select value={dropdown3} onChange={(e) => setDropdown3(e.target.value)} className="w-full bg-transparent outline-none text-sm border border-soft-border rounded px-2 py-1">
                             <option value="">Select...</option>
-                            <option value="Classic">Classic</option>
-                            <option value="Modern">Modern</option>
-                            <option value="Vintage">Vintage</option>
-                            <option value="Contemporary">Contemporary</option>
+                            {collectionsList.map((c) => (
+                              <option key={c} value={c}>{c}</option>
+                            ))}
                           </select>
+                          <button
+                            type="button"
+                            onClick={() => { setIsAddCollectionOpen(true); setNewCollectionName(''); setAddCollectionError('') }}
+                            className="mt-1 text-xs text-trust-blue underline"
+                          >
+                            + Add Collection
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -2682,7 +3072,7 @@ function ProductSheetContent() {
                               </svg>
                             </div>
                             {isChannelDropdownOpen && (
-                              <div className="absolute z-10 mt-1 w-full bg-white border border-soft-border rounded shadow-lg max-h-40 overflow-y-auto">
+                              <div className="absolute z-10 mt-1 w-full bg-white border border-soft-border rounded shadow-lg max-h-52 overflow-y-auto">
                                 {channelOptions.map(channel => (
                                   <div
                                     key={channel}
@@ -2700,6 +3090,30 @@ function ProductSheetContent() {
                                     {channel}
                                   </div>
                                 ))}
+                                <div className="border-t border-soft-border">
+                                  {isAddingChannel ? (
+                                    <div className="flex items-center gap-1 px-2 py-1">
+                                      <input
+                                        autoFocus
+                                        type="text"
+                                        value={newChannelName}
+                                        onChange={(e) => setNewChannelName(e.target.value)}
+                                        onKeyDown={(e) => { if (e.key === 'Enter') handleAddChannel(); if (e.key === 'Escape') { setIsAddingChannel(false); setNewChannelName('') } }}
+                                        placeholder="Channel name..."
+                                        className="flex-1 text-sm border border-soft-border rounded px-1 py-0.5 outline-none focus:border-trust-blue"
+                                      />
+                                      <button onClick={handleAddChannel} className="text-xs text-white bg-trust-blue px-2 py-0.5 rounded hover:bg-trust-blue/80">Add</button>
+                                      <button onClick={() => { setIsAddingChannel(false); setNewChannelName('') }} className="text-xs text-cool-gray hover:text-danger">&#x2715;</button>
+                                    </div>
+                                  ) : (
+                                    <div
+                                      onClick={(e) => { e.stopPropagation(); setIsAddingChannel(true) }}
+                                      className="px-2 py-1.5 text-sm text-trust-blue cursor-pointer hover:bg-cloud-gray flex items-center gap-1"
+                                    >
+                                      <span className="font-bold">+</span> Add Channel
+                                    </div>
+                                  )}
+                                </div>
                               </div>
                             )}
                           </div>

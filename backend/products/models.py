@@ -2,6 +2,50 @@ from django.db import models
 from common.models import AuditModel
 
 
+class Collection(models.Model):
+	name = models.CharField(max_length=120, unique=True)
+	created_at = models.DateTimeField(auto_now_add=True)
+
+	class Meta:
+		ordering = ['name']
+
+	def __str__(self):
+		return self.name
+
+
+class Material(models.Model):
+	name = models.CharField(max_length=120, unique=True)
+	created_at = models.DateTimeField(auto_now_add=True)
+
+	class Meta:
+		ordering = ['name']
+
+	def __str__(self):
+		return self.name
+
+
+class Category(models.Model):
+	name = models.CharField(max_length=120, unique=True)
+	created_at = models.DateTimeField(auto_now_add=True)
+
+	class Meta:
+		ordering = ['name']
+
+	def __str__(self):
+		return self.name
+
+
+class Channel(models.Model):
+	name = models.CharField(max_length=120, unique=True)
+	created_at = models.DateTimeField(auto_now_add=True)
+
+	class Meta:
+		ordering = ['name']
+
+	def __str__(self):
+		return self.name
+
+
 class Product(AuditModel):
 	master_sku = models.CharField(max_length=60, unique=True)
 	designer_sku = models.CharField(max_length=60, blank=True, default='')
@@ -17,6 +61,7 @@ class Product(AuditModel):
 	# Display / metadata fields
 	material = models.CharField(max_length=120, blank=True, default='')
 	weight = models.CharField(max_length=60, blank=True, default='')
+	weight_unit = models.CharField(max_length=30, blank=True, default='cts')
 	collection = models.CharField(max_length=120, blank=True, default='')
 	setting_type = models.CharField(max_length=120, blank=True, default='')
 	enamel_type = models.CharField(max_length=120, blank=True, default='')
@@ -35,3 +80,25 @@ class Product(AuditModel):
 
 	def __str__(self):
 		return f'{self.master_sku} - {self.name}'
+
+
+TABLE_TYPE_CHOICES = [
+	('live_stock', 'Live Stock Situation'),
+	('stone_info', 'Stone Info'),
+	('plating_info', 'Plating Info'),
+]
+
+
+class TableColumnConfig(models.Model):
+	"""Global column configuration for dynamic tables (live stock, stone info, plating info)."""
+	table_type = models.CharField(max_length=40, choices=TABLE_TYPE_CHOICES)
+	key = models.CharField(max_length=80)          # internal JS key e.g. 'waxPiece'
+	label = models.CharField(max_length=120)        # display header e.g. 'Wax Piece'
+	order = models.PositiveIntegerField(default=0)
+
+	class Meta:
+		ordering = ['table_type', 'order']
+		unique_together = [('table_type', 'key')]
+
+	def __str__(self):
+		return f'{self.table_type} / {self.label}'

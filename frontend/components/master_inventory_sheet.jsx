@@ -41,9 +41,17 @@ function CompositeStockDisplay({ value }) {
 const INVENTORY_SYNC_KEY = 'inventory_sheet_updated_at';
 const INVENTORY_SYNC_EVENT = 'inventory_sheet_sync';
 
-const INVENTORY_COLUMNS = [
+const INVENTORY_COLUMNS_STATIC_PREFIX = [
   { key: '__select__', label: '' },
   { key: 'sku', label: 'Master SKU' },
+];
+const INVENTORY_COLUMNS_STATIC_SUFFIX = [
+  { key: 'finalStockSku', label: 'Final Stock SKU' },
+  { key: 'finalStockValue', label: 'Final Stock Value' },
+  { key: 'finalStockUnit', label: 'Final Stock Unit' },
+  { key: 'dieLocation', label: 'Location' },
+];
+const DEFAULT_LIVE_STOCK_COLS = [
   { key: 'waxPiece', label: 'Wax Piece' },
   { key: 'waxSetting', label: 'Wax Setting' },
   { key: 'casting', label: 'Casting' },
@@ -52,11 +60,23 @@ const INVENTORY_COLUMNS = [
   { key: 'setting', label: 'Setting' },
   { key: 'finalPolish', label: 'Final Polish' },
   { key: 'readyForPlating', label: 'Ready for Plating' },
-  { key: 'finalStockSku', label: 'Final Stock SKU' },
-  { key: 'finalStockValue', label: 'Final Stock Value' },
-  { key: 'finalStockUnit', label: 'Final Stock Unit' },
-  { key: 'dieLocation', label: 'Location' },
 ];
+// Convert snake_key from backend to camelCase frontend key
+const BACKEND_KEY_TO_FRONTEND = {
+  wax_piece: 'waxPiece', wax_setting: 'waxSetting', casting: 'casting',
+  filling: 'filling', pre_polish: 'prePolish', setting: 'setting',
+  final_polish: 'finalPolish', ready_for_plating: 'readyForPlating',
+};
+// Build full INVENTORY_COLUMNS from live_stock dynamic cols
+function buildInventoryColumns(lsCols) {
+  return [
+    ...INVENTORY_COLUMNS_STATIC_PREFIX,
+    ...lsCols,
+    ...INVENTORY_COLUMNS_STATIC_SUFFIX,
+  ];
+}
+// Legacy static for initial render
+const INVENTORY_COLUMNS = buildInventoryColumns(DEFAULT_LIVE_STOCK_COLS);
 
 // Maps frontend row field -> backend stage key stored in InventoryTransaction.stage
 const STOCK_STAGE_MAP = {
@@ -136,7 +156,7 @@ const FILTER_FIELDS = [
 const PRODUCT_FIELD_OPTIONS = {
   material: ['Silver', 'Gold', 'Brass', 'Copper'],
   category: ['Ring', 'Necklace', 'Bracelet', 'Earring', 'Pendant'],
-  collection: ['Classic', 'Modern', 'Vintage', 'Contemporary'],
+  collection: ['The Jaipur Edit', 'Aarushaa Collection', 'Janki Silver925'],
   settingType: ['wax', 'hand'],
   enamelType: ['yes', 'no'],
   shopifyStatus: ['active', 'draft', 'unlisted'],
@@ -354,6 +374,7 @@ export default function MasterInventorySheet() {
   const [visibleColumns, setVisibleColumns] = useState(
     new Set(INVENTORY_COLUMNS.map((column) => column.key))
   );
+  const [inventoryColumns, setInventoryColumns] = useState(INVENTORY_COLUMNS);
   const [selectedColumnsForAction, setSelectedColumnsForAction] = useState(new Set());
   const [isEditMode, setIsEditMode] = useState(false);
   const [editDraft, setEditDraft] = useState(new Map()); // productId -> {field: value}
@@ -374,6 +395,27 @@ export default function MasterInventorySheet() {
     }
 
     return response.json().catch(() => null);
+  }, []);
+
+  // Sync live_stock columns from backend
+  useEffect(() => {
+    fetch('/frontend/api/table-columns', { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((data) => {
+        if (!data?.data) return;
+        const ls = data.data
+          .filter((c) => c.table_type === 'live_stock')
+          .sort((a, b) => a.order - b.order);
+        if (!ls.length) return;
+        const lsCols = ls.map((c) => ({
+          key: BACKEND_KEY_TO_FRONTEND[c.key] || c.key,
+          label: c.label,
+        }));
+        const newCols = buildInventoryColumns(lsCols);
+        setInventoryColumns(newCols);
+        setVisibleColumns(new Set(newCols.map((c) => c.key)));
+      })
+      .catch(() => {});
   }, []);
 
   const loadProducts = useCallback(async () => {
@@ -569,10 +611,13 @@ export default function MasterInventorySheet() {
             .split(',')
             .map((value) => value.trim())
             .filter(Boolean);
-          return values.some((value) => selected.has(value));
+          return values.some((value) =>
+            Array.from(selected).some((s) => s.toLowerCase() === value.toLowerCase())
+          );
         }
 
-        return selected.has(String(rawValue).trim());
+        const rawLower = String(rawValue).trim().toLowerCase();
+        return Array.from(selected).some((s) => s.toLowerCase() === rawLower);
       });
 
       if (!matchesFilters) {
@@ -676,34 +721,43 @@ export default function MasterInventorySheet() {
   );
 
   const filterOptionsByField = useMemo(() => {
-    const options = {};
+    // Use a Map(lowercase -> display) per field so dedup is case-insensitive.
+    // Static options register first (title-case wins); product DB values that
+    // collide only in case are skipped.
+    const optionMaps = {};
     FILTER_FIELDS.forEach((field) => {
-      options[field.key] = new Set(PRODUCT_FIELD_OPTIONS[field.key] || []);
+      optionMaps[field.key] = new Map();
+      (PRODUCT_FIELD_OPTIONS[field.key] || []).forEach((v) =>
+        optionMaps[field.key].set(v.toLowerCase(), v)
+      );
     });
 
     products.forEach((product) => {
       FILTER_FIELDS.forEach((field) => {
         const rawValue = getFilterValue(product, field.key);
-        if (!rawValue) {
-          return;
-        }
+        if (!rawValue) return;
 
         if (field.key === 'activeChannels') {
           String(rawValue)
             .split(',')
-            .map((value) => value.trim())
+            .map((v) => v.trim())
             .filter(Boolean)
-            .forEach((value) => options[field.key].add(value));
+            .forEach((v) => {
+              if (!optionMaps[field.key].has(v.toLowerCase()))
+                optionMaps[field.key].set(v.toLowerCase(), v);
+            });
           return;
         }
 
-        options[field.key].add(String(rawValue).trim());
+        const trimmed = String(rawValue).trim();
+        if (!optionMaps[field.key].has(trimmed.toLowerCase()))
+          optionMaps[field.key].set(trimmed.toLowerCase(), trimmed);
       });
     });
 
     const sorted = {};
     FILTER_FIELDS.forEach((field) => {
-      sorted[field.key] = Array.from(options[field.key]).sort((a, b) =>
+      sorted[field.key] = Array.from(optionMaps[field.key].values()).sort((a, b) =>
         a.localeCompare(b)
       );
     });
@@ -833,7 +887,7 @@ export default function MasterInventorySheet() {
   };
 
   const visibleColumnList = useMemo(() => {
-    const columns = INVENTORY_COLUMNS.filter((column) => visibleColumns.has(column.key));
+    const columns = inventoryColumns.filter((column) => visibleColumns.has(column.key));
     if (!columns.some((column) => column.key === '__select__')) {
       return [{ key: '__select__', label: '' }, ...columns];
     }
@@ -1266,7 +1320,7 @@ export default function MasterInventorySheet() {
                 </label>
               </div>
             </div>
-            {INVENTORY_COLUMNS.filter((column) => column.key !== '__select__').map((column) => (
+            {inventoryColumns.filter((column) => column.key !== '__select__').map((column) => (
               <div key={column.key} className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3 flex-1">
                   <Checkbox

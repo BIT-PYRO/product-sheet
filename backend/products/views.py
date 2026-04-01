@@ -1,3 +1,4 @@
+import django_filters
 from django.db import transaction as db_transaction
 from drf_spectacular.utils import OpenApiExample, extend_schema_view, extend_schema
 from rest_framework import status
@@ -8,8 +9,133 @@ from rest_framework.viewsets import ModelViewSet
 
 from common.mixins import StandardizedSuccessResponseMixin
 
-from .models import Product
-from .serializers import ProductSerializer
+from .models import Category, Channel, Collection, Material, Product, TableColumnConfig
+from .serializers import CategorySerializer, ChannelSerializer, CollectionSerializer, MaterialSerializer, ProductSerializer, TableColumnConfigSerializer
+
+
+class CollectionViewSet(ModelViewSet):
+	queryset = Collection.objects.all().order_by('name')
+	serializer_class = CollectionSerializer
+	http_method_names = ['get', 'post', 'delete', 'head', 'options']
+
+	def list(self, request, *args, **kwargs):
+		queryset = self.get_queryset()
+		serializer = self.get_serializer(queryset, many=True)
+		return Response({'success': True, 'data': serializer.data})
+
+	def create(self, request, *args, **kwargs):
+		serializer = self.get_serializer(data=request.data)
+		serializer.is_valid(raise_exception=True)
+		serializer.save()
+		return Response({'success': True, 'data': serializer.data}, status=status.HTTP_201_CREATED)
+
+	def destroy(self, request, *args, **kwargs):
+		instance = self.get_object()
+		instance.delete()
+		return Response({'success': True}, status=status.HTTP_204_NO_CONTENT)
+
+
+class MaterialViewSet(ModelViewSet):
+	queryset = Material.objects.all().order_by('name')
+	serializer_class = MaterialSerializer
+	http_method_names = ['get', 'post', 'delete', 'head', 'options']
+
+	def list(self, request, *args, **kwargs):
+		serializer = self.get_serializer(self.get_queryset(), many=True)
+		return Response({'success': True, 'data': serializer.data})
+
+	def create(self, request, *args, **kwargs):
+		serializer = self.get_serializer(data=request.data)
+		serializer.is_valid(raise_exception=True)
+		serializer.save()
+		return Response({'success': True, 'data': serializer.data}, status=status.HTTP_201_CREATED)
+
+	def destroy(self, request, *args, **kwargs):
+		self.get_object().delete()
+		return Response({'success': True}, status=status.HTTP_204_NO_CONTENT)
+
+
+class CategoryViewSet(ModelViewSet):
+	queryset = Category.objects.all().order_by('name')
+	serializer_class = CategorySerializer
+	http_method_names = ['get', 'post', 'delete', 'head', 'options']
+
+	def list(self, request, *args, **kwargs):
+		serializer = self.get_serializer(self.get_queryset(), many=True)
+		return Response({'success': True, 'data': serializer.data})
+
+	def create(self, request, *args, **kwargs):
+		serializer = self.get_serializer(data=request.data)
+		serializer.is_valid(raise_exception=True)
+		serializer.save()
+		return Response({'success': True, 'data': serializer.data}, status=status.HTTP_201_CREATED)
+
+	def destroy(self, request, *args, **kwargs):
+		self.get_object().delete()
+		return Response({'success': True}, status=status.HTTP_204_NO_CONTENT)
+
+
+class ChannelViewSet(ModelViewSet):
+	queryset = Channel.objects.all().order_by('name')
+	serializer_class = ChannelSerializer
+	http_method_names = ['get', 'post', 'delete', 'head', 'options']
+
+	def list(self, request, *args, **kwargs):
+		serializer = self.get_serializer(self.get_queryset(), many=True)
+		return Response({'success': True, 'data': serializer.data})
+
+	def create(self, request, *args, **kwargs):
+		serializer = self.get_serializer(data=request.data)
+		serializer.is_valid(raise_exception=True)
+		serializer.save()
+		return Response({'success': True, 'data': serializer.data}, status=status.HTTP_201_CREATED)
+
+	def destroy(self, request, *args, **kwargs):
+		self.get_object().delete()
+		return Response({'success': True}, status=status.HTTP_204_NO_CONTENT)
+
+
+class TableColumnConfigViewSet(ModelViewSet):
+	"""CRUD for dynamic table column definitions (live_stock, stone_info, plating_info)."""
+	queryset = TableColumnConfig.objects.all().order_by('table_type', 'order')
+	serializer_class = TableColumnConfigSerializer
+	http_method_names = ['get', 'post', 'put', 'patch', 'delete', 'head', 'options']
+
+	def get_queryset(self):
+		qs = super().get_queryset()
+		table_type = self.request.query_params.get('table_type')
+		if table_type:
+			qs = qs.filter(table_type=table_type)
+		return qs
+
+	def list(self, request, *args, **kwargs):
+		serializer = self.get_serializer(self.get_queryset(), many=True)
+		return Response({'success': True, 'data': serializer.data})
+
+	def create(self, request, *args, **kwargs):
+		from django.db import models as db_models
+		table_type = request.data.get('table_type')
+		insert_order = int(request.data.get('order', 0))
+		# Shift all existing columns at or after the insertion point up by 1
+		TableColumnConfig.objects.filter(
+			table_type=table_type, order__gte=insert_order
+		).update(order=db_models.F('order') + 1)
+		serializer = self.get_serializer(data=request.data)
+		serializer.is_valid(raise_exception=True)
+		serializer.save()
+		return Response({'success': True, 'data': serializer.data}, status=status.HTTP_201_CREATED)
+
+	def update(self, request, *args, **kwargs):
+		partial = kwargs.pop('partial', False)
+		instance = self.get_object()
+		serializer = self.get_serializer(instance, data=request.data, partial=partial)
+		serializer.is_valid(raise_exception=True)
+		serializer.save()
+		return Response({'success': True, 'data': serializer.data})
+
+	def destroy(self, request, *args, **kwargs):
+		self.get_object().delete()
+		return Response({'success': True}, status=status.HTTP_204_NO_CONTENT)
 
 
 @extend_schema_view(
@@ -50,9 +176,20 @@ from .serializers import ProductSerializer
 	destroy=extend_schema(summary='Delete product', tags=['Products']),
 )
 class ProductViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
+	class ProductFilter(django_filters.FilterSet):
+		category = django_filters.CharFilter(lookup_expr='iexact')
+		master_sku = django_filters.CharFilter(lookup_expr='iexact')
+		designer_sku = django_filters.CharFilter(lookup_expr='iexact')
+		is_active = django_filters.BooleanFilter()
+
+		class Meta:
+			from .models import Product as _Product
+			model = _Product
+			fields = ['is_active', 'category', 'master_sku', 'designer_sku']
+
 	queryset = Product.objects.all().order_by('-created_at')
 	serializer_class = ProductSerializer
-	filterset_fields = ['is_active', 'category', 'master_sku', 'designer_sku']
+	filterset_class = ProductFilter
 	search_fields = ['master_sku', 'name', 'designer_sku']
 
 	def destroy(self, request, *args, **kwargs):
