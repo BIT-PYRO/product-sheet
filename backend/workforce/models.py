@@ -26,6 +26,7 @@ class WorkforceMember(AuditModel):
 	second_language = models.CharField(max_length=50, blank=True)
 	notes = models.TextField(blank=True)
 	active = models.BooleanField(default=True)
+	permissions = models.JSONField(default=dict, blank=True)
 
 	def __str__(self):
 		return f'{self.full_name} ({self.phone})'

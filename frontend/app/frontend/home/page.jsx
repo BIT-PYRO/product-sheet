@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { EnrolWorkforceForm } from '@/app/frontend/enrol-workforce/page';
 import { GenericJobModal } from '@/components/generic-job-modal';
 import DateTimeStamp from '@/components/date-time-stamp';
-import { Search, X, ArrowRight } from 'lucide-react';
+import { Search, X, ArrowRight, User, Users, Settings } from 'lucide-react';
 
 const SHEET_BLOCKS = [
   { href: '/', title: 'Product Sheet', subtitle: 'Product entry and live stock form', keywords: ['sku', 'product', 'stock', 'listing', 'material', 'weight', 'variation', 'stone', 'image', 'live stock', 'final stock', 'entry'] },
@@ -41,7 +41,9 @@ export default function HomePage() {
   const [enrollStatusMessage, setEnrollStatusMessage] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
   const searchRef = useRef(null);
+  const profileDropdownRef = useRef(null);
 
   // Live data cache — fetched once on first search focus
   const [liveData, setLiveData] = useState({ products: [], customers: [], workforce: [] });
@@ -175,6 +177,9 @@ export default function HomePage() {
       if (searchRef.current && !searchRef.current.contains(e.target)) {
         setIsSearchOpen(false);
       }
+      if (profileDropdownRef.current && !profileDropdownRef.current.contains(e.target)) {
+        setIsProfileDropdownOpen(false);
+      }
     }
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
@@ -206,18 +211,50 @@ export default function HomePage() {
           </div>
           <div className="flex items-center gap-3">
             <DateTimeStamp />
-            {/* User avatar — links to profile */}
-            <Link
-              href="/profile"
-              title="View profile"
-              className="w-9 h-9 rounded-full border-2 border-trust-blue overflow-hidden flex items-center justify-center bg-trust-blue text-white text-sm font-bold hover:opacity-90 transition shrink-0"
-            >
-              {profilePhoto ? (
-                <img src={profilePhoto} alt="Profile" className="w-full h-full object-cover" />
-              ) : (
-                <span>{getInitials()}</span>
+            {/* User avatar — opens profile dropdown */}
+            <div className="relative" ref={profileDropdownRef}>
+              <button
+                onClick={() => setIsProfileDropdownOpen(o => !o)}
+                title="Account options"
+                className="w-9 h-9 rounded-full border-2 border-trust-blue overflow-hidden flex items-center justify-center bg-trust-blue text-white text-sm font-bold hover:opacity-90 transition shrink-0"
+              >
+                {profilePhoto ? (
+                  <img src={profilePhoto} alt="Profile" className="w-full h-full object-cover" />
+                ) : (
+                  <span>{getInitials()}</span>
+                )}
+              </button>
+
+              {/* Dropdown */}
+              {isProfileDropdownOpen && (
+                <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl border border-soft-border shadow-lg z-50 py-1 overflow-hidden">
+                  <Link
+                    href="/profile"
+                    onClick={() => setIsProfileDropdownOpen(false)}
+                    className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-midnight-ink hover:bg-cloud-gray transition"
+                  >
+                    <User className="h-4 w-4 text-cool-gray" />
+                    My Profile
+                  </Link>
+                  <Link
+                    href="/manage-members"
+                    onClick={() => setIsProfileDropdownOpen(false)}
+                    className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-midnight-ink hover:bg-cloud-gray transition"
+                  >
+                    <Users className="h-4 w-4 text-cool-gray" />
+                    Manage Members
+                  </Link>
+                  <Link
+                    href="/settings"
+                    onClick={() => setIsProfileDropdownOpen(false)}
+                    className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-midnight-ink hover:bg-cloud-gray transition"
+                  >
+                    <Settings className="h-4 w-4 text-cool-gray" />
+                    Settings
+                  </Link>
+                </div>
               )}
-            </Link>
+            </div>
             <Button variant="outline" onClick={handleLogout} className="h-11 text-base font-semibold">Logout</Button>
           </div>
         </div>

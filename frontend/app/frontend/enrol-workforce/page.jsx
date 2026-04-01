@@ -481,10 +481,9 @@ export function EnrolWorkforceForm({ onEnroll, onClose, open = true, draftData =
                       </optgroup>
                     ) : (
                       <>
-                        <option value="Director">Director</option>
                         {DEPT_DATA[form.department]?.roles?.length > 0 && (
                           <optgroup label="Department Roles">
-                            {DEPT_DATA[form.department].roles.map(r => <option key={r} value={r}>{r}</option>)}
+                            {[...DEPT_DATA[form.department].roles].reverse().map(r => <option key={r} value={r}>{r}</option>)}
                           </optgroup>
                         )}
                       </>

@@ -183,7 +183,7 @@ export default function MasterWorkforceSheet() {
           category:           row.category || '',
           designation:        row.designation || '',
           workingStyle:       row.working_style || '',
-          status:             row.active ? 'Active' : 'Inactive',
+          status:             row.active ? 'Active' : 'Access Denied',
           gender:             row.gender || '',
           phone:              row.phone || '',
           whatsapp:           row.whatsapp || '',
@@ -889,7 +889,7 @@ export default function MasterWorkforceSheet() {
               <SelectContent>
                 <SelectItem value="all">All</SelectItem>
                 <SelectItem value="Active">Active</SelectItem>
-                <SelectItem value="Inactive">Inactive</SelectItem>
+                <SelectItem value="Access Denied">Access Denied</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -994,6 +994,18 @@ export default function MasterWorkforceSheet() {
                               className="border-0 p-1 text-sm h-8"
                               disabled={!canEdit}
                             />
+                          ) : column.id === 'status' ? (
+                            <div className="px-1 py-0.5">
+                              {row.status === 'Access Denied' ? (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-600">
+                                  Access Denied
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700">
+                                  Active
+                                </span>
+                              )}
+                            </div>
                           ) : (
                             <div className="text-sm text-midnight-ink whitespace-normal break-words leading-snug px-1 py-0.5">
                               {row[column.id] || '—'}
