@@ -1,6 +1,80 @@
 from rest_framework import serializers
 
-from .models import Product
+from .models import Category, Channel, Collection, Material, Product, TableColumnConfig
+
+
+class CollectionSerializer(serializers.ModelSerializer):
+    def validate_name(self, value):
+        value = value.strip()
+        if not value:
+            raise serializers.ValidationError('Name cannot be blank.')
+        qs = Collection.objects.filter(name__iexact=value)
+        if self.instance:
+            qs = qs.exclude(pk=self.instance.pk)
+        if qs.exists():
+            raise serializers.ValidationError('A collection with this name already exists.')
+        return value
+
+    class Meta:
+        model = Collection
+        fields = ['id', 'name', 'created_at']
+
+
+class MaterialSerializer(serializers.ModelSerializer):
+    def validate_name(self, value):
+        value = value.strip()
+        if not value:
+            raise serializers.ValidationError('Name cannot be blank.')
+        qs = Material.objects.filter(name__iexact=value)
+        if self.instance:
+            qs = qs.exclude(pk=self.instance.pk)
+        if qs.exists():
+            raise serializers.ValidationError('A material with this name already exists.')
+        return value
+
+    class Meta:
+        model = Material
+        fields = ['id', 'name', 'created_at']
+
+
+class CategorySerializer(serializers.ModelSerializer):
+    def validate_name(self, value):
+        value = value.strip()
+        if not value:
+            raise serializers.ValidationError('Name cannot be blank.')
+        qs = Category.objects.filter(name__iexact=value)
+        if self.instance:
+            qs = qs.exclude(pk=self.instance.pk)
+        if qs.exists():
+            raise serializers.ValidationError('A category with this name already exists.')
+        return value
+
+    class Meta:
+        model = Category
+        fields = ['id', 'name', 'created_at']
+
+
+class ChannelSerializer(serializers.ModelSerializer):
+    def validate_name(self, value):
+        value = value.strip()
+        if not value:
+            raise serializers.ValidationError('Name cannot be blank.')
+        qs = Channel.objects.filter(name__iexact=value)
+        if self.instance:
+            qs = qs.exclude(pk=self.instance.pk)
+        if qs.exists():
+            raise serializers.ValidationError('A channel with this name already exists.')
+        return value
+
+    class Meta:
+        model = Channel
+        fields = ['id', 'name', 'created_at']
+
+
+class TableColumnConfigSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TableColumnConfig
+        fields = ['id', 'table_type', 'key', 'label', 'order']
 
 
 class ProductSerializer(serializers.ModelSerializer):

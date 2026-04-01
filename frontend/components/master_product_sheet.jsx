@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Search } from 'lucide-react';
+import { Search, ChevronDown } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -31,6 +31,15 @@ import DateTimeStamp from '@/components/date-time-stamp';
 import GlobalSearchBar from '@/components/global-search-bar';
 import BulkUploadButton from '@/components/bulk-upload-button';
 import LastUpdatedFooter from '@/components/last-updated-footer';
+
+const FILTER_FIELDS_PS = [
+  { key: 'material', label: 'Material' },
+  { key: 'category', label: 'Category' },
+  { key: 'collection', label: 'Collection' },
+  { key: 'settingType', label: 'Setting Type' },
+  { key: 'enamelType', label: 'Enamel Type' },
+  { key: 'shopifyStatus', label: 'Shopify Status' },
+];
 
 export default function MasterProductSheet() {
   const PRODUCT_SHEET_SYNC_KEY = 'product_sheet_updated_at';
@@ -179,20 +188,117 @@ export default function MasterProductSheet() {
   
   // Filter states
   const [skuFilter, setSKUFilter] = useState('');
-  const [materialFilter, setMaterialFilter] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('');
-  const [collectionFilter, setCollectionFilter] = useState('');
-  const [settingTypeFilter, setSettingTypeFilter] = useState('');
-  const [enamelTypeFilter, setEnamelTypeFilter] = useState('');
-  const [shopifyStatusFilter, setShopifyStatusFilter] = useState('');
+  const [filterSelections, setFilterSelections] = useState(() =>
+    Object.fromEntries(FILTER_FIELDS_PS.map((f) => [f.key, new Set()]))
+  );
   
   // Sample data for dropdowns
-  const materialOptions = ['Gold', 'Silver', 'Brass', 'Copper', 'Mixed Metal'];
-  const categoryOptions = ['Earrings', 'Rings', 'Pendants', 'Bracelets', 'Necklaces'];
-  const collectionOptions = ['Collection 1', 'Collection 2', 'Collection 3', 'Collection 4'];
+  const [materialOptions, setMaterialOptions] = useState([]);
+  const [isAddMaterialOpen, setIsAddMaterialOpen] = useState(false);
+  const [newMaterialName, setNewMaterialName] = useState('');
+  const [addMaterialError, setAddMaterialError] = useState('');
+  const [categoryOptions, setCategoryOptions] = useState([]);
+  const [isAddCategoryOpen, setIsAddCategoryOpen] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [addCategoryError, setAddCategoryError] = useState('');
+  const [collectionOptions, setCollectionOptions] = useState([]);
+  const [isAddCollectionOpen, setIsAddCollectionOpen] = useState(false);
+  const [newCollectionName, setNewCollectionName] = useState('');
+  const [addCollectionError, setAddCollectionError] = useState('');
   const settingTypeOptions = ['Wax', 'Hand'];
   const enamelTypeOptions = ['Yes', 'No'];
   const shopifyStatusOptions = ['Active', 'Inactive', 'Draft'];
+
+  const toggleFilterSelection = (fieldKey, value) => {
+    setFilterSelections((prev) => {
+      const nextSet = new Set(prev[fieldKey] || []);
+      if (nextSet.has(value)) nextSet.delete(value);
+      else nextSet.add(value);
+      return { ...prev, [fieldKey]: nextSet };
+    });
+  };
+
+  const clearFilterSelection = (fieldKey) => {
+    setFilterSelections((prev) => ({ ...prev, [fieldKey]: new Set() }));
+  };
+
+  const fetchMaterials = useCallback(() => {
+    fetch('/frontend/api/materials', { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((data) => { if (data?.data) setMaterialOptions(data.data.map((m) => m.name)); })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => { fetchMaterials(); }, [fetchMaterials]);
+
+  const handleAddMaterial = useCallback(async () => {
+    const name = newMaterialName.trim();
+    if (!name) { setAddMaterialError('Material name cannot be empty.'); return; }
+    const res = await fetch('/frontend/api/materials', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name }),
+    });
+    const resData = await res.json();
+    if (!res.ok) { setAddMaterialError(resData?.name?.[0] || 'Failed to add material.'); return; }
+    setNewMaterialName('');
+    setAddMaterialError('');
+    setIsAddMaterialOpen(false);
+    fetchMaterials();
+  }, [newMaterialName, fetchMaterials]);
+
+  const fetchCategories = useCallback(() => {
+    fetch('/frontend/api/categories', { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((data) => { if (data?.data) setCategoryOptions(data.data.map((c) => c.name)); })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => { fetchCategories(); }, [fetchCategories]);
+
+  const handleAddCategory = useCallback(async () => {
+    const name = newCategoryName.trim();
+    if (!name) { setAddCategoryError('Category name cannot be empty.'); return; }
+    const res = await fetch('/frontend/api/categories', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name }),
+    });
+    const resData = await res.json();
+    if (!res.ok) { setAddCategoryError(resData?.name?.[0] || 'Failed to add category.'); return; }
+    setNewCategoryName('');
+    setAddCategoryError('');
+    setIsAddCategoryOpen(false);
+    fetchCategories();
+  }, [newCategoryName, fetchCategories]);
+
+  const fetchCollections = useCallback(() => {
+    fetch('/frontend/api/collections', { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((data) => { if (data?.data) setCollectionOptions(data.data.map((c) => c.name)); })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => { fetchCollections(); }, [fetchCollections]);
+
+  const handleAddCollection = useCallback(async () => {
+    const name = newCollectionName.trim();
+    if (!name) { setAddCollectionError('Collection name cannot be empty.'); return; }
+    const res = await fetch('/frontend/api/collections', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name }),
+    });
+    const resData = await res.json();
+    if (!res.ok) {
+      setAddCollectionError(resData?.name?.[0] || 'Failed to add collection.');
+      return;
+    }
+    setNewCollectionName('');
+    setAddCollectionError('');
+    setIsAddCollectionOpen(false);
+    fetchCollections();
+  }, [newCollectionName, fetchCollections]);
 
   const [data, setData] = useState([]);
 
@@ -700,6 +806,34 @@ export default function MasterProductSheet() {
   const isArchivedView = viewMode === 'archived';
   const baseData = isArchivedView ? archivedData : activeData;
 
+  const filterOptionsByField = useMemo(() => {
+    const staticOptions = {
+      material: materialOptions,
+      category: categoryOptions,
+      collection: collectionOptions,
+      settingType: settingTypeOptions,
+      enamelType: enamelTypeOptions,
+      shopifyStatus: shopifyStatusOptions,
+    };
+    const merged = {};
+    Object.keys(staticOptions).forEach((key) => {
+      // Use a Map keyed by lowercase for case-insensitive dedup.
+      // Static options take precedence (title-case is the canonical display value).
+      const seen = new Map();
+      staticOptions[key].forEach((v) => seen.set(v.toLowerCase(), v));
+      baseData.forEach((row) => {
+        const val = row[key];
+        if (val) {
+          const trimmed = String(val).trim();
+          const lower = trimmed.toLowerCase();
+          if (!seen.has(lower)) seen.set(lower, trimmed);
+        }
+      });
+      merged[key] = Array.from(seen.values()).sort((a, b) => a.localeCompare(b));
+    });
+    return merged;
+  }, [materialOptions, categoryOptions, collectionOptions, baseData]);
+
   const filteredData = useMemo(() => {
     return baseData.filter((row) => {
       const searchLower = searchTerm.trim().toLowerCase();
@@ -711,34 +845,22 @@ export default function MasterProductSheet() {
         row.material?.toLowerCase().includes(searchLower);
 
       const matchesSku = !skuFilter || row.sku?.toLowerCase().includes(skuFilter.toLowerCase());
-      const matchesMaterial = !materialFilter || row.material === materialFilter;
-      const matchesCategory = !categoryFilter || row.category === categoryFilter;
-      const matchesCollection = !collectionFilter || row.collection === collectionFilter;
-      const matchesSettingType = !settingTypeFilter || row.settingType === settingTypeFilter;
-      const matchesEnamelType = !enamelTypeFilter || row.enamelType === enamelTypeFilter;
-      const matchesShopifyStatus = !shopifyStatusFilter || row.shopifyStatus === shopifyStatusFilter;
+      const matchesFilters = FILTER_FIELDS_PS.every((field) => {
+        const selected = filterSelections[field.key];
+        if (!selected || selected.size === 0) return true;
+        const val = row[field.key];
+        if (val == null) return false;
+        const valLower = String(val).trim().toLowerCase();
+        return Array.from(selected).some((s) => s.toLowerCase() === valLower);
+      });
 
-      return (
-        matchesSearch &&
-        matchesSku &&
-        matchesMaterial &&
-        matchesCategory &&
-        matchesCollection &&
-        matchesSettingType &&
-        matchesEnamelType &&
-        matchesShopifyStatus
-      );
+      return matchesSearch && matchesSku && matchesFilters;
     });
   }, [
     baseData,
     searchTerm,
     skuFilter,
-    materialFilter,
-    categoryFilter,
-    collectionFilter,
-    settingTypeFilter,
-    enamelTypeFilter,
-    shopifyStatusFilter,
+    filterSelections,
   ]);
 
   const displayedData = filteredData;
@@ -766,6 +888,75 @@ export default function MasterProductSheet() {
 
   return (
     <div className="relative min-h-screen bg-cloud-gray flex flex-col text-midnight-ink overflow-x-hidden">
+      {/* Add Collection Dialog */}
+      <Dialog open={isAddCollectionOpen} onOpenChange={setIsAddCollectionOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Add New Collection</DialogTitle>
+          </DialogHeader>
+          <input
+            type="text"
+            className="border border-soft-border rounded px-3 py-2 text-sm w-full mb-2 focus:outline-none focus:ring-2 focus:ring-trust-blue"
+            value={newCollectionName}
+            onChange={(e) => setNewCollectionName(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleAddCollection()}
+            placeholder="Collection name"
+            autoFocus
+          />
+          {addCollectionError && <p className="text-red-500 text-xs mb-2">{addCollectionError}</p>}
+          <DialogFooter className="flex gap-2">
+            <Button variant="outline" onClick={() => setIsAddCollectionOpen(false)}>Cancel</Button>
+            <Button className="bg-trust-blue text-white hover:bg-deep-blue" onClick={handleAddCollection}>Add</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Material Dialog */}
+      <Dialog open={isAddMaterialOpen} onOpenChange={setIsAddMaterialOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Add New Material</DialogTitle>
+          </DialogHeader>
+          <input
+            type="text"
+            className="border border-soft-border rounded px-3 py-2 text-sm w-full mb-2 focus:outline-none focus:ring-2 focus:ring-trust-blue"
+            value={newMaterialName}
+            onChange={(e) => setNewMaterialName(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleAddMaterial()}
+            placeholder="Material name"
+            autoFocus
+          />
+          {addMaterialError && <p className="text-red-500 text-xs mb-2">{addMaterialError}</p>}
+          <DialogFooter className="flex gap-2">
+            <Button variant="outline" onClick={() => setIsAddMaterialOpen(false)}>Cancel</Button>
+            <Button className="bg-trust-blue text-white hover:bg-deep-blue" onClick={handleAddMaterial}>Add</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Category Dialog */}
+      <Dialog open={isAddCategoryOpen} onOpenChange={setIsAddCategoryOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Add New Category</DialogTitle>
+          </DialogHeader>
+          <input
+            type="text"
+            className="border border-soft-border rounded px-3 py-2 text-sm w-full mb-2 focus:outline-none focus:ring-2 focus:ring-trust-blue"
+            value={newCategoryName}
+            onChange={(e) => setNewCategoryName(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleAddCategory()}
+            placeholder="Category name"
+            autoFocus
+          />
+          {addCategoryError && <p className="text-red-500 text-xs mb-2">{addCategoryError}</p>}
+          <DialogFooter className="flex gap-2">
+            <Button variant="outline" onClick={() => setIsAddCategoryOpen(false)}>Cancel</Button>
+            <Button className="bg-trust-blue text-white hover:bg-deep-blue" onClick={handleAddCategory}>Add</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Manage Columns Dialog */}
       <Dialog open={isManageColumnsOpen} onOpenChange={setIsManageColumnsOpen}>
         <DialogContent className="max-w-md">
@@ -1197,109 +1388,84 @@ export default function MasterProductSheet() {
         </div>
 
       {/* Filter Row */}
-      <div className="border border-soft-border rounded-lg mb-4 bg-trust-blue/10 p-4">
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-8 gap-2">
-          {/* SKU Search */}
-          <div>
-            <label className="text-sm font-semibold text-slate-text block mb-1">SKU</label>
-            <Input
-              type="text"
-              placeholder="Enter SKU"
-              value={skuFilter}
-              onChange={(e) => setSKUFilter(e.target.value)}
-              className="h-8 text-sm p-1"
-            />
-          </div>
+      <div className="border border-soft-border rounded-lg mb-4 bg-[#dbeafe] p-3">
+        <div className="flex flex-wrap gap-2 items-center">
+          {/* SKU text filter */}
+          <Input
+            type="text"
+            placeholder="Enter SKU"
+            value={skuFilter}
+            onChange={(e) => setSKUFilter(e.target.value)}
+            className="h-8 text-sm w-36 bg-white"
+          />
 
-          {/* Material Filter */}
-          <div>
-            <label className="text-sm font-semibold text-slate-text block mb-1">MATERIAL</label>
-            <Select value={materialFilter} onValueChange={setMaterialFilter}>
-              <SelectTrigger className="h-8 text-sm">
-                <SelectValue placeholder="Select Material" />
-              </SelectTrigger>
-              <SelectContent>
-                {materialOptions.map(option => (
-                  <SelectItem key={option} value={option}>{option}</SelectItem>
+          {/* Multi-select dropdown for each filter field */}
+          {FILTER_FIELDS_PS.map((field) => (
+            <DropdownMenu key={field.key}>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className="flex items-center gap-1.5 px-3 py-1 text-sm border rounded bg-white text-midnight-ink border-trust-blue/40"
+                >
+                  <span>
+                    {field.label}
+                    {filterSelections[field.key]?.size > 0
+                      ? ` (${filterSelections[field.key].size})`
+                      : ''}
+                  </span>
+                  <ChevronDown className="h-3.5 w-3.5 opacity-60" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-56 max-h-64 overflow-y-auto p-2" onClick={(e) => e.stopPropagation()}>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-semibold">Select {field.label}</span>
+                  <button
+                    type="button"
+                    onClick={() => clearFilterSelection(field.key)}
+                    className="text-sm text-trust-blue hover:underline"
+                  >
+                    Clear
+                  </button>
+                </div>
+                {(filterOptionsByField[field.key] || []).map((option) => (
+                  <label key={option} className="flex items-center gap-2 py-1 text-sm cursor-pointer">
+                    <Checkbox
+                      checked={filterSelections[field.key]?.has(option)}
+                      onCheckedChange={() => toggleFilterSelection(field.key, option)}
+                    />
+                    <span>{option}</span>
+                  </label>
                 ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Category Filter */}
-          <div>
-            <label className="text-sm font-semibold text-slate-text block mb-1">CATEGORY</label>
-            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-              <SelectTrigger className="h-8 text-sm">
-                <SelectValue placeholder="Select Category" />
-              </SelectTrigger>
-              <SelectContent>
-                {categoryOptions.map(option => (
-                  <SelectItem key={option} value={option}>{option}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Collection Filter */}
-          <div>
-            <label className="text-sm font-semibold text-slate-text block mb-1">COLLECTION</label>
-            <Select value={collectionFilter} onValueChange={setCollectionFilter}>
-              <SelectTrigger className="h-8 text-sm">
-                <SelectValue placeholder="Select Collection" />
-              </SelectTrigger>
-              <SelectContent>
-                {collectionOptions.map(option => (
-                  <SelectItem key={option} value={option}>{option}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Setting Type Filter */}
-          <div>
-            <label className="text-sm font-semibold text-slate-text block mb-1">SETTING TYPE</label>
-            <Select value={settingTypeFilter} onValueChange={setSettingTypeFilter}>
-              <SelectTrigger className="h-8 text-sm">
-                <SelectValue placeholder="Select Setting" />
-              </SelectTrigger>
-              <SelectContent>
-                {settingTypeOptions.map(option => (
-                  <SelectItem key={option} value={option}>{option}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Enamel Type Filter */}
-          <div>
-            <label className="text-sm font-semibold text-slate-text block mb-1">ENAMEL TYPE</label>
-            <Select value={enamelTypeFilter} onValueChange={setEnamelTypeFilter}>
-              <SelectTrigger className="h-8 text-sm">
-                <SelectValue placeholder="Select Enamel" />
-              </SelectTrigger>
-              <SelectContent>
-                {enamelTypeOptions.map(option => (
-                  <SelectItem key={option} value={option}>{option}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Shopify Status Filter */}
-          <div>
-            <label className="text-sm font-semibold text-slate-text block mb-1">SHOPIFY STATUS</label>
-            <Select value={shopifyStatusFilter} onValueChange={setShopifyStatusFilter}>
-              <SelectTrigger className="h-8 text-sm">
-                <SelectValue placeholder="Select Status" />
-              </SelectTrigger>
-              <SelectContent>
-                {shopifyStatusOptions.map(option => (
-                  <SelectItem key={option} value={option}>{option}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+                {field.key === 'material' && (
+                  <div
+                    className="flex items-center gap-1 px-1 py-1.5 text-sm text-trust-blue cursor-pointer hover:bg-cloud-gray border-t border-soft-border mt-1"
+                    onMouseDown={(e) => { e.preventDefault(); setIsAddMaterialOpen(true); setNewMaterialName(''); setAddMaterialError(''); }}
+                  >
+                    + Add Material
+                  </div>
+                )}
+                {field.key === 'category' && (
+                  <div
+                    className="flex items-center gap-1 px-1 py-1.5 text-sm text-trust-blue cursor-pointer hover:bg-cloud-gray border-t border-soft-border mt-1"
+                    onMouseDown={(e) => { e.preventDefault(); setIsAddCategoryOpen(true); setNewCategoryName(''); setAddCategoryError(''); }}
+                  >
+                    + Add Category
+                  </div>
+                )}
+                {field.key === 'collection' && (
+                  <div
+                    className="flex items-center gap-1 px-1 py-1.5 text-sm text-trust-blue cursor-pointer hover:bg-cloud-gray border-t border-soft-border mt-1"
+                    onMouseDown={(e) => { e.preventDefault(); setIsAddCollectionOpen(true); setNewCollectionName(''); setAddCollectionError(''); }}
+                  >
+                    + Add Collection
+                  </div>
+                )}
+                {filterOptionsByField[field.key]?.length === 0 && (
+                  <p className="text-sm text-cool-gray">No values</p>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ))}
         </div>
       </div>
 
