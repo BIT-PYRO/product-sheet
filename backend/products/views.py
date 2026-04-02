@@ -192,6 +192,22 @@ class ProductViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 	filterset_class = ProductFilter
 	search_fields = ['master_sku', 'name', 'designer_sku']
 
+	def create(self, request, *args, **kwargs):
+		"""Override create to handle duplicate master_sku gracefully (upsert)."""
+		master_sku = str(request.data.get('master_sku', '')).strip()
+		if master_sku:
+			existing = Product.objects.filter(master_sku__iexact=master_sku).first()
+			if existing:
+				# Upsert: update the existing product instead of failing
+				serializer = self.get_serializer(existing, data=request.data, partial=True)
+				serializer.is_valid(raise_exception=True)
+				serializer.save()
+				return Response(
+					{'success': True, 'message': 'Product updated (existing SKU).', 'data': serializer.data},
+					status=status.HTTP_200_OK,
+				)
+		return super().create(request, *args, **kwargs)
+
 	def destroy(self, request, *args, **kwargs):
 		instance = self.get_object()
 		with db_transaction.atomic():
