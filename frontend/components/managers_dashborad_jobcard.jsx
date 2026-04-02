@@ -64,7 +64,7 @@ export default function ManagersDashboard() {
   const typeOptions = ['T1', 'T2', 'T3', 'T4'];
   const categoryOptions = ['C1', 'C2', 'C3', 'C4'];
 
-  // Process columns
+  // Process columns — map to department keys used in vouchers
   const processColumns = [
     '3D Print',
     'DIE',
@@ -78,6 +78,21 @@ export default function ManagersDashboard() {
     'PLATING',
     'Others'
   ];
+
+  // Maps voucher dept_from / dept_to keys to dashboard column names
+  const DEPT_TO_COLUMN = {
+    'wax-pieces': 'WAX',
+    'wax-setting': 'SETTING',
+    'casting': 'CASTING',
+    'filing': 'FILING',
+    'pre-polish': 'PRE POLISH',
+    'hand-setting': 'HAND SETTING',
+    'polishing': 'FINAL POLISH',
+    'plating': 'PLATING',
+    '3d-print': '3D Print',
+    'mold-die': 'DIE',
+    'design': '3D Print',
+  };
 
   const [visibleColumns, setVisibleColumns] = useState(new Set(processColumns));
 
@@ -143,7 +158,13 @@ export default function ManagersDashboard() {
 
   const [jobCardsData, setJobCardsData] = useState(emptyJobCardsData);
 
-  const mapBackendStatusToBucket = (status) => {
+  const mapBackendStatusToBucket = (status, approvalStatus) => {
+    // For voucher workflow: use approval_status if available
+    if (approvalStatus === 'completed') return 'completed';
+    if (approvalStatus === 'in_process') return 'wip';
+    if (approvalStatus === 'awaiting') return 'new';
+    if (approvalStatus === 'approved') return 'new';
+    // Fallback to job status
     if (status === 'completed') return 'completed';
     if (status === 'in_progress') return 'wip';
     return 'new';
@@ -174,12 +195,22 @@ export default function ManagersDashboard() {
       };
 
       jobs.forEach((job) => {
-        const bucket = mapBackendStatusToBucket(job.status);
-        // Derive qty and weight from material_rows if available
+        // Only show approved/in_process/awaiting/completed vouchers (not pending)
+        const approvalStatus = job.approval_status || '';
+        const showOnDashboard = ['approved', 'in_process', 'awaiting', 'completed'].includes(approvalStatus)
+          || !job.batch_id; // Non-batch jobs (single vouchers) always show
+
+        if (!showOnDashboard) return;
+
+        const bucket = mapBackendStatusToBucket(job.status, approvalStatus);
         const materialRows = Array.isArray(job.material_rows) ? job.material_rows : []
         const totalQty = materialRows.reduce((sum, r) => sum + (parseFloat(r.issued_qty) || 0), 0)
         const totalWeight = materialRows.reduce((sum, r) => sum + (parseFloat(r.issued_weight) || 0), 0)
-        nextData['3D Print'][bucket].push({
+
+        // Determine which column this voucher belongs to based on dept_from
+        const targetColumn = DEPT_TO_COLUMN[job.dept_from] || 'Others';
+
+        const card = {
           id: job.id,
           voucherNo: job.voucher_no || `JOB-${job.id}`,
           voucherType: job.voucher_type || 'New',
@@ -188,13 +219,22 @@ export default function ManagersDashboard() {
           qty: totalQty || job.quantity || '-',
           weight: totalWeight || job.weight || '-',
           status: job.status,
+          approvalStatus: approvalStatus,
           deptFrom: job.dept_from || '',
           deptTo: job.dept_to || '',
           issuedBy: job.issued_by || '',
           workType: job.work_type || '',
+          batchId: job.batch_id || '',
+          departmentOrder: job.department_order || 0,
           stoneRows: Array.isArray(job.stone_rows) ? job.stone_rows : [],
           materialRows,
-        });
+        };
+
+        if (nextData[targetColumn]) {
+          nextData[targetColumn][bucket].push(card);
+        } else {
+          nextData['Others'][bucket].push(card);
+        }
       });
 
       setJobCardsData(nextData);
@@ -216,6 +256,29 @@ export default function ManagersDashboard() {
     setSelectedVoucher(card);
     setSelectedVoucherForReceive(card);
     setIsReceiveJobOpen(true);
+  };
+
+  const handleMarkVoucherComplete = async (card) => {
+    if (!card?.id) return;
+    const confirmed = window.confirm(
+      `Mark voucher ${card.voucherNo} as completed?\nThis will activate the next step in the pipeline.`
+    );
+    if (!confirmed) return;
+
+    try {
+      const response = await fetch(`/api/jobs/${card.id}/mark-voucher-complete/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      const result = await response.json().catch(() => null);
+      if (!response.ok || !result?.success) {
+        alert(result?.error?.message || 'Failed to mark voucher as complete.');
+        return;
+      }
+      await loadJobs();
+    } catch {
+      alert('Failed to mark voucher as complete.');
+    }
   };
 
   const handleDeleteVoucher = () => {
@@ -319,6 +382,16 @@ export default function ManagersDashboard() {
   const VoucherCard = ({ card, bucket }) => {
     const s = getCardStyle(bucket);
     const isSelected = selectedVoucher?.id === card.id;
+
+    // Determine approval badge
+    const approvalLabels = {
+      in_process: { text: 'In Process', cls: 'bg-orange-200 text-orange-900' },
+      awaiting: { text: 'Awaiting', cls: 'bg-gray-200 text-gray-700' },
+      completed: { text: 'Completed', cls: 'bg-green-200 text-green-900' },
+      approved: { text: 'Approved', cls: 'bg-blue-200 text-blue-800' },
+    };
+    const approvalBadge = approvalLabels[card.approvalStatus];
+
     return (
       <div
         onClick={() => handleCardClick(card)}
@@ -327,12 +400,25 @@ export default function ManagersDashboard() {
         {/* Header row: Voucher No. | NEW/Re-issue badge */}
         <div className={`${s.header} flex items-center justify-between px-2 py-1`}>
           <span className={`text-[11px] font-bold ${s.headerText} truncate`}>{card.voucherNo}</span>
-          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${s.badge} whitespace-nowrap`}>{card.voucherType || s.label}</span>
+          <div className="flex items-center gap-1">
+            {approvalBadge && (
+              <span className={`text-[9px] font-bold px-1 py-0.5 rounded ${approvalBadge.cls} whitespace-nowrap`}>
+                {approvalBadge.text}
+              </span>
+            )}
+            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${s.badge} whitespace-nowrap`}>{card.voucherType || s.label}</span>
+          </div>
         </div>
         {/* Name */}
         <div className="bg-white border-t border-gray-200 px-2 py-1 text-center">
           <span className="text-xs font-semibold text-midnight-ink truncate block">{card.name}</span>
         </div>
+        {/* Department flow */}
+        {card.deptFrom && card.deptTo && (
+          <div className="bg-white border-t border-gray-200 px-2 py-0.5 text-center">
+            <span className="text-[10px] text-cool-gray">{card.deptFrom} → {card.deptTo}</span>
+          </div>
+        )}
         {/* Category */}
         <div className="bg-white border-t border-gray-200 px-2 py-1 text-center">
           <span className="text-xs text-slate-text truncate block">{card.category}</span>
@@ -348,6 +434,21 @@ export default function ManagersDashboard() {
             <span className="text-xs font-semibold text-midnight-ink">{card.weight ?? '-'}</span>
           </div>
         </div>
+        {/* Mark Complete button for in_process vouchers */}
+        {card.approvalStatus === 'in_process' && (
+          <div className="bg-white border-t border-gray-200 p-1">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleMarkVoucherComplete(card);
+              }}
+              className="w-full text-xs font-semibold text-white bg-success hover:bg-success/90 rounded py-1 transition-colors"
+            >
+              Mark Complete
+            </button>
+          </div>
+        )}
       </div>
     );
   };

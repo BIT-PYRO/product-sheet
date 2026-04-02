@@ -20,7 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { CalendarIcon, Plus, Trash2, X, ArrowRight, FileText } from "lucide-react"
+import { CalendarIcon, Plus, Trash2, X, ArrowRight, FileText, Loader2 } from "lucide-react"
 import { useDrafts, useDraftLoader } from "@/components/drafts-manager"
 
 function generateVoucherNo() {
@@ -33,7 +33,7 @@ function generateVoucherNo() {
   return `JJ-${String(currentCount).padStart(2, '0')}`
 }
 
-export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated, initialSku = '' }) {
+export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated, initialSku = '', mode = 'single' }) {
   const { saveDraft } = useDrafts()
   const loadedDraft = useDraftLoader()
   const [isQuickEnrollModalOpen, setIsQuickEnrollModalOpen] = useState(false)
@@ -46,6 +46,12 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
     { id: 2, sku: "", category: "", metal: "", issuedQty: "", unit1: "", issuedWeight: "", unit2: "" },
     { id: 3, sku: "", category: "", metal: "", issuedQty: "", unit1: "", issuedWeight: "", unit2: "" },
   ])
+
+  // Picklist state (only used when mode === 'all')
+  const [picklists, setPicklists] = useState([])
+  const [selectedPicklistId, setSelectedPicklistId] = useState("")
+  const [isPicklistLoading, setIsPicklistLoading] = useState(false)
+  const [isBulkCreating, setIsBulkCreating] = useState(false)
   const [date, setDate] = useState(new Date().toISOString().split("T")[0])
   const [scheduleFuture, setScheduleFuture] = useState("")
   const [voucherType, setVoucherType] = useState("New")
@@ -96,6 +102,84 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
       loadWorkforceMembers()
     }
   }, [open])
+
+  // Load picklists when mode is 'all' and modal opens
+  useEffect(() => {
+    if (open && mode === 'all') {
+      setIsPicklistLoading(true)
+      setSelectedPicklistId("")
+      fetch('/api/picklist-groups', { cache: 'no-store' })
+        .then(r => r.json())
+        .then(result => {
+          const groups = Array.isArray(result?.data)
+            ? result.data
+            : Array.isArray(result?.picklists)
+              ? result.picklists
+              : []
+          // Also merge from localStorage as fallback
+          let localPicklists = []
+          try {
+            const raw = localStorage.getItem('psd_picklists')
+            if (raw) localPicklists = JSON.parse(raw)
+          } catch { /* ignore */ }
+          const merged = new Map()
+          groups.forEach(p => merged.set(String(p.id), p))
+          localPicklists.forEach(p => {
+            const id = String(p.id || '')
+            if (!merged.has(id)) merged.set(id, p)
+          })
+          setPicklists(Array.from(merged.values()))
+        })
+        .catch(() => setPicklists([]))
+        .finally(() => setIsPicklistLoading(false))
+    }
+  }, [open, mode])
+
+  // Auto-populate SKU rows when a picklist is selected
+  useEffect(() => {
+    if (mode !== 'all' || !selectedPicklistId) return
+    const pl = picklists.find(p => String(p.id) === selectedPicklistId)
+    if (!pl || !Array.isArray(pl.items) || pl.items.length === 0) return
+    // Picklist items use Final Stock SKUs (e.g. AJB9/G). Convert to Master SKU
+    // by stripping the variation suffix after the last '/'.
+    const toMasterSku = (fsSku) => {
+      const s = String(fsSku || '').trim()
+      return s.includes('/') ? s.substring(0, s.lastIndexOf('/')) : s
+    }
+    // Deduplicate by master SKU and sum up "needed" quantities
+    const masterMap = new Map()
+    pl.items.forEach((item) => {
+      const finalSku = item.sku || item.master_sku || ''
+      const masterSku = toMasterSku(finalSku)
+      if (!masterSku) return
+      if (masterMap.has(masterSku)) {
+        const existing = masterMap.get(masterSku)
+        const prev = parseFloat(existing.issuedQty) || 0
+        const add = parseFloat(item.needed || item.quantity || 0)
+        existing.issuedQty = String(prev + add)
+      } else {
+        masterMap.set(masterSku, {
+          sku: masterSku,
+          category: item.category || '',
+          metal: item.metal || '',
+          issuedQty: String(item.needed || item.quantity || ''),
+        })
+      }
+    })
+    const newRows = Array.from(masterMap.values()).map((entry, idx) => ({
+      id: idx + 1,
+      ...entry,
+      unit1: 'Pcs',
+      issuedWeight: '',
+      unit2: '',
+    }))
+    setRows(newRows)
+    // Auto-fill departments for first pipeline step when in 'all' mode
+    if (mode === 'all') {
+      setDeptFrom('wax-pieces')
+      setDeptTo('wax-setting')
+    }
+  }, [selectedPicklistId, mode, picklists])
 
   // Handle draft loading
   useEffect(() => {
@@ -227,7 +311,138 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
     }
   }
 
+  // Department pipeline for bulk voucher creation (matches backend DEPARTMENT_PIPELINE)
+  const DEPARTMENT_PIPELINE = [
+    { key: 'wax-pieces', label: 'Wax Piece' },
+    { key: 'wax-setting', label: 'Wax Setting' },
+    { key: 'casting', label: 'Casting' },
+    { key: 'filing', label: 'Filing / Grinding' },
+    { key: 'pre-polish', label: 'Pre-Polish' },
+    { key: 'hand-setting', label: 'Hand Setting' },
+    { key: 'polishing', label: 'Final Polish' },
+    { key: 'plating', label: 'Ready for Plating' },
+  ]
+
   async function handleSubmit() {
+    // Bulk-create mode: one voucher per department step, ALL SKUs as material rows in each
+    if (mode === 'all') {
+      const skuRows = rows.filter(r => String(r.sku || '').trim())
+      if (skuRows.length === 0) {
+        alert('No SKU rows to create vouchers for. Please select a picklist first.')
+        return
+      }
+      setIsBulkCreating(true)
+      const results = { created: 0, failed: 0, errors: [] }
+
+      try {
+        // 1. Resolve all products first
+        const productMap = new Map() // sku -> product
+        for (const row of skuRows) {
+          const sku = String(row.sku).trim()
+          if (productMap.has(sku)) continue
+          try {
+            const prodRes = await fetch(`/api/products?master_sku=${encodeURIComponent(sku)}`, { cache: 'no-store' })
+            const prodResult = await prodRes.json().catch(() => null)
+            const prodData = Array.isArray(prodResult?.data) ? prodResult.data : (prodResult?.data?.results || [])
+            const product = prodData.find(p => String(p.master_sku || '').toLowerCase() === sku.toLowerCase()) || prodData[0]
+            if (product) productMap.set(sku, product)
+          } catch { /* skip */ }
+        }
+
+        // Build material_rows for all SKUs (used in every voucher)
+        const allMaterialRows = skuRows.map(row => ({
+          sku: String(row.sku).trim(),
+          category: row.category || '',
+          metal: row.metal || '',
+          issued_qty: row.issuedQty || '',
+          unit1: row.unit1 || 'Pcs',
+          issued_weight: row.issuedWeight || '',
+          unit2: row.unit2 || '',
+        }))
+
+        // Use the first found product for the voucher's product FK
+        const firstProduct = productMap.values().next().value
+        if (!firstProduct) {
+          alert('No matching products found for any SKU.')
+          setIsBulkCreating(false)
+          return
+        }
+
+        // 2. Create one voucher per pipeline step
+        let localCounter = parseInt(localStorage.getItem('jj_counter') || '0')
+        const batchId = `batch-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+
+        for (let i = 0; i < DEPARTMENT_PIPELINE.length - 1; i++) {
+          const fromDept = DEPARTMENT_PIPELINE[i]
+          const toDept = DEPARTMENT_PIPELINE[i + 1]
+
+          localCounter++
+          const vNo = `JJ-${String(localCounter).padStart(2, '0')}`
+          const title = `${vNo} - Step ${i + 1} - ${fromDept.label} to ${toDept.label}`
+
+          try {
+            const createRes = await fetch('/api/jobs', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                title,
+                product: firstProduct.id,
+                status: 'created',
+                voucher_no: vNo,
+                voucher_type: voucherType,
+                issued_to: issuedTo,
+                issued_by: issuedByName,
+                contact: issuedByContact,
+                work_type: workType,
+                schedule: scheduleFuture || null,
+                dept_from: fromDept.key,
+                dept_to: toDept.key,
+                batch_id: batchId,
+                department_order: i,
+                notes: noteByIssuer || `Step ${i + 1}: ${fromDept.label} → ${toDept.label}`,
+                material_rows: allMaterialRows,
+                stone_rows: stoneRows.map(({ variety, color, cut, shape, length, width, height, qty }) => ({ variety, color, cut, shape, length, width, height, qty })),
+                die_weight_rows: dieWeightRows.map(({ dieNumber, quantity, weight, unit }) => ({ die_number: dieNumber, quantity, weight, unit })),
+              }),
+            })
+            const createResult = await createRes.json().catch(() => null)
+            if (createRes.ok && createResult?.success) {
+              results.created++
+            } else {
+              results.failed++
+              results.errors.push(`Step ${i + 1} (${fromDept.label}→${toDept.label}): ${createResult?.error?.message || 'Creation failed'}`)
+            }
+          } catch {
+            results.failed++
+            results.errors.push(`Step ${i + 1}: Network error`)
+          }
+        }
+
+        // Save the updated counter
+        localStorage.setItem('jj_counter', String(localCounter))
+
+        // Show summary
+        let msg = `${results.created} voucher(s) created (one per department step, each with ${skuRows.length} SKUs)!`
+        if (results.failed > 0) {
+          msg += `\n${results.failed} failed:\n${results.errors.join('\n')}`
+        }
+        alert(msg)
+
+        if (results.created > 0 && onJobCreated) {
+          onJobCreated({ vouchers_created: results.created })
+        }
+        if (results.created > 0) {
+          onOpenChange(false)
+        }
+      } catch {
+        alert('Unable to create vouchers right now. Please try again.')
+      } finally {
+        setIsBulkCreating(false)
+      }
+      return
+    }
+
+    // Single-create mode (original flow)
     const primarySku = String(rows.find((entry) => String(entry.sku || '').trim())?.sku || '').trim()
     if (!primarySku) {
       alert('Please enter at least one SKU row before issuing job.')
@@ -385,7 +600,7 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
               </div>
             </div>
 
-            {/* RIGHT: TYPE & VOUCHER NO. */}
+            {/* RIGHT: TYPE, PICKLIST (if all mode) & VOUCHER NO. */}
             <div className="flex gap-2">
               {/* TYPE */}
               <div className="flex flex-col gap-0.5">
@@ -400,6 +615,29 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
                   </SelectContent>
                 </Select>
               </div>
+
+              {/* PICKLIST DROPDOWN - only in "all" mode */}
+              {mode === 'all' && (
+                <div className="flex flex-col gap-0.5">
+                  <Label className="text-sm font-bold uppercase tracking-wide text-muted-foreground">Picklist</Label>
+                  <Select value={selectedPicklistId} onValueChange={setSelectedPicklistId}>
+                    <SelectTrigger className="h-8 px-2 py-1 text-sm bg-background border-border focus:ring-0 focus:outline-none min-w-[150px]">
+                      <SelectValue placeholder={isPicklistLoading ? "Loading..." : "Select Picklist"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {picklists.map(pl => (
+                        <SelectItem key={pl.id} value={String(pl.id)}>
+                          #{pl.number} — {pl.name}
+                          {pl.items?.length ? ` (${pl.items.length})` : ''}
+                        </SelectItem>
+                      ))}
+                      {picklists.length === 0 && !isPicklistLoading && (
+                        <SelectItem value="__none" disabled>No picklists available</SelectItem>
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
 
               {/* VOUCHER NO. */}
               <div className="flex flex-col gap-0.5">
@@ -833,8 +1071,14 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
             <Button
               className="flex-1 h-7 bg-success hover:bg-success text-white font-bold text-sm rounded"
               onClick={handleSubmit}
+              disabled={isBulkCreating}
             >
-              Issue Job
+              {isBulkCreating ? (
+                <>
+                  <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                  Creating...
+                </>
+              ) : mode === 'all' ? 'Create All Vouchers' : 'Issue Job'}
             </Button>
           </div>
         </div>

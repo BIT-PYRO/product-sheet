@@ -14,3 +14,16 @@ class JobSerializer(serializers.ModelSerializer):
         model = Job
         fields = '__all__'
         read_only_fields = ('id', 'created_at', 'updated_at')
+
+
+class BulkVoucherRequestSerializer(serializers.Serializer):
+    picklist_group_id = serializers.IntegerField(help_text='ID of the picklist group to generate vouchers for')
+    approved_by = serializers.CharField(max_length=255, required=False, default='', allow_blank=True)
+
+
+class ApproveVouchersSerializer(serializers.Serializer):
+    voucher_ids = serializers.ListField(
+        child=serializers.IntegerField(),
+        help_text='List of job/voucher IDs to approve',
+    )
+    approved_by = serializers.CharField(max_length=255, required=False, default='', allow_blank=True)

@@ -250,6 +250,18 @@ async function fetchJsonWithSession(request, path, init = {}) {
 
 async function resolveProductBySku(request, sku) {
   const encoded = encodeURIComponent(sku);
+
+  // First try an exact master_sku filter (most reliable)
+  const filterResult = await fetchJsonWithSession(request, `/api/products?master_sku=${encoded}`);
+  if (filterResult.response.ok && filterResult.payload?.success) {
+    const filterRows = asArray(filterResult.payload.data);
+    const exactFilter = filterRows.find(
+      (item) => String(item?.master_sku || '').trim().toLowerCase() === sku.toLowerCase()
+    );
+    if (exactFilter) return exactFilter;
+  }
+
+  // Fallback to search (handles partial matches coming from master_product_sheet)
   const { response, payload } = await fetchJsonWithSession(request, `/api/products?search=${encoded}`);
 
   if (!response.ok || !payload?.success) {

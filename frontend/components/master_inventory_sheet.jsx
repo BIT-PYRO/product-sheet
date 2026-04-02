@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronDown, Upload } from 'lucide-react';
+import { ChevronDown, Upload, FileText } from 'lucide-react';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
 import GlobalSearchBar from '@/components/global-search-bar';
 import { Button } from '@/components/ui/button';
@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
@@ -22,6 +23,7 @@ import {
 import DateTimeStamp from '@/components/date-time-stamp';
 import LastUpdatedFooter from '@/components/last-updated-footer';
 import { CreateJobModal } from '@/components/create-job-modal';
+import { PendingVouchersModal } from '@/components/pending-vouchers-modal';
 
 // Component to render composite WIP/Current Stock values
 function CompositeStockDisplay({ value }) {
@@ -358,6 +360,8 @@ export default function MasterInventorySheet() {
   const [stockField, setStockField] = useState('current');
   const [isManageColumnsOpen, setIsManageColumnsOpen] = useState(false);
   const [isCreateJobModalOpen, setIsCreateJobModalOpen] = useState(false);
+  const [isCreateAllVouchersOpen, setIsCreateAllVouchersOpen] = useState(false);
+  const [isPendingVouchersOpen, setIsPendingVouchersOpen] = useState(false);
   const [selectedRows, setSelectedRows] = useState(new Set());
   const [sortField, setSortField] = useState('');
   const [sortDirection, setSortDirection] = useState('asc');
@@ -1517,11 +1521,31 @@ export default function MasterInventorySheet() {
             <Button variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8" onClick={handleExport}>Export</Button>
             <Button variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8" onClick={() => window.print()}>Print</Button>
             <Button
-              onClick={() => setIsCreateJobModalOpen(true)}
-              className="bg-success text-white rounded-full px-4 text-sm h-8 hover:bg-success/90"
+              onClick={() => setIsPendingVouchersOpen(true)}
+              variant="outline"
+              className="border-trust-blue text-trust-blue rounded-full px-4 text-sm h-8 hover:bg-trust-blue/10 gap-1"
             >
-              Create Job
+              <FileText className="h-3.5 w-3.5" />
+              Vouchers
             </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  className="bg-success text-white rounded-full px-4 text-sm h-8 hover:bg-success/90 gap-1"
+                >
+                  Create Job
+                  <ChevronDown className="h-3.5 w-3.5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-52">
+                <DropdownMenuItem onClick={() => setIsCreateJobModalOpen(true)} className="cursor-pointer">
+                  Create Single Voucher
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setIsCreateAllVouchersOpen(true)} className="cursor-pointer">
+                  Create All Vouchers
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <input
               ref={picklistFileInputRef}
               type="file"
@@ -1889,6 +1913,23 @@ export default function MasterInventorySheet() {
       <CreateJobModal
         open={isCreateJobModalOpen}
         onOpenChange={setIsCreateJobModalOpen}
+      />
+
+      <CreateJobModal
+        open={isCreateAllVouchersOpen}
+        onOpenChange={setIsCreateAllVouchersOpen}
+        mode="all"
+        onJobCreated={() => {
+          loadProducts();
+        }}
+      />
+
+      <PendingVouchersModal
+        open={isPendingVouchersOpen}
+        onOpenChange={setIsPendingVouchersOpen}
+        onVouchersApproved={() => {
+          loadProducts();
+        }}
       />
     </div>
   );

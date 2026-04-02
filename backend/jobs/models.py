@@ -26,6 +26,14 @@ class JobUrgency(models.TextChoices):
 	ASAP = 'asap', 'ASAP'
 
 
+class VoucherApprovalStatus(models.TextChoices):
+	PENDING = 'pending', 'Pending'
+	APPROVED = 'approved', 'Approved'
+	IN_PROCESS = 'in_process', 'In Process'
+	AWAITING = 'awaiting', 'Awaiting'
+	COMPLETED = 'completed', 'Completed'
+
+
 class Job(AuditModel):
 	# Jewelry job fields (legacy)
 	title = models.CharField(max_length=255, blank=True, default="Untitled Job")
@@ -67,6 +75,27 @@ class Job(AuditModel):
 	die_weight_rows = models.JSONField(default=list, blank=True, help_text='Die/findings rows')
 
 	status = models.CharField(max_length=30, choices=JobStatus.choices, default=JobStatus.CREATED)
+
+	# Voucher workflow fields
+	approval_status = models.CharField(
+		max_length=30,
+		choices=VoucherApprovalStatus.choices,
+		default=VoucherApprovalStatus.PENDING,
+		blank=True,
+		help_text='Voucher approval workflow status',
+	)
+	approved_by = models.CharField(max_length=255, blank=True, default='', help_text='Who approved this voucher')
+	approved_at = models.DateTimeField(null=True, blank=True, help_text='When voucher was approved')
+	picklist_group = models.ForeignKey(
+		'inventory.PicklistGroup',
+		on_delete=models.SET_NULL,
+		null=True,
+		blank=True,
+		related_name='vouchers',
+		help_text='Picklist this voucher was generated from',
+	)
+	batch_id = models.CharField(max_length=120, blank=True, default='', help_text='Groups vouchers from same bulk creation')
+	department_order = models.PositiveIntegerField(default=0, help_text='Sequence order in department pipeline (0=first)')
 
 	def __str__(self):
 		return f'{self.title} ({self.status})'
