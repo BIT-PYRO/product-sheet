@@ -552,6 +552,7 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
     { value: "hallmarking", label: "Hallmarking" },
     { value: "laser-soldering", label: "Laser Soldering" },
     { value: "final-packaging", label: "Final Packaging" },
+    { value: "final-stock", label: "Final Stock" },
   ]
 
   return (
@@ -765,8 +766,7 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
                     <SelectTrigger className="h-6 text-sm bg-background border-border p-0.5 focus:ring-0 focus:outline-none"><SelectValue placeholder="Select" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="Pcs">Pcs</SelectItem>
-                      <SelectItem value="Kg">Kg</SelectItem>
-                      <SelectItem value="g">g</SelectItem>
+                      <SelectItem value="Pairs">Pairs</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -777,9 +777,12 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
                   <Select value={row.unit2} onValueChange={(v) => updateRow(row.id, "unit2", v)}>
                     <SelectTrigger className="h-6 text-sm bg-background border-border p-0.5 focus:ring-0 focus:outline-none"><SelectValue placeholder="Select" /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Kg">Kg</SelectItem>
                       <SelectItem value="g">g</SelectItem>
+                      <SelectItem value="Kg">Kg</SelectItem>
+                      <SelectItem value="mg">mg</SelectItem>
                       <SelectItem value="lb">lb</SelectItem>
+                      <SelectItem value="oz">oz</SelectItem>
+                      <SelectItem value="ct">ct</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -937,9 +940,12 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
                             <SelectValue placeholder="Select unit" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="Kg">Kg</SelectItem>
                             <SelectItem value="g">g</SelectItem>
+                            <SelectItem value="Kg">Kg</SelectItem>
+                            <SelectItem value="mg">mg</SelectItem>
                             <SelectItem value="lb">lb</SelectItem>
+                            <SelectItem value="oz">oz</SelectItem>
+                            <SelectItem value="ct">ct</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>

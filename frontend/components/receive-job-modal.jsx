@@ -18,7 +18,6 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { CalendarIcon, Trash2, X, ArrowRight } from "lucide-react"
-
 const jewelleryDepartments = [
   { value: "design", label: "Design / CAD" },
   { value: "3d-print", label: "3D Print" },
@@ -130,43 +129,9 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <style jsx global>{`
-        @media print {
-          body * {
-            visibility: hidden !important;
-          }
-          .print-receive-job,
-          .print-receive-job * {
-            visibility: visible !important;
-          }
-          .print-receive-job {
-            position: fixed;
-            inset: 0;
-            margin: 0 !important;
-            padding: 0 !important;
-            background: white !important;
-            overflow: visible !important;
-            box-sizing: border-box !important;
-            -webkit-print-color-adjust: exact;
-            print-color-adjust: exact;
-            max-width: none !important;
-            display: block !important;
-          }
-          .print-receive-job .print-fit {
-            transform: none;
-            transform-origin: top left;
-            width: 100vw;
-            height: auto;
-            max-width: none;
-            position: relative;
-            left: 50%;
-            translate: -50% 0;
-          }
-        }
-      `}</style>
-      <DialogContent className="print-receive-job max-w-[1200px] w-[95vw] max-h-[95vh] overflow-y-auto bg-background text-foreground p-0 gap-0 [&>button]:hidden">
+      <DialogContent className="max-w-[1200px] w-[95vw] max-h-[95vh] overflow-y-auto bg-background text-foreground p-0 gap-0 [&>button]:hidden">
         <DialogTitle className="sr-only">Receive Job Voucher</DialogTitle>
-        <div className="print-fit">
+        <div className="relative">
           {/* Close button */}
           <div className="flex justify-end px-5 pt-3 pb-0">
             <button
@@ -311,22 +276,22 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
                 <div className="py-1"></div>
                 <div className="py-1 leading-tight"><span>Issued</span><span className="block">WT</span></div>
                 <div className="py-1"></div>
-                <div className="py-1 bg-success leading-tight"><span>Received</span><span className="block">Qty</span></div>
-                <div className="py-1 bg-success"></div>
-                <div className="py-1 bg-success leading-tight"><span>Received</span><span className="block">WT</span></div>
-                <div className="py-1 bg-success"></div>
-                <div className="py-1 bg-danger leading-tight"><span>Loss</span><span className="block">Qty</span></div>
-                <div className="py-1 bg-danger"></div>
-                <div className="py-1 bg-danger leading-tight"><span>Loss</span><span className="block">WT</span></div>
-                <div className="py-1 bg-danger"></div>
-                <div className="py-1 bg-warning leading-tight"><span>Re-Issue</span><span className="block">Qty</span></div>
-                <div className="py-1 bg-warning"></div>
-                <div className="py-1 bg-warning leading-tight"><span>Re-Issue</span><span className="block">WT</span></div>
-                <div className="py-1 bg-warning"></div>
+                <div className="py-1 leading-tight"><span>Received</span><span className="block">Qty</span></div>
+                <div className="py-1"></div>
+                <div className="py-1 leading-tight"><span>Received</span><span className="block">WT</span></div>
+                <div className="py-1"></div>
+                <div className="py-1 leading-tight"><span>Loss</span><span className="block">Qty</span></div>
+                <div className="py-1"></div>
+                <div className="py-1 leading-tight"><span>Loss</span><span className="block">WT</span></div>
+                <div className="py-1"></div>
+                <div className="py-1 leading-tight"><span>Re-Issue</span><span className="block">Qty</span></div>
+                <div className="py-1"></div>
+                <div className="py-1 leading-tight"><span>Re-Issue</span><span className="block">WT</span></div>
+                <div className="py-1"></div>
                 <div className="py-1"></div>
               </div>
               {rows.map((row, i) => (
-                <div key={row.id} className={`grid gap-0 border-t border-border items-center px-1 ${i % 2 === 0 ? "bg-background" : "bg-muted"}`} style={{ gridTemplateColumns: "0.6fr 0.65fr 0.65fr 0.48fr 0.32fr 0.48fr 0.32fr 0.48fr 0.32fr 0.48fr 0.32fr 0.48fr 0.32fr 0.48fr 0.32fr 0.48fr 0.32fr 0.48fr 0.32fr 24px" }}>
+                <div key={row.id} className="grid gap-0 border-t border-border items-center px-1 bg-white" style={{ gridTemplateColumns: "0.6fr 0.65fr 0.65fr 0.48fr 0.32fr 0.48fr 0.32fr 0.48fr 0.32fr 0.48fr 0.32fr 0.48fr 0.32fr 0.48fr 0.32fr 0.48fr 0.32fr 0.48fr 0.32fr 24px" }}>
                   <div className="py-0.5">
                     <Input className="h-6 text-sm border-border" placeholder="SKU" value={row.sku} onChange={(e) => updateRow(row.id, "sku", e.target.value)} />
                   </div>
@@ -344,8 +309,7 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
                       <SelectTrigger className="h-6 text-sm border-border p-0.5"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="Pcs">Pcs</SelectItem>
-                        <SelectItem value="Kg">Kg</SelectItem>
-                        <SelectItem value="Grams">Grams</SelectItem>
+                        <SelectItem value="Pairs">Pairs</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -356,81 +320,96 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
                     <Select value={row.unit2} onValueChange={(v) => updateRow(row.id, "unit2", v)}>
                       <SelectTrigger className="h-6 text-sm border-border p-0.5"><SelectValue /></SelectTrigger>
                       <SelectContent>
+                        <SelectItem value="g">g</SelectItem>
                         <SelectItem value="Kg">Kg</SelectItem>
-                        <SelectItem value="Grams">Grams</SelectItem>
-                        <SelectItem value="Pcs">Pcs</SelectItem>
+                        <SelectItem value="mg">mg</SelectItem>
+                        <SelectItem value="lb">lb</SelectItem>
+                        <SelectItem value="oz">oz</SelectItem>
+                        <SelectItem value="ct">ct</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="py-0.5 bg-success/10">
-                    <Input className="h-6 text-sm border-border bg-success/10" placeholder="0" value={row.receivedQty} onChange={(e) => updateRow(row.id, "receivedQty", e.target.value)} />
+                  <div className="py-0.5">
+                    <Input className="h-6 text-sm border-border" placeholder="0" value={row.receivedQty} onChange={(e) => updateRow(row.id, "receivedQty", e.target.value)} />
                   </div>
-                  <div className="py-0.5 bg-success/10">
+                  <div className="py-0.5">
                     <Select value={row.unit3 || "Pcs"} onValueChange={(v) => updateRow(row.id, "unit3", v)}>
-                      <SelectTrigger className="h-6 text-sm border-border bg-success/10 p-0.5"><SelectValue /></SelectTrigger>
+                      <SelectTrigger className="h-6 text-sm border-border p-0.5"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="Pcs">Pcs</SelectItem>
-                        <SelectItem value="Kg">Kg</SelectItem>
+                        <SelectItem value="Pairs">Pairs</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="py-0.5 bg-success/10">
-                    <Input className="h-6 text-sm border-border bg-success/10" placeholder="0.00" value={row.receivedWeight} onChange={(e) => updateRow(row.id, "receivedWeight", e.target.value)} />
+                  <div className="py-0.5">
+                    <Input className="h-6 text-sm border-border" placeholder="0.00" value={row.receivedWeight} onChange={(e) => updateRow(row.id, "receivedWeight", e.target.value)} />
                   </div>
-                  <div className="py-0.5 bg-success/10">
+                  <div className="py-0.5">
                     <Select value={row.unit4 || "Kg"} onValueChange={(v) => updateRow(row.id, "unit4", v)}>
-                      <SelectTrigger className="h-6 text-sm border-border bg-success/10 p-0.5"><SelectValue /></SelectTrigger>
+                      <SelectTrigger className="h-6 text-sm border-border p-0.5"><SelectValue /></SelectTrigger>
                       <SelectContent>
+                        <SelectItem value="g">g</SelectItem>
                         <SelectItem value="Kg">Kg</SelectItem>
-                        <SelectItem value="Grams">Grams</SelectItem>
+                        <SelectItem value="mg">mg</SelectItem>
+                        <SelectItem value="lb">lb</SelectItem>
+                        <SelectItem value="oz">oz</SelectItem>
+                        <SelectItem value="ct">ct</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="py-0.5 bg-danger/10">
-                    <Input className="h-6 text-sm border-border bg-danger/10" placeholder="0" value={row.lossQty} onChange={(e) => updateRow(row.id, "lossQty", e.target.value)} />
+                  <div className="py-0.5">
+                    <Input className="h-6 text-sm border-border" placeholder="0" value={row.lossQty} onChange={(e) => updateRow(row.id, "lossQty", e.target.value)} />
                   </div>
-                  <div className="py-0.5 bg-danger/10">
+                  <div className="py-0.5">
                     <Select value={row.unit5 || "Pcs"} onValueChange={(v) => updateRow(row.id, "unit5", v)}>
-                      <SelectTrigger className="h-6 text-sm border-border bg-danger/10 p-0.5"><SelectValue /></SelectTrigger>
+                      <SelectTrigger className="h-6 text-sm border-border p-0.5"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="Pcs">Pcs</SelectItem>
-                        <SelectItem value="Kg">Kg</SelectItem>
+                        <SelectItem value="Pairs">Pairs</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="py-0.5 bg-danger/10">
-                    <Input className="h-6 text-sm border-border bg-danger/10" placeholder="0.00" value={row.lossWeight} onChange={(e) => updateRow(row.id, "lossWeight", e.target.value)} />
+                  <div className="py-0.5">
+                    <Input className="h-6 text-sm border-border" placeholder="0.00" value={row.lossWeight} onChange={(e) => updateRow(row.id, "lossWeight", e.target.value)} />
                   </div>
-                  <div className="py-0.5 bg-danger/10">
+                  <div className="py-0.5">
                     <Select value={row.unit6 || "Kg"} onValueChange={(v) => updateRow(row.id, "unit6", v)}>
-                      <SelectTrigger className="h-6 text-sm border-border bg-danger/10 p-0.5"><SelectValue /></SelectTrigger>
+                      <SelectTrigger className="h-6 text-sm border-border p-0.5"><SelectValue /></SelectTrigger>
                       <SelectContent>
+                        <SelectItem value="g">g</SelectItem>
                         <SelectItem value="Kg">Kg</SelectItem>
-                        <SelectItem value="Grams">Grams</SelectItem>
+                        <SelectItem value="mg">mg</SelectItem>
+                        <SelectItem value="lb">lb</SelectItem>
+                        <SelectItem value="oz">oz</SelectItem>
+                        <SelectItem value="ct">ct</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="py-0.5 bg-warning/10">
-                    <Input className="h-6 text-sm border-border bg-warning/10" placeholder="0" value={row.reissueQty} onChange={(e) => updateRow(row.id, "reissueQty", e.target.value)} />
+                  <div className="py-0.5">
+                    <Input className="h-6 text-sm border-border" placeholder="0" value={row.reissueQty} onChange={(e) => updateRow(row.id, "reissueQty", e.target.value)} />
                   </div>
-                  <div className="py-0.5 bg-warning/10">
+                  <div className="py-0.5">
                     <Select value={row.unit7 || "Pcs"} onValueChange={(v) => updateRow(row.id, "unit7", v)}>
-                      <SelectTrigger className="h-6 text-sm border-border bg-warning/10 p-0.5"><SelectValue /></SelectTrigger>
+                      <SelectTrigger className="h-6 text-sm border-border p-0.5"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="Pcs">Pcs</SelectItem>
-                        <SelectItem value="Kg">Kg</SelectItem>
+                        <SelectItem value="Pairs">Pairs</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="py-0.5 bg-warning/10">
-                    <Input className="h-6 text-sm border-border bg-warning/10" placeholder="0.00" value={row.reissueWeight} onChange={(e) => updateRow(row.id, "reissueWeight", e.target.value)} />
+                  <div className="py-0.5">
+                    <Input className="h-6 text-sm border-border" placeholder="0.00" value={row.reissueWeight} onChange={(e) => updateRow(row.id, "reissueWeight", e.target.value)} />
                   </div>
-                  <div className="py-0.5 bg-warning/10">
+                  <div className="py-0.5">
                     <Select value={row.unit8 || "Kg"} onValueChange={(v) => updateRow(row.id, "unit8", v)}>
-                      <SelectTrigger className="h-6 text-sm border-border bg-warning/10 p-0.5"><SelectValue /></SelectTrigger>
+                      <SelectTrigger className="h-6 text-sm border-border p-0.5"><SelectValue /></SelectTrigger>
                       <SelectContent>
+                        <SelectItem value="g">g</SelectItem>
                         <SelectItem value="Kg">Kg</SelectItem>
-                        <SelectItem value="Grams">Grams</SelectItem>
+                        <SelectItem value="mg">mg</SelectItem>
+                        <SelectItem value="lb">lb</SelectItem>
+                        <SelectItem value="oz">oz</SelectItem>
+                        <SelectItem value="ct">ct</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -506,6 +485,7 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
               className="min-h-[35px] text-sm resize-none bg-background border-border p-1.5"
             />
           </div>
+
         </div>
       </div>
       </DialogContent>
