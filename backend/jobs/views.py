@@ -217,7 +217,14 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 
 	@action(detail=False, methods=['post'], url_path='approve-vouchers')
 	def approve_vouchers(self, request):
-		"""Approve pending vouchers (mark them as approved with timestamp)."""
+		"""Approve pending vouchers.
+
+		For batched vouchers: always processes the ENTIRE batch regardless of which
+		vouchers were submitted.  The lowest department_order in each batch becomes
+		in_process; all others become awaiting.  This prevents the bug where
+		approving a single late-pipeline voucher sets it as in_process while earlier
+		steps are still pending.
+		"""
 		ser = ApproveVouchersSerializer(data=request.data)
 		ser.is_valid(raise_exception=True)
 
@@ -226,47 +233,67 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 		now = timezone.now()
 
 		with transaction.atomic():
-			vouchers = list(Job.objects.filter(
+			# Submitted vouchers (pending only)
+			submitted = list(Job.objects.filter(
 				id__in=voucher_ids,
 				approval_status=VoucherApprovalStatus.PENDING,
 			))
 
-			if not vouchers:
+			if not submitted:
 				raise ValidationError({'voucher_ids': 'No pending vouchers found with given IDs.'})
 
-			# Group vouchers by batch_id to handle pipeline ordering
-			batches = {}
-			no_batch = []
-			for v in vouchers:
-				if v.batch_id:
-					batches.setdefault(v.batch_id, []).append(v)
-				else:
-					no_batch.append(v)
+			# Collect batch_ids touched by this request
+			batch_ids = {v.batch_id for v in submitted if v.batch_id}
 
-			# For batched vouchers: first step (lowest department_order) → in_process, rest → awaiting
-			for batch_id, batch_vouchers in batches.items():
+			# For each batch, load ALL pending + awaiting vouchers so we can
+			# reset any mis-set in_process entries and re-sort the whole chain.
+			all_batched = []
+			for bid in batch_ids:
+				batch_qs = list(Job.objects.filter(
+					batch_id=bid,
+					approval_status__in=[
+						VoucherApprovalStatus.PENDING,
+						VoucherApprovalStatus.AWAITING,
+						VoucherApprovalStatus.IN_PROCESS,  # reset mis-set entries
+					],
+				))
+				all_batched.extend(batch_qs)
+
+			# Non-batched submitted vouchers
+			no_batch = [v for v in submitted if not v.batch_id]
+
+			# Group by batch_id and process
+			batches: dict = {}
+			for v in all_batched:
+				batches.setdefault(v.batch_id, []).append(v)
+
+			total_approved = 0
+			for bid, batch_vouchers in batches.items():
+				# Sort by pipeline order; lowest = first active step
 				sorted_batch = sorted(batch_vouchers, key=lambda x: x.department_order)
 				for idx, v in enumerate(sorted_batch):
-					if idx == 0:
-						v.approval_status = VoucherApprovalStatus.IN_PROCESS
-					else:
-						v.approval_status = VoucherApprovalStatus.AWAITING
+					v.approval_status = (
+						VoucherApprovalStatus.IN_PROCESS if idx == 0
+						else VoucherApprovalStatus.AWAITING
+					)
 					v.approved_by = approved_by
 					v.approved_at = now
 					v.save(update_fields=['approval_status', 'approved_by', 'approved_at'])
+					total_approved += 1
 
-			# Non-batched vouchers: just approve them directly
 			for v in no_batch:
 				v.approval_status = VoucherApprovalStatus.APPROVED
 				v.approved_by = approved_by
 				v.approved_at = now
 				v.save(update_fields=['approval_status', 'approved_by', 'approved_at'])
+				total_approved += 1
 
-		serializer = JobSerializer(Job.objects.filter(id__in=voucher_ids), many=True)
+		all_affected_ids = {v.id for v in all_batched} | {v.id for v in no_batch}
+		serializer = JobSerializer(Job.objects.filter(id__in=all_affected_ids), many=True)
 		return Response({
 			'success': True,
 			'data': {
-				'approved_count': len(vouchers),
+				'approved_count': total_approved,
 				'vouchers': serializer.data,
 			},
 		})
@@ -312,8 +339,8 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 							remark=f'Completed: {voucher.voucher_no}',
 						)
 
-			# Check if this is the last stage (Ready for Plating) — update Final Stock
-			if voucher.dept_to == 'plating' and voucher.product:
+			# Check if this is the last stage (Final Stock) — update Final Stock inventory
+			if voucher.dept_to == 'final-stock' and voucher.product:
 				qty = 0
 				for row in (voucher.material_rows or []):
 					qty += int(float(row.get('issued_qty', 0) or 0))
@@ -346,3 +373,180 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 			'success': True,
 			'data': serializer.data,
 		})
+
+	@action(detail=True, methods=['post'], url_path='receive-voucher')
+	def receive_voucher(self, request, pk=None):
+		"""
+		Receive an in-process (or partially complete) voucher.
+
+		For each SKU row submitted:
+		  - Deducts received_qty from WIP of the dept_from stage
+		  - Adds received_qty to Current Stock of the dept_to stage
+
+		If is_partial=False  → voucher becomes Completed; next awaiting step activated if not already.
+		If is_partial=True   → voucher becomes Partially Completed; next awaiting step activated immediately.
+
+		Subsequent receives on a Partially Completed voucher complete it when is_partial=False,
+		or log another partial batch if is_partial=True.
+		"""
+		from products.models import Product
+
+		with transaction.atomic():
+			voucher = Job.objects.select_for_update().get(pk=pk)
+
+			if voucher.approval_status not in [
+				VoucherApprovalStatus.IN_PROCESS,
+				VoucherApprovalStatus.PARTIALLY_COMPLETED,
+			]:
+				raise ValidationError({
+					'approval_status': (
+						f'Cannot receive a voucher with status "{voucher.approval_status}". '
+						'Only in-process or partially complete vouchers can be received.'
+					)
+				})
+
+			is_partial = bool(request.data.get('is_partial', False))
+			received_by = str(request.data.get('received_by', '') or '').strip()
+			rows = request.data.get('rows', [])
+
+			if not rows:
+				raise ValidationError({'rows': 'At least one row with a received quantity is required.'})
+
+			# ── Build already-received totals per SKU (from previous partial events) ──
+			already_received: dict = {}
+			for event in (voucher.received_rows or []):
+				for prev_row in (event.get('rows') or []):
+					key = str(prev_row.get('sku', '') or '').strip().upper()
+					already_received[key] = (
+						already_received.get(key, 0)
+						+ int(float(prev_row.get('received_qty', 0) or 0))
+					)
+
+			# ── Build issued totals per SKU from material_rows ──
+			issued_map: dict = {}
+			for mr in (voucher.material_rows or []):
+				key = str(mr.get('sku', '') or '').strip().upper()
+				issued_map[key] = issued_map.get(key, 0) + int(float(mr.get('issued_qty', 0) or 0))
+
+			from_stage = DEPT_TO_STOCK_STAGE.get(voucher.dept_from, '')
+			to_stage = DEPT_TO_STOCK_STAGE.get(voucher.dept_to, '')
+
+			warnings = []
+			total_received_this_batch = 0
+
+			for row_data in rows:
+				sku = str(row_data.get('sku', '') or '').strip()
+				if not sku:
+					continue
+
+				received_qty = int(float(row_data.get('received_qty', 0) or 0))
+				if received_qty <= 0:
+					continue
+
+				sku_key = sku.upper()
+				issued = issued_map.get(sku_key, 0)
+				already = already_received.get(sku_key, 0)
+				remaining = issued - already
+
+				# Guard: cannot receive more than remaining
+				if received_qty > remaining:
+					warnings.append(
+						f'SKU {sku}: received qty ({received_qty}) exceeds remaining '
+						f'({remaining} = issued {issued} − already received {already}). Capped to {remaining}.'
+					)
+					received_qty = remaining
+					if received_qty <= 0:
+						continue
+
+				# Resolve product (try SKU exact match, then strip variant suffix, then voucher FK)
+				master_sku = sku.split('/')[0] if '/' in sku else sku
+				product = Product.objects.filter(
+					Q(master_sku__iexact=master_sku) | Q(master_sku__iexact=sku)
+				).first() or voucher.product
+
+				if not product:
+					warnings.append(
+						f'SKU {sku}: no matching product found in database — '
+						'inventory NOT updated for this row.'
+					)
+					continue
+
+				# Deduct from WIP (dept_from stage)
+				if from_stage:
+					InventoryTransaction.objects.create(
+						product=product,
+						txn_type='adjust',
+						quantity=-received_qty,
+						stage=from_stage,
+						stock_type='wip',
+						remark=(
+							f'Received {received_qty} pcs — {voucher.voucher_no} '
+							f'({voucher.dept_from} → {voucher.dept_to})'
+						),
+					)
+
+				# Add to Current Stock (dept_to stage)
+				if to_stage:
+					InventoryTransaction.objects.create(
+						product=product,
+						txn_type='adjust',
+						quantity=received_qty,
+						stage=to_stage,
+						stock_type='current',
+						remark=(
+							f'Received {received_qty} pcs — {voucher.voucher_no} '
+							f'({voucher.dept_from} → {voucher.dept_to})'
+						),
+					)
+
+				total_received_this_batch += received_qty
+
+			if total_received_this_batch == 0 and not warnings:
+				raise ValidationError({'rows': 'No valid received quantities provided.'})
+
+			# ── Append to receive log ──
+			receive_log = list(voucher.received_rows or [])
+			receive_log.append({
+				'timestamp': timezone.now().isoformat(),
+				'received_by': received_by,
+				'is_partial': is_partial,
+				'total_received': total_received_this_batch,
+				'rows': rows,
+			})
+			voucher.received_rows = receive_log
+			voucher.received_by = received_by
+
+			if is_partial:
+				voucher.approval_status = VoucherApprovalStatus.PARTIALLY_COMPLETED
+				voucher.save(update_fields=['approval_status', 'received_rows', 'received_by'])
+				# Activate next awaiting step immediately (work can begin on next stage)
+				if voucher.batch_id:
+					next_v = Job.objects.filter(
+						batch_id=voucher.batch_id,
+						approval_status=VoucherApprovalStatus.AWAITING,
+						department_order=voucher.department_order + 1,
+					).first()
+					if next_v:
+						next_v.approval_status = VoucherApprovalStatus.IN_PROCESS
+						next_v.save(update_fields=['approval_status'])
+			else:
+				# Full receive → Completed
+				voucher.approval_status = VoucherApprovalStatus.COMPLETED
+				voucher.status = 'completed'
+				voucher.save(update_fields=['approval_status', 'status', 'received_rows', 'received_by'])
+				# Activate next step only if still awaiting (partial may have already done it)
+				if voucher.batch_id:
+					next_v = Job.objects.filter(
+						batch_id=voucher.batch_id,
+						approval_status=VoucherApprovalStatus.AWAITING,
+						department_order=voucher.department_order + 1,
+					).first()
+					if next_v:
+						next_v.approval_status = VoucherApprovalStatus.IN_PROCESS
+						next_v.save(update_fields=['approval_status'])
+
+		serializer = JobSerializer(voucher)
+		response_data = {**serializer.data}
+		if warnings:
+			response_data['warnings'] = warnings
+		return Response({'success': True, 'data': response_data})

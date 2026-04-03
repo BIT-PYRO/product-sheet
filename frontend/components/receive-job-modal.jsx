@@ -52,39 +52,83 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
   const [rows, setRows] = useState([
     { id: 1, sku: "", category: "", metal: "", issuedQty: "", unit1: "Pcs", issuedWeight: "", unit2: "Kg", receivedQty: "", receivedWeight: "", lossQty: "", lossWeight: "", reissueQty: "", reissueWeight: "" },
   ])
+  // API state
+  const [workforce, setWorkforce] = useState([])
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState('')
+  const [submitWarnings, setSubmitWarnings] = useState([])
 
   // Pre-populate form with voucher data when it's selected
   useEffect(() => {
     if (voucherData && open) {
       setVoucherNo(voucherData.voucherNo || "")
-      // Handle both master job sheet format (firstName) and managers dashboard format (name)
-      setIssuedTo(voucherData.firstName || voucherData.name || "")
-      setWorkType(voucherData.type || "")
-      setDeptFrom(voucherData.department || "")
+      setIssuedTo(voucherData.name || voucherData.firstName || "")
+      setWorkType(voucherData.workType || voucherData.type || "")
+      setDeptFrom(voucherData.deptFrom || voucherData.department || "")
       setDeptTo(voucherData.deptTo || "")
-      // Initialize rows with issued quantities if available
-      // Handle both formats: master job sheet (issuedQty/issuedWeight) and managers dashboard (qty/weight)
-      if (voucherData.issuedQty || voucherData.issuedWeight || voucherData.qty || voucherData.weight) {
-        setRows([
-          {
-            id: 1,
-            sku: voucherData.sku || "",
-            category: voucherData.category || "",
-            issuedQty: voucherData.issuedQty || voucherData.qty || "",
-            unit1: "Pcs",
-            issuedWeight: voucherData.issuedWeight || voucherData.weight || "",
-            unit2: "Kg",
-            receivedQty: voucherData.receivedQty || "",
-            receivedWeight: voucherData.receivedWeight || "",
-            lossQty: voucherData.lossQty || "",
-            lossWeight: voucherData.lossWeight || "",
-            reissueQty: voucherData.reIssueQty || "",
-            reissueWeight: voucherData.reIssueWeight || "",
-          },
-        ])
+      setSubmitError('')
+      setSubmitWarnings([])
+
+      // Populate rows from materialRows (multi-SKU voucher)
+      const materialRows = Array.isArray(voucherData.materialRows) ? voucherData.materialRows : []
+      if (materialRows.length > 0) {
+        setRows(materialRows.map((mr, idx) => ({
+          id: idx + 1,
+          sku: mr.sku || '',
+          category: mr.category || '',
+          metal: mr.metal || '',
+          issuedQty: mr.issued_qty || mr.issuedQty || '',
+          unit1: mr.unit1 || 'Pcs',
+          issuedWeight: mr.issued_weight || mr.issuedWeight || '',
+          unit2: mr.unit2 || 'Kg',
+          receivedQty: '',
+          unit3: 'Pcs',
+          receivedWeight: '',
+          unit4: 'Kg',
+          lossQty: '',
+          unit5: 'Pcs',
+          lossWeight: '',
+          unit6: 'Kg',
+          reissueQty: '',
+          unit7: 'Pcs',
+          reissueWeight: '',
+          unit8: 'Kg',
+        })))
+      } else if (voucherData.qty) {
+        setRows([{
+          id: 1, sku: voucherData.sku || '', category: voucherData.category || '',
+          metal: '', issuedQty: String(voucherData.qty || ''), unit1: 'Pcs',
+          issuedWeight: String(voucherData.weight || ''), unit2: 'Kg',
+          receivedQty: '', unit3: 'Pcs', receivedWeight: '', unit4: 'Kg',
+          lossQty: '', unit5: 'Pcs', lossWeight: '', unit6: 'Kg',
+          reissueQty: '', unit7: 'Pcs', reissueWeight: '', unit8: 'Kg',
+        }])
       }
     }
   }, [voucherData, open])
+
+  // Load workforce members + auto-fill session user when modal opens
+  useEffect(() => {
+    if (!open) return
+    fetch('/api/workforce', { cache: 'no-store' })
+      .then(r => r.json())
+      .then(result => {
+        const members = Array.isArray(result?.data)
+          ? result.data
+          : (result?.data?.results || [])
+        setWorkforce(members)
+      })
+      .catch(() => {})
+    fetch('/api/auth/session', { cache: 'no-store' })
+      .then(r => r.json())
+      .then(data => {
+        const name = data?.user?.first_name
+          ? `${data.user.first_name} ${data.user.last_name || ''}`.trim()
+          : (data?.user?.username || '')
+        if (name) setIssuedByName(name)
+      })
+      .catch(() => {})
+  }, [open])
 
   const addRow = () => {
     const newRow = {
@@ -126,6 +170,65 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
     })
     onOpenChange(false)
   }
+
+  async function callReceiveApi(isPartial) {
+    const voucherId = voucherData?.id
+    if (!voucherId) {
+      setSubmitError('No voucher ID found. Please re-open the voucher card.')
+      return
+    }
+    const canReceive = ['in_process', 'partially_complete'].includes(voucherData?.approvalStatus)
+    if (!canReceive) {
+      setSubmitError(`This voucher cannot be received (status: ${voucherData?.approvalStatus}). Only in-process or partially complete vouchers can be received.`)
+      return
+    }
+    const receivedRows = rows
+      .filter(r => String(r.receivedQty || '').trim() !== '')
+      .map(r => ({
+        sku: r.sku,
+        received_qty: parseFloat(r.receivedQty) || 0,
+        received_weight: parseFloat(r.receivedWeight) || 0,
+        loss_qty: parseFloat(r.lossQty) || 0,
+        loss_weight: parseFloat(r.lossWeight) || 0,
+        reissue_qty: parseFloat(r.reissueQty) || 0,
+      }))
+    if (receivedRows.length === 0) {
+      setSubmitError('Please fill in at least one Received Qty before submitting.')
+      return
+    }
+    setIsSubmitting(true)
+    setSubmitError('')
+    setSubmitWarnings([])
+    try {
+      const res = await fetch(`/api/jobs/${voucherId}/receive-voucher/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          rows: receivedRows,
+          is_partial: isPartial,
+          received_by: receivedByName || issuedByName,
+          note: noteForReissue,
+        }),
+      })
+      const result = await res.json().catch(() => null)
+      if (!res.ok || !result?.success) {
+        setSubmitError(result?.error?.message || result?.error?.details || 'Failed to update inventory.')
+        return
+      }
+      if (result?.data?.warnings?.length) {
+        setSubmitWarnings(result.data.warnings)
+      }
+      onJobReceived?.(result.data)
+      onOpenChange(false)
+    } catch (err) {
+      setSubmitError(err.message || 'Network error. Please try again.')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const handleUpdateInventory = () => callReceiveApi(false)
+  const handlePartialUpdate = () => callReceiveApi(true)
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -190,11 +293,16 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
                 <Label className="text-sm font-medium text-muted-foreground">Issued To</Label>
                 <Select value={issuedTo} onValueChange={setIssuedTo}>
                   <SelectTrigger className="h-7 text-sm bg-background border-border">
-                    <SelectValue placeholder="Select" />
+                    <SelectValue placeholder="Select workforce" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="Existing Workforce / Vendor">Existing Workforce / Vendor</SelectItem>
                     <SelectItem value="New Workforce / Vendor">New Workforce / Vendor</SelectItem>
+                    {workforce.map(w => (
+                      <SelectItem key={w.id} value={w.full_name || w.name || String(w.id)}>
+                        {w.full_name || w.name}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -428,12 +536,33 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
             </div>
           </div>
 
+          {/* Error / Warning Display */}
+          {submitError && (
+            <div className="rounded-md bg-red-50 border border-red-300 px-3 py-2 text-xs text-red-700">
+              {submitError}
+            </div>
+          )}
+          {submitWarnings.length > 0 && (
+            <div className="rounded-md bg-yellow-50 border border-yellow-300 px-3 py-2 text-xs text-yellow-800">
+              <p className="font-semibold mb-1">Warnings (inventory updated for other rows):</p>
+              {submitWarnings.map((w, i) => <p key={i}>• {w}</p>)}
+            </div>
+          )}
+
           {/* Action Buttons Row */}
           <div className="grid grid-cols-3 gap-1.5">
-            <Button className="h-7 bg-success hover:bg-success text-white font-bold text-sm rounded">
-              Update Inventory
+            <Button
+              className="h-7 bg-success hover:bg-success text-white font-bold text-sm rounded"
+              onClick={handleUpdateInventory}
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? 'Updating...' : 'Update Inventory'}
             </Button>
-            <Button className="h-7 bg-warning hover:bg-warning/90 text-white font-bold text-sm rounded">
+            <Button
+              className="h-7 bg-warning hover:bg-warning/90 text-white font-bold text-sm rounded"
+              onClick={handlePartialUpdate}
+              disabled={isSubmitting}
+            >
               Partial Update
             </Button>
             <Button className="h-7 bg-warning hover:bg-warning/90 text-white font-bold text-sm rounded">

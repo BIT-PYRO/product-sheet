@@ -321,6 +321,7 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
     { key: 'hand-setting', label: 'Hand Setting' },
     { key: 'polishing', label: 'Final Polish' },
     { key: 'plating', label: 'Ready for Plating' },
+    { key: 'final-stock', label: 'Final Stock' },
   ]
 
   async function handleSubmit() {

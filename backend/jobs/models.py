@@ -31,6 +31,7 @@ class VoucherApprovalStatus(models.TextChoices):
 	APPROVED = 'approved', 'Approved'
 	IN_PROCESS = 'in_process', 'In Process'
 	AWAITING = 'awaiting', 'Awaiting'
+	PARTIALLY_COMPLETED = 'partially_complete', 'Partially Completed'
 	COMPLETED = 'completed', 'Completed'
 
 
@@ -96,6 +97,9 @@ class Job(AuditModel):
 	)
 	batch_id = models.CharField(max_length=120, blank=True, default='', help_text='Groups vouchers from same bulk creation')
 	department_order = models.PositiveIntegerField(default=0, help_text='Sequence order in department pipeline (0=first)')
+	# Receive tracking
+	received_by = models.CharField(max_length=255, blank=True, default='', help_text='Who received/accepted the job')
+	received_rows = models.JSONField(default=list, blank=True, help_text='Audit log of all receive events [{timestamp, received_by, is_partial, rows}]')
 
 	def __str__(self):
 		return f'{self.title} ({self.status})'

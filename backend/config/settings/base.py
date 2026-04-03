@@ -129,6 +129,9 @@ SIMPLE_JWT = {
 
 GOOGLE_CLIENT_ID = env('GOOGLE_CLIENT_ID', default='')
 
+# ── External Workforce Sync ──────────────────────────────────────────────────
+EXTERNAL_WORKFORCE_WEBHOOK_SECRET = env('EXTERNAL_WORKFORCE_WEBHOOK_SECRET', default='')
+
 CORS_ALLOWED_ORIGINS = env.list('CORS_ALLOWED_ORIGINS', default=['http://localhost:3000'])
 
 

@@ -28,6 +28,7 @@ backend/celerybeat-schedule.*
 
 # ── Dev notes (local only) ──────────────────────────────────
 DEV_ACCESS.md
+API_readme.md
 
 # ── General ─────────────────────────────────────────────────
 .DS_Store
