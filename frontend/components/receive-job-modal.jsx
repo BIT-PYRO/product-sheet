@@ -376,26 +376,26 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
           {/* SKU Table with all 18 columns */}
           <div className="rounded-md overflow-hidden border border-border text-sm">
             <div className="w-full scale-[1.0] origin-top-left">
-              <div className="grid gap-0 bg-trust-blue text-white font-bold uppercase tracking-wider px-1 text-center" style={{ gridTemplateColumns: "0.6fr 0.65fr 0.65fr 0.48fr 0.32fr 0.48fr 0.32fr 0.48fr 0.32fr 0.48fr 0.32fr 0.48fr 0.32fr 0.48fr 0.32fr 0.48fr 0.32fr 0.48fr 0.32fr 24px" }}>
+              <div className="grid gap-0 bg-trust-blue text-white font-bold uppercase tracking-wider px-1 text-center" style={{ gridTemplateColumns: "0.45fr 0.75fr 0.84fr 0.34fr 0.34fr 0.52fr 0.34fr 0.36fr 0.34fr 0.36fr 0.34fr 0.5fr 0.34fr 0.5fr 0.34fr 0.5fr 0.34fr 0.5fr 0.34fr 24px" }}>
                 <div className="py-1">SKU</div>
                 <div className="py-1">Category</div>
                 <div className="py-1">Metal</div>
-                <div className="py-1 leading-tight"><span>Issued</span><span className="block">Qty</span></div>
-                <div className="py-1"></div>
-                <div className="py-1 leading-tight"><span>Issued</span><span className="block">WT</span></div>
-                <div className="py-1"></div>
-                <div className="py-1 leading-tight"><span>Received</span><span className="block">Qty</span></div>
-                <div className="py-1"></div>
-                <div className="py-1 leading-tight"><span>Received</span><span className="block">WT</span></div>
-                <div className="py-1"></div>
-                <div className="py-1 leading-tight"><span>Loss</span><span className="block">Qty</span></div>
-                <div className="py-1"></div>
-                <div className="py-1 leading-tight"><span>Loss</span><span className="block">WT</span></div>
-                <div className="py-1"></div>
-                <div className="py-1 leading-tight"><span>Re-Issue</span><span className="block">Qty</span></div>
-                <div className="py-1"></div>
-                <div className="py-1 leading-tight"><span>Re-Issue</span><span className="block">WT</span></div>
-                <div className="py-1"></div>
+                <div className="py-1 leading-tight bg-blue-700/25 border-l-2 border-white/40"><span>Issued</span><span className="block">Qty</span></div>
+                <div className="py-1 bg-blue-700/25"></div>
+                <div className="py-1 leading-tight bg-blue-700/25"><span>Issued</span><span className="block">WT</span></div>
+                <div className="py-1 bg-blue-700/25"></div>
+                <div className="py-1 leading-tight bg-emerald-700/25 border-l-2 border-white/40"><span>Received</span><span className="block">Qty</span></div>
+                <div className="py-1 bg-emerald-700/25"></div>
+                <div className="py-1 leading-tight bg-emerald-700/25"><span>Received</span><span className="block">WT</span></div>
+                <div className="py-1 bg-emerald-700/25"></div>
+                <div className="py-1 leading-tight bg-rose-700/25 border-l-2 border-white/40"><span>Loss</span><span className="block">Qty</span></div>
+                <div className="py-1 bg-rose-700/25"></div>
+                <div className="py-1 leading-tight bg-rose-700/25"><span>Loss</span><span className="block">WT</span></div>
+                <div className="py-1 bg-rose-700/25"></div>
+                <div className="py-1 leading-tight bg-amber-700/25 border-l-2 border-white/40"><span>Re-Issue</span><span className="block">Qty</span></div>
+                <div className="py-1 bg-amber-700/25"></div>
+                <div className="py-1 leading-tight bg-amber-700/25"><span>Re-Issue</span><span className="block">WT</span></div>
+                <div className="py-1 bg-amber-700/25"></div>
                 <div className="py-1"></div>
               </div>
               {rows.map((row, i) => (
@@ -409,10 +409,10 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
                   <div className="py-0.5">
                     <Input className="h-6 text-sm border-border" placeholder="Metal" value={row.metal} onChange={(e) => updateRow(row.id, "metal", e.target.value)} />
                   </div>
-                  <div className="py-0.5">
+                  <div className="py-0.5 bg-blue-50/40 border-l-2 border-l-blue-200">
                     <Input className="h-6 text-sm border-border" type="number" placeholder="0" value={row.issuedQty} onChange={(e) => updateRow(row.id, "issuedQty", e.target.value)} />
                   </div>
-                  <div className="py-0.5">
+                  <div className="py-0.5 bg-blue-50/40">
                     <Select value={row.unit1} onValueChange={(v) => updateRow(row.id, "unit1", v)}>
                       <SelectTrigger className="h-6 text-sm border-border p-0.5"><SelectValue /></SelectTrigger>
                       <SelectContent>
@@ -421,10 +421,10 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="py-0.5">
+                  <div className="py-0.5 bg-blue-50/40">
                     <Input className="h-6 text-sm border-border" placeholder="0.00" value={row.issuedWeight} onChange={(e) => updateRow(row.id, "issuedWeight", e.target.value)} />
                   </div>
-                  <div className="py-0.5">
+                  <div className="py-0.5 bg-blue-50/40">
                     <Select value={row.unit2} onValueChange={(v) => updateRow(row.id, "unit2", v)}>
                       <SelectTrigger className="h-6 text-sm border-border p-0.5"><SelectValue /></SelectTrigger>
                       <SelectContent>
@@ -437,10 +437,10 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="py-0.5">
+                  <div className="py-0.5 bg-emerald-50/40 border-l-2 border-l-emerald-200">
                     <Input className="h-6 text-sm border-border" placeholder="0" value={row.receivedQty} onChange={(e) => updateRow(row.id, "receivedQty", e.target.value)} />
                   </div>
-                  <div className="py-0.5">
+                  <div className="py-0.5 bg-emerald-50/40">
                     <Select value={row.unit3 || "Pcs"} onValueChange={(v) => updateRow(row.id, "unit3", v)}>
                       <SelectTrigger className="h-6 text-sm border-border p-0.5"><SelectValue /></SelectTrigger>
                       <SelectContent>
@@ -449,10 +449,10 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="py-0.5">
+                  <div className="py-0.5 bg-emerald-50/40">
                     <Input className="h-6 text-sm border-border" placeholder="0.00" value={row.receivedWeight} onChange={(e) => updateRow(row.id, "receivedWeight", e.target.value)} />
                   </div>
-                  <div className="py-0.5">
+                  <div className="py-0.5 bg-emerald-50/40">
                     <Select value={row.unit4 || "Kg"} onValueChange={(v) => updateRow(row.id, "unit4", v)}>
                       <SelectTrigger className="h-6 text-sm border-border p-0.5"><SelectValue /></SelectTrigger>
                       <SelectContent>
@@ -465,10 +465,10 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="py-0.5">
+                  <div className="py-0.5 bg-rose-50/45 border-l-2 border-l-rose-200">
                     <Input className="h-6 text-sm border-border" placeholder="0" value={row.lossQty} onChange={(e) => updateRow(row.id, "lossQty", e.target.value)} />
                   </div>
-                  <div className="py-0.5">
+                  <div className="py-0.5 bg-rose-50/45">
                     <Select value={row.unit5 || "Pcs"} onValueChange={(v) => updateRow(row.id, "unit5", v)}>
                       <SelectTrigger className="h-6 text-sm border-border p-0.5"><SelectValue /></SelectTrigger>
                       <SelectContent>
@@ -477,10 +477,10 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="py-0.5">
+                  <div className="py-0.5 bg-rose-50/45">
                     <Input className="h-6 text-sm border-border" placeholder="0.00" value={row.lossWeight} onChange={(e) => updateRow(row.id, "lossWeight", e.target.value)} />
                   </div>
-                  <div className="py-0.5">
+                  <div className="py-0.5 bg-rose-50/45">
                     <Select value={row.unit6 || "Kg"} onValueChange={(v) => updateRow(row.id, "unit6", v)}>
                       <SelectTrigger className="h-6 text-sm border-border p-0.5"><SelectValue /></SelectTrigger>
                       <SelectContent>
@@ -493,10 +493,10 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="py-0.5">
+                  <div className="py-0.5 bg-amber-50/45 border-l-2 border-l-amber-200">
                     <Input className="h-6 text-sm border-border" placeholder="0" value={row.reissueQty} onChange={(e) => updateRow(row.id, "reissueQty", e.target.value)} />
                   </div>
-                  <div className="py-0.5">
+                  <div className="py-0.5 bg-amber-50/45">
                     <Select value={row.unit7 || "Pcs"} onValueChange={(v) => updateRow(row.id, "unit7", v)}>
                       <SelectTrigger className="h-6 text-sm border-border p-0.5"><SelectValue /></SelectTrigger>
                       <SelectContent>
@@ -505,10 +505,10 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="py-0.5">
+                  <div className="py-0.5 bg-amber-50/45">
                     <Input className="h-6 text-sm border-border" placeholder="0.00" value={row.reissueWeight} onChange={(e) => updateRow(row.id, "reissueWeight", e.target.value)} />
                   </div>
-                  <div className="py-0.5">
+                  <div className="py-0.5 bg-amber-50/45">
                     <Select value={row.unit8 || "Kg"} onValueChange={(v) => updateRow(row.id, "unit8", v)}>
                       <SelectTrigger className="h-6 text-sm border-border p-0.5"><SelectValue /></SelectTrigger>
                       <SelectContent>
