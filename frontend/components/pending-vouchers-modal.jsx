@@ -15,7 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { X, Printer, Loader2, Check, Clock, AlertCircle, ArrowRight, ChevronDown, ChevronRight } from "lucide-react"
+import { X, Loader2, Check, Clock, AlertCircle, ArrowRight, ChevronDown, ChevronRight } from "lucide-react"
 
 const APPROVAL_STATUS_LABELS = {
   pending: { label: 'Pending', color: 'bg-amber-100 text-amber-800', icon: Clock },
@@ -256,9 +256,9 @@ export function PendingVouchersModal({ open, onOpenChange, onVouchersApproved })
               {isApproving ? (
                 <Loader2 className="h-3 w-3 animate-spin" />
               ) : (
-                <Printer className="h-3 w-3" />
+                <Check className="h-3 w-3" />
               )}
-              Approve & Print
+              Approve
             </Button>
           </div>
         </div>

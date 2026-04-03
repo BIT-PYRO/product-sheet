@@ -501,12 +501,11 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
       }
 
       const createdJob = createResult?.data || null
-      const jobData = { date, issuedTo, deptFrom, deptTo, rows, voucherNo, createdJob }
-      setPrintVoucherData(jobData)
-      setIsPrintVoucherModalOpen(true)
       if (onJobCreated) {
         onJobCreated(createdJob)
       }
+      alert('Job created successfully!')
+      onOpenChange(false)
     } catch {
       alert('Unable to create job right now. Please try again.')
     }
