@@ -116,19 +116,7 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
             : Array.isArray(result?.picklists)
               ? result.picklists
               : []
-          // Also merge from localStorage as fallback
-          let localPicklists = []
-          try {
-            const raw = localStorage.getItem('psd_picklists')
-            if (raw) localPicklists = JSON.parse(raw)
-          } catch { /* ignore */ }
-          const merged = new Map()
-          groups.forEach(p => merged.set(String(p.id), p))
-          localPicklists.forEach(p => {
-            const id = String(p.id || '')
-            if (!merged.has(id)) merged.set(id, p)
-          })
-          setPicklists(Array.from(merged.values()))
+          setPicklists(groups)
         })
         .catch(() => setPicklists([]))
         .finally(() => setIsPicklistLoading(false))

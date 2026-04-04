@@ -23,11 +23,11 @@ function toInt(value) {
 // SKUs in picklist PDFs look like: AJB11/G, AJB3/S, AJC1/G
 // Pattern used here is intentionally strict so random UI text like "D"
 // or "OneDesk" is never treated as a SKU.
-const PDF_SKU_RE = /^(?=.*\/)[A-Z][A-Z0-9]{1,24}\/[A-Z0-9]{1,4}$/i;
+const PDF_SKU_RE = /^[A-Z][A-Z0-9]{1,24}(\/[A-Z0-9]{1,6})*$/i;
 
 // Full-row pattern: SKU  product-name  number  (columns sep by 2+ spaces).
 const PDF_FULL_ROW_RE =
-  /^((?=.*\/)[A-Z][A-Z0-9]{1,24}\/[A-Z0-9]{1,4})\s{2,}(.+?)\s{2,}(\d+)(?:\s+\d+)?(?:\s.*)?$/i;
+  /^([A-Z][A-Z0-9]{1,24}(\/[A-Z0-9]{1,6})*)\s{2,}(.+?)\s{2,}(\d+)(?:\s+\d+)?(?:\s.*)?$/i;
 
 function isPicklistSku(value) {
   return PDF_SKU_RE.test(String(value || '').trim().toUpperCase());
@@ -90,7 +90,7 @@ function parsePdfPicklistText(rawText) {
   for (const line of lines) {
     const m = line.match(PDF_FULL_ROW_RE);
     if (m) {
-      items.push({ sku: m[1], listingName: m[2].trim(), needed: toInt(m[3]) });
+      items.push({ sku: m[1], listingName: m[3].trim(), needed: toInt(m[4]) });
     }
   }
 
@@ -117,7 +117,7 @@ function parsePdfPicklistText(rawText) {
         }
         j += 1;
       }
-      items.push({ sku: skuMatch[1], listingName: name || skuMatch[1], needed });
+      items.push({ sku: skuMatch[0], listingName: name || skuMatch[0], needed });
       i = j;
       continue;
     }
@@ -237,6 +237,10 @@ function rowsToObjects(matrix) {
       'qty',
       'quantity',
       'pickqty',
+      'qtyneeded',
+      'qtyrequired',
+      'qtydemand',
+      'needqty',
     ].includes(header);
 
   // Some sheets have title rows before the real header. Find the best header row
@@ -401,6 +405,10 @@ function asPicklistItem(row) {
     'qty',
     'quantity',
     'pickqty',
+    'qtyneeded',
+    'qtyrequired',
+    'qtydemand',
+    'needqty',
   ]);
   const needed = toInt(neededRaw);
 

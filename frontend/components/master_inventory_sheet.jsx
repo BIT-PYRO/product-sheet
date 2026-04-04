@@ -300,7 +300,7 @@ function getFilterValue(product, fieldKey) {
 
 const PSD_PICKLISTS_KEY = 'psd_picklists';
 
-const PICKLIST_SKU_RE = /^(?=.*\/)[A-Z][A-Z0-9]{1,24}\/[A-Z0-9]{1,4}$/i;
+const PICKLIST_SKU_RE = /^[A-Z][A-Z0-9]{1,24}(\/[A-Z0-9]{1,6})*$/i;
 
 function isValidPicklistSku(value) {
   return PICKLIST_SKU_RE.test(String(value || '').trim().toUpperCase());
@@ -441,27 +441,23 @@ export default function MasterInventorySheet() {
       const inventoryResult = await readJsonSafe(inventoryResponse);
       const groupsResult = await readJsonSafe(groupsResponse);
 
-      // Always load picklists regardless of whether inventory-summary succeeds.
-      const localPicklists = loadPicklistsFromStorage();
-      const backendPicklists = Array.isArray(groupsResult?.picklists)
-        ? groupsResult.picklists
-        : (Array.isArray(groupsResult?.data) ? groupsResult.data : []);
-
-      if (backendPicklists.length === 0) {
-        setPicklists(localPicklists);
+      // Use backend as the authoritative source for picklists.
+      // Only fall back to localStorage if the backend request itself failed.
+      if (groupsResponse.ok) {
+        const backendPicklists = Array.isArray(groupsResult?.data)
+          ? groupsResult.data
+          : Array.isArray(groupsResult?.picklists)
+            ? groupsResult.picklists
+            : [];
+        // Backend is authoritative — if it returned 0 groups, picklists are empty.
+        // Clear stale localStorage so deleted picklists don't resurface.
+        try {
+          localStorage.setItem('psd_picklists', JSON.stringify(backendPicklists));
+        } catch { /* ignore */ }
+        setPicklists(backendPicklists);
       } else {
-        // Merge backend + local, backend takes precedence for same IDs.
-        const merged = new Map();
-        backendPicklists.forEach((picklist) => {
-          merged.set(String(picklist?.id || ''), picklist);
-        });
-        localPicklists.forEach((picklist) => {
-          const id = String(picklist?.id || '');
-          if (!merged.has(id)) {
-            merged.set(id, picklist);
-          }
-        });
-        setPicklists(Array.from(merged.values()));
+        // Backend unreachable — use localStorage as offline fallback only.
+        setPicklists(loadPicklistsFromStorage());
       }
 
       if (!inventoryResponse.ok || !inventoryResult?.success) {
@@ -1021,8 +1017,8 @@ export default function MasterInventorySheet() {
 
       localStorage.setItem(INVENTORY_SYNC_KEY, syncTimestamp);
 
+      // Write the fresh backend list to localStorage — no stale merge.
       try {
-        const existingPicklists = JSON.parse(localStorage.getItem(PSD_PICKLISTS_KEY) || '[]');
         const parsedItems = Array.isArray(result.picklistItems) ? result.picklistItems : [];
         const backendGroup = result?.picklistGroup || {};
         const newPicklist = {
@@ -1034,8 +1030,10 @@ export default function MasterInventorySheet() {
           uploadedBy: backendGroup.uploadedBy || currentUsername || 'Unknown',
           items: parsedItems,
         };
-        const updated = [newPicklist, ...existingPicklists].slice(0, 20);
-        localStorage.setItem(PSD_PICKLISTS_KEY, JSON.stringify(updated));
+        const freshRes = await fetch('/api/picklist-groups', { cache: 'no-store' }).catch(() => null);
+        const freshData = freshRes?.ok ? await freshRes.json().catch(() => null) : null;
+        const freshList = Array.isArray(freshData?.data) ? freshData.data : [newPicklist];
+        localStorage.setItem(PSD_PICKLISTS_KEY, JSON.stringify(freshList));
       } catch {
         // Ignore localStorage write failures.
       }

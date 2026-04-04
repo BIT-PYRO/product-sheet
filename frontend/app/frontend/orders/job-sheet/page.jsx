@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react';
 import Link from 'next/link';
-import { RefreshCw, ChevronRight, ArrowLeft, Upload } from 'lucide-react';
+import { RefreshCw, ChevronRight, ArrowLeft, Upload, Trash2 } from 'lucide-react';
 
 const fmt = (n) => `₹${Number(n).toFixed(2)}`;
 
@@ -29,6 +29,14 @@ export function OrderSheetView({ embedded = false }) {
   const [customerDetailsUnlocked, setCustomerDetailsUnlocked] = useState(false);
   const [passwordInput, setPasswordInput] = useState('');
   const [passwordError, setPasswordError] = useState('');
+
+  // Delete picklist state
+  const [showDeletePicklistDialog, setShowDeletePicklistDialog] = useState(false);
+  const [availablePicklists, setAvailablePicklists] = useState([]);
+  const [deletePicklistLoading, setDeletePicklistLoading] = useState(false);
+  const [deletePicklistFetching, setDeletePicklistFetching] = useState(false);
+  const [deletePicklistError, setDeletePicklistError] = useState('');
+  const [selectedDeletePicklistIds, setSelectedDeletePicklistIds] = useState(new Set());
 
   const CUSTOMER_DETAILS_PASSCODE = process.env.NEXT_PUBLIC_CUSTOMER_PASSCODE || '1234';
 
@@ -189,8 +197,9 @@ export function OrderSheetView({ embedded = false }) {
 
       localStorage.setItem('inventory_sheet_updated_at', syncTimestamp);
 
+      // Write only the newly-uploaded group to localStorage (no stale merge).
+      // master_inventory_sheet will overwrite the full list from backend on reload.
       try {
-        const existingPicklists = JSON.parse(localStorage.getItem(PSD_PICKLISTS_KEY) || '[]');
         const parsedItems = Array.isArray(result.picklistItems) ? result.picklistItems : [];
         const backendGroup = result?.picklistGroup || {};
         const newPicklist = {
@@ -202,8 +211,12 @@ export function OrderSheetView({ embedded = false }) {
           uploadedBy: backendGroup.uploadedBy || currentUsername || 'Unknown',
           items: parsedItems,
         };
-        const updated = [newPicklist, ...existingPicklists].slice(0, 20);
-        localStorage.setItem(PSD_PICKLISTS_KEY, JSON.stringify(updated));
+        // Replace localStorage entirely with the fresh backend list + new entry
+        // so deleted picklists can never sneak back in.
+        const freshRes = await fetch('/api/picklist-groups', { cache: 'no-store' }).catch(() => null);
+        const freshData = freshRes?.ok ? await freshRes.json().catch(() => null) : null;
+        const freshList = Array.isArray(freshData?.data) ? freshData.data : [newPicklist];
+        localStorage.setItem(PSD_PICKLISTS_KEY, JSON.stringify(freshList));
       } catch {
         // ignore localStorage write failures
       }
@@ -240,6 +253,166 @@ export function OrderSheetView({ embedded = false }) {
 
   const handleRefresh = async () => {
     await loadOrdersAndProducts();
+  };
+
+  const handleOpenDeletePicklistDialog = async () => {
+    setDeletePicklistError('');
+    setSelectedDeletePicklistIds(new Set());
+    setAvailablePicklists([]);
+    setShowDeletePicklistDialog(true);
+    setDeletePicklistFetching(true);
+    try {
+      const res = await fetch('/api/picklist-groups', { cache: 'no-store' });
+      const data = await res.json().catch(() => null);
+      const backendList = res.ok
+        ? (Array.isArray(data?.data)
+            ? data.data
+            : Array.isArray(data?.results)
+              ? data.results
+              : Array.isArray(data?.picklists)
+                ? data.picklists
+                : Array.isArray(data)
+                  ? data
+                  : [])
+        : null; // null = request failed, distinct from empty list
+
+      if (backendList !== null && backendList.length > 0) {
+        // Backend has groups — use them
+        setAvailablePicklists(backendList);
+      } else if (backendList !== null) {
+        // Backend responded ok with empty list — groups are gone.
+        // Synthesise orphan entries from any picklist orders still in state.
+        const picklistNums = [
+          ...new Set(
+            orders
+              .filter((o) => o.order_source === 'picklist' && o.picklist_number != null)
+              .map((o) => o.picklist_number)
+          ),
+        ].sort((a, b) => a - b);
+
+        const synthesized = picklistNums.map((num) => {
+          const sample = orders.find(
+            (o) => o.order_source === 'picklist' && o.picklist_number === num
+          );
+          return {
+            id: `__orphan__${num}`,
+            group_id: `__orphan__${num}`,
+            number: num,
+            name: `PICKLIST-${num}`,
+            uploadedBy: sample?.order_type || '',
+            dateFormatted: sample
+              ? new Date(sample.created_at).toLocaleString()
+              : '',
+            _orphan: true,
+          };
+        });
+        setAvailablePicklists(synthesized);
+      } else {
+        // Backend request failed — show error so user knows to retry
+        setDeletePicklistError('Could not reach the server. Please try again.');
+      }
+    } catch {
+      setDeletePicklistError('Failed to load picklists.');
+    } finally {
+      setDeletePicklistFetching(false);
+    }
+  };
+
+  const handleConfirmDeletePicklist = async () => {
+    if (selectedDeletePicklistIds.size === 0) {
+      setDeletePicklistError('Please select at least one picklist to delete.');
+      return;
+    }
+    setDeletePicklistLoading(true);
+    setDeletePicklistError('');
+    const errors = [];
+    try {
+      // Resolve full picklist objects for selected ids so we have the number too
+      const toDelete = availablePicklists.filter((pl) =>
+        selectedDeletePicklistIds.has(String(pl.id || pl.group_id))
+      );
+
+      for (const pl of toDelete) {
+        const plId = String(pl.id || pl.group_id);
+        const plNumber = pl.number;
+        const isOrphan = pl._orphan === true || plId.startsWith('__orphan__');
+
+        // 1. Delete PicklistGroup from backend (cascades PicklistItems in DB)
+        // Skip for synthesised orphan entries — the group no longer exists.
+        if (!isOrphan) {
+          try {
+            const res = await fetch(`/api/picklist-groups?groupId=${encodeURIComponent(plId)}`, {
+              method: 'DELETE',
+            });
+            // 404 is fine — already gone
+            if (!res.ok && res.status !== 204 && res.status !== 404) {
+              const data = await res.json().catch(() => null);
+              errors.push(`#${plNumber}: ${data?.message || `server error ${res.status}`}`);
+              continue;
+            }
+          } catch (err) {
+            errors.push(`#${plNumber}: ${err.message}`);
+            continue;
+          }
+        }
+
+        // 2. Delete associated orders from backend
+        try {
+          const ordersRes = await fetch(
+            `/frontend/api/orders?order_source=picklist&picklist_number=${plNumber}`,
+            { cache: 'no-store' }
+          );
+          if (ordersRes.ok) {
+            const ordersData = await ordersRes.json().catch(() => null);
+            const ordersList = Array.isArray(ordersData?.results)
+              ? ordersData.results
+              : Array.isArray(ordersData)
+                ? ordersData
+                : [];
+            await Promise.all(
+              ordersList.map((o) =>
+                fetch(`/frontend/api/orders/${o.id}`, { method: 'DELETE' }).catch(() => {})
+              )
+            );
+          }
+        } catch { /* best-effort */ }
+
+        // 3. Remove from localStorage — match by number (always reliable)
+        // and by id for non-orphan entries
+        try {
+          const raw = localStorage.getItem(PSD_PICKLISTS_KEY);
+          if (raw) {
+            const existing = JSON.parse(raw);
+            const updated = existing.filter((p) => {
+              if (plNumber != null && p.number === plNumber) return false;
+              if (!isOrphan && String(p.id || '') === plId) return false;
+              return true;
+            });
+            localStorage.setItem(PSD_PICKLISTS_KEY, JSON.stringify(updated));
+          }
+        } catch { /* ignore */ }
+      }
+
+      if (errors.length > 0) {
+        setDeletePicklistError(`Some deletions failed:\n${errors.join('\n')}`);
+      } else {
+        setShowDeletePicklistDialog(false);
+        setSelectedDeletePicklistIds(new Set());
+      }
+      // Notify Master Inventory Sheet (same tab and other tabs) to reload
+      const syncTs = Date.now().toString();
+      try {
+        localStorage.setItem('inventory_sheet_updated_at', syncTs);
+      } catch { /* ignore */ }
+      window.dispatchEvent(
+        new CustomEvent('inventory_sheet_sync', { detail: { updatedAt: syncTs } })
+      );
+      await loadOrdersAndProducts();
+    } catch (err) {
+      setDeletePicklistError(err.message || 'Failed to delete picklist.');
+    } finally {
+      setDeletePicklistLoading(false);
+    }
   };
 
   // ── Inline-cell editing ──────────────────────────────────────────────────
@@ -416,6 +589,13 @@ export function OrderSheetView({ embedded = false }) {
                   >
                     <Upload className="h-3.5 w-3.5" />
                     {isUploadingPicklist ? 'Uploading...' : 'Bulk Upload'}
+                  </button>
+                  <button
+                    onClick={handleOpenDeletePicklistDialog}
+                    className="gap-1.5 text-xs px-3 py-1 rounded-md border border-danger/40 bg-white hover:bg-danger-soft text-danger-dark font-medium transition-colors flex items-center"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    Delete Picklist
                   </button>
                   <span className="text-[11px] font-semibold text-cool-gray">{filteredOrders.length} total</span>
                 </div>
@@ -811,6 +991,129 @@ export function OrderSheetView({ embedded = false }) {
           </div>
         </div>
       </div>
+
+      {/* Delete Picklist Dialog */}
+      {showDeletePicklistDialog && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
+          <div className="bg-white rounded-xl shadow-xl max-w-sm w-full border border-soft-border">
+            <div className="p-6">
+              <div className="flex justify-center mb-3">
+                <div className="flex items-center justify-center w-12 h-12 rounded-full bg-danger-soft border border-danger/30">
+                  <Trash2 className="w-6 h-6 text-danger-dark" />
+                </div>
+              </div>
+              <h3 className="text-lg font-bold text-center text-midnight-ink mb-1">Delete Picklist</h3>
+              <p className="text-center text-xs text-cool-gray mb-4">
+                Select one or more picklists to permanently delete them and all associated orders.
+              </p>
+
+              {deletePicklistFetching ? (
+                <div className="text-center py-6 text-xs text-cool-gray">Loading picklists…</div>
+              ) : availablePicklists.length === 0 ? (
+                <div className="text-center py-6 text-xs text-cool-gray">No picklists found.</div>
+              ) : (
+                <>
+                  {/* Select all toggle */}
+                  <div className="flex items-center gap-2 mb-2 px-1">
+                    <input
+                      type="checkbox"
+                      id="select-all-picklists"
+                      checked={selectedDeletePicklistIds.size === availablePicklists.length}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedDeletePicklistIds(
+                            new Set(availablePicklists.map((pl) => String(pl.id || pl.group_id)))
+                          );
+                        } else {
+                          setSelectedDeletePicklistIds(new Set());
+                        }
+                      }}
+                      className="w-4 h-4 accent-danger cursor-pointer"
+                    />
+                    <label htmlFor="select-all-picklists" className="text-xs text-cool-gray cursor-pointer select-none">
+                      Select all ({availablePicklists.length})
+                    </label>
+                    {selectedDeletePicklistIds.size > 0 && (
+                      <span className="ml-auto text-[11px] font-semibold text-danger-dark">
+                        {selectedDeletePicklistIds.size} selected
+                      </span>
+                    )}
+                  </div>
+                  <div className="space-y-1.5 max-h-56 overflow-y-auto mb-4 pr-1">
+                    {availablePicklists.map((pl) => {
+                      const plId = String(pl.id || pl.group_id);
+                      const isSelected = selectedDeletePicklistIds.has(plId);
+                      return (
+                        <label
+                          key={plId}
+                          className={`flex items-start gap-3 w-full px-3 py-2.5 rounded-lg border cursor-pointer transition-colors ${
+                            isSelected
+                              ? 'border-danger bg-danger-soft'
+                              : 'border-soft-border bg-cloud-gray hover:border-danger/50 hover:bg-danger-soft/40'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => {
+                              setSelectedDeletePicklistIds((prev) => {
+                                const next = new Set(prev);
+                                if (next.has(plId)) next.delete(plId);
+                                else next.add(plId);
+                                return next;
+                              });
+                            }}
+                            className="mt-0.5 w-4 h-4 accent-danger cursor-pointer shrink-0"
+                          />
+                          <div className="min-w-0">
+                            <p className={`text-xs font-bold ${isSelected ? 'text-danger-dark' : 'text-midnight-ink'}`}>
+                              #{pl.number} — {pl.name}
+                            </p>
+                            <p className="text-[11px] text-cool-gray mt-0.5">
+                              {pl.dateFormatted || pl.date || ''}{pl.uploadedBy ? ` · ${pl.uploadedBy}` : ''}
+                            </p>
+                          </div>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+
+              {deletePicklistError && (
+                <div className="mb-3 p-2 bg-danger-soft border border-danger rounded-lg">
+                  <p className="text-xs text-danger-dark text-center font-medium whitespace-pre-line">{deletePicklistError}</p>
+                </div>
+              )}
+
+              <div className="flex gap-2 pt-1">
+                <button
+                  onClick={() => {
+                    setShowDeletePicklistDialog(false);
+                    setSelectedDeletePicklistIds(new Set());
+                    setDeletePicklistError('');
+                  }}
+                  disabled={deletePicklistLoading}
+                  className="flex-1 py-2 rounded-lg border border-soft-border hover:bg-cloud-gray text-sm font-medium transition-colors disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleConfirmDeletePicklist}
+                  disabled={deletePicklistLoading || selectedDeletePicklistIds.size === 0 || deletePicklistFetching}
+                  className="flex-1 py-2 rounded-lg bg-danger hover:bg-danger-dark text-white font-medium transition-all text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {deletePicklistLoading
+                    ? 'Deleting…'
+                    : selectedDeletePicklistIds.size > 1
+                      ? `Delete ${selectedDeletePicklistIds.size} Picklists`
+                      : 'Delete'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Password Dialog */}
       {showPasswordDialog && (
