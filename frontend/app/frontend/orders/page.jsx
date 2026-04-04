@@ -5,12 +5,15 @@ import Link from 'next/link';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
 import { CreateOrderForm } from '@/app/frontend/orders/create-job/page';
 import { OrderSheetView } from '@/app/frontend/orders/job-sheet/page';
+import { OrderProgressSheetView } from '@/app/frontend/orders/progress-sheet/page';
 
 export default function OrdersPage() {
   const [showCreateOrderForm, setShowCreateOrderForm] = useState(false);
   const [showOrderSheet, setShowOrderSheet] = useState(false);
+  const [showOrderProgressSheet, setShowOrderProgressSheet] = useState(false);
   const createOrderSectionRef = useRef(null);
   const orderSheetSectionRef = useRef(null);
+  const orderProgressSectionRef = useRef(null);
 
   const scrollToSection = (ref) => {
     if (!ref?.current) return;
@@ -32,6 +35,11 @@ export default function OrdersPage() {
     if (!showOrderSheet || !orderSheetSectionRef.current) return;
     requestAnimationFrame(() => scrollToSection(orderSheetSectionRef));
   }, [showOrderSheet]);
+
+  useEffect(() => {
+    if (!showOrderProgressSheet || !orderProgressSectionRef.current) return;
+    requestAnimationFrame(() => scrollToSection(orderProgressSectionRef));
+  }, [showOrderProgressSheet]);
 
   return (
     <main className="min-h-screen bg-cloud-gray">
@@ -56,6 +64,7 @@ export default function OrdersPage() {
             onClick={() => {
               setShowCreateOrderForm((prev) => !prev);
               setShowOrderSheet(false);
+              setShowOrderProgressSheet(false);
             }}
             className="block text-left rounded-xl border border-soft-border bg-white p-6 hover:border-slate-text hover:shadow-md transition"
           >
@@ -70,12 +79,28 @@ export default function OrdersPage() {
             onClick={() => {
               setShowOrderSheet((prev) => !prev);
               setShowCreateOrderForm(false);
+              setShowOrderProgressSheet(false);
             }}
             className="block text-left rounded-xl border border-soft-border bg-white p-6 hover:border-slate-text hover:shadow-md transition"
           >
             <h2 className="text-lg font-semibold text-midnight-ink">Order Sheet</h2>
             <p className="text-sm text-cool-gray mt-2">
               {showOrderSheet ? 'Hide order sheet' : 'View and manage order sheets'}
+            </p>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setShowOrderProgressSheet((prev) => !prev);
+              setShowCreateOrderForm(false);
+              setShowOrderSheet(false);
+            }}
+            className="block text-left rounded-xl border border-soft-border bg-white p-6 hover:border-slate-text hover:shadow-md transition"
+          >
+            <h2 className="text-lg font-semibold text-midnight-ink">Order Progress Sheet</h2>
+            <p className="text-sm text-cool-gray mt-2">
+              {showOrderProgressSheet ? 'Hide order progress sheet' : 'View order progress sheet'}
             </p>
           </button>
         </section>
@@ -96,6 +121,15 @@ export default function OrdersPage() {
             className="mt-6 rounded-none border-y border-soft-border bg-white p-0"
           >
             <OrderSheetView embedded />
+          </section>
+        )}
+
+        {showOrderProgressSheet && (
+          <section
+            ref={orderProgressSectionRef}
+            className="mt-6 rounded-none border-y border-soft-border bg-white p-0"
+          >
+            <OrderProgressSheetView embedded />
           </section>
         )}
       </div>

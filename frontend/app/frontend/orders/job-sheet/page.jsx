@@ -711,6 +711,11 @@ export function OrderSheetView({ embedded = false }) {
                         key={order.id}
                         onClick={() => {
                           if (editingCell) return;
+                          if (selectedOrder?.id === order.id) {
+                            setSelectedOrder(null);
+                            setCustomerDetailsUnlocked(false);
+                            return;
+                          }
                           setSelectedOrder(order);
                           setCustomerDetailsUnlocked(false);
                         }}
@@ -731,7 +736,7 @@ export function OrderSheetView({ embedded = false }) {
                           </span>
                         </td>
                         {/* Order Type — editable */}
-                        <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                        <td className="px-4 py-3">
                           {isEditingType ? (
                             <div className="flex items-center gap-1">
                               <input
@@ -786,7 +791,7 @@ export function OrderSheetView({ embedded = false }) {
                           </span>
                         </td>
                         {/* Units — editable */}
-                        <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
+                        <td className="px-4 py-3 text-right">
                           {isEditingUnits ? (
                             <div className="flex items-center gap-1 justify-end">
                               <input
