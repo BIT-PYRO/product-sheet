@@ -15,7 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { X, Loader2, Check, Clock, AlertCircle, ArrowRight, ChevronDown, ChevronRight } from "lucide-react"
+import { X, Loader2, Check, Clock, AlertCircle, ArrowRight, ChevronDown, ChevronRight, Trash2 } from "lucide-react"
 
 const APPROVAL_STATUS_LABELS = {
   pending: { label: 'Pending', color: 'bg-amber-100 text-amber-800', icon: Clock },
