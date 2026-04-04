@@ -338,17 +338,6 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
           } catch { /* skip */ }
         }
 
-        // Build material_rows for all SKUs (used in every voucher)
-        const allMaterialRows = skuRows.map(row => ({
-          sku: String(row.sku).trim(),
-          category: row.category || '',
-          metal: row.metal || '',
-          issued_qty: row.issuedQty || '',
-          unit1: row.unit1 || 'Pcs',
-          issued_weight: row.issuedWeight || '',
-          unit2: row.unit2 || '',
-        }))
-
         // Use the first found product for the voucher's product FK
         const firstProduct = productMap.values().next().value
         if (!firstProduct) {
@@ -357,17 +346,77 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
           return
         }
 
-        // 2. Create one voucher per pipeline step
+        // 2. Build per-product custom pipelines based on setting_type
+        //    and group material rows by transition
+        const transitionBuckets = new Map() // "from->to" => { fromDept, toDept, materialRows[], productId }
+
+        for (const row of skuRows) {
+          const sku = String(row.sku).trim()
+          const product = productMap.get(sku)
+
+          // Determine which stages this product needs
+          let pipeline = [...DEPARTMENT_PIPELINE]
+          if (product) {
+            const settingType = (product.setting_type || '').toLowerCase()
+            const tags = settingType.split(',').map(s => s.trim()).filter(Boolean)
+            const wantsWax  = tags.length === 0 || tags.some(t => t.includes('wax'))
+            const wantsHand = tags.length === 0 || tags.some(t => t.includes('hand'))
+
+            pipeline = DEPARTMENT_PIPELINE.filter(dept => {
+              if (dept.key === 'wax-setting' && !wantsWax) return false
+              if (dept.key === 'hand-setting' && !wantsHand) return false
+              return true
+            })
+          }
+
+          const materialRow = {
+            sku,
+            category: row.category || '',
+            metal: row.metal || '',
+            issued_qty: row.issuedQty || '',
+            unit1: row.unit1 || 'Pcs',
+            issued_weight: row.issuedWeight || '',
+            unit2: row.unit2 || '',
+          }
+
+          // Add this SKU's material row to each transition in its custom pipeline
+          for (let i = 0; i < pipeline.length - 1; i++) {
+            const fromDept = pipeline[i]
+            const toDept = pipeline[i + 1]
+            const key = `${fromDept.key}->${toDept.key}`
+            if (!transitionBuckets.has(key)) {
+              transitionBuckets.set(key, {
+                fromDept,
+                toDept,
+                materialRows: [],
+                productId: product ? product.id : firstProduct.id,
+              })
+            }
+            transitionBuckets.get(key).materialRows.push(materialRow)
+          }
+        }
+
+        // Sort transitions by pipeline order
+        const deptOrder = {}
+        DEPARTMENT_PIPELINE.forEach((d, i) => { deptOrder[d.key] = i })
+        const sortedTransitions = Array.from(transitionBuckets.values()).sort((a, b) => {
+          const aFrom = deptOrder[a.fromDept.key] ?? 99
+          const bFrom = deptOrder[b.fromDept.key] ?? 99
+          if (aFrom !== bFrom) return aFrom - bFrom
+          return (deptOrder[a.toDept.key] ?? 99) - (deptOrder[b.toDept.key] ?? 99)
+        })
+
+        // 3. Create one voucher per unique transition
         let localCounter = parseInt(localStorage.getItem('jj_counter') || '0')
         const batchId = `batch-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 
-        for (let i = 0; i < DEPARTMENT_PIPELINE.length - 1; i++) {
-          const fromDept = DEPARTMENT_PIPELINE[i]
-          const toDept = DEPARTMENT_PIPELINE[i + 1]
+        for (let i = 0; i < sortedTransitions.length; i++) {
+          const { fromDept, toDept, materialRows, productId } = sortedTransitions[i]
+          const totalQty = materialRows.reduce((sum, r) => sum + (parseInt(r.issued_qty) || 0), 0)
 
           localCounter++
           const vNo = `JJ-${String(localCounter).padStart(2, '0')}`
-          const title = `${vNo} - Step ${i + 1} - ${fromDept.label} to ${toDept.label}`
+          const title = `${vNo} - ${fromDept.label} to ${toDept.label}`
 
           try {
             const createRes = await fetch('/api/jobs', {
@@ -375,7 +424,7 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 title,
-                product: firstProduct.id,
+                product: productId,
                 status: 'created',
                 voucher_no: vNo,
                 voucher_type: voucherType,
@@ -389,7 +438,7 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
                 batch_id: batchId,
                 department_order: i,
                 notes: noteByIssuer || `Step ${i + 1}: ${fromDept.label} → ${toDept.label}`,
-                material_rows: allMaterialRows,
+                material_rows: materialRows,
                 stone_rows: stoneRows.map(({ variety, color, cut, shape, length, width, height, qty }) => ({ variety, color, cut, shape, length, width, height, qty })),
                 die_weight_rows: dieWeightRows.map(({ dieNumber, quantity, weight, unit }) => ({ die_number: dieNumber, quantity, weight, unit })),
               }),
@@ -399,11 +448,11 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
               results.created++
             } else {
               results.failed++
-              results.errors.push(`Step ${i + 1} (${fromDept.label}→${toDept.label}): ${createResult?.error?.message || 'Creation failed'}`)
+              results.errors.push(`${fromDept.label}→${toDept.label}: ${createResult?.error?.message || 'Creation failed'}`)
             }
           } catch {
             results.failed++
-            results.errors.push(`Step ${i + 1}: Network error`)
+            results.errors.push(`${fromDept.label}→${toDept.label}: Network error`)
           }
         }
 
@@ -411,7 +460,7 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
         localStorage.setItem('jj_counter', String(localCounter))
 
         // Show summary
-        let msg = `${results.created} voucher(s) created (one per department step, each with ${skuRows.length} SKUs)!`
+        let msg = `${results.created} voucher(s) created (filtered by setting type)!`
         if (results.failed > 0) {
           msg += `\n${results.failed} failed:\n${results.errors.join('\n')}`
         }

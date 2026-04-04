@@ -104,12 +104,12 @@ export function PendingVouchersModal({ open, onOpenChange, onVouchersApproved })
     })
   }
 
-  const selectAllPending = () => {
-    const pendingIds = pendingVouchers.map(v => v.id)
+  const selectAllFiltered = () => {
+    const filteredIds = filteredVouchers.map(v => v.id)
     setSelectedIds(prev => {
-      const allSelected = pendingIds.every(id => prev.has(id))
+      const allSelected = filteredIds.every(id => prev.has(id))
       if (allSelected) return new Set()
-      return new Set(pendingIds)
+      return new Set(filteredIds)
     })
   }
 
@@ -268,18 +268,17 @@ export function PendingVouchersModal({ open, onOpenChange, onVouchersApproved })
               </SelectContent>
             </Select>
 
-            {filterStatus === 'all' || filterStatus === 'pending' ? (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={selectAllPending}
-                className="text-xs h-7"
-              >
-                {pendingVouchers.length > 0 && pendingVouchers.every(v => selectedIds.has(v.id))
-                  ? 'Deselect All Pending'
-                  : `Select All Pending (${pendingVouchers.length})`}
-              </Button>
-            ) : null}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={selectAllFiltered}
+              className="text-xs h-7"
+              disabled={filteredVouchers.length === 0}
+            >
+              {filteredVouchers.length > 0 && filteredVouchers.every(v => selectedIds.has(v.id))
+                ? 'Deselect All'
+                : `Select All (${filteredVouchers.length})`}
+            </Button>
           </div>
 
           <div className="flex items-center gap-2">
@@ -356,14 +355,12 @@ export function PendingVouchersModal({ open, onOpenChange, onVouchersApproved })
                       className="flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-blue-50/30 transition-colors"
                       onClick={() => setExpandedVoucherId(prev => prev === voucher.id ? null : voucher.id)}
                     >
-                      {isPending && (
-                        <div onClick={e => e.stopPropagation()}>
-                          <Checkbox
-                            checked={selectedIds.has(voucher.id)}
-                            onCheckedChange={() => toggleSelection(voucher.id)}
-                          />
-                        </div>
-                      )}
+                      <div onClick={e => e.stopPropagation()}>
+                        <Checkbox
+                          checked={selectedIds.has(voucher.id)}
+                          onCheckedChange={() => toggleSelection(voucher.id)}
+                        />
+                      </div>
                       {isExpanded
                         ? <ChevronDown className="h-4 w-4 text-trust-blue shrink-0" />
                         : <ChevronRight className="h-4 w-4 text-cool-gray shrink-0" />

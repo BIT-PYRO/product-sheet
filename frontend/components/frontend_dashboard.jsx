@@ -93,7 +93,7 @@ function ProductSheetContent() {
     { key: 'casting', label: 'Casting' },
     { key: 'filling', label: 'Filling' },
     { key: 'pre_polish', label: 'Pre Polish' },
-    { key: 'setting', label: 'Setting' },
+    { key: 'setting', label: 'Hand Setting' },
     { key: 'final_polish', label: 'Final Polish' },
     { key: 'ready_for_plating', label: 'Ready for Plating' },
   ]
@@ -799,8 +799,10 @@ function ProductSheetContent() {
           // Auto-fill product sheet: setting type and enamel
           if (d.setting_type) {
             const st = d.setting_type.toLowerCase()
-            if (st.includes('wax')) setSettingType('wax')
-            else if (st.includes('hand')) setSettingType('hand')
+            const parts = []
+            if (st.includes('wax')) parts.push('wax')
+            if (st.includes('hand')) parts.push('hand')
+            setSettingType(parts.join(','))
           }
           if (d.enamel) {
             const en = d.enamel.toLowerCase()
@@ -1875,20 +1877,17 @@ function ProductSheetContent() {
               <div className="flex-1 bg-white border-2 border-soft-border rounded-xl shadow-sm px-2 py-1">
                 <div className="font-semibold text-sm mb-2">SETTING TYPE</div>
                 <div className="flex gap-2">
-                  <button onClick={() => setSettingType('wax')} className={`flex-1 px-2 py-1 text-sm font-semibold rounded border ${
-                    settingType === 'wax'
-                      ? 'bg-trust-blue text-white border-trust-blue'
-                      : 'bg-white text-slate-text border-soft-border'
-                  }`}>
-                    WAX SETTING
-                  </button>
-                  <button onClick={() => setSettingType('hand')} className={`flex-1 px-2 py-1 text-sm font-semibold rounded border ${
-                    settingType === 'hand'
-                      ? 'bg-trust-blue text-white border-trust-blue'
-                      : 'bg-white text-slate-text border-soft-border'
-                  }`}>
-                    HAND SETTING
-                  </button>
+                  {[['wax', 'WAX SETTING'], ['hand', 'HAND SETTING']].map(([val, label]) => {
+                    const active = settingType.split(',').map(s => s.trim()).filter(Boolean).includes(val)
+                    return (
+                      <button key={val} onClick={() => setSettingType(prev => {
+                        const parts = prev.split(',').map(s => s.trim()).filter(Boolean)
+                        return active ? parts.filter(p => p !== val).join(',') : [...parts, val].join(',')
+                      })} className={`flex-1 px-2 py-1 text-sm font-semibold rounded border ${active ? 'bg-trust-blue text-white border-trust-blue' : 'bg-white text-slate-text border-soft-border'}`}>
+                        {label}
+                      </button>
+                    )
+                  })}
                 </div>
               </div>
               <div className="flex-1 bg-white border-2 border-soft-border rounded-xl shadow-sm px-2 py-1">
@@ -2615,8 +2614,13 @@ function ProductSheetContent() {
             <div className="text-xs font-semibold text-midnight-ink mb-1.5">SETTING TYPE</div>
             <div className="flex gap-2">
               {['WAX SETTING', 'HAND SETTING'].map((opt) => (
-                <button key={opt} type="button" onClick={() => setDesigner((prev) => ({ ...prev, settingType: prev.settingType === opt ? '' : opt }))}
-                  className={`flex-1 px-3 py-1.5 text-xs font-semibold rounded-full border transition-colors ${designer.settingType === opt ? 'bg-trust-blue text-white border-trust-blue shadow-sm' : 'bg-white text-midnight-ink border-soft-border hover:bg-cloud-gray'}`}>
+                <button key={opt} type="button" onClick={() => setDesigner((prev) => {
+                  const parts = (prev.settingType || '').split(',').map(s => s.trim()).filter(Boolean)
+                  const active = parts.includes(opt)
+                  const next = active ? parts.filter(p => p !== opt) : [...parts, opt]
+                  return { ...prev, settingType: next.join(',') }
+                })}
+                  className={`flex-1 px-3 py-1.5 text-xs font-semibold rounded-full border transition-colors ${(designer.settingType || '').split(',').map(s => s.trim()).includes(opt) ? 'bg-trust-blue text-white border-trust-blue shadow-sm' : 'bg-white text-midnight-ink border-soft-border hover:bg-cloud-gray'}`}>
                   {opt}
                 </button>
               ))}
@@ -3002,20 +3006,17 @@ function ProductSheetContent() {
                       <div className="flex-1 bg-white border-2 border-soft-border px-2 py-1">
                         <div className="font-semibold text-sm mb-2">SETTING TYPE</div>
                         <div className="flex gap-2">
-                          <button onClick={() => setSettingType('wax')} className={`flex-1 px-2 py-1 text-sm font-semibold rounded border ${
-                            settingType === 'wax'
-                              ? 'bg-trust-blue text-white border-trust-blue'
-                              : 'bg-white text-slate-text border-soft-border'
-                          }`}>
-                            WAX SETTING
-                          </button>
-                          <button onClick={() => setSettingType('hand')} className={`flex-1 px-2 py-1 text-sm font-semibold rounded border ${
-                            settingType === 'hand'
-                              ? 'bg-trust-blue text-white border-trust-blue'
-                              : 'bg-white text-slate-text border-soft-border'
-                          }`}>
-                            HAND SETTING
-                          </button>
+                          {[['wax', 'WAX SETTING'], ['hand', 'HAND SETTING']].map(([val, lbl]) => {
+                            const active = settingType.split(',').map(s => s.trim()).filter(Boolean).includes(val)
+                            return (
+                              <button key={val} onClick={() => setSettingType(prev => {
+                                const parts = prev.split(',').map(s => s.trim()).filter(Boolean)
+                                return active ? parts.filter(p => p !== val).join(',') : [...parts, val].join(',')
+                              })} className={`flex-1 px-2 py-1 text-sm font-semibold rounded border ${active ? 'bg-trust-blue text-white border-trust-blue' : 'bg-white text-slate-text border-soft-border'}`}>
+                                {lbl}
+                              </button>
+                            )
+                          })}
                         </div>
                       </div>
                       <div className="flex-1 bg-white border-2 border-soft-border px-2 py-1">

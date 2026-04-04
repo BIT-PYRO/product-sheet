@@ -71,7 +71,7 @@ export default function ManagersDashboard() {
     'Casting',
     'Filling',
     'Pre Polish',
-    'Setting',
+    'Hand Setting',
     'Final Polish',
     'Ready for Plating',
     'Others',
@@ -84,7 +84,7 @@ export default function ManagersDashboard() {
     'casting':     'Casting',
     'filing':      'Filling',
     'pre-polish':  'Pre Polish',
-    'hand-setting': 'Setting',
+    'hand-setting': 'Hand Setting',
     'polishing':   'Final Polish',
     'plating':     'Ready for Plating',
   };
@@ -96,7 +96,7 @@ export default function ManagersDashboard() {
     'casting':     'Casting',
     'filing':      'Filling',
     'pre-polish':  'Pre Polish',
-    'hand-setting': 'Setting',
+    'hand-setting': 'Hand Setting',
     'polishing':   'Final Polish',
     'plating':     'Ready for Plating',
     'final-stock': 'Final Stock',
@@ -148,7 +148,7 @@ export default function ManagersDashboard() {
     'Casting':           { new: [], wip: [], completed: [] },
     'Filling':           { new: [], wip: [], completed: [] },
     'Pre Polish':        { new: [], wip: [], completed: [] },
-    'Setting':           { new: [], wip: [], completed: [] },
+    'Hand Setting':      { new: [], wip: [], completed: [] },
     'Final Polish':      { new: [], wip: [], completed: [] },
     'Ready for Plating': { new: [], wip: [], completed: [] },
     'Others':            { new: [], wip: [], completed: [] },
@@ -194,7 +194,7 @@ export default function ManagersDashboard() {
         'Casting':           { new: [], wip: [], completed: [] },
         'Filling':           { new: [], wip: [], completed: [] },
         'Pre Polish':        { new: [], wip: [], completed: [] },
-        'Setting':           { new: [], wip: [], completed: [] },
+        'Hand Setting':      { new: [], wip: [], completed: [] },
         'Final Polish':      { new: [], wip: [], completed: [] },
         'Ready for Plating': { new: [], wip: [], completed: [] },
         'Others':            { new: [], wip: [], completed: [] },
@@ -507,7 +507,7 @@ export default function ManagersDashboard() {
       <ReceiveJobModal
         open={isReceiveJobOpen}
         onOpenChange={setIsReceiveJobOpen}
-        onJobReceived={() => {}}
+        onJobReceived={() => { loadJobs(); }}
         voucherData={selectedVoucherForReceive}
       />
 

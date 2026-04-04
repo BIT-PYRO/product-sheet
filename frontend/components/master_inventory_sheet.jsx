@@ -59,15 +59,24 @@ const DEFAULT_LIVE_STOCK_COLS = [
   { key: 'casting', label: 'Casting' },
   { key: 'filling', label: 'Filling' },
   { key: 'prePolish', label: 'Pre Polish' },
-  { key: 'setting', label: 'Setting' },
+  { key: 'setting', label: 'Hand Setting' },
   { key: 'finalPolish', label: 'Final Polish' },
   { key: 'readyForPlating', label: 'Ready for Plating' },
 ];
-// Convert snake_key from backend to camelCase frontend key
+// Convert backend key to camelCase frontend key.
+// Handles both snake_case stage keys AND liveStock route-level keys stored in TableColumnConfig.
 const BACKEND_KEY_TO_FRONTEND = {
+  // snake_case stage keys (legacy / direct stage references)
   wax_piece: 'waxPiece', wax_setting: 'waxSetting', casting: 'casting',
   filling: 'filling', pre_polish: 'prePolish', setting: 'setting',
   final_polish: 'finalPolish', ready_for_plating: 'readyForPlating',
+  // liveStock route-level keys stored in TableColumnConfig
+  rawMaterial: 'waxPiece',
+  rawSetting: 'waxSetting',
+  wipLiquidCasting: 'casting',
+  filing: 'filling',
+  packing: 'prePolish',
+  readyForPlacing: 'readyForPlating',
 };
 // Build full INVENTORY_COLUMNS from live_stock dynamic cols
 function buildInventoryColumns(lsCols) {
@@ -100,7 +109,7 @@ const STOCK_FIELDS_MAP = {
   casting:        'Casting',
   filling:        'Filling',
   prePolish:      'Pre Polish',
-  setting:        'Setting',
+  setting:        'Hand Setting',
   finalPolish:    'Final Polish',
   readyForPlating:'Ready for Plating',
   finalStockValue:'Final Stock',
@@ -606,7 +615,7 @@ export default function MasterInventorySheet() {
           return false;
         }
 
-        if (field.key === 'activeChannels') {
+        if (field.key === 'activeChannels' || field.key === 'settingType') {
           const values = String(rawValue)
             .split(',')
             .map((value) => value.trim())
@@ -737,7 +746,7 @@ export default function MasterInventorySheet() {
         const rawValue = getFilterValue(product, field.key);
         if (!rawValue) return;
 
-        if (field.key === 'activeChannels') {
+        if (field.key === 'activeChannels' || field.key === 'settingType') {
           String(rawValue)
             .split(',')
             .map((v) => v.trim())

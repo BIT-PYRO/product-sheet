@@ -19,6 +19,43 @@ from .services.job_service import can_transition, DEPARTMENT_PIPELINE, DEPT_TO_S
 
 logger = logging.getLogger(__name__)
 
+_DONE_STATUSES = {VoucherApprovalStatus.COMPLETED, VoucherApprovalStatus.PARTIALLY_COMPLETED}
+
+
+def _activate_ready_batch_vouchers(batch_id):
+	"""
+	Activate every AWAITING voucher in the batch whose direct predecessors
+	(all other batch vouchers with dept_to == this.dept_from) have all reached
+	a done state (completed or partially_complete).
+
+	Runs repeatedly until no more vouchers can be activated (handles chains).
+	Returns the list of newly activated vouchers.
+	"""
+	activated = []
+	while True:
+		all_vouchers = list(Job.objects.filter(batch_id=batch_id))
+		# Map: dept_key → list of vouchers whose output feeds that dept
+		output_map = {}
+		for v in all_vouchers:
+			output_map.setdefault(v.dept_to, []).append(v)
+
+		newly_activated = []
+		for v in all_vouchers:
+			if v.approval_status != VoucherApprovalStatus.AWAITING:
+				continue
+			# Predecessors: vouchers that send goods TO this voucher's dept_from
+			preds = output_map.get(v.dept_from, [])
+			if preds and all(p.approval_status in _DONE_STATUSES for p in preds):
+				v.approval_status = VoucherApprovalStatus.IN_PROCESS
+				v.status = 'in_progress'
+				v.save(update_fields=['approval_status', 'status'])
+				newly_activated.append(v)
+
+		if not newly_activated:
+			break
+		activated.extend(newly_activated)
+	return activated
+
 
 @extend_schema_view(
 	list=extend_schema(summary='List jobs', tags=['Jobs']),
@@ -78,7 +115,14 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 
 	@action(detail=False, methods=['post'], url_path='bulk-create-from-picklist')
 	def bulk_create_from_picklist(self, request):
-		"""Create vouchers for all Master SKUs in a picklist based on demand vs stock."""
+		"""Create vouchers for all Master SKUs in a picklist based on demand vs stock.
+
+		Products are grouped by stage transition.  If a product only has
+		'hand' setting, the 'wax-setting' stage is removed from its pipeline
+		(pieces go Wax Piece → Casting directly).  If only 'wax' setting,
+		the 'hand-setting' stage is removed (Pre-Polish → Final Polish).
+		If both or unset, all stages are included.
+		"""
 		ser = BulkVoucherRequestSerializer(data=request.data)
 		ser.is_valid(raise_exception=True)
 
@@ -95,9 +139,8 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 			raise ValidationError({'picklist_group_id': 'Picklist has no items.'})
 
 		batch_id = f'batch-{uuid.uuid4().hex[:12]}'
-		created_vouchers = []
 
-		# Get the current localStorage-style voucher counter from DB or start fresh
+		# Get the current voucher counter from DB
 		last_voucher = Job.objects.filter(voucher_no__startswith='JJ-').order_by('-id').first()
 		counter = 1
 		if last_voucher and last_voucher.voucher_no:
@@ -106,103 +149,147 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 			except (ValueError, IndexError):
 				counter = 1
 
+		# ------------------------------------------------------------------
+		# Phase 1: Collect each product's custom pipeline and qty
+		# ------------------------------------------------------------------
+		# transition_key (from_key, to_key) → list of {product, master_sku, qty}
+		from collections import OrderedDict
+		transition_buckets = OrderedDict()
+
+		from products.models import Product
+
+		for item in picklist_items:
+			sku = item.sku.strip()
+			if not sku:
+				continue
+
+			master_sku = sku.split('/')[0] if '/' in sku else sku
+
+			product = Product.objects.filter(
+				Q(master_sku__iexact=master_sku) | Q(master_sku__iexact=sku)
+			).first()
+			if not product:
+				continue
+
+			demand = item.needed or 0
+			if demand <= 0:
+				continue
+
+			final_stock_agg = InventoryTransaction.objects.filter(
+				product=product,
+				stage='final_stock',
+				stock_type='current',
+			).aggregate(total=Sum('quantity'))
+			final_stock = final_stock_agg['total'] or 0
+
+			pieces_to_make = demand - final_stock
+			if pieces_to_make <= 0:
+				continue
+
+			# Determine which setting stages this product needs
+			raw_setting = (product.setting_type or '').lower()
+			setting_tags = [s.strip() for s in raw_setting.split(',') if s.strip()]
+			# '' | 'wax setting' | 'hand setting' | 'wax' | 'hand' | 'wax,hand' etc.
+			wants_wax  = (not setting_tags) or any('wax'  in t for t in setting_tags)
+			wants_hand = (not setting_tags) or any('hand' in t for t in setting_tags)
+
+			# Build this product's pipeline by removing inapplicable stages
+			product_pipeline = []
+			for dept_key, dept_label in DEPARTMENT_PIPELINE:
+				if dept_key == 'wax-setting' and not wants_wax:
+					continue  # hand-only → skip wax-setting stage
+				if dept_key == 'hand-setting' and not wants_hand:
+					continue  # wax-only → skip hand-setting stage
+				product_pipeline.append((dept_key, dept_label))
+
+			# Create transitions from consecutive stages
+			for i in range(len(product_pipeline) - 1):
+				from_key, from_label = product_pipeline[i]
+				to_key, to_label = product_pipeline[i + 1]
+				tkey = (from_key, to_key)
+				if tkey not in transition_buckets:
+					transition_buckets[tkey] = {
+						'from_key': from_key,
+						'from_label': from_label,
+						'to_key': to_key,
+						'to_label': to_label,
+						'items': [],
+					}
+				transition_buckets[tkey]['items'].append({
+					'product': product,
+					'master_sku': master_sku,
+					'qty': pieces_to_make,
+				})
+
+		# ------------------------------------------------------------------
+		# Phase 2: Create one voucher per unique transition
+		# ------------------------------------------------------------------
+		created_vouchers = []
+
 		with transaction.atomic():
-			for item in picklist_items:
-				sku = item.sku.strip()
-				if not sku:
-					continue
+			# Stable order: follow DEPARTMENT_PIPELINE order for from_key
+			dept_order = {key: idx for idx, (key, _) in enumerate(DEPARTMENT_PIPELINE)}
 
-				# Find the product by looking at Master SKU
-				# Picklist SKUs may be Final Stock SKUs (e.g. AJE55/G), derive master SKU
-				master_sku = sku.split('/')[0] if '/' in sku else sku
+			sorted_transitions = sorted(
+				transition_buckets.values(),
+				key=lambda b: (dept_order.get(b['from_key'], 99), dept_order.get(b['to_key'], 99)),
+			)
 
-				from products.models import Product
-				product = Product.objects.filter(
-					Q(master_sku__iexact=master_sku) | Q(master_sku__iexact=sku)
-				).first()
+			for step_idx, bucket in enumerate(sorted_transitions):
+				material_rows = []
+				total_qty = 0
+				products_in_voucher = []
 
-				if not product:
-					continue
+				for entry in bucket['items']:
+					material_rows.append({
+						'sku': entry['master_sku'],
+						'category': entry['product'].category or '',
+						'metal': entry['product'].material or '',
+						'issued_qty': str(entry['qty']),
+						'unit1': 'Pcs',
+						'issued_weight': '',
+						'unit2': '',
+					})
+					total_qty += entry['qty']
+					products_in_voucher.append(entry)
 
-				# Calculate demand (needed from picklist)
-				demand = item.needed or 0
-				if demand <= 0:
-					continue
+				voucher_no = f'JJ-{str(counter).zfill(2)}'
+				counter += 1
 
-				# Calculate current final stock from inventory transactions
-				final_stock_agg = InventoryTransaction.objects.filter(
-					product=product,
-					stage='final_stock',
-					stock_type='current',
-				).aggregate(total=Sum('quantity'))
-				final_stock = final_stock_agg['total'] or 0
+				from_label = bucket['from_label']
+				to_label = bucket['to_label']
+				title = f'{voucher_no} - {from_label} to {to_label}'
 
-				# Calculate pieces to make
-				pieces_to_make = demand - final_stock
-				if pieces_to_make <= 0:
-					continue
+				voucher = Job.objects.create(
+					title=title,
+					product=products_in_voucher[0]['product'],  # primary product
+					status='created',
+					voucher_no=voucher_no,
+					voucher_type='New',
+					dept_from=bucket['from_key'],
+					dept_to=bucket['to_key'],
+					work_type='In-House',
+					approval_status=VoucherApprovalStatus.PENDING,
+					picklist_group=picklist_group,
+					batch_id=batch_id,
+					department_order=step_idx,
+					material_rows=material_rows,
+					stone_rows=[],
+					notes=f'Step {step_idx + 1}: {from_label} → {to_label}',
+				)
+				created_vouchers.append(voucher)
 
-				# Check what's already in each stage (current stock)
-				stage_stock = {}
-				for dept_key, stage_key in DEPT_TO_STOCK_STAGE.items():
-					agg = InventoryTransaction.objects.filter(
-						product=product,
-						stage=stage_key,
-						stock_type='current',
-					).aggregate(total=Sum('quantity'))
-					stage_stock[dept_key] = agg['total'] or 0
-
-				# Create a voucher for each department transition in the pipeline
-				for dept_idx in range(len(DEPARTMENT_PIPELINE) - 1):
-					from_dept_key, from_dept_label = DEPARTMENT_PIPELINE[dept_idx]
-					to_dept_key, to_dept_label = DEPARTMENT_PIPELINE[dept_idx + 1]
-
-					# Only create voucher if this stage has no stock (needs pieces)
-					current_stage_stock = stage_stock.get(from_dept_key, 0)
-					qty_for_voucher = pieces_to_make  # All pieces need to flow through
-
-					voucher_no = f'JJ-{str(counter).zfill(2)}'
-					counter += 1
-
-					title = f'{voucher_no} - {master_sku} - {from_dept_label} to {to_dept_label}'
-
-					voucher = Job.objects.create(
-						title=title,
-						product=product,
-						status='created',
-						voucher_no=voucher_no,
-						voucher_type='New',
-						dept_from=from_dept_key,
-						dept_to=to_dept_key,
-						work_type='In-House',
-						approval_status=VoucherApprovalStatus.PENDING,
-						picklist_group=picklist_group,
-						batch_id=batch_id,
-						department_order=dept_idx,
-						material_rows=[{
-							'sku': master_sku,
-							'category': product.category or '',
-							'metal': product.material or '',
-							'issued_qty': str(qty_for_voucher),
-							'unit1': 'Pcs',
-							'issued_weight': '',
-							'unit2': '',
-						}],
-						stone_rows=product.stone_entries or [],
-						notes=f'Auto-generated from Picklist #{picklist_group.number} for {master_sku}',
-					)
-					created_vouchers.append(voucher)
-
-					# Create WIP inventory transaction for each stage
-					stage_key = DEPT_TO_STOCK_STAGE.get(from_dept_key, '')
-					if stage_key:
+				# Create WIP inventory transactions per product in this voucher
+				stage_key = DEPT_TO_STOCK_STAGE.get(bucket['from_key'], '')
+				if stage_key:
+					for entry in products_in_voucher:
 						InventoryTransaction.objects.create(
-							product=product,
+							product=entry['product'],
 							txn_type='adjust',
-							quantity=qty_for_voucher,
+							quantity=entry['qty'],
 							stage=stage_key,
 							stock_type='wip',
-							remark=f'WIP: Voucher {voucher_no} ({from_dept_label} → {to_dept_label})',
+							remark=f'WIP: Voucher {voucher_no} ({from_label} → {to_label})',
 						)
 
 		serializer = JobSerializer(created_vouchers, many=True)
@@ -269,11 +356,15 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 
 			total_approved = 0
 			for bid, batch_vouchers in batches.items():
-				# Sort by pipeline order; lowest = first active step
+				# Sort by pipeline order
 				sorted_batch = sorted(batch_vouchers, key=lambda x: x.department_order)
-				for idx, v in enumerate(sorted_batch):
+				# Root vouchers = those whose dept_from is NOT a dept_to of any other voucher in the batch
+				# These are the "first column" and should ALL start as in_process simultaneously
+				dest_depts = {v.dept_to for v in sorted_batch}
+				for v in sorted_batch:
+					is_root = v.dept_from not in dest_depts
 					v.approval_status = (
-						VoucherApprovalStatus.IN_PROCESS if idx == 0
+						VoucherApprovalStatus.IN_PROCESS if is_root
 						else VoucherApprovalStatus.AWAITING
 					)
 					v.approved_by = approved_by
@@ -303,70 +394,54 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 		"""Mark a voucher step as completed, activate the next one in the pipeline."""
 		voucher = self.get_object()
 
-		if voucher.approval_status != VoucherApprovalStatus.IN_PROCESS:
-			raise ValidationError({'approval_status': 'Only in-process vouchers can be marked complete.'})
+		if voucher.approval_status not in (VoucherApprovalStatus.IN_PROCESS, VoucherApprovalStatus.PARTIALLY_COMPLETED):
+			raise ValidationError({'approval_status': 'Only in-process or partially complete vouchers can be marked complete.'})
 
 		with transaction.atomic():
 			voucher.approval_status = VoucherApprovalStatus.COMPLETED
 			voucher.status = 'completed'
 			voucher.save(update_fields=['approval_status', 'status'])
 
-			# Move WIP to current stock for the completed stage
+			# Move WIP to current stock for each product (SKU row) in this voucher
+			from products.models import Product
+
 			stage_key = DEPT_TO_STOCK_STAGE.get(voucher.dept_from, '')
-			if stage_key and voucher.product:
-				qty = 0
-				for row in (voucher.material_rows or []):
-					qty += int(float(row.get('issued_qty', 0) or 0))
-				if qty > 0:
-					# Remove from WIP
+			dest_stage_key = DEPT_TO_STOCK_STAGE.get(voucher.dept_to, '')
+
+			for row in (voucher.material_rows or []):
+				qty = int(float(row.get('issued_qty', 0) or 0))
+				if qty <= 0:
+					continue
+				sku = str(row.get('sku', '') or '').strip()
+				master_sku = sku.split('/')[0] if '/' in sku else sku
+				product = Product.objects.filter(
+					Q(master_sku__iexact=master_sku) | Q(master_sku__iexact=sku)
+				).first() or voucher.product
+				if not product:
+					continue
+
+				if stage_key:
 					InventoryTransaction.objects.create(
-						product=voucher.product,
+						product=product,
 						txn_type='adjust',
 						quantity=-qty,
 						stage=stage_key,
 						stock_type='wip',
 						remark=f'Completed: {voucher.voucher_no}',
 					)
-					# Add to current stock of destination stage
-					dest_stage_key = DEPT_TO_STOCK_STAGE.get(voucher.dept_to, '')
-					if dest_stage_key:
-						InventoryTransaction.objects.create(
-							product=voucher.product,
-							txn_type='adjust',
-							quantity=qty,
-							stage=dest_stage_key,
-							stock_type='current',
-							remark=f'Completed: {voucher.voucher_no}',
-						)
-
-			# Check if this is the last stage (Final Stock) — update Final Stock inventory
-			if voucher.dept_to == 'final-stock' and voucher.product:
-				qty = 0
-				for row in (voucher.material_rows or []):
-					qty += int(float(row.get('issued_qty', 0) or 0))
-				if qty > 0:
+				if dest_stage_key:
 					InventoryTransaction.objects.create(
-						product=voucher.product,
+						product=product,
 						txn_type='adjust',
 						quantity=qty,
-						stage='final_stock',
+						stage=dest_stage_key,
 						stock_type='current',
-						remark=f'Ready for Plating completed: {voucher.voucher_no}',
+						remark=f'Completed: {voucher.voucher_no}',
 					)
 
-			# Activate the next voucher in the pipeline for this product + batch
-			if voucher.batch_id and voucher.product:
-				next_voucher = Job.objects.filter(
-					batch_id=voucher.batch_id,
-					product=voucher.product,
-					approval_status=VoucherApprovalStatus.AWAITING,
-					department_order=voucher.department_order + 1,
-				).first()
-
-				if next_voucher:
-					next_voucher.approval_status = VoucherApprovalStatus.IN_PROCESS
-					next_voucher.status = 'in_progress'
-					next_voucher.save(update_fields=['approval_status', 'status'])
+			# Activate all vouchers in the batch whose predecessors are now done
+			if voucher.batch_id:
+				_activate_ready_batch_vouchers(voucher.batch_id)
 
 		serializer = JobSerializer(voucher)
 		return Response({
@@ -519,31 +594,17 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 			if is_partial:
 				voucher.approval_status = VoucherApprovalStatus.PARTIALLY_COMPLETED
 				voucher.save(update_fields=['approval_status', 'received_rows', 'received_by'])
-				# Activate next awaiting step immediately (work can begin on next stage)
+				# Activate any vouchers whose predecessors are now all done
 				if voucher.batch_id:
-					next_v = Job.objects.filter(
-						batch_id=voucher.batch_id,
-						approval_status=VoucherApprovalStatus.AWAITING,
-						department_order=voucher.department_order + 1,
-					).first()
-					if next_v:
-						next_v.approval_status = VoucherApprovalStatus.IN_PROCESS
-						next_v.save(update_fields=['approval_status'])
+					_activate_ready_batch_vouchers(voucher.batch_id)
 			else:
 				# Full receive → Completed
 				voucher.approval_status = VoucherApprovalStatus.COMPLETED
 				voucher.status = 'completed'
 				voucher.save(update_fields=['approval_status', 'status', 'received_rows', 'received_by'])
-				# Activate next step only if still awaiting (partial may have already done it)
+				# Activate any vouchers whose predecessors are now all done
 				if voucher.batch_id:
-					next_v = Job.objects.filter(
-						batch_id=voucher.batch_id,
-						approval_status=VoucherApprovalStatus.AWAITING,
-						department_order=voucher.department_order + 1,
-					).first()
-					if next_v:
-						next_v.approval_status = VoucherApprovalStatus.IN_PROCESS
-						next_v.save(update_fields=['approval_status'])
+					_activate_ready_batch_vouchers(voucher.batch_id)
 
 		serializer = JobSerializer(voucher)
 		response_data = {**serializer.data}

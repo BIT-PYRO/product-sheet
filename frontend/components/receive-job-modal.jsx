@@ -218,6 +218,10 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
       if (result?.data?.warnings?.length) {
         setSubmitWarnings(result.data.warnings)
       }
+      // Broadcast inventory update so Master Inventory Sheet refreshes
+      const syncTs = new Date().toISOString()
+      try { localStorage.setItem('inventory_sheet_updated_at', syncTs) } catch {}
+      window.dispatchEvent(new CustomEvent('inventory_sheet_sync', { detail: { updatedAt: syncTs } }))
       onJobReceived?.(result.data)
       onOpenChange(false)
     } catch (err) {

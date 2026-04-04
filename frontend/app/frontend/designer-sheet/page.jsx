@@ -704,9 +704,14 @@ function DesignerSheetContent() {
                   <button
                     key={opt}
                     type="button"
-                    onClick={() => setDesigner((prev) => ({ ...prev, settingType: prev.settingType === opt ? '' : opt }))}
+                    onClick={() => setDesigner((prev) => {
+                      const parts = (prev.settingType || '').split(',').map(s => s.trim()).filter(Boolean)
+                      const active = parts.includes(opt)
+                      const next = active ? parts.filter(p => p !== opt) : [...parts, opt]
+                      return { ...prev, settingType: next.join(',') }
+                    })}
                     className={`flex-1 px-3 py-1.5 text-xs font-semibold rounded-full border transition-colors ${
-                      designer.settingType === opt
+                      (designer.settingType || '').split(',').map(s => s.trim()).includes(opt)
                         ? 'bg-trust-blue text-white border-trust-blue shadow-sm'
                         : 'bg-white text-midnight-ink border-soft-border hover:bg-cloud-gray'
                     }`}
