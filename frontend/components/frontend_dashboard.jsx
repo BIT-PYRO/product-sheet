@@ -3725,6 +3725,7 @@ function ProductSheetContent() {
       <CreateJobModal 
         open={isCreateJobModalOpen}
         onOpenChange={setIsCreateJobModalOpen}
+        mode="single-pipeline"
         initialSku={sku}
         onQuickEnroll={() => {
           // Handle quick enroll action

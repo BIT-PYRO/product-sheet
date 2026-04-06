@@ -304,13 +304,12 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 
 	@action(detail=False, methods=['post'], url_path='approve-vouchers')
 	def approve_vouchers(self, request):
-		"""Approve pending vouchers.
+		"""Approve only the explicitly submitted pending vouchers.
 
-		For batched vouchers: always processes the ENTIRE batch regardless of which
-		vouchers were submitted.  The lowest department_order in each batch becomes
-		in_process; all others become awaiting.  This prevents the bug where
-		approving a single late-pipeline voucher sets it as in_process while earlier
-		steps are still pending.
+		For batched vouchers: only the submitted IDs are approved.
+		The lowest department_order among the submitted batch members becomes
+		in_process; all others become awaiting.  Vouchers in the same batch that
+		were NOT submitted are left untouched.
 		"""
 		ser = ApproveVouchersSerializer(data=request.data)
 		ser.is_valid(raise_exception=True)
@@ -320,7 +319,7 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 		now = timezone.now()
 
 		with transaction.atomic():
-			# Submitted vouchers (pending only)
+			# Only load the exact submitted vouchers that are still pending
 			submitted = list(Job.objects.filter(
 				id__in=voucher_ids,
 				approval_status=VoucherApprovalStatus.PENDING,
@@ -329,37 +328,21 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 			if not submitted:
 				raise ValidationError({'voucher_ids': 'No pending vouchers found with given IDs.'})
 
-			# Collect batch_ids touched by this request
-			batch_ids = {v.batch_id for v in submitted if v.batch_id}
-
-			# For each batch, load ALL pending + awaiting vouchers so we can
-			# reset any mis-set in_process entries and re-sort the whole chain.
-			all_batched = []
-			for bid in batch_ids:
-				batch_qs = list(Job.objects.filter(
-					batch_id=bid,
-					approval_status__in=[
-						VoucherApprovalStatus.PENDING,
-						VoucherApprovalStatus.AWAITING,
-						VoucherApprovalStatus.IN_PROCESS,  # reset mis-set entries
-					],
-				))
-				all_batched.extend(batch_qs)
-
-			# Non-batched submitted vouchers
-			no_batch = [v for v in submitted if not v.batch_id]
-
-			# Group by batch_id and process
+			# Group submitted vouchers by batch_id
 			batches: dict = {}
-			for v in all_batched:
-				batches.setdefault(v.batch_id, []).append(v)
+			no_batch = []
+			for v in submitted:
+				if v.batch_id:
+					batches.setdefault(v.batch_id, []).append(v)
+				else:
+					no_batch.append(v)
 
 			total_approved = 0
+
+			# For each batch group (only submitted members), apply pipeline ordering
 			for bid, batch_vouchers in batches.items():
-				# Sort by pipeline order
 				sorted_batch = sorted(batch_vouchers, key=lambda x: x.department_order)
-				# Root vouchers = those whose dept_from is NOT a dept_to of any other voucher in the batch
-				# These are the "first column" and should ALL start as in_process simultaneously
+				# Within the submitted set, root = dept_from not a dept_to of any sibling
 				dest_depts = {v.dept_to for v in sorted_batch}
 				for v in sorted_batch:
 					is_root = v.dept_from not in dest_depts
@@ -372,6 +355,7 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 					v.save(update_fields=['approval_status', 'approved_by', 'approved_at'])
 					total_approved += 1
 
+			# Non-batched vouchers → approved directly
 			for v in no_batch:
 				v.approval_status = VoucherApprovalStatus.APPROVED
 				v.approved_by = approved_by
@@ -379,7 +363,7 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 				v.save(update_fields=['approval_status', 'approved_by', 'approved_at'])
 				total_approved += 1
 
-		all_affected_ids = {v.id for v in all_batched} | {v.id for v in no_batch}
+		all_affected_ids = {v.id for v in submitted}
 		serializer = JobSerializer(Job.objects.filter(id__in=all_affected_ids), many=True)
 		return Response({
 			'success': True,

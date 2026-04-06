@@ -1546,7 +1546,7 @@ export default function MasterInventorySheet() {
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-52">
                 <DropdownMenuItem onClick={() => setIsCreateJobModalOpen(true)} className="cursor-pointer">
-                  Create Single Voucher
+                  Create Job
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setIsCreateAllVouchersOpen(true)} className="cursor-pointer">
                   Create All Vouchers
@@ -1920,6 +1920,10 @@ export default function MasterInventorySheet() {
       <CreateJobModal
         open={isCreateJobModalOpen}
         onOpenChange={setIsCreateJobModalOpen}
+        mode="single-pipeline"
+        onJobCreated={() => {
+          loadProducts();
+        }}
       />
 
       <CreateJobModal

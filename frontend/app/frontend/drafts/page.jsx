@@ -278,6 +278,7 @@ export default function DraftsPage() {
         <CreateJobModal
           open={isCreateJobOpen}
           onOpenChange={setIsCreateJobOpen}
+          mode="single-pipeline"
         />
 
         <QuickEnrollModal

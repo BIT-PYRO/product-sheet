@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Search, Pencil, Trash2 } from 'lucide-react';
+import { Search, Pencil, Trash2, FileText, Printer } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -22,8 +22,10 @@ import {
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
 import GlobalSearchBar from '@/components/global-search-bar';
 import { CreateJobModal } from '@/components/create-job-modal';
+import { PendingVouchersModal } from '@/components/pending-vouchers-modal';
 import { CompanyKYCForm } from '@/components/company-kyc-form';
 import { ReceiveJobModal } from '@/components/receive-job-modal';
+import { GenericJobModal } from '@/components/generic-job-modal';
 import DateTimeStamp from '@/components/date-time-stamp';
 import LastUpdatedFooter from '@/components/last-updated-footer';
 
@@ -37,8 +39,12 @@ export default function ManagersDashboard() {
   const [isManageColumnsOpen, setIsManageColumnsOpen] = useState(false);
   const [selectedColumnsForAction, setSelectedColumnsForAction] = useState(new Set());
   const [isCreateJobModalOpen, setIsCreateJobModalOpen] = useState(false);
+  const [isPendingVouchersOpen, setIsPendingVouchersOpen] = useState(false);
   const [isKYCModalOpen, setIsKYCModalOpen] = useState(false);
+  const [selectedForPrint, setSelectedForPrint] = useState(new Set());
   const [selectedVoucher, setSelectedVoucher] = useState(null);
+  const [isGenericJobOpen, setIsGenericJobOpen] = useState(false);
+  const [selectedGenericJobData, setSelectedGenericJobData] = useState(null);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editForm, setEditForm] = useState({});
   const [isLoadingJobs, setIsLoadingJobs] = useState(false);
@@ -257,11 +263,37 @@ export default function ManagersDashboard() {
     loadJobs();
   }, [loadJobs]);
 
-  const handleCardClick = (card) => {
-    // Single click: select the voucher and open receive job modal
+  const handleCardClick = async (card) => {
     setSelectedVoucher(card);
-    setSelectedVoucherForReceive(card);
-    setIsReceiveJobOpen(true);
+    const column = DEPT_TO_COLUMN[card.deptFrom] || 'Others';
+    if (column === 'Others') {
+      // Fetch full job details from API to get all stored fields
+      let jobData = null;
+      try {
+        const res = await fetch(`/api/jobs/${card.id}`, { cache: 'no-store' });
+        const result = await res.json().catch(() => null);
+        if (res.ok && result?.success) {
+          jobData = result.data;
+        }
+      } catch {
+        // Fall back to card data below
+      }
+      setSelectedGenericJobData({
+        jobNumber: jobData?.voucher_no || card.voucherNo || '',
+        issuedTo: jobData?.issued_to || (card.name !== 'Unassigned' ? card.name : '') || '',
+        workType: jobData?.work_type || card.workType || '',
+        issuedBy: jobData?.issued_by || card.issuedBy || '',
+        workCategory: jobData?.job_type || card.category || '',
+        contact: jobData?.contact || '',
+        addNote: jobData?.notes || '',
+        startDate: jobData?.start_date || '',
+        scheduleFuture: jobData?.schedule || '',
+      });
+      setIsGenericJobOpen(true);
+    } else {
+      setSelectedVoucherForReceive(card);
+      setIsReceiveJobOpen(true);
+    }
   };
 
   const handleMarkVoucherComplete = async (card) => {
@@ -344,6 +376,144 @@ export default function ManagersDashboard() {
     setIsCreateJobModalOpen(true);
   };
 
+  const togglePrintSelect = (e, cardId) => {
+    e.stopPropagation();
+    setSelectedForPrint(prev => {
+      const next = new Set(prev);
+      if (next.has(cardId)) next.delete(cardId);
+      else next.add(cardId);
+      return next;
+    });
+  };
+
+  function handlePrintSelected() {
+    const allCards = [];
+    for (const col of Object.values(jobCardsData)) {
+      for (const bucket of ['new', 'wip', 'completed']) {
+        for (const card of col[bucket]) {
+          if (selectedForPrint.has(card.id)) allCards.push(card);
+        }
+      }
+    }
+    if (allCards.length === 0) return;
+
+    const deptLabel = (val) => DEPT_LABELS[val] || val || '\u2014';
+
+    const voucherPages = allCards.map((card, pageIdx) => {
+      const materialRows = Array.isArray(card.materialRows) ? card.materialRows : [];
+      const tableRows = materialRows.length > 0
+        ? materialRows.map(row => `
+          <tr>
+            <td class="left">${row.sku || ''}</td>
+            <td class="left">${row.category || ''}</td>
+            <td class="left">${row.metal || ''}</td>
+            <td class="issued">${row.issued_qty || '0'}</td>
+            <td class="issued">${row.unit1 || 'Pcs'}</td>
+            <td class="issued">${parseFloat(row.issued_weight || 0).toFixed(2)}</td>
+            <td class="issued">${row.unit2 || 'Kg'}</td>
+            <td class="received"></td><td class="received"></td><td class="received"></td><td class="received"></td>
+            <td class="loss"></td><td class="loss"></td><td class="loss"></td><td class="loss"></td>
+            <td class="reissue"></td><td class="reissue"></td><td class="reissue"></td><td class="reissue"></td>
+          </tr>`).join('')
+        : `<tr><td colspan="19" style="text-align:center;padding:6px;color:#aaa;">No material rows</td></tr>`;
+
+      return `<div class="page${pageIdx > 0 ? ' page-break' : ''}">
+        <div class="header">
+          <div class="header-title">JOB VOUCHER</div>
+          <div class="header-right">
+            <div class="voucher-no">${card.voucherNo}</div>
+            <div class="voucher-meta">Type: ${card.voucherType || 'New'}</div>
+          </div>
+        </div>
+        <div class="info-grid">
+          <div class="info-item"><label>Issued To</label><span>${card.name || '\u2014'}</span></div>
+          <div class="info-item"><label>Work Type</label><span>${card.workType || '\u2014'}</span></div>
+          <div class="info-item"><label>Issued By</label><span>${card.issuedBy || '\u2014'}</span></div>
+          <div class="info-item"><label>Category / Title</label><span>${card.category || '\u2014'}</span></div>
+        </div>
+        <div class="dept-section">
+          <div class="dept-box"><label>From Department</label><span>${deptLabel(card.deptFrom)}</span></div>
+          <div class="dept-arrow">&#8594;</div>
+          <div class="dept-box"><label>To Department</label><span>${deptLabel(card.deptTo)}</span></div>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th class="left" rowspan="2">SKU</th>
+              <th class="left" rowspan="2">Category</th>
+              <th class="left" rowspan="2">Metal</th>
+              <th class="issued" colspan="4">ISSUED</th>
+              <th class="received" colspan="4">RECEIVED</th>
+              <th class="loss" colspan="4">LOSS</th>
+              <th class="reissue" colspan="4">RE-ISSUE</th>
+            </tr>
+            <tr>
+              <th class="issued">QTY</th><th class="issued">UNIT</th><th class="issued">WT</th><th class="issued">UNIT</th>
+              <th class="received">QTY</th><th class="received">UNIT</th><th class="received">WT</th><th class="received">UNIT</th>
+              <th class="loss">QTY</th><th class="loss">UNIT</th><th class="loss">WT</th><th class="loss">UNIT</th>
+              <th class="reissue">QTY</th><th class="reissue">UNIT</th><th class="reissue">WT</th><th class="reissue">UNIT</th>
+            </tr>
+          </thead>
+          <tbody>${tableRows}</tbody>
+        </table>
+        <div class="sig-row">
+          <div class="sig-box">Issued By Signature</div>
+          <div class="sig-box">Received By Signature</div>
+          <div class="sig-box">Authorised Signature</div>
+        </div>
+      </div>`;
+    }).join('');
+
+    const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Print Vouchers (${allCards.length})</title>
+  <style>
+    @page { size: A4 landscape; margin: 10mm 12mm; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, sans-serif; font-size: 10px; color: #111; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .page { page-break-after: always; }
+    .page:last-child { page-break-after: avoid; }
+    .page-break { page-break-before: always; }
+    .header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 8px; border-bottom: 2px solid #1a56db; padding-bottom: 6px; }
+    .header-title { font-size: 15px; font-weight: 800; color: #1a56db; letter-spacing: 1px; }
+    .header-right { text-align: right; }
+    .voucher-no { font-size: 18px; font-weight: 800; color: #111; }
+    .voucher-meta { font-size: 9px; color: #555; margin-top: 2px; }
+    .info-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px 12px; margin-bottom: 7px; padding: 5px 8px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 3px; }
+    .info-item label { font-size: 7.5px; font-weight: 700; text-transform: uppercase; color: #64748b; display: block; margin-bottom: 1px; }
+    .info-item span { font-size: 10.5px; font-weight: 600; color: #111; }
+    .dept-section { display: flex; align-items: center; gap: 10px; margin-bottom: 7px; padding: 5px 10px; background: #eff6ff; border: 2px solid #3b82f6; border-radius: 3px; }
+    .dept-box { flex: 1; }
+    .dept-box label { font-size: 7.5px; font-weight: 700; text-transform: uppercase; color: #1e40af; display: block; margin-bottom: 1px; }
+    .dept-box span { font-size: 13px; font-weight: 800; color: #1e3a8a; }
+    .dept-arrow { font-size: 22px; color: #3b82f6; font-weight: 900; padding: 0 6px; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 14px; font-size: 9px; }
+    th { background: #1a56db; color: white; font-weight: 700; text-transform: uppercase; padding: 3px; text-align: center; border: 1px solid #1e40af; line-height: 1.2; }
+    th.left { text-align: left; padding-left: 5px; }
+    td { padding: 4px 3px; border: 1px solid #d1d5db; text-align: center; min-height: 22px; }
+    td.left { text-align: left; padding-left: 5px; font-weight: 600; }
+    tr:nth-child(even) td { background: #f9fafb; }
+    th.issued { background: #1e40af; } td.issued { background: rgba(59,130,246,0.08); }
+    th.received { background: #065f46; } td.received { background: rgba(16,185,129,0.06); }
+    th.loss { background: #7f1d1d; } td.loss { background: rgba(239,68,68,0.06); }
+    th.reissue { background: #78350f; } td.reissue { background: rgba(245,158,11,0.06); }
+    .sig-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 30px; margin-top: 20px; }
+    .sig-box { border-top: 1px solid #333; padding-top: 4px; text-align: center; font-size: 7.5px; font-weight: 700; text-transform: uppercase; color: #555; }
+  </style>
+</head>
+<body>${voucherPages}</body>
+</html>`;
+
+    const win = window.open('', '_blank', 'width=1100,height=780');
+    if (!win) { alert('Pop-up blocked. Please allow pop-ups for this site to print.'); return; }
+    win.document.write(html);
+    win.document.close();
+    win.focus();
+    setTimeout(() => { win.print(); win.addEventListener('afterprint', () => win.close()); }, 400);
+  }
+
   const handleManageColumns = () => {
     setIsManageColumnsOpen(true);
   };
@@ -358,6 +528,7 @@ export default function ManagersDashboard() {
   const VoucherCard = ({ card, bucket }) => {
     const s = getCardStyle();
     const isSelected = selectedVoucher?.id === card.id;
+    const isPrintSelected = selectedForPrint.has(card.id);
 
     // Approval status badge colors
     const approvalLabels = {
@@ -372,12 +543,23 @@ export default function ManagersDashboard() {
     return (
       <div
         onClick={() => handleCardClick(card)}
-        className={`border-2 ${isSelected ? 'border-trust-blue ring-2 ring-trust-blue/40' : s.border} rounded-lg overflow-hidden cursor-pointer hover:shadow-md transition-shadow ${isSelected ? 'shadow-md' : ''}`}
+        className={`border-2 ${
+          isPrintSelected ? 'border-amber-400 ring-2 ring-amber-300/60' :
+          isSelected ? 'border-trust-blue ring-2 ring-trust-blue/40' : s.border
+        } rounded-lg overflow-hidden cursor-pointer hover:shadow-md transition-shadow ${isSelected ? 'shadow-md' : ''}`}
       >
-        {/* Header row: Voucher No. | NEW/Re-issue badge */}
+        {/* Header row: Voucher No. | print checkbox | status badge | type badge */}
         <div className={`${s.header} flex items-center justify-between px-2 py-1`}>
           <span className={`text-[11px] font-bold ${s.headerText} truncate`}>{card.voucherNo}</span>
           <div className="flex items-center gap-1">
+            <input
+              type="checkbox"
+              checked={isPrintSelected}
+              onChange={(e) => togglePrintSelect(e, card.id)}
+              onClick={(e) => e.stopPropagation()}
+              title="Select for print"
+              className="h-3 w-3 cursor-pointer accent-amber-400 shrink-0"
+            />
             {approvalBadge && (
               <span className={`text-[9px] font-bold px-1 py-0.5 rounded ${approvalBadge.cls} whitespace-nowrap`}>
                 {approvalBadge.text}
@@ -559,12 +741,29 @@ export default function ManagersDashboard() {
               <Trash2 className="w-4 h-4" />
               Delete
             </Button>
+            <Button
+              onClick={handlePrintSelected}
+              disabled={selectedForPrint.size === 0}
+              variant="outline"
+              className="border-midnight-ink text-midnight-ink rounded-full px-3 text-sm h-8 gap-1 hover:bg-gray-50 disabled:opacity-40"
+            >
+              <Printer className="w-4 h-4" />
+              Print{selectedForPrint.size > 0 ? ` (${selectedForPrint.size})` : ''}
+            </Button>
             <Button 
               onClick={handleManageColumns}
               variant="outline"
               className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8"
             >
               Manage Columns
+            </Button>
+            <Button
+              onClick={() => setIsPendingVouchersOpen(true)}
+              variant="outline"
+              className="border-trust-blue text-trust-blue rounded-full px-4 text-sm h-8 hover:bg-trust-blue/10 gap-1"
+            >
+              <FileText className="h-3.5 w-3.5" />
+              Vouchers
             </Button>
             <Button 
               onClick={() => setIsKYCModalOpen(true)}
@@ -774,6 +973,20 @@ export default function ManagersDashboard() {
       <CreateJobModal
         open={isCreateJobModalOpen}
         onOpenChange={setIsCreateJobModalOpen}
+        mode="single-pipeline"
+        onJobCreated={loadJobs}
+      />
+
+      <PendingVouchersModal
+        open={isPendingVouchersOpen}
+        onOpenChange={setIsPendingVouchersOpen}
+        onVouchersApproved={loadJobs}
+      />
+
+      <GenericJobModal
+        open={isGenericJobOpen}
+        onOpenChange={setIsGenericJobOpen}
+        initialData={selectedGenericJobData}
         onJobCreated={loadJobs}
       />
 

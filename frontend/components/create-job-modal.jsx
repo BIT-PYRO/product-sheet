@@ -314,10 +314,10 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
 
   async function handleSubmit() {
     // Bulk-create mode: one voucher per department step, ALL SKUs as material rows in each
-    if (mode === 'all') {
+    if (mode === 'all' || mode === 'single-pipeline') {
       const skuRows = rows.filter(r => String(r.sku || '').trim())
       if (skuRows.length === 0) {
-        alert('No SKU rows to create vouchers for. Please select a picklist first.')
+        alert('No SKU rows to create vouchers for. Please enter at least one SKU.')
         return
       }
       setIsBulkCreating(true)
@@ -733,8 +733,8 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
             </div>
           </div>
 
-          {/* DEPARTMENT TRANSFER */}
-          <div className="border border-border rounded-md px-2.5 py-1.5">
+          {/* DEPARTMENT TRANSFER — hidden for single-pipeline mode (auto-determined per SKU) */}
+          {mode !== 'single-pipeline' && <div className="border border-border rounded-md px-2.5 py-1.5">
             <div className="grid grid-cols-[1fr_auto_1fr] gap-1.5 items-end">
               <div className="flex flex-col gap-0.5">
                 <Label className="text-sm font-medium text-muted-foreground">From</Label>
@@ -766,7 +766,7 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
                 </Select>
               </div>
             </div>
-          </div>
+          </div>}
 
           {/* SKU Table */}
           <div className="rounded-md overflow-hidden border border-border">
@@ -1121,7 +1121,7 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
                   <Loader2 className="mr-1 h-3 w-3 animate-spin" />
                   Creating...
                 </>
-              ) : mode === 'all' ? 'Create All Vouchers' : 'Issue Job'}
+              ) : mode === 'all' ? 'Create All Vouchers' : mode === 'single-pipeline' ? 'Create Job Vouchers' : 'Issue Job'}
             </Button>
           </div>
         </div>
