@@ -28,5 +28,8 @@ class WorkforceMember(AuditModel):
 	active = models.BooleanField(default=True)
 	permissions = models.JSONField(default=dict, blank=True)
 
+	# Stores the ID from the external software so webhook updates can be matched
+	external_id = models.CharField(max_length=255, blank=True, db_index=True)
+
 	def __str__(self):
 		return f'{self.full_name} ({self.phone})'

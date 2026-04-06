@@ -29,7 +29,7 @@ const LIVE_STOCK_COLUMNS = [
   ['Casting', 'wipLiquidCasting'],
   ['Filling', 'filing'],
   ['Pre Polish', 'packing'],
-  ['Setting', 'setting'],
+  ['Hand Setting', 'setting'],
   ['Final Polish', 'finalPolish'],
   ['Ready for Plating', 'readyForPlacing'],
 ];

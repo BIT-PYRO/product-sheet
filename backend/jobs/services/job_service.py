@@ -21,6 +21,7 @@ DEPARTMENT_PIPELINE = [
     ('hand-setting', 'Hand Setting'),
     ('polishing', 'Final Polish'),
     ('plating', 'Ready for Plating'),
+    ('final-stock', 'Final Stock'),
 ]
 
 # Maps pipeline dept keys to inventory stage keys
@@ -33,4 +34,5 @@ DEPT_TO_STOCK_STAGE = {
     'hand-setting': 'setting',
     'polishing': 'final_polish',
     'plating': 'ready_for_plating',
+    'final-stock': 'final_stock',
 }

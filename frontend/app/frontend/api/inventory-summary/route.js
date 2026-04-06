@@ -37,11 +37,10 @@ function parseVariationSkus(colorStr, enamelStr) {
   return result;
 }
 
-function buildProductStockMap(products, transactions) {
+function buildProductStockMap(products, transactions, demandByMasterSku = new Map()) {
   // stockByProductKey: productId -> Map<`${stage}__${stock_type}`, running_qty>
   // stock_type is one of: 'current', 'min', 'wip'  (default 'current' for old txns)
   const stockByProductKey = new Map();
-  const demandByProduct = new Map();
 
   transactions.forEach((txn) => {
     const productId = txn?.product;
@@ -51,10 +50,8 @@ function buildProductStockMap(products, transactions) {
     const stage = String(txn?.stage || '').trim().toLowerCase() || 'default';
     const stockType = String(txn?.stock_type || 'current').trim().toLowerCase() || 'current';
 
-    if (String(txn?.txn_type || '').trim().toLowerCase() === 'demand') {
-      demandByProduct.set(productId, (demandByProduct.get(productId) || 0) + qty);
-      return;
-    }
+    // Skip demand-type transactions; demand is now sourced from picklist items.
+    if (String(txn?.txn_type || '').trim().toLowerCase() === 'demand') return;
 
     if (!stockByProductKey.has(productId)) stockByProductKey.set(productId, new Map());
     const keyMap = stockByProductKey.get(productId);
@@ -66,7 +63,8 @@ function buildProductStockMap(products, transactions) {
 
   return products.map((product) => {
     const keyMap = stockByProductKey.get(product.id) || new Map();
-    const totalInDemand = demandByProduct.get(product.id) || 0;
+    const masterSkuKey = String(product.master_sku || '').trim().toUpperCase();
+    const totalInDemand = demandByMasterSku.get(masterSkuKey) || 0;
 
     // Get value for a given stage + stock_type combination
     const val = (stage, type) => {
@@ -162,13 +160,15 @@ function buildProductStockMap(products, transactions) {
 
 export async function GET(request) {
   try {
-    const [productsResponse, inventoryResponse] = await Promise.all([
+    const [productsResponse, inventoryResponse, groupsResponse] = await Promise.all([
       proxyAuthenticatedRequest(request, '/api/v1/products/'),
       proxyAuthenticatedRequest(request, '/api/v1/inventory/'),
+      proxyAuthenticatedRequest(request, '/api/v1/inventory/picklist-groups/'),
     ]);
 
     const productsPayload = await readJsonSafe(productsResponse);
     const inventoryPayload = await readJsonSafe(inventoryResponse);
+    const groupsPayload = await readJsonSafe(groupsResponse);
 
     if (!productsResponse.ok || !productsPayload?.success) {
       return NextResponse.json(
@@ -187,9 +187,28 @@ export async function GET(request) {
     const products = asArray(productsPayload.data);
     const transactions = asArray(inventoryPayload.data);
 
+    // Build demand map from picklist items (master SKU → total needed across all picklists).
+    // Picklist items use variation SKUs (e.g. AJE116/G); strip everything from first '/' for master SKU.
+    const demandByMasterSku = new Map();
+    const rawGroups = groupsResponse.ok
+      ? (asArray(groupsPayload?.data).length > 0 ? asArray(groupsPayload.data) : asArray(groupsPayload))
+      : [];
+    rawGroups.forEach((group) => {
+      const items = Array.isArray(group?.items) ? group.items : [];
+      items.forEach((item) => {
+        const sku = String(item?.sku || '').trim().toUpperCase();
+        if (!sku) return;
+        const masterSku = sku.includes('/') ? sku.split('/')[0] : sku;
+        const needed = Math.max(0, parseInt(item?.needed || 0, 10));
+        if (needed > 0) {
+          demandByMasterSku.set(masterSku, (demandByMasterSku.get(masterSku) || 0) + needed);
+        }
+      });
+    });
+
     return NextResponse.json({
       success: true,
-      products: buildProductStockMap(products, transactions),
+      products: buildProductStockMap(products, transactions, demandByMasterSku),
     });
   } catch {
     return NextResponse.json(

@@ -15,13 +15,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { X, Printer, Loader2, Check, Clock, AlertCircle, ArrowRight, ChevronDown, ChevronRight } from "lucide-react"
+import { X, Loader2, Check, Clock, AlertCircle, ArrowRight, ChevronDown, ChevronRight, Trash2 } from "lucide-react"
 
 const APPROVAL_STATUS_LABELS = {
   pending: { label: 'Pending', color: 'bg-amber-100 text-amber-800', icon: Clock },
   approved: { label: 'Approved', color: 'bg-blue-100 text-blue-800', icon: Check },
   in_process: { label: 'In Process', color: 'bg-orange-100 text-orange-800', icon: Loader2 },
   awaiting: { label: 'Awaiting', color: 'bg-gray-100 text-gray-700', icon: Clock },
+  partially_complete: { label: 'Partial', color: 'bg-yellow-100 text-yellow-800', icon: Clock },
   completed: { label: 'Completed', color: 'bg-green-100 text-green-800', icon: Check },
 }
 
@@ -40,6 +41,7 @@ export function PendingVouchersModal({ open, onOpenChange, onVouchersApproved })
   const [vouchers, setVouchers] = useState([])
   const [isLoading, setIsLoading] = useState(false)
   const [isApproving, setIsApproving] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
   const [error, setError] = useState("")
   const [selectedIds, setSelectedIds] = useState(new Set())
   const [filterStatus, setFilterStatus] = useState("all")
@@ -102,12 +104,12 @@ export function PendingVouchersModal({ open, onOpenChange, onVouchersApproved })
     })
   }
 
-  const selectAllPending = () => {
-    const pendingIds = pendingVouchers.map(v => v.id)
+  const selectAllFiltered = () => {
+    const filteredIds = filteredVouchers.map(v => v.id)
     setSelectedIds(prev => {
-      const allSelected = pendingIds.every(id => prev.has(id))
+      const allSelected = filteredIds.every(id => prev.has(id))
       if (allSelected) return new Set()
-      return new Set(pendingIds)
+      return new Set(filteredIds)
     })
   }
 
@@ -155,6 +157,42 @@ export function PendingVouchersModal({ open, onOpenChange, onVouchersApproved })
     }
   }
 
+  async function handleDeleteSelected() {
+    if (selectedIds.size === 0) {
+      setError('Please select vouchers to delete.')
+      return
+    }
+
+    const confirmed = window.confirm(
+      `Delete ${selectedIds.size} selected voucher(s)? This cannot be undone.`
+    )
+    if (!confirmed) return
+
+    setIsDeleting(true)
+    setError('')
+
+    const failed = []
+    for (const id of selectedIds) {
+      try {
+        const res = await fetch(`/api/jobs/${id}/`, { method: 'DELETE' })
+        if (!res.ok && res.status !== 204) {
+          const result = await res.json().catch(() => null)
+          failed.push(result?.error?.message || `ID ${id}: delete failed`)
+        }
+      } catch {
+        failed.push(`ID ${id}: network error`)
+      }
+    }
+
+    if (failed.length > 0) {
+      setError(`Some deletions failed: ${failed.join(', ')}`)
+    }
+
+    await loadVouchers()
+    setSelectedIds(new Set())
+    setIsDeleting(false)
+  }
+
   const getDeptLabel = (deptKey) => {
     const labels = {
       'wax-pieces': 'Wax Piece',
@@ -165,6 +203,7 @@ export function PendingVouchersModal({ open, onOpenChange, onVouchersApproved })
       'hand-setting': 'Hand Setting',
       'polishing': 'Final Polish',
       'plating': 'Ready for Plating',
+      'final-stock': 'Final Stock',
       'design': 'Design / CAD',
       '3d-print': '3D Print',
       'mold-die': 'Mold Die',
@@ -229,24 +268,37 @@ export function PendingVouchersModal({ open, onOpenChange, onVouchersApproved })
               </SelectContent>
             </Select>
 
-            {filterStatus === 'all' || filterStatus === 'pending' ? (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={selectAllPending}
-                className="text-xs h-7"
-              >
-                {pendingVouchers.length > 0 && pendingVouchers.every(v => selectedIds.has(v.id))
-                  ? 'Deselect All Pending'
-                  : `Select All Pending (${pendingVouchers.length})`}
-              </Button>
-            ) : null}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={selectAllFiltered}
+              className="text-xs h-7"
+              disabled={filteredVouchers.length === 0}
+            >
+              {filteredVouchers.length > 0 && filteredVouchers.every(v => selectedIds.has(v.id))
+                ? 'Deselect All'
+                : `Select All (${filteredVouchers.length})`}
+            </Button>
           </div>
 
           <div className="flex items-center gap-2">
             <span className="text-xs text-cool-gray">
               {selectedIds.size} selected
             </span>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 border-red-400 text-red-600 hover:bg-red-50 font-semibold text-xs gap-1"
+              onClick={handleDeleteSelected}
+              disabled={isDeleting || selectedIds.size === 0}
+            >
+              {isDeleting ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <Trash2 className="h-3 w-3" />
+              )}
+              Delete
+            </Button>
             <Button
               size="sm"
               className="h-8 bg-trust-blue hover:bg-deep-blue text-white font-semibold text-xs gap-1"
@@ -256,9 +308,9 @@ export function PendingVouchersModal({ open, onOpenChange, onVouchersApproved })
               {isApproving ? (
                 <Loader2 className="h-3 w-3 animate-spin" />
               ) : (
-                <Printer className="h-3 w-3" />
+                <Check className="h-3 w-3" />
               )}
-              Approve & Print
+              Approve
             </Button>
           </div>
         </div>
@@ -303,14 +355,12 @@ export function PendingVouchersModal({ open, onOpenChange, onVouchersApproved })
                       className="flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-blue-50/30 transition-colors"
                       onClick={() => setExpandedVoucherId(prev => prev === voucher.id ? null : voucher.id)}
                     >
-                      {isPending && (
-                        <div onClick={e => e.stopPropagation()}>
-                          <Checkbox
-                            checked={selectedIds.has(voucher.id)}
-                            onCheckedChange={() => toggleSelection(voucher.id)}
-                          />
-                        </div>
-                      )}
+                      <div onClick={e => e.stopPropagation()}>
+                        <Checkbox
+                          checked={selectedIds.has(voucher.id)}
+                          onCheckedChange={() => toggleSelection(voucher.id)}
+                        />
+                      </div>
                       {isExpanded
                         ? <ChevronDown className="h-4 w-4 text-trust-blue shrink-0" />
                         : <ChevronRight className="h-4 w-4 text-cool-gray shrink-0" />

@@ -66,34 +66,42 @@ export default function ManagersDashboard() {
   const typeOptions = ['T1', 'T2', 'T3', 'T4'];
   const categoryOptions = ['C1', 'C2', 'C3', 'C4'];
 
-  // Process columns — map to department keys used in vouchers
+  // Process columns — live pipeline stages (matches dept_from keys order)
   const processColumns = [
-    '3D Print',
-    'DIE',
-    'WAX',
-    'SETTING',
-    'CASTING',
-    'FILING',
-    'PRE POLISH',
-    'HAND SETTING',
-    'FINAL POLISH',
-    'PLATING',
-    'Others'
+    'Wax Piece',
+    'Wax Setting',
+    'Casting',
+    'Filling',
+    'Pre Polish',
+    'Hand Setting',
+    'Final Polish',
+    'Ready for Plating',
+    'Others',
   ];
 
-  // Maps voucher dept_from / dept_to keys to dashboard column names
+  // Maps voucher dept_from keys → dashboard column names
   const DEPT_TO_COLUMN = {
-    'wax-pieces': 'WAX',
-    'wax-setting': 'SETTING',
-    'casting': 'CASTING',
-    'filing': 'FILING',
-    'pre-polish': 'PRE POLISH',
-    'hand-setting': 'HAND SETTING',
-    'polishing': 'FINAL POLISH',
-    'plating': 'PLATING',
-    '3d-print': '3D Print',
-    'mold-die': 'DIE',
-    'design': '3D Print',
+    'wax-pieces':  'Wax Piece',
+    'wax-setting': 'Wax Setting',
+    'casting':     'Casting',
+    'filing':      'Filling',
+    'pre-polish':  'Pre Polish',
+    'hand-setting': 'Hand Setting',
+    'polishing':   'Final Polish',
+    'plating':     'Ready for Plating',
+  };
+
+  // Human-readable labels for dept keys used in card display
+  const DEPT_LABELS = {
+    'wax-pieces':  'Wax Piece',
+    'wax-setting': 'Wax Setting',
+    'casting':     'Casting',
+    'filing':      'Filling',
+    'pre-polish':  'Pre Polish',
+    'hand-setting': 'Hand Setting',
+    'polishing':   'Final Polish',
+    'plating':     'Ready for Plating',
+    'final-stock': 'Final Stock',
   };
 
   const [visibleColumns, setVisibleColumns] = useState(new Set(processColumns));
@@ -137,25 +145,15 @@ export default function ManagersDashboard() {
   };
 
   const emptyJobCardsData = {
-    '3D Print': {
-      new: [],
-      wip: [],
-      completed: []
-    },
-    'DIE': { new: [], wip: [], completed: [] },
-    'WAX': {
-      new: [],
-      wip: [],
-      completed: []
-    },
-    'SETTING': { new: [], wip: [], completed: [] },
-    'CASTING': { new: [], wip: [], completed: [] },
-    'FILING': { new: [], wip: [], completed: [] },
-    'PRE POLISH': { new: [], wip: [], completed: [] },
-    'HAND SETTING': { new: [], wip: [], completed: [] },
-    'FINAL POLISH': { new: [], wip: [], completed: [] },
-    'PLATING': { new: [], wip: [], completed: [] },
-    'Others': { new: [], wip: [], completed: [] },
+    'Wax Piece':         { new: [], wip: [], completed: [] },
+    'Wax Setting':       { new: [], wip: [], completed: [] },
+    'Casting':           { new: [], wip: [], completed: [] },
+    'Filling':           { new: [], wip: [], completed: [] },
+    'Pre Polish':        { new: [], wip: [], completed: [] },
+    'Hand Setting':      { new: [], wip: [], completed: [] },
+    'Final Polish':      { new: [], wip: [], completed: [] },
+    'Ready for Plating': { new: [], wip: [], completed: [] },
+    'Others':            { new: [], wip: [], completed: [] },
   };
 
   const [jobCardsData, setJobCardsData] = useState(emptyJobCardsData);
@@ -164,6 +162,7 @@ export default function ManagersDashboard() {
     // For voucher workflow: use approval_status if available
     if (approvalStatus === 'completed') return 'completed';
     if (approvalStatus === 'in_process') return 'wip';
+    if (approvalStatus === 'partially_complete') return 'wip';
     if (approvalStatus === 'awaiting') return 'new';
     if (approvalStatus === 'approved') return 'new';
     // Fallback to job status
@@ -192,14 +191,21 @@ export default function ManagersDashboard() {
 
       const jobs = Array.isArray(result?.data) ? result.data : (result?.data?.results || []);
       const nextData = {
-        ...emptyJobCardsData,
-        '3D Print': { new: [], wip: [], completed: [] },
+        'Wax Piece':         { new: [], wip: [], completed: [] },
+        'Wax Setting':       { new: [], wip: [], completed: [] },
+        'Casting':           { new: [], wip: [], completed: [] },
+        'Filling':           { new: [], wip: [], completed: [] },
+        'Pre Polish':        { new: [], wip: [], completed: [] },
+        'Hand Setting':      { new: [], wip: [], completed: [] },
+        'Final Polish':      { new: [], wip: [], completed: [] },
+        'Ready for Plating': { new: [], wip: [], completed: [] },
+        'Others':            { new: [], wip: [], completed: [] },
       };
 
       jobs.forEach((job) => {
-        // Only show approved/in_process/awaiting/completed vouchers (not pending)
+        // Only show approved/in_process/awaiting/completed/partially_complete vouchers (not pending)
         const approvalStatus = job.approval_status || '';
-        const showOnDashboard = ['approved', 'in_process', 'awaiting', 'completed'].includes(approvalStatus)
+        const showOnDashboard = ['approved', 'in_process', 'awaiting', 'completed', 'partially_complete'].includes(approvalStatus)
           || !job.batch_id; // Non-batch jobs (single vouchers) always show
 
         if (!showOnDashboard) return;
@@ -344,53 +350,24 @@ export default function ManagersDashboard() {
     setIsManageColumnsOpen(true);
   };
 
-  const getCardStyle = (bucket) => {
-    switch (bucket) {
-      case 'new':
-        return {
-          border: 'border-yellow-400',
-          header: 'bg-yellow-400',
-          headerText: 'text-yellow-900',
-          badge: 'bg-yellow-200 text-yellow-800',
-          label: 'New',
-        };
-      case 'wip':
-        return {
-          border: 'border-orange-500',
-          header: 'bg-orange-500',
-          headerText: 'text-white',
-          badge: 'bg-orange-200 text-orange-900',
-          label: 'WIP',
-        };
-      case 'completed':
-        return {
-          border: 'border-green-500',
-          header: 'bg-green-500',
-          headerText: 'text-white',
-          badge: 'bg-green-200 text-green-900',
-          label: 'Done',
-        };
-      default:
-        return {
-          border: 'border-soft-border',
-          header: 'bg-cloud-gray',
-          headerText: 'text-midnight-ink',
-          badge: 'bg-cloud-gray text-slate-text',
-          label: '',
-        };
-    }
-  };
+  const getCardStyle = () => ({
+    border: 'border-trust-blue',
+    header: 'bg-trust-blue',
+    headerText: 'text-white',
+    badge: 'bg-blue-200 text-blue-900',
+  });
 
   const VoucherCard = ({ card, bucket }) => {
-    const s = getCardStyle(bucket);
+    const s = getCardStyle();
     const isSelected = selectedVoucher?.id === card.id;
 
-    // Determine approval badge
+    // Approval status badge colors
     const approvalLabels = {
-      in_process: { text: 'In Process', cls: 'bg-orange-200 text-orange-900' },
-      awaiting: { text: 'Awaiting', cls: 'bg-gray-200 text-gray-700' },
-      completed: { text: 'Completed', cls: 'bg-green-200 text-green-900' },
-      approved: { text: 'Approved', cls: 'bg-blue-200 text-blue-800' },
+      in_process:         { text: 'In Process',        cls: 'bg-orange-500 text-white' },
+      awaiting:           { text: 'Awaiting',           cls: 'bg-red-200 text-red-800' },
+      completed:          { text: 'Completed',          cls: 'bg-green-500 text-white' },
+      partially_complete: { text: 'Partial',            cls: 'bg-yellow-300 text-yellow-900' },
+      approved:           { text: 'Approved',           cls: 'bg-blue-200 text-blue-800' },
     };
     const approvalBadge = approvalLabels[card.approvalStatus];
 
@@ -418,7 +395,9 @@ export default function ManagersDashboard() {
         {/* Department flow */}
         {card.deptFrom && card.deptTo && (
           <div className="bg-white border-t border-gray-200 px-2 py-0.5 text-center">
-            <span className="text-[10px] text-cool-gray">{card.deptFrom} → {card.deptTo}</span>
+            <span className="text-[10px] text-cool-gray">
+              {DEPT_LABELS[card.deptFrom] || card.deptFrom} → {DEPT_LABELS[card.deptTo] || card.deptTo}
+            </span>
           </div>
         )}
         {/* Category */}
@@ -436,8 +415,8 @@ export default function ManagersDashboard() {
             <span className="text-xs font-semibold text-midnight-ink">{card.weight ?? '-'}</span>
           </div>
         </div>
-        {/* Mark Complete button for in_process vouchers */}
-        {card.approvalStatus === 'in_process' && (
+        {/* Mark Complete button for in_process or partially_complete vouchers */}
+        {(card.approvalStatus === 'in_process' || card.approvalStatus === 'partially_complete') && (
           <div className="bg-white border-t border-gray-200 p-1">
             <button
               type="button"
@@ -530,7 +509,7 @@ export default function ManagersDashboard() {
       <ReceiveJobModal
         open={isReceiveJobOpen}
         onOpenChange={setIsReceiveJobOpen}
-        onJobReceived={() => {}}
+        onJobReceived={() => { loadJobs(); }}
         voucherData={selectedVoucherForReceive}
       />
 

@@ -37,3 +37,19 @@ export async function PATCH(request) {
     body,
   });
 }
+
+export async function DELETE(request) {
+  const url = new URL(request.url);
+  const groupId = url.searchParams.get('groupId');
+
+  if (!groupId) {
+    return Response.json(
+      { success: false, message: 'groupId query parameter is required.' },
+      { status: 400 }
+    );
+  }
+
+  return proxyAuthenticatedRequest(request, `/api/v1/inventory/picklist-groups/${groupId}/`, {
+    method: 'DELETE',
+  });
+}

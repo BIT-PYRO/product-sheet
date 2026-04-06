@@ -13,7 +13,7 @@ import {
 import { Button } from '@/components/ui/button';
 
 const MATERIAL_OPTIONS = ['Gold', 'Silver', 'Brass', 'Alloy', 'Platinum'];
-const STAGE_OPTIONS = ['Raw', 'Wax', 'Casting', 'Filing', 'Polish', 'Setting', 'Ready', 'Finished'];
+const STAGE_OPTIONS = ['Raw', 'Wax', 'Casting', 'Filing', 'Polish', 'Hand Setting', 'Ready', 'Finished'];
 const FINDING_ISSUE_REQUESTS_KEY = 'finding_issue_requests_v1';
 
 function emptyFinding() {
