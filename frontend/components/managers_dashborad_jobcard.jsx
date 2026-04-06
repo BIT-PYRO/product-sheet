@@ -238,6 +238,10 @@ export default function ManagersDashboard() {
           deptTo: job.dept_to || '',
           issuedBy: job.issued_by || '',
           workType: job.work_type || '',
+          contact: job.contact || '',
+          createdAt: job.start_date || job.created_at || '',
+          picklistName: job.picklist_name || '',
+          orderName: job.order_name || '',
           batchId: job.batch_id || '',
           departmentOrder: job.department_order || 0,
           stoneRows: Array.isArray(job.stone_rows) ? job.stone_rows : [],
@@ -400,6 +404,12 @@ export default function ManagersDashboard() {
     if (allCards.length === 0) return;
 
     const deptLabel = (val) => DEPT_LABELS[val] || val || '\u2014';
+    const fmtDate = (v) => {
+      if (!v) return '\u2014';
+      const d = new Date(v);
+      if (isNaN(d)) return v;
+      return `${String(d.getDate()).padStart(2,'0')}-${String(d.getMonth()+1).padStart(2,'0')}-${d.getFullYear()}`;
+    };
 
     const voucherPages = allCards.map((card, pageIdx) => {
       const materialRows = Array.isArray(card.materialRows) ? card.materialRows : [];
@@ -425,12 +435,16 @@ export default function ManagersDashboard() {
           <div class="header-right">
             <div class="voucher-no">${card.voucherNo}</div>
             <div class="voucher-meta">Type: ${card.voucherType || 'New'}</div>
+            <div class="voucher-date">Date: ${fmtDate(card.createdAt)}</div>
+            ${card.picklistName ? `<div class="voucher-picklist">Picklist: ${card.picklistName}</div>` : ''}
+            ${card.orderName ? `<div class="voucher-picklist">Order: ${card.orderName}</div>` : ''}
           </div>
         </div>
         <div class="info-grid">
           <div class="info-item"><label>Issued To</label><span>${card.name || '\u2014'}</span></div>
           <div class="info-item"><label>Work Type</label><span>${card.workType || '\u2014'}</span></div>
           <div class="info-item"><label>Issued By</label><span>${card.issuedBy || '\u2014'}</span></div>
+          <div class="info-item"><label>Contact</label><span>${card.contact || '\u2014'}</span></div>
           <div class="info-item"><label>Category / Title</label><span>${card.category || '\u2014'}</span></div>
         </div>
         <div class="dept-section">
@@ -483,7 +497,9 @@ export default function ManagersDashboard() {
     .header-right { text-align: right; }
     .voucher-no { font-size: 18px; font-weight: 800; color: #111; }
     .voucher-meta { font-size: 9px; color: #555; margin-top: 2px; }
-    .info-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px 12px; margin-bottom: 7px; padding: 5px 8px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 3px; }
+    .voucher-date { font-size: 9px; color: #555; margin-top: 1px; }
+    .voucher-picklist { font-size: 9px; color: #1a56db; font-weight: 600; margin-top: 1px; }
+    .info-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px 12px; margin-bottom: 7px; padding: 5px 8px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 3px; }
     .info-item label { font-size: 7.5px; font-weight: 700; text-transform: uppercase; color: #64748b; display: block; margin-bottom: 1px; }
     .info-item span { font-size: 10.5px; font-weight: 600; color: #111; }
     .dept-section { display: flex; align-items: center; gap: 10px; margin-bottom: 7px; padding: 5px 10px; background: #eff6ff; border: 2px solid #3b82f6; border-radius: 3px; }

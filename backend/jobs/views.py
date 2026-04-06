@@ -93,7 +93,7 @@ def _activate_ready_batch_vouchers(batch_id):
 	destroy=extend_schema(summary='Delete job', tags=['Jobs']),
 )
 class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
-	queryset = Job.objects.all().order_by('-created_at')
+	queryset = Job.objects.select_related('picklist_group').all().order_by('-created_at')
 	serializer_class = JobSerializer
 	filterset_fields = ['status', 'product', 'assignee', 'approval_status', 'batch_id', 'picklist_group']
 	

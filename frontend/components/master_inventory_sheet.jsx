@@ -1924,6 +1924,7 @@ export default function MasterInventorySheet() {
         open={isCreateJobModalOpen}
         onOpenChange={setIsCreateJobModalOpen}
         mode="single-pipeline"
+        picklistGroupNumber={selectedPicklistData?.number ?? null}
         onJobCreated={() => {
           loadProducts();
         }}

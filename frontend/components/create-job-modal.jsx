@@ -33,7 +33,7 @@ function generateVoucherNo() {
   return `JJ-${String(currentCount).padStart(2, '0')}`
 }
 
-export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated, initialSku = '', mode = 'single' }) {
+export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated, initialSku = '', mode = 'single', picklistGroupNumber = null }) {
   const { saveDraft } = useDrafts()
   const loadedDraft = useDraftLoader()
   const [isQuickEnrollModalOpen, setIsQuickEnrollModalOpen] = useState(false)
@@ -321,6 +321,22 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
         return
       }
       setIsBulkCreating(true)
+
+      // Resolve picklist group DB id once before the loop
+      let picklistGroupDbId = null
+      const plNumber = mode === 'all'
+        ? (() => { const pl = picklists.find(p => String(p.id) === selectedPicklistId); return pl?.number ?? null })()
+        : picklistGroupNumber
+      if (plNumber !== null && plNumber !== undefined) {
+        try {
+          const pgRes = await fetch(`/api/picklist-groups?number=${plNumber}`, { cache: 'no-store' })
+          const pgResult = await pgRes.json().catch(() => null)
+          const pgData = Array.isArray(pgResult?.data) ? pgResult.data
+            : Array.isArray(pgResult?.data?.results) ? pgResult.data.results : []
+          picklistGroupDbId = pgData[0]?.db_id ?? null
+        } catch { /* skip */ }
+      }
+
       const results = { created: 0, failed: 0, errors: [] }
 
       try {
@@ -441,6 +457,7 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
                 material_rows: materialRows,
                 stone_rows: stoneRows.map(({ variety, color, cut, shape, length, width, height, qty }) => ({ variety, color, cut, shape, length, width, height, qty })),
                 die_weight_rows: dieWeightRows.map(({ dieNumber, quantity, weight, unit }) => ({ die_number: dieNumber, quantity, weight, unit })),
+                ...(picklistGroupDbId ? { picklist_group: picklistGroupDbId } : {}),
               }),
             })
             const createResult = await createRes.json().catch(() => null)
