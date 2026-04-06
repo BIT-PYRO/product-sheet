@@ -24,6 +24,7 @@ import GlobalSearchBar from '@/components/global-search-bar';
 import DateTimeStamp from '@/components/date-time-stamp';
 import BulkUploadButton from '@/components/bulk-upload-button';
 import LastUpdatedFooter from '@/components/last-updated-footer';
+import { useSheetPermissions } from '@/hooks/use-sheet-permissions';
 
 // â”€â”€ Column definitions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Each entry: { id, label, group?, groupLabel?, width }
@@ -184,6 +185,7 @@ function toPayload(row) {
 }
 
 export default function MasterDesignerSheet() {
+  const { canEdit, canCreate } = useSheetPermissions('master-designer-sheet');
   const router = useRouter();
   const [lastUpdated, setLastUpdated] = useState(null);
   const [currentUsername, setCurrentUsername] = useState('');
@@ -582,19 +584,21 @@ export default function MasterDesignerSheet() {
               className="border-2 border-soft-border rounded-lg px-4 py-2 pl-10 w-64"
             />
           </div>
-          <BulkUploadButton sheetType="designers" onComplete={() => window.location.reload()} />
-          <Button onClick={handleEditRow} variant="outline" className="border-trust-blue text-trust-blue hover:bg-trust-blue/10 rounded-full px-4 text-sm h-8" disabled={isArchivedView}>Edit Row</Button>
-          <Button onClick={handleDeleteSelectedRows} variant="outline" className="border-red-500 text-red-500 hover:bg-red-50 disabled:opacity-100 disabled:border-red-500 disabled:text-red-500 rounded-full px-4 text-sm h-8" disabled={selectedRows.size === 0 || editingRowIds.size > 0}>Delete Selected</Button>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="border-trust-blue text-trust-blue hover:bg-trust-blue/10 rounded-full px-4 text-sm h-8">Archive</Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              <DropdownMenuItem onClick={handleArchiveRow} disabled={isArchivedView}>Archive Selected Rows</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleSetViewMode(isArchivedView ? 'active' : 'archived')}>{isArchivedView ? 'Show Active Rows' : 'Show Archived Rows'}</DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          {isArchivedView && (
+          {canCreate && <BulkUploadButton sheetType="designers" onComplete={() => window.location.reload()} />}
+          {canEdit && <Button onClick={handleEditRow} variant="outline" className="border-trust-blue text-trust-blue hover:bg-trust-blue/10 rounded-full px-4 text-sm h-8" disabled={isArchivedView}>Edit Row</Button>}
+          {canEdit && <Button onClick={handleDeleteSelectedRows} variant="outline" className="border-red-500 text-red-500 hover:bg-red-50 disabled:opacity-100 disabled:border-red-500 disabled:text-red-500 rounded-full px-4 text-sm h-8" disabled={selectedRows.size === 0 || editingRowIds.size > 0}>Delete Selected</Button>}
+          {canEdit && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="border-trust-blue text-trust-blue hover:bg-trust-blue/10 rounded-full px-4 text-sm h-8">Archive</Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuItem onClick={handleArchiveRow} disabled={isArchivedView}>Archive Selected Rows</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleSetViewMode(isArchivedView ? 'active' : 'archived')}>{isArchivedView ? 'Show Active Rows' : 'Show Archived Rows'}</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+          {isArchivedView && canEdit && (
             <Button onClick={handleUnarchiveRows} variant="outline" className="border-green-600 text-success hover:bg-success/10 rounded-full px-4 text-sm h-8" disabled={selectedRows.size === 0}>Unarchive Selected</Button>
           )}
           <Button onClick={() => setIsManageColumnsOpen(true)} variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8">Manage Columns</Button>
@@ -717,7 +721,7 @@ export default function MasterDesignerSheet() {
 
         {/* â”€â”€ Add Row / Edit Controls â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         <div className="mt-4 flex gap-2 items-center">
-          <Button onClick={handleAddRow} className="bg-trust-blue hover:bg-deep-blue text-white px-6" disabled={editingRowIds.size > 0}>+ Add Row</Button>
+          {canCreate && <Button onClick={handleAddRow} className="bg-trust-blue hover:bg-deep-blue text-white px-6" disabled={editingRowIds.size > 0}>+ Add Row</Button>}
           {editingRowIds.size > 0 && (
             <div className="flex gap-2 ml-4">
               <Button onClick={handleSaveEdit} className="bg-success hover:bg-success/90 text-white px-6">Save Changes</Button>

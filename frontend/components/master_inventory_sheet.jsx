@@ -24,6 +24,7 @@ import DateTimeStamp from '@/components/date-time-stamp';
 import LastUpdatedFooter from '@/components/last-updated-footer';
 import { CreateJobModal } from '@/components/create-job-modal';
 import { PendingVouchersModal } from '@/components/pending-vouchers-modal';
+import { useSheetPermissions } from '@/hooks/use-sheet-permissions';
 
 // Component to render composite WIP/Current Stock values
 function CompositeStockDisplay({ value }) {
@@ -344,7 +345,6 @@ function loadPicklistsFromStorage() {
     if (JSON.stringify(sanitized) !== JSON.stringify(parsed)) {
       localStorage.setItem(PSD_PICKLISTS_KEY, JSON.stringify(sanitized));
     }
-
     return sanitized;
   } catch {
     return [];
@@ -353,6 +353,7 @@ function loadPicklistsFromStorage() {
 
 
 export default function MasterInventorySheet() {
+  const { canEdit, canCreate } = useSheetPermissions('master-inventory-sheet');
   const picklistFileInputRef = useRef(null);
   const [lastUpdated, setLastUpdated] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -1471,17 +1472,19 @@ export default function MasterInventorySheet() {
             >
               Refresh
             </Button>
-            <Button
-              onClick={handlePicklistUploadClick}
-              disabled={isUploadingPicklist || isEditMode}
-              variant="outline"
-              className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8 hover:bg-cloud-gray disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <Upload className="mr-2 h-4 w-4" />
-              {isUploadingPicklist ? 'Uploading...' : 'Bulk Upload'}
-            </Button>
+            {canEdit && (
+              <Button
+                onClick={handlePicklistUploadClick}
+                disabled={isUploadingPicklist || isEditMode}
+                variant="outline"
+                className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8 hover:bg-cloud-gray disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Upload className="mr-2 h-4 w-4" />
+                {isUploadingPicklist ? 'Uploading...' : 'Bulk Upload'}
+              </Button>
+            )}
             {/* Edit / Save / Cancel */}
-            {isEditMode ? (
+            {canEdit && isEditMode ? (
               <>
                 <span className="text-xs text-cool-gray self-center hidden sm:inline">
                   Editing: <strong>{STOCK_FILTER_OPTIONS.find(o => o.value === editFieldType)?.label}</strong>
@@ -1502,7 +1505,7 @@ export default function MasterInventorySheet() {
                   Cancel
                 </Button>
               </>
-            ) : (
+            ) : canEdit ? (
               <Button
                 onClick={() => { setPendingEditFieldType('current'); setIsEditFieldTypeDialogOpen(true); }}
                 variant="outline"
@@ -1510,9 +1513,9 @@ export default function MasterInventorySheet() {
               >
                 Edit
               </Button>
-            )}
+            ) : null}
             {/* Delete — available whenever rows are selected */}
-            {selectedRows.size > 0 && !isEditMode && (
+            {selectedRows.size > 0 && !isEditMode && canEdit && (
               <Button
                 onClick={handleDeleteSelected}
                 disabled={deletingRows.size > 0}

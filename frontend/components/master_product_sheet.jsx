@@ -31,6 +31,7 @@ import DateTimeStamp from '@/components/date-time-stamp';
 import GlobalSearchBar from '@/components/global-search-bar';
 import BulkUploadButton from '@/components/bulk-upload-button';
 import LastUpdatedFooter from '@/components/last-updated-footer';
+import { useSheetPermissions } from '@/hooks/use-sheet-permissions';
 
 const FILTER_FIELDS_PS = [
   { key: 'material', label: 'Material' },
@@ -42,6 +43,7 @@ const FILTER_FIELDS_PS = [
 ];
 
 export default function MasterProductSheet() {
+  const { canEdit, canCreate } = useSheetPermissions('master-product-sheet');
   const PRODUCT_SHEET_SYNC_KEY = 'product_sheet_updated_at';
   const PRODUCT_SHEET_SYNC_EVENT = 'product_sheet_sync';
   const [lastUpdated, setLastUpdated] = useState(null);
@@ -1295,53 +1297,61 @@ export default function MasterProductSheet() {
           >
             {isLoading ? 'Refreshing...' : 'Refresh'}
           </Button>
-          <BulkUploadButton sheetType="products" onComplete={loadProducts} />
-          <Button 
-            onClick={handleCreateProduct}
-            className="bg-success hover:bg-success text-white rounded-full px-4 text-sm h-8"
-          >
-            Add Product
-          </Button>
-          <Button 
-            onClick={handleEditRow}
-            variant="outline"
-            className="border-trust-blue text-trust-blue hover:bg-trust-blue/10 rounded-full px-4 text-sm h-8"
-            disabled={isArchivedView}
-          >
-            Edit Row
-          </Button>
-          <Button
-            onClick={() => {
-              if (selectedRows.size === 0) { alert('Please select at least one row to delete'); return; }
-              setIsDeleteConfirmOpen(true);
-            }}
-            variant="outline"
-            className="border-danger text-danger hover:bg-danger/10 rounded-full px-4 text-sm h-8"
-            disabled={editingRowIds.size > 0}
-          >
-            Delete Row
-          </Button>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button 
-                variant="outline"
-                className="border-warning text-warning hover:bg-warning/10 rounded-full px-4 text-sm h-8"
-              >
-                Archive
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              <DropdownMenuItem onClick={handleArchiveRow} disabled={isArchivedView}>
-                Archive Selected Rows
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => handleSetViewMode(isArchivedView ? 'active' : 'archived')}
-              >
-                {isArchivedView ? 'Show Active Rows' : 'Show Archived Rows'}
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          {isArchivedView && (
+          {canCreate && <BulkUploadButton sheetType="products" onComplete={loadProducts} />}
+          {canCreate && (
+            <Button 
+              onClick={handleCreateProduct}
+              className="bg-success hover:bg-success text-white rounded-full px-4 text-sm h-8"
+            >
+              Add Product
+            </Button>
+          )}
+          {canEdit && (
+            <Button 
+              onClick={handleEditRow}
+              variant="outline"
+              className="border-trust-blue text-trust-blue hover:bg-trust-blue/10 rounded-full px-4 text-sm h-8"
+              disabled={isArchivedView}
+            >
+              Edit Row
+            </Button>
+          )}
+          {canEdit && (
+            <Button
+              onClick={() => {
+                if (selectedRows.size === 0) { alert('Please select at least one row to delete'); return; }
+                setIsDeleteConfirmOpen(true);
+              }}
+              variant="outline"
+              className="border-danger text-danger hover:bg-danger/10 rounded-full px-4 text-sm h-8"
+              disabled={editingRowIds.size > 0}
+            >
+              Delete Row
+            </Button>
+          )}
+          {canEdit && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button 
+                  variant="outline"
+                  className="border-warning text-warning hover:bg-warning/10 rounded-full px-4 text-sm h-8"
+                >
+                  Archive
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuItem onClick={handleArchiveRow} disabled={isArchivedView}>
+                  Archive Selected Rows
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => handleSetViewMode(isArchivedView ? 'active' : 'archived')}
+                >
+                  {isArchivedView ? 'Show Active Rows' : 'Show Archived Rows'}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+          {isArchivedView && canEdit && (
             <Button
               onClick={handleUnarchiveRows}
               variant="outline"
@@ -1600,13 +1610,15 @@ export default function MasterProductSheet() {
 
       {/* Add Row and Edit Controls */}
       <div className="mt-4 flex gap-2 items-center flex-wrap">
-        <Button 
-          onClick={handleAddRow}
-          className="bg-trust-blue hover:bg-deep-blue text-white px-6"
-          disabled={editingRowIds.size > 0}
-        >
-          + Add Row
-        </Button>
+        {canCreate && (
+          <Button 
+            onClick={handleAddRow}
+            className="bg-trust-blue hover:bg-deep-blue text-white px-6"
+            disabled={editingRowIds.size > 0}
+          >
+            + Add Row
+          </Button>
+        )}
         
         {editingRowIds.size > 0 && (
           <div className="flex gap-2 ml-4 items-center flex-wrap">

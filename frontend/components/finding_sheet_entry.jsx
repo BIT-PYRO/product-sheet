@@ -7,6 +7,7 @@ import { Trash2, Download, Upload, Search, X, ExternalLink, ArrowLeft } from 'lu
 import Link from 'next/link'
 import MasterNavigationDrawer from '@/components/master_navigation_drawer'
 import DateTimeStamp from '@/components/date-time-stamp'
+import { useSheetPermissions } from '@/hooks/use-sheet-permissions'
 
 const ALLOY_DENSITIES = [
   { name: 'ALLOY',                density: 8.5,  colorClass: 'bg-orange-400 text-white' },
@@ -80,6 +81,7 @@ const EMPTY_FINDING = () => ({
 })
 
 function FindingSheetEntryContent() {
+  const { canEdit, canCreate } = useSheetPermissions('finding-entry')
   const router = useRouter()
   const searchParams = useSearchParams()
   const findingCodeParam = (searchParams.get('finding_code') || '').trim()
@@ -437,16 +439,22 @@ function FindingSheetEntryContent() {
                   {saveStatus.message}
                 </span>
               )}
-              <button type="button" onClick={handleSave} disabled={isSaving} className="px-2.5 py-1 text-xs bg-success text-white font-semibold rounded-full hover:bg-success/90 disabled:opacity-50">
-                {isSaving ? 'Saving...' : 'SAVE'}
-              </button>
-              <button type="button" onClick={handleDelete} disabled={isSaving || !findingRecordId} className="px-2.5 py-1 text-xs bg-danger text-white font-semibold rounded-full hover:bg-danger/90 disabled:opacity-50">
-                DELETE
-              </button>
-              <button type="button" onClick={() => bulkUploadRef.current?.click()} disabled={isSaving} className="px-2.5 py-1 text-xs bg-trust-blue text-white font-semibold rounded-full hover:bg-deep-blue disabled:opacity-50 flex items-center gap-1">
-                <Upload className="h-3 w-3" />
-                UPLOAD
-              </button>
+              {(canCreate || canEdit) && (
+                <button type="button" onClick={handleSave} disabled={isSaving} className="px-2.5 py-1 text-xs bg-success text-white font-semibold rounded-full hover:bg-success/90 disabled:opacity-50">
+                  {isSaving ? 'Saving...' : 'SAVE'}
+                </button>
+              )}
+              {canEdit && (
+                <button type="button" onClick={handleDelete} disabled={isSaving || !findingRecordId} className="px-2.5 py-1 text-xs bg-danger text-white font-semibold rounded-full hover:bg-danger/90 disabled:opacity-50">
+                  DELETE
+                </button>
+              )}
+              {canCreate && (
+                <button type="button" onClick={() => bulkUploadRef.current?.click()} disabled={isSaving} className="px-2.5 py-1 text-xs bg-trust-blue text-white font-semibold rounded-full hover:bg-deep-blue disabled:opacity-50 flex items-center gap-1">
+                  <Upload className="h-3 w-3" />
+                  UPLOAD
+                </button>
+              )}
               <input ref={bulkUploadRef} type="file" accept=".csv,.xlsx,.xls,.json" onChange={handleBulkUpload} className="hidden" />
             </div>
           </div>

@@ -33,8 +33,10 @@ import { CreateJobModal } from '@/components/create-job-modal';
 import { ReceiveJobModal } from '@/components/receive-job-modal';
 import DateTimeStamp from '@/components/date-time-stamp';
 import BulkUploadButton from '@/components/bulk-upload-button';
+import { useSheetPermissions } from '@/hooks/use-sheet-permissions';
 
 export default function MasterJobSheet() {
+  const { canEdit, canCreate } = useSheetPermissions('master-job-sheet');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedRows, setSelectedRows] = useState(new Set());
   const [isManageColumnsOpen, setIsManageColumnsOpen] = useState(false);
@@ -780,41 +782,47 @@ export default function MasterJobSheet() {
           >
             {isLoading ? 'Loading...' : 'Refresh'}
           </Button>
-          <Button 
-            onClick={handleCreateJob}
-            className="bg-success hover:bg-success text-white rounded-full px-4 h-8 text-sm"
-          >
-            Create a Job
-          </Button>
-          <Button 
-            onClick={handleEditRow}
-            variant="outline"
-            className="border-trust-blue text-trust-blue hover:bg-trust-blue/10 rounded-full px-4 h-8 text-sm"
-            disabled={isArchivedView}
-          >
-            Edit Row
-          </Button>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button 
-                variant="outline"
-                className="border-trust-blue text-trust-blue hover:bg-trust-blue/10 rounded-full px-4 h-8 text-sm"
-              >
-                Archive
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              <DropdownMenuItem onClick={handleArchiveRow} disabled={isArchivedView}>
-                Archive Selected Rows
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => handleSetViewMode(isArchivedView ? 'active' : 'archived')}
-              >
-                {isArchivedView ? 'Show Active Rows' : 'Show Archived Rows'}
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          {isArchivedView && (
+          {canCreate && (
+            <Button 
+              onClick={handleCreateJob}
+              className="bg-success hover:bg-success text-white rounded-full px-4 h-8 text-sm"
+            >
+              Create a Job
+            </Button>
+          )}
+          {canEdit && (
+            <Button 
+              onClick={handleEditRow}
+              variant="outline"
+              className="border-trust-blue text-trust-blue hover:bg-trust-blue/10 rounded-full px-4 h-8 text-sm"
+              disabled={isArchivedView}
+            >
+              Edit Row
+            </Button>
+          )}
+          {canEdit && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button 
+                  variant="outline"
+                  className="border-trust-blue text-trust-blue hover:bg-trust-blue/10 rounded-full px-4 h-8 text-sm"
+                >
+                  Archive
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuItem onClick={handleArchiveRow} disabled={isArchivedView}>
+                  Archive Selected Rows
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => handleSetViewMode(isArchivedView ? 'active' : 'archived')}
+                >
+                  {isArchivedView ? 'Show Active Rows' : 'Show Archived Rows'}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+          {isArchivedView && canEdit && (
             <Button
               onClick={handleUnarchiveRows}
               variant="outline"
@@ -1148,13 +1156,15 @@ export default function MasterJobSheet() {
 
       {/* Add Row and Edit Controls */}
       <div className="mt-4 flex gap-2 items-center">
-        <Button 
-          onClick={handleAddRow}
-          className="bg-trust-blue hover:bg-deep-blue text-white px-6"
-          disabled={editingRowIds.size > 0}
-        >
-          + Add Row
-        </Button>
+        {canCreate && (
+          <Button 
+            onClick={handleAddRow}
+            className="bg-trust-blue hover:bg-deep-blue text-white px-6"
+            disabled={editingRowIds.size > 0}
+          >
+            + Add Row
+          </Button>
+        )}
         
         {editingRowIds.size > 0 && (
           <div className="flex gap-2 ml-4">

@@ -9,6 +9,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useDrafts, useDraftLoader } from "@/components/drafts-manager";
+import { useSheetPermissions } from '@/hooks/use-sheet-permissions';
 
 const PENDING_DRAFT_KEY = 'pending_enroll_workforce_draft';
 
@@ -72,6 +73,7 @@ const emptyAddress = () => ({
 });
 
 export function EnrolWorkforceForm({ onEnroll, onClose, open = true, draftData = null, editingId = null }) {
+  const { canEdit, canCreate } = useSheetPermissions('master-workforce-sheet');
   const { saveDraft } = useDrafts();
   const loadedDraft = useDraftLoader();
   const formScrollRef = React.useRef(null);
@@ -654,23 +656,29 @@ export function EnrolWorkforceForm({ onEnroll, onClose, open = true, draftData =
             </div>
 
             {/* ── Action Buttons ── */}
-            <div className="flex gap-2 mt-2">
-              <button
-                type="button"
-                onClick={handleSaveDraft}
-                className="flex-1 h-10 bg-trust-blue hover:bg-deep-blue text-white font-bold text-sm rounded transition shadow-md"
-              >
-                Save as Draft
-              </button>
-              <button
-                type="button"
-                onClick={handleSubmit}
-                disabled={isSubmitting}
-                className="flex-1 h-10 bg-gradient-to-r from-midnight-ink to-midnight-ink/90 hover:from-midnight-ink hover:to-midnight-ink text-white font-bold text-sm rounded transition shadow-md disabled:opacity-60"
-              >
-                {isSubmitting ? 'ENROLLING...' : 'ENROLL'}
-              </button>
-            </div>
+            {(editingId ? canEdit : canCreate) ? (
+              <div className="flex gap-2 mt-2">
+                <button
+                  type="button"
+                  onClick={handleSaveDraft}
+                  className="flex-1 h-10 bg-trust-blue hover:bg-deep-blue text-white font-bold text-sm rounded transition shadow-md"
+                >
+                  Save as Draft
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSubmit}
+                  disabled={isSubmitting}
+                  className="flex-1 h-10 bg-gradient-to-r from-midnight-ink to-midnight-ink/90 hover:from-midnight-ink hover:to-midnight-ink text-white font-bold text-sm rounded transition shadow-md disabled:opacity-60"
+                >
+                  {isSubmitting ? 'ENROLLING...' : 'ENROLL'}
+                </button>
+              </div>
+            ) : (
+              <div className="text-sm text-gray-500 text-center mt-2 p-2 bg-gray-50 rounded border border-gray-200">
+                🔒 You don&apos;t have permission to {editingId ? 'edit' : 'enroll'} workforce members.
+              </div>
+            )}
 
           </form>
         </div>

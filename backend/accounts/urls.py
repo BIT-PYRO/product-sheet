@@ -1,6 +1,6 @@
 from django.urls import path
 
-from .views import GoogleLoginView, LoginView, MeView, RefreshTokenView
+from .views import ApproveUserView, GoogleLoginView, LoginView, MeView, RefreshTokenView, SendOTPView, SetCredentialsView, VerifyOTPView
 
 
 urlpatterns = [
@@ -8,4 +8,8 @@ urlpatterns = [
     path('refresh/', RefreshTokenView.as_view(), name='token_refresh'),
     path('me/', MeView.as_view(), name='me'),
     path('google/', GoogleLoginView.as_view(), name='google_login'),
+    path('send-otp/', SendOTPView.as_view(), name='send_otp'),
+    path('verify-otp/', VerifyOTPView.as_view(), name='verify_otp'),
+    path('set-credentials/', SetCredentialsView.as_view(), name='set_credentials'),
+    path('approve-user/', ApproveUserView.as_view(), name='approve_user'),
 ]

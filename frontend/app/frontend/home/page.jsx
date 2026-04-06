@@ -10,25 +10,25 @@ import DateTimeStamp from '@/components/date-time-stamp';
 import { Search, X, ArrowRight, User, Users, Settings } from 'lucide-react';
 
 const SHEET_BLOCKS = [
-  { href: '/', title: 'Product Sheet', subtitle: 'Product entry and live stock form', keywords: ['sku', 'product', 'stock', 'listing', 'material', 'weight', 'variation', 'stone', 'image', 'live stock', 'final stock', 'entry'] },
-  { href: '/master-product-sheet', title: 'Master Product Sheet', subtitle: 'All product records', keywords: ['sku', 'product', 'records', 'all products', 'listing', 'master'] },
-  { href: '/master-inventory-sheet', title: 'Master Inventory Sheet', subtitle: 'Live stock and final stock', keywords: ['inventory', 'stock', 'live stock', 'final stock', 'quantity', 'master'] },
-  { href: '/enrol-customer', title: 'Enroll Customer', subtitle: 'Customer entry form', keywords: ['customer', 'enroll', 'client', 'onboard', 'new customer', 'buyer', 'phone', 'contact'] },
-  { href: '/master-customer-sheet', title: 'Master Customer Sheet', subtitle: 'Customer records and details', keywords: ['customer', 'records', 'clients', 'details', 'master', 'buyer'] },
-  { href: '/master-kyc-sheet', title: 'Master KYC Sheet', subtitle: 'Company KYC records', keywords: ['kyc', 'know your customer', 'company', 'verification', 'documents', 'gst', 'pan', 'aadhar'] },
-  { href: '/enrol-workforce', title: 'Enroll Workforce', subtitle: 'Workforce onboarding form', keywords: ['workforce', 'worker', 'employee', 'enroll', 'onboard', 'staff', 'labour', 'department', 'designation', 'hr'] },
-  { href: '/master-workforce-sheet', title: 'Master Workforce Sheet', subtitle: 'Workforce records', keywords: ['workforce', 'worker', 'employee', 'staff', 'records', 'master', 'labour'] },
-  { href: '/master-job-sheet', title: 'Master Job Sheet', subtitle: 'Job master data', keywords: ['job', 'work order', 'task', 'assignment', 'master', 'job card'] },
-  { href: '/managers-dashboard', title: 'Managers Dashboard', subtitle: 'Manager view and job cards', keywords: ['manager', 'dashboard', 'job cards', 'overview', 'manage', 'admin'] },
-  { href: '/drafts', title: 'Drafts', subtitle: 'View and load saved drafts', keywords: ['draft', 'saved', 'pending', 'resume', 'incomplete', 'continue'] },
-  { href: '/orders', title: 'Orders', subtitle: 'Create and manage job orders', keywords: ['order', 'job order', 'manage orders', 'create order', 'dispatch'] },
-  { href: '#my-desk', title: 'My Desk', subtitle: 'Coming soon', keywords: ['desk', 'personal', 'my work'] },
-  { href: '#create-generic-job', title: 'Create Generic Job', subtitle: 'Create jobs for any type of work', keywords: ['job', 'generic', 'create', 'work', 'assignment', 'electrical', 'plumbing', 'labour'] },
-  { href: '/master-designer-sheet', title: 'Master Designer Sheet', subtitle: 'Designer records and details', keywords: ['designer', 'records', 'details', 'master', 'design'] },
-  { href: '/designer-sheet', title: 'Designer Sheet', subtitle: 'Designer entry and design data', keywords: ['designer', 'design', 'entry', 'die code', 'alloy', 'motive', 'tracking'] },
-  { href: '/finding-sheet', title: 'Master Finding Sheet', subtitle: 'Finding records and details', keywords: ['finding', 'findings', 'die number', 'size', 'quantity', 'weight', 'sheet', 'master'] },
-  { href: '/finding-entry', title: 'Finding Sheet', subtitle: 'Finding entry with image upload', keywords: ['finding', 'findings', 'image', 'die number', 'size', 'quantity', 'weight', 'entry', 'upload'] },
-  { href: '/inventory', title: 'Inventory', subtitle: 'Inventory final stocks', keywords: ['inventory', 'final stock', 'stock', 'quantity'] },
+  { href: '/product-sheet', permKey: 'product-sheet', title: 'Product Sheet', subtitle: 'Product entry and live stock form', keywords: ['sku', 'product', 'stock', 'listing', 'material', 'weight', 'variation', 'stone', 'image', 'live stock', 'final stock', 'entry'] },
+  { href: '/master-product-sheet', permKey: 'master-product-sheet', title: 'Master Product Sheet', subtitle: 'All product records', keywords: ['sku', 'product', 'records', 'all products', 'listing', 'master'] },
+  { href: '/master-inventory-sheet', permKey: 'master-inventory-sheet', title: 'Master Inventory Sheet', subtitle: 'Live stock and final stock', keywords: ['inventory', 'stock', 'live stock', 'final stock', 'quantity', 'master'] },
+  { href: '/enrol-customer', permKey: 'enrol-customer', title: 'Enroll Customer', subtitle: 'Customer entry form', keywords: ['customer', 'enroll', 'client', 'onboard', 'new customer', 'buyer', 'phone', 'contact'] },
+  { href: '/master-customer-sheet', permKey: 'master-customer-sheet', title: 'Master Customer Sheet', subtitle: 'Customer records and details', keywords: ['customer', 'records', 'clients', 'details', 'master', 'buyer'] },
+  { href: '/master-kyc-sheet', permKey: 'master-kyc-sheet', title: 'Master KYC Sheet', subtitle: 'Company KYC records', keywords: ['kyc', 'know your customer', 'company', 'verification', 'documents', 'gst', 'pan', 'aadhar'] },
+  { href: '/enrol-workforce', permKey: 'enrol-workforce', title: 'Enroll Workforce', subtitle: 'Workforce onboarding form', keywords: ['workforce', 'worker', 'employee', 'enroll', 'onboard', 'staff', 'labour', 'department', 'designation', 'hr'] },
+  { href: '/master-workforce-sheet', permKey: 'master-workforce-sheet', title: 'Master Workforce Sheet', subtitle: 'Workforce records', keywords: ['workforce', 'worker', 'employee', 'staff', 'records', 'master', 'labour'] },
+  { href: '/master-job-sheet', permKey: 'master-job-sheet', title: 'Master Job Sheet', subtitle: 'Job master data', keywords: ['job', 'work order', 'task', 'assignment', 'master', 'job card'] },
+  { href: '/managers-dashboard', permKey: 'managers-dashboard', title: 'Managers Dashboard', subtitle: 'Manager view and job cards', keywords: ['manager', 'dashboard', 'job cards', 'overview', 'manage', 'admin'] },
+  { href: '/drafts', permKey: 'drafts', title: 'Drafts', subtitle: 'View and load saved drafts', keywords: ['draft', 'saved', 'pending', 'resume', 'incomplete', 'continue'] },
+  { href: '/orders', permKey: 'orders', title: 'Orders', subtitle: 'Create and manage job orders', keywords: ['order', 'job order', 'manage orders', 'create order', 'dispatch'] },
+  { href: '#my-desk', permKey: 'my-desk', title: 'My Desk', subtitle: 'Coming soon', keywords: ['desk', 'personal', 'my work'] },
+  { href: '#create-generic-job', permKey: 'create-generic-job', title: 'Create Generic Job', subtitle: 'Create jobs for any type of work', keywords: ['job', 'generic', 'create', 'work', 'assignment', 'electrical', 'plumbing', 'labour'] },
+  { href: '/master-designer-sheet', permKey: 'master-designer-sheet', title: 'Master Designer Sheet', subtitle: 'Designer records and details', keywords: ['designer', 'records', 'details', 'master', 'design'] },
+  { href: '/designer-sheet', permKey: 'designer-sheet', title: 'Designer Sheet', subtitle: 'Designer entry and design data', keywords: ['designer', 'design', 'entry', 'die code', 'alloy', 'motive', 'tracking'] },
+  { href: '/finding-sheet', permKey: 'finding-sheet', title: 'Master Finding Sheet', subtitle: 'Finding records and details', keywords: ['finding', 'findings', 'die number', 'size', 'quantity', 'weight', 'sheet', 'master'] },
+  { href: '/finding-entry', permKey: 'finding-entry', title: 'Finding Sheet', subtitle: 'Finding entry with image upload', keywords: ['finding', 'findings', 'image', 'die number', 'size', 'quantity', 'weight', 'entry', 'upload'] },
+  { href: '/inventory', permKey: 'inventory', title: 'Inventory', subtitle: 'Inventory final stocks', keywords: ['inventory', 'final stock', 'stock', 'quantity'] },
 ];
 
 export default function HomePage() {
@@ -46,6 +46,9 @@ export default function HomePage() {
   const profileDropdownRef = useRef(null);
 
   // Live data cache — fetched once on first search focus
+  const [myPerms, setMyPerms] = useState(null); // null = not yet loaded
+  const [permsReady, setPermsReady] = useState(false);
+
   const [liveData, setLiveData] = useState({ products: [], customers: [], workforce: [] });
   const [liveLoaded, setLiveLoaded] = useState(false);
   const [liveLoading, setLiveLoading] = useState(false);
@@ -148,6 +151,32 @@ export default function HomePage() {
         const key = `profile_photo_${u?.username || u?.id}`;
         const saved = localStorage.getItem(key);
         if (saved) setProfilePhoto(saved);
+
+        // Fetch this user's workforce permissions (skip for admins — they see everything)
+        if (u?.role === 'admin' || u?.is_superuser) {
+          setMyPerms(null); // null = show all
+          setPermsReady(true);
+        } else {
+          try {
+            const email = (u?.email || '').toLowerCase();
+            const wfRes = await fetch(`/api/workforce-me?email=${encodeURIComponent(email)}`, { cache: 'no-store' });
+            const wfData = await wfRes.json().catch(() => null);
+            const list = Array.isArray(wfData?.data) ? wfData.data
+              : Array.isArray(wfData?.data?.results) ? wfData.data.results
+              : Array.isArray(wfData?.results) ? wfData.results : [];
+            const match = list.find(m => (m.email || '').toLowerCase() === email);
+            if (match) {
+              const des = (match.designation || '').toLowerCase().trim();
+              const isSuperDesig = des === 'chairman' || des === 'ceo';
+              setMyPerms(isSuperDesig ? null : (match.permissions || {}));
+            } else {
+              setMyPerms(null); // no workforce record → show all
+            }
+          } catch {
+            setMyPerms(null); // error → show all (fail open)
+          }
+          setPermsReady(true);
+        }
       } catch {
         router.replace('/login');
       }
@@ -164,6 +193,13 @@ export default function HomePage() {
     window.addEventListener('profile_photo_updated', onPhotoUpdated);
     return () => window.removeEventListener('profile_photo_updated', onPhotoUpdated);
   }, []);
+
+  // myPerms === null → admin/superuser/no record → full access
+  // myPerms is an object → check per-block view permission
+  function canAccess(permKey) {
+    if (myPerms === null) return true;
+    return myPerms?.sheets?.[permKey]?.view === true;
+  }
 
   function getInitials() {
     const f = userInfo?.first_name?.[0] || '';
@@ -401,9 +437,41 @@ export default function HomePage() {
           </div>
         )}
 
-        <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {/* Pending approval banner */}
+        {userInfo && userInfo.is_approved === false && (
+          <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 flex flex-col sm:flex-row sm:items-center gap-3">
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-amber-800">Account Pending Approval</p>
+              <p className="text-sm text-amber-700 mt-0.5">
+                Your account is awaiting approval from an administrator. Until then, you can only access this page and your Profile.
+                You can set a username &amp; password in{' '}
+                <a href="/settings" className="underline font-semibold">Settings</a>.
+              </p>
+            </div>
+          </div>
+        )}
+
+        <section className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 ${userInfo?.is_approved === false ? 'opacity-40 pointer-events-none select-none' : ''}`}>
           {SHEET_BLOCKS.map((block, index) => {
-            const num = <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-trust-blue text-white text-xs font-bold mb-2">{index + 1}</span>;
+            const accessible = canAccess(block.permKey);
+            const num = <span className={`inline-flex items-center justify-center w-5 h-5 rounded-full text-white text-xs font-bold mb-2 ${accessible ? 'bg-trust-blue' : 'bg-gray-300'}`}>{index + 1}</span>;
+
+            // Locked tile — grayed out, shows tooltip on click
+            if (!accessible) {
+              return (
+                <button
+                  key={block.permKey}
+                  type="button"
+                  onClick={() => alert(`You don't have access to "${block.title}". Contact your admin to request permissions.`)}
+                  className="block text-left rounded-xl border border-soft-border bg-white p-6 opacity-50 cursor-not-allowed select-none"
+                >
+                  {num}
+                  <h2 className="text-lg font-semibold text-gray-400">{block.title}</h2>
+                  <p className="text-sm text-gray-300 mt-2">{block.subtitle}</p>
+                  <p className="text-xs text-gray-400 mt-2 font-medium">No access</p>
+                </button>
+              );
+            }
 
             if (block.href === '/enrol-workforce') {
               return (

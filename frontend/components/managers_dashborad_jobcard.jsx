@@ -28,8 +28,10 @@ import { ReceiveJobModal } from '@/components/receive-job-modal';
 import { GenericJobModal } from '@/components/generic-job-modal';
 import DateTimeStamp from '@/components/date-time-stamp';
 import LastUpdatedFooter from '@/components/last-updated-footer';
+import { useSheetPermissions } from '@/hooks/use-sheet-permissions';
 
 export default function ManagersDashboard() {
+  const { canEdit, canCreate } = useSheetPermissions('managers-dashboard');
   const [lastUpdated, setLastUpdated] = useState(null);
   const [currentUsername, setCurrentUsername] = useState('');
   const [searchTerm, setSearchTerm] = useState('');

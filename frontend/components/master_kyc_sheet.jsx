@@ -23,6 +23,7 @@ import {
 import DateTimeStamp from '@/components/date-time-stamp';
 import BulkUploadButton from '@/components/bulk-upload-button';
 import LastUpdatedFooter from '@/components/last-updated-footer';
+import { useSheetPermissions } from '@/hooks/use-sheet-permissions';
 
 const KYC_COLUMNS = [
   { key: '__select__', label: '' },
@@ -85,6 +86,7 @@ const columnConfig = {
 };
 
 export default function MasterKYCSheet() {
+  const { canEdit, canCreate } = useSheetPermissions('master-kyc-sheet');
   const [lastUpdated, setLastUpdated] = useState(null);
   const [currentUsername, setCurrentUsername] = useState('');
   const [isLoading, setIsLoading] = useState(true);
@@ -334,26 +336,32 @@ export default function MasterKYCSheet() {
             <Button onClick={loadKYCData} variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8" disabled={isLoading}>
               {isLoading ? 'Refreshing...' : 'Refresh'}
             </Button>
-            <BulkUploadButton sheetType="kyc" onComplete={loadKYCData} />
-            <Button onClick={handleAddEmptyRow} className="bg-success hover:bg-success text-white rounded-full px-4 text-sm h-8">
-              Add KYC
-            </Button>
-            <Button variant="outline" className="border-trust-blue text-trust-blue hover:bg-trust-blue/10 rounded-full px-4 text-sm h-8">
-              Edit Row
-            </Button>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="border-warning text-warning hover:bg-warning/10 rounded-full px-4 text-sm h-8">
-                  Archive
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent>
-                <DropdownMenuItem onClick={handleArchiveRow} disabled={isArchivedView}>Archive Selected Rows</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setIsArchivedView(!isArchivedView)}>
-                  {isArchivedView ? 'Show Active Rows' : 'Show Archived Rows'}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            {canCreate && <BulkUploadButton sheetType="kyc" onComplete={loadKYCData} />}
+            {canCreate && (
+              <Button onClick={handleAddEmptyRow} className="bg-success hover:bg-success text-white rounded-full px-4 text-sm h-8">
+                Add KYC
+              </Button>
+            )}
+            {canEdit && (
+              <Button variant="outline" className="border-trust-blue text-trust-blue hover:bg-trust-blue/10 rounded-full px-4 text-sm h-8">
+                Edit Row
+              </Button>
+            )}
+            {canEdit && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="border-warning text-warning hover:bg-warning/10 rounded-full px-4 text-sm h-8">
+                    Archive
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent>
+                  <DropdownMenuItem onClick={handleArchiveRow} disabled={isArchivedView}>Archive Selected Rows</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setIsArchivedView(!isArchivedView)}>
+                    {isArchivedView ? 'Show Active Rows' : 'Show Archived Rows'}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
             <Button onClick={() => setIsManageColumnsOpen(true)} variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8">
               Manage Columns
             </Button>

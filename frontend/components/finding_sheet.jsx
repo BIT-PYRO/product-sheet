@@ -23,6 +23,7 @@ import DateTimeStamp from '@/components/date-time-stamp';
 import GlobalSearchBar from '@/components/global-search-bar';
 import BulkUploadButton from '@/components/bulk-upload-button';
 import LastUpdatedFooter from '@/components/last-updated-footer';
+import { useSheetPermissions } from '@/hooks/use-sheet-permissions';
 
 const FINDING_COLUMNS = [
   { id: 'findingCode', label: 'FINDING CODE' },
@@ -76,6 +77,7 @@ const EMPTY_FINDING_ROW = {
 };
 
 export default function FindingSheet() {
+  const { canEdit, canCreate } = useSheetPermissions('finding-sheet');
   const [lastUpdated, setLastUpdated] = useState(null);
   const [currentUsername, setCurrentUsername] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
@@ -596,34 +598,38 @@ export default function FindingSheet() {
           >
             {isLoading ? 'Refreshing...' : 'Refresh'}
           </Button>
-          <BulkUploadButton sheetType="findings" onComplete={loadFindings} />
-          <Button
-            onClick={handleEditRow}
-            variant="outline"
-            className="border-trust-blue text-trust-blue hover:bg-trust-blue/10 rounded-full px-4 text-sm h-8"
-            disabled={isArchivedView}
-          >
-            Edit Row
-          </Button>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="outline"
-                className="border-warning text-warning hover:bg-warning/10 rounded-full px-4 text-sm h-8"
-              >
-                Archive
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              <DropdownMenuItem onClick={handleArchiveRow} disabled={isArchivedView}>
-                Archive Selected Rows
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleSetViewMode(isArchivedView ? 'active' : 'archived')}>
-                {isArchivedView ? 'Show Active Rows' : 'Show Archived Rows'}
+          {canCreate && <BulkUploadButton sheetType="findings" onComplete={loadFindings} />}
+          {canEdit && (
+            <Button
+              onClick={handleEditRow}
+              variant="outline"
+              className="border-trust-blue text-trust-blue hover:bg-trust-blue/10 rounded-full px-4 text-sm h-8"
+              disabled={isArchivedView}
+            >
+              Edit Row
+            </Button>
+          )}
+          {canEdit && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="border-warning text-warning hover:bg-warning/10 rounded-full px-4 text-sm h-8"
+                >
+                  Archive
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuItem onClick={handleArchiveRow} disabled={isArchivedView}>
+                  Archive Selected Rows
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleSetViewMode(isArchivedView ? 'active' : 'archived')}>
+                  {isArchivedView ? 'Show Active Rows' : 'Show Archived Rows'}
               </DropdownMenuItem>
             </DropdownMenuContent>
-          </DropdownMenu>
-          {isArchivedView && (
+            </DropdownMenu>
+          )}
+          {isArchivedView && canEdit && (
             <Button
               onClick={handleUnarchiveRows}
               variant="outline"
@@ -828,24 +834,30 @@ export default function FindingSheet() {
         </div>
 
         <div className="mt-4 flex gap-2 items-center flex-wrap">
-          <Button
-            onClick={handleAddRow}
-            className="bg-trust-blue hover:bg-deep-blue text-white px-6"
-            disabled={editingRowIds.size > 0}
-          >
-            + Add Row
-          </Button>
-          <Button onClick={handleSaveEdit} className="bg-success hover:bg-success/90 text-white px-6" disabled={editingRowIds.size === 0 || isSavingEdit}>
-            {isSavingEdit ? 'Saving...' : 'Save Changes'}
-          </Button>
-          <Button
-            onClick={handleDeleteSelectedRows}
-            variant="outline"
-            className="border-danger text-danger hover:bg-danger/10 rounded-full px-4 text-sm h-8"
-            disabled={selectedRows.size === 0 || editingRowIds.size > 0}
-          >
-            Delete Selected
-          </Button>
+          {canCreate && (
+            <Button
+              onClick={handleAddRow}
+              className="bg-trust-blue hover:bg-deep-blue text-white px-6"
+              disabled={editingRowIds.size > 0}
+            >
+              + Add Row
+            </Button>
+          )}
+          {canEdit && (
+            <Button onClick={handleSaveEdit} className="bg-success hover:bg-success/90 text-white px-6" disabled={editingRowIds.size === 0 || isSavingEdit}>
+              {isSavingEdit ? 'Saving...' : 'Save Changes'}
+            </Button>
+          )}
+          {canEdit && (
+            <Button
+              onClick={handleDeleteSelectedRows}
+              variant="outline"
+              className="border-danger text-danger hover:bg-danger/10 rounded-full px-4 text-sm h-8"
+              disabled={selectedRows.size === 0 || editingRowIds.size > 0}
+            >
+              Delete Selected
+            </Button>
+          )}
           {saveEditStatus && (
             <span className={`ml-2 text-sm font-semibold ${saveEditStatus.success ? 'text-success' : 'text-danger'}`}>
               {saveEditStatus.message}

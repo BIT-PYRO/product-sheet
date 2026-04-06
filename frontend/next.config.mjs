@@ -18,6 +18,7 @@ const nextConfig = {
     return [
       { source: '/api/:path*', destination: '/frontend/api/:path*' },
       { source: '/', destination: '/frontend' },
+      { source: '/product-sheet', destination: '/frontend' },
       { source: '/home', destination: '/frontend/home' },
       { source: '/login', destination: '/frontend/login' },
       { source: '/auth/google', destination: '/frontend/auth/google' },
@@ -44,6 +45,7 @@ const nextConfig = {
       { source: '/orders/:path*', destination: '/frontend/orders/:path*' },
       { source: '/profile', destination: '/frontend/profile' },
       { source: '/manage-members', destination: '/frontend/manage-members' },
+      { source: '/settings', destination: '/frontend/settings' },
     ]
   },
 }
