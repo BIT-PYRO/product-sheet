@@ -136,26 +136,44 @@ function DeleteConfirmModal({ member, onClose, onDeleted }) {
   );
 }
 
+/* ─── All-permissions helper (for superusers) ────────── */
+function allPermissions() {
+  const sheets = {};
+  MODULES.forEach((m) => { sheets[m.key] = { view: true, edit: true, create: true }; });
+  return { sheets, manage_members: true };
+}
+
 /* ─── Permissions Modal ───────────────────────────────── */
-function PermissionsModal({ member, canEdit, onClose, onSaved }) {
-  const [perms, setPerms]     = useState(() => mergePermissions(member.permissions));
-  const [saving, setSaving]   = useState(false);
-  const [error, setError]     = useState('');
+function PermissionsModal({ member, canEdit, isSelf, onClose, onSaved }) {
+  // Superusers viewing themselves get all-perms as default
+  const isMemberSuperUser = (() => {
+    const des = (member.designation || '').toLowerCase().trim();
+    return des === 'chairman' || des === 'ceo';
+  })();
+  const effectiveCanEdit = canEdit && !isSelf; // nobody edits their own permissions
+
+  const [perms, setPerms] = useState(() => {
+    if (isSelf && (canEdit || isMemberSuperUser)) return allPermissions();
+    if (isMemberSuperUser) return allPermissions();
+    return mergePermissions(member.permissions);
+  });
+  const [isApproved, setIsApproved] = useState(member.user_is_approved ?? true);
+  const [saving, setSaving]         = useState(false);
+  const [error, setError]           = useState('');
 
   const name = member.full_name || member.email || 'Unknown';
 
   function toggleSheet(key, field) {
+    if (!effectiveCanEdit) return;
     setPerms((prev) => {
       const current = prev.sheets[key] || { view: false, edit: false, create: false };
       const newVal = !current[field];
       let updated = { ...current, [field]: newVal };
 
       if (newVal) {
-        // Turning ON: cascade upward — enable all lower-level permissions
         if (field === 'create') { updated.view = true; updated.edit = true; }
         if (field === 'edit')   { updated.view = true; }
       } else {
-        // Turning OFF: cascade downward — disable all higher-level permissions
         if (field === 'view')   { updated.edit = false; updated.create = false; }
         if (field === 'edit')   { updated.create = false; }
       }
@@ -168,16 +186,35 @@ function PermissionsModal({ member, canEdit, onClose, onSaved }) {
     setSaving(true);
     setError('');
     try {
+      // Save sheet permissions
       const res = await fetch(`/api/workforce/${member.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ permissions: perms }),
       });
-      if (!res.ok) throw new Error('Save failed');
+      if (!res.ok) {
+        const errData = await res.json().catch(() => null);
+        throw new Error(errData?.message || `Save failed (${res.status})`);
+      }
+
+      // If approval status changed, update it
+      const prevApproved = member.user_is_approved ?? true;
+      if (isApproved !== prevApproved && member.email) {
+        const approveRes = await fetch('/api/auth/approve-user', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: member.email, is_approved: isApproved }),
+        });
+        if (!approveRes.ok) {
+          const errData = await approveRes.json().catch(() => null);
+          throw new Error(errData?.message || `Approval update failed (${approveRes.status})`);
+        }
+      }
+
       onSaved(member.id, perms);
       onClose();
-    } catch {
-      setError('Could not save permissions. Please try again.');
+    } catch (err) {
+      setError(err?.message || 'Could not save. Please try again.');
     } finally {
       setSaving(false);
     }
@@ -193,9 +230,15 @@ function PermissionsModal({ member, canEdit, onClose, onSaved }) {
             {initials(name)}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-bold text-midnight-ink truncate">{name}</p>
+            <p className="text-sm font-bold text-midnight-ink truncate">
+              {name}
+              {isSelf && <span className="ml-1.5 text-xs font-normal text-trust-blue">(me)</span>}
+            </p>
             {member.designation && (
               <p className="text-xs text-trust-blue">{member.designation}</p>
+            )}
+            {isSelf && (
+              <p className="text-xs text-cool-gray mt-0.5 italic">You can only view your permissions</p>
             )}
           </div>
           <button onClick={onClose} className="p-1.5 rounded-full hover:bg-cloud-gray transition">
@@ -223,8 +266,8 @@ function PermissionsModal({ member, canEdit, onClose, onSaved }) {
                       <input
                         type="checkbox"
                         checked={perms.sheets[mod.key]?.[field] ?? false}
-                        onChange={() => canEdit && toggleSheet(mod.key, field)}
-                        disabled={!canEdit}
+                        onChange={() => effectiveCanEdit && toggleSheet(mod.key, field)}
+                        disabled={!effectiveCanEdit}
                         className="w-4 h-4 accent-trust-blue cursor-pointer disabled:cursor-not-allowed"
                       />
                     </div>
@@ -245,11 +288,54 @@ function PermissionsModal({ member, canEdit, onClose, onSaved }) {
             <input
               type="checkbox"
               checked={perms.manage_members}
-              onChange={() => canEdit && setPerms((p) => ({ ...p, manage_members: !p.manage_members }))}
-              disabled={!canEdit}
+              onChange={() => effectiveCanEdit && setPerms((p) => ({ ...p, manage_members: !p.manage_members }))}
+              disabled={!effectiveCanEdit}
               className="w-5 h-5 accent-trust-blue cursor-pointer disabled:cursor-not-allowed"
             />
           </div>
+
+          {/* Account approval — show when user is not yet approved */}
+          {member.user_is_approved === false && (() => {
+            const hasAnyPermission = perms.manage_members ||
+              Object.values(perms.sheets).some((s) => s.view || s.edit || s.create);
+            return (
+              <div className={`mt-3 rounded-xl border px-4 py-3 ${isApproved ? 'border-green-200 bg-green-50' : 'border-amber-200 bg-amber-50'}`}>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-midnight-ink">Account Access</p>
+                    <p className="text-xs text-cool-gray mt-0.5">
+                      {isApproved
+                        ? 'Access granted — user can access only the modules they have permissions for.'
+                        : hasAnyPermission
+                          ? 'Permissions assigned — turn on to grant this user access.'
+                          : 'Account is pending approval — limited to Home & Settings only.'}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      if (!effectiveCanEdit) return;
+                      if (!hasAnyPermission && !isApproved) return;
+                      setIsApproved((v) => !v);
+                    }}
+                    disabled={!effectiveCanEdit || (!hasAnyPermission && !isApproved)}
+                    title={(!hasAnyPermission && !isApproved) ? 'Assign at least one permission first' : undefined}
+                    className={`relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none
+                      ${(!hasAnyPermission && !isApproved) ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}
+                      ${!effectiveCanEdit ? 'cursor-not-allowed' : ''}
+                      ${isApproved ? 'bg-green-500' : 'bg-amber-400'}`}
+                    aria-pressed={isApproved}
+                  >
+                    <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 ${isApproved ? 'translate-x-5' : 'translate-x-0'}`} />
+                  </button>
+                </div>
+                {!hasAnyPermission && !isApproved && (
+                  <p className="mt-2 text-xs text-amber-700 font-medium">
+                    Assign at least one module permission above before granting account access.
+                  </p>
+                )}
+              </div>
+            );
+          })()}
 
           {error && <p className="mt-3 text-xs text-red-500">{error}</p>}
         </div>
@@ -260,9 +346,9 @@ function PermissionsModal({ member, canEdit, onClose, onSaved }) {
             onClick={onClose}
             className="px-4 py-2 text-sm rounded-lg border border-soft-border text-midnight-ink hover:bg-cloud-gray transition"
           >
-            {canEdit ? 'Cancel' : 'Close'}
+            {effectiveCanEdit ? 'Cancel' : 'Close'}
           </button>
-          {canEdit && (
+          {effectiveCanEdit && (
             <button
               onClick={handleSave}
               disabled={saving}
@@ -368,6 +454,7 @@ export default function ManageMembersPage() {
         <PermissionsModal
           member={selectedMember}
           canEdit={canEdit}
+          isSelf={(selectedMember.email || '').toLowerCase() === (sessionUser?.email || '').toLowerCase()}
           onClose={() => setSelectedMember(null)}
           onSaved={handlePermissionsSaved}
         />
@@ -466,7 +553,7 @@ export default function ManageMembersPage() {
                     >
                       <p className="text-sm font-semibold text-midnight-ink truncate hover:text-trust-blue transition">
                         {name}
-                        {isSelf && <span className="ml-1.5 text-xs font-normal text-trust-blue">(You)</span>}
+                        {isSelf && <span className="ml-1.5 text-xs font-normal text-trust-blue">(me)</span>}
                       </p>
                       <p className="text-xs text-cool-gray truncate">{m.email || '—'}</p>
                       {m.designation && (

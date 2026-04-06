@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 
 const ACCESS_COOKIE = 'psd-access-token';
 const REFRESH_COOKIE = 'psd-refresh-token';
+const APPROVED_COOKIE = 'psd-approved';
 const ONE_DAY_SECONDS = 60 * 60 * 24;
 const DEFAULT_BACKEND_URL = 'https://product-sheet.onrender.com';
 
@@ -86,6 +87,14 @@ export async function POST(request) {
     const meResult = await meResponse.json().catch(() => null);
     const user = meResult?.data || meResult || null;
 
+    const isApproved = user?.is_approved ?? true;
+    const cookieOpts = {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      path: '/',
+    };
+
     const response = NextResponse.json({
       success: true,
       user: {
@@ -94,25 +103,9 @@ export async function POST(request) {
       },
     });
 
-    response.cookies.set({
-      name: ACCESS_COOKIE,
-      value: access,
-      httpOnly: true,
-      sameSite: 'lax',
-      secure: process.env.NODE_ENV === 'production',
-      path: '/',
-      maxAge: 60 * 60,
-    });
-
-    response.cookies.set({
-      name: REFRESH_COOKIE,
-      value: refresh,
-      httpOnly: true,
-      sameSite: 'lax',
-      secure: process.env.NODE_ENV === 'production',
-      path: '/',
-      maxAge: ONE_DAY_SECONDS,
-    });
+    response.cookies.set({ name: ACCESS_COOKIE, value: access, ...cookieOpts, maxAge: 60 * 60 });
+    response.cookies.set({ name: REFRESH_COOKIE, value: refresh, ...cookieOpts, maxAge: ONE_DAY_SECONDS });
+    response.cookies.set({ name: APPROVED_COOKIE, value: isApproved ? '1' : '0', ...cookieOpts, maxAge: ONE_DAY_SECONDS });
 
     return response;
   } catch {

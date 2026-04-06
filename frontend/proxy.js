@@ -2,6 +2,10 @@ import { NextResponse } from 'next/server';
 
 const ACCESS_COOKIE = 'psd-access-token';
 const REFRESH_COOKIE = 'psd-refresh-token';
+const APPROVED_COOKIE = 'psd-approved';
+
+// Paths unapproved users are allowed to visit
+const PENDING_ALLOWED = ['/home', '/profile', '/settings', '/login'];
 
 function isPublicAsset(pathname) {
   return /\.[^/]+$/.test(pathname);
@@ -12,9 +16,14 @@ export function proxy(request) {
   const hasAccessToken = Boolean(request.cookies.get(ACCESS_COOKIE)?.value);
   const hasRefreshToken = Boolean(request.cookies.get(REFRESH_COOKIE)?.value);
   const isAuthenticated = hasAccessToken || hasRefreshToken;
+  const approved = request.cookies.get(APPROVED_COOKIE)?.value;
 
   if (isPublicAsset(pathname)) {
     return NextResponse.next();
+  }
+
+  if (pathname === '/') {
+    return NextResponse.redirect(new URL('/home', request.url));
   }
 
   if (pathname === '/login') {
@@ -29,6 +38,17 @@ export function proxy(request) {
     const nextPath = `${pathname}${search || ''}`;
     loginUrl.searchParams.set('next', nextPath);
     return NextResponse.redirect(loginUrl);
+  }
+
+  // Unapproved users can only access home, profile, settings, login, and api routes
+  if (approved === '0') {
+    const isAllowed =
+      PENDING_ALLOWED.some((p) => pathname === p || pathname.startsWith(p + '/')) ||
+      pathname.startsWith('/api/') ||
+      pathname.startsWith('/_next/');
+    if (!isAllowed) {
+      return NextResponse.redirect(new URL('/home', request.url));
+    }
   }
 
   return NextResponse.next();

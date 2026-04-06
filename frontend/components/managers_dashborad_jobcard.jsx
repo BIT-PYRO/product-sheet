@@ -26,8 +26,10 @@ import { CompanyKYCForm } from '@/components/company-kyc-form';
 import { ReceiveJobModal } from '@/components/receive-job-modal';
 import DateTimeStamp from '@/components/date-time-stamp';
 import LastUpdatedFooter from '@/components/last-updated-footer';
+import { useSheetPermissions } from '@/hooks/use-sheet-permissions';
 
 export default function ManagersDashboard() {
+  const { canEdit, canCreate } = useSheetPermissions('managers-dashboard');
   const [lastUpdated, setLastUpdated] = useState(null);
   const [currentUsername, setCurrentUsername] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
@@ -558,28 +560,34 @@ export default function ManagersDashboard() {
             />
           </div>
           <div className="flex gap-2 flex-wrap">
-            <Button 
-              onClick={handleCreateJob}
-              className="bg-success hover:bg-success text-white rounded-full px-4 text-sm h-8"
-            >
-              Create a Job
-            </Button>
-            <Button 
-              onClick={handleOpenEdit}
-              disabled={!selectedVoucher}
-              className="bg-white border border-trust-blue text-trust-blue hover:bg-trust-blue/10 rounded-full px-3 text-sm h-8 gap-1 disabled:opacity-100 disabled:border-trust-blue disabled:text-trust-blue"
-            >
-              <Pencil className="w-4 h-4" />
-              Edit
-            </Button>
-            <Button 
-              onClick={handleDeleteVoucher}
-              disabled={!selectedVoucher}
-              className="bg-white border border-red-500 text-red-500 hover:bg-red-50 rounded-full px-3 text-sm h-8 gap-1 disabled:opacity-100 disabled:border-red-500 disabled:text-red-500"
-            >
-              <Trash2 className="w-4 h-4" />
-              Delete
-            </Button>
+            {canCreate && (
+              <Button 
+                onClick={handleCreateJob}
+                className="bg-success hover:bg-success text-white rounded-full px-4 text-sm h-8"
+              >
+                Create a Job
+              </Button>
+            )}
+            {canEdit && (
+              <Button 
+                onClick={handleOpenEdit}
+                disabled={!selectedVoucher}
+                className="bg-white border border-trust-blue text-trust-blue hover:bg-trust-blue/10 rounded-full px-3 text-sm h-8 gap-1 disabled:opacity-100 disabled:border-trust-blue disabled:text-trust-blue"
+              >
+                <Pencil className="w-4 h-4" />
+                Edit
+              </Button>
+            )}
+            {canEdit && (
+              <Button 
+                onClick={handleDeleteVoucher}
+                disabled={!selectedVoucher}
+                className="bg-white border border-red-500 text-red-500 hover:bg-red-50 rounded-full px-3 text-sm h-8 gap-1 disabled:opacity-100 disabled:border-red-500 disabled:text-red-500"
+              >
+                <Trash2 className="w-4 h-4" />
+                Delete
+              </Button>
+            )}
             <Button 
               onClick={handleManageColumns}
               variant="outline"

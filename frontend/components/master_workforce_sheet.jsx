@@ -32,8 +32,10 @@ import { EnrolWorkforceForm } from '@/app/frontend/enrol-workforce/page';
 import DateTimeStamp from '@/components/date-time-stamp';
 import BulkUploadButton from '@/components/bulk-upload-button';
 import LastUpdatedFooter from '@/components/last-updated-footer';
+import { useSheetPermissions } from '@/hooks/use-sheet-permissions';
 
 export default function MasterWorkforceSheet() {
+  const { canEdit, canCreate } = useSheetPermissions('master-workforce-sheet');
   const [lastUpdated, setLastUpdated] = useState(null);
   const [currentUsername, setCurrentUsername] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
@@ -755,56 +757,66 @@ export default function MasterWorkforceSheet() {
               className="border-2 border-soft-border rounded-lg px-4 py-2 pl-10 w-64"
             />
           </div>
-          <BulkUploadButton sheetType="workforce" onComplete={() => window.location.reload()} />
-          <Button 
-            onClick={handleQuickEnroll}
-            className="bg-trust-blue hover:bg-trust-blue text-white rounded-full px-4 text-sm h-8"
-          >
-            Quick Enroll
-          </Button>
-          <Button 
-            onClick={handleEnrollWorkforce}
-            className="bg-trust-blue hover:bg-trust-blue text-white rounded-full px-4 text-sm h-8"
-          >
-            Enroll Workforce
-          </Button>
-          <Button 
-            onClick={handleEditRow}
-            variant="outline"
-            className="border-trust-blue text-trust-blue hover:bg-trust-blue/10 rounded-full px-4 text-sm h-8"
-            disabled={isArchivedView}
-          >
-            Edit Row
-          </Button>
-          <Button
-            onClick={handleDeleteSelectedRows}
-            variant="outline"
-            className="border-red-500 text-red-500 hover:bg-red-50 disabled:opacity-100 disabled:border-red-500 disabled:text-red-500 rounded-full px-4 text-sm h-8"
-            disabled={selectedRows.size === 0 || editingRowIds.size > 0}
-          >
-            Delete Selected
-          </Button>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button 
-                variant="outline"
-                className="border-trust-blue text-trust-blue hover:bg-trust-blue/10 rounded-full px-4 text-sm h-8"
-              >
-                Archive
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              <DropdownMenuItem onClick={handleArchiveRow} disabled={isArchivedView}>
-                Archive Selected Rows
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => handleSetViewMode(isArchivedView ? 'active' : 'archived')}
-              >
-                {isArchivedView ? 'Show Active Rows' : 'Show Archived Rows'}
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          {isArchivedView && (
+          {canCreate && <BulkUploadButton sheetType="workforce" onComplete={() => window.location.reload()} />}
+          {canCreate && (
+            <Button 
+              onClick={handleQuickEnroll}
+              className="bg-trust-blue hover:bg-trust-blue text-white rounded-full px-4 text-sm h-8"
+            >
+              Quick Enroll
+            </Button>
+          )}
+          {canCreate && (
+            <Button 
+              onClick={handleEnrollWorkforce}
+              className="bg-trust-blue hover:bg-trust-blue text-white rounded-full px-4 text-sm h-8"
+            >
+              Enroll Workforce
+            </Button>
+          )}
+          {canEdit && (
+            <Button 
+              onClick={handleEditRow}
+              variant="outline"
+              className="border-trust-blue text-trust-blue hover:bg-trust-blue/10 rounded-full px-4 text-sm h-8"
+              disabled={isArchivedView}
+            >
+              Edit Row
+            </Button>
+          )}
+          {canEdit && (
+            <Button
+              onClick={handleDeleteSelectedRows}
+              variant="outline"
+              className="border-red-500 text-red-500 hover:bg-red-50 disabled:opacity-100 disabled:border-red-500 disabled:text-red-500 rounded-full px-4 text-sm h-8"
+              disabled={selectedRows.size === 0 || editingRowIds.size > 0}
+            >
+              Delete Selected
+            </Button>
+          )}
+          {canEdit && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button 
+                  variant="outline"
+                  className="border-trust-blue text-trust-blue hover:bg-trust-blue/10 rounded-full px-4 text-sm h-8"
+                >
+                  Archive
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuItem onClick={handleArchiveRow} disabled={isArchivedView}>
+                  Archive Selected Rows
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => handleSetViewMode(isArchivedView ? 'active' : 'archived')}
+                >
+                  {isArchivedView ? 'Show Active Rows' : 'Show Archived Rows'}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+          {isArchivedView && canEdit && (
             <Button
               onClick={handleUnarchiveRows}
               variant="outline"

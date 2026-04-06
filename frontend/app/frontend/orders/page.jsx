@@ -5,8 +5,10 @@ import Link from 'next/link';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
 import { CreateOrderForm } from '@/app/frontend/orders/create-job/page';
 import { OrderSheetView } from '@/app/frontend/orders/job-sheet/page';
+import { useSheetPermissions } from '@/hooks/use-sheet-permissions';
 
 export default function OrdersPage() {
+  const { canCreate } = useSheetPermissions('orders');
   const [showCreateOrderForm, setShowCreateOrderForm] = useState(false);
   const [showOrderSheet, setShowOrderSheet] = useState(false);
   const createOrderSectionRef = useRef(null);
@@ -51,19 +53,21 @@ export default function OrdersPage() {
         </div>
 
         <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 px-4 md:px-6">
-          <button
-            type="button"
-            onClick={() => {
-              setShowCreateOrderForm((prev) => !prev);
-              setShowOrderSheet(false);
-            }}
-            className="block text-left rounded-xl border border-soft-border bg-white p-6 hover:border-slate-text hover:shadow-md transition"
-          >
-            <h2 className="text-lg font-semibold text-midnight-ink">Create Order</h2>
-            <p className="text-sm text-cool-gray mt-2">
-              {showCreateOrderForm ? 'Hide order form' : 'Create a new order'}
-            </p>
-          </button>
+          {canCreate && (
+            <button
+              type="button"
+              onClick={() => {
+                setShowCreateOrderForm((prev) => !prev);
+                setShowOrderSheet(false);
+              }}
+              className="block text-left rounded-xl border border-soft-border bg-white p-6 hover:border-slate-text hover:shadow-md transition"
+            >
+              <h2 className="text-lg font-semibold text-midnight-ink">Create Order</h2>
+              <p className="text-sm text-cool-gray mt-2">
+                {showCreateOrderForm ? 'Hide order form' : 'Create a new order'}
+              </p>
+            </button>
+          )}
 
           <button
             type="button"

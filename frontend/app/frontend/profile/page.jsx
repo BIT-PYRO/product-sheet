@@ -355,7 +355,14 @@ export default function ProfilePage() {
                   <FieldRow label="Username" value={`@${sessionUser?.username}`} />
                   <FieldRow label="Role" value={ROLE_LABELS[sessionUser?.role] || 'Staff'} />
                   <FieldRow label="Email" value={sessionUser?.email} />
-                  <p className="text-[11px] text-cool-gray pt-1">Managed by administrator.</p>
+                  {sessionUser?.is_approved === false && (
+                    <p className="text-[11px] text-amber-600 font-semibold pt-1">
+                      Account pending approval — limited access until an admin approves you.
+                    </p>
+                  )}
+                  {sessionUser?.is_approved !== false && (
+                    <p className="text-[11px] text-cool-gray pt-1">Managed by administrator.</p>
+                  )}
                 </div>
               </div>
 

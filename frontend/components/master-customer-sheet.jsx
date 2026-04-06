@@ -18,6 +18,7 @@ import DateTimeStamp from '@/components/date-time-stamp';
 import { EnrollCustomerForm } from '@/components/enroll-customer';
 import BulkUploadButton from '@/components/bulk-upload-button';
 import LastUpdatedFooter from '@/components/last-updated-footer';
+import { useSheetPermissions } from '@/hooks/use-sheet-permissions';
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -99,6 +100,7 @@ function normalizeCustomerRows(payload = {}) {
 }
 
 export default function MasterCustomerSheet() {
+	const { canEdit, canCreate } = useSheetPermissions('master-customer-sheet');
 	const [lastUpdated, setLastUpdated] = useState(null);
 	const [currentUsername, setCurrentUsername] = useState('');
 	const [isLoading, setIsLoading] = useState(true);
@@ -313,29 +315,37 @@ export default function MasterCustomerSheet() {
 						<Button onClick={loadCustomerData} variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8" disabled={isLoading}>
 							{isLoading ? 'Refreshing...' : 'Refresh'}
 						</Button>
-						<BulkUploadButton sheetType="customers" onComplete={loadCustomerData} />
-						<Button onClick={handleAddEmptyRow} className="bg-success hover:bg-success text-white rounded-full px-4 text-sm h-8">
-							Add Customer
-						</Button>
-						<Button onClick={() => setIsEnrollCustomerOpen(true)} className="bg-midnight-ink hover:bg-midnight-ink/90 text-white rounded-full px-4 text-sm h-8">
-							Enroll Customer
-						</Button>
-						<Button variant="outline" className="border-trust-blue text-trust-blue hover:bg-trust-blue/10 rounded-full px-4 text-sm h-8">
-							Edit Row
-						</Button>
-						<DropdownMenu>
-							<DropdownMenuTrigger asChild>
-								<Button variant="outline" className="border-warning text-warning hover:bg-warning/10 rounded-full px-4 text-sm h-8">
-									Archive
-								</Button>
-							</DropdownMenuTrigger>
-							<DropdownMenuContent>
-								<DropdownMenuItem onClick={handleArchiveRow} disabled={isArchivedView}>Archive Selected Rows</DropdownMenuItem>
-								<DropdownMenuItem onClick={() => setIsArchivedView(!isArchivedView)}>
-									{isArchivedView ? 'Show Active Rows' : 'Show Archived Rows'}
-								</DropdownMenuItem>
-							</DropdownMenuContent>
-						</DropdownMenu>
+						{canCreate && <BulkUploadButton sheetType="customers" onComplete={loadCustomerData} />}
+						{canCreate && (
+							<Button onClick={handleAddEmptyRow} className="bg-success hover:bg-success text-white rounded-full px-4 text-sm h-8">
+								Add Customer
+							</Button>
+						)}
+						{canCreate && (
+							<Button onClick={() => setIsEnrollCustomerOpen(true)} className="bg-midnight-ink hover:bg-midnight-ink/90 text-white rounded-full px-4 text-sm h-8">
+								Enroll Customer
+							</Button>
+						)}
+						{canEdit && (
+							<Button variant="outline" className="border-trust-blue text-trust-blue hover:bg-trust-blue/10 rounded-full px-4 text-sm h-8">
+								Edit Row
+							</Button>
+						)}
+						{canEdit && (
+							<DropdownMenu>
+								<DropdownMenuTrigger asChild>
+									<Button variant="outline" className="border-warning text-warning hover:bg-warning/10 rounded-full px-4 text-sm h-8">
+										Archive
+									</Button>
+								</DropdownMenuTrigger>
+								<DropdownMenuContent>
+									<DropdownMenuItem onClick={handleArchiveRow} disabled={isArchivedView}>Archive Selected Rows</DropdownMenuItem>
+									<DropdownMenuItem onClick={() => setIsArchivedView(!isArchivedView)}>
+										{isArchivedView ? 'Show Active Rows' : 'Show Archived Rows'}
+									</DropdownMenuItem>
+								</DropdownMenuContent>
+							</DropdownMenu>
+						)}
 						<Button onClick={() => setIsManageColumnsOpen(true)} variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8">
 							Manage Columns
 						</Button>

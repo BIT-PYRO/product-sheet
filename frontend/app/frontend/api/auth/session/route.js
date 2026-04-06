@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 
 const ACCESS_COOKIE = 'psd-access-token';
 const REFRESH_COOKIE = 'psd-refresh-token';
+const APPROVED_COOKIE = 'psd-approved';
 const DEFAULT_BACKEND_URL = 'https://product-sheet.onrender.com';
 
 function getBackendBaseUrl() {
@@ -89,6 +90,8 @@ export async function GET(request) {
   const meResult = await meResponse.json().catch(() => null);
   const user = meResult?.data || meResult;
 
+  const isApproved = user?.is_approved ?? true;
+
   const response = NextResponse.json({
     success: true,
     user: {
@@ -98,20 +101,23 @@ export async function GET(request) {
       last_name: user?.last_name || '',
       email: user?.email || '',
       role: user?.role || 'staff',
+      is_approved: isApproved,
     },
   });
 
+  const cookieOpts = {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
+    path: '/',
+  };
+
   if (activeAccessToken && activeAccessToken !== accessToken) {
-    response.cookies.set({
-      name: ACCESS_COOKIE,
-      value: activeAccessToken,
-      httpOnly: true,
-      sameSite: 'lax',
-      secure: process.env.NODE_ENV === 'production',
-      path: '/',
-      maxAge: 60 * 60,
-    });
+    response.cookies.set({ name: ACCESS_COOKIE, value: activeAccessToken, ...cookieOpts, maxAge: 60 * 60 });
   }
+
+  // Keep the approved cookie in sync with latest user data
+  response.cookies.set({ name: APPROVED_COOKIE, value: isApproved ? '1' : '0', ...cookieOpts, maxAge: 60 * 60 * 24 });
 
   return response;
 }
