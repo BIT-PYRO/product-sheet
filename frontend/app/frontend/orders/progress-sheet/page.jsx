@@ -11,6 +11,31 @@ const STATUS_BADGE = {
   completed: 'bg-green-100 text-green-800',
 };
 
+const STATE_FILTERS = {
+  pending: {
+    title: 'Products Pending',
+    matchesProduct: (product) => product.label === 'Not Started' || product.label === 'Queued',
+    matchesVoucher: (voucher) => ['pending', 'approved', 'awaiting'].includes(voucher.approval_status),
+  },
+  wip: {
+    title: 'Products WIP',
+    matchesProduct: (product) => product.label === 'In Process',
+    matchesVoucher: (voucher) => ['in_process', 'partially_complete'].includes(voucher.approval_status),
+  },
+  ready: {
+    title: 'Products Ready',
+    matchesProduct: (product) => product.label === 'Ready',
+    matchesVoucher: (voucher) => voucher.approval_status === 'completed' && voucher.dept_to === 'final-stock',
+  },
+  packaging: {
+    title: 'Sent For Packaging',
+    matchesProduct: (product) => product.vouchers.some(
+      (voucher) => voucher.dept_to === 'final-packaging' || voucher.dept_from === 'final-packaging'
+    ),
+    matchesVoucher: (voucher) => voucher.dept_to === 'final-packaging' || voucher.dept_from === 'final-packaging',
+  },
+};
+
 const fmt = (n) => `₹${Number(n || 0).toFixed(2)}`;
 
 const normalizeBaseSku = (value) => {
@@ -108,6 +133,7 @@ export function OrderProgressSheetView({ embedded = false }) {
   const [orders, setOrders] = useState([]);
   const [jobs, setJobs] = useState([]);
   const [selectedOrder, setSelectedOrder] = useState(null);
+  const [activeVoucherFilter, setActiveVoucherFilter] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -159,6 +185,10 @@ export function OrderProgressSheetView({ embedded = false }) {
     loadData();
   }, []);
 
+  useEffect(() => {
+    setActiveVoucherFilter(null);
+  }, [selectedOrder?.id]);
+
   const selectedSkuRows = useMemo(() => {
     if (!selectedOrder?.items) return [];
 
@@ -205,6 +235,7 @@ export function OrderProgressSheetView({ embedded = false }) {
       );
       const state = computeProductState(skuVouchers);
       return {
+        baseSku: row.baseSku,
         sku: row.displaySku || row.baseSku.toUpperCase(),
         quantity: row.quantity,
         vouchers: skuVouchers,
@@ -235,6 +266,51 @@ export function OrderProgressSheetView({ embedded = false }) {
       sentForPackagingProducts,
     };
   }, [productProgress]);
+
+  const totalOrderedQty = useMemo(
+    () => productProgress.reduce((sum, row) => sum + (Number(row.quantity) || 0), 0),
+    [productProgress]
+  );
+
+  const filteredStateVouchers = useMemo(() => {
+    if (!activeVoucherFilter || !selectedOrder) return [];
+
+    const filterConfig = STATE_FILTERS[activeVoucherFilter];
+    if (!filterConfig) return [];
+
+    const matchingProducts = productProgress.filter((product) => filterConfig.matchesProduct(product));
+    const matchingSkuSet = new Set(matchingProducts.map((product) => product.baseSku));
+    if (!matchingSkuSet.size) return [];
+
+    const displayMap = new Map(productProgress.map((product) => [product.baseSku, product.sku]));
+
+    return relatedVouchers
+      .filter((voucher) => {
+        const skuSet = extractVoucherSkuSet(voucher);
+        let hasMatchedSku = false;
+        for (const sku of skuSet) {
+          if (matchingSkuSet.has(sku)) {
+            hasMatchedSku = true;
+            break;
+          }
+        }
+        return hasMatchedSku && filterConfig.matchesVoucher(voucher);
+      })
+      .map((voucher) => {
+        const skuSet = extractVoucherSkuSet(voucher);
+        const matchedSkus = [];
+        for (const sku of skuSet) {
+          if (matchingSkuSet.has(sku)) {
+            matchedSkus.push(displayMap.get(sku) || sku.toUpperCase());
+          }
+        }
+        return {
+          ...voucher,
+          matchedSkus,
+        };
+      });
+  }, [activeVoucherFilter, productProgress, relatedVouchers, selectedOrder]);
+
 
   return (
     <main className={embedded ? '' : 'h-screen bg-cloud-gray overflow-hidden'}>
@@ -333,23 +409,120 @@ export function OrderProgressSheetView({ embedded = false }) {
                     <p className="text-xs text-cool-gray mb-0.5">Total Products</p>
                     <p className="font-bold text-midnight-ink text-xs">{summary.totalProducts}</p>
                   </div>
-                  <div className="p-2 bg-white rounded-lg border border-soft-border">
+                  <button
+                    type="button"
+                    onClick={() => setActiveVoucherFilter((prev) => prev === 'pending' ? null : 'pending')}
+                    className={`p-2 text-left bg-white rounded-lg border transition-colors ${
+                      activeVoucherFilter === 'pending'
+                        ? 'border-amber-300 bg-amber-50'
+                        : 'border-soft-border hover:bg-amber-50/60'
+                    }`}
+                  >
                     <p className="text-xs text-cool-gray mb-0.5">Products Pending</p>
                     <p className="font-bold text-amber-700 text-xs">{summary.pendingProducts}</p>
-                  </div>
-                  <div className="p-2 bg-white rounded-lg border border-soft-border">
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveVoucherFilter((prev) => prev === 'wip' ? null : 'wip')}
+                    className={`p-2 text-left bg-white rounded-lg border transition-colors ${
+                      activeVoucherFilter === 'wip'
+                        ? 'border-orange-300 bg-orange-50'
+                        : 'border-soft-border hover:bg-orange-50/60'
+                    }`}
+                  >
                     <p className="text-xs text-cool-gray mb-0.5">Products WIP</p>
                     <p className="font-bold text-orange-700 text-xs">{summary.wipProducts}</p>
-                  </div>
-                  <div className="p-2 bg-white rounded-lg border border-soft-border">
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveVoucherFilter((prev) => prev === 'ready' ? null : 'ready')}
+                    className={`p-2 text-left bg-white rounded-lg border transition-colors ${
+                      activeVoucherFilter === 'ready'
+                        ? 'border-green-300 bg-green-50'
+                        : 'border-soft-border hover:bg-green-50/60'
+                    }`}
+                  >
                     <p className="text-xs text-cool-gray mb-0.5">Products Ready</p>
                     <p className="font-bold text-green-700 text-xs">{summary.readyProducts}</p>
-                  </div>
-                  <div className="p-2 bg-white rounded-lg border border-soft-border">
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveVoucherFilter((prev) => prev === 'packaging' ? null : 'packaging')}
+                    className={`p-2 text-left bg-white rounded-lg border transition-colors ${
+                      activeVoucherFilter === 'packaging'
+                        ? 'border-indigo-300 bg-indigo-50'
+                        : 'border-soft-border hover:bg-indigo-50/60'
+                    }`}
+                  >
                     <p className="text-xs text-cool-gray mb-0.5">Sent For Packaging</p>
                     <p className="font-bold text-indigo-700 text-xs">{summary.sentForPackagingProducts}</p>
-                  </div>
+                  </button>
                 </div>
+
+                {activeVoucherFilter && (
+                  <div className="rounded-xl border border-soft-border overflow-hidden">
+                    <div className="px-3 py-2 border-b border-soft-border bg-cloud-gray flex items-center justify-between">
+                      <h4 className="text-xs font-bold uppercase tracking-wide text-midnight-ink">
+                        {STATE_FILTERS[activeVoucherFilter]?.title} Vouchers
+                      </h4>
+                      <button
+                        type="button"
+                        onClick={() => setActiveVoucherFilter(null)}
+                        className="text-[11px] px-2 py-1 rounded border border-soft-border bg-white text-midnight-ink"
+                      >
+                        Clear
+                      </button>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full text-xs border-collapse">
+                        <thead className="bg-cloud-gray/60 border-b border-soft-border">
+                          <tr>
+                            <th className="text-left px-3 py-2 font-bold text-midnight-ink">Voucher No</th>
+                            <th className="text-left px-3 py-2 font-bold text-midnight-ink">Status</th>
+                            <th className="text-left px-3 py-2 font-bold text-midnight-ink">Flow</th>
+                            <th className="text-left px-3 py-2 font-bold text-midnight-ink">Related Product SKU</th>
+                            <th className="text-right px-3 py-2 font-bold text-midnight-ink">Date</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {filteredStateVouchers.length === 0 ? (
+                            <tr>
+                              <td colSpan={5} className="px-3 py-3 text-cool-gray">
+                                No vouchers match this state for the selected order.
+                              </td>
+                            </tr>
+                          ) : (
+                            filteredStateVouchers.map((voucher) => (
+                              <tr key={voucher.id} className="border-b border-soft-border last:border-b-0">
+                                <td className="px-3 py-2 font-semibold text-midnight-ink">{voucher.voucher_no || `#${voucher.id}`}</td>
+                                <td className="px-3 py-2">
+                                  <span
+                                    className={`inline-flex rounded-full px-2 py-0.5 font-semibold ${
+                                      STATUS_BADGE[voucher.approval_status] || 'bg-slate-100 text-slate-700'
+                                    }`}
+                                  >
+                                    {getApprovalLabel(voucher.approval_status)}
+                                  </span>
+                                </td>
+                                <td className="px-3 py-2 text-cool-gray">
+                                  {getDeptLabel(voucher.dept_from)} {'->'} {getDeptLabel(voucher.dept_to)}
+                                </td>
+                                <td className="px-3 py-2 text-midnight-ink">
+                                  {voucher.matchedSkus.length ? voucher.matchedSkus.join(', ') : '—'}
+                                </td>
+                                <td className="px-3 py-2 text-right text-cool-gray">
+                                  {voucher.created_at
+                                    ? new Date(voucher.created_at).toLocaleDateString('en-GB')
+                                    : '—'}
+                                </td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
 
                 <div className="rounded-xl border border-soft-border overflow-hidden">
                   <div className="px-3 py-2 border-b border-soft-border bg-cloud-gray">
@@ -363,7 +536,7 @@ export function OrderProgressSheetView({ embedded = false }) {
                           <th className="text-left px-3 py-2 font-bold text-midnight-ink">Order Qty</th>
                           <th className="text-left px-3 py-2 font-bold text-midnight-ink">Current State</th>
                           <th className="text-left px-3 py-2 font-bold text-midnight-ink">Details</th>
-                          <th className="text-left px-3 py-2 font-bold text-midnight-ink">Voucher Count</th>
+                          <th className="text-right px-3 py-2 font-bold text-midnight-ink">Qty Share</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -382,7 +555,11 @@ export function OrderProgressSheetView({ embedded = false }) {
                                 </span>
                               </td>
                               <td className="px-3 py-2 text-cool-gray">{row.detail}</td>
-                              <td className="px-3 py-2 text-midnight-ink">{row.vouchers.length}</td>
+                              <td className="px-3 py-2 text-right text-midnight-ink font-medium">
+                                {totalOrderedQty > 0
+                                  ? `${((Number(row.quantity) || 0) / totalOrderedQty * 100).toFixed(1)}%`
+                                  : '0.0%'}
+                              </td>
                             </tr>
                           ))
                         )}
@@ -391,47 +568,6 @@ export function OrderProgressSheetView({ embedded = false }) {
                   </div>
                 </div>
 
-                <div className="rounded-xl border border-soft-border overflow-hidden">
-                  <div className="px-3 py-2 border-b border-soft-border bg-cloud-gray">
-                    <h4 className="text-xs font-bold uppercase tracking-wide text-midnight-ink">Job Vouchers</h4>
-                  </div>
-                  <div className="overflow-x-auto max-h-[36vh] overflow-y-auto">
-                    <table className="min-w-full text-xs border-collapse">
-                      <thead className="bg-cloud-gray/60 border-b border-soft-border sticky top-0">
-                        <tr>
-                          <th className="text-left px-3 py-2 font-bold text-midnight-ink">Voucher No</th>
-                          <th className="text-left px-3 py-2 font-bold text-midnight-ink">SKU</th>
-                          <th className="text-left px-3 py-2 font-bold text-midnight-ink">Flow</th>
-                          <th className="text-left px-3 py-2 font-bold text-midnight-ink">Status</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {relatedVouchers.length === 0 ? (
-                          <tr>
-                            <td colSpan={4} className="px-3 py-3 text-cool-gray">No related vouchers found for this order.</td>
-                          </tr>
-                        ) : (
-                          relatedVouchers.map((voucher) => {
-                            const rowSkus = Array.from(extractVoucherSkuSet(voucher)).map((s) => s.toUpperCase()).join(', ') || '—';
-                            const badgeClass = STATUS_BADGE[voucher.approval_status] || 'bg-slate-100 text-slate-700';
-                            return (
-                              <tr key={voucher.id} className="border-b border-soft-border last:border-b-0">
-                                <td className="px-3 py-2 font-semibold text-midnight-ink">{voucher.voucher_no || `JOB-${voucher.id}`}</td>
-                                <td className="px-3 py-2 text-midnight-ink">{rowSkus}</td>
-                                <td className="px-3 py-2 text-cool-gray">{getDeptLabel(voucher.dept_from)} {'->'} {getDeptLabel(voucher.dept_to)}</td>
-                                <td className="px-3 py-2">
-                                  <span className={`inline-flex rounded-full px-2 py-0.5 font-semibold ${badgeClass}`}>
-                                    {getApprovalLabel(voucher.approval_status)}
-                                  </span>
-                                </td>
-                              </tr>
-                            );
-                          })
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
               </div>
             ) : (
               <div className="flex items-center justify-center flex-1 text-center">

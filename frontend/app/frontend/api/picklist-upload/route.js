@@ -131,13 +131,11 @@ async function parsePdf(file) {
   const arrayBuffer = await file.arrayBuffer();
   const buffer = Buffer.from(arrayBuffer);
 
-  let pdfParse;
-  try {
-    // Prefer the package entrypoint when the installed version exports it cleanly.
-    pdfParse = (await import('pdf-parse')).default;
-  } catch {
-    // Fall back to the legacy internal path used by older pdf-parse releases.
-    pdfParse = (await import('pdf-parse/lib/pdf-parse.js')).default;
+  // Use only the package entrypoint so Next/Turbopack can statically resolve it.
+  const pdfParseModule = await import('pdf-parse');
+  const pdfParse = pdfParseModule.default || pdfParseModule;
+  if (typeof pdfParse !== 'function') {
+    throw new Error('PDF parser is not available in the installed pdf-parse package.');
   }
   const { text } = await pdfParse(buffer);
 
