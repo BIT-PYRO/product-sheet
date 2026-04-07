@@ -595,3 +595,57 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 		if warnings:
 			response_data['warnings'] = warnings
 		return Response({'success': True, 'data': response_data})
+
+	@action(detail=True, methods=['get'], url_path='photo-guide')
+	def photo_guide(self, request, pk=None):
+		"""
+		Return the material rows for this job with product images resolved.
+		Each row: { sku, issued_qty, unit, images: [...] }
+		Images are returned as absolute URLs.
+		"""
+		from products.models import Product as ProductModel
+
+		job = self.get_object()
+		material_rows = job.material_rows or []
+
+		# Collect unique, non-empty SKUs
+		skus = list({
+			row.get('sku', '').strip()
+			for row in material_rows
+			if row.get('sku', '').strip()
+		})
+
+		# Bulk-fetch products — annotate a lowercased SKU to do a case-insensitive match
+		from django.db.models.functions import Upper
+		upper_skus = [s.upper() for s in skus]
+		products = (
+			ProductModel.objects
+			.annotate(upper_sku=Upper('master_sku'))
+			.filter(upper_sku__in=upper_skus)
+			.only('master_sku', 'images')
+		)
+		product_map = {p.master_sku.upper(): p for p in products}
+
+		def make_absolute(url):
+			"""Turn a relative /media/... path into an absolute URL."""
+			if not url:
+				return url
+			if url.startswith('http://') or url.startswith('https://') or url.startswith('data:'):
+				return url
+			return request.build_absolute_uri(url)
+
+		result = []
+		for row in material_rows:
+			sku = row.get('sku', '').strip()
+			if not sku:
+				continue
+			product = product_map.get(sku.upper())
+			raw_images = product.images if product and isinstance(product.images, list) else []
+			result.append({
+				'sku': sku,
+				'issued_qty': row.get('issued_qty', ''),
+				'unit': row.get('unit1', 'Pcs'),
+				'images': [make_absolute(img) for img in raw_images if img],
+			})
+
+		return Response({'success': True, 'data': result})

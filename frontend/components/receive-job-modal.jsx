@@ -17,7 +17,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { CalendarIcon, Trash2, X, ArrowRight, Printer } from "lucide-react"
+import { CalendarIcon, Trash2, X, ArrowRight, Printer, BookImage } from "lucide-react"
+import PhotoGuideModal from "@/components/photo-guide-modal"
 const jewelleryDepartments = [
   { value: "design", label: "Design / CAD" },
   { value: "3d-print", label: "3D Print" },
@@ -54,6 +55,7 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
   const [rows, setRows] = useState([
     { id: 1, sku: "", category: "", metal: "", issuedQty: "", unit1: "Pcs", issuedWeight: "", unit2: "Kg", receivedQty: "", receivedWeight: "", lossQty: "", lossWeight: "", reissueQty: "", reissueWeight: "" },
   ])
+  const [photoGuideOpen, setPhotoGuideOpen] = useState(false)
   // API state
   const [workforce, setWorkforce] = useState([])
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -481,21 +483,33 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[1000px] w-[98vw] max-h-[92vh] overflow-y-auto bg-background text-foreground p-0 gap-0 [&>button]:hidden">
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-[1000px] w-[98vw] max-h-[92vh] overflow-y-auto bg-background text-foreground p-0 gap-0 [&>button]:hidden">
         <DialogTitle className="sr-only">Receive Job Voucher</DialogTitle>
         <div className="relative">
           {/* Close + Print buttons */}
           <div className="flex justify-between items-center px-5 pt-3 pb-0">
-            <button
-              onClick={handlePrint}
-              className="flex items-center gap-1.5 px-3 h-7 rounded border border-trust-blue text-trust-blue text-sm font-semibold hover:bg-trust-blue/10 transition-colors"
-              aria-label="Print voucher"
-              type="button"
-            >
-              <Printer className="h-3.5 w-3.5" />
-              Print
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handlePrint}
+                className="flex items-center gap-1.5 px-3 h-7 rounded border border-trust-blue text-trust-blue text-sm font-semibold hover:bg-trust-blue/10 transition-colors"
+                aria-label="Print voucher"
+                type="button"
+              >
+                <Printer className="h-3.5 w-3.5" />
+                Print
+              </button>
+              <button
+                onClick={() => setPhotoGuideOpen(true)}
+                className="flex items-center gap-1.5 px-3 h-7 rounded border border-violet-500 text-violet-600 text-sm font-semibold hover:bg-violet-50 transition-colors"
+                aria-label="Open photo guide"
+                type="button"
+              >
+                <BookImage className="h-3.5 w-3.5" />
+                Photo Guide
+              </button>
+            </div>
             <button
               onClick={() => onOpenChange(false)}
               className="text-muted-foreground hover:text-foreground transition-colors"
@@ -862,5 +876,13 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
       </div>
       </DialogContent>
     </Dialog>
+
+    <PhotoGuideModal
+      open={photoGuideOpen}
+      onOpenChange={setPhotoGuideOpen}
+      jobId={voucherData?.id}
+      voucherNo={voucherNo}
+    />
+  </>
   )
 }
