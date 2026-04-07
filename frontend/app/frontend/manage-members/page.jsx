@@ -26,10 +26,11 @@ function avatarColor(name) {
   return AVATAR_COLORS[h % AVATAR_COLORS.length];
 }
 
-/* superuser = admin role OR workforce designation is Chairman / CEO */
+/* superuser = admin role OR Django is_superuser OR workforce designation is Chairman / CEO */
 function isSuperUser(sessionUser, workforceRecord) {
   if (!sessionUser) return false;
   if (sessionUser.role === 'admin') return true;
+  if (sessionUser.is_superuser) return true;
   const des = (workforceRecord?.designation || '').toLowerCase().trim();
   return des === 'chairman' || des === 'ceo';
 }
