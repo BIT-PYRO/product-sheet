@@ -113,6 +113,55 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 			raise ValidationError({'status': f'Invalid transition: {instance.status} -> {next_status}'})
 		serializer.save()
 
+	@action(detail=False, methods=['get'], url_path='wip-summary')
+	def wip_summary(self, request):
+		"""
+		Returns remaining WIP quantities per master_sku per dept_to for all active vouchers.
+
+		Active = approved | in_process | awaiting | partially_complete.
+		WIP per row = issued_qty − already_received_qty (from received_rows log).
+		Response: { success: true, data: { "SKU": { "dept_to_key": qty, ... }, ... } }
+		"""
+		active_statuses = {
+			VoucherApprovalStatus.APPROVED,
+			VoucherApprovalStatus.IN_PROCESS,
+			VoucherApprovalStatus.AWAITING,
+			VoucherApprovalStatus.PARTIALLY_COMPLETED,
+		}
+		active_jobs = Job.objects.filter(
+			approval_status__in=active_statuses
+		).only('dept_to', 'material_rows', 'received_rows')
+
+		wip: dict = {}
+
+		for job in active_jobs:
+			dept_to = (job.dept_to or '').strip()
+			if not dept_to:
+				continue
+
+			# Sum already-received quantities per SKU from all previous receive events
+			already_rcvd: dict = {}
+			for event in (job.received_rows or []):
+				for row in (event.get('rows') or []):
+					s = str(row.get('sku', '') or '').strip().upper()
+					qty = int(float(row.get('received_qty', 0) or 0))
+					already_rcvd[s] = already_rcvd.get(s, 0) + qty
+
+			for row in (job.material_rows or []):
+				raw_sku = str(row.get('sku', '') or '').strip()
+				if not raw_sku:
+					continue
+				master_sku = (raw_sku.split('/')[0] if '/' in raw_sku else raw_sku).upper()
+				issued = int(float(row.get('issued_qty', 0) or 0))
+				received = already_rcvd.get(master_sku, 0)
+				remaining = max(0, issued - received)
+				if remaining == 0:
+					continue
+				wip.setdefault(master_sku, {})
+				wip[master_sku][dept_to] = wip[master_sku].get(dept_to, 0) + remaining
+
+		return Response({'success': True, 'data': wip})
+
 	@action(detail=False, methods=['post'], url_path='bulk-create-from-picklist')
 	def bulk_create_from_picklist(self, request):
 		"""Create vouchers for all Master SKUs in a picklist based on demand vs stock.
