@@ -353,7 +353,7 @@ function loadPicklistsFromStorage() {
 
 
 export default function MasterInventorySheet() {
-  const { canEdit, canCreate } = useSheetPermissions('master-inventory-sheet');
+  const { canEdit, canCreate, canExport, canAmount } = useSheetPermissions('master-inventory-sheet');
   const picklistFileInputRef = useRef(null);
   const [lastUpdated, setLastUpdated] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -897,12 +897,17 @@ export default function MasterInventorySheet() {
   };
 
   const visibleColumnList = useMemo(() => {
-    const columns = inventoryColumns.filter((column) => visibleColumns.has(column.key));
+    const AMOUNT_COLUMN_KEYS = new Set(['finalStockValue']);
+    const columns = inventoryColumns.filter((column) => {
+      if (!visibleColumns.has(column.key)) return false;
+      if (!canAmount && AMOUNT_COLUMN_KEYS.has(column.key)) return false;
+      return true;
+    });
     if (!columns.some((column) => column.key === '__select__')) {
       return [{ key: '__select__', label: '' }, ...columns];
     }
     return columns;
-  }, [visibleColumns]);
+  }, [visibleColumns, canAmount]);
 
   const toggleColumnSelection = (columnKey) => {
     setSelectedColumnsForAction((prev) => {
@@ -1528,7 +1533,7 @@ export default function MasterInventorySheet() {
             <Button variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8" onClick={() => setIsManageColumnsOpen(true)}>
               Manage Columns
             </Button>
-            <Button variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8" onClick={handleExport}>Export</Button>
+            <Button variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8" onClick={handleExport} disabled={!canExport} title={!canExport ? 'You do not have permission to export' : undefined}>Export</Button>
             <Button variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8" onClick={() => window.print()}>Print</Button>
             <Button
               onClick={() => setIsPendingVouchersOpen(true)}

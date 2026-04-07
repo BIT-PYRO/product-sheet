@@ -43,7 +43,7 @@ const FILTER_FIELDS_PS = [
 ];
 
 export default function MasterProductSheet() {
-  const { canEdit, canCreate } = useSheetPermissions('master-product-sheet');
+  const { canEdit, canCreate, canExport } = useSheetPermissions('master-product-sheet');
   const PRODUCT_SHEET_SYNC_KEY = 'product_sheet_updated_at';
   const PRODUCT_SHEET_SYNC_EVENT = 'product_sheet_sync';
   const [lastUpdated, setLastUpdated] = useState(null);
@@ -1372,6 +1372,8 @@ export default function MasterProductSheet() {
             onClick={handleExport}
             variant="outline"
             className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8"
+            disabled={!canExport}
+            title={!canExport ? 'You do not have permission to export' : undefined}
           >
             Export
           </Button>

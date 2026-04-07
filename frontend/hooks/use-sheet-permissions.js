@@ -4,15 +4,17 @@ import { useEffect, useState } from 'react';
 
 /**
  * Fetches the current user's sheet-level permissions for a given permKey.
- * Returns { canEdit, canCreate, loading }.
+ * Returns { canEdit, canCreate, canExport, canAmount, loading }.
  *
  * - Admins, superusers, and Chairman/CEO designations always get full access.
  * - If no workforce record is found, full access is granted (fail open).
- * - While loading, canEdit and canCreate start as true so buttons don't flash away.
+ * - While loading, all flags start as true so buttons don't flash away.
  */
 export function useSheetPermissions(permKey) {
   const [canEdit, setCanEdit] = useState(true);
   const [canCreate, setCanCreate] = useState(true);
+  const [canExport, setCanExport] = useState(true);
+  const [canAmount, setCanAmount] = useState(true);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -55,6 +57,8 @@ export function useSheetPermissions(permKey) {
         if (!cancelled) {
           setCanEdit(!!perms.edit);
           setCanCreate(!!perms.create);
+          setCanExport(!!perms.export);
+          setCanAmount(!!perms.amount);
         }
       } catch {
         // fail open — keep default true values
@@ -65,5 +69,5 @@ export function useSheetPermissions(permKey) {
     return () => { cancelled = true; };
   }, [permKey]);
 
-  return { canEdit, canCreate, loading };
+  return { canEdit, canCreate, canExport, canAmount, loading };
 }

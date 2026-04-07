@@ -185,7 +185,7 @@ function toPayload(row) {
 }
 
 export default function MasterDesignerSheet() {
-  const { canEdit, canCreate } = useSheetPermissions('master-designer-sheet');
+  const { canEdit, canCreate, canExport } = useSheetPermissions('master-designer-sheet');
   const router = useRouter();
   const [lastUpdated, setLastUpdated] = useState(null);
   const [currentUsername, setCurrentUsername] = useState('');
@@ -602,7 +602,7 @@ export default function MasterDesignerSheet() {
             <Button onClick={handleUnarchiveRows} variant="outline" className="border-green-600 text-success hover:bg-success/10 rounded-full px-4 text-sm h-8" disabled={selectedRows.size === 0}>Unarchive Selected</Button>
           )}
           <Button onClick={() => setIsManageColumnsOpen(true)} variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8">Manage Columns</Button>
-          <Button onClick={handleExport} variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8">Export</Button>
+          <Button onClick={handleExport} variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8" disabled={!canExport} title={!canExport ? 'You do not have permission to export' : undefined}>Export</Button>
         </div>
 
         {/* â”€â”€ Table â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
