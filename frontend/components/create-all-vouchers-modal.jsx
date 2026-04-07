@@ -203,7 +203,7 @@ export function CreateAllVouchersModal({ open, onOpenChange, onVouchersCreated }
             <p className="text-xs text-midnight-ink">
               <strong>How it works:</strong> Selecting a picklist will fetch all Master SKUs,
               calculate demand vs current Final Stock, and create vouchers for the full
-              department pipeline (Wax Piece → Wax Setting → Casting → ... → Ready for Plating).
+              department pipeline (Die → Wax Piece → Wax Setting → Casting → ... → Plating → Final Stock).
               The pieces needed are calculated as <code>Demand - Final Stock</code>.
               All created vouchers will appear under <strong>Pending Vouchers</strong>.
             </p>

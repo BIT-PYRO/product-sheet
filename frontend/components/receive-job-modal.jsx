@@ -20,6 +20,7 @@ import {
 import { CalendarIcon, Trash2, X, ArrowRight, Printer, BookImage } from "lucide-react"
 import PhotoGuideModal from "@/components/photo-guide-modal"
 const jewelleryDepartments = [
+  { value: "die", label: "Die" },
   { value: "design", label: "Design / CAD" },
   { value: "3d-print", label: "3D Print" },
   { value: "mold-die", label: "Mold Die" },
@@ -35,6 +36,7 @@ const jewelleryDepartments = [
   { value: "hallmarking", label: "Hallmarking" },
   { value: "laser-soldering", label: "Laser Soldering" },
   { value: "final-packaging", label: "Final Packaging" },
+  { value: "final-stock", label: "Final Stock" },
 ]
 
 export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData }) {

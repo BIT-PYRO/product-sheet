@@ -62,7 +62,7 @@ const DEFAULT_LIVE_STOCK_COLS = [
   { key: 'prePolish', label: 'Pre Polish' },
   { key: 'setting', label: 'Hand Setting' },
   { key: 'finalPolish', label: 'Final Polish' },
-  { key: 'readyForPlating', label: 'Ready for Plating' },
+  { key: 'readyForPlating', label: 'Plating' },
 ];
 // Convert backend key to camelCase frontend key.
 // Handles both snake_case stage keys AND liveStock route-level keys stored in TableColumnConfig.
@@ -112,7 +112,7 @@ const STOCK_FIELDS_MAP = {
   prePolish:      'Pre Polish',
   setting:        'Hand Setting',
   finalPolish:    'Final Polish',
-  readyForPlating:'Ready for Plating',
+  readyForPlating:'Plating',
   finalStockValue:'Final Stock',
 };
 
@@ -1746,7 +1746,7 @@ export default function MasterInventorySheet() {
                   return (
                     <tr key={`${row.id}-v${varIdx}`} className={isDeleting ? 'opacity-40 pointer-events-none' : ''}>
 
-                      {/* ── Spanning cells — Master SKU through Ready for Plating (first variation only) ── */}
+                      {/* ── Spanning cells — Master SKU through Plating (first variation only) ── */}
                       {isFirst && spanningCols.map((column) => (
                         <td
                           key={`${row.id}-${column.key}`}

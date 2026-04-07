@@ -53,7 +53,7 @@ const getDeptLabel = (deptKey) => {
     'pre-polish': 'Pre-Polish',
     'hand-setting': 'Hand Setting',
     polishing: 'Final Polish',
-    plating: 'Ready for Plating',
+    plating: 'Plating',
     'final-packaging': 'Final Packaging',
     'final-stock': 'Final Stock',
   };

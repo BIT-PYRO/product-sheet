@@ -74,11 +74,12 @@ export default function ManagersDashboard() {
     'Pre Polish',
     'Hand Setting',
     'Final Polish',
-    'Ready for Plating',
+    'Plating',
+    'Final Stock',
     'Others',
   ];
 
-  // Maps voucher dept_from keys → dashboard column names
+  // Maps voucher dept_to keys → dashboard column names
   const DEPT_TO_COLUMN = {
     'wax-pieces':  'Wax Piece',
     'wax-setting': 'Wax Setting',
@@ -87,7 +88,8 @@ export default function ManagersDashboard() {
     'pre-polish':  'Pre Polish',
     'hand-setting': 'Hand Setting',
     'polishing':   'Final Polish',
-    'plating':     'Ready for Plating',
+    'plating':     'Plating',
+    'final-stock': 'Final Stock',
   };
 
   // Human-readable labels for dept keys used in card display
@@ -99,7 +101,7 @@ export default function ManagersDashboard() {
     'pre-polish':  'Pre Polish',
     'hand-setting': 'Hand Setting',
     'polishing':   'Final Polish',
-    'plating':     'Ready for Plating',
+    'plating':     'Plating',
     'final-stock': 'Final Stock',
   };
 
@@ -151,7 +153,8 @@ export default function ManagersDashboard() {
     'Pre Polish':        { new: [], wip: [], completed: [] },
     'Hand Setting':      { new: [], wip: [], completed: [] },
     'Final Polish':      { new: [], wip: [], completed: [] },
-    'Ready for Plating': { new: [], wip: [], completed: [] },
+    'Plating':           { new: [], wip: [], completed: [] },
+    'Final Stock':       { new: [], wip: [], completed: [] },
     'Others':            { new: [], wip: [], completed: [] },
   };
 
@@ -270,7 +273,8 @@ export default function ManagersDashboard() {
         'Pre Polish':        { new: [], wip: [], completed: [] },
         'Hand Setting':      { new: [], wip: [], completed: [] },
         'Final Polish':      { new: [], wip: [], completed: [] },
-        'Ready for Plating': { new: [], wip: [], completed: [] },
+        'Plating':           { new: [], wip: [], completed: [] },
+        'Final Stock':       { new: [], wip: [], completed: [] },
         'Others':            { new: [], wip: [], completed: [] },
       };
 
@@ -287,8 +291,8 @@ export default function ManagersDashboard() {
         const totalQty = materialRows.reduce((sum, r) => sum + (parseFloat(r.issued_qty) || 0), 0)
         const totalWeight = materialRows.reduce((sum, r) => sum + (parseFloat(r.issued_weight) || 0), 0)
 
-        // Determine which column this voucher belongs to based on dept_from
-        const targetColumn = DEPT_TO_COLUMN[job.dept_from] || 'Others';
+        // Determine which column this voucher belongs to based on dept_to
+        const targetColumn = DEPT_TO_COLUMN[job.dept_to] || 'Others';
 
         const card = {
           id: job.id,
