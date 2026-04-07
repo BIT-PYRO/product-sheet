@@ -37,9 +37,22 @@ function parseVariationSkus(colorStr, enamelStr) {
   return result;
 }
 
-function buildProductStockMap(products, transactions, demandByMasterSku = new Map()) {
+// Maps voucher dept_to key → inventory stage key
+const DEPT_TO_STAGE = {
+  'wax-pieces':   'wax_piece',
+  'wax-setting':  'wax_setting',
+  'casting':      'casting',
+  'filing':       'filling',
+  'pre-polish':   'pre_polish',
+  'hand-setting': 'setting',
+  'polishing':    'final_polish',
+  'plating':      'ready_for_plating',
+  'final-stock':  'final_stock',
+};
+
+function buildProductStockMap(products, transactions, wipBySkuAndStage = new Map()) {
   // stockByProductKey: productId -> Map<`${stage}__${stock_type}`, running_qty>
-  // stock_type is one of: 'current', 'min', 'wip'  (default 'current' for old txns)
+  // stock_type is one of: 'current', 'min'  (wip now sourced from active jobs)
   const stockByProductKey = new Map();
 
   transactions.forEach((txn) => {
@@ -52,6 +65,8 @@ function buildProductStockMap(products, transactions, demandByMasterSku = new Ma
 
     // Skip demand-type transactions; demand is now sourced from picklist items.
     if (String(txn?.txn_type || '').trim().toLowerCase() === 'demand') return;
+    // Skip legacy WIP transactions — WIP now computed live from active jobs.
+    if (stockType === 'wip') return;
 
     if (!stockByProductKey.has(productId)) stockByProductKey.set(productId, new Map());
     const keyMap = stockByProductKey.get(productId);
@@ -64,7 +79,10 @@ function buildProductStockMap(products, transactions, demandByMasterSku = new Ma
   return products.map((product) => {
     const keyMap = stockByProductKey.get(product.id) || new Map();
     const masterSkuKey = String(product.master_sku || '').trim().toUpperCase();
-    const totalInDemand = demandByMasterSku.get(masterSkuKey) || 0;
+    // per-stage WIP from active jobs: Map<stageKey, qty>
+    const jobWipByStage = wipBySkuAndStage.get(masterSkuKey) || new Map();
+    // totalInDemand is driven by picklist selection in the UI — leave it as 0 here
+    const totalInDemand = 0;
 
     // Get value for a given stage + stock_type combination
     const val = (stage, type) => {
@@ -73,10 +91,11 @@ function buildProductStockMap(products, transactions, demandByMasterSku = new Ma
     };
 
     // Helper that returns {min, current, wip, location} for a stage
+    // WIP comes from active jobs (not transactions)
     const stageVals = (stage) => ({
       min:      val(stage, 'min'),
       current:  val(stage, 'current'),
-      wip:      val(stage, 'wip'),
+      wip:      jobWipByStage.has(stage) ? String(jobWipByStage.get(stage)) : '',
       location: '',
     });
 
@@ -160,15 +179,17 @@ function buildProductStockMap(products, transactions, demandByMasterSku = new Ma
 
 export async function GET(request) {
   try {
-    const [productsResponse, inventoryResponse, groupsResponse] = await Promise.all([
+    const [productsResponse, inventoryResponse, groupsResponse, wipResponse] = await Promise.all([
       proxyAuthenticatedRequest(request, '/api/v1/products/'),
       proxyAuthenticatedRequest(request, '/api/v1/inventory/'),
       proxyAuthenticatedRequest(request, '/api/v1/inventory/picklist-groups/'),
+      proxyAuthenticatedRequest(request, '/api/v1/jobs/wip-summary/'),
     ]);
 
     const productsPayload = await readJsonSafe(productsResponse);
     const inventoryPayload = await readJsonSafe(inventoryResponse);
     const groupsPayload = await readJsonSafe(groupsResponse);
+    const wipPayload = await readJsonSafe(wipResponse);
 
     if (!productsResponse.ok || !productsPayload?.success) {
       return NextResponse.json(
@@ -187,28 +208,27 @@ export async function GET(request) {
     const products = asArray(productsPayload.data);
     const transactions = asArray(inventoryPayload.data);
 
-    // Build demand map from picklist items (master SKU → total needed across all picklists).
-    // Picklist items use variation SKUs (e.g. AJE116/G); strip everything from first '/' for master SKU.
-    const demandByMasterSku = new Map();
-    const rawGroups = groupsResponse.ok
-      ? (asArray(groupsPayload?.data).length > 0 ? asArray(groupsPayload.data) : asArray(groupsPayload))
-      : [];
-    rawGroups.forEach((group) => {
-      const items = Array.isArray(group?.items) ? group.items : [];
-      items.forEach((item) => {
-        const sku = String(item?.sku || '').trim().toUpperCase();
-        if (!sku) return;
-        const masterSku = sku.includes('/') ? sku.split('/')[0] : sku;
-        const needed = Math.max(0, parseInt(item?.needed || 0, 10));
-        if (needed > 0) {
-          demandByMasterSku.set(masterSku, (demandByMasterSku.get(masterSku) || 0) + needed);
+    // Build WIP map from active jobs: upperSku -> Map<stageKey, qty>
+    // rawWip shape: { "SKU": { "dept_to_key": qty, ... }, ... }
+    const wipBySkuAndStage = new Map();
+    const rawWip = (wipResponse?.ok && wipPayload?.success && typeof wipPayload.data === 'object')
+      ? wipPayload.data : {};
+    Object.entries(rawWip).forEach(([sku, deptMap]) => {
+      if (!sku || typeof deptMap !== 'object') return;
+      const upperSku = String(sku).trim().toUpperCase();
+      const stageMap = new Map();
+      Object.entries(deptMap).forEach(([deptTo, qty]) => {
+        const stageKey = DEPT_TO_STAGE[deptTo];
+        if (stageKey && qty > 0) {
+          stageMap.set(stageKey, (stageMap.get(stageKey) || 0) + qty);
         }
       });
+      if (stageMap.size > 0) wipBySkuAndStage.set(upperSku, stageMap);
     });
 
     return NextResponse.json({
       success: true,
-      products: buildProductStockMap(products, transactions, demandByMasterSku),
+      products: buildProductStockMap(products, transactions, wipBySkuAndStage),
     });
   } catch {
     return NextResponse.json(
