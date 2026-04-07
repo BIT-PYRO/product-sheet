@@ -345,7 +345,6 @@ function loadPicklistsFromStorage() {
     if (JSON.stringify(sanitized) !== JSON.stringify(parsed)) {
       localStorage.setItem(PSD_PICKLISTS_KEY, JSON.stringify(sanitized));
     }
-
     return sanitized;
   } catch {
     return [];
@@ -1539,26 +1538,24 @@ export default function MasterInventorySheet() {
               <FileText className="h-3.5 w-3.5" />
               Vouchers
             </Button>
-            {canCreate && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    className="bg-success text-white rounded-full px-4 text-sm h-8 hover:bg-success/90 gap-1"
-                  >
-                    Create Job
-                    <ChevronDown className="h-3.5 w-3.5" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-52">
-                  <DropdownMenuItem onClick={() => setIsCreateJobModalOpen(true)} className="cursor-pointer">
-                    Create Single Voucher
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setIsCreateAllVouchersOpen(true)} className="cursor-pointer">
-                    Create All Vouchers
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  className="bg-success text-white rounded-full px-4 text-sm h-8 hover:bg-success/90 gap-1"
+                >
+                  Create Job
+                  <ChevronDown className="h-3.5 w-3.5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-52">
+                <DropdownMenuItem onClick={() => setIsCreateJobModalOpen(true)} className="cursor-pointer">
+                  Create Job
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setIsCreateAllVouchersOpen(true)} className="cursor-pointer">
+                  Create All Vouchers
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <input
               ref={picklistFileInputRef}
               type="file"
@@ -1926,6 +1923,11 @@ export default function MasterInventorySheet() {
       <CreateJobModal
         open={isCreateJobModalOpen}
         onOpenChange={setIsCreateJobModalOpen}
+        mode="single-pipeline"
+        picklistGroupNumber={selectedPicklistData?.number ?? null}
+        onJobCreated={() => {
+          loadProducts();
+        }}
       />
 
       <CreateJobModal

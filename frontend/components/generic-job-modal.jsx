@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
 import { QuickEnrollModal } from "@/components/quick-enroll-modal"
-import { Plus, X, ChevronDown, Eye } from "lucide-react"
+import { Plus, X, ChevronDown, Eye, Printer } from "lucide-react"
 import {
   Select,
   SelectContent,
@@ -35,7 +35,7 @@ const WORK_CATEGORIES = [
 
 const WORK_TYPES = ["In-House", "Contract", "Job Work"]
 
-export function GenericJobModal({ open, onOpenChange, onJobCreated }) {
+export function GenericJobModal({ open, onOpenChange, onJobCreated, initialData }) {
   const { saveDraft } = useDrafts()
   const loadedDraft = useDraftLoader()
   const dateInputRef = useRef(null)
@@ -61,9 +61,9 @@ export function GenericJobModal({ open, onOpenChange, onJobCreated }) {
   const wordInputRef = useRef(null)
   const pdfInputRef = useRef(null)
 
-  // Generate unique job number
+  // Generate unique job number (only when NOT pre-filling from existing data)
   useEffect(() => {
-    if (open) {
+    if (open && !initialData) {
       // Get current counter from localStorage or start at 1
       const currentCount = parseInt(localStorage.getItem('gw_counter') || '0') + 1
       // Save next counter value
@@ -79,6 +79,21 @@ export function GenericJobModal({ open, onOpenChange, onJobCreated }) {
       loadWorkforceMembers()
     }
   }, [open])
+
+  // Pre-fill fields when opened with initialData (e.g. from Others column card)
+  useEffect(() => {
+    if (open && initialData) {
+      setJobNumber(initialData.jobNumber || '')
+      setIssuedTo(initialData.issuedTo || '')
+      setWorkType(initialData.workType || 'In-House')
+      setIssuedBy(initialData.issuedBy || '')
+      setWorkCategory(initialData.workCategory || '')
+      setContact(initialData.contact || '')
+      setAddNote(initialData.addNote || '')
+      if (initialData.startDate) setStartDate(initialData.startDate)
+      if (initialData.scheduleFuture) setScheduleFuture(initialData.scheduleFuture)
+    }
+  }, [open, initialData])
 
   // Handle draft loading
   useEffect(() => {
@@ -115,13 +130,18 @@ export function GenericJobModal({ open, onOpenChange, onJobCreated }) {
 
     setIsLoading(true)
     try {
-      // Minimal test data
       const jobData = {
         title: `${workCategory || "Job"} - ${issuedTo || "General"}`,
-        job_type: workCategory || "Generic Job",  // Always include job_type
+        job_type: workCategory || "Generic Job",
+        work_type: workType || '',
+        issued_to: issuedTo || '',
+        issued_by: issuedBy || '',
+        contact: contact || '',
+        notes: addNote || '',
+        start_date: startDate || null,
+        schedule: scheduleFuture || null,
+        voucher_no: jobNumber || '',
       }
-
-      console.log('Sending minimal test job data:', jobData)
 
       const response = await fetch("/api/jobs", {
         method: "POST",
@@ -226,6 +246,69 @@ export function GenericJobModal({ open, onOpenChange, onJobCreated }) {
     onOpenChange(false)
   }
 
+  function handlePrint() {
+    const printWindow = window.open('', '_blank', 'width=1100,height=700')
+    if (!printWindow) return
+    const fmt = (v) => v || '—'
+    printWindow.document.write(`
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Generic Job Voucher — ${jobNumber}</title>
+  <style>
+    @page { size: A4 landscape; margin: 10mm 12mm; }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: Arial, sans-serif; }
+    body { font-size: 12px; color: #111; }
+    .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #1d4ed8; padding-bottom: 8px; margin-bottom: 10px; }
+    .company { font-size: 18px; font-weight: 800; color: #1d4ed8; }
+    .voucher-title { font-size: 14px; font-weight: 700; text-align: center; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 2px; }
+    .voucher-no { font-size: 13px; font-weight: 600; color: #1d4ed8; }
+    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 24px; margin-bottom: 10px; }
+    .field { display: flex; flex-direction: column; gap: 2px; }
+    .field-label { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #6b7280; }
+    .field-value { font-size: 12px; font-weight: 600; border-bottom: 1px solid #d1d5db; padding-bottom: 2px; min-height: 20px; }
+    .notes-box { border: 1px solid #d1d5db; border-radius: 4px; padding: 6px 8px; min-height: 42px; font-size: 12px; }
+    .signature-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 24px; margin-top: 16px; }
+    .sig-box { border-top: 1px solid #111; padding-top: 4px; font-size: 10px; font-weight: 700; text-align: center; text-transform: uppercase; }
+    .badge { display: inline-block; background: #dbeafe; color: #1d4ed8; border-radius: 4px; padding: 1px 8px; font-size: 11px; font-weight: 700; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="company">Jewellery Works</div>
+    <div style="text-align:center">
+      <div class="voucher-title">Generic Job Voucher</div>
+      <div class="voucher-no">${fmt(jobNumber)}</div>
+    </div>
+    <div style="text-align:right;font-size:11px">
+      <div><b>Date:</b> ${fmt(startDate)}</div>
+      ${scheduleFuture ? `<div><b>Schedule:</b> ${scheduleFuture}</div>` : ''}
+    </div>
+  </div>
+  <div class="grid2">
+    <div class="field"><span class="field-label">Issued To</span><span class="field-value">${fmt(issuedTo)}</span></div>
+    <div class="field"><span class="field-label">Work Type</span><span class="field-value">${fmt(workType)}</span></div>
+    <div class="field"><span class="field-label">Issued By</span><span class="field-value">${fmt(issuedBy)}</span></div>
+    <div class="field"><span class="field-label">Contact</span><span class="field-value">${fmt(contact)}</span></div>
+    <div class="field"><span class="field-label">Category / Type</span><span class="field-value">${fmt(workCategory)}</span></div>
+  </div>
+  <div class="field" style="margin-bottom:12px">
+    <span class="field-label">Notes</span>
+    <div class="notes-box">${fmt(addNote)}</div>
+  </div>
+  <div class="signature-row">
+    <div class="sig-box">Issued By</div>
+    <div class="sig-box">Received By</div>
+    <div class="sig-box">Authorised By</div>
+  </div>
+</body>
+</html>`)
+    printWindow.document.close()
+    printWindow.focus()
+    setTimeout(() => { printWindow.print(); printWindow.close() }, 400)
+  }
+
   function resetForm() {
     setStartDate(new Date().toISOString().split("T")[0])
     setScheduleFuture("")
@@ -281,7 +364,15 @@ export function GenericJobModal({ open, onOpenChange, onJobCreated }) {
           <DialogTitle className="sr-only">Create Generic Job</DialogTitle>
           
           {/* Close button only, no title */}
-          <div className="flex justify-end px-4 pt-2 pb-0">
+          <div className="flex justify-between items-center px-4 pt-2 pb-0">
+            <button
+              onClick={handlePrint}
+              className="text-muted-foreground hover:text-foreground transition-colors"
+              aria-label="Print"
+              title="Print voucher"
+            >
+              <Printer className="h-5 w-5" />
+            </button>
             <button
               onClick={() => onOpenChange(false)}
               className="text-muted-foreground hover:text-foreground transition-colors"
@@ -386,6 +477,12 @@ export function GenericJobModal({ open, onOpenChange, onJobCreated }) {
                           {person.full_name}
                         </SelectItem>
                       ))}
+                      {/* Fallback: show current value if not in standard options or loaded workers */}
+                      {issuedTo &&
+                        !['Existing Workforce / Vendor', 'New Workforce / Vendor'].includes(issuedTo) &&
+                        !enrolledWorkers.find(w => w.full_name === issuedTo) && (
+                          <SelectItem value={issuedTo}>{issuedTo}</SelectItem>
+                        )}
                     </SelectContent>
                   </Select>
                 </div>

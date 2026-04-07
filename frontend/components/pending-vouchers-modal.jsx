@@ -140,9 +140,6 @@ export function PendingVouchersModal({ open, onOpenChange, onVouchersApproved })
         return
       }
 
-      // Trigger print
-      window.print()
-
       // Reload vouchers
       await loadVouchers()
       setSelectedIds(new Set())

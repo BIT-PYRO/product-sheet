@@ -17,7 +17,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { CalendarIcon, Trash2, X, ArrowRight } from "lucide-react"
+import { CalendarIcon, Trash2, X, ArrowRight, Printer, BookImage } from "lucide-react"
+import PhotoGuideModal from "@/components/photo-guide-modal"
 const jewelleryDepartments = [
   { value: "design", label: "Design / CAD" },
   { value: "3d-print", label: "3D Print" },
@@ -45,6 +46,8 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
   const [deptTo, setDeptTo] = useState("")
   const [issuedByName, setIssuedByName] = useState("")
   const [issuedByContact, setIssuedByContact] = useState("")
+  const [picklistName, setPicklistName] = useState("")
+  const [orderName, setOrderName] = useState("")
   const [receivedByName, setReceivedByName] = useState("")
   const [receivedByContact, setReceivedByContact] = useState("")
   const [ratingScore, setRatingScore] = useState(5)
@@ -52,6 +55,7 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
   const [rows, setRows] = useState([
     { id: 1, sku: "", category: "", metal: "", issuedQty: "", unit1: "Pcs", issuedWeight: "", unit2: "Kg", receivedQty: "", receivedWeight: "", lossQty: "", lossWeight: "", reissueQty: "", reissueWeight: "" },
   ])
+  const [photoGuideOpen, setPhotoGuideOpen] = useState(false)
   // API state
   const [workforce, setWorkforce] = useState([])
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -66,6 +70,16 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
       setWorkType(voucherData.workType || voucherData.type || "")
       setDeptFrom(voucherData.deptFrom || voucherData.department || "")
       setDeptTo(voucherData.deptTo || "")
+      // Populate date from start_date or created_at
+      if (voucherData.createdAt) {
+        const d = new Date(voucherData.createdAt)
+        if (!isNaN(d)) setIssueDate(d.toISOString().split('T')[0])
+      }
+      // Populate contact
+      if (voucherData.contact) setIssuedByContact(voucherData.contact)
+      // Populate picklist / order info
+      setPicklistName(voucherData.picklistName || '')
+      setOrderName(voucherData.orderName || '')
       setSubmitError('')
       setSubmitWarnings([])
 
@@ -106,6 +120,20 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
       }
     }
   }, [voucherData, open])
+
+  // Fetch full job data on open to reliably get picklist_name / order_name
+  useEffect(() => {
+    if (!open || !voucherData?.id) return
+    fetch(`/api/jobs/${voucherData.id}`, { cache: 'no-store' })
+      .then(r => r.json())
+      .then(result => {
+        const job = result?.data
+        if (!job) return
+        if (job.picklist_name) setPicklistName(job.picklist_name)
+        if (job.order_name) setOrderName(job.order_name)
+      })
+      .catch(() => {})
+  }, [open, voucherData?.id])
 
   // Load workforce members + auto-fill session user when modal opens
   useEffect(() => {
@@ -234,13 +262,254 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
   const handleUpdateInventory = () => callReceiveApi(false)
   const handlePartialUpdate = () => callReceiveApi(true)
 
+  function handlePrint() {
+    const deptLabel = (val) => jewelleryDepartments.find(d => d.value === val)?.label || val || '—'
+
+    const wtCell = (wt, unit) => {
+      const v = String(wt ?? '').trim()
+      return v && v !== '0' && v !== '0.00' ? `${v} ${unit || 'Kg'}` : ''
+    }
+
+    const tableRows = rows.map(row => `
+      <tr>
+        <td class="left">${row.sku || ''}</td>
+        <td class="left">${row.category || ''}</td>
+        <td class="left">${row.metal || ''}</td>
+        <td class="issued">${row.issuedQty && row.issuedQty !== '0' ? row.issuedQty : ''}<span class="unit">${row.issuedQty && row.issuedQty !== '0' ? (row.unit1 || 'Pcs') : ''}</span></td>
+        <td class="issued-wt">${row.issuedWeight && row.issuedWeight !== '0' && row.issuedWeight !== '0.0' ? row.issuedWeight : ''}<span class="unit">${row.issuedWeight && row.issuedWeight !== '0' && row.issuedWeight !== '0.0' ? (row.unit2 || 'Kg') : ''}</span></td>
+        <td class="received">${row.receivedQty && row.receivedQty !== '0' ? row.receivedQty : ''}<span class="unit">${row.receivedQty && row.receivedQty !== '0' ? (row.unit3 || 'Pcs') : ''}</span></td>
+        <td class="received-wt">${row.receivedWeight && row.receivedWeight !== '0' && row.receivedWeight !== '0.0' ? row.receivedWeight : ''}<span class="unit">${row.receivedWeight && row.receivedWeight !== '0' && row.receivedWeight !== '0.0' ? (row.unit4 || 'Kg') : ''}</span></td>
+        <td class="loss">${row.lossQty && row.lossQty !== '0' ? row.lossQty : ''}<span class="unit">${row.lossQty && row.lossQty !== '0' ? (row.unit5 || 'Pcs') : ''}</span></td>
+        <td class="loss-wt">${row.lossWeight && row.lossWeight !== '0' && row.lossWeight !== '0.0' ? row.lossWeight : ''}<span class="unit">${row.lossWeight && row.lossWeight !== '0' && row.lossWeight !== '0.0' ? (row.unit6 || 'Kg') : ''}</span></td>
+        <td class="reissue">${row.reissueQty && row.reissueQty !== '0' ? row.reissueQty : ''}<span class="unit">${row.reissueQty && row.reissueQty !== '0' ? (row.unit7 || 'Pcs') : ''}</span></td>
+        <td class="reissue-wt">${row.reissueWeight && row.reissueWeight !== '0' && row.reissueWeight !== '0.0' ? row.reissueWeight : ''}<span class="unit">${row.reissueWeight && row.reissueWeight !== '0' && row.reissueWeight !== '0.0' ? (row.unit8 || 'Kg') : ''}</span></td>
+      </tr>
+    `).join('')
+
+    const ratingDots = Array.from({ length: 10 }, (_, i) => i + 1)
+      .map(n => `<div class="rating-dot ${n <= ratingScore ? 'active' : 'inactive'}">${n}</div>`)
+      .join('')
+
+    // Format display date as dd-mm-yyyy
+    const fmtDate = (d) => {
+      if (!d) return '—'
+      const parts = d.split('-')
+      if (parts.length === 3) return `${parts[2]}-${parts[1]}-${parts[0]}`
+      return d
+    }
+
+    const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Voucher ${voucherNo}</title>
+  <style>
+    @page { size: A4 portrait; margin: 10mm 12mm; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, sans-serif; font-size: 9.5px; color: #111; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+    /* ── TOP ROW: Issue Date left, rest right ── */
+    .top-row { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 6px; }
+    .top-field { display: flex; flex-direction: column; gap: 1px; }
+    .top-field label { font-size: 7px; font-weight: 700; text-transform: uppercase; color: #64748b; letter-spacing: 0.5px; }
+    .top-field span { font-size: 10px; font-weight: 600; color: #111; }
+    .top-right { display: flex; align-items: flex-end; gap: 12px; }
+    .chip { display: inline-block; padding: 1px 7px; border-radius: 3px; background: #eff6ff; border: 1px solid #bfdbfe; color: #1d4ed8; font-size: 10px; font-weight: 600; }
+
+    /* ── SECTION BOXES ── */
+    .section-box { border: 1px solid #e2e8f0; border-radius: 3px; padding: 4px 8px; margin-bottom: 5px; }
+    .section-grid { display: grid; gap: 0 16px; align-items: end; }
+    .grid-3 { grid-template-columns: minmax(160px,220px) 1fr minmax(160px,200px); }
+    .grid-2 { grid-template-columns: minmax(200px,280px) 1fr minmax(200px,280px); }
+    .field-label { font-size: 7px; font-weight: 600; color: #64748b; text-transform: uppercase; display: block; margin-bottom: 1px; }
+    .field-value { font-size: 10px; font-weight: 500; color: #111; }
+    .dash-center { text-align: center; font-size: 11px; color: #94a3b8; }
+
+    /* ── DEPT SECTION ── */
+    .dept-section { border: 2px solid #3b82f6; border-radius: 3px; padding: 5px 10px; margin-bottom: 5px; background: #eff6ff; }
+    .dept-grid { display: grid; grid-template-columns: 1fr 40px 1fr; align-items: center; }
+    .dept-label { font-size: 7px; font-weight: 700; text-transform: uppercase; color: #1e40af; display: block; margin-bottom: 1px; }
+    .dept-value { font-size: 12px; font-weight: 800; color: #1e3a8a; }
+    .dept-arrow { text-align: center; font-size: 18px; color: #3b82f6; font-weight: 900; }
+
+    /* ── TABLE ── */
+    table { border-collapse: collapse; margin-bottom: 6px; font-size: 7.5px; width: 100%; table-layout: fixed; }
+    th { background: #1a56db; color: white; font-weight: 500; padding: 2px 4px; text-align: center; border: 1px solid #1e40af; white-space: nowrap; overflow: hidden; word-break: break-all; max-width: 0; }
+    th.left { text-align: left; padding-left: 5px; }
+    td { padding: 2px 4px; border: 1px solid #d1d5db; text-align: center; white-space: nowrap; overflow: hidden; word-break: break-all; max-width: 0; }
+    td.left { text-align: left; padding-left: 5px; }
+    tr:nth-child(even) td { background: #f9fafb; }
+    th.group-issued  { background: #1e40af; }
+    th.group-received{ background: #065f46; }
+    th.group-loss    { background: #881337; }
+    th.group-reissue { background: #78350f; }
+    th.sub-issued  { background: #1d4ed8; font-weight: 400; font-size: 7px; }
+    th.sub-received{ background: #047857; font-weight: 400; font-size: 7px; }
+    th.sub-loss    { background: #9f1239; font-weight: 400; font-size: 7px; }
+    th.sub-reissue { background: #b45309; font-weight: 400; font-size: 7px; }
+    td.issued  { background: rgba(59,130,246,0.07); border-left: 2px solid #93c5fd; }
+    td.issued-wt { background: rgba(59,130,246,0.07); }
+    td.received{ background: rgba(16,185,129,0.07); border-left: 2px solid #6ee7b7; }
+    td.received-wt{ background: rgba(16,185,129,0.07); }
+    td.loss    { background: rgba(239,68,68,0.07); border-left: 2px solid #fca5a5; }
+    td.loss-wt { background: rgba(239,68,68,0.07); }
+    td.reissue { background: rgba(245,158,11,0.07); border-left: 2px solid #fcd34d; }
+    td.reissue-wt{ background: rgba(245,158,11,0.07); }
+    .unit { font-size: 7px; color: #94a3b8; margin-left: 2px; }
+
+    /* ── FOOTER ── */
+    .footer-row { display: grid; grid-template-columns: 1fr 1fr 160px; gap: 6px; margin-bottom: 6px; }
+    .footer-box { padding: 4px 7px; border: 1px solid #e2e8f0; border-radius: 3px; overflow: hidden; }
+    .footer-box label { font-size: 7px; font-weight: 700; text-transform: uppercase; color: #64748b; display: block; margin-bottom: 2px; }
+    .footer-box span { font-size: 10px; font-weight: 600; }
+    .rating { display: flex; gap: 2px; margin-top: 2px; flex-wrap: nowrap; }
+    .rating-dot { width: 13px; height: 13px; border-radius: 50%; border: 1.5px solid #f59e0b; display: inline-flex; align-items: center; justify-content: center; font-size: 6.5px; font-weight: 700; -webkit-print-color-adjust: exact; print-color-adjust: exact; flex-shrink: 0; }
+    .rating-dot.active { background: #f59e0b !important; color: white !important; }
+    .rating-dot.inactive { color: #f59e0b; background: white !important; }
+
+    .note-label { font-size: 7px; font-weight: 700; text-transform: uppercase; color: #64748b; letter-spacing: 0.5px; margin-bottom: 3px; display: block; }
+    .note-box { border: 1px solid #e2e8f0; border-radius: 3px; padding: 4px 7px; min-height: 28px; margin-bottom: 8px; font-size: 9.5px; }
+
+    .sig-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 30px; margin-top: 16px; }
+    .sig-box { border-top: 1px solid #333; padding-top: 3px; text-align: center; font-size: 7px; font-weight: 700; text-transform: uppercase; color: #555; }
+  </style>
+</head>
+<body>
+
+  <!-- TOP ROW: Issue Date | Voucher Type | Picklist | Order | Voucher No -->
+  <div class="top-row">
+    <div class="top-field">
+      <label>Issue Date</label>
+      <span>${fmtDate(issueDate)}</span>
+    </div>
+    <div class="top-right">
+      <div class="top-field"><label>Voucher Type</label><span>New</span></div>
+      ${picklistName ? `<div class="top-field"><label>Picklist</label><span class="chip">${picklistName}</span></div>` : ''}
+      ${orderName ? `<div class="top-field"><label>Order</label><span class="chip">${orderName}</span></div>` : ''}
+      <div class="top-field"><label>Voucher No.</label><span style="font-size:12px;font-weight:700;">${voucherNo}</span></div>
+    </div>
+  </div>
+
+  <!-- ISSUED TO + WORK TYPE -->
+  <div class="section-box">
+    <div class="section-grid grid-3">
+      <div><span class="field-label">Issued To</span><span class="field-value">${issuedTo || '—'}</span></div>
+      <div class="dash-center">—</div>
+      <div><span class="field-label">Work Type</span><span class="field-value">${workType || '—'}</span></div>
+    </div>
+  </div>
+
+  <!-- FROM / TO -->
+  <div class="dept-section">
+    <div class="dept-grid">
+      <div><span class="dept-label">From</span><span class="dept-value">${deptLabel(deptFrom)}</span></div>
+      <div class="dept-arrow">&#8594;</div>
+      <div><span class="dept-label">To</span><span class="dept-value">${deptLabel(deptTo)}</span></div>
+    </div>
+  </div>
+
+  <!-- ISSUED BY + CONTACT -->
+  <div class="section-box">
+    <div class="section-grid grid-2">
+      <div><span class="field-label">Issued By</span><span class="field-value">${issuedByName || '—'}</span></div>
+      <div></div>
+      <div><span class="field-label">Contact</span><span class="field-value">${issuedByContact || '—'}</span></div>
+    </div>
+  </div>
+
+  <!-- TABLE -->
+  <table>
+    <colgroup>
+      <col style="width:13%"><col style="width:9%"><col style="width:8%">
+      <col style="width:6%"><col style="width:8%">
+      <col style="width:6%"><col style="width:8%">
+      <col style="width:6%"><col style="width:8%">
+      <col style="width:6%"><col style="width:8%">
+    </colgroup>
+    <thead>
+      <tr>
+        <th class="left" rowspan="2">SKU</th>
+        <th class="left" rowspan="2">Category</th>
+        <th class="left" rowspan="2">Metal</th>
+        <th class="group-issued"  colspan="2">ISSUED</th>
+        <th class="group-received" colspan="2">Received</th>
+        <th class="group-loss"    colspan="2">Loss</th>
+        <th class="group-reissue" colspan="2">Re-Issue</th>
+      </tr>
+      <tr>
+        <th class="sub-issued">Qty</th><th class="sub-issued">Weight</th>
+        <th class="sub-received">Qty</th><th class="sub-received">Weight</th>
+        <th class="sub-loss">Qty</th><th class="sub-loss">Weight</th>
+        <th class="sub-reissue">Qty</th><th class="sub-reissue">Weight</th>
+      </tr>
+    </thead>
+    <tbody>${tableRows}</tbody>
+  </table>
+
+  <!-- RECEIVED BY + CONTACT + RATING -->
+  <div class="footer-row">
+    <div class="footer-box"><label>Received By</label><span>${receivedByName || '—'}</span></div>
+    <div class="footer-box"><label>Contact</label><span>${receivedByContact || '—'}</span></div>
+    <div class="footer-box">
+      <label>Rate Workmanship</label>
+      <div class="rating">${ratingDots}</div>
+    </div>
+  </div>
+
+  <!-- NOTE FOR REISSUE VOUCHER -->
+  <span class="note-label">Note for Reissue Voucher</span>
+  <div class="note-box">${noteForReissue || ''}</div>
+
+  <div class="sig-row">
+    <div class="sig-box">Issued By Signature</div>
+    <div class="sig-box">Received By Signature</div>
+    <div class="sig-box">Authorised Signature</div>
+  </div>
+</body>
+</html>`
+
+    const win = window.open('', '_blank', 'width=1000,height=720')
+    if (!win) {
+      alert('Pop-up blocked. Please allow pop-ups for this site to print.')
+      return
+    }
+    win.document.write(html)
+    win.document.close()
+    win.focus()
+    setTimeout(() => {
+      win.print()
+      win.addEventListener('afterprint', () => win.close())
+    }, 400)
+  }
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[1200px] w-[95vw] max-h-[95vh] overflow-y-auto bg-background text-foreground p-0 gap-0 [&>button]:hidden">
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-[1000px] w-[98vw] max-h-[92vh] overflow-y-auto bg-background text-foreground p-0 gap-0 [&>button]:hidden">
         <DialogTitle className="sr-only">Receive Job Voucher</DialogTitle>
         <div className="relative">
-          {/* Close button */}
-          <div className="flex justify-end px-5 pt-3 pb-0">
+          {/* Close + Print buttons */}
+          <div className="flex justify-between items-center px-5 pt-3 pb-0">
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handlePrint}
+                className="flex items-center gap-1.5 px-3 h-7 rounded border border-trust-blue text-trust-blue text-sm font-semibold hover:bg-trust-blue/10 transition-colors"
+                aria-label="Print voucher"
+                type="button"
+              >
+                <Printer className="h-3.5 w-3.5" />
+                Print
+              </button>
+              <button
+                onClick={() => setPhotoGuideOpen(true)}
+                className="flex items-center gap-1.5 px-3 h-7 rounded border border-violet-500 text-violet-600 text-sm font-semibold hover:bg-violet-50 transition-colors"
+                aria-label="Open photo guide"
+                type="button"
+              >
+                <BookImage className="h-3.5 w-3.5" />
+                Photo Guide
+              </button>
+            </div>
             <button
               onClick={() => onOpenChange(false)}
               className="text-muted-foreground hover:text-foreground transition-colors"
@@ -251,7 +520,7 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
           </div>
 
           <div className="px-5 pb-4 flex flex-col gap-2.5">
-          {/* Header: Issue Date, Voucher Type, Voucher No. */}
+          {/* Header: Issue Date, Voucher Type, Voucher No. + Picklist + Order */}
           <div className="flex items-end justify-between gap-6">
             <div className="flex flex-col gap-0.5">
               <Label className="text-sm font-bold uppercase tracking-wide text-muted-foreground">Issue Date</Label>
@@ -265,7 +534,7 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
                 />
               </div>
             </div>
-            <div className="flex items-end gap-6">
+            <div className="flex items-end gap-3 flex-wrap">
               <div className="flex flex-col gap-0.5">
                 <Label className="text-sm font-bold uppercase tracking-wide text-muted-foreground">Voucher Type</Label>
                 <Select defaultValue="New">
@@ -278,6 +547,18 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
                   </SelectContent>
                 </Select>
               </div>
+              {picklistName && (
+                <div className="flex flex-col gap-0.5">
+                  <Label className="text-sm font-bold uppercase tracking-wide text-muted-foreground">Picklist</Label>
+                  <div className="h-7 px-2 flex items-center rounded border border-border bg-blue-50 text-sm font-semibold text-trust-blue min-w-[80px]">{picklistName}</div>
+                </div>
+              )}
+              {orderName && (
+                <div className="flex flex-col gap-0.5">
+                  <Label className="text-sm font-bold uppercase tracking-wide text-muted-foreground">Order</Label>
+                  <div className="h-7 px-2 flex items-center rounded border border-border bg-blue-50 text-sm font-semibold text-trust-blue min-w-[80px]">{orderName}</div>
+                </div>
+              )}
               <div className="flex flex-col gap-0.5">
                 <Label className="text-sm font-bold uppercase tracking-wide text-muted-foreground">Voucher No.</Label>
                 <Input
@@ -328,12 +609,12 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
           </div>
 
           {/* Department Transfer */}
-          <div className="border border-border rounded-md px-3 py-2">
+          <div className="border-2 border-trust-blue rounded-md px-3 py-2 bg-trust-blue/5">
             <div className="grid grid-cols-[minmax(200px,260px)_1fr_minmax(200px,260px)] gap-5 items-end">
               <div className="flex flex-col gap-0.5">
-                <Label className="text-sm font-medium text-muted-foreground">From</Label>
+                <Label className="text-sm font-bold uppercase tracking-wide text-midnight-ink">From</Label>
                 <Select value={deptFrom} onValueChange={setDeptFrom}>
-                  <SelectTrigger className="h-7 text-sm bg-background border-border">
+                  <SelectTrigger className="h-8 text-sm font-bold bg-background border-trust-blue text-midnight-ink">
                     <SelectValue placeholder="Select Department" />
                   </SelectTrigger>
                   <SelectContent>
@@ -343,13 +624,13 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
                   </SelectContent>
                 </Select>
               </div>
-              <div className="flex items-center justify-center h-7 px-3">
-                <ArrowRight className="h-5 w-8 text-trust-blue" />
+              <div className="flex items-center justify-center h-8 px-3">
+                <ArrowRight className="h-6 w-10 text-trust-blue" strokeWidth={2.5} />
               </div>
               <div className="flex flex-col gap-0.5">
-                <Label className="text-sm font-medium text-muted-foreground">To</Label>
+                <Label className="text-sm font-bold uppercase tracking-wide text-midnight-ink">To</Label>
                 <Select value={deptTo} onValueChange={setDeptTo}>
-                  <SelectTrigger className="h-7 text-sm bg-background border-border">
+                  <SelectTrigger className="h-8 text-sm font-bold bg-background border-trust-blue text-midnight-ink">
                     <SelectValue placeholder="Select Department" />
                   </SelectTrigger>
                   <SelectContent>
@@ -377,167 +658,139 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
             </div>
           </div>
 
-          {/* SKU Table with all 18 columns */}
-          <div className="rounded-md overflow-hidden border border-border text-sm">
-            <div className="w-full scale-[1.0] origin-top-left">
-              <div className="grid gap-0 bg-trust-blue text-white font-bold uppercase tracking-wider px-1 text-center" style={{ gridTemplateColumns: "0.45fr 0.75fr 0.84fr 0.34fr 0.34fr 0.52fr 0.34fr 0.36fr 0.34fr 0.36fr 0.34fr 0.5fr 0.34fr 0.5fr 0.34fr 0.5fr 0.34fr 0.5fr 0.34fr 24px" }}>
-                <div className="py-1">SKU</div>
-                <div className="py-1">Category</div>
-                <div className="py-1">Metal</div>
-                <div className="py-1 leading-tight bg-blue-700/25 border-l-2 border-white/40"><span>Issued</span><span className="block">Qty</span></div>
-                <div className="py-1 bg-blue-700/25"></div>
-                <div className="py-1 leading-tight bg-blue-700/25"><span>Issued</span><span className="block">WT</span></div>
-                <div className="py-1 bg-blue-700/25"></div>
-                <div className="py-1 leading-tight bg-emerald-700/25 border-l-2 border-white/40"><span>Received</span><span className="block">Qty</span></div>
-                <div className="py-1 bg-emerald-700/25"></div>
-                <div className="py-1 leading-tight bg-emerald-700/25"><span>Received</span><span className="block">WT</span></div>
-                <div className="py-1 bg-emerald-700/25"></div>
-                <div className="py-1 leading-tight bg-rose-700/25 border-l-2 border-white/40"><span>Loss</span><span className="block">Qty</span></div>
-                <div className="py-1 bg-rose-700/25"></div>
-                <div className="py-1 leading-tight bg-rose-700/25"><span>Loss</span><span className="block">WT</span></div>
-                <div className="py-1 bg-rose-700/25"></div>
-                <div className="py-1 leading-tight bg-amber-700/25 border-l-2 border-white/40"><span>Re-Issue</span><span className="block">Qty</span></div>
-                <div className="py-1 bg-amber-700/25"></div>
-                <div className="py-1 leading-tight bg-amber-700/25"><span>Re-Issue</span><span className="block">WT</span></div>
-                <div className="py-1 bg-amber-700/25"></div>
-                <div className="py-1"></div>
-              </div>
-              {rows.map((row, i) => (
-                <div key={row.id} className="grid gap-0 border-t border-border items-center px-1 bg-white" style={{ gridTemplateColumns: "0.6fr 0.65fr 0.65fr 0.48fr 0.32fr 0.48fr 0.32fr 0.48fr 0.32fr 0.48fr 0.32fr 0.48fr 0.32fr 0.48fr 0.32fr 0.48fr 0.32fr 0.48fr 0.32fr 24px" }}>
-                  <div className="py-0.5">
-                    <Input className="h-6 text-sm border-border" placeholder="SKU" value={row.sku} onChange={(e) => updateRow(row.id, "sku", e.target.value)} />
-                  </div>
-                  <div className="py-0.5">
-                    <Input className="h-6 text-sm border-border" placeholder="Cat" value={row.category} onChange={(e) => updateRow(row.id, "category", e.target.value)} />
-                  </div>
-                  <div className="py-0.5">
-                    <Input className="h-6 text-sm border-border" placeholder="Metal" value={row.metal} onChange={(e) => updateRow(row.id, "metal", e.target.value)} />
-                  </div>
-                  <div className="py-0.5 bg-blue-50/40 border-l-2 border-l-blue-200">
-                    <Input className="h-6 text-sm border-border" type="number" placeholder="0" value={row.issuedQty} onChange={(e) => updateRow(row.id, "issuedQty", e.target.value)} />
-                  </div>
-                  <div className="py-0.5 bg-blue-50/40">
-                    <Select value={row.unit1} onValueChange={(v) => updateRow(row.id, "unit1", v)}>
-                      <SelectTrigger className="h-6 text-sm border-border p-0.5"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Pcs">Pcs</SelectItem>
-                        <SelectItem value="Pairs">Pairs</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="py-0.5 bg-blue-50/40">
-                    <Input className="h-6 text-sm border-border" placeholder="0.00" value={row.issuedWeight} onChange={(e) => updateRow(row.id, "issuedWeight", e.target.value)} />
-                  </div>
-                  <div className="py-0.5 bg-blue-50/40">
-                    <Select value={row.unit2} onValueChange={(v) => updateRow(row.id, "unit2", v)}>
-                      <SelectTrigger className="h-6 text-sm border-border p-0.5"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="g">g</SelectItem>
-                        <SelectItem value="Kg">Kg</SelectItem>
-                        <SelectItem value="mg">mg</SelectItem>
-                        <SelectItem value="lb">lb</SelectItem>
-                        <SelectItem value="oz">oz</SelectItem>
-                        <SelectItem value="ct">ct</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="py-0.5 bg-emerald-50/40 border-l-2 border-l-emerald-200">
-                    <Input className="h-6 text-sm border-border" placeholder="0" value={row.receivedQty} onChange={(e) => updateRow(row.id, "receivedQty", e.target.value)} />
-                  </div>
-                  <div className="py-0.5 bg-emerald-50/40">
-                    <Select value={row.unit3 || "Pcs"} onValueChange={(v) => updateRow(row.id, "unit3", v)}>
-                      <SelectTrigger className="h-6 text-sm border-border p-0.5"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Pcs">Pcs</SelectItem>
-                        <SelectItem value="Pairs">Pairs</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="py-0.5 bg-emerald-50/40">
-                    <Input className="h-6 text-sm border-border" placeholder="0.00" value={row.receivedWeight} onChange={(e) => updateRow(row.id, "receivedWeight", e.target.value)} />
-                  </div>
-                  <div className="py-0.5 bg-emerald-50/40">
-                    <Select value={row.unit4 || "Kg"} onValueChange={(v) => updateRow(row.id, "unit4", v)}>
-                      <SelectTrigger className="h-6 text-sm border-border p-0.5"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="g">g</SelectItem>
-                        <SelectItem value="Kg">Kg</SelectItem>
-                        <SelectItem value="mg">mg</SelectItem>
-                        <SelectItem value="lb">lb</SelectItem>
-                        <SelectItem value="oz">oz</SelectItem>
-                        <SelectItem value="ct">ct</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="py-0.5 bg-rose-50/45 border-l-2 border-l-rose-200">
-                    <Input className="h-6 text-sm border-border" placeholder="0" value={row.lossQty} onChange={(e) => updateRow(row.id, "lossQty", e.target.value)} />
-                  </div>
-                  <div className="py-0.5 bg-rose-50/45">
-                    <Select value={row.unit5 || "Pcs"} onValueChange={(v) => updateRow(row.id, "unit5", v)}>
-                      <SelectTrigger className="h-6 text-sm border-border p-0.5"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Pcs">Pcs</SelectItem>
-                        <SelectItem value="Pairs">Pairs</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="py-0.5 bg-rose-50/45">
-                    <Input className="h-6 text-sm border-border" placeholder="0.00" value={row.lossWeight} onChange={(e) => updateRow(row.id, "lossWeight", e.target.value)} />
-                  </div>
-                  <div className="py-0.5 bg-rose-50/45">
-                    <Select value={row.unit6 || "Kg"} onValueChange={(v) => updateRow(row.id, "unit6", v)}>
-                      <SelectTrigger className="h-6 text-sm border-border p-0.5"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="g">g</SelectItem>
-                        <SelectItem value="Kg">Kg</SelectItem>
-                        <SelectItem value="mg">mg</SelectItem>
-                        <SelectItem value="lb">lb</SelectItem>
-                        <SelectItem value="oz">oz</SelectItem>
-                        <SelectItem value="ct">ct</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="py-0.5 bg-amber-50/45 border-l-2 border-l-amber-200">
-                    <Input className="h-6 text-sm border-border" placeholder="0" value={row.reissueQty} onChange={(e) => updateRow(row.id, "reissueQty", e.target.value)} />
-                  </div>
-                  <div className="py-0.5 bg-amber-50/45">
-                    <Select value={row.unit7 || "Pcs"} onValueChange={(v) => updateRow(row.id, "unit7", v)}>
-                      <SelectTrigger className="h-6 text-sm border-border p-0.5"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Pcs">Pcs</SelectItem>
-                        <SelectItem value="Pairs">Pairs</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="py-0.5 bg-amber-50/45">
-                    <Input className="h-6 text-sm border-border" placeholder="0.00" value={row.reissueWeight} onChange={(e) => updateRow(row.id, "reissueWeight", e.target.value)} />
-                  </div>
-                  <div className="py-0.5 bg-amber-50/45">
-                    <Select value={row.unit8 || "Kg"} onValueChange={(v) => updateRow(row.id, "unit8", v)}>
-                      <SelectTrigger className="h-6 text-sm border-border p-0.5"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="g">g</SelectItem>
-                        <SelectItem value="Kg">Kg</SelectItem>
-                        <SelectItem value="mg">mg</SelectItem>
-                        <SelectItem value="lb">lb</SelectItem>
-                        <SelectItem value="oz">oz</SelectItem>
-                        <SelectItem value="ct">ct</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="flex items-center justify-center">
-                    <button type="button" onClick={() => deleteRow(row.id)} className="text-danger hover:text-danger-dark transition-colors">
-                      <Trash2 className="h-3 w-3" />
+          {/* SKU Table */}
+          <div className="rounded-md overflow-auto border border-border text-xs">
+            <table className="border-collapse" style={{ width: '100%' }}>
+              <thead>
+                {/* Row 1: group headers */}
+                <tr className="bg-trust-blue text-white text-center text-[10px]">
+                  <th rowSpan={2} className="py-1 px-1 font-semibold border-r border-white/20 align-middle">SKU</th>
+                  <th rowSpan={2} className="py-1 px-1 font-semibold border-r border-white/20 align-middle">Category</th>
+                  <th rowSpan={2} className="py-1 px-1 font-semibold border-r border-white/20 align-middle">Metal</th>
+                  <th colSpan={2} className="py-1 px-0.5 font-semibold bg-blue-800 border-l-2 border-white/40">ISSUED</th>
+                  <th colSpan={2} className="py-1 px-0.5 font-semibold bg-emerald-800 border-l-2 border-white/40">Received</th>
+                  <th colSpan={2} className="py-1 px-0.5 font-semibold bg-rose-900 border-l-2 border-white/40">Loss</th>
+                  <th colSpan={2} className="py-1 px-0.5 font-semibold bg-amber-800 border-l-2 border-white/40">Re-Issue</th>
+                  <th rowSpan={2} className="py-1 px-0.5 font-semibold align-middle"></th>
+                </tr>
+                {/* Row 2: sub-headers */}
+                <tr className="text-white text-center text-[10px]">
+                  <th className="py-0.5 px-0.5 font-normal bg-blue-700 border-l-2 border-white/30">Qty</th>
+                  <th className="py-0.5 px-0.5 font-normal bg-blue-700 border-l border-white/20">Weight</th>
+                  <th className="py-0.5 px-0.5 font-normal bg-emerald-700 border-l-2 border-white/30">Qty</th>
+                  <th className="py-0.5 px-0.5 font-normal bg-emerald-700 border-l border-white/20">Weight</th>
+                  <th className="py-0.5 px-0.5 font-normal bg-rose-800 border-l-2 border-white/30">Qty</th>
+                  <th className="py-0.5 px-0.5 font-normal bg-rose-800 border-l border-white/20">Weight</th>
+                  <th className="py-0.5 px-0.5 font-normal bg-amber-700 border-l-2 border-white/30">Qty</th>
+                  <th className="py-0.5 px-0.5 font-normal bg-amber-700 border-l border-white/20">Weight</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((row) => (
+                  <tr key={row.id} className="border-t border-border bg-white hover:bg-gray-50/50 text-xs">
+                    {/* SKU */}
+                    <td className="border-r border-border/40 p-0 whitespace-nowrap">
+                      <input className="h-7 px-1.5 bg-transparent border-0 outline-none text-xs" style={{  width: '100%' }} placeholder="SKU" value={row.sku} onChange={(e) => updateRow(row.id, 'sku', e.target.value)} />
+                    </td>
+                    {/* Category */}
+                    <td className="border-r border-border/40 p-0 whitespace-nowrap">
+                      <input className="h-7 px-1.5 bg-transparent border-0 outline-none text-xs" style={{  width: '100%' }} placeholder="Cat" value={row.category} onChange={(e) => updateRow(row.id, 'category', e.target.value)} />
+                    </td>
+                    {/* Metal */}
+                    <td className="border-r border-border/40 p-0 whitespace-nowrap">
+                      <input className="h-7 px-1.5 bg-transparent border-0 outline-none text-xs" style={{  width: '100%' }} placeholder="Metal" value={row.metal} onChange={(e) => updateRow(row.id, 'metal', e.target.value)} />
+                    </td>
+                    {/* Issued Qty+Unit */}
+                    <td className="border-l-2 border-l-blue-300 bg-blue-50/50 p-0 whitespace-nowrap">
+                      <div className="flex items-center h-7 px-1 gap-0.5">
+                        <input type="number" className="w-11 bg-transparent border-0 outline-none text-xs text-center " placeholder="0" value={row.issuedQty} onChange={(e) => updateRow(row.id, 'issuedQty', e.target.value)} />
+                        <select className="bg-transparent border-0 outline-none appearance-none cursor-pointer flex-shrink-0 text-gray-400" style={{ fontSize: 9 }} value={row.unit1} onChange={(e) => updateRow(row.id, 'unit1', e.target.value)}>
+                          <option>Pcs</option><option>Pairs</option>
+                        </select>
+                      </div>
+                    </td>
+                    {/* Issued Weight+Unit */}
+                    <td className="border-r border-border/30 bg-blue-50/50 p-0 whitespace-nowrap">
+                      <div className="flex items-center h-7 px-1 gap-0.5">
+                        <input type="number" className="w-11 bg-transparent border-0 outline-none text-xs text-center " placeholder="0.0" value={row.issuedWeight} onChange={(e) => updateRow(row.id, 'issuedWeight', e.target.value)} />
+                        <select className="bg-transparent border-0 outline-none appearance-none cursor-pointer flex-shrink-0 text-gray-400" style={{ fontSize: 9 }} value={row.unit2} onChange={(e) => updateRow(row.id, 'unit2', e.target.value)}>
+                          <option>g</option><option>Kg</option><option>mg</option><option>lb</option><option>oz</option><option>ct</option>
+                        </select>
+                      </div>
+                    </td>
+                    {/* Received Qty+Unit */}
+                    <td className="border-l-2 border-l-emerald-300 bg-emerald-50/50 p-0 whitespace-nowrap">
+                      <div className="flex items-center h-7 px-1 gap-0.5">
+                        <input type="number" className="w-11 bg-transparent border-0 outline-none text-xs text-center " placeholder="0" value={row.receivedQty} onChange={(e) => updateRow(row.id, 'receivedQty', e.target.value)} />
+                        <select className="bg-transparent border-0 outline-none appearance-none cursor-pointer flex-shrink-0 text-gray-400" style={{ fontSize: 9 }} value={row.unit3 || 'Pcs'} onChange={(e) => updateRow(row.id, 'unit3', e.target.value)}>
+                          <option>Pcs</option><option>Pairs</option>
+                        </select>
+                      </div>
+                    </td>
+                    {/* Received Weight+Unit */}
+                    <td className="border-r border-border/30 bg-emerald-50/50 p-0 whitespace-nowrap">
+                      <div className="flex items-center h-7 px-1 gap-0.5">
+                        <input type="number" className="w-11 bg-transparent border-0 outline-none text-xs text-center " placeholder="0.0" value={row.receivedWeight} onChange={(e) => updateRow(row.id, 'receivedWeight', e.target.value)} />
+                        <select className="bg-transparent border-0 outline-none appearance-none cursor-pointer flex-shrink-0 text-gray-400" style={{ fontSize: 9 }} value={row.unit4 || 'Kg'} onChange={(e) => updateRow(row.id, 'unit4', e.target.value)}>
+                          <option>g</option><option>Kg</option><option>mg</option><option>lb</option><option>oz</option><option>ct</option>
+                        </select>
+                      </div>
+                    </td>
+                    {/* Loss Qty+Unit */}
+                    <td className="border-l-2 border-l-rose-300 bg-rose-50/50 p-0 whitespace-nowrap">
+                      <div className="flex items-center h-7 px-1 gap-0.5">
+                        <input type="number" className="w-11 bg-transparent border-0 outline-none text-xs text-center" placeholder="0" value={row.lossQty} onChange={(e) => updateRow(row.id, 'lossQty', e.target.value)} />
+                        <select className="bg-transparent border-0 outline-none appearance-none cursor-pointer flex-shrink-0 text-gray-400" style={{ fontSize: 9 }} value={row.unit5 || 'Pcs'} onChange={(e) => updateRow(row.id, 'unit5', e.target.value)}>
+                          <option>Pcs</option><option>Pairs</option>
+                        </select>
+                      </div>
+                    </td>
+                    {/* Loss Weight+Unit */}
+                    <td className="border-r border-border/30 bg-rose-50/50 p-0 whitespace-nowrap">
+                      <div className="flex items-center h-7 px-1 gap-0.5">
+                        <input type="number" className="w-11 bg-transparent border-0 outline-none text-xs text-center" placeholder="0.0" value={row.lossWeight} onChange={(e) => updateRow(row.id, 'lossWeight', e.target.value)} />
+                        <select className="bg-transparent border-0 outline-none appearance-none cursor-pointer flex-shrink-0 text-gray-400" style={{ fontSize: 9 }} value={row.unit6 || 'Kg'} onChange={(e) => updateRow(row.id, 'unit6', e.target.value)}>
+                          <option>g</option><option>Kg</option><option>mg</option><option>lb</option><option>oz</option><option>ct</option>
+                        </select>
+                      </div>
+                    </td>
+                    {/* Re-Issue Qty+Unit */}
+                    <td className="border-l-2 border-l-amber-300 bg-amber-50/50 p-0 whitespace-nowrap">
+                      <div className="flex items-center h-7 px-1 gap-0.5">
+                        <input type="number" className="w-11 bg-transparent border-0 outline-none text-xs text-center" placeholder="0" value={row.reissueQty} onChange={(e) => updateRow(row.id, 'reissueQty', e.target.value)} />
+                        <select className="bg-transparent border-0 outline-none appearance-none cursor-pointer flex-shrink-0 text-gray-400" style={{ fontSize: 9 }} value={row.unit7 || 'Pcs'} onChange={(e) => updateRow(row.id, 'unit7', e.target.value)}>
+                          <option>Pcs</option><option>Pairs</option>
+                        </select>
+                      </div>
+                    </td>
+                    {/* Re-Issue Weight+Unit */}
+                    <td className="bg-amber-50/50 p-0 whitespace-nowrap">
+                      <div className="flex items-center h-7 px-1 gap-0.5">
+                        <input type="number" className="w-11 bg-transparent border-0 outline-none text-xs text-center " placeholder="0.0" value={row.reissueWeight} onChange={(e) => updateRow(row.id, 'reissueWeight', e.target.value)} />
+                        <select className="bg-transparent border-0 outline-none appearance-none cursor-pointer flex-shrink-0 text-gray-400" style={{ fontSize: 9 }} value={row.unit8 || 'Kg'} onChange={(e) => updateRow(row.id, 'unit8', e.target.value)}>
+                          <option>g</option><option>Kg</option><option>mg</option><option>lb</option><option>oz</option><option>ct</option>
+                        </select>
+                      </div>
+                    </td>
+                    {/* Delete */}
+                    <td className="p-0 text-center align-middle">
+                      <button type="button" onClick={() => deleteRow(row.id)} className="text-danger hover:text-danger-dark transition-colors">
+                        <Trash2 className="h-3 w-3" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr className="border-t border-border bg-background">
+                  <td colSpan={12} className="py-1 text-center">
+                    <button type="button" className="text-trust-blue hover:text-deep-blue text-xs font-semibold transition-colors" onClick={addRow}>
+                      + Add Row
                     </button>
-                  </div>
-                </div>
-              ))}
-              <div className="border-t border-border bg-background">
-                <button type="button" className="w-full py-1 text-trust-blue hover:text-deep-blue text-sm font-semibold transition-colors" onClick={addRow}>
-                  + Add Row
-                </button>
-              </div>
-            </div>
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
           </div>
 
           {/* Error / Warning Display */}
@@ -623,5 +876,13 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
       </div>
       </DialogContent>
     </Dialog>
+
+    <PhotoGuideModal
+      open={photoGuideOpen}
+      onOpenChange={setPhotoGuideOpen}
+      jobId={voucherData?.id}
+      voucherNo={voucherNo}
+    />
+  </>
   )
 }
