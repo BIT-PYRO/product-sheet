@@ -128,8 +128,11 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 			VoucherApprovalStatus.AWAITING,
 			VoucherApprovalStatus.PARTIALLY_COMPLETED,
 		}
+		# Also include pending single (non-batch) vouchers — they are issued directly
+		# by the manager and have no batch approval step.
 		active_jobs = Job.objects.filter(
-			approval_status__in=active_statuses
+			Q(approval_status__in=active_statuses) |
+			Q(approval_status=VoucherApprovalStatus.PENDING, batch_id='')
 		).only('dept_to', 'material_rows', 'received_rows')
 
 		wip: dict = {}
@@ -435,18 +438,37 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 			voucher.status = 'completed'
 			voucher.save(update_fields=['approval_status', 'status'])
 
-			# Move WIP to current stock for each product (SKU row) in this voucher
+			# Move WIP to current stock for each product (SKU row) in this voucher.
+			# Only create transactions for the REMAINING qty (issued − already received
+			# via partial receive events) to avoid double-counting.
 			from products.models import Product
 
 			stage_key = DEPT_TO_STOCK_STAGE.get(voucher.dept_from, '')
 			dest_stage_key = DEPT_TO_STOCK_STAGE.get(voucher.dept_to, '')
 
+			# Build already-received totals per SKU from previous receive events
+			already_rcvd: dict = {}
+			for event in (voucher.received_rows or []):
+				for prev_row in (event.get('rows') or []):
+					s = str(prev_row.get('sku', '') or '').strip().upper()
+					already_rcvd[s] = (
+						already_rcvd.get(s, 0)
+						+ int(float(prev_row.get('received_qty', 0) or 0))
+					)
+
 			for row in (voucher.material_rows or []):
-				qty = int(float(row.get('issued_qty', 0) or 0))
-				if qty <= 0:
+				issued = int(float(row.get('issued_qty', 0) or 0))
+				if issued <= 0:
 					continue
 				sku = str(row.get('sku', '') or '').strip()
 				master_sku = sku.split('/')[0] if '/' in sku else sku
+				sku_key = master_sku.upper()
+
+				# Deduct quantities already added to current stock via partial receives
+				remaining = max(0, issued - already_rcvd.get(sku_key, 0))
+				if remaining <= 0:
+					continue
+
 				product = Product.objects.filter(
 					Q(master_sku__iexact=master_sku) | Q(master_sku__iexact=sku)
 				).first() or voucher.product
@@ -457,7 +479,7 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 					InventoryTransaction.objects.create(
 						product=product,
 						txn_type='adjust',
-						quantity=-qty,
+						quantity=-remaining,
 						stage=stage_key,
 						stock_type='wip',
 						remark=f'Completed: {voucher.voucher_no}',
@@ -466,7 +488,7 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 					InventoryTransaction.objects.create(
 						product=product,
 						txn_type='adjust',
-						quantity=qty,
+						quantity=remaining,
 						stage=dest_stage_key,
 						stock_type='current',
 						remark=f'Completed: {voucher.voucher_no}',
@@ -506,12 +528,17 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 				VoucherApprovalStatus.IN_PROCESS,
 				VoucherApprovalStatus.PARTIALLY_COMPLETED,
 			]:
-				raise ValidationError({
-					'approval_status': (
-						f'Cannot receive a voucher with status "{voucher.approval_status}". '
-						'Only in-process or partially complete vouchers can be received.'
-					)
-				})
+				# Allow pending single (non-batch) vouchers — auto-transition to in_process
+				if voucher.approval_status == VoucherApprovalStatus.PENDING and not voucher.batch_id:
+					voucher.approval_status = VoucherApprovalStatus.IN_PROCESS
+					voucher.save(update_fields=['approval_status'])
+				else:
+					raise ValidationError({
+						'approval_status': (
+							f'Cannot receive a voucher with status "{voucher.approval_status}". '
+							'Only in-process or partially complete vouchers can be received.'
+						)
+					})
 
 			is_partial = bool(request.data.get('is_partial', False))
 			received_by = str(request.data.get('received_by', '') or '').strip()

@@ -556,6 +556,7 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
           title,
           product: selectedProduct.id,
           status: 'created',
+          approval_status: 'in_process',
           voucher_no: voucherNo,
           voucher_type: voucherType,
           issued_to: issuedTo,
