@@ -615,21 +615,43 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 			if row.get('sku', '').strip()
 		})
 
-		# Bulk-fetch products — annotate a lowercased SKU to do a case-insensitive match
-		from django.db.models.functions import Upper
 		upper_skus = [s.upper() for s in skus]
-		products = (
+
+		from django.db.models.functions import Upper
+
+		# Primary lookup: match by master_sku (case-insensitive)
+		products_by_master = (
 			ProductModel.objects
 			.annotate(upper_sku=Upper('master_sku'))
 			.filter(upper_sku__in=upper_skus)
-			.only('master_sku', 'images')
+			.only('master_sku', 'designer_sku', 'images')
 		)
-		product_map = {p.master_sku.upper(): p for p in products}
+		product_map = {p.master_sku.upper(): p for p in products_by_master}
+
+		# Fallback: for SKUs not matched by master_sku, try designer_sku
+		unmatched = [s for s in upper_skus if s not in product_map]
+		if unmatched:
+			products_by_designer = (
+				ProductModel.objects
+				.annotate(upper_designer=Upper('designer_sku'))
+				.filter(upper_designer__in=unmatched)
+				.only('master_sku', 'designer_sku', 'images')
+			)
+			for p in products_by_designer:
+				key = p.designer_sku.upper()
+				if key not in product_map:
+					product_map[key] = p
 
 		def make_absolute(url):
 			"""Turn a relative /media/... path into an absolute URL."""
 			if not url:
-				return url
+				return None
+			if isinstance(url, dict):
+				# Handle images stored as {url: "..."} objects
+				url = url.get('url') or url.get('src') or ''
+			url = str(url).strip()
+			if not url:
+				return None
 			if url.startswith('http://') or url.startswith('https://') or url.startswith('data:'):
 				return url
 			return request.build_absolute_uri(url)
@@ -641,11 +663,13 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 				continue
 			product = product_map.get(sku.upper())
 			raw_images = product.images if product and isinstance(product.images, list) else []
+			resolved = [make_absolute(img) for img in raw_images]
+			resolved = [img for img in resolved if img]  # filter None/empty
 			result.append({
 				'sku': sku,
 				'issued_qty': row.get('issued_qty', ''),
 				'unit': row.get('unit1', 'Pcs'),
-				'images': [make_absolute(img) for img in raw_images if img],
+				'images': resolved,
 			})
 
 		return Response({'success': True, 'data': result})

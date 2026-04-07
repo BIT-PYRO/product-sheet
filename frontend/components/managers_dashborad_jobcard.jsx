@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -62,15 +62,8 @@ export default function ManagersDashboard() {
   const [departmentFilter, setDepartmentFilter] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
-
-  // Sample data for filters
   const statusOptions = ['Pending', 'WIP', 'Completed'];
   const newReissueOptions = ['New', 'Re-issue'];
-  const nameOptions = ['Name 1', 'Name 2', 'Name 3', 'Name 4'];
-  const issuerOptions = ['Issuer 1', 'Issuer 2', 'Issuer 3'];
-  const departmentOptions = ['D1', 'D2', 'D3', 'D4'];
-  const typeOptions = ['T1', 'T2', 'T3', 'T4'];
-  const categoryOptions = ['C1', 'C2', 'C3', 'C4'];
 
   // Process columns — live pipeline stages (matches dept_from keys order)
   const processColumns = [
@@ -176,6 +169,79 @@ export default function ManagersDashboard() {
     if (status === 'in_progress') return 'wip';
     return 'new';
   };
+
+  // Dynamic filter options derived from loaded data
+  const filterOptions = useMemo(() => {
+    const names = new Set();
+    const issuers = new Set();
+    const departments = new Set();
+    const types = new Set();
+    const categories = new Set();
+    for (const col of Object.values(jobCardsData)) {
+      for (const bucket of ['new', 'wip', 'completed']) {
+        for (const card of col[bucket]) {
+          if (card.name && card.name !== 'Unassigned') names.add(card.name);
+          if (card.issuedBy) issuers.add(card.issuedBy);
+          if (card.deptFrom) departments.add(card.deptFrom);
+          if (card.workType) types.add(card.workType);
+          if (card.category) categories.add(card.category);
+        }
+      }
+    }
+    return {
+      names: Array.from(names).sort(),
+      issuers: Array.from(issuers).sort(),
+      departments: Array.from(departments).sort(),
+      types: Array.from(types).sort(),
+      categories: Array.from(categories).sort(),
+    };
+  }, [jobCardsData]);
+
+  // Filtered data derived from jobCardsData + all active filters
+  const filteredJobCardsData = useMemo(() => {
+    const applyFilter = (card, bucket) => {
+      if (statusFilter === 'Pending' && bucket !== 'new') return false;
+      if (statusFilter === 'WIP' && bucket !== 'wip') return false;
+      if (statusFilter === 'Completed' && bucket !== 'completed') return false;
+      if (dateFromFilter || dateToFilter) {
+        const cardDate = card.createdAt ? card.createdAt.slice(0, 10) : '';
+        if (dateFromFilter && cardDate < dateFromFilter) return false;
+        if (dateToFilter && cardDate > dateToFilter) return false;
+      }
+      if (newReissueFilter && card.voucherType?.toLowerCase() !== newReissueFilter.toLowerCase()) return false;
+      if (nameFilter && card.name !== nameFilter) return false;
+      if (issuerFilter && card.issuedBy !== issuerFilter) return false;
+      if (departmentFilter && card.deptFrom !== departmentFilter) return false;
+      if (typeFilter && card.workType !== typeFilter) return false;
+      if (categoryFilter && card.category !== categoryFilter) return false;
+      if (searchTerm) {
+        const term = searchTerm.toLowerCase();
+        const haystack = [card.voucherNo, card.name, card.category, card.issuedBy, card.workType].join(' ').toLowerCase();
+        if (!haystack.includes(term)) return false;
+      }
+      return true;
+    };
+    const result = {};
+    for (const [col, data] of Object.entries(jobCardsData)) {
+      result[col] = {
+        new: data.new.filter(c => applyFilter(c, 'new')),
+        wip: data.wip.filter(c => applyFilter(c, 'wip')),
+        completed: data.completed.filter(c => applyFilter(c, 'completed')),
+      };
+    }
+    return result;
+  }, [jobCardsData, statusFilter, dateFromFilter, dateToFilter, newReissueFilter, nameFilter, issuerFilter, departmentFilter, typeFilter, categoryFilter, searchTerm]);
+
+  // All card IDs currently visible (after filtering) – used for Select All
+  const allFilteredCardIds = useMemo(() => {
+    const ids = [];
+    for (const col of Object.values(filteredJobCardsData)) {
+      for (const bucket of ['new', 'wip', 'completed']) {
+        for (const card of col[bucket]) ids.push(card.id);
+      }
+    }
+    return ids;
+  }, [filteredJobCardsData]);
 
   useEffect(() => {
     fetch('/api/auth/session').then(r => r.json()).then(d => { if (d?.user?.username) setCurrentUsername(d.user.username); }).catch(() => {});
@@ -325,23 +391,30 @@ export default function ManagersDashboard() {
     }
   };
 
-  const handleDeleteVoucher = () => {
-    if (!selectedVoucher) return;
-    const confirmed = window.confirm(`Delete voucher ${selectedVoucher.voucherNo}?`);
+  const handleDeleteVoucher = async () => {
+    const idsToDelete = selectedForPrint.size > 0
+      ? Array.from(selectedForPrint)
+      : selectedVoucher ? [selectedVoucher.id] : [];
+    if (idsToDelete.length === 0) return;
+    const label = idsToDelete.length > 1
+      ? `${idsToDelete.length} selected vouchers`
+      : `voucher ${selectedVoucher?.voucherNo || idsToDelete[0]}`;
+    const confirmed = window.confirm(`Delete ${label}?`);
     if (!confirmed) return;
+    await Promise.all(
+      idsToDelete.map(id => fetch(`/api/jobs/${id}`, { method: 'DELETE' }).catch(() => null))
+    );
     setJobCardsData(prev => {
       const next = { ...prev };
       for (const col of Object.keys(next)) {
         for (const bucket of ['new', 'wip', 'completed']) {
-          next[col] = {
-            ...next[col],
-            [bucket]: next[col][bucket].filter(c => c.id !== selectedVoucher.id),
-          };
+          next[col] = { ...next[col], [bucket]: next[col][bucket].filter(c => !idsToDelete.includes(c.id)) };
         }
       }
       return next;
     });
-    setSelectedVoucher(null);
+    setSelectedForPrint(new Set());
+    if (selectedVoucher && idsToDelete.includes(selectedVoucher.id)) setSelectedVoucher(null);
   };
 
   const handleOpenEdit = () => {
@@ -390,6 +463,14 @@ export default function ManagersDashboard() {
       else next.add(cardId);
       return next;
     });
+  };
+
+  const handleSelectAll = () => {
+    if (selectedForPrint.size === allFilteredCardIds.length && allFilteredCardIds.length > 0) {
+      setSelectedForPrint(new Set());
+    } else {
+      setSelectedForPrint(new Set(allFilteredCardIds));
+    }
   };
 
   function handlePrintSelected() {
@@ -546,7 +627,7 @@ export default function ManagersDashboard() {
   const VoucherCard = ({ card, bucket }) => {
     const s = getCardStyle();
     const isSelected = selectedVoucher?.id === card.id;
-    const isPrintSelected = selectedForPrint.has(card.id);
+    const isChecked = selectedForPrint.has(card.id);
 
     // Approval status badge colors
     const approvalLabels = {
@@ -562,7 +643,7 @@ export default function ManagersDashboard() {
       <div
         onClick={() => handleCardClick(card)}
         className={`border-2 ${
-          isPrintSelected ? 'border-amber-400 ring-2 ring-amber-300/60' :
+          isChecked ? 'border-amber-400 ring-2 ring-amber-300/60' :
           isSelected ? 'border-trust-blue ring-2 ring-trust-blue/40' : s.border
         } rounded-lg overflow-hidden cursor-pointer hover:shadow-md transition-shadow ${isSelected ? 'shadow-md' : ''}`}
       >
@@ -572,10 +653,10 @@ export default function ManagersDashboard() {
           <div className="flex items-center gap-1">
             <input
               type="checkbox"
-              checked={isPrintSelected}
+              checked={isChecked}
               onChange={(e) => togglePrintSelect(e, card.id)}
               onClick={(e) => e.stopPropagation()}
-              title="Select for print"
+              title="Select voucher"
               className="h-3 w-3 cursor-pointer accent-amber-400 shrink-0"
             />
             {approvalBadge && (
@@ -743,6 +824,14 @@ export default function ManagersDashboard() {
             >
               Create a Job
             </Button>
+            <Button
+              onClick={handleSelectAll}
+              variant="outline"
+              className="border-red-400 text-red-500 hover:bg-red-50 rounded-full px-3 text-sm h-8 gap-1"
+            >
+              {selectedForPrint.size === allFilteredCardIds.length && allFilteredCardIds.length > 0 ? 'Deselect All' : 'Select All'}
+              {selectedForPrint.size > 0 ? ` (${selectedForPrint.size})` : ''}
+            </Button>
             <Button 
               onClick={handleOpenEdit}
               disabled={!selectedVoucher}
@@ -753,11 +842,11 @@ export default function ManagersDashboard() {
             </Button>
             <Button 
               onClick={handleDeleteVoucher}
-              disabled={!selectedVoucher}
-              className="bg-white border border-red-500 text-red-500 hover:bg-red-50 rounded-full px-3 text-sm h-8 gap-1 disabled:opacity-100 disabled:border-red-500 disabled:text-red-500"
+              disabled={selectedForPrint.size === 0 && !selectedVoucher}
+              className="bg-white border border-red-500 text-red-500 hover:bg-red-50 rounded-full px-3 text-sm h-8 gap-1 disabled:opacity-40 disabled:border-red-300 disabled:text-red-300"
             >
               <Trash2 className="w-4 h-4" />
-              Delete
+              Delete{selectedForPrint.size > 0 ? ` (${selectedForPrint.size})` : ''}
             </Button>
             <Button
               onClick={handlePrintSelected}
@@ -796,6 +885,15 @@ export default function ManagersDashboard() {
 
         {/* Filter Row */}
         <div className="border border-soft-border rounded-lg mb-6 bg-[#dbeafe] p-4">
+          <div className="flex justify-end mb-2">
+            <button
+              type="button"
+              onClick={() => { setStatusFilter(''); setDateFromFilter(''); setDateToFilter(''); setNewReissueFilter(''); setNameFilter(''); setIssuerFilter(''); setDepartmentFilter(''); setTypeFilter(''); setCategoryFilter(''); }}
+              className="text-xs text-trust-blue hover:underline font-medium"
+            >
+              Clear Filters
+            </button>
+          </div>
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-9 gap-3">
             {/* Status */}
             <div>
@@ -857,7 +955,7 @@ export default function ManagersDashboard() {
                   <SelectValue placeholder="Select Name" />
                 </SelectTrigger>
                 <SelectContent>
-                  {nameOptions.map(name => (
+                  {filterOptions.names.map(name => (
                     <SelectItem key={name} value={name}>{name}</SelectItem>
                   ))}
                 </SelectContent>
@@ -872,7 +970,7 @@ export default function ManagersDashboard() {
                   <SelectValue placeholder="Select Issuer" />
                 </SelectTrigger>
                 <SelectContent>
-                  {issuerOptions.map(issuer => (
+                  {filterOptions.issuers.map(issuer => (
                     <SelectItem key={issuer} value={issuer}>{issuer}</SelectItem>
                   ))}
                 </SelectContent>
@@ -887,8 +985,8 @@ export default function ManagersDashboard() {
                   <SelectValue placeholder="Select Dept" />
                 </SelectTrigger>
                 <SelectContent>
-                  {departmentOptions.map(option => (
-                    <SelectItem key={option} value={option}>{option}</SelectItem>
+                  {filterOptions.departments.map(dept => (
+                    <SelectItem key={dept} value={dept}>{DEPT_LABELS[dept] || dept}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -902,7 +1000,7 @@ export default function ManagersDashboard() {
                   <SelectValue placeholder="Select Type" />
                 </SelectTrigger>
                 <SelectContent>
-                  {typeOptions.map(option => (
+                  {filterOptions.types.map(option => (
                     <SelectItem key={option} value={option}>{option}</SelectItem>
                   ))}
                 </SelectContent>
@@ -917,7 +1015,7 @@ export default function ManagersDashboard() {
                   <SelectValue placeholder="Select Category" />
                 </SelectTrigger>
                 <SelectContent>
-                  {categoryOptions.map(option => (
+                  {filterOptions.categories.map(option => (
                     <SelectItem key={option} value={option}>{option}</SelectItem>
                   ))}
                 </SelectContent>
@@ -943,7 +1041,7 @@ export default function ManagersDashboard() {
               {processColumns.map((column) => 
                 visibleColumns.has(column) && (
                   <th key={column} className="border-2 border-soft-border p-2 text-center font-bold text-sm">
-                    Total: {calculateTotal(jobCardsData[column])}
+                    Total: {calculateTotal(filteredJobCardsData[column])}
                   </th>
                 )
               )}
@@ -956,17 +1054,17 @@ export default function ManagersDashboard() {
                   <td key={column} className="border-2 border-soft-border p-3 align-top min-h-[400px]">
                   <div className="space-y-2.5">
                     {/* New Cards */}
-                    {jobCardsData[column].new.map((card, idx) => (
+                    {filteredJobCardsData[column].new.map((card, idx) => (
                       <VoucherCard key={`new-${idx}`} card={card} bucket="new" />
                     ))}
 
                     {/* Work in Progress Cards */}
-                    {jobCardsData[column].wip.map((card, idx) => (
+                    {filteredJobCardsData[column].wip.map((card, idx) => (
                       <VoucherCard key={`wip-${idx}`} card={card} bucket="wip" />
                     ))}
 
                     {/* Completed Cards */}
-                    {jobCardsData[column].completed.map((card, idx) => (
+                    {filteredJobCardsData[column].completed.map((card, idx) => (
                       <VoucherCard key={`completed-${idx}`} card={card} bucket="completed" />
                     ))}
                   </div>
@@ -982,7 +1080,7 @@ export default function ManagersDashboard() {
       {/* Fixed Footer */}
       <div className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-soft-border shadow-lg px-4 py-2 flex flex-wrap items-center justify-between gap-3 text-sm text-cool-gray">
         <div className="flex gap-4">
-          <span>Total Vouchers: {Object.values(jobCardsData).reduce((sum, col) => sum + col.new.length + col.wip.length + col.completed.length, 0)}</span>
+          <span>Total Vouchers: {Object.values(filteredJobCardsData).reduce((sum, col) => sum + col.new.length + col.wip.length + col.completed.length, 0)}</span>
           {isLoadingJobs && <span className="text-trust-blue">Loading...</span>}
         </div>
         <LastUpdatedFooter timestamp={lastUpdated} username={currentUsername} compact />

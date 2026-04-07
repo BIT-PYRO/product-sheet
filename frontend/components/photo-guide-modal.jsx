@@ -44,7 +44,7 @@ export default function PhotoGuideModal({ open, onOpenChange, jobId, voucherNo =
         <td class="center">${i + 1}</td>
         <td class="img-cell">
           ${s.images && s.images.length > 0
-            ? `<img src="${s.images[0]}" alt="${s.sku}" />`
+            ? s.images.map(src => `<img src="${src}" alt="${s.sku}" />`).join('')
             : `<div class="no-img">No Image</div>`
           }
         </td>
@@ -75,9 +75,9 @@ export default function PhotoGuideModal({ open, onOpenChange, jobId, voucherNo =
     td.center { text-align: center; }
     td.sku { font-weight: 700; color: #1e3a8a; }
     td.qty { font-weight: 700; }
-    td.img-cell { width: 72px; padding: 3px; text-align: center; }
-    td.img-cell img { width: 66px; height: 66px; object-fit: cover; border-radius: 2px; display: block; }
-    .no-img { width: 66px; height: 66px; background: #f1f5f9; display: flex;
+    td.img-cell { padding: 3px; text-align: center; }
+    td.img-cell img { width: 60px; height: 60px; object-fit: cover; border-radius: 2px; display: inline-block; margin: 1px; }
+    .no-img { width: 66px; height: 66px; background: #f1f5f9; display: inline-flex;
               align-items: center; justify-content: center; font-size: 8px; color: #94a3b8;
               border-radius: 2px; }
     tr:nth-child(even) td { background: #f9fafb; }
@@ -185,11 +185,16 @@ export default function PhotoGuideModal({ open, onOpenChange, jobId, voucherNo =
                       <td className="border border-border px-2 py-1 text-center text-xs text-muted-foreground">{i + 1}</td>
                       <td className="border border-border p-1 text-center">
                         {s.images && s.images.length > 0 ? (
-                          <img
-                            src={s.images[0]}
-                            alt={s.sku}
-                            className="w-16 h-16 object-cover rounded mx-auto block"
-                          />
+                          <div className="flex flex-wrap gap-1 justify-center">
+                            {s.images.map((imgSrc, imgIdx) => (
+                              <img
+                                key={imgIdx}
+                                src={imgSrc}
+                                alt={`${s.sku} ${imgIdx + 1}`}
+                                className="w-16 h-16 object-cover rounded block"
+                              />
+                            ))}
+                          </div>
                         ) : (
                           <div className="w-16 h-16 bg-muted rounded flex flex-col items-center justify-center gap-1 mx-auto">
                             <ImageOff className="h-5 w-5 text-muted-foreground" />
