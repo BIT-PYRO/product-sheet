@@ -222,6 +222,12 @@ export default function MasterWorkforceSheet() {
     loadWorkforce();
   }, [refreshKey]);
 
+  useEffect(() => {
+    const handler = () => setRefreshKey((k) => k + 1);
+    window.addEventListener('workforce-updated', handler);
+    return () => window.removeEventListener('workforce-updated', handler);
+  }, []);
+
   const toggleRowSelection = (id) => {
     const newSelected = new Set(selectedRows);
     if (newSelected.has(id)) {

@@ -377,6 +377,7 @@ export default function ManageMembersPage() {
   const [selectedMember, setSelectedMember]     = useState(null);
   const [deleteTarget, setDeleteTarget]         = useState(null);
   const [enrollOpen, setEnrollOpen]             = useState(false);
+  const [viewMember, setViewMember]             = useState(null);
 
   useEffect(() => {
     async function load() {
@@ -481,6 +482,21 @@ export default function ManageMembersPage() {
         </div>
       )}
 
+      {/* View / Edit member modal */}
+      {viewMember && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center p-4 bg-black/40 backdrop-blur-sm overflow-y-auto">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-4xl my-6">
+            <EnrolWorkforceForm
+              editingId={viewMember.id}
+              readOnly={true}
+              canEditOverride={canEdit || (viewMember.email || '').toLowerCase() === (sessionUser?.email || '').toLowerCase()}
+              onEnroll={() => { setViewMember(null); handleEnrolled(); }}
+              onClose={() => setViewMember(null)}
+            />
+          </div>
+        </div>
+      )}
+
       {/* Top bar */}
       <header className="bg-white border-b border-soft-border px-6 py-4 flex items-center gap-4">
         <Link href="/home" className="p-1.5 rounded-full hover:bg-cloud-gray transition" title="Back">
@@ -546,10 +562,10 @@ export default function ManageMembersPage() {
                       {initials(name)}
                     </div>
 
-                    {/* Name / email / designation — click opens permissions popup */}
+                    {/* Name / email / designation — click opens view/edit popup */}
                     <button
                       className="flex-1 min-w-0 text-left"
-                      onClick={() => setSelectedMember(m)}
+                      onClick={() => setViewMember(m)}
                     >
                       <p className="text-sm font-semibold text-midnight-ink truncate hover:text-trust-blue transition">
                         {name}

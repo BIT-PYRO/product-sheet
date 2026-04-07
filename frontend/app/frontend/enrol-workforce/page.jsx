@@ -13,7 +13,7 @@ import { useSheetPermissions } from '@/hooks/use-sheet-permissions';
 
 const PENDING_DRAFT_KEY = 'pending_enroll_workforce_draft';
 
-const INPUT_CLS = 'w-full border border-soft-border rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-trust-blue focus:border-transparent bg-cloud-gray text-midnight-ink placeholder-slate-400 transition';
+const INPUT_CLS = 'w-full border border-soft-border rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-trust-blue focus:border-transparent bg-cloud-gray text-midnight-ink placeholder-slate-400 transition disabled:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-80';
 
 const INDIAN_STATES = [
   'Andhra Pradesh','Arunachal Pradesh','Assam','Bihar','Chhattisgarh','Goa','Gujarat',
@@ -72,8 +72,9 @@ const emptyAddress = () => ({
   line1: '', line2: '', country: '', countryOther: '', state: '', stateOther: '', city: '', cityOther: '', pincode: '',
 });
 
-export function EnrolWorkforceForm({ onEnroll, onClose, open = true, draftData = null, editingId = null }) {
-  const { canEdit, canCreate } = useSheetPermissions('master-workforce-sheet');
+export function EnrolWorkforceForm({ onEnroll, onClose, open = true, draftData = null, editingId = null, readOnly = false, canEditOverride = false }) {
+  const { canEdit: sheetCanEdit, canCreate } = useSheetPermissions('master-workforce-sheet');
+  const canEdit = canEditOverride || sheetCanEdit;
   const { saveDraft } = useDrafts();
   const loadedDraft = useDraftLoader();
   const formScrollRef = React.useRef(null);
@@ -109,6 +110,8 @@ export function EnrolWorkforceForm({ onEnroll, onClose, open = true, draftData =
   const [documents, setDocuments] = useState({ aadhaar: null, pan: null });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitStatus, setSubmitStatus] = useState(null);
+  const [isReadOnly, setIsReadOnly] = useState(readOnly);
+  const savedFormRef = React.useRef(null);
 
   useEffect(() => { if (draftData) setForm(draftData); }, [draftData]);
 
@@ -238,6 +241,11 @@ export function EnrolWorkforceForm({ onEnroll, onClose, open = true, draftData =
       setSubmitStatus({ success: true, message: `${fullName} ${editingId ? 'updated' : 'enrolled'} successfully.` });
       formScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
 
+      // Notify other components (e.g. Master Workforce Sheet) to refresh
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('workforce-updated'));
+      }
+
       if (onEnroll) onEnroll(fullName);
       if (onClose) onClose();
     } catch {
@@ -358,7 +366,7 @@ export function EnrolWorkforceForm({ onEnroll, onClose, open = true, draftData =
         <DialogHeader className="px-5 pt-4 pb-3 border-b border-soft-border bg-trust-blue relative">
           <div className="flex items-center justify-center">
             <DialogTitle className="text-lg font-bold text-white">
-              {editingId ? 'EDIT WORKFORCE' : 'ENROLL WORKFORCE'}
+              {isReadOnly ? 'VIEW WORKFORCE' : editingId ? 'EDIT WORKFORCE' : 'ENROLL WORKFORCE'}
             </DialogTitle>
           </div>
           <button
@@ -380,6 +388,7 @@ export function EnrolWorkforceForm({ onEnroll, onClose, open = true, draftData =
 
         <div className="px-5 pb-5 flex flex-col gap-2">
           <form className="space-y-6 pt-4">
+          <fieldset disabled={isReadOnly} className="space-y-6 border-0 p-0 m-0 min-w-0">
 
             {/* ── Section 1: Personal Information ── */}
             <div>
@@ -655,24 +664,67 @@ export function EnrolWorkforceForm({ onEnroll, onClose, open = true, draftData =
               />
             </div>
 
+          </fieldset>
+
             {/* ── Action Buttons ── */}
-            {(editingId ? canEdit : canCreate) ? (
+            {isReadOnly ? (
               <div className="flex gap-2 mt-2">
                 <button
                   type="button"
-                  onClick={handleSaveDraft}
-                  className="flex-1 h-10 bg-trust-blue hover:bg-deep-blue text-white font-bold text-sm rounded transition shadow-md"
+                  onClick={handleClose}
+                  className="flex-1 h-10 border border-soft-border text-midnight-ink hover:bg-cloud-gray font-bold text-sm rounded transition"
                 >
-                  Save as Draft
+                  Close
                 </button>
-                <button
-                  type="button"
-                  onClick={handleSubmit}
-                  disabled={isSubmitting}
-                  className="flex-1 h-10 bg-gradient-to-r from-midnight-ink to-midnight-ink/90 hover:from-midnight-ink hover:to-midnight-ink text-white font-bold text-sm rounded transition shadow-md disabled:opacity-60"
-                >
-                  {isSubmitting ? 'ENROLLING...' : 'ENROLL'}
-                </button>
+                {canEdit && (
+                  <button
+                    type="button"
+                    onClick={() => { savedFormRef.current = { ...form }; setIsReadOnly(false); }}
+                    className="flex-1 h-10 bg-trust-blue hover:bg-deep-blue text-white font-bold text-sm rounded transition shadow-md"
+                  >
+                    Edit
+                  </button>
+                )}
+              </div>
+            ) : (editingId ? canEdit : canCreate) ? (
+              <div className="flex gap-2 mt-2">
+                {editingId ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => { if (savedFormRef.current) setForm(savedFormRef.current); setIsReadOnly(true); setSubmitStatus(null); }}
+                      className="flex-1 h-10 border border-soft-border text-midnight-ink hover:bg-cloud-gray font-bold text-sm rounded transition"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSubmit}
+                      disabled={isSubmitting}
+                      className="flex-1 h-10 bg-gradient-to-r from-midnight-ink to-midnight-ink/90 hover:from-midnight-ink hover:to-midnight-ink text-white font-bold text-sm rounded transition shadow-md disabled:opacity-60"
+                    >
+                      {isSubmitting ? 'SAVING...' : 'SAVE CHANGES'}
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      onClick={handleSaveDraft}
+                      className="flex-1 h-10 bg-trust-blue hover:bg-deep-blue text-white font-bold text-sm rounded transition shadow-md"
+                    >
+                      Save as Draft
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSubmit}
+                      disabled={isSubmitting}
+                      className="flex-1 h-10 bg-gradient-to-r from-midnight-ink to-midnight-ink/90 hover:from-midnight-ink hover:to-midnight-ink text-white font-bold text-sm rounded transition shadow-md disabled:opacity-60"
+                    >
+                      {isSubmitting ? 'ENROLLING...' : 'ENROLL'}
+                    </button>
+                  </>
+                )}
               </div>
             ) : (
               <div className="text-sm text-gray-500 text-center mt-2 p-2 bg-gray-50 rounded border border-gray-200">
