@@ -341,7 +341,7 @@ export default function ManagersDashboard() {
 
   const handleCardClick = async (card) => {
     setSelectedVoucher(card);
-    const column = DEPT_TO_COLUMN[card.deptFrom] || 'Others';
+    const column = DEPT_TO_COLUMN[card.deptTo] || 'Others';
     if (column === 'Others') {
       // Fetch full job details from API to get all stored fields
       let jobData = null;
