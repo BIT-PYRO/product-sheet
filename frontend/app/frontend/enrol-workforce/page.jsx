@@ -13,7 +13,7 @@ import { useSheetPermissions } from '@/hooks/use-sheet-permissions';
 
 const PENDING_DRAFT_KEY = 'pending_enroll_workforce_draft';
 
-const INPUT_CLS = 'w-full border border-soft-border rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-trust-blue focus:border-transparent bg-cloud-gray text-midnight-ink placeholder-slate-400 transition';
+const INPUT_CLS = 'w-full border border-soft-border rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-trust-blue focus:border-transparent bg-cloud-gray text-midnight-ink placeholder-slate-400 transition disabled:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-80';
 
 const INDIAN_STATES = [
   'Andhra Pradesh','Arunachal Pradesh','Assam','Bihar','Chhattisgarh','Goa','Gujarat',
@@ -68,12 +68,212 @@ const DEPT_DATA = {
 
 const DEPARTMENTS = Object.keys(DEPT_DATA);
 
+/* ─── Default permissions by designation + department ─────────────────────
+   Called when enrolling a NEW member. Keys must match MODULES in manage-members.
+   Permission flags: view, edit, create, export, amount
+─────────────────────────────────────────────────────────────────────────── */
+function defaultPermsByRole(designation, department) {
+  const des  = (designation || '').trim();
+  const dept = (department  || '').trim();
+
+  // Short permission builders
+  const p  = (v,e,c,x,a) => ({ view:!!v, edit:!!e, create:!!c, export:!!x, amount:!!a });
+  const N    = p(0,0,0,0,0);   // no access
+  const V    = p(1,0,0,0,0);   // view only
+  const VC   = p(1,0,1,0,0);   // view + create
+  const VEC  = p(1,1,1,0,0);   // view + edit + create
+  const VECE = p(1,1,1,1,0);   // view + edit + create + export
+  const FULL = p(1,1,1,1,1);   // all
+
+  const ALL_KEYS = [
+    'product-sheet','master-product-sheet','master-inventory-sheet',
+    'enrol-customer','master-customer-sheet','master-kyc-sheet',
+    'enrol-workforce','master-workforce-sheet','master-job-sheet',
+    'managers-dashboard','drafts','orders','my-desk','create-generic-job',
+    'master-designer-sheet','designer-sheet','finding-sheet','finding-entry','inventory',
+  ];
+  const allPerm  = (lvl) => Object.fromEntries(ALL_KEYS.map(k => [k, lvl]));
+  const baseBuild = () => Object.fromEntries(ALL_KEYS.map(k => [k, N]));
+
+  // ── Tier 0: Top leadership ─────────────────────────────────────────────
+  if (['Chairman','CEO','Director','General Manager'].includes(des)) {
+    return { sheets: allPerm(FULL), manage_members: true };
+  }
+
+  // ── Tier 1: Department Head / Project Manager ──────────────────────────
+  if (['Department Head','Project Manager'].includes(des)) {
+    const s = allPerm(VECE); // view+edit+create+export everywhere, no amount
+    s['managers-dashboard'] = V;
+    s['my-desk']            = FULL;
+    s['drafts']             = FULL;
+    return { sheets: s, manage_members: false };
+  }
+
+  // ── Tier 2: Manager (department-aware) ────────────────────────────────
+  if (des === 'Manager') {
+    const s = baseBuild();
+    s['my-desk']  = VEC;
+    s['drafts']   = VEC;
+    s['product-sheet'] = V;
+    s['orders']   = V;
+    switch (dept) {
+      case 'Finance':
+        s['master-product-sheet']   = FULL;
+        s['master-inventory-sheet'] = FULL;
+        s['master-customer-sheet']  = V;
+        s['master-kyc-sheet']       = VECE;
+        s['orders']                 = FULL;
+        break;
+      case 'Human Resource':
+        s['enrol-workforce']        = VECE;
+        s['master-workforce-sheet'] = VECE;
+        s['master-kyc-sheet']       = V;
+        break;
+      case 'Sales / Business Development':
+        s['enrol-customer']         = VECE;
+        s['master-customer-sheet']  = VECE;
+        s['master-product-sheet']   = V;
+        s['orders']                 = VECE;
+        break;
+      case 'Customer Relation Management':
+        s['enrol-customer']         = VEC;
+        s['master-customer-sheet']  = VEC;
+        s['orders']                 = V;
+        break;
+      case 'Purchase':
+        s['master-inventory-sheet'] = VECE;
+        s['inventory']              = VECE;
+        s['finding-sheet']          = V;
+        s['finding-entry']          = VECE;
+        s['master-product-sheet']   = V;
+        break;
+      case 'Production':
+        s['master-job-sheet']       = VEC;
+        s['create-generic-job']     = VEC;
+        s['finding-sheet']          = V;
+        s['finding-entry']          = VEC;
+        s['orders']                 = V;
+        break;
+      case 'Design':
+        s['master-designer-sheet']  = VEC;
+        s['designer-sheet']         = VEC;
+        s['finding-sheet']          = V;
+        break;
+      case 'Marketing':
+        s['master-customer-sheet']  = V;
+        break;
+      case 'Logistics':
+        s['orders']                 = VECE;
+        s['master-product-sheet']   = V;
+        break;
+      case 'Operations':
+        s['master-job-sheet']       = VEC;
+        s['create-generic-job']     = VEC;
+        s['orders']                 = V;
+        break;
+      case 'Information Technology':
+        s['master-product-sheet']   = V;
+        s['master-inventory-sheet'] = V;
+        s['master-job-sheet']       = V;
+        break;
+    }
+    return { sheets: s, manage_members: false };
+  }
+
+  // ── Tier 3: Associate / Developer / Supervisor ────────────────────────
+  if (['Associate','Developer','Supervisor'].includes(des)) {
+    const s = baseBuild();
+    s['my-desk']       = VEC;
+    s['drafts']        = VEC;
+    s['product-sheet'] = V;
+    switch (dept) {
+      case 'Finance':
+        s['orders'] = V;
+        break;
+      case 'Human Resource':
+        s['enrol-workforce']        = VC;
+        s['master-workforce-sheet'] = V;
+        break;
+      case 'Sales / Business Development':
+        s['enrol-customer']         = VC;
+        s['master-customer-sheet']  = V;
+        s['orders']                 = V;
+        break;
+      case 'Customer Relation Management':
+        s['enrol-customer']         = VC;
+        s['master-customer-sheet']  = V;
+        break;
+      case 'Purchase':
+        s['master-inventory-sheet'] = V;
+        s['inventory']              = V;
+        s['finding-entry']          = VC;
+        break;
+      case 'Production':
+        s['master-job-sheet']       = V;
+        s['finding-entry']          = VC;
+        s['create-generic-job']     = VC;
+        break;
+      case 'Design':
+        s['designer-sheet']         = VEC;
+        s['finding-sheet']          = V;
+        s['finding-entry']          = VC;
+        break;
+      case 'Marketing':
+        s['master-customer-sheet']  = V;
+        break;
+      case 'Logistics':
+        s['orders'] = V;
+        break;
+      case 'Operations':
+        s['orders']             = V;
+        s['master-job-sheet']   = V;
+        s['create-generic-job'] = VC;
+        break;
+      case 'Information Technology':
+        s['master-product-sheet']   = V;
+        s['master-inventory-sheet'] = V;
+        break;
+    }
+    return { sheets: s, manage_members: false };
+  }
+
+  // ── Tier 4: Intern / Labour / Worker ──────────────────────────────────
+  if (['Intern','Labour','Worker'].includes(des)) {
+    const s = baseBuild();
+    s['my-desk'] = VEC;
+    s['drafts']  = VEC;
+    if (dept === 'Production') {
+      s['master-job-sheet'] = V;
+    }
+    if (des === 'Intern') {
+      s['product-sheet'] = V;
+    }
+    return { sheets: s, manage_members: false };
+  }
+
+  // ── Tier 5: Services & House Keeping — no sheet access ────────────────
+  const noAccessRoles = [
+    'Security','Electrician','Plumber','CCTV Operator','Carpenter','Ironsmith','Locksmith',
+    'Cook','Pantry Boy','Janitor','Messenger',
+  ];
+  if (noAccessRoles.includes(des)) {
+    return { sheets: baseBuild(), manage_members: false };
+  }
+
+  // ── Default fallback: my-desk + drafts only ───────────────────────────
+  const s = baseBuild();
+  s['my-desk'] = VEC;
+  s['drafts']  = VEC;
+  return { sheets: s, manage_members: false };
+}
+
 const emptyAddress = () => ({
   line1: '', line2: '', country: '', countryOther: '', state: '', stateOther: '', city: '', cityOther: '', pincode: '',
 });
 
-export function EnrolWorkforceForm({ onEnroll, onClose, open = true, draftData = null, editingId = null }) {
-  const { canEdit, canCreate } = useSheetPermissions('master-workforce-sheet');
+export function EnrolWorkforceForm({ onEnroll, onClose, open = true, draftData = null, editingId = null, readOnly = false, canEditOverride = false }) {
+  const { canEdit: sheetCanEdit, canCreate } = useSheetPermissions('master-workforce-sheet');
+  const canEdit = canEditOverride || sheetCanEdit;
   const { saveDraft } = useDrafts();
   const loadedDraft = useDraftLoader();
   const formScrollRef = React.useRef(null);
@@ -109,6 +309,8 @@ export function EnrolWorkforceForm({ onEnroll, onClose, open = true, draftData =
   const [documents, setDocuments] = useState({ aadhaar: null, pan: null });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitStatus, setSubmitStatus] = useState(null);
+  const [isReadOnly, setIsReadOnly] = useState(readOnly);
+  const savedFormRef = React.useRef(null);
 
   useEffect(() => { if (draftData) setForm(draftData); }, [draftData]);
 
@@ -224,6 +426,13 @@ export function EnrolWorkforceForm({ onEnroll, onClose, open = true, draftData =
           ifsc: String(form.ifsc || '').trim(),
           notes: String(form.notes || '').trim(),
           active: true,
+          // Auto-assign default permissions on first enroll (not on edit)
+          ...(!editingId && {
+            permissions: defaultPermsByRole(
+              form.designation === 'Other' ? (form.designationOther || '') : (form.designation || ''),
+              form.department  === 'Other' ? (form.departmentOther  || '') : (form.department  || ''),
+            ),
+          }),
         }),
       });
 
@@ -237,6 +446,11 @@ export function EnrolWorkforceForm({ onEnroll, onClose, open = true, draftData =
 
       setSubmitStatus({ success: true, message: `${fullName} ${editingId ? 'updated' : 'enrolled'} successfully.` });
       formScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+
+      // Notify other components (e.g. Master Workforce Sheet) to refresh
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('workforce-updated'));
+      }
 
       if (onEnroll) onEnroll(fullName);
       if (onClose) onClose();
@@ -358,7 +572,7 @@ export function EnrolWorkforceForm({ onEnroll, onClose, open = true, draftData =
         <DialogHeader className="px-5 pt-4 pb-3 border-b border-soft-border bg-trust-blue relative">
           <div className="flex items-center justify-center">
             <DialogTitle className="text-lg font-bold text-white">
-              {editingId ? 'EDIT WORKFORCE' : 'ENROLL WORKFORCE'}
+              {isReadOnly ? 'VIEW WORKFORCE' : editingId ? 'EDIT WORKFORCE' : 'ENROLL WORKFORCE'}
             </DialogTitle>
           </div>
           <button
@@ -380,6 +594,7 @@ export function EnrolWorkforceForm({ onEnroll, onClose, open = true, draftData =
 
         <div className="px-5 pb-5 flex flex-col gap-2">
           <form className="space-y-6 pt-4">
+          <fieldset disabled={isReadOnly} className="space-y-6 border-0 p-0 m-0 min-w-0">
 
             {/* ── Section 1: Personal Information ── */}
             <div>
@@ -655,24 +870,67 @@ export function EnrolWorkforceForm({ onEnroll, onClose, open = true, draftData =
               />
             </div>
 
+          </fieldset>
+
             {/* ── Action Buttons ── */}
-            {(editingId ? canEdit : canCreate) ? (
+            {isReadOnly ? (
               <div className="flex gap-2 mt-2">
                 <button
                   type="button"
-                  onClick={handleSaveDraft}
-                  className="flex-1 h-10 bg-trust-blue hover:bg-deep-blue text-white font-bold text-sm rounded transition shadow-md"
+                  onClick={handleClose}
+                  className="flex-1 h-10 border border-soft-border text-midnight-ink hover:bg-cloud-gray font-bold text-sm rounded transition"
                 >
-                  Save as Draft
+                  Close
                 </button>
-                <button
-                  type="button"
-                  onClick={handleSubmit}
-                  disabled={isSubmitting}
-                  className="flex-1 h-10 bg-gradient-to-r from-midnight-ink to-midnight-ink/90 hover:from-midnight-ink hover:to-midnight-ink text-white font-bold text-sm rounded transition shadow-md disabled:opacity-60"
-                >
-                  {isSubmitting ? 'ENROLLING...' : 'ENROLL'}
-                </button>
+                {canEdit && (
+                  <button
+                    type="button"
+                    onClick={() => { savedFormRef.current = { ...form }; setIsReadOnly(false); }}
+                    className="flex-1 h-10 bg-trust-blue hover:bg-deep-blue text-white font-bold text-sm rounded transition shadow-md"
+                  >
+                    Edit
+                  </button>
+                )}
+              </div>
+            ) : (editingId ? canEdit : canCreate) ? (
+              <div className="flex gap-2 mt-2">
+                {editingId ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => { if (savedFormRef.current) setForm(savedFormRef.current); setIsReadOnly(true); setSubmitStatus(null); }}
+                      className="flex-1 h-10 border border-soft-border text-midnight-ink hover:bg-cloud-gray font-bold text-sm rounded transition"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSubmit}
+                      disabled={isSubmitting}
+                      className="flex-1 h-10 bg-gradient-to-r from-midnight-ink to-midnight-ink/90 hover:from-midnight-ink hover:to-midnight-ink text-white font-bold text-sm rounded transition shadow-md disabled:opacity-60"
+                    >
+                      {isSubmitting ? 'SAVING...' : 'SAVE CHANGES'}
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      onClick={handleSaveDraft}
+                      className="flex-1 h-10 bg-trust-blue hover:bg-deep-blue text-white font-bold text-sm rounded transition shadow-md"
+                    >
+                      Save as Draft
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSubmit}
+                      disabled={isSubmitting}
+                      className="flex-1 h-10 bg-gradient-to-r from-midnight-ink to-midnight-ink/90 hover:from-midnight-ink hover:to-midnight-ink text-white font-bold text-sm rounded transition shadow-md disabled:opacity-60"
+                    >
+                      {isSubmitting ? 'ENROLLING...' : 'ENROLL'}
+                    </button>
+                  </>
+                )}
               </div>
             ) : (
               <div className="text-sm text-gray-500 text-center mt-2 p-2 bg-gray-50 rounded border border-gray-200">

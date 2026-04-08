@@ -33,7 +33,7 @@ function generateVoucherNo() {
   return `JJ-${String(currentCount).padStart(2, '0')}`
 }
 
-export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated, initialSku = '', mode = 'single' }) {
+export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated, initialSku = '', mode = 'single', picklistGroupNumber = null }) {
   const { saveDraft } = useDrafts()
   const loadedDraft = useDraftLoader()
   const [isQuickEnrollModalOpen, setIsQuickEnrollModalOpen] = useState(false)
@@ -235,36 +235,59 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
     setDieWeightRows((prev) => prev.map((r) => (r.id === id ? { ...r, [field]: value } : r)))
   }
 
-  // Auto-fill stone rows when any SKU row changes
+  // Derived key from SKU values only — changes when SKUs change, NOT when category/metal fill
+  const skuKey = rows.map(r => String(r.sku || '').trim()).join('|')
+
+  // Auto-fill category, metal, and stone rows from product when a Master SKU is entered
   useEffect(() => {
-    const skuValues = rows.map(r => String(r.sku || '').trim()).filter(Boolean)
-    if (!skuValues.length) return
-    const primarySku = skuValues[0]
-    const timer = setTimeout(() => {
-      fetch(`/api/products?search=${encodeURIComponent(primarySku)}`, { cache: 'no-store' })
-        .then(r => r.json())
-        .then(result => {
+    const skuEntries = rows
+      .map(r => ({ id: r.id, sku: String(r.sku || '').trim() }))
+      .filter(e => e.sku)
+    if (!skuEntries.length) return
+    const timer = setTimeout(async () => {
+      const fetchedProducts = new Map()
+      const uniqueSkus = [...new Set(skuEntries.map(e => e.sku))]
+      await Promise.all(uniqueSkus.map(async (sku) => {
+        try {
+          const r = await fetch(`/api/products?master_sku=${encodeURIComponent(sku)}`, { cache: 'no-store' })
+          const result = await r.json().catch(() => null)
           const items = Array.isArray(result?.data) ? result.data : (result?.data?.results || [])
-          const product = items.find(p => String(p.master_sku || '').toLowerCase() === primarySku.toLowerCase()) || items[0]
-          if (!product) return
-          if (Array.isArray(product.stone_entries) && product.stone_entries.length > 0) {
-            setStoneRows(product.stone_entries.map((s, i) => ({
-              id: i + 1,
-              variety: s.variety || '',
-              color: s.color || '',
-              cut: s.cut || '',
-              shape: s.shape || '',
-              length: s.length || '',
-              width: s.width || '',
-              height: s.height || '',
-              qty: s.qty || '',
-            })))
-          }
-        })
-        .catch(() => {})
+          const product = items.find(p => String(p.master_sku || '').toLowerCase() === sku.toLowerCase()) || items[0]
+          if (product) fetchedProducts.set(sku.toLowerCase(), product)
+        } catch {}
+      }))
+      if (!fetchedProducts.size) return
+      // Fill category + metal for each row (only if currently empty)
+      setRows(prev => prev.map(row => {
+        const sku = String(row.sku || '').trim().toLowerCase()
+        if (!sku) return row
+        const product = fetchedProducts.get(sku)
+        if (!product) return row
+        return {
+          ...row,
+          category: row.category || String(product.category || ''),
+          metal: row.metal || String(product.material || ''),
+        }
+      }))
+      // Fill stone rows from first SKU's product
+      const firstProduct = fetchedProducts.get(skuEntries[0].sku.toLowerCase())
+      if (firstProduct && Array.isArray(firstProduct.stone_entries) && firstProduct.stone_entries.length > 0) {
+        setStoneRows(firstProduct.stone_entries.map((s, i) => ({
+          id: i + 1,
+          variety: s.variety || '',
+          color: s.color || '',
+          cut: s.cut || '',
+          shape: s.shape || '',
+          length: s.length || '',
+          width: s.width || '',
+          height: s.height || '',
+          qty: s.qty || '',
+        })))
+      }
     }, 600)
     return () => clearTimeout(timer)
-  }, [rows])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [skuKey])
 
   async function handleEnrollPerson(personName) {
     const normalizedName = String(personName || '').trim()
@@ -301,6 +324,7 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
 
   // Department pipeline for bulk voucher creation (matches backend DEPARTMENT_PIPELINE)
   const DEPARTMENT_PIPELINE = [
+    { key: 'die', label: 'Die' },
     { key: 'wax-pieces', label: 'Wax Piece' },
     { key: 'wax-setting', label: 'Wax Setting' },
     { key: 'casting', label: 'Casting' },
@@ -308,7 +332,7 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
     { key: 'pre-polish', label: 'Pre-Polish' },
     { key: 'hand-setting', label: 'Hand Setting' },
     { key: 'polishing', label: 'Final Polish' },
-    { key: 'plating', label: 'Ready for Plating' },
+    { key: 'plating', label: 'Plating' },
     { key: 'final-stock', label: 'Final Stock' },
   ]
 
@@ -321,6 +345,22 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
         return
       }
       setIsBulkCreating(true)
+
+      // Resolve picklist group DB id once before the loop
+      let picklistGroupDbId = null
+      const plNumber = mode === 'all'
+        ? (() => { const pl = picklists.find(p => String(p.id) === selectedPicklistId); return pl?.number ?? null })()
+        : picklistGroupNumber
+      if (plNumber !== null && plNumber !== undefined) {
+        try {
+          const pgRes = await fetch(`/api/picklist-groups?number=${plNumber}`, { cache: 'no-store' })
+          const pgResult = await pgRes.json().catch(() => null)
+          const pgData = Array.isArray(pgResult?.data) ? pgResult.data
+            : Array.isArray(pgResult?.data?.results) ? pgResult.data.results : []
+          picklistGroupDbId = pgData[0]?.db_id ?? null
+        } catch { /* skip */ }
+      }
+
       const results = { created: 0, failed: 0, errors: [] }
 
       try {
@@ -441,6 +481,7 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
                 material_rows: materialRows,
                 stone_rows: stoneRows.map(({ variety, color, cut, shape, length, width, height, qty }) => ({ variety, color, cut, shape, length, width, height, qty })),
                 die_weight_rows: dieWeightRows.map(({ dieNumber, quantity, weight, unit }) => ({ die_number: dieNumber, quantity, weight, unit })),
+                ...(picklistGroupDbId ? { picklist_group: picklistGroupDbId } : {}),
               }),
             })
             const createResult = await createRes.json().catch(() => null)
@@ -515,6 +556,7 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
           title,
           product: selectedProduct.id,
           status: 'created',
+          approval_status: 'in_process',
           voucher_no: voucherNo,
           voucher_type: voucherType,
           issued_to: issuedTo,
@@ -574,6 +616,7 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
   }
 
   const jewelleryDepartments = [
+    { value: "die", label: "Die" },
     { value: "design", label: "Design / CAD" },
     { value: "3d-print", label: "3D Print" },
     { value: "mold-die", label: "Mold Die" },
@@ -734,7 +777,8 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
           </div>
 
           {/* DEPARTMENT TRANSFER — hidden for single-pipeline mode (auto-determined per SKU) */}
-          {mode !== 'single-pipeline' && <div className="border border-border rounded-md px-2.5 py-1.5">
+          {/* DEPARTMENT TRANSFER */}
+          <div className="border border-border rounded-md px-2.5 py-1.5">
             <div className="grid grid-cols-[1fr_auto_1fr] gap-1.5 items-end">
               <div className="flex flex-col gap-0.5">
                 <Label className="text-sm font-medium text-muted-foreground">From</Label>
@@ -766,7 +810,7 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
                 </Select>
               </div>
             </div>
-          </div>}
+          </div>
 
           {/* SKU Table */}
           <div className="rounded-md overflow-hidden border border-border">

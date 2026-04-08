@@ -4,6 +4,23 @@ from .models import Job
 
 
 class JobSerializer(serializers.ModelSerializer):
+
+    def get_picklist_name(self, obj):
+        if obj.picklist_group_id and hasattr(obj, 'picklist_group') and obj.picklist_group:
+            return obj.picklist_group.name or ''
+        return ''
+
+    def get_order_name(self, obj):
+        if obj.picklist_group_id and hasattr(obj, 'picklist_group') and obj.picklist_group:
+            return f"PICKLIST-{obj.picklist_group.number}"
+        return ''
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data['picklist_name'] = self.get_picklist_name(instance)
+        data['order_name'] = self.get_order_name(instance)
+        return data
+
     def create(self, validated_data):
         # Ensure job_type has a default if not provided
         if not validated_data.get('job_type'):

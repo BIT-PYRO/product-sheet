@@ -26,10 +26,11 @@ function avatarColor(name) {
   return AVATAR_COLORS[h % AVATAR_COLORS.length];
 }
 
-/* superuser = admin role OR workforce designation is Chairman / CEO */
+/* superuser = admin role OR Django is_superuser OR workforce designation is Chairman / CEO */
 function isSuperUser(sessionUser, workforceRecord) {
   if (!sessionUser) return false;
   if (sessionUser.role === 'admin') return true;
+  if (sessionUser.is_superuser) return true;
   const des = (workforceRecord?.designation || '').toLowerCase().trim();
   return des === 'chairman' || des === 'ceo';
 }
@@ -59,7 +60,7 @@ const MODULES = [
 
 function defaultPermissions() {
   const sheets = {};
-  MODULES.forEach((m) => { sheets[m.key] = { view: false, edit: false, create: false }; });
+  MODULES.forEach((m) => { sheets[m.key] = { view: false, edit: false, create: false, export: false, amount: false }; });
   return { sheets, manage_members: false };
 }
 
@@ -73,6 +74,8 @@ function mergePermissions(saved) {
         view:   !!savedSheets[m.key].view,
         edit:   !!savedSheets[m.key].edit,
         create: !!savedSheets[m.key].create,
+        export: !!savedSheets[m.key].export,
+        amount: !!savedSheets[m.key].amount,
       };
     }
   });
@@ -139,7 +142,7 @@ function DeleteConfirmModal({ member, onClose, onDeleted }) {
 /* ─── All-permissions helper (for superusers) ────────── */
 function allPermissions() {
   const sheets = {};
-  MODULES.forEach((m) => { sheets[m.key] = { view: true, edit: true, create: true }; });
+  MODULES.forEach((m) => { sheets[m.key] = { view: true, edit: true, create: true, export: true, amount: true }; });
   return { sheets, manage_members: true };
 }
 
@@ -166,10 +169,11 @@ function PermissionsModal({ member, canEdit, isSelf, onClose, onSaved }) {
   function toggleSheet(key, field) {
     if (!effectiveCanEdit) return;
     setPerms((prev) => {
-      const current = prev.sheets[key] || { view: false, edit: false, create: false };
+      const current = prev.sheets[key] || { view: false, edit: false, create: false, export: false, amount: false };
       const newVal = !current[field];
       let updated = { ...current, [field]: newVal };
 
+      // cascading rules for view/edit/create
       if (newVal) {
         if (field === 'create') { updated.view = true; updated.edit = true; }
         if (field === 'edit')   { updated.view = true; }
@@ -177,6 +181,7 @@ function PermissionsModal({ member, canEdit, isSelf, onClose, onSaved }) {
         if (field === 'view')   { updated.edit = false; updated.create = false; }
         if (field === 'edit')   { updated.create = false; }
       }
+      // export and amount are independent — no cascading
 
       return { ...prev, sheets: { ...prev.sheets, [key]: updated } };
     });
@@ -222,7 +227,7 @@ function PermissionsModal({ member, canEdit, isSelf, onClose, onSaved }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-3xl max-h-[90vh] flex flex-col">
 
         {/* Header */}
         <div className="flex items-center gap-3 px-6 py-4 border-b border-soft-border shrink-0">
@@ -251,17 +256,19 @@ function PermissionsModal({ member, canEdit, isSelf, onClose, onSaved }) {
 
           {/* Sheet permissions table */}
           <div className="mb-5">
-            <div className="grid grid-cols-[1fr_60px_60px_60px] gap-x-2 mb-2 px-1">
+            <div className="grid grid-cols-[1fr_56px_56px_64px_64px_66px] gap-x-2 mb-2 px-1">
               <span className="text-xs font-bold text-cool-gray uppercase tracking-wide">Module</span>
               <span className="text-xs font-bold text-cool-gray uppercase tracking-wide text-center">View</span>
               <span className="text-xs font-bold text-cool-gray uppercase tracking-wide text-center">Edit</span>
               <span className="text-xs font-bold text-cool-gray uppercase tracking-wide text-center">Create</span>
+              <span className="text-xs font-bold text-cool-gray uppercase tracking-wide text-center">Export</span>
+              <span className="text-xs font-bold text-cool-gray uppercase tracking-wide text-center">Amount</span>
             </div>
             <div className="divide-y divide-soft-border rounded-xl border border-soft-border overflow-hidden">
               {MODULES.map((mod) => (
-                <div key={mod.key} className="grid grid-cols-[1fr_60px_60px_60px] gap-x-2 items-center px-3 py-2.5 hover:bg-cloud-gray transition">
+                <div key={mod.key} className="grid grid-cols-[1fr_56px_56px_64px_64px_66px] gap-x-2 items-center px-3 py-2.5 hover:bg-cloud-gray transition">
                   <span className="text-sm text-midnight-ink">{mod.label}</span>
-                  {(['view', 'edit', 'create']).map((field) => (
+                  {(['view', 'edit', 'create', 'export', 'amount']).map((field) => (
                     <div key={field} className="flex justify-center">
                       <input
                         type="checkbox"
@@ -377,6 +384,7 @@ export default function ManageMembersPage() {
   const [selectedMember, setSelectedMember]     = useState(null);
   const [deleteTarget, setDeleteTarget]         = useState(null);
   const [enrollOpen, setEnrollOpen]             = useState(false);
+  const [viewMember, setViewMember]             = useState(null);
 
   useEffect(() => {
     async function load() {
@@ -410,7 +418,7 @@ export default function ManageMembersPage() {
     load();
   }, [router]);
 
-  const canEdit = isSuperUser(sessionUser, myWorkforce);
+  const canEdit = isSuperUser(sessionUser, myWorkforce) || !!myWorkforce?.permissions?.manage_members;
 
   function handlePermissionsSaved(memberId, newPerms) {
     setAllMembers((prev) =>
@@ -481,6 +489,21 @@ export default function ManageMembersPage() {
         </div>
       )}
 
+      {/* View / Edit member modal */}
+      {viewMember && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center p-4 bg-black/40 backdrop-blur-sm overflow-y-auto">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-4xl my-6">
+            <EnrolWorkforceForm
+              editingId={viewMember.id}
+              readOnly={true}
+              canEditOverride={canEdit || (viewMember.email || '').toLowerCase() === (sessionUser?.email || '').toLowerCase()}
+              onEnroll={() => { setViewMember(null); handleEnrolled(); }}
+              onClose={() => setViewMember(null)}
+            />
+          </div>
+        </div>
+      )}
+
       {/* Top bar */}
       <header className="bg-white border-b border-soft-border px-6 py-4 flex items-center gap-4">
         <Link href="/home" className="p-1.5 rounded-full hover:bg-cloud-gray transition" title="Back">
@@ -546,10 +569,10 @@ export default function ManageMembersPage() {
                       {initials(name)}
                     </div>
 
-                    {/* Name / email / designation — click opens permissions popup */}
+                    {/* Name / email / designation — click opens view/edit popup */}
                     <button
                       className="flex-1 min-w-0 text-left"
-                      onClick={() => setSelectedMember(m)}
+                      onClick={() => setViewMember(m)}
                     >
                       <p className="text-sm font-semibold text-midnight-ink truncate hover:text-trust-blue transition">
                         {name}
@@ -561,16 +584,16 @@ export default function ManageMembersPage() {
                       )}
                     </button>
 
-                    {/* Edit / Delete — superusers only */}
-                    {canEdit && (
-                      <div className="flex items-center gap-2 shrink-0">
-                        <button
-                          title="Edit Permissions"
-                          onClick={() => setSelectedMember(m)}
-                          className="p-1.5 rounded hover:bg-trust-blue/10 text-trust-blue transition"
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </button>
+                    {/* Permissions icon — visible to everyone; trash only for superusers */}
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        title={canEdit ? 'Edit Permissions' : 'View Permissions'}
+                        onClick={() => setSelectedMember(m)}
+                        className="p-1.5 rounded hover:bg-trust-blue/10 text-trust-blue transition"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </button>
+                      {canEdit && (
                         <button
                           title="Revoke Access"
                           onClick={() => setDeleteTarget(m)}
@@ -578,8 +601,8 @@ export default function ManageMembersPage() {
                         >
                           <Trash2 className="h-4 w-4" />
                         </button>
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </li>
                 );
               })}

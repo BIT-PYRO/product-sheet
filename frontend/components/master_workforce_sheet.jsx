@@ -35,7 +35,7 @@ import LastUpdatedFooter from '@/components/last-updated-footer';
 import { useSheetPermissions } from '@/hooks/use-sheet-permissions';
 
 export default function MasterWorkforceSheet() {
-  const { canEdit, canCreate } = useSheetPermissions('master-workforce-sheet');
+  const { canEdit, canCreate, canExport } = useSheetPermissions('master-workforce-sheet');
   const [lastUpdated, setLastUpdated] = useState(null);
   const [currentUsername, setCurrentUsername] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
@@ -221,6 +221,12 @@ export default function MasterWorkforceSheet() {
     };
     loadWorkforce();
   }, [refreshKey]);
+
+  useEffect(() => {
+    const handler = () => setRefreshKey((k) => k + 1);
+    window.addEventListener('workforce-updated', handler);
+    return () => window.removeEventListener('workforce-updated', handler);
+  }, []);
 
   const toggleRowSelection = (id) => {
     const newSelected = new Set(selectedRows);
@@ -837,6 +843,8 @@ export default function MasterWorkforceSheet() {
             onClick={handleExport}
             variant="outline"
             className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8"
+            disabled={!canExport}
+            title={!canExport ? 'You do not have permission to export' : undefined}
           >
             Export
           </Button>

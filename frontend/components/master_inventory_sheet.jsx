@@ -62,7 +62,7 @@ const DEFAULT_LIVE_STOCK_COLS = [
   { key: 'prePolish', label: 'Pre Polish' },
   { key: 'setting', label: 'Hand Setting' },
   { key: 'finalPolish', label: 'Final Polish' },
-  { key: 'readyForPlating', label: 'Ready for Plating' },
+  { key: 'readyForPlating', label: 'Plating' },
 ];
 // Convert backend key to camelCase frontend key.
 // Handles both snake_case stage keys AND liveStock route-level keys stored in TableColumnConfig.
@@ -112,7 +112,7 @@ const STOCK_FIELDS_MAP = {
   prePolish:      'Pre Polish',
   setting:        'Hand Setting',
   finalPolish:    'Final Polish',
-  readyForPlating:'Ready for Plating',
+  readyForPlating:'Plating',
   finalStockValue:'Final Stock',
 };
 
@@ -353,7 +353,7 @@ function loadPicklistsFromStorage() {
 
 
 export default function MasterInventorySheet() {
-  const { canEdit, canCreate } = useSheetPermissions('master-inventory-sheet');
+  const { canEdit, canCreate, canExport, canAmount } = useSheetPermissions('master-inventory-sheet');
   const picklistFileInputRef = useRef(null);
   const [lastUpdated, setLastUpdated] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -897,12 +897,17 @@ export default function MasterInventorySheet() {
   };
 
   const visibleColumnList = useMemo(() => {
-    const columns = inventoryColumns.filter((column) => visibleColumns.has(column.key));
+    const AMOUNT_COLUMN_KEYS = new Set(['finalStockValue']);
+    const columns = inventoryColumns.filter((column) => {
+      if (!visibleColumns.has(column.key)) return false;
+      if (!canAmount && AMOUNT_COLUMN_KEYS.has(column.key)) return false;
+      return true;
+    });
     if (!columns.some((column) => column.key === '__select__')) {
       return [{ key: '__select__', label: '' }, ...columns];
     }
     return columns;
-  }, [visibleColumns]);
+  }, [visibleColumns, canAmount]);
 
   const toggleColumnSelection = (columnKey) => {
     setSelectedColumnsForAction((prev) => {
@@ -1528,7 +1533,7 @@ export default function MasterInventorySheet() {
             <Button variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8" onClick={() => setIsManageColumnsOpen(true)}>
               Manage Columns
             </Button>
-            <Button variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8" onClick={handleExport}>Export</Button>
+            <Button variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8" onClick={handleExport} disabled={!canExport} title={!canExport ? 'You do not have permission to export' : undefined}>Export</Button>
             <Button variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8" onClick={() => window.print()}>Print</Button>
             <Button
               onClick={() => setIsPendingVouchersOpen(true)}
@@ -1746,7 +1751,7 @@ export default function MasterInventorySheet() {
                   return (
                     <tr key={`${row.id}-v${varIdx}`} className={isDeleting ? 'opacity-40 pointer-events-none' : ''}>
 
-                      {/* ── Spanning cells — Master SKU through Ready for Plating (first variation only) ── */}
+                      {/* ── Spanning cells — Master SKU through Plating (first variation only) ── */}
                       {isFirst && spanningCols.map((column) => (
                         <td
                           key={`${row.id}-${column.key}`}
@@ -1924,6 +1929,7 @@ export default function MasterInventorySheet() {
         open={isCreateJobModalOpen}
         onOpenChange={setIsCreateJobModalOpen}
         mode="single-pipeline"
+        picklistGroupNumber={selectedPicklistData?.number ?? null}
         onJobCreated={() => {
           loadProducts();
         }}

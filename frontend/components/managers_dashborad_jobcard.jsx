@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -62,15 +62,8 @@ export default function ManagersDashboard() {
   const [departmentFilter, setDepartmentFilter] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
-
-  // Sample data for filters
   const statusOptions = ['Pending', 'WIP', 'Completed'];
   const newReissueOptions = ['New', 'Re-issue'];
-  const nameOptions = ['Name 1', 'Name 2', 'Name 3', 'Name 4'];
-  const issuerOptions = ['Issuer 1', 'Issuer 2', 'Issuer 3'];
-  const departmentOptions = ['D1', 'D2', 'D3', 'D4'];
-  const typeOptions = ['T1', 'T2', 'T3', 'T4'];
-  const categoryOptions = ['C1', 'C2', 'C3', 'C4'];
 
   // Process columns — live pipeline stages (matches dept_from keys order)
   const processColumns = [
@@ -81,11 +74,12 @@ export default function ManagersDashboard() {
     'Pre Polish',
     'Hand Setting',
     'Final Polish',
-    'Ready for Plating',
+    'Plating',
+    'Final Stock',
     'Others',
   ];
 
-  // Maps voucher dept_from keys → dashboard column names
+  // Maps voucher dept_to keys → dashboard column names
   const DEPT_TO_COLUMN = {
     'wax-pieces':  'Wax Piece',
     'wax-setting': 'Wax Setting',
@@ -94,7 +88,8 @@ export default function ManagersDashboard() {
     'pre-polish':  'Pre Polish',
     'hand-setting': 'Hand Setting',
     'polishing':   'Final Polish',
-    'plating':     'Ready for Plating',
+    'plating':     'Plating',
+    'final-stock': 'Final Stock',
   };
 
   // Human-readable labels for dept keys used in card display
@@ -106,7 +101,7 @@ export default function ManagersDashboard() {
     'pre-polish':  'Pre Polish',
     'hand-setting': 'Hand Setting',
     'polishing':   'Final Polish',
-    'plating':     'Ready for Plating',
+    'plating':     'Plating',
     'final-stock': 'Final Stock',
   };
 
@@ -158,7 +153,8 @@ export default function ManagersDashboard() {
     'Pre Polish':        { new: [], wip: [], completed: [] },
     'Hand Setting':      { new: [], wip: [], completed: [] },
     'Final Polish':      { new: [], wip: [], completed: [] },
-    'Ready for Plating': { new: [], wip: [], completed: [] },
+    'Plating':           { new: [], wip: [], completed: [] },
+    'Final Stock':       { new: [], wip: [], completed: [] },
     'Others':            { new: [], wip: [], completed: [] },
   };
 
@@ -176,6 +172,79 @@ export default function ManagersDashboard() {
     if (status === 'in_progress') return 'wip';
     return 'new';
   };
+
+  // Dynamic filter options derived from loaded data
+  const filterOptions = useMemo(() => {
+    const names = new Set();
+    const issuers = new Set();
+    const departments = new Set();
+    const types = new Set();
+    const categories = new Set();
+    for (const col of Object.values(jobCardsData)) {
+      for (const bucket of ['new', 'wip', 'completed']) {
+        for (const card of col[bucket]) {
+          if (card.name && card.name !== 'Unassigned') names.add(card.name);
+          if (card.issuedBy) issuers.add(card.issuedBy);
+          if (card.deptFrom) departments.add(card.deptFrom);
+          if (card.workType) types.add(card.workType);
+          if (card.category) categories.add(card.category);
+        }
+      }
+    }
+    return {
+      names: Array.from(names).sort(),
+      issuers: Array.from(issuers).sort(),
+      departments: Array.from(departments).sort(),
+      types: Array.from(types).sort(),
+      categories: Array.from(categories).sort(),
+    };
+  }, [jobCardsData]);
+
+  // Filtered data derived from jobCardsData + all active filters
+  const filteredJobCardsData = useMemo(() => {
+    const applyFilter = (card, bucket) => {
+      if (statusFilter === 'Pending' && bucket !== 'new') return false;
+      if (statusFilter === 'WIP' && bucket !== 'wip') return false;
+      if (statusFilter === 'Completed' && bucket !== 'completed') return false;
+      if (dateFromFilter || dateToFilter) {
+        const cardDate = card.createdAt ? card.createdAt.slice(0, 10) : '';
+        if (dateFromFilter && cardDate < dateFromFilter) return false;
+        if (dateToFilter && cardDate > dateToFilter) return false;
+      }
+      if (newReissueFilter && card.voucherType?.toLowerCase() !== newReissueFilter.toLowerCase()) return false;
+      if (nameFilter && card.name !== nameFilter) return false;
+      if (issuerFilter && card.issuedBy !== issuerFilter) return false;
+      if (departmentFilter && card.deptFrom !== departmentFilter) return false;
+      if (typeFilter && card.workType !== typeFilter) return false;
+      if (categoryFilter && card.category !== categoryFilter) return false;
+      if (searchTerm) {
+        const term = searchTerm.toLowerCase();
+        const haystack = [card.voucherNo, card.name, card.category, card.issuedBy, card.workType].join(' ').toLowerCase();
+        if (!haystack.includes(term)) return false;
+      }
+      return true;
+    };
+    const result = {};
+    for (const [col, data] of Object.entries(jobCardsData)) {
+      result[col] = {
+        new: data.new.filter(c => applyFilter(c, 'new')),
+        wip: data.wip.filter(c => applyFilter(c, 'wip')),
+        completed: data.completed.filter(c => applyFilter(c, 'completed')),
+      };
+    }
+    return result;
+  }, [jobCardsData, statusFilter, dateFromFilter, dateToFilter, newReissueFilter, nameFilter, issuerFilter, departmentFilter, typeFilter, categoryFilter, searchTerm]);
+
+  // All card IDs currently visible (after filtering) – used for Select All
+  const allFilteredCardIds = useMemo(() => {
+    const ids = [];
+    for (const col of Object.values(filteredJobCardsData)) {
+      for (const bucket of ['new', 'wip', 'completed']) {
+        for (const card of col[bucket]) ids.push(card.id);
+      }
+    }
+    return ids;
+  }, [filteredJobCardsData]);
 
   useEffect(() => {
     fetch('/api/auth/session').then(r => r.json()).then(d => { if (d?.user?.username) setCurrentUsername(d.user.username); }).catch(() => {});
@@ -204,7 +273,8 @@ export default function ManagersDashboard() {
         'Pre Polish':        { new: [], wip: [], completed: [] },
         'Hand Setting':      { new: [], wip: [], completed: [] },
         'Final Polish':      { new: [], wip: [], completed: [] },
-        'Ready for Plating': { new: [], wip: [], completed: [] },
+        'Plating':           { new: [], wip: [], completed: [] },
+        'Final Stock':       { new: [], wip: [], completed: [] },
         'Others':            { new: [], wip: [], completed: [] },
       };
 
@@ -221,8 +291,8 @@ export default function ManagersDashboard() {
         const totalQty = materialRows.reduce((sum, r) => sum + (parseFloat(r.issued_qty) || 0), 0)
         const totalWeight = materialRows.reduce((sum, r) => sum + (parseFloat(r.issued_weight) || 0), 0)
 
-        // Determine which column this voucher belongs to based on dept_from
-        const targetColumn = DEPT_TO_COLUMN[job.dept_from] || 'Others';
+        // Determine which column this voucher belongs to based on dept_to
+        const targetColumn = DEPT_TO_COLUMN[job.dept_to] || 'Others';
 
         const card = {
           id: job.id,
@@ -238,6 +308,10 @@ export default function ManagersDashboard() {
           deptTo: job.dept_to || '',
           issuedBy: job.issued_by || '',
           workType: job.work_type || '',
+          contact: job.contact || '',
+          createdAt: job.start_date || job.created_at || '',
+          picklistName: job.picklist_name || '',
+          orderName: job.order_name || '',
           batchId: job.batch_id || '',
           departmentOrder: job.department_order || 0,
           stoneRows: Array.isArray(job.stone_rows) ? job.stone_rows : [],
@@ -267,7 +341,7 @@ export default function ManagersDashboard() {
 
   const handleCardClick = async (card) => {
     setSelectedVoucher(card);
-    const column = DEPT_TO_COLUMN[card.deptFrom] || 'Others';
+    const column = DEPT_TO_COLUMN[card.deptTo] || 'Others';
     if (column === 'Others') {
       // Fetch full job details from API to get all stored fields
       let jobData = null;
@@ -321,23 +395,30 @@ export default function ManagersDashboard() {
     }
   };
 
-  const handleDeleteVoucher = () => {
-    if (!selectedVoucher) return;
-    const confirmed = window.confirm(`Delete voucher ${selectedVoucher.voucherNo}?`);
+  const handleDeleteVoucher = async () => {
+    const idsToDelete = selectedForPrint.size > 0
+      ? Array.from(selectedForPrint)
+      : selectedVoucher ? [selectedVoucher.id] : [];
+    if (idsToDelete.length === 0) return;
+    const label = idsToDelete.length > 1
+      ? `${idsToDelete.length} selected vouchers`
+      : `voucher ${selectedVoucher?.voucherNo || idsToDelete[0]}`;
+    const confirmed = window.confirm(`Delete ${label}?`);
     if (!confirmed) return;
+    await Promise.all(
+      idsToDelete.map(id => fetch(`/api/jobs/${id}`, { method: 'DELETE' }).catch(() => null))
+    );
     setJobCardsData(prev => {
       const next = { ...prev };
       for (const col of Object.keys(next)) {
         for (const bucket of ['new', 'wip', 'completed']) {
-          next[col] = {
-            ...next[col],
-            [bucket]: next[col][bucket].filter(c => c.id !== selectedVoucher.id),
-          };
+          next[col] = { ...next[col], [bucket]: next[col][bucket].filter(c => !idsToDelete.includes(c.id)) };
         }
       }
       return next;
     });
-    setSelectedVoucher(null);
+    setSelectedForPrint(new Set());
+    if (selectedVoucher && idsToDelete.includes(selectedVoucher.id)) setSelectedVoucher(null);
   };
 
   const handleOpenEdit = () => {
@@ -388,6 +469,14 @@ export default function ManagersDashboard() {
     });
   };
 
+  const handleSelectAll = () => {
+    if (selectedForPrint.size === allFilteredCardIds.length && allFilteredCardIds.length > 0) {
+      setSelectedForPrint(new Set());
+    } else {
+      setSelectedForPrint(new Set(allFilteredCardIds));
+    }
+  };
+
   function handlePrintSelected() {
     const allCards = [];
     for (const col of Object.values(jobCardsData)) {
@@ -400,70 +489,120 @@ export default function ManagersDashboard() {
     if (allCards.length === 0) return;
 
     const deptLabel = (val) => DEPT_LABELS[val] || val || '\u2014';
+    const fmtDate = (v) => {
+      if (!v) return '\u2014';
+      const d = new Date(v);
+      if (isNaN(d)) return v;
+      return `${String(d.getDate()).padStart(2,'0')}-${String(d.getMonth()+1).padStart(2,'0')}-${d.getFullYear()}`;
+    };
 
     const voucherPages = allCards.map((card, pageIdx) => {
       const materialRows = Array.isArray(card.materialRows) ? card.materialRows : [];
       const tableRows = materialRows.length > 0
-        ? materialRows.map(row => `
+        ? materialRows.map(row => {
+          const iq = row.issued_qty && row.issued_qty !== '0' ? row.issued_qty : '';
+          const iw = row.issued_weight && row.issued_weight !== '0' && row.issued_weight !== '0.0' ? row.issued_weight : '';
+          return `
           <tr>
             <td class="left">${row.sku || ''}</td>
             <td class="left">${row.category || ''}</td>
             <td class="left">${row.metal || ''}</td>
-            <td class="issued">${row.issued_qty || '0'}</td>
-            <td class="issued">${row.unit1 || 'Pcs'}</td>
-            <td class="issued">${parseFloat(row.issued_weight || 0).toFixed(2)}</td>
-            <td class="issued">${row.unit2 || 'Kg'}</td>
-            <td class="received"></td><td class="received"></td><td class="received"></td><td class="received"></td>
-            <td class="loss"></td><td class="loss"></td><td class="loss"></td><td class="loss"></td>
-            <td class="reissue"></td><td class="reissue"></td><td class="reissue"></td><td class="reissue"></td>
-          </tr>`).join('')
-        : `<tr><td colspan="19" style="text-align:center;padding:6px;color:#aaa;">No material rows</td></tr>`;
+            <td class="issued">${iq}${iq ? `<span class="unit">${row.unit1 || 'Pcs'}</span>` : ''}</td>
+            <td class="issued-wt">${iw}${iw ? `<span class="unit">${row.unit2 || 'Kg'}</span>` : ''}</td>
+            <td class="received"></td><td class="received-wt"></td>
+            <td class="loss"></td><td class="loss-wt"></td>
+            <td class="reissue"></td><td class="reissue-wt"></td>
+          </tr>`;
+        }).join('')
+        : `<tr><td colspan="11" style="text-align:center;padding:6px;color:#aaa;">No material rows</td></tr>`;
 
       return `<div class="page${pageIdx > 0 ? ' page-break' : ''}">
-        <div class="header">
-          <div class="header-title">JOB VOUCHER</div>
-          <div class="header-right">
-            <div class="voucher-no">${card.voucherNo}</div>
-            <div class="voucher-meta">Type: ${card.voucherType || 'New'}</div>
-          </div>
-        </div>
-        <div class="info-grid">
-          <div class="info-item"><label>Issued To</label><span>${card.name || '\u2014'}</span></div>
-          <div class="info-item"><label>Work Type</label><span>${card.workType || '\u2014'}</span></div>
-          <div class="info-item"><label>Issued By</label><span>${card.issuedBy || '\u2014'}</span></div>
-          <div class="info-item"><label>Category / Title</label><span>${card.category || '\u2014'}</span></div>
-        </div>
-        <div class="dept-section">
-          <div class="dept-box"><label>From Department</label><span>${deptLabel(card.deptFrom)}</span></div>
-          <div class="dept-arrow">&#8594;</div>
-          <div class="dept-box"><label>To Department</label><span>${deptLabel(card.deptTo)}</span></div>
-        </div>
-        <table>
-          <thead>
-            <tr>
-              <th class="left" rowspan="2">SKU</th>
-              <th class="left" rowspan="2">Category</th>
-              <th class="left" rowspan="2">Metal</th>
-              <th class="issued" colspan="4">ISSUED</th>
-              <th class="received" colspan="4">RECEIVED</th>
-              <th class="loss" colspan="4">LOSS</th>
-              <th class="reissue" colspan="4">RE-ISSUE</th>
-            </tr>
-            <tr>
-              <th class="issued">QTY</th><th class="issued">UNIT</th><th class="issued">WT</th><th class="issued">UNIT</th>
-              <th class="received">QTY</th><th class="received">UNIT</th><th class="received">WT</th><th class="received">UNIT</th>
-              <th class="loss">QTY</th><th class="loss">UNIT</th><th class="loss">WT</th><th class="loss">UNIT</th>
-              <th class="reissue">QTY</th><th class="reissue">UNIT</th><th class="reissue">WT</th><th class="reissue">UNIT</th>
-            </tr>
-          </thead>
-          <tbody>${tableRows}</tbody>
-        </table>
-        <div class="sig-row">
-          <div class="sig-box">Issued By Signature</div>
-          <div class="sig-box">Received By Signature</div>
-          <div class="sig-box">Authorised Signature</div>
-        </div>
-      </div>`;
+  <!-- TOP ROW -->
+  <div class="top-row">
+    <div class="top-field"><label>Issue Date</label><span>${fmtDate(card.createdAt)}</span></div>
+    <div class="top-right">
+      <div class="top-field"><label>Voucher Type</label><span>${card.voucherType || 'New'}</span></div>
+      ${card.picklistName ? `<div class="top-field"><label>Picklist</label><span class="chip">${card.picklistName}</span></div>` : ''}
+      ${card.orderName ? `<div class="top-field"><label>Order</label><span class="chip">${card.orderName}</span></div>` : ''}
+      <div class="top-field"><label>Voucher No.</label><span style="font-size:12px;font-weight:700;">${card.voucherNo}</span></div>
+    </div>
+  </div>
+
+  <!-- ISSUED TO + WORK TYPE -->
+  <div class="section-box">
+    <div class="section-grid grid-3">
+      <div><span class="field-label">Issued To</span><span class="field-value">${card.name || '\u2014'}</span></div>
+      <div class="dash-center">\u2014</div>
+      <div><span class="field-label">Work Type</span><span class="field-value">${card.workType || '\u2014'}</span></div>
+    </div>
+  </div>
+
+  <!-- FROM / TO -->
+  <div class="dept-section">
+    <div class="dept-grid">
+      <div><span class="dept-label">From</span><span class="dept-value">${deptLabel(card.deptFrom)}</span></div>
+      <div class="dept-arrow">&#8594;</div>
+      <div><span class="dept-label">To</span><span class="dept-value">${deptLabel(card.deptTo)}</span></div>
+    </div>
+  </div>
+
+  <!-- ISSUED BY + CONTACT -->
+  <div class="section-box">
+    <div class="section-grid grid-2">
+      <div><span class="field-label">Issued By</span><span class="field-value">${card.issuedBy || '\u2014'}</span></div>
+      <div></div>
+      <div><span class="field-label">Contact</span><span class="field-value">${card.contact || '\u2014'}</span></div>
+    </div>
+  </div>
+
+  <!-- TABLE -->
+  <table>
+    <colgroup>
+      <col style="width:13%"><col style="width:9%"><col style="width:8%">
+      <col style="width:6%"><col style="width:8%">
+      <col style="width:6%"><col style="width:8%">
+      <col style="width:6%"><col style="width:8%">
+      <col style="width:6%"><col style="width:8%">
+    </colgroup>
+    <thead>
+      <tr>
+        <th class="left" rowspan="2">SKU</th>
+        <th class="left" rowspan="2">Category</th>
+        <th class="left" rowspan="2">Metal</th>
+        <th class="group-issued" colspan="2">ISSUED</th>
+        <th class="group-received" colspan="2">Received</th>
+        <th class="group-loss" colspan="2">Loss</th>
+        <th class="group-reissue" colspan="2">Re-Issue</th>
+      </tr>
+      <tr>
+        <th class="sub-issued">Qty</th><th class="sub-issued">Weight</th>
+        <th class="sub-received">Qty</th><th class="sub-received">Weight</th>
+        <th class="sub-loss">Qty</th><th class="sub-loss">Weight</th>
+        <th class="sub-reissue">Qty</th><th class="sub-reissue">Weight</th>
+      </tr>
+    </thead>
+    <tbody>${tableRows}</tbody>
+  </table>
+
+  <!-- FOOTER -->
+  <div class="footer-row">
+    <div class="footer-box"><label>Received By</label><span>User Name</span></div>
+    <div class="footer-box"><label>Contact</label><span>Contact Number</span></div>
+    <div class="footer-box">
+      <label>Rate Workmanship</label>
+      <div class="rating">${Array.from({ length: 10 }, (_, i) => `<div class="rating-dot inactive">${i + 1}</div>`).join('')}</div>
+    </div>
+  </div>
+
+  <span class="note-label">Note for Reissue Voucher</span>
+  <div class="note-box"></div>
+
+  <div class="sig-row">
+    <div class="sig-box">Issued By Signature</div>
+    <div class="sig-box">Received By Signature</div>
+    <div class="sig-box">Authorised Signature</div>
+  </div>
+</div>`;
     }).join('');
 
     const html = `<!DOCTYPE html>
@@ -472,43 +611,78 @@ export default function ManagersDashboard() {
   <meta charset="utf-8" />
   <title>Print Vouchers (${allCards.length})</title>
   <style>
-    @page { size: A4 landscape; margin: 10mm 12mm; }
+    @page { size: A4 portrait; margin: 10mm 12mm; }
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: Arial, sans-serif; font-size: 10px; color: #111; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    body { font-family: Arial, sans-serif; font-size: 9.5px; color: #111; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     .page { page-break-after: always; }
     .page:last-child { page-break-after: avoid; }
     .page-break { page-break-before: always; }
-    .header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 8px; border-bottom: 2px solid #1a56db; padding-bottom: 6px; }
-    .header-title { font-size: 15px; font-weight: 800; color: #1a56db; letter-spacing: 1px; }
-    .header-right { text-align: right; }
-    .voucher-no { font-size: 18px; font-weight: 800; color: #111; }
-    .voucher-meta { font-size: 9px; color: #555; margin-top: 2px; }
-    .info-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px 12px; margin-bottom: 7px; padding: 5px 8px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 3px; }
-    .info-item label { font-size: 7.5px; font-weight: 700; text-transform: uppercase; color: #64748b; display: block; margin-bottom: 1px; }
-    .info-item span { font-size: 10.5px; font-weight: 600; color: #111; }
-    .dept-section { display: flex; align-items: center; gap: 10px; margin-bottom: 7px; padding: 5px 10px; background: #eff6ff; border: 2px solid #3b82f6; border-radius: 3px; }
-    .dept-box { flex: 1; }
-    .dept-box label { font-size: 7.5px; font-weight: 700; text-transform: uppercase; color: #1e40af; display: block; margin-bottom: 1px; }
-    .dept-box span { font-size: 13px; font-weight: 800; color: #1e3a8a; }
-    .dept-arrow { font-size: 22px; color: #3b82f6; font-weight: 900; padding: 0 6px; }
-    table { width: 100%; border-collapse: collapse; margin-bottom: 14px; font-size: 9px; }
-    th { background: #1a56db; color: white; font-weight: 700; text-transform: uppercase; padding: 3px; text-align: center; border: 1px solid #1e40af; line-height: 1.2; }
+
+    .top-row { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 6px; }
+    .top-field { display: flex; flex-direction: column; gap: 1px; }
+    .top-field label { font-size: 7px; font-weight: 700; text-transform: uppercase; color: #64748b; letter-spacing: 0.5px; }
+    .top-field span { font-size: 10px; font-weight: 600; color: #111; }
+    .top-right { display: flex; align-items: flex-end; gap: 12px; }
+    .chip { display: inline-block; padding: 1px 7px; border-radius: 3px; background: #eff6ff; border: 1px solid #bfdbfe; color: #1d4ed8; font-size: 10px; font-weight: 600; }
+
+    .section-box { border: 1px solid #e2e8f0; border-radius: 3px; padding: 4px 8px; margin-bottom: 5px; }
+    .section-grid { display: grid; gap: 0 16px; align-items: end; }
+    .grid-3 { grid-template-columns: minmax(160px,220px) 1fr minmax(160px,200px); }
+    .grid-2 { grid-template-columns: minmax(200px,280px) 1fr minmax(200px,280px); }
+    .field-label { font-size: 7px; font-weight: 600; color: #64748b; text-transform: uppercase; display: block; margin-bottom: 1px; }
+    .field-value { font-size: 10px; font-weight: 500; color: #111; }
+    .dash-center { text-align: center; font-size: 11px; color: #94a3b8; }
+
+    .dept-section { border: 2px solid #3b82f6; border-radius: 3px; padding: 5px 10px; margin-bottom: 5px; background: #eff6ff; }
+    .dept-grid { display: grid; grid-template-columns: 1fr 40px 1fr; align-items: center; }
+    .dept-label { font-size: 7px; font-weight: 700; text-transform: uppercase; color: #1e40af; display: block; margin-bottom: 1px; }
+    .dept-value { font-size: 12px; font-weight: 800; color: #1e3a8a; }
+    .dept-arrow { text-align: center; font-size: 18px; color: #3b82f6; font-weight: 900; }
+
+    table { border-collapse: collapse; margin-bottom: 6px; font-size: 7.5px; width: 100%; table-layout: fixed; }
+    th { background: #1a56db; color: white; font-weight: 500; padding: 2px 4px; text-align: center; border: 1px solid #1e40af; white-space: nowrap; overflow: hidden; word-break: break-all; max-width: 0; }
     th.left { text-align: left; padding-left: 5px; }
-    td { padding: 4px 3px; border: 1px solid #d1d5db; text-align: center; min-height: 22px; }
-    td.left { text-align: left; padding-left: 5px; font-weight: 600; }
+    td { padding: 2px 4px; border: 1px solid #d1d5db; text-align: center; white-space: nowrap; overflow: hidden; word-break: break-all; max-width: 0; }
+    td.left { text-align: left; padding-left: 5px; }
     tr:nth-child(even) td { background: #f9fafb; }
-    th.issued { background: #1e40af; } td.issued { background: rgba(59,130,246,0.08); }
-    th.received { background: #065f46; } td.received { background: rgba(16,185,129,0.06); }
-    th.loss { background: #7f1d1d; } td.loss { background: rgba(239,68,68,0.06); }
-    th.reissue { background: #78350f; } td.reissue { background: rgba(245,158,11,0.06); }
-    .sig-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 30px; margin-top: 20px; }
-    .sig-box { border-top: 1px solid #333; padding-top: 4px; text-align: center; font-size: 7.5px; font-weight: 700; text-transform: uppercase; color: #555; }
+    th.group-issued  { background: #1e40af; }
+    th.group-received{ background: #065f46; }
+    th.group-loss    { background: #881337; }
+    th.group-reissue { background: #78350f; }
+    th.sub-issued  { background: #1d4ed8; font-weight: 400; font-size: 7px; }
+    th.sub-received{ background: #047857; font-weight: 400; font-size: 7px; }
+    th.sub-loss    { background: #9f1239; font-weight: 400; font-size: 7px; }
+    th.sub-reissue { background: #b45309; font-weight: 400; font-size: 7px; }
+    td.issued  { background: rgba(59,130,246,0.07); border-left: 2px solid #93c5fd; }
+    td.issued-wt { background: rgba(59,130,246,0.07); }
+    td.received{ background: rgba(16,185,129,0.07); border-left: 2px solid #6ee7b7; }
+    td.received-wt{ background: rgba(16,185,129,0.07); }
+    td.loss    { background: rgba(239,68,68,0.07); border-left: 2px solid #fca5a5; }
+    td.loss-wt { background: rgba(239,68,68,0.07); }
+    td.reissue { background: rgba(245,158,11,0.07); border-left: 2px solid #fcd34d; }
+    td.reissue-wt{ background: rgba(245,158,11,0.07); }
+    .unit { font-size: 7px; color: #94a3b8; margin-left: 2px; }
+
+    .footer-row { display: grid; grid-template-columns: 1fr 1fr 160px; gap: 6px; margin-bottom: 6px; }
+    .footer-box { padding: 4px 7px; border: 1px solid #e2e8f0; border-radius: 3px; overflow: hidden; }
+    .footer-box label { font-size: 7px; font-weight: 700; text-transform: uppercase; color: #64748b; display: block; margin-bottom: 2px; }
+    .footer-box span { font-size: 10px; font-weight: 600; }
+    .rating { display: flex; gap: 2px; margin-top: 2px; flex-wrap: nowrap; }
+    .rating-dot { width: 13px; height: 13px; border-radius: 50%; border: 1.5px solid #f59e0b; display: inline-flex; align-items: center; justify-content: center; font-size: 6.5px; font-weight: 700; -webkit-print-color-adjust: exact; print-color-adjust: exact; flex-shrink: 0; }
+    .rating-dot.active { background: #f59e0b !important; color: white !important; }
+    .rating-dot.inactive { color: #f59e0b; background: white !important; }
+
+    .note-label { font-size: 7px; font-weight: 700; text-transform: uppercase; color: #64748b; letter-spacing: 0.5px; margin-bottom: 3px; display: block; }
+    .note-box { border: 1px solid #e2e8f0; border-radius: 3px; padding: 4px 7px; min-height: 28px; margin-bottom: 8px; font-size: 9.5px; }
+
+    .sig-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 30px; margin-top: 16px; }
+    .sig-box { border-top: 1px solid #333; padding-top: 3px; text-align: center; font-size: 7px; font-weight: 700; text-transform: uppercase; color: #555; }
   </style>
 </head>
 <body>${voucherPages}</body>
 </html>`;
 
-    const win = window.open('', '_blank', 'width=1100,height=780');
+    const win = window.open('', '_blank', 'width=1000,height=720');
     if (!win) { alert('Pop-up blocked. Please allow pop-ups for this site to print.'); return; }
     win.document.write(html);
     win.document.close();
@@ -530,7 +704,7 @@ export default function ManagersDashboard() {
   const VoucherCard = ({ card, bucket }) => {
     const s = getCardStyle();
     const isSelected = selectedVoucher?.id === card.id;
-    const isPrintSelected = selectedForPrint.has(card.id);
+    const isChecked = selectedForPrint.has(card.id);
 
     // Approval status badge colors
     const approvalLabels = {
@@ -546,7 +720,7 @@ export default function ManagersDashboard() {
       <div
         onClick={() => handleCardClick(card)}
         className={`border-2 ${
-          isPrintSelected ? 'border-amber-400 ring-2 ring-amber-300/60' :
+          isChecked ? 'border-amber-400 ring-2 ring-amber-300/60' :
           isSelected ? 'border-trust-blue ring-2 ring-trust-blue/40' : s.border
         } rounded-lg overflow-hidden cursor-pointer hover:shadow-md transition-shadow ${isSelected ? 'shadow-md' : ''}`}
       >
@@ -556,10 +730,10 @@ export default function ManagersDashboard() {
           <div className="flex items-center gap-1">
             <input
               type="checkbox"
-              checked={isPrintSelected}
+              checked={isChecked}
               onChange={(e) => togglePrintSelect(e, card.id)}
               onClick={(e) => e.stopPropagation()}
-              title="Select for print"
+              title="Select voucher"
               className="h-3 w-3 cursor-pointer accent-amber-400 shrink-0"
             />
             {approvalBadge && (
@@ -727,6 +901,14 @@ export default function ManagersDashboard() {
             >
               Create a Job
             </Button>
+            <Button
+              onClick={handleSelectAll}
+              variant="outline"
+              className="border-red-400 text-red-500 hover:bg-red-50 rounded-full px-3 text-sm h-8 gap-1"
+            >
+              {selectedForPrint.size === allFilteredCardIds.length && allFilteredCardIds.length > 0 ? 'Deselect All' : 'Select All'}
+              {selectedForPrint.size > 0 ? ` (${selectedForPrint.size})` : ''}
+            </Button>
             <Button 
               onClick={handleOpenEdit}
               disabled={!selectedVoucher}
@@ -737,11 +919,11 @@ export default function ManagersDashboard() {
             </Button>
             <Button 
               onClick={handleDeleteVoucher}
-              disabled={!selectedVoucher}
-              className="bg-white border border-red-500 text-red-500 hover:bg-red-50 rounded-full px-3 text-sm h-8 gap-1 disabled:opacity-100 disabled:border-red-500 disabled:text-red-500"
+              disabled={selectedForPrint.size === 0 && !selectedVoucher}
+              className="bg-white border border-red-500 text-red-500 hover:bg-red-50 rounded-full px-3 text-sm h-8 gap-1 disabled:opacity-40 disabled:border-red-300 disabled:text-red-300"
             >
               <Trash2 className="w-4 h-4" />
-              Delete
+              Delete{selectedForPrint.size > 0 ? ` (${selectedForPrint.size})` : ''}
             </Button>
             <Button
               onClick={handlePrintSelected}
@@ -780,6 +962,15 @@ export default function ManagersDashboard() {
 
         {/* Filter Row */}
         <div className="border border-soft-border rounded-lg mb-6 bg-[#dbeafe] p-4">
+          <div className="flex justify-end mb-2">
+            <button
+              type="button"
+              onClick={() => { setStatusFilter(''); setDateFromFilter(''); setDateToFilter(''); setNewReissueFilter(''); setNameFilter(''); setIssuerFilter(''); setDepartmentFilter(''); setTypeFilter(''); setCategoryFilter(''); }}
+              className="text-xs text-trust-blue hover:underline font-medium"
+            >
+              Clear Filters
+            </button>
+          </div>
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-9 gap-3">
             {/* Status */}
             <div>
@@ -841,7 +1032,7 @@ export default function ManagersDashboard() {
                   <SelectValue placeholder="Select Name" />
                 </SelectTrigger>
                 <SelectContent>
-                  {nameOptions.map(name => (
+                  {filterOptions.names.map(name => (
                     <SelectItem key={name} value={name}>{name}</SelectItem>
                   ))}
                 </SelectContent>
@@ -856,7 +1047,7 @@ export default function ManagersDashboard() {
                   <SelectValue placeholder="Select Issuer" />
                 </SelectTrigger>
                 <SelectContent>
-                  {issuerOptions.map(issuer => (
+                  {filterOptions.issuers.map(issuer => (
                     <SelectItem key={issuer} value={issuer}>{issuer}</SelectItem>
                   ))}
                 </SelectContent>
@@ -871,8 +1062,8 @@ export default function ManagersDashboard() {
                   <SelectValue placeholder="Select Dept" />
                 </SelectTrigger>
                 <SelectContent>
-                  {departmentOptions.map(option => (
-                    <SelectItem key={option} value={option}>{option}</SelectItem>
+                  {filterOptions.departments.map(dept => (
+                    <SelectItem key={dept} value={dept}>{DEPT_LABELS[dept] || dept}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -886,7 +1077,7 @@ export default function ManagersDashboard() {
                   <SelectValue placeholder="Select Type" />
                 </SelectTrigger>
                 <SelectContent>
-                  {typeOptions.map(option => (
+                  {filterOptions.types.map(option => (
                     <SelectItem key={option} value={option}>{option}</SelectItem>
                   ))}
                 </SelectContent>
@@ -901,7 +1092,7 @@ export default function ManagersDashboard() {
                   <SelectValue placeholder="Select Category" />
                 </SelectTrigger>
                 <SelectContent>
-                  {categoryOptions.map(option => (
+                  {filterOptions.categories.map(option => (
                     <SelectItem key={option} value={option}>{option}</SelectItem>
                   ))}
                 </SelectContent>
@@ -927,7 +1118,7 @@ export default function ManagersDashboard() {
               {processColumns.map((column) => 
                 visibleColumns.has(column) && (
                   <th key={column} className="border-2 border-soft-border p-2 text-center font-bold text-sm">
-                    Total: {calculateTotal(jobCardsData[column])}
+                    Total: {calculateTotal(filteredJobCardsData[column])}
                   </th>
                 )
               )}
@@ -940,17 +1131,17 @@ export default function ManagersDashboard() {
                   <td key={column} className="border-2 border-soft-border p-3 align-top min-h-[400px]">
                   <div className="space-y-2.5">
                     {/* New Cards */}
-                    {jobCardsData[column].new.map((card, idx) => (
+                    {filteredJobCardsData[column].new.map((card, idx) => (
                       <VoucherCard key={`new-${idx}`} card={card} bucket="new" />
                     ))}
 
                     {/* Work in Progress Cards */}
-                    {jobCardsData[column].wip.map((card, idx) => (
+                    {filteredJobCardsData[column].wip.map((card, idx) => (
                       <VoucherCard key={`wip-${idx}`} card={card} bucket="wip" />
                     ))}
 
                     {/* Completed Cards */}
-                    {jobCardsData[column].completed.map((card, idx) => (
+                    {filteredJobCardsData[column].completed.map((card, idx) => (
                       <VoucherCard key={`completed-${idx}`} card={card} bucket="completed" />
                     ))}
                   </div>
@@ -966,7 +1157,7 @@ export default function ManagersDashboard() {
       {/* Fixed Footer */}
       <div className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-soft-border shadow-lg px-4 py-2 flex flex-wrap items-center justify-between gap-3 text-sm text-cool-gray">
         <div className="flex gap-4">
-          <span>Total Vouchers: {Object.values(jobCardsData).reduce((sum, col) => sum + col.new.length + col.wip.length + col.completed.length, 0)}</span>
+          <span>Total Vouchers: {Object.values(filteredJobCardsData).reduce((sum, col) => sum + col.new.length + col.wip.length + col.completed.length, 0)}</span>
           {isLoadingJobs && <span className="text-trust-blue">Loading...</span>}
         </div>
         <LastUpdatedFooter timestamp={lastUpdated} username={currentUsername} compact />

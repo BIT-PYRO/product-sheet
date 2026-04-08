@@ -199,7 +199,7 @@ export function PendingVouchersModal({ open, onOpenChange, onVouchersApproved })
       'pre-polish': 'Pre-Polish',
       'hand-setting': 'Hand Setting',
       'polishing': 'Final Polish',
-      'plating': 'Ready for Plating',
+      'plating': 'Plating',
       'final-stock': 'Final Stock',
       'design': 'Design / CAD',
       '3d-print': '3D Print',

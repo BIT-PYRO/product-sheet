@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, Plus, Printer, RefreshCw, Trash2, X } from 'lucide-react';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
+import { useSheetPermissions } from '@/hooks/use-sheet-permissions';
 import {
   Dialog,
   DialogContent,
@@ -95,6 +96,7 @@ function CellInput({ value, onChange, type = 'text', disabled = false, placehold
 // â”€â”€â”€ main page â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export default function StoneInventoryPage() {
+  const { canAmount } = useSheetPermissions('inventory');
   const [stones, setStones] = useState([]);
   const [loading, setLoading] = useState(false);
   const [statusMsg, setStatusMsg] = useState('');
@@ -934,18 +936,24 @@ export default function StoneInventoryPage() {
                   <th className="border border-soft-border px-3 py-1.5 text-center text-[11px] font-semibold text-cool-gray uppercase tracking-wide">
                     Weight (cts)
                   </th>
-                  <th
-                    colSpan={2}
-                    className="border border-soft-border px-3 py-1.5 text-center text-[11px] font-semibold text-cool-gray uppercase tracking-wide"
-                  >
-                    Price by (check one)
-                  </th>
-                  <th className="border border-soft-border px-3 py-1.5 text-center text-[11px] font-semibold text-cool-gray uppercase tracking-wide">
-                    Price
-                  </th>
-                  <th className="border border-soft-border px-3 py-1.5 text-center text-[11px] font-semibold text-[#0d7a3e] uppercase tracking-wide bg-green-50">
-                    Amount
-                  </th>
+                  {canAmount && (
+                    <th
+                      colSpan={2}
+                      className="border border-soft-border px-3 py-1.5 text-center text-[11px] font-semibold text-cool-gray uppercase tracking-wide"
+                    >
+                      Price by (check one)
+                    </th>
+                  )}
+                  {canAmount && (
+                    <th className="border border-soft-border px-3 py-1.5 text-center text-[11px] font-semibold text-cool-gray uppercase tracking-wide">
+                      Price
+                    </th>
+                  )}
+                  {canAmount && (
+                    <th className="border border-soft-border px-3 py-1.5 text-center text-[11px] font-semibold text-[#0d7a3e] uppercase tracking-wide bg-green-50">
+                      Amount
+                    </th>
+                  )}
                   <th className="border border-soft-border px-3 py-1.5 text-center text-[11px] font-semibold text-cool-gray uppercase tracking-wide">
                     Remark
                   </th>
@@ -974,18 +982,26 @@ export default function StoneInventoryPage() {
                   <th className="border border-soft-border px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-cool-gray min-w-[100px]">
                     Weight (cts)
                   </th>
-                  <th className="border border-soft-border px-3 py-2 text-center text-[11px] font-semibold uppercase tracking-wide text-cool-gray min-w-[50px]">
-                    Pcs
-                  </th>
-                  <th className="border border-soft-border px-3 py-2 text-center text-[11px] font-semibold uppercase tracking-wide text-cool-gray min-w-[60px]">
-                    Weight
-                  </th>
-                  <th className="border border-soft-border px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-cool-gray min-w-[90px]">
-                    Price
-                  </th>
-                  <th className="border border-soft-border px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-[#0d7a3e] min-w-[90px] bg-green-50">
-                    Amount
-                  </th>
+                  {canAmount && (
+                    <th className="border border-soft-border px-3 py-2 text-center text-[11px] font-semibold uppercase tracking-wide text-cool-gray min-w-[50px]">
+                      Pcs
+                    </th>
+                  )}
+                  {canAmount && (
+                    <th className="border border-soft-border px-3 py-2 text-center text-[11px] font-semibold uppercase tracking-wide text-cool-gray min-w-[60px]">
+                      Weight
+                    </th>
+                  )}
+                  {canAmount && (
+                    <th className="border border-soft-border px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-cool-gray min-w-[90px]">
+                      Price
+                    </th>
+                  )}
+                  {canAmount && (
+                    <th className="border border-soft-border px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-[#0d7a3e] min-w-[90px] bg-green-50">
+                      Amount
+                    </th>
+                  )}
                   <th className="border border-soft-border px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-cool-gray min-w-[120px]">
                     Remark
                   </th>
@@ -1036,41 +1052,49 @@ export default function StoneInventoryPage() {
                       </td>
 
                       {/* price by pcs radio */}
-                      <td className="border border-soft-border px-2 py-1 text-center">
-                        <input
-                          type="radio"
-                          name={`price_by_${row.stoneId}`}
-                          checked={row.price_by === 'pcs'}
-                          onChange={() => updateStockRow(row.stoneId, 'price_by', 'pcs')}
-                          className="h-4 w-4 cursor-pointer accent-trust-blue"
-                        />
-                      </td>
+                      {canAmount && (
+                        <td className="border border-soft-border px-2 py-1 text-center">
+                          <input
+                            type="radio"
+                            name={`price_by_${row.stoneId}`}
+                            checked={row.price_by === 'pcs'}
+                            onChange={() => updateStockRow(row.stoneId, 'price_by', 'pcs')}
+                            className="h-4 w-4 cursor-pointer accent-trust-blue"
+                          />
+                        </td>
+                      )}
 
                       {/* price by weight radio */}
-                      <td className="border border-soft-border px-2 py-1 text-center">
-                        <input
-                          type="radio"
-                          name={`price_by_${row.stoneId}`}
-                          checked={row.price_by === 'weight'}
-                          onChange={() => updateStockRow(row.stoneId, 'price_by', 'weight')}
-                          className="h-4 w-4 cursor-pointer accent-trust-blue"
-                        />
-                      </td>
+                      {canAmount && (
+                        <td className="border border-soft-border px-2 py-1 text-center">
+                          <input
+                            type="radio"
+                            name={`price_by_${row.stoneId}`}
+                            checked={row.price_by === 'weight'}
+                            onChange={() => updateStockRow(row.stoneId, 'price_by', 'weight')}
+                            className="h-4 w-4 cursor-pointer accent-trust-blue"
+                          />
+                        </td>
+                      )}
 
                       {/* price */}
-                      <td className="border border-soft-border px-2 py-1">
-                        <CellInput
-                          type="number"
-                          value={row.price}
-                          placeholder="0.00"
-                          onChange={(v) => updateStockRow(row.stoneId, 'price', v)}
-                        />
-                      </td>
+                      {canAmount && (
+                        <td className="border border-soft-border px-2 py-1">
+                          <CellInput
+                            type="number"
+                            value={row.price}
+                            placeholder="0.00"
+                            onChange={(v) => updateStockRow(row.stoneId, 'price', v)}
+                          />
+                        </td>
+                      )}
 
                       {/* amount (auto-calculated, read-only) */}
-                      <td className="border border-soft-border px-3 py-1.5 bg-green-50 font-semibold text-[#0d7a3e] whitespace-nowrap text-right">
-                        {row.amount !== '' ? row.amount : 'â€”'}
-                      </td>
+                      {canAmount && (
+  <td className="border border-soft-border px-3 py-1.5 bg-green-50 font-semibold text-[#0d7a3e] whitespace-nowrap text-right">
+                          {row.amount !== '' ? row.amount : 'â€”'}
+                        </td>
+                      )}
 
                       {/* remark */}
                       <td className="border border-soft-border px-2 py-1">

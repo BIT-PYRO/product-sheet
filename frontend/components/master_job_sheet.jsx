@@ -36,7 +36,7 @@ import BulkUploadButton from '@/components/bulk-upload-button';
 import { useSheetPermissions } from '@/hooks/use-sheet-permissions';
 
 export default function MasterJobSheet() {
-  const { canEdit, canCreate } = useSheetPermissions('master-job-sheet');
+  const { canEdit, canCreate, canExport } = useSheetPermissions('master-job-sheet');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedRows, setSelectedRows] = useState(new Set());
   const [isManageColumnsOpen, setIsManageColumnsOpen] = useState(false);
@@ -843,6 +843,8 @@ export default function MasterJobSheet() {
             onClick={handleExport}
             variant="outline"
             className="border-midnight-ink text-midnight-ink rounded-full px-4 h-8 text-sm"
+            disabled={!canExport}
+            title={!canExport ? 'You do not have permission to export' : undefined}
           >
             Export
           </Button>

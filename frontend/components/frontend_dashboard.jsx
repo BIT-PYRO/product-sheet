@@ -96,7 +96,7 @@ function ProductSheetContent() {
     { key: 'pre_polish', label: 'Pre Polish' },
     { key: 'setting', label: 'Hand Setting' },
     { key: 'final_polish', label: 'Final Polish' },
-    { key: 'ready_for_plating', label: 'Ready for Plating' },
+    { key: 'ready_for_plating', label: 'Plating' },
   ]
   const DEFAULT_STONE_INFO_COLS = [
     { key: 'type', label: 'Type' },
@@ -3369,7 +3369,7 @@ function ProductSheetContent() {
                             <th className="w-20 px-0.5 py-0.5">Pre Polish</th>
                             <th className="w-20 px-0.5 py-0.5">Setting</th>
                             <th className="w-20 px-0.5 py-0.5">Final Polish</th>
-                            <th className="w-24 px-0.5 py-0.5">Ready for Plating</th>
+                            <th className="w-24 px-0.5 py-0.5">Plating</th>
                           </tr>
                         </thead>
                         <tbody>

@@ -377,9 +377,10 @@ async function syncAllInventoryStages(request, productId, sku, liveStock, finalS
 
 export async function GET(request) {
   try {
-    const [productsResult, inventoryResult] = await Promise.all([
+    const [productsResult, inventoryResult, wipResult] = await Promise.all([
       fetchJsonWithSession(request, '/api/products'),
-      fetchJsonWithSession(request, '/api/inventory'),
+      fetchJsonWithSession(request, '/api/inventory?page_size=10000'),
+      fetchJsonWithSession(request, '/api/jobs/wip-summary'),
     ]);
 
     if (!productsResult.response.ok || !productsResult.payload?.success) {
@@ -397,35 +398,111 @@ export async function GET(request) {
       inventoryResult.response.ok && inventoryResult.payload?.success
         ? asArray(inventoryResult.payload.data)
         : [];
+    // WIP data: { "SKU_UPPER": { "dept_to_key": qty } } — computed live from active jobs
+    const wipBySku =
+      wipResult.response.ok && wipResult.payload?.success
+        ? (wipResult.payload.data || {})
+        : {};
 
-    // Build per-product stock summary inline (same logic as inventory-summary/route.js).
-    // This avoids a loopback call to /api/inventory-summary which is a frontend-only route.
-    const qtyByProduct = new Map();
+    // Maps InventoryTransaction.stage → frontend liveStock key (for current/min reading)
+    const STAGE_TO_LS_KEY = {
+      wax_piece:        'rawMaterial',
+      wax_setting:      'rawSetting',
+      casting:          'wipLiquidCasting',
+      filling:          'filing',
+      pre_polish:       'packing',
+      setting:          'setting',
+      final_polish:     'finalPolish',
+      ready_for_plating: 'readyForPlacing',
+    };
+
+    // Maps voucher dept_to key → frontend liveStock key (for WIP display)
+    const DEPT_TO_LS_KEY = {
+      'wax-pieces':   'rawMaterial',
+      'wax-setting':  'rawSetting',
+      'casting':      'wipLiquidCasting',
+      'filing':       'filing',
+      'pre-polish':   'packing',
+      'hand-setting': 'setting',
+      'polishing':    'finalPolish',
+      'plating':      'readyForPlacing',
+    };
+
+    // Build per-product, per-stage current/min totals from inventory transactions.
+    // WIP transactions are intentionally skipped — WIP is computed live from active jobs.
+    const stockByProduct = new Map(); // productId → Map(stage__stockType → total)
     transactions.forEach((txn) => {
       const pid = txn?.product;
       if (!pid) return;
+      if (String(txn?.txn_type || '').toLowerCase() === 'demand') return;
+      const stage = String(txn?.stage || 'default').trim();
+      const stockType = String(txn?.stock_type || 'current').trim();
+      if (stockType === 'wip') return; // skip — WIP sourced from jobs, not transactions
       const qty = Number(txn?.quantity || 0);
-      if (String(txn?.txn_type || '').trim().toLowerCase() === 'demand') return;
-      const cur = qtyByProduct.get(pid) || 0;
-      qtyByProduct.set(pid, txn?.txn_type === 'out' ? cur - qty : cur + qty);
+      const delta = txn?.txn_type === 'out' ? -qty : qty;
+      if (!stockByProduct.has(pid)) stockByProduct.set(pid, new Map());
+      const inner = stockByProduct.get(pid);
+      const k = `${stage}__${stockType}`;
+      inner.set(k, (inner.get(k) || 0) + delta);
     });
 
+    const EMPTY_STAGE = { min: '', current: '', wip: '', location: '' };
+
     const summaryRows = products.map((p) => {
-      const currentStock = qtyByProduct.get(p.id) || 0;
-      return {
-        sku: p.master_sku || '',
-        liveStock: {
-          rawMaterial: { min: '', current: String(currentStock), wip: '', location: '' },
-          rawSetting: { min: '', current: '', wip: '', location: '' },
-          wipLiquidCasting: { min: '', current: '', wip: '', location: '' },
-          filing: { min: '', current: '', wip: '', location: '' },
-          packing: { min: '', current: '', wip: '', location: '' },
-          setting: { min: '', current: '', wip: '', location: '' },
-          finalPolish: { min: '', current: '', wip: '', location: '' },
-          readyForPlacing: { min: '', current: '', wip: '', location: '' },
-        },
-        finalStock: [{ sku: p.master_sku || '', value: String(currentStock), unit: 'pcs' }],
+      const inner = stockByProduct.get(p.id) || new Map();
+      const masterSku = (p.master_sku || '').toUpperCase();
+      const wipForProduct = wipBySku[masterSku] || {};
+
+      const liveStock = {
+        rawMaterial:      { ...EMPTY_STAGE },
+        rawSetting:       { ...EMPTY_STAGE },
+        wipLiquidCasting: { ...EMPTY_STAGE },
+        filing:           { ...EMPTY_STAGE },
+        packing:          { ...EMPTY_STAGE },
+        setting:          { ...EMPTY_STAGE },
+        finalPolish:      { ...EMPTY_STAGE },
+        readyForPlacing:  { ...EMPTY_STAGE },
       };
+
+      // Populate current / min from inventory transactions (per stage)
+      for (const [stageKey, lsKey] of Object.entries(STAGE_TO_LS_KEY)) {
+        const current = inner.get(`${stageKey}__current`) || 0;
+        const min = inner.get(`${stageKey}__min`) || 0;
+        if (current) liveStock[lsKey].current = String(current);
+        if (min) liveStock[lsKey].min = String(min);
+      }
+
+      // Populate WIP from active jobs — keyed by dept_to (i.e. destination column)
+      for (const [deptTo, lsKey] of Object.entries(DEPT_TO_LS_KEY)) {
+        const wip = wipForProduct[deptTo] || 0;
+        if (wip) liveStock[lsKey].wip = String(wip);
+      }
+
+      // Build finalStock per variation from stage keys: 'final_stock__<varsku>'
+      const finalStockMap = new Map();
+      for (const [k, total] of inner.entries()) {
+        if (k.startsWith('final_stock__') && k.endsWith('__current')) {
+          const varSku = k.slice('final_stock__'.length, k.length - '__current'.length);
+          if (varSku) {
+            const upper = varSku.toUpperCase();
+            finalStockMap.set(upper, (finalStockMap.get(upper) || 0) + total);
+          }
+        }
+      }
+
+      let finalStock;
+      if (finalStockMap.size > 0) {
+        finalStock = Array.from(finalStockMap.entries()).map(([sku, value]) => ({
+          sku,
+          value: String(value),
+          unit: 'pcs',
+        }));
+      } else {
+        const legacyTotal = inner.get('final_stock__current') || 0;
+        finalStock = [{ sku: p.master_sku || '', value: String(legacyTotal), unit: 'pcs' }];
+      }
+
+      return { sku: p.master_sku || '', liveStock, finalStock };
     });
 
     return Response.json({

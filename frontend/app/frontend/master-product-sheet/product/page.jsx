@@ -31,7 +31,7 @@ const LIVE_STOCK_COLUMNS = [
   ['Pre Polish', 'packing'],
   ['Hand Setting', 'setting'],
   ['Final Polish', 'finalPolish'],
-  ['Ready for Plating', 'readyForPlacing'],
+  ['Plating', 'readyForPlacing'],
 ];
 
 function ProductDetailContent() {

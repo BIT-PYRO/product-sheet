@@ -28,6 +28,7 @@ class PicklistItemSerializer(serializers.ModelSerializer):
 
 class PicklistGroupSerializer(serializers.ModelSerializer):
     id = serializers.CharField(source='group_id', required=False, allow_blank=True)
+    db_id = serializers.IntegerField(source='pk', read_only=True)
     uploadedBy = serializers.CharField(source='uploaded_by', required=False, allow_blank=True)
     date = serializers.DateTimeField(source='uploaded_at', required=False)
     dateFormatted = serializers.SerializerMethodField()
@@ -35,7 +36,7 @@ class PicklistGroupSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = PicklistGroup
-        fields = ('id', 'number', 'name', 'uploadedBy', 'date', 'dateFormatted', 'items')
+        fields = ('id', 'db_id', 'number', 'name', 'uploadedBy', 'date', 'dateFormatted', 'items')
 
     def get_dateFormatted(self, obj):
         return obj.uploaded_at.astimezone().strftime('%Y-%m-%d %H:%M:%S')

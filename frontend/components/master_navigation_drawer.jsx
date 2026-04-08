@@ -6,7 +6,7 @@ import { createPortal } from 'react-dom';
 import { House, LayoutDashboard, X } from 'lucide-react';
 
 const NAV_LINKS = [
-  { href: '/', permKey: 'product-sheet', label: 'Product Sheet', className: 'bg-trust-blue/10 border border-trust-blue text-deep-blue hover:bg-trust-blue/20' },
+  { href: '/product-sheet', permKey: 'product-sheet', label: 'Product Sheet', className: 'bg-trust-blue/10 border border-trust-blue text-deep-blue hover:bg-trust-blue/20' },
   { href: '/master-product-sheet', permKey: 'master-product-sheet', label: 'Master Product Sheet', className: 'bg-trust-blue/10 border border-trust-blue text-deep-blue hover:bg-trust-blue/20' },
   { href: '/master-inventory-sheet', permKey: 'master-inventory-sheet', label: 'Master Inventory Sheet', className: 'bg-trust-blue/10 border border-trust-blue text-deep-blue hover:bg-trust-blue/20' },
   { href: '/master-job-sheet', permKey: 'master-job-sheet', label: 'Master Job Sheet', className: 'bg-trust-blue/10 border border-trust-blue text-deep-blue hover:bg-trust-blue/20' },

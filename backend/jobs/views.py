@@ -28,9 +28,14 @@ def _activate_ready_batch_vouchers(batch_id):
 	(all other batch vouchers with dept_to == this.dept_from) have all reached
 	a done state (completed or partially_complete).
 
+	When a voucher is activated (→ in_process), pieces are deducted from the
+	Current Stock of its dept_from stage (they leave the source department).
+
 	Runs repeatedly until no more vouchers can be activated (handles chains).
 	Returns the list of newly activated vouchers.
 	"""
+	from products.models import Product as _Product
+
 	activated = []
 	while True:
 		all_vouchers = list(Job.objects.filter(batch_id=batch_id))
@@ -49,12 +54,48 @@ def _activate_ready_batch_vouchers(batch_id):
 				v.approval_status = VoucherApprovalStatus.IN_PROCESS
 				v.status = 'in_progress'
 				v.save(update_fields=['approval_status', 'status'])
+				_deduct_source_current_stock(v)
 				newly_activated.append(v)
 
 		if not newly_activated:
 			break
 		activated.extend(newly_activated)
 	return activated
+
+
+def _deduct_source_current_stock(voucher):
+	"""
+	When a voucher becomes in_process, deduct issued_qty from the Current Stock
+	of its dept_from stage.  This represents pieces leaving the source department
+	to be processed by the destination department.
+	"""
+	from products.models import Product as _Product
+
+	from_stage = DEPT_TO_STOCK_STAGE.get(voucher.dept_from, '')
+	if not from_stage:
+		return
+
+	for row in (voucher.material_rows or []):
+		qty = int(float(row.get('issued_qty', 0) or 0))
+		if qty <= 0:
+			continue
+		sku = str(row.get('sku', '') or '').strip()
+		if not sku:
+			continue
+		product = _Product.objects.filter(
+			Q(master_sku__iexact=sku)
+		).first() or voucher.product
+		if not product:
+			continue
+
+		InventoryTransaction.objects.create(
+			product=product,
+			txn_type='adjust',
+			quantity=-qty,
+			stage=from_stage,
+			stock_type='current',
+			remark=f'Issued to {voucher.dept_to}: {voucher.voucher_no}',
+		)
 
 
 @extend_schema_view(
@@ -93,7 +134,7 @@ def _activate_ready_batch_vouchers(batch_id):
 	destroy=extend_schema(summary='Delete job', tags=['Jobs']),
 )
 class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
-	queryset = Job.objects.all().order_by('-created_at')
+	queryset = Job.objects.select_related('picklist_group').all().order_by('-created_at')
 	serializer_class = JobSerializer
 	filterset_fields = ['status', 'product', 'assignee', 'approval_status', 'batch_id', 'picklist_group']
 	
@@ -104,6 +145,14 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 		except Exception as e:
 			logger.error(f"Job creation error: {str(e)}", exc_info=True)
 			raise
+
+	def perform_create(self, serializer):
+		instance = serializer.save()
+		# Single (non-batch) vouchers created directly as in_process need their
+		# source stage current stock deducted immediately.
+		if instance.approval_status == VoucherApprovalStatus.IN_PROCESS and not instance.batch_id:
+			_deduct_source_current_stock(instance)
+
 	search_fields = ['title']
 
 	def perform_update(self, serializer):
@@ -112,6 +161,76 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 		if next_status != instance.status and not can_transition(instance.status, next_status):
 			raise ValidationError({'status': f'Invalid transition: {instance.status} -> {next_status}'})
 		serializer.save()
+
+	@action(detail=False, methods=['get'], url_path='wip-summary')
+	def wip_summary(self, request):
+		"""
+		Returns remaining WIP quantities per master_sku per dept_to for
+		vouchers that are actively being worked on.
+
+		Only in_process and partially_complete vouchers count as WIP.
+		Awaiting / approved vouchers haven't started work yet so their
+		quantities must NOT appear.
+
+		WIP per row = issued_qty − already_received_qty.
+		Response: { success: true, data: { "SKU": { "dept_to_key": qty, ... }, ... } }
+		"""
+		active_statuses = {
+			VoucherApprovalStatus.IN_PROCESS,
+			VoucherApprovalStatus.PARTIALLY_COMPLETED,
+		}
+		active_jobs = Job.objects.filter(
+			approval_status__in=active_statuses
+		).only('dept_to', 'material_rows', 'received_rows')
+
+		# Pre-load known master SKUs so we can distinguish master SKUs that contain
+		# a slash (e.g. "AJE15/4") from variant suffixes (e.g. "KARTIK/G").
+		from products.models import Product
+		known_skus = set(
+			s.upper() for s in
+			Product.objects.values_list('master_sku', flat=True)
+		)
+
+		def resolve_sku(raw: str) -> str:
+			"""Return the master SKU for a raw material-row SKU."""
+			upper = raw.upper()
+			if upper in known_skus:
+				return upper
+			if '/' in raw:
+				prefix = raw.split('/')[0].upper()
+				if prefix in known_skus:
+					return prefix
+			return upper
+
+		wip: dict = {}
+
+		for job in active_jobs:
+			dept_to = (job.dept_to or '').strip()
+			if not dept_to:
+				continue
+
+			# Sum already-received quantities per SKU from all previous receive events
+			already_rcvd: dict = {}
+			for event in (job.received_rows or []):
+				for row in (event.get('rows') or []):
+					s = resolve_sku(str(row.get('sku', '') or '').strip())
+					qty = int(float(row.get('received_qty', 0) or 0))
+					already_rcvd[s] = already_rcvd.get(s, 0) + qty
+
+			for row in (job.material_rows or []):
+				raw_sku = str(row.get('sku', '') or '').strip()
+				if not raw_sku:
+					continue
+				master_sku = resolve_sku(raw_sku)
+				issued = int(float(row.get('issued_qty', 0) or 0))
+				received = already_rcvd.get(master_sku, 0)
+				remaining = max(0, issued - received)
+				if remaining == 0:
+					continue
+				wip.setdefault(master_sku, {})
+				wip[master_sku][dept_to] = wip[master_sku].get(dept_to, 0) + remaining
+
+		return Response({'success': True, 'data': wip})
 
 	@action(detail=False, methods=['post'], url_path='bulk-create-from-picklist')
 	def bulk_create_from_picklist(self, request):
@@ -163,11 +282,13 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 			if not sku:
 				continue
 
-			master_sku = sku.split('/')[0] if '/' in sku else sku
-
-			product = Product.objects.filter(
-				Q(master_sku__iexact=master_sku) | Q(master_sku__iexact=sku)
-			).first()
+			# Try exact match first (handles master SKUs with / like AJE15/4),
+			# then fall back to prefix match for variant suffixes (e.g. KARTIK/G → KARTIK)
+			product = Product.objects.filter(master_sku__iexact=sku).first()
+			if not product and '/' in sku:
+				product = Product.objects.filter(
+					master_sku__iexact=sku.split('/')[0]
+				).first()
 			if not product:
 				continue
 
@@ -217,7 +338,7 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 					}
 				transition_buckets[tkey]['items'].append({
 					'product': product,
-					'master_sku': master_sku,
+					'master_sku': product.master_sku,
 					'qty': pieces_to_make,
 				})
 
@@ -279,18 +400,8 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 				)
 				created_vouchers.append(voucher)
 
-				# Create WIP inventory transactions per product in this voucher
-				stage_key = DEPT_TO_STOCK_STAGE.get(bucket['from_key'], '')
-				if stage_key:
-					for entry in products_in_voucher:
-						InventoryTransaction.objects.create(
-							product=entry['product'],
-							txn_type='adjust',
-							quantity=entry['qty'],
-							stage=stage_key,
-							stock_type='wip',
-							remark=f'WIP: Voucher {voucher_no} ({from_label} → {to_label})',
-						)
+				# NOTE: No inventory transactions here — WIP is computed live from
+				# in_process vouchers, and source deduction happens at activation.
 
 		serializer = JobSerializer(created_vouchers, many=True)
 		return Response({
@@ -353,6 +464,9 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 					v.approved_by = approved_by
 					v.approved_at = now
 					v.save(update_fields=['approval_status', 'approved_by', 'approved_at'])
+					# Root vouchers start working immediately — deduct from source stage
+					if is_root:
+						_deduct_source_current_stock(v)
 					total_approved += 1
 
 			# Non-batched vouchers → approved directly
@@ -386,38 +500,45 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 			voucher.status = 'completed'
 			voucher.save(update_fields=['approval_status', 'status'])
 
-			# Move WIP to current stock for each product (SKU row) in this voucher
+			# Add remaining pieces (issued − already received) to Current Stock of
+			# the destination stage.  WIP is computed live so no WIP transaction needed.
 			from products.models import Product
 
-			stage_key = DEPT_TO_STOCK_STAGE.get(voucher.dept_from, '')
 			dest_stage_key = DEPT_TO_STOCK_STAGE.get(voucher.dept_to, '')
 
+			# Build already-received totals per SKU from previous receive events
+			already_rcvd: dict = {}
+			for event in (voucher.received_rows or []):
+				for prev_row in (event.get('rows') or []):
+					s = str(prev_row.get('sku', '') or '').strip().upper()
+					already_rcvd[s] = (
+						already_rcvd.get(s, 0)
+						+ int(float(prev_row.get('received_qty', 0) or 0))
+					)
+
 			for row in (voucher.material_rows or []):
-				qty = int(float(row.get('issued_qty', 0) or 0))
-				if qty <= 0:
+				issued = int(float(row.get('issued_qty', 0) or 0))
+				if issued <= 0:
 					continue
 				sku = str(row.get('sku', '') or '').strip()
-				master_sku = sku.split('/')[0] if '/' in sku else sku
+				sku_key = sku.upper()
+
+				# Only create transaction for pieces not yet received
+				remaining = max(0, issued - already_rcvd.get(sku_key, 0))
+				if remaining <= 0:
+					continue
+
 				product = Product.objects.filter(
-					Q(master_sku__iexact=master_sku) | Q(master_sku__iexact=sku)
+					Q(master_sku__iexact=sku)
 				).first() or voucher.product
 				if not product:
 					continue
 
-				if stage_key:
-					InventoryTransaction.objects.create(
-						product=product,
-						txn_type='adjust',
-						quantity=-qty,
-						stage=stage_key,
-						stock_type='wip',
-						remark=f'Completed: {voucher.voucher_no}',
-					)
 				if dest_stage_key:
 					InventoryTransaction.objects.create(
 						product=product,
 						txn_type='adjust',
-						quantity=qty,
+						quantity=remaining,
 						stage=dest_stage_key,
 						stock_type='current',
 						remark=f'Completed: {voucher.voucher_no}',
@@ -439,8 +560,10 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 		Receive an in-process (or partially complete) voucher.
 
 		For each SKU row submitted:
-		  - Deducts received_qty from WIP of the dept_from stage
 		  - Adds received_qty to Current Stock of the dept_to stage
+
+		Source deduction happened when the voucher entered in_process.
+		WIP is computed live from active vouchers — no WIP transactions needed.
 
 		If is_partial=False  → voucher becomes Completed; next awaiting step activated if not already.
 		If is_partial=True   → voucher becomes Partially Completed; next awaiting step activated immediately.
@@ -457,12 +580,18 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 				VoucherApprovalStatus.IN_PROCESS,
 				VoucherApprovalStatus.PARTIALLY_COMPLETED,
 			]:
-				raise ValidationError({
-					'approval_status': (
-						f'Cannot receive a voucher with status "{voucher.approval_status}". '
-						'Only in-process or partially complete vouchers can be received.'
-					)
-				})
+				# Allow pending single (non-batch) vouchers — auto-transition to in_process
+				if voucher.approval_status == VoucherApprovalStatus.PENDING and not voucher.batch_id:
+					voucher.approval_status = VoucherApprovalStatus.IN_PROCESS
+					voucher.save(update_fields=['approval_status'])
+					_deduct_source_current_stock(voucher)
+				else:
+					raise ValidationError({
+						'approval_status': (
+							f'Cannot receive a voucher with status "{voucher.approval_status}". '
+							'Only in-process or partially complete vouchers can be received.'
+						)
+					})
 
 			is_partial = bool(request.data.get('is_partial', False))
 			received_by = str(request.data.get('received_by', '') or '').strip()
@@ -487,7 +616,6 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 				key = str(mr.get('sku', '') or '').strip().upper()
 				issued_map[key] = issued_map.get(key, 0) + int(float(mr.get('issued_qty', 0) or 0))
 
-			from_stage = DEPT_TO_STOCK_STAGE.get(voucher.dept_from, '')
 			to_stage = DEPT_TO_STOCK_STAGE.get(voucher.dept_to, '')
 
 			warnings = []
@@ -517,10 +645,9 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 					if received_qty <= 0:
 						continue
 
-				# Resolve product (try SKU exact match, then strip variant suffix, then voucher FK)
-				master_sku = sku.split('/')[0] if '/' in sku else sku
+				# Resolve product (try exact SKU match, then fall back to voucher FK)
 				product = Product.objects.filter(
-					Q(master_sku__iexact=master_sku) | Q(master_sku__iexact=sku)
+					Q(master_sku__iexact=sku)
 				).first() or voucher.product
 
 				if not product:
@@ -530,21 +657,9 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 					)
 					continue
 
-				# Deduct from WIP (dept_from stage)
-				if from_stage:
-					InventoryTransaction.objects.create(
-						product=product,
-						txn_type='adjust',
-						quantity=-received_qty,
-						stage=from_stage,
-						stock_type='wip',
-						remark=(
-							f'Received {received_qty} pcs — {voucher.voucher_no} '
-							f'({voucher.dept_from} → {voucher.dept_to})'
-						),
-					)
-
-				# Add to Current Stock (dept_to stage)
+				# Add to Current Stock (dept_to stage).
+				# Source deduction already happened when the voucher entered in_process.
+				# WIP is computed live — no WIP transaction needed.
 				if to_stage:
 					InventoryTransaction.objects.create(
 						product=product,
@@ -595,3 +710,81 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 		if warnings:
 			response_data['warnings'] = warnings
 		return Response({'success': True, 'data': response_data})
+
+	@action(detail=True, methods=['get'], url_path='photo-guide')
+	def photo_guide(self, request, pk=None):
+		"""
+		Return the material rows for this job with product images resolved.
+		Each row: { sku, issued_qty, unit, images: [...] }
+		Images are returned as absolute URLs.
+		"""
+		from products.models import Product as ProductModel
+
+		job = self.get_object()
+		material_rows = job.material_rows or []
+
+		# Collect unique, non-empty SKUs
+		skus = list({
+			row.get('sku', '').strip()
+			for row in material_rows
+			if row.get('sku', '').strip()
+		})
+
+		upper_skus = [s.upper() for s in skus]
+
+		from django.db.models.functions import Upper
+
+		# Primary lookup: match by master_sku (case-insensitive)
+		products_by_master = (
+			ProductModel.objects
+			.annotate(upper_sku=Upper('master_sku'))
+			.filter(upper_sku__in=upper_skus)
+			.only('master_sku', 'designer_sku', 'images')
+		)
+		product_map = {p.master_sku.upper(): p for p in products_by_master}
+
+		# Fallback: for SKUs not matched by master_sku, try designer_sku
+		unmatched = [s for s in upper_skus if s not in product_map]
+		if unmatched:
+			products_by_designer = (
+				ProductModel.objects
+				.annotate(upper_designer=Upper('designer_sku'))
+				.filter(upper_designer__in=unmatched)
+				.only('master_sku', 'designer_sku', 'images')
+			)
+			for p in products_by_designer:
+				key = p.designer_sku.upper()
+				if key not in product_map:
+					product_map[key] = p
+
+		def make_absolute(url):
+			"""Turn a relative /media/... path into an absolute URL."""
+			if not url:
+				return None
+			if isinstance(url, dict):
+				# Handle images stored as {url: "..."} objects
+				url = url.get('url') or url.get('src') or ''
+			url = str(url).strip()
+			if not url:
+				return None
+			if url.startswith('http://') or url.startswith('https://') or url.startswith('data:'):
+				return url
+			return request.build_absolute_uri(url)
+
+		result = []
+		for row in material_rows:
+			sku = row.get('sku', '').strip()
+			if not sku:
+				continue
+			product = product_map.get(sku.upper())
+			raw_images = product.images if product and isinstance(product.images, list) else []
+			resolved = [make_absolute(img) for img in raw_images]
+			resolved = [img for img in resolved if img]  # filter None/empty
+			result.append({
+				'sku': sku,
+				'issued_qty': row.get('issued_qty', ''),
+				'unit': row.get('unit1', 'Pcs'),
+				'images': resolved,
+			})
+
+		return Response({'success': True, 'data': result})
