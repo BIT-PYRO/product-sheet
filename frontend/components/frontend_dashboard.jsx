@@ -35,6 +35,7 @@ function ProductSheetContent() {
   const [jobCardToPrint, setJobCardToPrint] = useState(null)
   const [productImages, setProductImages] = useState([])
   const [primaryImageIndex, setPrimaryImageIndex] = useState(0)
+  const [isImageUploadHovered, setIsImageUploadHovered] = useState(false)
 
   const [platingType, setPlatingType] = useState([
     { id: 1, col1: '', col2: '', col3: '' },
@@ -967,9 +968,7 @@ function ProductSheetContent() {
     setFinalStock(finalStock.filter(row => row.id !== id))
   }
 
-  // Handle image upload (multiple)
-  const handleImageUpload = (e) => {
-    const files = Array.from(e.target.files || []);
+  const appendProductImagesFromFiles = useCallback((files) => {
     if (!files.length) return;
     Promise.all(files.map((file) => new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -982,9 +981,74 @@ function ProductSheetContent() {
         if (prev.length === 0) setPrimaryImageIndex(0);
         return updated;
       });
-      e.target.value = '';
     });
+  }, []);
+
+  // Handle image upload (multiple)
+  const handleImageUpload = (e) => {
+    const files = Array.from(e.target.files || []);
+    appendProductImagesFromFiles(files);
+    e.target.value = '';
   };
+
+  const readImageFilesFromClipboardApi = useCallback(async () => {
+    if (!navigator.clipboard?.read) return [];
+
+    try {
+      const clipboardItems = await navigator.clipboard.read();
+      const files = [];
+
+      for (const item of clipboardItems) {
+        const imageType = item.types.find((type) => type.startsWith('image/'));
+        if (!imageType) continue;
+
+        const blob = await item.getType(imageType);
+        const extension = imageType.split('/')[1] || 'png';
+        const file = new File([blob], `pasted-image-${Date.now()}.${extension}`, { type: imageType });
+        files.push(file);
+      }
+
+      return files;
+    } catch {
+      return [];
+    }
+  }, []);
+
+  const handleImagePaste = useCallback(async (event) => {
+    if (!isImageUploadHovered) return;
+
+    const activeElement = document.activeElement;
+    const isTypingInField = activeElement && (
+      activeElement.tagName === 'INPUT' ||
+      activeElement.tagName === 'TEXTAREA' ||
+      activeElement.isContentEditable ||
+      activeElement.getAttribute('role') === 'textbox'
+    );
+
+    if (isTypingInField) return;
+
+    const clipboardItems = Array.from(event.clipboardData?.items || []);
+    const imageFiles = clipboardItems
+      .filter((item) => item.type?.startsWith('image/'))
+      .map((item) => item.getAsFile())
+      .filter(Boolean);
+
+    let filesToUpload = imageFiles;
+
+    if (!filesToUpload.length) {
+      filesToUpload = await readImageFilesFromClipboardApi();
+    }
+
+    if (!filesToUpload.length) return;
+
+    event.preventDefault();
+    appendProductImagesFromFiles(filesToUpload);
+  }, [appendProductImagesFromFiles, isImageUploadHovered, readImageFilesFromClipboardApi]);
+
+  useEffect(() => {
+    window.addEventListener('paste', handleImagePaste);
+    return () => window.removeEventListener('paste', handleImagePaste);
+  }, [handleImagePaste]);
 
   const removeProductImage = (indexToRemove) => {
     setProductImages((prev) => {
@@ -1748,7 +1812,11 @@ function ProductSheetContent() {
       <div className="bg-cloud-gray p-1.5 rounded-xl mb-2 border border-soft-border shadow-sm">
         <div className="flex gap-2 h-auto">
           {/* Product Image - Left Side - 1/5 width */}
-          <div className="w-1/5 h-[25.5rem] flex flex-col gap-1 flex-shrink-0">
+          <div
+            className="w-1/5 h-[25.5rem] flex flex-col gap-1 flex-shrink-0"
+            onMouseEnter={() => setIsImageUploadHovered(true)}
+            onMouseLeave={() => setIsImageUploadHovered(false)}
+          >
             <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={handleImageUpload} className="hidden"/>
             {/* Primary image */}
             <div
@@ -1758,7 +1826,7 @@ function ProductSheetContent() {
               {productImages.length > 0 ? (
                 <img src={productImages[primaryImageIndex]} alt="Product" className="w-full h-full object-cover"/>
               ) : (
-                <span className="text-cool-gray text-center text-sm font-semibold">PRODUCT<br/>IMAGE</span>
+                <span className="text-cool-gray text-center text-sm font-semibold">PRODUCT<br/>IMAGE<br/><span className="text-[10px] font-medium">Click to upload or press Ctrl+V</span></span>
               )}
             </div>
             {/* Thumbnails strip */}
