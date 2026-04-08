@@ -18,7 +18,8 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
 from django.http import JsonResponse
-from django.urls import include, path
+from django.urls import include, path, re_path
+from django.views.static import serve as media_serve
 from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
 from rest_framework.routers import DefaultRouter
 from inventory.views import ProductInventoryItemViewSet
@@ -53,4 +54,6 @@ urlpatterns = [
     path('api/v1/designers/', include('designers.urls')),
     path('api/v1/findings/', include('findings.urls')),
     path('api/v1/product-inventory/', include(_product_inventory_router.urls)),
+    # Always serve media (static() is a no-op when DEBUG=False)
+    re_path(r'^media/(?P<path>.*)$', media_serve, {'document_root': settings.MEDIA_ROOT}),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

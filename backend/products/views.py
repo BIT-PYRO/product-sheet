@@ -221,9 +221,7 @@ class ProductViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 	@extend_schema(summary='Upload image for product', tags=['Products'])
 	@action(detail=True, methods=['post'], url_path='upload-image', parser_classes=[MultiPartParser])
 	def upload_image(self, request, pk=None):
-		import os
-		import uuid
-		from django.conf import settings
+		from common.image_upload import upload_image_file
 
 		product = self.get_object()
 		image_file = request.FILES.get('image')
@@ -234,17 +232,11 @@ class ProductViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 		if image_file.content_type not in allowed_types:
 			return Response({'success': False, 'message': 'Unsupported image type. Use JPEG, PNG, WebP, or GIF.'}, status=400)
 
-		ext = os.path.splitext(image_file.name)[1].lower() or '.jpg'
-		filename = f'{uuid.uuid4().hex}{ext}'
-		upload_dir = os.path.join(settings.MEDIA_ROOT, 'products', str(product.pk))
-		os.makedirs(upload_dir, exist_ok=True)
-		file_path = os.path.join(upload_dir, filename)
+		try:
+			image_url = upload_image_file(image_file, folder=f'products/{product.pk}')
+		except Exception as exc:
+			return Response({'success': False, 'message': f'Upload failed: {exc}'}, status=500)
 
-		with open(file_path, 'wb') as f:
-			for chunk in image_file.chunks():
-				f.write(chunk)
-
-		image_url = f'{settings.MEDIA_URL}products/{product.pk}/{filename}'
 		current_images = product.images if isinstance(product.images, list) else []
 		current_images.append(image_url)
 		product.images = current_images

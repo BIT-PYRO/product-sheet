@@ -106,6 +106,7 @@ function buildProductStockMap(products, transactions, wipBySkuAndStage = new Map
       id: product.id,
       sku: product.master_sku || '',
       masterSku: product.master_sku || '',
+      designerSku: product.designer_sku || '',
       listingName: product.name || '',
       material: product.material || '',
       weight: product.weight || '',

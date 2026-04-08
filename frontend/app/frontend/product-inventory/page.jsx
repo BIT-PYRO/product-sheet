@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Search, Upload, Trash2, Pencil, Download, RefreshCw } from 'lucide-react';
+import { Search, ChevronDown, ChevronRight, Upload, Trash2, Pencil, Download, RefreshCw } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -26,6 +26,7 @@ export default function ProductInventoryPage() {
   const [fetchError, setFetchError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedRows, setSelectedRows] = useState(new Set());
+  const [expandedProducts, setExpandedProducts] = useState(new Set());
   const [editingRowIds, setEditingRowIds] = useState(new Set());
   const [editBuffer, setEditBuffer] = useState({});
   const [isSaving, setIsSaving] = useState(false);
@@ -42,6 +43,9 @@ export default function ProductInventoryPage() {
   const [bulkUploadStatus, setBulkUploadStatus] = useState(null);
   const [isBulkUploading, setIsBulkUploading] = useState(false);
   const bulkFileRef = useRef(null);
+
+  // WIP data from jobs
+  const [wipData, setWipData] = useState({});
 
   useEffect(() => {
     fetch('/api/auth/session').then(r => r.json()).then(d => { if (d?.user?.username) setCurrentUsername(d.user.username); }).catch(() => {});
@@ -61,87 +65,73 @@ export default function ProductInventoryPage() {
     setIsLoading(true);
     setFetchError('');
     try {
-      const [summaryRes, manualRes] = await Promise.all([
-        fetch('/api/inventory-summary', { cache: 'no-store' }),
+      const [invRes, prodRes, wipRes] = await Promise.all([
         fetch('/api/product-inventory', { cache: 'no-store' }),
+        fetch('/api/products', { cache: 'no-store' }),
+        fetch('/api/jobs/wip-summary', { cache: 'no-store' }),
       ]);
 
-      const summaryPayload = await summaryRes.json().catch(() => null);
-      const manualPayload = await manualRes.json().catch(() => null);
+      const invPayload = await invRes.json().catch(() => null);
+      const prodPayload = await prodRes.json().catch(() => null);
+      const wipPayload = await wipRes.json().catch(() => null);
 
-      if (!summaryRes.ok || !summaryPayload?.success) {
-        throw new Error(summaryPayload?.message || 'Failed to fetch inventory data');
-      }
+      if (!invRes.ok || !invPayload?.success) throw new Error(invPayload?.message || 'Failed to fetch product inventory');
 
-      const products = Array.isArray(summaryPayload.products) ? summaryPayload.products : [];
-
-      // Build manual overlay map: (productId__finalSku) → ProductInventoryItem (for total_in_demand overrides)
-      const manualItems = manualRes.ok && manualPayload?.success
-        ? (Array.isArray(manualPayload.data) ? manualPayload.data
-          : Array.isArray(manualPayload.data?.results) ? manualPayload.data.results : [])
+      const invItems = Array.isArray(invPayload.data) ? invPayload.data : (Array.isArray(invPayload.data?.results) ? invPayload.data.results : []);
+      const products = prodRes.ok && prodPayload?.success
+        ? (Array.isArray(prodPayload.data) ? prodPayload.data : (Array.isArray(prodPayload.data?.results) ? prodPayload.data.results : []))
         : [];
-      const manualMap = new Map();
-      manualItems.forEach(item => {
-        const key = `${item.product}__${String(item.final_sku || '').toLowerCase()}`;
-        manualMap.set(key, item);
+      const wip = wipRes.ok && wipPayload?.success ? (wipPayload.data || {}) : {};
+      setWipData(wip);
+
+      // Build product lookup
+      const productMap = new Map();
+      products.forEach(p => productMap.set(p.id, p));
+
+      // Group inventory items by product
+      const byProduct = new Map();
+      invItems.forEach(item => {
+        const pid = item.product;
+        if (!byProduct.has(pid)) byProduct.set(pid, []);
+        byProduct.get(pid).push(item);
       });
 
-      // Build consolidated location string from die numbers / findings
-      const getLocation = (dieNumberFindings) => {
-        if (!Array.isArray(dieNumberFindings)) return '';
-        return dieNumberFindings
-          .filter(d => String(d.location || '').trim())
-          .map(d => d.location)
-          .join(' | ');
-      };
+      // Build rows: one per product with sub-rows for final stock entries
+      const rows = [];
+      byProduct.forEach((items, productId) => {
+        const product = productMap.get(productId) || {};
+        const firstItem = items[0] || {};
+        const masterSku = (firstItem.master_sku || product.master_sku || '').toUpperCase();
+        const productWip = wip[masterSku] || {};
+        const totalWip = Object.values(productWip).reduce((sum, v) => sum + (Number(v) || 0), 0);
 
-      // Sum WIP across all live-stock stages from inventory-summary
-      const getWip = (liveStock) => {
-        if (!liveStock) return 0;
-        return Object.values(liveStock).reduce((sum, stage) => sum + (Number(stage?.wip) || 0), 0);
-      };
-
-      const rows = products.map(product => {
-        const finalStockList = Array.isArray(product.finalStock) ? product.finalStock : [];
-        const location = getLocation(product.dieNumberFindings);
-        const wip = getWip(product.liveStock);
-
-        const subRows = finalStockList.map((fs, idx) => {
-          const fsKey = `${product.id}__${String(fs.sku || '').toLowerCase()}`;
-          const manual = manualMap.get(fsKey);
-          return {
-            id: manual?.id ?? `_${product.id}_${idx}`,  // synthetic id for rows without manual entry
-            productId: product.id,
-            finalSku: fs.sku || '',
-            value: fs.value || '0',
-            unit: (fs.unit || 'PCS').toUpperCase(),
-            location: fs.location || location || '',
-            totalInDemand: manual?.total_in_demand || '0',
-            updatedAt: manual?.updated_at,
-          };
+        rows.push({
+          productId,
+          masterSku: product.master_sku || firstItem.master_sku || '',
+          designerSku: product.designer_sku || firstItem.designer_sku || '',
+          productName: product.name || firstItem.product_name || '',
+          images: Array.isArray(product.images) ? product.images : (Array.isArray(firstItem.images) ? firstItem.images : []),
+          wip: totalWip,
+          wipBreakdown: productWip,
+          subRows: items.map(it => ({
+            id: it.id,
+            finalSku: it.final_sku || '',
+            value: it.value || '0',
+            unit: it.unit || 'PCS',
+            location: it.location || '',
+            totalInDemand: it.total_in_demand || '0',
+            createdBy: it.created_by,
+            updatedBy: it.updated_by,
+            updatedAt: it.updated_at,
+          })),
         });
+      });
 
-        if (subRows.length === 0) {
-          subRows.push({
-            id: `_${product.id}_0`,
-            productId: product.id,
-            finalSku: product.masterSku || product.sku || '',
-            value: '0',
-            unit: 'PCS',
-            location,
-            totalInDemand: '0',
-          });
+      // Also add products that have NO inventory items but exist in products list
+      products.forEach(p => {
+        if (!byProduct.has(p.id)) {
+          // skip — they'll appear when user adds rows
         }
-
-        return {
-          productId: product.id,
-          masterSku: product.masterSku || product.sku || '',
-          designerSku: product.designerSku || '',
-          productName: product.listingName || '',
-          images: Array.isArray(product.images) ? product.images : [],
-          wip,
-          subRows,
-        };
       });
 
       setData(rows);
@@ -192,6 +182,13 @@ export default function ProductInventoryPage() {
     setSelectedRows(next);
   };
 
+  const toggleExpand = (productId) => {
+    const next = new Set(expandedProducts);
+    if (next.has(productId)) next.delete(productId);
+    else next.add(productId);
+    setExpandedProducts(next);
+  };
+
   // Edit
   const handleEditRows = () => {
     if (selectedRows.size === 0) {
@@ -207,7 +204,13 @@ export default function ProductInventoryPage() {
       }
     });
     setEditBuffer(buffer);
-    setEditingRowIds(new Set(Object.keys(buffer)));
+    setEditingRowIds(new Set(Object.keys(buffer).map(Number)));
+    // Expand rows being edited
+    setExpandedProducts(prev => {
+      const next = new Set(prev);
+      selectedRows.forEach(pid => next.add(pid));
+      return next;
+    });
   };
 
   const updateEditBuffer = (subId, field, value) => {
@@ -227,33 +230,19 @@ export default function ProductInventoryPage() {
       const buf = editBuffer[id];
       if (!buf) continue;
       try {
-        const isNew = String(id).startsWith('_');
-        const res = isNew
-          ? await fetch('/api/product-inventory', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                product: buf.productId,
-                final_sku: buf.finalSku,
-                value: buf.value,
-                unit: buf.unit,
-                location: buf.location,
-                total_in_demand: buf.totalInDemand,
-              }),
-            })
-          : await fetch(`/api/product-inventory/${id}`, {
-              method: 'PATCH',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                final_sku: buf.finalSku,
-                value: buf.value,
-                unit: buf.unit,
-                location: buf.location,
-                total_in_demand: buf.totalInDemand,
-              }),
-            });
+        const res = await fetch(`/api/product-inventory/${id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            final_sku: buf.finalSku,
+            value: buf.value,
+            unit: buf.unit,
+            location: buf.location,
+            total_in_demand: buf.totalInDemand,
+          }),
+        });
         const result = await res.json().catch(() => null);
-        if (!res.ok || !result?.success) throw new Error(result?.message || `Failed to save row`);
+        if (!res.ok || !result?.success) throw new Error(result?.message || `Failed to save row ${id}`);
       } catch (err) {
         errors.push(err.message);
       }
@@ -283,19 +272,10 @@ export default function ProductInventoryPage() {
     const toDelete = [];
     data.forEach(row => {
       if (selectedRows.has(row.productId)) {
-        // Only delete rows that have a real DB id (skip inventory-summary derived rows)
-        row.subRows.forEach(sub => {
-          if (!String(sub.id).startsWith('_')) toDelete.push(sub.id);
-        });
+        row.subRows.forEach(sub => toDelete.push(sub.id));
       }
     });
-    if (toDelete.length === 0) {
-      setIsDeleteConfirmOpen(false);
-      setSelectedRows(new Set());
-      setDeleteStatus({ success: false, message: 'Nothing to delete — these rows come from the inventory sheet automatically.' });
-      setTimeout(() => setDeleteStatus(null), 4000);
-      return;
-    }
+    if (toDelete.length === 0) return;
 
     setIsDeletingRows(true);
     setDeleteStatus(null);
@@ -538,6 +518,7 @@ export default function ProductInventoryPage() {
                       disabled={filteredData.length === 0 || editingRowIds.size > 0}
                     />
                   </th>
+                  <th className="border border-soft-border p-2 w-8 bg-[#dbeafe]"></th>
                   <th className="border border-soft-border p-2 min-w-[80px] bg-[#dbeafe]">IMAGE</th>
                   <th className="border border-soft-border p-2 min-w-[120px] bg-[#dbeafe]">MASTER SKU</th>
                   <th className="border border-soft-border p-2 min-w-[120px] bg-[#dbeafe]">DESIGNER SKU</th>
@@ -557,18 +538,28 @@ export default function ProductInventoryPage() {
                     </td>
                   </tr>
                 )}
-                {paginatedData.map((row) => (
-                  <ProductRow
-                    key={row.productId}
-                    row={row}
-                    isSelected={selectedRows.has(row.productId)}
-                    isEditing={editingRowIds.size > 0 && selectedRows.has(row.productId)}
-                    editBuffer={editBuffer}
-                    onToggleSelect={() => toggleRowSelection(row.productId)}
-                    onUpdateBuffer={updateEditBuffer}
-                    resolveImageUrl={resolveImageUrl}
-                  />
-                ))}
+                {paginatedData.map((row) => {
+                  const isExpanded = expandedProducts.has(row.productId);
+                  const firstSub = row.subRows[0];
+                  const hasMultipleSubs = row.subRows.length > 1;
+
+                  return (
+                    <ProductRow
+                      key={row.productId}
+                      row={row}
+                      firstSub={firstSub}
+                      hasMultipleSubs={hasMultipleSubs}
+                      isExpanded={isExpanded}
+                      isSelected={selectedRows.has(row.productId)}
+                      isEditing={editingRowIds.size > 0 && selectedRows.has(row.productId)}
+                      editBuffer={editBuffer}
+                      onToggleExpand={() => toggleExpand(row.productId)}
+                      onToggleSelect={() => toggleRowSelection(row.productId)}
+                      onUpdateBuffer={updateEditBuffer}
+                      resolveImageUrl={resolveImageUrl}
+                    />
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -629,14 +620,11 @@ export default function ProductInventoryPage() {
   );
 }
 
-function ProductRow({ row, isSelected, isEditing, editBuffer, onToggleSelect, onUpdateBuffer, resolveImageUrl }) {
-  const subRows = row.subRows;
-  const span = subRows.length || 1;
-  const bgClass = isEditing ? 'bg-trust-blue/5' : 'hover:bg-cloud-gray';
-
-  const renderSubCells = (sub) => {
+function ProductRow({ row, firstSub, hasMultipleSubs, isExpanded, isSelected, isEditing, editBuffer, onToggleExpand, onToggleSelect, onUpdateBuffer, resolveImageUrl }) {
+  const renderSubRowCells = (sub, isFirst) => {
     const buf = editBuffer[sub.id];
     const editing = isEditing && buf;
+
     return (
       <>
         <td className="border border-soft-border p-1.5">
@@ -669,31 +657,32 @@ function ProductRow({ row, isSelected, isEditing, editBuffer, onToggleSelect, on
             <span className="px-1 text-sm">{sub.location || '—'}</span>
           )}
         </td>
+        <td className="border border-soft-border p-1.5 text-center">
+          {isFirst ? (
+            <span className="px-1 text-sm font-medium">{row.wip || 0}</span>
+          ) : null}
+        </td>
+        <td className="border border-soft-border p-1.5">
+          {editing ? (
+            <Input type="number" value={buf.totalInDemand} onChange={(e) => onUpdateBuffer(sub.id, 'totalInDemand', e.target.value)} className="border-0 p-1 text-sm h-8" />
+          ) : (
+            <span className="px-1 text-sm">{sub.totalInDemand}</span>
+          )}
+        </td>
       </>
     );
   };
 
-  const renderTotalInDemand = (sub) => {
-    const buf = editBuffer[sub.id];
-    const editing = isEditing && buf;
-    return (
-      <td className="border border-soft-border p-1.5">
-        {editing ? (
-          <Input type="number" value={buf.totalInDemand} onChange={(e) => onUpdateBuffer(sub.id, 'totalInDemand', e.target.value)} className="border-0 p-1 text-sm h-8" />
-        ) : (
-          <span className="px-1 text-sm">{sub.totalInDemand}</span>
-        )}
-      </td>
-    );
-  };
-
-  if (!subRows.length) {
+  if (!firstSub) {
     return (
       <tr className="hover:bg-cloud-gray">
         <td className="border border-soft-border p-2 text-center sticky left-0 z-10 bg-white shadow-[2px_0_4px_-1px_rgba(0,0,0,0.08)]">
           <Checkbox checked={isSelected} onCheckedChange={onToggleSelect} className="cursor-pointer" />
         </td>
-        <td className="border border-soft-border p-1.5"><span className="text-xs text-cool-gray">—</span></td>
+        <td className="border border-soft-border p-2"></td>
+        <td className="border border-soft-border p-1.5">
+          <span className="text-xs text-cool-gray">—</span>
+        </td>
         <td className="border border-soft-border p-1.5">
           <Link href={`/frontend?sku=${encodeURIComponent(row.masterSku)}`} className="text-deep-blue underline hover:text-deep-blue text-sm">{row.masterSku}</Link>
         </td>
@@ -705,51 +694,54 @@ function ProductRow({ row, isSelected, isEditing, editBuffer, onToggleSelect, on
     );
   }
 
+  const bgClass = isEditing ? 'bg-trust-blue/5' : 'hover:bg-cloud-gray';
+
   return (
     <>
-      {subRows.map((sub, idx) => (
-        <tr key={sub.id} className={`border-b border-soft-border ${bgClass}`}>
-          {/* Shared cells — only rendered once, spanning all sub-rows */}
-          {idx === 0 && (
-            <>
-              <td rowSpan={span} className={`border border-soft-border p-2 text-center align-middle sticky left-0 z-10 shadow-[2px_0_4px_-1px_rgba(0,0,0,0.08)] ${isEditing ? 'bg-[#eff6ff]' : 'bg-white'}`}>
-                <Checkbox checked={isSelected} onCheckedChange={onToggleSelect} className="cursor-pointer" disabled={isEditing} />
-              </td>
-              <td rowSpan={span} className={`border border-soft-border p-1.5 align-middle ${isEditing ? 'bg-trust-blue/5' : ''}`}>
-                {row.images.length > 0 ? (
-                  <img
-                    src={resolveImageUrl(row.images[0])}
-                    alt="product"
-                    className="w-10 h-10 object-cover rounded border border-soft-border"
-                    onError={(e) => { e.target.style.display = 'none'; }}
-                  />
-                ) : (
-                  <span className="text-xs text-cool-gray">—</span>
-                )}
-              </td>
-              <td rowSpan={span} className={`border border-soft-border p-1.5 align-middle ${isEditing ? 'bg-trust-blue/5' : ''}`}>
-                <Link href={`/frontend?sku=${encodeURIComponent(row.masterSku)}`} className="text-deep-blue underline hover:text-deep-blue text-sm">
-                  {row.masterSku}
-                </Link>
-              </td>
-              <td rowSpan={span} className={`border border-soft-border p-1.5 text-sm align-middle ${isEditing ? 'bg-trust-blue/5' : ''}`}>
-                {row.designerSku || '—'}
-              </td>
-            </>
+      {/* Main row (with first sub-row inline) */}
+      <tr className={`border-b border-soft-border ${bgClass}`}>
+        <td className={`border border-soft-border p-2 text-center sticky left-0 z-10 shadow-[2px_0_4px_-1px_rgba(0,0,0,0.08)] ${isEditing ? 'bg-[#eff6ff]' : 'bg-white'}`}>
+          <Checkbox checked={isSelected} onCheckedChange={onToggleSelect} className="cursor-pointer" disabled={isEditing} />
+        </td>
+        <td className="border border-soft-border p-1 text-center">
+          {hasMultipleSubs && (
+            <button onClick={onToggleExpand} className="p-0.5 rounded hover:bg-cloud-gray">
+              {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+            </button>
           )}
-          {/* Per-sub-row cells: finalSku | value | unit | location */}
-          {renderSubCells(sub)}
-          {/* WIP — spans all sub-rows, rendered only on first */}
-          {idx === 0 && (
-            <td rowSpan={span} className={`border border-soft-border p-1.5 text-center align-middle text-sm font-medium ${isEditing ? 'bg-trust-blue/5' : ''}`}>
-              {row.wip || 0}
-            </td>
+        </td>
+        <td className="border border-soft-border p-1.5">
+          {row.images.length > 0 ? (
+            <img
+              src={resolveImageUrl(row.images[0])}
+              alt="product"
+              className="w-10 h-10 object-cover rounded border border-soft-border"
+              onError={(e) => { e.target.style.display = 'none'; }}
+            />
+          ) : (
+            <span className="text-xs text-cool-gray">—</span>
           )}
-          {/* Total In Demand — per sub-row */}
-          {renderTotalInDemand(sub)}
+        </td>
+        <td className="border border-soft-border p-1.5">
+          <Link href={`/frontend?sku=${encodeURIComponent(row.masterSku)}`} className="text-deep-blue underline hover:text-deep-blue text-sm">
+            {row.masterSku}
+          </Link>
+        </td>
+        <td className="border border-soft-border p-1.5 text-sm">{row.designerSku || '—'}</td>
+        {renderSubRowCells(firstSub, true)}
+      </tr>
+
+      {/* Expanded sub-rows */}
+      {isExpanded && row.subRows.slice(1).map((sub) => (
+        <tr key={sub.id} className={`border-b border-soft-border ${isEditing ? 'bg-trust-blue/5' : 'bg-cloud-gray/40'}`}>
+          <td className={`border border-soft-border p-2 sticky left-0 z-10 shadow-[2px_0_4px_-1px_rgba(0,0,0,0.08)] ${isEditing ? 'bg-[#eff6ff]' : 'bg-cloud-gray/40'}`}></td>
+          <td className="border border-soft-border p-1"></td>
+          <td className="border border-soft-border p-1.5"></td>
+          <td className="border border-soft-border p-1.5"></td>
+          <td className="border border-soft-border p-1.5"></td>
+          {renderSubRowCells(sub, false)}
         </tr>
       ))}
     </>
   );
 }
-

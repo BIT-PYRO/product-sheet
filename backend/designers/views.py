@@ -27,9 +27,7 @@ class DesignerSheetViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
     @extend_schema(summary='Upload photo for designer sheet', tags=['Designers'])
     @action(detail=True, methods=['post'], url_path='upload-photo', parser_classes=[MultiPartParser])
     def upload_photo(self, request, pk=None):
-        import os
-        import uuid
-        from django.conf import settings
+        from common.image_upload import upload_image_file
 
         designer = self.get_object()
         image_file = request.FILES.get('image')
@@ -44,17 +42,11 @@ class DesignerSheetViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
         if field not in ('rendered_photo', 'technical_drawing', 'designer_image_3'):
             return Response({'success': False, 'message': 'Invalid field parameter.'}, status=400)
 
-        ext = os.path.splitext(image_file.name)[1].lower() or '.jpg'
-        filename = f'{uuid.uuid4().hex}{ext}'
-        upload_dir = os.path.join(settings.MEDIA_ROOT, 'designers', str(designer.pk))
-        os.makedirs(upload_dir, exist_ok=True)
-        file_path = os.path.join(upload_dir, filename)
+        try:
+            image_url = upload_image_file(image_file, folder=f'designers/{designer.pk}')
+        except Exception as exc:
+            return Response({'success': False, 'message': f'Upload failed: {exc}'}, status=500)
 
-        with open(file_path, 'wb') as f:
-            for chunk in image_file.chunks():
-                f.write(chunk)
-
-        image_url = f'{settings.MEDIA_URL}designers/{designer.pk}/{filename}'
         setattr(designer, field, image_url)
         designer.save(update_fields=[field])
 
