@@ -991,6 +991,47 @@ function ProductSheetContent() {
     e.target.value = '';
   };
 
+  const extractImageFilesFromHtml = useCallback(async (html) => {
+    if (!html) return [];
+
+    try {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(html, 'text/html');
+      const imgElements = Array.from(doc.querySelectorAll('img'));
+      const files = [];
+
+      for (const img of imgElements) {
+        const src = img.getAttribute('src') || '';
+        if (!src) continue;
+
+        if (src.startsWith('data:image/')) {
+          const response = await fetch(src);
+          const blob = await response.blob();
+          const extension = blob.type.split('/')[1] || 'png';
+          files.push(new File([blob], `pasted-image-${Date.now()}.${extension}`, { type: blob.type }));
+          continue;
+        }
+
+        if (src.startsWith('blob:') || src.startsWith('http://') || src.startsWith('https://')) {
+          try {
+            const response = await fetch(src);
+            if (!response.ok) continue;
+            const blob = await response.blob();
+            if (!blob.type.startsWith('image/')) continue;
+            const extension = blob.type.split('/')[1] || 'png';
+            files.push(new File([blob], `pasted-image-${Date.now()}.${extension}`, { type: blob.type }));
+          } catch {
+            // Ignore unresolvable image URLs and continue with next candidate.
+          }
+        }
+      }
+
+      return files;
+    } catch {
+      return [];
+    }
+  }, []);
+
   const readImageFilesFromClipboardApi = useCallback(async () => {
     if (!navigator.clipboard?.read) return [];
 
@@ -1000,19 +1041,27 @@ function ProductSheetContent() {
 
       for (const item of clipboardItems) {
         const imageType = item.types.find((type) => type.startsWith('image/'));
-        if (!imageType) continue;
+        if (imageType) {
+          const blob = await item.getType(imageType);
+          const extension = imageType.split('/')[1] || 'png';
+          const file = new File([blob], `pasted-image-${Date.now()}.${extension}`, { type: imageType });
+          files.push(file);
+          continue;
+        }
 
-        const blob = await item.getType(imageType);
-        const extension = imageType.split('/')[1] || 'png';
-        const file = new File([blob], `pasted-image-${Date.now()}.${extension}`, { type: imageType });
-        files.push(file);
+        if (item.types.includes('text/html')) {
+          const htmlBlob = await item.getType('text/html');
+          const html = await htmlBlob.text();
+          const htmlImageFiles = await extractImageFilesFromHtml(html);
+          files.push(...htmlImageFiles);
+        }
       }
 
       return files;
     } catch {
       return [];
     }
-  }, []);
+  }, [extractImageFilesFromHtml]);
 
   const handleImagePaste = useCallback(async (event) => {
     if (!isImageUploadHovered) return;
@@ -1028,12 +1077,20 @@ function ProductSheetContent() {
     if (isTypingInField) return;
 
     const clipboardItems = Array.from(event.clipboardData?.items || []);
-    const imageFiles = clipboardItems
+    const itemFiles = clipboardItems
       .filter((item) => item.type?.startsWith('image/'))
       .map((item) => item.getAsFile())
       .filter(Boolean);
 
-    let filesToUpload = imageFiles;
+    const pastedFileList = Array.from(event.clipboardData?.files || []).filter((file) => file.type?.startsWith('image/'));
+
+    let htmlImageFiles = [];
+    if (event.clipboardData?.types?.includes('text/html')) {
+      const html = event.clipboardData.getData('text/html');
+      htmlImageFiles = await extractImageFilesFromHtml(html);
+    }
+
+    let filesToUpload = [...itemFiles, ...pastedFileList, ...htmlImageFiles];
 
     if (!filesToUpload.length) {
       filesToUpload = await readImageFilesFromClipboardApi();
@@ -1043,7 +1100,7 @@ function ProductSheetContent() {
 
     event.preventDefault();
     appendProductImagesFromFiles(filesToUpload);
-  }, [appendProductImagesFromFiles, isImageUploadHovered, readImageFilesFromClipboardApi]);
+  }, [appendProductImagesFromFiles, extractImageFilesFromHtml, isImageUploadHovered, readImageFilesFromClipboardApi]);
 
   useEffect(() => {
     window.addEventListener('paste', handleImagePaste);
