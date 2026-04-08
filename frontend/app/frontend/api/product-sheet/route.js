@@ -127,7 +127,10 @@ function mapIncomingToProductPayload(data) {
     plating_type: String(Array.isArray(data?.platingType) ? (data.platingType.find(r => r?.col1)?.col1 || '') : (data?.platingType || '')).trim(),
     plating_color: String(Array.isArray(data?.platingType) ? (data.platingType.find(r => r?.col2)?.col2 || '') : (data?.platingColor || '')).trim(),
     notes: String(data?.notes || data?.manufacturing?.notes || '').trim(),
-    images: Array.isArray(data?.productImages) ? data.productImages.filter(Boolean) : [],
+    // Only persist already-uploaded URLs; base64 blobs are uploaded separately after save
+    images: Array.isArray(data?.productImages)
+      ? data.productImages.filter((img) => Boolean(img) && !String(img).startsWith('data:'))
+      : [],
   };
 }
 
@@ -599,6 +602,59 @@ export async function POST(request) {
         await syncAllInventoryStages(request, savedProduct.id, sku, data?.liveStock, data?.finalStock);
       } catch {
         // Inventory sync is best-effort; do not fail the whole save.
+      }
+
+      // Upload any new base64 images to disk via the upload-image endpoint
+      const base64Images = Array.isArray(data?.productImages)
+        ? data.productImages.filter((img) => Boolean(img) && String(img).startsWith('data:'))
+        : [];
+
+      if (base64Images.length > 0) {
+        const uploadedUrls = [];
+        const accessToken = request.cookies.get(ACCESS_COOKIE)?.value || '';
+        const refreshToken = request.cookies.get(REFRESH_COOKIE)?.value || '';
+
+        for (const dataUrl of base64Images) {
+          try {
+            // Convert data URL to a Blob/File
+            const [header, base64Data] = dataUrl.split(',');
+            const mimeMatch = header.match(/data:([^;]+)/);
+            const mimeType = mimeMatch ? mimeMatch[1] : 'image/png';
+            const ext = mimeType.split('/')[1] || 'png';
+            const binaryStr = Buffer.from(base64Data, 'base64');
+            const uploadForm = new FormData();
+            uploadForm.append(
+              'image',
+              new Blob([binaryStr], { type: mimeType }),
+              `pasted-image-${Date.now()}.${ext}`
+            );
+
+            const doUpload = async (token) => fetch(
+              `${backendBaseUrl()}/api/v1/products/${savedProduct.id}/upload-image/`,
+              {
+                method: 'POST',
+                headers: token ? { Authorization: `Bearer ${token}` } : {},
+                body: uploadForm,
+              }
+            );
+
+            let upRes = await doUpload(accessToken);
+            if (upRes.status === 401 && refreshToken) {
+              const newToken = await refreshAccessToken(refreshToken);
+              if (newToken) upRes = await doUpload(newToken);
+            }
+
+            const upPayload = await upRes.json().catch(() => null);
+            if (upPayload?.data?.url) {
+              uploadedUrls.push(upPayload.data.url);
+            }
+          } catch {
+            // Best-effort: skip failed image uploads
+          }
+        }
+
+        // If any images were uploaded, the backend already appended them to product.images.
+        // No additional PATCH is needed — the upload endpoint handles persistence.
       }
     }
 
