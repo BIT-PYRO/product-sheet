@@ -20,6 +20,11 @@ from django.contrib import admin
 from django.http import JsonResponse
 from django.urls import include, path
 from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
+from rest_framework.routers import DefaultRouter
+from inventory.views import ProductInventoryItemViewSet
+
+_product_inventory_router = DefaultRouter()
+_product_inventory_router.register('', ProductInventoryItemViewSet, basename='product-inventory')
 
 
 def root_status(_request):
@@ -47,4 +52,5 @@ urlpatterns = [
     path('api/v1/customers/', include('customers.urls')),
     path('api/v1/designers/', include('designers.urls')),
     path('api/v1/findings/', include('findings.urls')),
+    path('api/v1/product-inventory/', include(_product_inventory_router.urls)),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

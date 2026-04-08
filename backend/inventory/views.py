@@ -1,10 +1,13 @@
 from drf_spectacular.utils import extend_schema_view, extend_schema
+from rest_framework import status
+from rest_framework.decorators import action
+from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
 
 from common.mixins import StandardizedSuccessResponseMixin
 
-from .models import InventoryTransaction, PicklistGroup, StoneItem, StoneStockEntry, ToolItem, OtherItem, MachineItem
-from .serializers import InventoryTransactionSerializer, PicklistGroupSerializer, StoneItemSerializer, StoneStockEntrySerializer, ToolItemSerializer, OtherItemSerializer, MachineItemSerializer
+from .models import InventoryTransaction, PicklistGroup, StoneItem, StoneStockEntry, ToolItem, OtherItem, MachineItem, ProductInventoryItem
+from .serializers import InventoryTransactionSerializer, PicklistGroupSerializer, StoneItemSerializer, StoneStockEntrySerializer, ToolItemSerializer, OtherItemSerializer, MachineItemSerializer, ProductInventoryItemSerializer
 
 
 @extend_schema_view(
@@ -105,3 +108,63 @@ class MachineItemViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 	queryset = MachineItem.objects.all()
 	serializer_class = MachineItemSerializer
 	search_fields = ['machine_name', 'department']
+
+
+@extend_schema_view(
+	list=extend_schema(summary='List product inventory items', tags=['Product Inventory']),
+	retrieve=extend_schema(summary='Get product inventory item', tags=['Product Inventory']),
+	create=extend_schema(summary='Create product inventory item', tags=['Product Inventory']),
+	update=extend_schema(summary='Update product inventory item', tags=['Product Inventory']),
+	partial_update=extend_schema(summary='Partially update product inventory item', tags=['Product Inventory']),
+	destroy=extend_schema(summary='Delete product inventory item', tags=['Product Inventory']),
+)
+class ProductInventoryItemViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
+	queryset = ProductInventoryItem.objects.select_related('product').all().order_by('-created_at')
+	serializer_class = ProductInventoryItemSerializer
+	filterset_fields = ['product', 'final_sku', 'unit']
+	search_fields = ['final_sku', 'location', 'product__master_sku', 'product__designer_sku']
+
+	def perform_create(self, serializer):
+		serializer.save(created_by=self.request.user if self.request.user.is_authenticated else None)
+
+	def perform_update(self, serializer):
+		serializer.save(updated_by=self.request.user if self.request.user.is_authenticated else None)
+
+	@extend_schema(summary='Bulk upload product inventory items', tags=['Product Inventory'])
+	@action(detail=False, methods=['post'], url_path='bulk-upload')
+	def bulk_upload(self, request):
+		items = request.data if isinstance(request.data, list) else request.data.get('items', [])
+		if not isinstance(items, list) or len(items) == 0:
+			return Response({'success': False, 'message': 'No items provided.'}, status=status.HTTP_400_BAD_REQUEST)
+
+		from products.models import Product
+		created = 0
+		errors = []
+
+		for idx, item in enumerate(items):
+			master_sku = str(item.get('master_sku', '')).strip()
+			if not master_sku:
+				errors.append(f'Row {idx + 1}: master_sku is required.')
+				continue
+
+			product = Product.objects.filter(master_sku__iexact=master_sku).first()
+			if not product:
+				errors.append(f'Row {idx + 1}: Product with SKU "{master_sku}" not found.')
+				continue
+
+			ProductInventoryItem.objects.create(
+				product=product,
+				final_sku=str(item.get('final_sku', '')).strip(),
+				value=item.get('value', 0),
+				unit=str(item.get('unit', 'PCS')).strip().upper() or 'PCS',
+				location=str(item.get('location', '')).strip(),
+				total_in_demand=item.get('total_in_demand', 0),
+				created_by=request.user if request.user.is_authenticated else None,
+			)
+			created += 1
+
+		msg = f'{created} item(s) created.'
+		if errors:
+			msg += f' {len(errors)} error(s): ' + '; '.join(errors[:5])
+
+		return Response({'success': True, 'message': msg, 'created': created, 'errors': errors}, status=status.HTTP_201_CREATED)

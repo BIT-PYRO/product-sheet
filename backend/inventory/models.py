@@ -175,3 +175,23 @@ class MachineItem(AuditModel):
 
 	def __str__(self):
 		return self.machine_name
+
+
+class ProductInventoryItem(AuditModel):
+	"""Tracks per-product final stock entries in the product inventory."""
+	product = models.ForeignKey(
+		Product,
+		on_delete=models.CASCADE,
+		related_name='product_inventory_items',
+	)
+	final_sku = models.CharField(max_length=120)
+	value = models.DecimalField(max_digits=14, decimal_places=3, default=0)
+	unit = models.CharField(max_length=30, default='PCS')
+	location = models.CharField(max_length=255, blank=True, default='')
+	total_in_demand = models.DecimalField(max_digits=14, decimal_places=3, default=0)
+
+	class Meta:
+		ordering = ('-created_at',)
+
+	def __str__(self):
+		return f'{self.product.master_sku} | {self.final_sku} | {self.value} {self.unit}'

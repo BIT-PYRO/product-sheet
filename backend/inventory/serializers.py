@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from django.db import transaction
 
-from .models import InventoryTransaction, PicklistGroup, PicklistItem, StoneItem, StoneStockEntry, ToolItem, OtherItem, MachineItem
+from .models import InventoryTransaction, PicklistGroup, PicklistItem, StoneItem, StoneStockEntry, ToolItem, OtherItem, MachineItem, ProductInventoryItem
 
 
 class InventoryTransactionSerializer(serializers.ModelSerializer):
@@ -147,3 +147,19 @@ class MachineItemSerializer(serializers.ModelSerializer):
             'maintenance_qty', 'maintenance_unit', 'maintenance_location',
             'created_at', 'updated_at',
         ]
+
+
+class ProductInventoryItemSerializer(serializers.ModelSerializer):
+    master_sku = serializers.CharField(source='product.master_sku', read_only=True)
+    designer_sku = serializers.CharField(source='product.designer_sku', read_only=True)
+    product_name = serializers.CharField(source='product.name', read_only=True)
+    images = serializers.JSONField(source='product.images', read_only=True)
+
+    class Meta:
+        model = ProductInventoryItem
+        fields = [
+            'id', 'product', 'master_sku', 'designer_sku', 'product_name', 'images',
+            'final_sku', 'value', 'unit', 'location', 'total_in_demand',
+            'created_at', 'updated_at', 'created_by', 'updated_by',
+        ]
+        read_only_fields = ['created_at', 'updated_at', 'created_by', 'updated_by']
