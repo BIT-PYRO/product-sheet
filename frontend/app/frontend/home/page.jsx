@@ -272,14 +272,14 @@ export default function HomePage() {
                     <User className="h-4 w-4 text-cool-gray" />
                     My Profile
                   </Link>
-                  <Link
+                  <a
                     href="/manage-members"
                     onClick={() => setIsProfileDropdownOpen(false)}
                     className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-midnight-ink hover:bg-cloud-gray transition"
                   >
                     <Users className="h-4 w-4 text-cool-gray" />
                     Manage Members
-                  </Link>
+                  </a>
                   <Link
                     href="/settings"
                     onClick={() => setIsProfileDropdownOpen(false)}
