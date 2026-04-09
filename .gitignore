@@ -20,6 +20,7 @@ backend/.env
 backend/.venv/
 backend/db.sqlite3
 backend/celerybeat-schedule.*
+backend/media/
 
 # ── Python ──────────────────────────────────────────────────
 **/__pycache__/

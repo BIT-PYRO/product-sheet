@@ -6,8 +6,9 @@ from .models import InventoryTransaction, PicklistGroup, PicklistItem, StoneItem
 
 class InventoryTransactionSerializer(serializers.ModelSerializer):
     def validate_quantity(self, value):
+        # Allow quantity=0 for location-only updates (location stored on the txn)
         if value == 0:
-            raise serializers.ValidationError('Quantity cannot be zero.')
+            return value
         return value
 
     def validate_remark(self, value):

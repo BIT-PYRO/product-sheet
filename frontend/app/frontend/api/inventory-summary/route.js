@@ -54,6 +54,8 @@ function buildProductStockMap(products, transactions, wipBySkuAndStage = new Map
   // stockByProductKey: productId -> Map<`${stage}__${stock_type}`, running_qty>
   // stock_type is one of: 'current', 'min'  (wip now sourced from active jobs)
   const stockByProductKey = new Map();
+  // locationByProductStage: productId -> Map<stage, latest_location_string>
+  const locationByProductStage = new Map();
 
   transactions.forEach((txn) => {
     const productId = txn?.product;
@@ -70,10 +72,20 @@ function buildProductStockMap(products, transactions, wipBySkuAndStage = new Map
 
     if (!stockByProductKey.has(productId)) stockByProductKey.set(productId, new Map());
     const keyMap = stockByProductKey.get(productId);
-    const key = `${stage}__${stockType}`;
-    const prev = keyMap.get(key) || 0;
-    const delta = txn?.txn_type === 'out' ? -qty : qty;
-    keyMap.set(key, prev + delta);
+    // Only accumulate qty for non-zero transactions (location-only syncs have qty=0)
+    if (qty !== 0) {
+      const key = `${stage}__${stockType}`;
+      const prev = keyMap.get(key) || 0;
+      const delta = txn?.txn_type === 'out' ? -qty : qty;
+      keyMap.set(key, prev + delta);
+    }
+
+    // Track the latest non-empty location set for this product+stage
+    const loc = String(txn?.location || '').trim();
+    if (loc) {
+      if (!locationByProductStage.has(productId)) locationByProductStage.set(productId, new Map());
+      locationByProductStage.get(productId).set(stage, loc);
+    }
   });
 
   return products.map((product) => {
@@ -81,6 +93,8 @@ function buildProductStockMap(products, transactions, wipBySkuAndStage = new Map
     const masterSkuKey = String(product.master_sku || '').trim().toUpperCase();
     // per-stage WIP from active jobs: Map<stageKey, qty>
     const jobWipByStage = wipBySkuAndStage.get(masterSkuKey) || new Map();
+    // per-stage location from transactions
+    const locationByStage = locationByProductStage.get(product.id) || new Map();
     // totalInDemand is driven by picklist selection in the UI — leave it as 0 here
     const totalInDemand = 0;
 
@@ -96,7 +110,7 @@ function buildProductStockMap(products, transactions, wipBySkuAndStage = new Map
       min:      val(stage, 'min'),
       current:  val(stage, 'current'),
       wip:      jobWipByStage.has(stage) ? String(jobWipByStage.get(stage)) : '',
-      location: '',
+      location: locationByStage.get(stage) || '',
     });
 
     // Default bucket (old transactions that have no stage set) — treated as current

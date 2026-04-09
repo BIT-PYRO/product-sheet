@@ -715,10 +715,11 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 	def photo_guide(self, request, pk=None):
 		"""
 		Return the material rows for this job with product images resolved.
-		Each row: { sku, issued_qty, unit, images: [...] }
+		Each row: { sku, issued_qty, unit, images: [...], location: {wax_piece, wax_setting, ...} }
 		Images are returned as absolute URLs.
 		"""
 		from products.models import Product as ProductModel
+		from inventory.models import InventoryTransaction
 
 		job = self.get_object()
 		material_rows = job.material_rows or []
@@ -757,6 +758,37 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 				if key not in product_map:
 					product_map[key] = p
 
+		# Build per-product stage → latest location from inventory transactions
+		product_ids = [p.id for p in product_map.values()]
+		STAGE_LABELS = {
+			'wax_piece':        'Wax Piece',
+			'wax_setting':      'Wax Setting',
+			'casting':          'Casting',
+			'filling':          'Filling',
+			'pre_polish':       'Pre Polish',
+			'setting':          'Hand Setting',
+			'final_polish':     'Final Polish',
+			'ready_for_plating':'Plating',
+		}
+		# Fetch only transactions that have a non-empty location
+		txns = (
+			InventoryTransaction.objects
+			.filter(product_id__in=product_ids)
+			.exclude(location='')
+			.values('product_id', 'stage', 'location', 'created_at')
+			.order_by('product_id', 'stage', 'created_at')  # last one wins via iteration
+		)
+		# product_id → stage → latest location
+		location_map = {}  # product_id → {stage_key: location_str}
+		for txn in txns:
+			pid = txn['product_id']
+			stage = txn['stage']
+			loc = txn['location'] or ''
+			if loc:
+				if pid not in location_map:
+					location_map[pid] = {}
+				location_map[pid][stage] = loc  # later rows overwrite earlier (ordered by created_at)
+
 		def make_absolute(url):
 			"""Turn a relative /media/... path into an absolute URL."""
 			if not url:
@@ -780,11 +812,17 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 			raw_images = product.images if product and isinstance(product.images, list) else []
 			resolved = [make_absolute(img) for img in raw_images]
 			resolved = [img for img in resolved if img]  # filter None/empty
+
+			# Build location dict for this product
+			stage_locs = location_map.get(product.id, {}) if product else {}
+			location = {label: stage_locs.get(key, '') for key, label in STAGE_LABELS.items()}
+
 			result.append({
 				'sku': sku,
-				'issued_qty': row.get('issued_qty', ''),
+				'quantity': row.get('issued_qty', ''),
 				'unit': row.get('unit1', 'Pcs'),
 				'images': resolved,
+				'location': location,
 			})
 
 		return Response({'success': True, 'data': result})
