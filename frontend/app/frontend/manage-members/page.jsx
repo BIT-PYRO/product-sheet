@@ -380,6 +380,7 @@ export default function ManageMembersPage() {
   const [myWorkforce, setMyWorkforce] = useState(null);
   const [allMembers, setAllMembers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [search, setSearch] = useState('');
   const [selectedMember, setSelectedMember]     = useState(null);
   const [deleteTarget, setDeleteTarget]         = useState(null);
@@ -390,8 +391,8 @@ export default function ManageMembersPage() {
     async function load() {
       try {
         const res = await fetch('/api/auth/session', { cache: 'no-store' });
-        const result = await res.json();
-        if (!res.ok || !result.success) { router.replace('/login'); return; }
+        const result = await res.json().catch(() => null);
+        if (!res.ok || !result?.success) { router.replace('/login'); return; }
         setSessionUser(result.user);
 
         const allRes = await fetch('/api/workforce?page_size=200', { cache: 'no-store' });
@@ -410,7 +411,8 @@ export default function ManageMembersPage() {
           if (match) setMyWorkforce(match);
         }
       } catch {
-        router.replace('/login');
+        // Network/server error — show a retry prompt instead of redirecting away
+        setLoadError('Could not connect to server. Please check your connection and try again.');
       } finally {
         setLoading(false);
       }
@@ -554,6 +556,16 @@ export default function ManageMembersPage() {
 
           {loading ? (
             <div className="flex items-center justify-center py-20 text-cool-gray text-sm">Loading…</div>
+          ) : loadError ? (
+            <div className="flex flex-col items-center justify-center py-20 gap-3">
+              <p className="text-sm text-red-500">{loadError}</p>
+              <button
+                onClick={() => { setLoadError(''); setLoading(true); window.location.reload(); }}
+                className="px-4 py-2 text-sm font-semibold rounded-lg bg-trust-blue hover:bg-deep-blue text-white transition"
+              >
+                Retry
+              </button>
+            </div>
           ) : filtered.length === 0 ? (
             <div className="flex items-center justify-center py-20 text-cool-gray text-sm italic">No members found.</div>
           ) : (
