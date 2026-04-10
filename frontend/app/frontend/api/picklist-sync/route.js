@@ -166,6 +166,25 @@ function extractGroupFromObject(pl) {
  * normalised picklist groups: [{ externalId, name, date, items: [...] }]
  */
 function extractPicklistGroups(payload) {
+  // ── Unify-specific shape ──────────────────────────────────────────────────
+  // { shop_id, period, orders: [ { id, created_at, status, items: [{sku, title, quantity}] } ] }
+  // Merge all orders' items into a single combined picklist group.
+  if (Array.isArray(payload?.orders)) {
+    const allItems = payload.orders
+      .flatMap((order) => (Array.isArray(order?.items) ? order.items : []))
+      .map(extractItem)
+      .filter(Boolean);
+    if (allItems.length) {
+      const latestDate = payload.orders
+        .map((o) => o?.created_at)
+        .filter(Boolean)
+        .sort()
+        .pop() || null;
+      return [{ externalId: null, name: null, date: latestDate, items: allItems }];
+    }
+  }
+
+  // ── Generic shapes ────────────────────────────────────────────────────────
   const candidates = [
     payload?.data,
     payload?.results,
@@ -275,10 +294,19 @@ export async function POST(request) {
   }
 
   if (!externalResponse.ok) {
+    const errBody = await externalResponse.text().catch(() => '');
+    const hint =
+      externalResponse.status === 401
+        ? ' — API key is missing or invalid. Ensure EXTERNAL_PICKLIST_API_KEY is set and the server has been restarted.'
+        : externalResponse.status === 404
+        ? ' — URL not found. Check EXTERNAL_PICKLIST_API_URL.'
+        : '';
     return Response.json(
       {
         success: false,
-        message: `External API returned HTTP ${externalResponse.status}. Check your API URL and key.`,
+        message: `External API returned HTTP ${externalResponse.status}${hint}`,
+        calledUrl: apiUrl,
+        externalBody: errBody.slice(0, 300) || undefined,
       },
       { status: 502 }
     );
@@ -303,10 +331,8 @@ export async function POST(request) {
       {
         success: false,
         message:
-          'No picklist items could be extracted from the external API response. ' +
-          'Expected: SKU field (sku / master_sku / item_code) and Quantity field ' +
-          '(needed_quantity / quantity / qty). ' +
-          `Top-level keys in response: ${Object.keys(payload || {}).join(', ')}`,
+          'No picklists found for the selected date range. ' +
+          'Try increasing PICKLIST_SYNC_DAYS_BACK or wait for Unify to generate a picklist.',
         rawKeys: Object.keys(payload || {}),
       },
       { status: 422 }
