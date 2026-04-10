@@ -378,33 +378,56 @@ async function syncAllInventoryStages(request, productId, sku, liveStock, finalS
     }
   }
 
-  // 2. Sync per-variation final stock values
+  // 2. Sync per-variation final stock values and location
   const validFinalStock = (Array.isArray(finalStock) ? finalStock : []).filter(
     (row) => String(row?.sku || '').trim()
   );
   for (const row of validFinalStock) {
     const varSku = String(row.sku || '').trim();
     if (!varSku) continue;
-    const desiredRaw = String(row?.value || '').trim();
-    if (desiredRaw === '') continue;
-    const desired = Math.round(toNumber(desiredRaw));
     // Use lowercase so it matches how buildProductStockMap reads stage names
     const varStageKey = `final_stock__${varSku.toLowerCase()}`;
-    const mapKey = `${varStageKey}__current`;
-    const current = Math.round(currentByKey.get(mapKey) || 0);
-    const delta = desired - current;
-    if (delta === 0) continue;
-    calls.push(fetchJsonWithSession(request, '/api/inventory', {
-      method: 'POST',
-      body: JSON.stringify({
-        product: productId,
-        txn_type: 'adjust',
-        quantity: delta,
-        stage: varStageKey,
-        stock_type: 'current',
-        remark: `Product sheet sync — final stock ${varSku}`,
-      }),
-    }));
+
+    // Sync quantity
+    const desiredRaw = String(row?.value || '').trim();
+    if (desiredRaw !== '') {
+      const desired = Math.round(toNumber(desiredRaw));
+      const mapKey = `${varStageKey}__current`;
+      const current = Math.round(currentByKey.get(mapKey) || 0);
+      const delta = desired - current;
+      if (delta !== 0) {
+        calls.push(fetchJsonWithSession(request, '/api/inventory', {
+          method: 'POST',
+          body: JSON.stringify({
+            product: productId,
+            txn_type: 'adjust',
+            quantity: delta,
+            stage: varStageKey,
+            stock_type: 'current',
+            location: String(row?.location || '').trim(),
+            remark: `Product sheet sync — final stock ${varSku}`,
+          }),
+        }));
+      }
+    }
+
+    // Sync location independently (even if no qty change)
+    const newLocation = String(row?.location || '').trim();
+    const existingLocation = currentLocationByStage.get(varStageKey) || '';
+    if (newLocation && newLocation !== existingLocation) {
+      calls.push(fetchJsonWithSession(request, '/api/inventory', {
+        method: 'POST',
+        body: JSON.stringify({
+          product: productId,
+          txn_type: 'adjust',
+          quantity: 0,
+          stage: varStageKey,
+          stock_type: 'current',
+          location: newLocation,
+          remark: `Product sheet sync — final stock ${varSku} location`,
+        }),
+      }));
+    }
   }
 
   if (calls.length > 0) {
@@ -546,10 +569,11 @@ export async function GET(request) {
           sku,
           value: String(value),
           unit: 'pcs',
+          location: locationByStage.get(`final_stock__${sku.toLowerCase()}`) || '',
         }));
       } else {
         const legacyTotal = inner.get('final_stock__current') || 0;
-        finalStock = [{ sku: p.master_sku || '', value: String(legacyTotal), unit: 'pcs' }];
+        finalStock = [{ sku: p.master_sku || '', value: String(legacyTotal), unit: 'pcs', location: locationByStage.get('final_stock') || '' }];
       }
 
       return { sku: p.master_sku || '', liveStock, finalStock };

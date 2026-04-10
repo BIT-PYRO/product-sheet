@@ -211,7 +211,7 @@ function ProductSheetContent() {
   })
 
   const [finalStock, setFinalStock] = useState([
-    { id: 1, sku: '', value: '', unit: '' },
+    { id: 1, sku: '', value: '', unit: '', location: '' },
   ])
 
   const TRACKING_DEFAULT_ROWS = () => [
@@ -498,7 +498,7 @@ function ProductSheetContent() {
       finalPolish: { min: '', current: '', wip: '', location: '' },
       readyForPlacing: { min: '', current: '', wip: '', location: '' },
     })
-    setFinalStock([{ id: 1, sku: '', value: '', unit: '' }])
+    setFinalStock([{ id: 1, sku: '', value: '', unit: '', location: '' }])
     setDesignerStoneRows(DESIGNER_STONE_DEFAULT())
     setDesignerPlatingRows(DESIGNER_PLATING_DEFAULT())
     setDesigner({
@@ -671,14 +671,15 @@ function ProductSheetContent() {
               return next
             })
 
-            // Populate per-variation final stock values from final_stock__{varSku} transactions
+            // Populate per-variation final stock values + location from final_stock__{varSku} transactions
             setFinalStock(prev =>
               prev.map(row => {
                 const varSku = String(row.sku || '').trim()
                 if (!varSku) return row
                 const varStageKey = `final_stock__${varSku.toLowerCase()}`
                 const value = get(varStageKey, 'current')
-                return value !== '' ? { ...row, value } : row
+                const location = locationByStage.get(varStageKey) || ''
+                return (value !== '' || location !== '') ? { ...row, ...(value !== '' ? { value } : {}), ...(location !== '' ? { location } : {}) } : row
               })
             )
           })
@@ -979,11 +980,11 @@ function ProductSheetContent() {
     setFinalStock(prev => {
       const manualRows = prev.filter(r => !r.fromVariation)
       const existingVarMap = new Map(prev.filter(r => r.fromVariation).map(r => [r.sku, r]))
-      const varRows = varSkus.map(sku => existingVarMap.get(sku) || { sku, value: '', unit: '', fromVariation: true })
+      const varRows = varSkus.map(sku => existingVarMap.get(sku) || { sku, value: '', unit: '', location: '', fromVariation: true })
       const allRows = [...varRows, ...manualRows]
       return allRows.length > 0
         ? allRows.map((r, i) => ({ ...r, id: i + 1 }))
-        : [{ id: 1, sku: '', value: '', unit: '', fromVariation: false }]
+        : [{ id: 1, sku: '', value: '', unit: '', location: '', fromVariation: false }]
     })
   }, [variations])
 
@@ -1091,7 +1092,7 @@ function ProductSheetContent() {
 
   const addFinalStockRow = () => {
     const newId = Math.max(...finalStock.map(r => r.id), 0) + 1
-    setFinalStock([...finalStock, { id: newId, sku: '', value: '', unit: '', fromVariation: false }])
+    setFinalStock([...finalStock, { id: newId, sku: '', value: '', unit: '', location: '', fromVariation: false }])
   }
 
   const deleteFinalStock = (id) => {
@@ -2426,8 +2427,8 @@ function ProductSheetContent() {
       <div className="bg-cloud-gray p-2 rounded-xl mb-2 border border-soft-border shadow-sm">
         <h2 className="text-sm font-semibold mb-1.5 text-center text-warning">LIVE STOCK SITUATION</h2>
         <div className="flex gap-2 items-start">
-          {/* Main Live Stock Table - 80% */}
-          <div className="flex-shrink-0 bg-white border border-soft-border rounded-xl" style={{width: '80%'}}>
+          {/* Main Live Stock Table - 70% */}
+          <div className="flex-shrink-0 bg-white border border-soft-border rounded-xl" style={{width: '70%'}}>
             <table className="w-full table-fixed text-sm border-collapse text-center">
               <thead>
                 <tr className="bg-[#dce8f5]">
@@ -2492,13 +2493,14 @@ function ProductSheetContent() {
             </table>
           </div>
 
-          {/* Final Stock Table - 20% */}
-          <div className="flex-shrink-0 border border-soft-border rounded-xl overflow-hidden flex flex-col max-h-[170px]" style={{width: '20%'}}>
+          {/* Final Stock Table - 30% */}
+          <div className="flex-shrink-0 border border-soft-border rounded-xl overflow-hidden flex flex-col max-h-[170px]" style={{width: '30%'}}>
             {/* Fixed header */}
             <div className="flex flex-shrink-0 bg-[#dce8f5] border-b border-soft-border">
               <div className="flex-1 border-r border-soft-border px-1 py-1 text-center text-sm font-semibold text-midnight-ink">SKU</div>
               <div className="flex-1 border-r border-soft-border px-1 py-1 text-center text-sm font-semibold text-midnight-ink">Value</div>
               <div className="flex-1 border-r border-soft-border px-1 py-1 text-center text-sm font-semibold text-midnight-ink">Unit</div>
+              <div className="flex-1 border-r border-soft-border px-1 py-1 text-center text-sm font-semibold text-midnight-ink">Location</div>
               <div className="w-6"></div>
             </div>
             {/* Scrollable body — constrained to left table's height */}
@@ -2508,6 +2510,7 @@ function ProductSheetContent() {
                   <input className={`flex-1 min-w-0 px-1 py-1 text-sm outline-none text-center border-r border-soft-border ${row.fromVariation ? 'bg-blue-50 text-trust-blue font-medium cursor-default' : 'bg-transparent'}`} placeholder="SKU" value={row.sku} onChange={(e) => !row.fromVariation && updateFinalStock(row.id, 'sku', e.target.value)} readOnly={!!row.fromVariation} />
                   <input className="flex-1 min-w-0 px-1 py-1 text-sm bg-transparent outline-none text-center border-r border-soft-border" placeholder="Value" value={row.value} onChange={(e) => updateFinalStock(row.id, 'value', e.target.value)} />
                   <input className="flex-1 min-w-0 px-1 py-1 text-sm bg-transparent outline-none text-center border-r border-soft-border" placeholder="Unit" value={row.unit} onChange={(e) => updateFinalStock(row.id, 'unit', e.target.value)} />
+                  <input className="flex-1 min-w-0 px-1 py-1 text-sm bg-transparent outline-none text-center border-r border-soft-border" placeholder="Location" value={row.location || ''} onChange={(e) => updateFinalStock(row.id, 'location', e.target.value)} />
                   <div className="w-6 flex items-center justify-center flex-shrink-0">
                     <button type="button" onClick={() => deleteFinalStock(row.id)} className="text-danger hover:text-danger-dark transition-colors">
                       <Trash2 className="h-3 w-3" />

@@ -17,8 +17,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { CalendarIcon, Trash2, X, ArrowRight, Printer, BookImage } from "lucide-react"
+import { CalendarIcon, Trash2, X, ArrowRight, Printer, BookImage, Layers } from "lucide-react"
 import PhotoGuideModal from "@/components/photo-guide-modal"
+import DieGuideModal from "@/components/die-guide-modal"
 const jewelleryDepartments = [
   { value: "die", label: "Die" },
   { value: "design", label: "Design / CAD" },
@@ -58,6 +59,7 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
     { id: 1, sku: "", category: "", metal: "", issuedQty: "", unit1: "Pcs", issuedWeight: "", unit2: "Kg", receivedQty: "", receivedWeight: "", lossQty: "", lossWeight: "", reissueQty: "", reissueWeight: "" },
   ])
   const [photoGuideOpen, setPhotoGuideOpen] = useState(false)
+  const [dieGuideOpen, setDieGuideOpen] = useState(false)
   // API state
   const [workforce, setWorkforce] = useState([])
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -511,6 +513,15 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
                 <BookImage className="h-3.5 w-3.5" />
                 Photo Guide
               </button>
+              <button
+                onClick={() => setDieGuideOpen(true)}
+                className="flex items-center gap-1.5 px-3 h-7 rounded border border-amber-500 text-amber-600 text-sm font-semibold hover:bg-amber-50 transition-colors"
+                aria-label="Open die guide"
+                type="button"
+              >
+                <Layers className="h-3.5 w-3.5" />
+                Die Guide
+              </button>
             </div>
             <button
               onClick={() => onOpenChange(false)}
@@ -882,6 +893,12 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
     <PhotoGuideModal
       open={photoGuideOpen}
       onOpenChange={setPhotoGuideOpen}
+      jobId={voucherData?.id}
+      voucherNo={voucherNo}
+    />
+    <DieGuideModal
+      open={dieGuideOpen}
+      onOpenChange={setDieGuideOpen}
       jobId={voucherData?.id}
       voucherNo={voucherNo}
     />

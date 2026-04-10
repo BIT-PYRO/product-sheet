@@ -178,6 +178,7 @@ function buildProductStockMap(products, transactions, wipBySkuAndStage = new Map
             // Stage keys are lowercased in buildProductStockMap — match that casing here
             value: val(`final_stock__${varSku.toLowerCase()}`, 'current') || '',
             unit: 'pcs',
+            location: locationByStage.get(`final_stock__${varSku.toLowerCase()}`) || '',
           }));
         }
         // No variations — fall back to master SKU with aggregate final_stock value
@@ -185,6 +186,7 @@ function buildProductStockMap(products, transactions, wipBySkuAndStage = new Map
           sku: product.master_sku || '',
           value: val('final_stock', 'current') || defaultCurrent,
           unit: 'pcs',
+          location: locationByStage.get('final_stock') || '',
         }];
       })(),
       totalInDemand,
