@@ -34,3 +34,9 @@ services:
           name: product-sheet-backend
           property: host
           prefix: "https://"
+      - key: EXTERNAL_PICKLIST_API_URL
+        value: https://unify-8ba1.onrender.com/api/external/shops/janki-jewels/picklists/
+      - key: EXTERNAL_PICKLIST_API_KEY_HEADER
+        value: Authorization
+      - key: EXTERNAL_PICKLIST_API_KEY
+        sync: false
