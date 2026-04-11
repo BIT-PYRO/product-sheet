@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { EnrolWorkforceForm } from '@/app/frontend/enrol-workforce/page';
 import { GenericJobModal } from '@/components/generic-job-modal';
 import DateTimeStamp from '@/components/date-time-stamp';
-import { Search, X, ArrowRight, User, Users, Settings } from 'lucide-react';
+import { Search, X, ArrowRight, User, Users, Settings, ChevronRight, KeyRound, ShieldCheck } from 'lucide-react';
 
 const SHEET_BLOCKS = [
   { href: '/product-sheet', permKey: 'product-sheet', title: 'Product Sheet', subtitle: 'Product entry and live stock form', keywords: ['sku', 'product', 'stock', 'listing', 'material', 'weight', 'variation', 'stone', 'image', 'live stock', 'final stock', 'entry'] },
@@ -42,6 +42,7 @@ export default function HomePage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const searchRef = useRef(null);
   const profileDropdownRef = useRef(null);
 
@@ -215,6 +216,7 @@ export default function HomePage() {
       }
       if (profileDropdownRef.current && !profileDropdownRef.current.contains(e.target)) {
         setIsProfileDropdownOpen(false);
+        setIsSettingsOpen(false);
       }
     }
     document.addEventListener('mousedown', handleClickOutside);
@@ -283,14 +285,36 @@ export default function HomePage() {
                     <Users className="h-4 w-4 text-cool-gray" />
                     Manage Members
                   </a>
-                  <Link
-                    href="/settings"
-                    onClick={() => setIsProfileDropdownOpen(false)}
-                    className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-midnight-ink hover:bg-cloud-gray transition"
+                  <button
+                    onClick={() => setIsSettingsOpen(o => !o)}
+                    className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-midnight-ink hover:bg-cloud-gray transition w-full text-left"
                   >
-                    <Settings className="h-4 w-4 text-cool-gray" />
-                    Settings
-                  </Link>
+                    <Settings className="h-4 w-4 text-cool-gray shrink-0" />
+                    <span className="flex-1">Settings</span>
+                    <ChevronRight className={`h-3.5 w-3.5 text-cool-gray transition-transform ${isSettingsOpen ? 'rotate-90' : ''}`} />
+                  </button>
+                  {isSettingsOpen && (
+                    <div className="bg-cloud-gray border-t border-soft-border">
+                      <Link
+                        href="/settings/account"
+                        onClick={() => { setIsProfileDropdownOpen(false); setIsSettingsOpen(false); }}
+                        className="flex items-center gap-2.5 pl-8 pr-4 py-2 text-sm text-midnight-ink hover:bg-soft-border transition"
+                      >
+                        <KeyRound className="h-3.5 w-3.5 text-cool-gray shrink-0" />
+                        Account Settings
+                      </Link>
+                      {userInfo?.is_superuser && (
+                        <Link
+                          href="/settings/role-permissions"
+                          onClick={() => { setIsProfileDropdownOpen(false); setIsSettingsOpen(false); }}
+                          className="flex items-center gap-2.5 pl-8 pr-4 py-2 text-sm text-midnight-ink hover:bg-soft-border transition"
+                        >
+                          <ShieldCheck className="h-3.5 w-3.5 text-cool-gray shrink-0" />
+                          Default Role Permissions
+                        </Link>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
