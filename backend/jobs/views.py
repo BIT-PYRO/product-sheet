@@ -715,10 +715,11 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 	def photo_guide(self, request, pk=None):
 		"""
 		Return the material rows for this job with product images resolved.
-		Each row: { sku, issued_qty, unit, images: [...] }
+		Each row: { sku, issued_qty, unit, images: [...], location: {wax_piece, wax_setting, ...} }
 		Images are returned as absolute URLs.
 		"""
 		from products.models import Product as ProductModel
+		from inventory.models import InventoryTransaction
 
 		job = self.get_object()
 		material_rows = job.material_rows or []
@@ -757,6 +758,37 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 				if key not in product_map:
 					product_map[key] = p
 
+		# Build per-product stage → latest location from inventory transactions
+		product_ids = [p.id for p in product_map.values()]
+		STAGE_LABELS = {
+			'wax_piece':        'Wax Piece',
+			'wax_setting':      'Wax Setting',
+			'casting':          'Casting',
+			'filling':          'Filling',
+			'pre_polish':       'Pre Polish',
+			'setting':          'Hand Setting',
+			'final_polish':     'Final Polish',
+			'ready_for_plating':'Plating',
+		}
+		# Fetch only transactions that have a non-empty location
+		txns = (
+			InventoryTransaction.objects
+			.filter(product_id__in=product_ids)
+			.exclude(location='')
+			.values('product_id', 'stage', 'location', 'created_at')
+			.order_by('product_id', 'stage', 'created_at')  # last one wins via iteration
+		)
+		# product_id → stage → latest location
+		location_map = {}  # product_id → {stage_key: location_str}
+		for txn in txns:
+			pid = txn['product_id']
+			stage = txn['stage']
+			loc = txn['location'] or ''
+			if loc:
+				if pid not in location_map:
+					location_map[pid] = {}
+				location_map[pid][stage] = loc  # later rows overwrite earlier (ordered by created_at)
+
 		def make_absolute(url):
 			"""Turn a relative /media/... path into an absolute URL."""
 			if not url:
@@ -780,11 +812,80 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 			raw_images = product.images if product and isinstance(product.images, list) else []
 			resolved = [make_absolute(img) for img in raw_images]
 			resolved = [img for img in resolved if img]  # filter None/empty
+
+			# Build location dict for this product
+			stage_locs = location_map.get(product.id, {}) if product else {}
+			location = {label: stage_locs.get(key, '') for key, label in STAGE_LABELS.items()}
+
 			result.append({
 				'sku': sku,
-				'issued_qty': row.get('issued_qty', ''),
+				'quantity': row.get('issued_qty', ''),
 				'unit': row.get('unit1', 'Pcs'),
 				'images': resolved,
+				'location': location,
 			})
+
+		return Response({'success': True, 'data': result})
+
+	@action(detail=True, methods=['get'], url_path='die-guide')
+	def die_guide(self, request, pk=None):
+		"""
+		Return die numbers for SKUs present in this job's material_rows only.
+		Each entry: { sku, die_numbers: [{ value, quantity, location }] }
+		"""
+		from products.models import Product as ProductModel
+		from django.db.models.functions import Upper
+
+		job = self.get_object()
+		material_rows = job.material_rows or []
+
+		# Collect unique, non-empty SKUs while preserving order
+		seen = set()
+		ordered_skus = []
+		for row in material_rows:
+			sku = row.get('sku', '').strip()
+			if sku and sku.upper() not in seen:
+				seen.add(sku.upper())
+				ordered_skus.append(sku)
+
+		upper_skus = [s.upper() for s in ordered_skus]
+
+		# Primary lookup by master_sku
+		products_by_master = (
+			ProductModel.objects
+			.annotate(upper_sku=Upper('master_sku'))
+			.filter(upper_sku__in=upper_skus)
+			.only('master_sku', 'designer_sku', 'die_numbers')
+		)
+		product_map = {p.master_sku.upper(): p for p in products_by_master}
+
+		# Fallback: try designer_sku for unmatched
+		unmatched = [s for s in upper_skus if s not in product_map]
+		if unmatched:
+			products_by_designer = (
+				ProductModel.objects
+				.annotate(upper_designer=Upper('designer_sku'))
+				.filter(upper_designer__in=unmatched)
+				.only('master_sku', 'designer_sku', 'die_numbers')
+			)
+			for p in products_by_designer:
+				key = p.designer_sku.upper()
+				if key not in product_map:
+					product_map[key] = p
+
+		result = []
+		for sku in ordered_skus:
+			product = product_map.get(sku.upper())
+			die_numbers = []
+			if product and isinstance(product.die_numbers, list):
+				for entry in product.die_numbers:
+					if isinstance(entry, dict) and entry.get('value', '').strip():
+						die_numbers.append({
+							'value': entry.get('value', ''),
+							'quantity': entry.get('quantity', ''),
+							'location': entry.get('location', ''),
+						})
+			# Always include the SKU, even if no die numbers are recorded
+			result.append({'sku': sku, 'die_numbers': die_numbers})
 
 		return Response({'success': True, 'data': result})

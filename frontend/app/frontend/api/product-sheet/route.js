@@ -105,7 +105,12 @@ function mapIncomingToProductPayload(data) {
 
   return {
     master_sku: masterSku,
-    designer_sku: String(data?.designerSku || '').trim(),
+    designer_sku: Array.isArray(data?.designerSkus) && data.designerSkus.length
+      ? String(data.designerSkus[0] || '').trim()
+      : String(data?.designerSku || '').trim(),
+    designer_skus: Array.isArray(data?.designerSkus)
+      ? data.designerSkus.map(s => String(s || '').trim()).filter(Boolean)
+      : data?.designerSku ? [String(data.designerSku).trim()] : [],
     name: listingName || masterSku,
     category: String(data?.dropdown2 || data?.category || '').trim(),
     selling_price: weightAsPrice,
@@ -305,23 +310,33 @@ async function syncAllInventoryStages(request, productId, sku, liveStock, finalS
   const transactions = response.ok && payload?.success ? asArray(payload.data) : [];
 
   // Build running-total map: `${stage}__${stock_type}` → running quantity
+  // Also track latest location per stage
   const currentByKey = new Map();
+  const currentLocationByStage = new Map();
   transactions.forEach((txn) => {
     if (String(txn?.txn_type || '').toLowerCase() === 'demand') return;
     const stage = String(txn?.stage || '').trim() || 'default';
     const stockType = String(txn?.stock_type || 'current').trim() || 'current';
     const qty = toNumber(txn?.quantity);
-    const key = `${stage}__${stockType}`;
-    const delta = String(txn?.txn_type || '').toLowerCase() === 'out' ? -qty : qty;
-    currentByKey.set(key, (currentByKey.get(key) || 0) + delta);
+    // Only accumulate non-zero qty (location-only syncs have qty=0)
+    if (qty !== 0) {
+      const key = `${stage}__${stockType}`;
+      const delta = String(txn?.txn_type || '').toLowerCase() === 'out' ? -qty : qty;
+      currentByKey.set(key, (currentByKey.get(key) || 0) + delta);
+    }
+    // track latest non-empty location per stage
+    const loc = String(txn?.location || '').trim();
+    if (loc) currentLocationByStage.set(stage, loc);
   });
 
   const calls = [];
 
-  // 1. Sync per-stage live stock values (min, current, wip)
+  // 1. Sync per-stage live stock values (min, current, wip) and location
   const normalizedLiveStock = normalizeLiveStockKeys(liveStock || {});
   for (const [frontendKey, stageKey] of Object.entries(LIVE_STOCK_STAGE_MAP)) {
     const stageData = normalizedLiveStock[frontendKey] || {};
+
+    // Sync numeric stock types
     for (const stockType of STOCK_TYPES) {
       const desiredRaw = String(stageData[stockType] || '').trim();
       if (desiredRaw === '') continue;
@@ -338,39 +353,81 @@ async function syncAllInventoryStages(request, productId, sku, liveStock, finalS
           quantity: delta,
           stage: stageKey,
           stock_type: stockType,
+          location: String(stageData.location || '').trim(),
           remark: `Product sheet sync — ${stageKey} (${stockType})`,
+        }),
+      }));
+    }
+
+    // Sync location independently (even if no qty change)
+    const newLocation = String(stageData.location || '').trim();
+    const existingLocation = currentLocationByStage.get(stageKey) || '';
+    if (newLocation && newLocation !== existingLocation) {
+      calls.push(fetchJsonWithSession(request, '/api/inventory', {
+        method: 'POST',
+        body: JSON.stringify({
+          product: productId,
+          txn_type: 'adjust',
+          quantity: 0,
+          stage: stageKey,
+          stock_type: 'current',
+          location: newLocation,
+          remark: `Product sheet sync — ${stageKey} location`,
         }),
       }));
     }
   }
 
-  // 2. Sync per-variation final stock values
+  // 2. Sync per-variation final stock values and location
   const validFinalStock = (Array.isArray(finalStock) ? finalStock : []).filter(
     (row) => String(row?.sku || '').trim()
   );
   for (const row of validFinalStock) {
     const varSku = String(row.sku || '').trim();
     if (!varSku) continue;
-    const desiredRaw = String(row?.value || '').trim();
-    if (desiredRaw === '') continue;
-    const desired = Math.round(toNumber(desiredRaw));
     // Use lowercase so it matches how buildProductStockMap reads stage names
     const varStageKey = `final_stock__${varSku.toLowerCase()}`;
-    const mapKey = `${varStageKey}__current`;
-    const current = Math.round(currentByKey.get(mapKey) || 0);
-    const delta = desired - current;
-    if (delta === 0) continue;
-    calls.push(fetchJsonWithSession(request, '/api/inventory', {
-      method: 'POST',
-      body: JSON.stringify({
-        product: productId,
-        txn_type: 'adjust',
-        quantity: delta,
-        stage: varStageKey,
-        stock_type: 'current',
-        remark: `Product sheet sync — final stock ${varSku}`,
-      }),
-    }));
+
+    // Sync quantity
+    const desiredRaw = String(row?.value || '').trim();
+    if (desiredRaw !== '') {
+      const desired = Math.round(toNumber(desiredRaw));
+      const mapKey = `${varStageKey}__current`;
+      const current = Math.round(currentByKey.get(mapKey) || 0);
+      const delta = desired - current;
+      if (delta !== 0) {
+        calls.push(fetchJsonWithSession(request, '/api/inventory', {
+          method: 'POST',
+          body: JSON.stringify({
+            product: productId,
+            txn_type: 'adjust',
+            quantity: delta,
+            stage: varStageKey,
+            stock_type: 'current',
+            location: String(row?.location || '').trim(),
+            remark: `Product sheet sync — final stock ${varSku}`,
+          }),
+        }));
+      }
+    }
+
+    // Sync location independently (even if no qty change)
+    const newLocation = String(row?.location || '').trim();
+    const existingLocation = currentLocationByStage.get(varStageKey) || '';
+    if (newLocation && newLocation !== existingLocation) {
+      calls.push(fetchJsonWithSession(request, '/api/inventory', {
+        method: 'POST',
+        body: JSON.stringify({
+          product: productId,
+          txn_type: 'adjust',
+          quantity: 0,
+          stage: varStageKey,
+          stock_type: 'current',
+          location: newLocation,
+          remark: `Product sheet sync — final stock ${varSku} location`,
+        }),
+      }));
+    }
   }
 
   if (calls.length > 0) {
@@ -434,6 +491,7 @@ export async function GET(request) {
     // Build per-product, per-stage current/min totals from inventory transactions.
     // WIP transactions are intentionally skipped — WIP is computed live from active jobs.
     const stockByProduct = new Map(); // productId → Map(stage__stockType → total)
+    const locationByProduct = new Map(); // productId → Map(stage → latest location string)
     transactions.forEach((txn) => {
       const pid = txn?.product;
       if (!pid) return;
@@ -442,17 +500,27 @@ export async function GET(request) {
       const stockType = String(txn?.stock_type || 'current').trim();
       if (stockType === 'wip') return; // skip — WIP sourced from jobs, not transactions
       const qty = Number(txn?.quantity || 0);
-      const delta = txn?.txn_type === 'out' ? -qty : qty;
-      if (!stockByProduct.has(pid)) stockByProduct.set(pid, new Map());
-      const inner = stockByProduct.get(pid);
-      const k = `${stage}__${stockType}`;
-      inner.set(k, (inner.get(k) || 0) + delta);
+      // Only accumulate non-zero qty (location-only syncs have qty=0)
+      if (qty !== 0) {
+        const delta = txn?.txn_type === 'out' ? -qty : qty;
+        if (!stockByProduct.has(pid)) stockByProduct.set(pid, new Map());
+        const inner = stockByProduct.get(pid);
+        const k = `${stage}__${stockType}`;
+        inner.set(k, (inner.get(k) || 0) + delta);
+      }
+      // Track latest non-empty location per stage
+      const loc = String(txn?.location || '').trim();
+      if (loc) {
+        if (!locationByProduct.has(pid)) locationByProduct.set(pid, new Map());
+        locationByProduct.get(pid).set(stage, loc);
+      }
     });
 
     const EMPTY_STAGE = { min: '', current: '', wip: '', location: '' };
 
     const summaryRows = products.map((p) => {
       const inner = stockByProduct.get(p.id) || new Map();
+      const locationByStage = locationByProduct.get(p.id) || new Map();
       const masterSku = (p.master_sku || '').toUpperCase();
       const wipForProduct = wipBySku[masterSku] || {};
 
@@ -473,6 +541,8 @@ export async function GET(request) {
         const min = inner.get(`${stageKey}__min`) || 0;
         if (current) liveStock[lsKey].current = String(current);
         if (min) liveStock[lsKey].min = String(min);
+        const loc = locationByStage.get(stageKey) || '';
+        if (loc) liveStock[lsKey].location = loc;
       }
 
       // Populate WIP from active jobs — keyed by dept_to (i.e. destination column)
@@ -499,10 +569,11 @@ export async function GET(request) {
           sku,
           value: String(value),
           unit: 'pcs',
+          location: locationByStage.get(`final_stock__${sku.toLowerCase()}`) || '',
         }));
       } else {
         const legacyTotal = inner.get('final_stock__current') || 0;
-        finalStock = [{ sku: p.master_sku || '', value: String(legacyTotal), unit: 'pcs' }];
+        finalStock = [{ sku: p.master_sku || '', value: String(legacyTotal), unit: 'pcs', location: locationByStage.get('final_stock') || '' }];
       }
 
       return { sku: p.master_sku || '', liveStock, finalStock };

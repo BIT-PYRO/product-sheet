@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react';
 import Link from 'next/link';
-import { RefreshCw, ChevronRight, ArrowLeft, Upload, Trash2 } from 'lucide-react';
+import { RefreshCw, ChevronRight, ArrowLeft, Upload, Trash2, CloudDownload } from 'lucide-react';
 
 const fmt = (n) => `₹${Number(n).toFixed(2)}`;
 
@@ -30,6 +30,11 @@ export function OrderSheetView({ embedded = false }) {
   const [passwordInput, setPasswordInput] = useState('');
   const [passwordError, setPasswordError] = useState('');
 
+  // External sync state
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncStatus, setSyncStatus] = useState(null); // { tone, message }
+  const [externalSyncConfigured, setExternalSyncConfigured] = useState(false);
+
   // Delete picklist state
   const [showDeletePicklistDialog, setShowDeletePicklistDialog] = useState(false);
   const [availablePicklists, setAvailablePicklists] = useState([]);
@@ -39,6 +44,7 @@ export function OrderSheetView({ embedded = false }) {
   const [selectedDeletePicklistIds, setSelectedDeletePicklistIds] = useState(new Set());
 
   const CUSTOMER_DETAILS_PASSCODE = process.env.NEXT_PUBLIC_CUSTOMER_PASSCODE || '1234';
+  const SYNC_INTERVAL_MS = Number(process.env.NEXT_PUBLIC_PICKLIST_SYNC_INTERVAL_MS) || 300_000;
 
   const normalizeSku = (value) => String(value || '').trim().toLowerCase();
 
@@ -149,6 +155,73 @@ export function OrderSheetView({ embedded = false }) {
       .then((data) => { if (data?.user?.id) setCurrentUsername(data.user.id); })
       .catch(() => {});
   }, []);
+
+  // Check if external sync is configured and set up auto-polling
+  useEffect(() => {
+    fetch('/frontend/api/picklist-sync', { cache: 'no-store' })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.configured) {
+          setExternalSyncConfigured(true);
+          // Kick off an immediate sync on page load
+          handleExternalSync();
+        }
+      })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Auto-poll interval (only starts after we know sync is configured)
+  useEffect(() => {
+    if (!externalSyncConfigured || SYNC_INTERVAL_MS <= 0) return;
+    const id = setInterval(() => {
+      handleExternalSync();
+    }, SYNC_INTERVAL_MS);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [externalSyncConfigured, SYNC_INTERVAL_MS]);
+
+  const handleExternalSync = async () => {
+    if (isSyncing) return;
+    setIsSyncing(true);
+    setSyncStatus(null);
+    try {
+      const response = await fetch('/frontend/api/picklist-sync', { method: 'POST' });
+      const result = await response.json().catch(() => null);
+
+      if (!response.ok || !result?.success) {
+        setSyncStatus({ tone: 'error', message: result?.message || 'Sync failed.' });
+        return;
+      }
+
+      if (result.skipped) {
+        setSyncStatus({ tone: 'info', message: 'Already up to date.' });
+        return;
+      }
+
+      setSyncStatus({ tone: 'success', message: result.message || 'Synced successfully.' });
+
+      // Refresh local state the same way the manual upload does
+      try {
+        const freshRes = await fetch('/frontend/api/picklist-groups', { cache: 'no-store' }).catch(() => null);
+        const freshData = freshRes?.ok ? await freshRes.json().catch(() => null) : null;
+        const freshList = Array.isArray(freshData?.data) ? freshData.data : [];
+        localStorage.setItem(PSD_PICKLISTS_KEY, JSON.stringify(freshList));
+      } catch {
+        // ignore localStorage write failures
+      }
+
+      window.dispatchEvent(
+        new CustomEvent('inventory_sheet_sync', { detail: { updatedAt: Date.now().toString() } })
+      );
+
+      await loadOrdersAndProducts();
+    } catch (err) {
+      setSyncStatus({ tone: 'error', message: err.message || 'Sync failed.' });
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   const handlePicklistUploadClick = () => {
     picklistFileInputRef.current?.click();
@@ -543,6 +616,17 @@ export function OrderSheetView({ embedded = false }) {
                 <Upload className="h-4 w-4" />
                 {isUploadingPicklist ? 'Uploading...' : 'Bulk Upload'}
               </button>
+              {externalSyncConfigured && (
+                <button
+                  onClick={handleExternalSync}
+                  disabled={isSyncing}
+                  title="Pull latest picklist from external software"
+                  className="gap-2 text-xs px-3 py-1.5 rounded-md border border-trust-blue/40 bg-white hover:bg-trust-blue/5 text-trust-blue font-medium transition-colors flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <CloudDownload className="h-4 w-4" />
+                  {isSyncing ? 'Syncing...' : 'Sync Picklist'}
+                </button>
+              )}
               <button
                 onClick={handleRefresh}
                 className="gap-2 text-xs px-3 py-1.5 rounded-md border border-soft-border bg-white hover:bg-cloud-gray text-midnight-ink font-medium transition-colors flex items-center"
@@ -574,6 +658,21 @@ export function OrderSheetView({ embedded = false }) {
           </div>
         )}
 
+        {/* External sync status */}
+        {syncStatus && (
+          <div
+            className={`mb-3 px-3 py-2 rounded-lg text-xs font-medium border ${
+              syncStatus.tone === 'error'
+                ? 'bg-danger-soft border-danger text-danger-dark'
+                : syncStatus.tone === 'info'
+                ? 'bg-cloud-gray border-soft-border text-cool-gray'
+                : 'bg-green-50 border-green-300 text-green-800'
+            }`}
+          >
+            {syncStatus.message}
+          </div>
+        )}
+
         {/* Vertical split layout: top list, bottom details */}
         <div className="flex flex-col gap-3 h-full min-h-0">
           {/* Top area - Orders table */}
@@ -590,6 +689,17 @@ export function OrderSheetView({ embedded = false }) {
                     <Upload className="h-3.5 w-3.5" />
                     {isUploadingPicklist ? 'Uploading...' : 'Bulk Upload'}
                   </button>
+                  {externalSyncConfigured && (
+                    <button
+                      onClick={handleExternalSync}
+                      disabled={isSyncing}
+                      title="Pull latest picklist from external software"
+                      className="gap-1.5 text-xs px-3 py-1 rounded-md border border-trust-blue/40 bg-white hover:bg-trust-blue/5 text-trust-blue font-medium transition-colors flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <CloudDownload className="h-3.5 w-3.5" />
+                      {isSyncing ? 'Syncing...' : 'Sync Picklist'}
+                    </button>
+                  )}
                   <button
                     onClick={handleOpenDeletePicklistDialog}
                     className="gap-1.5 text-xs px-3 py-1 rounded-md border border-danger/40 bg-white hover:bg-danger-soft text-danger-dark font-medium transition-colors flex items-center"

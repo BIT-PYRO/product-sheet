@@ -150,12 +150,17 @@ function DesignerSheetContent() {
           : PLATING_DEFAULT_ROWS(),
       trackingRows:
         Array.isArray(record.tracking_rows) && record.tracking_rows.length > 0
-          ? record.tracking_rows.map((r) => ({
-              ...r,
+          ? record.tracking_rows.map((r, i) => ({
+              id: r.id ?? i + 1,
+              tdm: r.tdm ?? '',
+              stl: r.stl ?? '',
+              motiveCode: r.motiveCode ?? '',
               motiveSku: r.motiveSku ?? r.masterSku ?? '',
-              length: r.length || '',
-              width: r.width || '',
-              height: r.height || '',
+              dieCode: r.dieCode ?? '',
+              moldDieQty: r.moldDieQty ?? '',
+              length: r.length ?? '',
+              width: r.width ?? '',
+              height: r.height ?? '',
             }))
           : TRACKING_DEFAULT_ROWS(),
       findingsRows:

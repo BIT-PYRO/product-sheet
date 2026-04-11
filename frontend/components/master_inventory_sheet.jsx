@@ -1084,12 +1084,20 @@ export default function MasterInventorySheet() {
         draft.set(p.id, entry);
       });
     } else if (fieldType === 'location') {
-      // Only dieLocation is editable; also carry dieNumbers to preserve it on save
+      // Initialize stage location values + dieLocation
       sortedProducts.forEach((p) => {
-        const row = buildInventoryRow(p, 'current');
+        const row = buildInventoryRow(p, 'location');
         draft.set(p.id, {
-          dieLocation: row.dieLocation || '',
-          dieNumbers: row.dieNumbers || '',
+          waxPiece:        String(row.waxPiece || ''),
+          waxSetting:      String(row.waxSetting || ''),
+          casting:         String(row.casting || ''),
+          filling:         String(row.filling || ''),
+          prePolish:       String(row.prePolish || ''),
+          setting:         String(row.setting || ''),
+          finalPolish:     String(row.finalPolish || ''),
+          readyForPlating: String(row.readyForPlating || ''),
+          dieLocation:     row.dieLocation || '',
+          dieNumbers:      row.dieNumbers || '',
         });
       });
     } else {
@@ -1169,15 +1177,38 @@ export default function MasterInventorySheet() {
           }
         }
       } else if (editFieldType === 'location') {
-        // Only update die_numbers location field on the product
-        const originalRows = sortedProducts.map((p) => buildInventoryRow(p, 'current'));
+        // Save per-stage location values as inventory transactions (qty=0, location=text)
+        // and die_numbers location on the product
+        const originalRows = sortedProducts.map((p) => buildInventoryRow(p, 'location'));
         for (const [productId, editData] of editDraft.entries()) {
           const originalRow = originalRows.find((r) => r.id === productId);
           if (!originalRow) continue;
+
+          // Sync per-stage location
+          for (const [field, stageKey] of Object.entries(STOCK_STAGE_MAP)) {
+            if (field === 'finalStockValue') continue; // no location concept for final stock
+            const newLoc = String(editData[field] || '').trim();
+            const oldLoc = String(originalRow[field] || '').trim();
+            if (newLoc === oldLoc) continue;
+            allCalls.push(fetch('/api/inventory/', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                product: productId,
+                txn_type: 'adjust',
+                quantity: 0,
+                stage: stageKey,
+                stock_type: 'current',
+                location: newLoc,
+                remark: `Stage location update — ${STOCK_FIELDS_MAP[field]}`,
+              }),
+            }));
+          }
+
+          // Also update die location on the product if changed
           if (editData.dieLocation !== originalRow.dieLocation) {
             const product = sortedProducts.find((p) => p.id === productId);
             const dieNumbersRaw = Array.isArray(product?.dieNumberFindings) ? product.dieNumberFindings : [];
-            // Preserve existing die/findings entries, update only location
             const dieEntry = dieNumbersRaw.length > 0
               ? dieNumbersRaw.map((item) => ({ ...item, location: editData.dieLocation.trim() }))
               : (editData.dieNumbers?.trim()
@@ -1758,11 +1789,7 @@ export default function MasterInventorySheet() {
                           rowSpan={variationCount > 1 ? variationCount : undefined}
                           className={`border-b border-r border-soft-border px-2 h-9 text-center ${
                             column.key === '__select__' ? 'sticky left-0 z-10 bg-white border-l shadow-[2px_0_4px_-1px_rgba(0,0,0,0.08)]' : ''
-                          } ${isEditMode && !NON_EDITABLE_KEYS.has(column.key) && (() => {
-                            if (editFieldType === 'location') return false;
-                            if (editFieldType === 'wip-vs-current') return STOCK_STAGE_MAP[column.key] !== undefined;
-                            return STOCK_STAGE_MAP[column.key] !== undefined;
-                          })() ? 'bg-blue-50/40' : ''}`}
+                          } ${isEditMode && !NON_EDITABLE_KEYS.has(column.key) && STOCK_STAGE_MAP[column.key] !== undefined && editFieldType !== 'wip-vs-current' ? 'bg-blue-50/40' : ''}`}
                         >
                           {column.key === '__select__' ? (
                             <Checkbox
@@ -1774,7 +1801,16 @@ export default function MasterInventorySheet() {
                               const isStockCol = STOCK_STAGE_MAP[column.key] !== undefined;
 
                               if (editFieldType === 'location') {
-                                return <CompositeStockDisplay value={row[column.key]} />;
+                                if (!isStockCol) return <CompositeStockDisplay value={row[column.key]} />;
+                                return (
+                                  <input
+                                    type="text"
+                                    value={editData?.[column.key] ?? ''}
+                                    onChange={(e) => handleEditFieldChange(row.id, column.key, e.target.value)}
+                                    className="w-full min-w-[70px] border border-trust-blue/50 rounded px-1 py-0.5 text-xs text-center bg-blue-50 focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                                    placeholder="Location"
+                                  />
+                                );
                               }
 
                               if (editFieldType === 'wip-vs-current' && isStockCol) {
