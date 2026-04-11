@@ -440,8 +440,8 @@ export default function HomePage() {
           </div>
         )}
 
-        {/* Pending approval banner */}
-        {userInfo && userInfo.is_approved === false && (
+        {/* Pending approval banner — never shown to superusers */}
+        {userInfo && userInfo.is_approved === false && !userInfo.is_superuser && (
           <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 flex flex-col sm:flex-row sm:items-center gap-3">
             <div className="flex-1">
               <p className="text-sm font-semibold text-amber-800">Account Pending Approval</p>
@@ -454,7 +454,7 @@ export default function HomePage() {
           </div>
         )}
 
-        <section className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 ${userInfo?.is_approved === false ? 'opacity-40 pointer-events-none select-none' : ''}`}>
+        <section className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 ${userInfo?.is_approved === false && !userInfo?.is_superuser ? 'opacity-40 pointer-events-none select-none' : ''}`}>
           {SHEET_BLOCKS.map((block, index) => {
             const accessible = canAccess(block.permKey);
             const num = <span className={`inline-flex items-center justify-center w-5 h-5 rounded-full text-white text-xs font-bold mb-2 ${accessible ? 'bg-trust-blue' : 'bg-gray-300'}`}>{index + 1}</span>;
