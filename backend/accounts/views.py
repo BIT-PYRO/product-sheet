@@ -341,21 +341,34 @@ class RoleDefaultPermissionsListView(APIView):
 
 
 class RoleDefaultPermissionsDetailView(APIView):
-	"""PATCH to update default permissions for a single role (superuser only)."""
+	"""PATCH to update default permissions for a designation+department pair."""
 	permission_classes = [IsAuthenticated]
 
-	@extend_schema(summary='Update default permissions for a role', tags=['Auth'])
-	def patch(self, request, role):
-		if not (request.user.is_superuser or getattr(request.user, 'role', None) == 'admin'):
+	def _is_authorized(self, request):
+		if request.user.is_superuser or getattr(request.user, 'role', None) == 'admin':
+			return True
+		try:
+			from workforce.models import WorkforceMember
+			member = WorkforceMember.objects.filter(user=request.user).first()
+			if member and member.designation in ('CEO', 'Chairman', 'Director', 'General Manager'):
+				return True
+			if member and member.permissions and member.permissions.get('manage_members'):
+				return True
+		except Exception:
+			pass
+		return False
+
+	@extend_schema(summary='Update default permissions for a designation+department', tags=['Auth'])
+	def patch(self, request, role, department=''):
+		if not self._is_authorized(request):
 			return Response({'success': False, 'message': 'Not authorized.'}, status=403)
 
-		valid_roles = {'admin', 'manager', 'staff'}
-		if role not in valid_roles:
-			return Response({'success': False, 'message': f'Invalid role. Must be one of: {", ".join(valid_roles)}.'}, status=400)
-
-		obj, _ = RoleDefaultPermissions.objects.get_or_create(role=role, defaults={'permissions': {}})
+		obj, _ = RoleDefaultPermissions.objects.get_or_create(
+			role=role, department=department, defaults={'permissions': {}}
+		)
 		serializer = RoleDefaultPermissionsSerializer(obj, data=request.data, partial=True)
 		if serializer.is_valid():
 			serializer.save()
-			return api_success(serializer.data, message=f'Default permissions for {role} updated.')
+			return api_success(serializer.data, message=f'Default permissions for {role}/{department} updated.')
 		return Response({'success': False, 'errors': serializer.errors}, status=400)
+

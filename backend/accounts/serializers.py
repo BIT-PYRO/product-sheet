@@ -12,4 +12,4 @@ class UserSerializer(serializers.ModelSerializer):
 class RoleDefaultPermissionsSerializer(serializers.ModelSerializer):
     class Meta:
         model = RoleDefaultPermissions
-        fields = ('role', 'permissions')
+        fields = ('role', 'department', 'permissions')
