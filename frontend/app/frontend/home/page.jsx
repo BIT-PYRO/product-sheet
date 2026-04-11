@@ -285,36 +285,38 @@ export default function HomePage() {
                     <Users className="h-4 w-4 text-cool-gray" />
                     Manage Members
                   </a>
-                  <button
-                    onClick={() => setIsSettingsOpen(o => !o)}
-                    className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-midnight-ink hover:bg-cloud-gray transition w-full text-left"
-                  >
-                    <Settings className="h-4 w-4 text-cool-gray shrink-0" />
-                    <span className="flex-1">Settings</span>
-                    <ChevronRight className={`h-3.5 w-3.5 text-cool-gray transition-transform ${isSettingsOpen ? 'rotate-90' : ''}`} />
-                  </button>
-                  {isSettingsOpen && (
-                    <div className="bg-cloud-gray border-t border-soft-border">
-                      <Link
-                        href="/frontend/settings/account"
-                        onClick={() => { setIsProfileDropdownOpen(false); setIsSettingsOpen(false); }}
-                        className="flex items-center gap-2.5 pl-8 pr-4 py-2 text-sm text-midnight-ink hover:bg-soft-border transition"
-                      >
-                        <KeyRound className="h-3.5 w-3.5 text-cool-gray shrink-0" />
-                        Account Settings
-                      </Link>
-                      {userInfo?.is_superuser && (
+                  <div className="relative">
+                    <button
+                      onClick={() => setIsSettingsOpen(o => !o)}
+                      className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-midnight-ink hover:bg-cloud-gray transition w-full text-left"
+                    >
+                      <Settings className="h-4 w-4 text-cool-gray shrink-0" />
+                      <span className="flex-1">Settings</span>
+                      <ChevronRight className="h-3.5 w-3.5 text-cool-gray" />
+                    </button>
+                    {isSettingsOpen && (
+                      <div className="absolute top-0 right-full mr-1 w-52 bg-white rounded-xl border border-soft-border shadow-lg z-50 py-1 overflow-hidden">
                         <Link
-                          href="/frontend/settings/role-permissions"
+                          href="/frontend/settings/account"
                           onClick={() => { setIsProfileDropdownOpen(false); setIsSettingsOpen(false); }}
-                          className="flex items-center gap-2.5 pl-8 pr-4 py-2 text-sm text-midnight-ink hover:bg-soft-border transition"
+                          className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-midnight-ink hover:bg-cloud-gray transition"
                         >
-                          <ShieldCheck className="h-3.5 w-3.5 text-cool-gray shrink-0" />
-                          Default Role Permissions
+                          <KeyRound className="h-4 w-4 text-cool-gray shrink-0" />
+                          Account Settings
                         </Link>
-                      )}
-                    </div>
-                  )}
+                        {userInfo?.is_superuser && (
+                          <Link
+                            href="/frontend/settings/role-permissions"
+                            onClick={() => { setIsProfileDropdownOpen(false); setIsSettingsOpen(false); }}
+                            className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-midnight-ink hover:bg-cloud-gray transition"
+                          >
+                            <ShieldCheck className="h-4 w-4 text-cool-gray shrink-0" />
+                            Default Role Permissions
+                          </Link>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
