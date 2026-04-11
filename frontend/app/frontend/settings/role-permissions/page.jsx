@@ -97,7 +97,7 @@ export default function RolePermissionsPage() {
         const res = await fetch('/api/auth/session', { cache: 'no-store' });
         const result = await res.json();
         if (!res.ok || !result.success) { router.replace('/login'); return; }
-        if (!result.user?.is_superuser) { router.replace('/settings'); return; }
+        if (!result.user?.is_superuser) { router.replace('/frontend/home'); return; }
         loadRolePermissions();
       } catch {
         router.replace('/login');
@@ -188,7 +188,7 @@ export default function RolePermissionsPage() {
   return (
     <div className="min-h-screen bg-cloud-gray font-sans">
       <header className="bg-white border-b border-soft-border px-6 py-4 flex items-center gap-4">
-        <Link href="/settings" className="p-1.5 rounded-full hover:bg-cloud-gray transition" title="Back">
+        <Link href="/frontend/home" className="p-1.5 rounded-full hover:bg-cloud-gray transition" title="Back">
           <ArrowLeft className="h-5 w-5 text-midnight-ink" />
         </Link>
         <h1 className="text-base font-bold text-midnight-ink">Default Role Permissions</h1>

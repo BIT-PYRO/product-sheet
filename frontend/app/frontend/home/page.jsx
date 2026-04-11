@@ -296,7 +296,7 @@ export default function HomePage() {
                   {isSettingsOpen && (
                     <div className="bg-cloud-gray border-t border-soft-border">
                       <Link
-                        href="/settings/account"
+                        href="/frontend/settings/account"
                         onClick={() => { setIsProfileDropdownOpen(false); setIsSettingsOpen(false); }}
                         className="flex items-center gap-2.5 pl-8 pr-4 py-2 text-sm text-midnight-ink hover:bg-soft-border transition"
                       >
@@ -305,7 +305,7 @@ export default function HomePage() {
                       </Link>
                       {userInfo?.is_superuser && (
                         <Link
-                          href="/settings/role-permissions"
+                          href="/frontend/settings/role-permissions"
                           onClick={() => { setIsProfileDropdownOpen(false); setIsSettingsOpen(false); }}
                           className="flex items-center gap-2.5 pl-8 pr-4 py-2 text-sm text-midnight-ink hover:bg-soft-border transition"
                         >
