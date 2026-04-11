@@ -39,4 +39,4 @@ services:
       - key: EXTERNAL_PICKLIST_API_KEY_HEADER
         value: Authorization
       - key: EXTERNAL_PICKLIST_API_KEY
-        sync: false
+        value: Bearer sk_live_Q41uwnWlxp99syW75XxK9drhBZ9cIJmGmv_ESpthIpw
