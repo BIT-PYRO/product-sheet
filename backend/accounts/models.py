@@ -20,6 +20,19 @@ class User(AbstractUser):
 	)
 
 
+class RoleDefaultPermissions(models.Model):
+	ROLE_CHOICES = [('admin', 'Admin'), ('manager', 'Manager'), ('staff', 'Staff')]
+	role = models.CharField(max_length=20, choices=ROLE_CHOICES, unique=True)
+	permissions = models.JSONField(default=dict, blank=True)
+
+	class Meta:
+		verbose_name = 'Role Default Permissions'
+		verbose_name_plural = 'Role Default Permissions'
+
+	def __str__(self):
+		return f'Default permissions for {self.role}'
+
+
 class EmailOTP(models.Model):
 	email = models.EmailField(db_index=True)
 	otp = models.CharField(max_length=4)

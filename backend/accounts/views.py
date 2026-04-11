@@ -14,12 +14,12 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
-from .models import EmailOTP
+from .models import EmailOTP, RoleDefaultPermissions
 
 from common.api import api_success
 from workforce.models import WorkforceMember
 
-from .serializers import UserSerializer
+from .serializers import RoleDefaultPermissionsSerializer, UserSerializer
 
 
 class LoginView(TokenObtainPairView):
@@ -327,3 +327,35 @@ class SetCredentialsView(APIView):
 		user.save()
 
 		return api_success({'username': new_username}, message='Credentials saved successfully.')
+
+
+class RoleDefaultPermissionsListView(APIView):
+	"""GET all three role permission templates (any authenticated user)."""
+	permission_classes = [IsAuthenticated]
+
+	@extend_schema(summary='List default permissions for all roles', tags=['Auth'])
+	def get(self, request):
+		objs = RoleDefaultPermissions.objects.all().order_by('role')
+		serializer = RoleDefaultPermissionsSerializer(objs, many=True)
+		return api_success(serializer.data, message='Role default permissions fetched.')
+
+
+class RoleDefaultPermissionsDetailView(APIView):
+	"""PATCH to update default permissions for a single role (superuser only)."""
+	permission_classes = [IsAuthenticated]
+
+	@extend_schema(summary='Update default permissions for a role', tags=['Auth'])
+	def patch(self, request, role):
+		if not (request.user.is_superuser or getattr(request.user, 'role', None) == 'admin'):
+			return Response({'success': False, 'message': 'Not authorized.'}, status=403)
+
+		valid_roles = {'admin', 'manager', 'staff'}
+		if role not in valid_roles:
+			return Response({'success': False, 'message': f'Invalid role. Must be one of: {", ".join(valid_roles)}.'}, status=400)
+
+		obj, _ = RoleDefaultPermissions.objects.get_or_create(role=role, defaults={'permissions': {}})
+		serializer = RoleDefaultPermissionsSerializer(obj, data=request.data, partial=True)
+		if serializer.is_valid():
+			serializer.save()
+			return api_success(serializer.data, message=f'Default permissions for {role} updated.')
+		return Response({'success': False, 'errors': serializer.errors}, status=400)

@@ -1,6 +1,6 @@
 from django.urls import path
 
-from .views import ApproveUserView, GoogleLoginView, LoginView, MeView, RefreshTokenView, SendOTPView, SetCredentialsView, VerifyOTPView
+from .views import ApproveUserView, GoogleLoginView, LoginView, MeView, RefreshTokenView, RoleDefaultPermissionsDetailView, RoleDefaultPermissionsListView, SendOTPView, SetCredentialsView, VerifyOTPView
 
 
 urlpatterns = [
@@ -12,4 +12,6 @@ urlpatterns = [
     path('verify-otp/', VerifyOTPView.as_view(), name='verify_otp'),
     path('set-credentials/', SetCredentialsView.as_view(), name='set_credentials'),
     path('approve-user/', ApproveUserView.as_view(), name='approve_user'),
+    path('role-permissions/', RoleDefaultPermissionsListView.as_view(), name='role_permissions_list'),
+    path('role-permissions/<str:role>/', RoleDefaultPermissionsDetailView.as_view(), name='role_permissions_detail'),
 ]
