@@ -268,7 +268,7 @@ export default function HomePage() {
 
               {/* Dropdown */}
               {isProfileDropdownOpen && (
-                <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl border border-soft-border shadow-lg z-50 py-1 overflow-hidden">
+                <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl border border-soft-border shadow-lg z-50 py-1 overflow-hidden">
                   <Link
                     href="/profile"
                     onClick={() => setIsProfileDropdownOpen(false)}
@@ -285,38 +285,36 @@ export default function HomePage() {
                     <Users className="h-4 w-4 text-cool-gray" />
                     Manage Members
                   </a>
-                  <div className="relative">
-                    <button
-                      onClick={() => setIsSettingsOpen(o => !o)}
-                      className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-midnight-ink hover:bg-cloud-gray transition w-full text-left"
-                    >
-                      <Settings className="h-4 w-4 text-cool-gray shrink-0" />
-                      <span className="flex-1">Settings</span>
-                      <ChevronRight className="h-3.5 w-3.5 text-cool-gray" />
-                    </button>
-                    {isSettingsOpen && (
-                      <div className="absolute top-0 right-full mr-1 w-52 bg-white rounded-xl border border-soft-border shadow-lg z-50 py-1 overflow-hidden">
+                  <button
+                    onClick={() => setIsSettingsOpen(o => !o)}
+                    className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-midnight-ink hover:bg-cloud-gray transition w-full text-left"
+                  >
+                    <Settings className="h-4 w-4 text-cool-gray shrink-0" />
+                    <span className="flex-1">Settings</span>
+                    <ChevronRight className={`h-3.5 w-3.5 text-cool-gray transition-transform duration-150 ${isSettingsOpen ? 'rotate-90' : ''}`} />
+                  </button>
+                  {isSettingsOpen && (
+                    <div className="border-l-2 border-trust-blue ml-4 mr-2 mb-1">
+                      <Link
+                        href="/frontend/settings/account"
+                        onClick={() => { setIsProfileDropdownOpen(false); setIsSettingsOpen(false); }}
+                        className="flex items-center gap-2.5 pl-4 pr-2 py-2 text-sm text-midnight-ink hover:bg-cloud-gray transition rounded-r-lg"
+                      >
+                        <KeyRound className="h-3.5 w-3.5 text-cool-gray shrink-0" />
+                        Account Settings
+                      </Link>
+                      {userInfo?.is_superuser && (
                         <Link
-                          href="/frontend/settings/account"
+                          href="/frontend/settings/role-permissions"
                           onClick={() => { setIsProfileDropdownOpen(false); setIsSettingsOpen(false); }}
-                          className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-midnight-ink hover:bg-cloud-gray transition"
+                          className="flex items-center gap-2.5 pl-4 pr-2 py-2 text-sm text-midnight-ink hover:bg-cloud-gray transition rounded-r-lg"
                         >
-                          <KeyRound className="h-4 w-4 text-cool-gray shrink-0" />
-                          Account Settings
+                          <ShieldCheck className="h-3.5 w-3.5 text-cool-gray shrink-0" />
+                          Default Role Permissions
                         </Link>
-                        {userInfo?.is_superuser && (
-                          <Link
-                            href="/frontend/settings/role-permissions"
-                            onClick={() => { setIsProfileDropdownOpen(false); setIsSettingsOpen(false); }}
-                            className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-midnight-ink hover:bg-cloud-gray transition"
-                          >
-                            <ShieldCheck className="h-4 w-4 text-cool-gray shrink-0" />
-                            Default Role Permissions
-                          </Link>
-                        )}
-                      </div>
-                    )}
-                  </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
