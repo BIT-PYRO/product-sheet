@@ -40,14 +40,13 @@ function buildDateRange() {
   const daysBack = Math.max(0, parseInt(process.env.PICKLIST_SYNC_DAYS_BACK || '1', 10));
   const now = new Date();
 
-  const from = new Date(now);
-  from.setDate(from.getDate() - daysBack);
-  from.setHours(0, 0, 0, 0);
+  // Work in UTC so the window is never clipped by the server's local timezone
+  // (e.g. UTC+5:30 would otherwise cut today's late-IST orders with a local 23:59:59 ceiling).
+  const fromUtc = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - daysBack, 0, 0, 0));
+  const toUtc = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1, 0, 0, 0) - 1);
+  // toUtc = 23:59:59.999 UTC today — covers every timezone up to UTC+14
 
-  const to = new Date(now);
-  to.setHours(23, 59, 59, 0);
-
-  return { from: toIsoZ(from), to: toIsoZ(to) };
+  return { from: toIsoZ(fromUtc), to: toIsoZ(toUtc) };
 }
 
 function appendDateParams(baseUrl) {
@@ -103,6 +102,7 @@ const SKU_KEYS = [
 ];
 
 const QTY_KEYS = [
+  'total_quantity', 'totalQuantity',        // Unify summary field
   'needed_quantity', 'neededQuantity',
   'needed', 'need',
   'required_quantity', 'requiredQuantity', 'required',
@@ -167,20 +167,35 @@ function extractGroupFromObject(pl) {
  */
 function extractPicklistGroups(payload) {
   // ── Unify-specific shape ──────────────────────────────────────────────────
-  // { shop_id, period, orders: [ { id, created_at, status, items: [{sku, title, quantity}] } ] }
-  // Merge all orders' items into a single combined picklist group.
-  if (Array.isArray(payload?.orders)) {
-    const allItems = payload.orders
-      .flatMap((order) => (Array.isArray(order?.items) ? order.items : []))
-      .map(extractItem)
-      .filter(Boolean);
-    if (allItems.length) {
-      const latestDate = payload.orders
-        .map((o) => o?.created_at)
-        .filter(Boolean)
-        .sort()
-        .pop() || null;
-      return [{ externalId: null, name: null, date: latestDate, items: allItems }];
+  // { shop_id, period,
+  //   summary: [ { sku, title, total_quantity } ],   ← pre-aggregated per SKU
+  //   orders:  [ { id, created_at, items: [{sku, title, quantity}] } ] }
+  //
+  // ALWAYS prefer `summary` — it is already de-duplicated/aggregated and
+  // avoids double-counting when the date window spans multiple days.
+  // Fall back to merging individual `orders` only when summary is absent.
+  if (Array.isArray(payload?.summary) || Array.isArray(payload?.orders)) {
+    const latestDate = Array.isArray(payload?.orders)
+      ? (payload.orders.map((o) => o?.created_at).filter(Boolean).sort().pop() || null)
+      : null;
+
+    // Prefer summary (already aggregated per SKU)
+    if (Array.isArray(payload?.summary) && payload.summary.length > 0) {
+      const items = payload.summary.map(extractItem).filter(Boolean);
+      if (items.length) {
+        return [{ externalId: null, name: null, date: latestDate, items }];
+      }
+    }
+
+    // Fall back: merge individual order lines (may inflate counts over wide windows)
+    if (Array.isArray(payload?.orders)) {
+      const allItems = payload.orders
+        .flatMap((order) => (Array.isArray(order?.items) ? order.items : []))
+        .map(extractItem)
+        .filter(Boolean);
+      if (allItems.length) {
+        return [{ externalId: null, name: null, date: latestDate, items: allItems }];
+      }
     }
   }
 
@@ -279,18 +294,46 @@ export async function POST(request) {
     apiUrl = baseUrl;
   }
 
-  // ── 2. Call external API ─────────────────────────────────────────────────
+  // ── 2. Call external API (with retry for sleeping Render free-tier services) ─
   const fetchHeaders = { Accept: 'application/json' };
   if (apiKey) fetchHeaders[apiKeyHeader] = apiKey;
 
+  const MAX_RETRIES = 2;
+  const RETRY_DELAY_MS = 5000; // 5 s pause then let the 35 s timeout cover Render's boot
+
   let externalResponse;
-  try {
-    externalResponse = await fetch(apiUrl, { headers: fetchHeaders, cache: 'no-store' });
-  } catch (err) {
-    return Response.json(
-      { success: false, message: `Could not reach external API: ${err.message}` },
-      { status: 502 }
-    );
+  let lastFetchError = null;
+
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    lastFetchError = null;
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 35_000);
+      externalResponse = await fetch(apiUrl, {
+        headers: fetchHeaders,
+        cache: 'no-store',
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+    } catch (err) {
+      lastFetchError = err;
+      if (attempt < MAX_RETRIES) {
+        await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS));
+        continue;
+      }
+      return Response.json(
+        { success: false, message: `Could not reach external API after ${MAX_RETRIES} attempt(s): ${err.message}` },
+        { status: 502 }
+      );
+    }
+
+    // Retry on 502/503 — Render free-tier returns these while waking up
+    if ((externalResponse.status === 502 || externalResponse.status === 503) && attempt < MAX_RETRIES) {
+      await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS));
+      continue;
+    }
+
+    break; // success or a definitive error — stop retrying
   }
 
   if (!externalResponse.ok) {
@@ -300,6 +343,8 @@ export async function POST(request) {
         ? ' — API key is missing or invalid. Ensure EXTERNAL_PICKLIST_API_KEY is set and the server has been restarted.'
         : externalResponse.status === 404
         ? ' — URL not found. Check EXTERNAL_PICKLIST_API_URL.'
+        : externalResponse.status === 502 || externalResponse.status === 503
+        ? ' — External service may be starting up (Render free-tier). Retried 3 times. Try again shortly.'
         : '';
     return Response.json(
       {
