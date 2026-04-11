@@ -174,12 +174,17 @@ export default function ProfilePage() {
   function startEdit() {
     if (!workforceMember) return;
     const wf = workforceMember;
+    // Job details (designation, department, current_location) are admin-only — excluded from user edits
     setEditData({
-      full_name: wf.full_name || '', dob: wf.dob || '', gender: wf.gender || '',
-      phone: wf.phone || '', whatsapp: wf.whatsapp || '', department: wf.department || '',
-      designation: wf.designation || '',
-      current_location: wf.current_location || '', first_language: wf.first_language || '',
-      second_language: wf.second_language || '', gst_number: wf.gst_number || '', notes: wf.notes || '',
+      full_name: wf.full_name || '',
+      dob: wf.dob || '',
+      gender: wf.gender || '',
+      phone: wf.phone || '',
+      whatsapp: wf.whatsapp || '',
+      first_language: wf.first_language || '',
+      second_language: wf.second_language || '',
+      gst_number: wf.gst_number || '',
+      notes: wf.notes || '',
     });
     setIsEditing(true);
     setSaveMessage('');
@@ -191,8 +196,11 @@ export default function ProfilePage() {
     if (!workforceMember?.id) return;
     setSaving(true); setSaveMessage('');
     try {
+      // Convert empty date strings to null so Django DateField doesn't reject them
+      const payload = { ...editData };
+      if (payload.dob === '') payload.dob = null;
       const res    = await fetch(`/api/workforce/${workforceMember.id}`, {
-        method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(editData),
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
       });
       const result = await res.json().catch(() => null);
       if (res.ok && result?.success) {
@@ -404,10 +412,11 @@ export default function ProfilePage() {
 
               <SectionCard icon={Briefcase} title="Work Details">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4">
-                  <EditableField label="Designation"      name="designation"      value={wf?.designation}      editValue={editData.designation}      isEditing={isEditing} onChange={handleEditChange} />
-                  <EditableField label="Department"       name="department"       value={wf?.department}       editValue={editData.department}       isEditing={isEditing} onChange={handleEditChange} />
-                  <EditableField label="Current Location" name="current_location" value={wf?.current_location} editValue={editData.current_location} isEditing={isEditing} onChange={handleEditChange} />
+                  <FieldRow label="Designation"      value={wf?.designation} />
+                  <FieldRow label="Department"       value={wf?.department} />
+                  <FieldRow label="Current Location" value={wf?.current_location} />
                 </div>
+                {isEditing && <p className="text-xs text-cool-gray mt-3">Job details can only be updated by an admin.</p>}
               </SectionCard>
 
               <SectionCard icon={MapPin} title="Current Address">

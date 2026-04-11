@@ -41,6 +41,8 @@ class WorkforceMemberSerializer(serializers.ModelSerializer):
 
 	def validate_dob(self, value):
 		# Accept empty string as None
+		if value == '' or value is None:
+			return None
 		return value
 
 	class Meta:
