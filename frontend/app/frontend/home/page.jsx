@@ -243,6 +243,9 @@ export default function HomePage() {
               >
                 {username}
               </Link>
+              {userInfo?.is_superuser && (
+                <sup className="ml-1 text-[10px] font-bold text-red-500 tracking-wide">superuser</sup>
+              )}
             </p>
           </div>
           <div className="flex items-center gap-3">

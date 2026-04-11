@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 
 export const ACCESS_COOKIE = 'psd-access-token';
 export const REFRESH_COOKIE = 'psd-refresh-token';
-const DEFAULT_BACKEND_URL = 'http://127.0.0.1:8000/';
+const DEFAULT_BACKEND_URL = 'https://product-sheet.onrender.com';
 
 function backendBaseUrl() {
   return (process.env.BACKEND_BASE_URL || DEFAULT_BACKEND_URL).replace(/\/$/, '');

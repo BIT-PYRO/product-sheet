@@ -589,6 +589,7 @@ export default function ManageMembersPage() {
                       <p className="text-sm font-semibold text-midnight-ink truncate hover:text-trust-blue transition">
                         {name}
                         {isSelf && <span className="ml-1.5 text-xs font-normal text-trust-blue">(me)</span>}
+                        {m.user_is_superuser && <sup className="ml-1 text-[10px] font-bold text-red-500 tracking-wide">superuser</sup>}
                       </p>
                       <p className="text-xs text-cool-gray truncate">{m.email || '—'}</p>
                       {m.designation && (

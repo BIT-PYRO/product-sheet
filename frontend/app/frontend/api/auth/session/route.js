@@ -102,6 +102,7 @@ export async function GET(request) {
       email: user?.email || '',
       role: user?.role || 'staff',
       is_approved: isApproved,
+      is_superuser: !!user?.is_superuser,
     },
   });
 
