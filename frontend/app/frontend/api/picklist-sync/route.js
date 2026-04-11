@@ -8,20 +8,6 @@ import {
 } from '../picklist-upload/route';
 
 // ---------------------------------------------------------------------------
-// Deduplication fingerprint — skip re-upload when data hasn't changed.
-// ---------------------------------------------------------------------------
-let _lastSyncFingerprint = '';
-
-function buildFingerprint(groups) {
-  return groups
-    .flatMap((g) =>
-      g.items.map((i) => `${g.externalId ?? g.name}:${String(i.sku || '').toUpperCase()}:${i.needed ?? 0}`)
-    )
-    .sort()
-    .join('|');
-}
-
-// ---------------------------------------------------------------------------
 // Date-range helpers
 //
 // The external API uses:
@@ -239,19 +225,32 @@ function extractPicklistGroups(payload) {
 // Backend helpers
 // ---------------------------------------------------------------------------
 
-async function getNextPicklistNumber(request) {
+async function getExistingPicklistGroups(request) {
   try {
     const response = await proxyAuthenticatedRequest(request, '/api/v1/inventory/picklist-groups/');
     const data = await response.json().catch(() => null);
-    const groups = data?.data || data?.results || [];
-    if (Array.isArray(groups) && groups.length > 0) {
-      const max = Math.max(...groups.map((g) => parsePositiveInt(g?.number ?? g?.id, 0)));
-      return max + 1;
-    }
+    return Array.isArray(data?.data) ? data.data
+         : Array.isArray(data?.results) ? data.results
+         : [];
   } catch {
-    // fall back to 1
+    return [];
   }
-  return 1;
+}
+
+function buildBackendFingerprint(group) {
+  // Build the same fingerprint format used for incoming groups, but from stored backend items.
+  const items = Array.isArray(group?.items) ? group.items : [];
+  return items
+    .map((i) => `${String(i.sku || '').toUpperCase()}:${i.needed ?? 0}`)
+    .sort()
+    .join('|');
+}
+
+function buildIncomingFingerprint(merged) {
+  return merged
+    .map((i) => `${String(i.sku || '').toUpperCase()}:${i.needed ?? 0}`)
+    .sort()
+    .join('|');
 }
 
 // ---------------------------------------------------------------------------
@@ -384,23 +383,31 @@ export async function POST(request) {
     );
   }
 
-  // ── 5. Deduplication — skip when identical to last sync ──────────────────
-  const fingerprint = buildFingerprint(groups);
-  if (fingerprint === _lastSyncFingerprint) {
-    return Response.json({
-      success: true,
-      skipped: true,
-      message: 'Picklist unchanged since last sync — nothing new to upload.',
-    });
-  }
+  // ── 5. Deduplication — compare against items already stored in the backend ──
+  // (replaces the previous in-memory _lastSyncFingerprint which reset on every
+  //  process restart, causing duplicate saves after Render cold starts)
+  const existingGroups = await getExistingPicklistGroups(request);
+  const existingFingerprints = new Set(existingGroups.map(buildBackendFingerprint));
 
-  // ── 6. Save each group ────────────────────────────────────────────────────
-  let nextNumber = await getNextPicklistNumber(request);
+  const nextNumber = existingGroups.length > 0
+    ? Math.max(...existingGroups.map((g) => parsePositiveInt(g?.number ?? g?.id, 0))) + 1
+    : 1;
+
+  // ── 6. Save each group (only if its data isn't already stored) ────────────
+  let picklistNumber = nextNumber;
   const savedGroups = [];
+  const skippedGroups = [];
 
   for (const group of groups) {
     const merged = mergePicklistItems(group.items);
     if (!merged.length) continue;
+
+    const incomingFingerprint = buildIncomingFingerprint(merged);
+
+    if (existingFingerprints.has(incomingFingerprint)) {
+      skippedGroups.push(group);
+      continue;
+    }
 
     const uploadedAt = group.date
       ? new Date(group.date).toISOString()
@@ -414,9 +421,13 @@ export async function POST(request) {
           year: 'numeric',
         })}`;
 
+    // Deterministic id: hash of fingerprint so re-syncing the same data is idempotent
+    const shortHash = incomingFingerprint.length.toString(36) +
+      Math.abs(incomingFingerprint.split('').reduce((h, c) => (Math.imul(31, h) + c.charCodeAt(0)) | 0, 0)).toString(36);
+
     const groupMeta = {
-      id: sanitizeLabel(group.externalId ? `ext-${group.externalId}` : `picklist-${Date.now()}`),
-      number: nextNumber,
+      id: sanitizeLabel(group.externalId ? `ext-${group.externalId}` : `sync-${shortHash}`),
+      number: picklistNumber,
       uploadedBy: 'auto-sync',
       date: uploadedAt,
       dateFormatted: new Date(uploadedAt).toLocaleString(),
@@ -428,7 +439,7 @@ export async function POST(request) {
       savedGroup = await savePicklistGroup(request, groupMeta, merged);
       await savePicklistOrder(request, savedGroup);
       savedGroups.push(savedGroup);
-      nextNumber += 1;
+      picklistNumber += 1;
     } catch (err) {
       return Response.json(
         { success: false, message: err.message || 'Failed to save picklist.' },
@@ -437,7 +448,13 @@ export async function POST(request) {
     }
   }
 
-  _lastSyncFingerprint = fingerprint;
+  if (savedGroups.length === 0) {
+    return Response.json({
+      success: true,
+      skipped: true,
+      message: 'Picklist unchanged since last sync — nothing new to upload.',
+    });
+  }
 
   const totalItems = savedGroups.reduce((sum, g) => sum + g.items.length, 0);
 

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react';
 import Link from 'next/link';
-import { RefreshCw, ChevronRight, ArrowLeft, Upload, Trash2, CloudDownload } from 'lucide-react';
+import { RefreshCw, ChevronRight, ArrowLeft, Upload, Trash2, CloudDownload, FileDown } from 'lucide-react';
 
 const fmt = (n) => `₹${Number(n).toFixed(2)}`;
 
@@ -42,6 +42,11 @@ export function OrderSheetView({ embedded = false }) {
   const [deletePicklistFetching, setDeletePicklistFetching] = useState(false);
   const [deletePicklistError, setDeletePicklistError] = useState('');
   const [selectedDeletePicklistIds, setSelectedDeletePicklistIds] = useState(new Set());
+
+  // Export picklist state
+  const [showExportPicklistDialog, setShowExportPicklistDialog] = useState(false);
+  const [exportPicklistNum, setExportPicklistNum] = useState(null);
+  const [isExporting, setIsExporting] = useState(false);
 
   const CUSTOMER_DETAILS_PASSCODE = process.env.NEXT_PUBLIC_CUSTOMER_PASSCODE || '1234';
   const SYNC_INTERVAL_MS = Number(process.env.NEXT_PUBLIC_PICKLIST_SYNC_INTERVAL_MS) || 300_000;
@@ -326,6 +331,121 @@ export function OrderSheetView({ embedded = false }) {
 
   const handleRefresh = async () => {
     await loadOrdersAndProducts();
+  };
+
+  const handleOpenExportPicklistDialog = () => {
+    const nums = [
+      ...new Set(
+        orders
+          .filter((o) => o.order_source === 'picklist' && o.picklist_number != null)
+          .map((o) => o.picklist_number)
+      ),
+    ].sort((a, b) => b - a);
+    setExportPicklistNum(nums[0] ?? null);
+    setShowExportPicklistDialog(true);
+  };
+
+  const handleExportPicklist = () => {
+    if (exportPicklistNum == null) return;
+    setIsExporting(true);
+
+    // Gather all items for this picklist from matching orders
+    const picklistOrders = orders.filter(
+      (o) => o.order_source === 'picklist' && o.picklist_number === exportPicklistNum
+    );
+
+    // Merge items by master SKU (sum quantities).
+    // Order items store the variation SKU (e.g. AJE116/G); strip the last /suffix
+    // to recover the master SKU (e.g. AJE116), exactly as groupedItems does.
+    const itemMap = new Map();
+    picklistOrders.forEach((order) => {
+      (order.items || []).forEach((item) => {
+        const variationSku = String(item.sku || '').trim().toUpperCase();
+        if (!variationSku) return;
+        const masterSku = variationSku.includes('/')
+          ? variationSku.substring(0, variationSku.lastIndexOf('/'))
+          : variationSku;
+        if (itemMap.has(masterSku)) {
+          itemMap.get(masterSku).quantity += Number(item.quantity) || 0;
+        } else {
+          itemMap.set(masterSku, { sku: masterSku, quantity: Number(item.quantity) || 0 });
+        }
+      });
+    });
+
+    const rows = Array.from(itemMap.values()).sort((a, b) => a.sku.localeCompare(b.sku));
+
+    // Build printable HTML
+    const picklistName = `PICKLIST-${exportPicklistNum}`;
+    const exportDate = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+
+    const rowsHtml = rows.map((item) => {
+      const normalized = item.sku.toLowerCase();
+      const product = productsBySku[normalized] || null;
+      const imageList = Array.isArray(product?.images) ? product.images : [];
+      const firstImage = imageList[0] || null;
+
+      const imgHtml = firstImage
+        ? `<img src="${firstImage}" alt="${item.sku}" style="width:120px;height:120px;object-fit:cover;border-radius:8px;border:1px solid #e5e7eb;" />`
+        : `<div style="width:120px;height:120px;border-radius:8px;border:1px solid #e5e7eb;background:#f9fafb;display:flex;align-items:center;justify-content:center;color:#9ca3af;font-size:11px;">No image</div>`;
+
+      return `
+        <tr>
+          <td style="padding:10px 14px;vertical-align:middle;border-bottom:1px solid #f3f4f6;">${imgHtml}</td>
+          <td style="padding:10px 14px;vertical-align:middle;border-bottom:1px solid #f3f4f6;font-weight:700;font-size:13px;color:#111827;">${item.sku}</td>
+          <td style="padding:10px 14px;vertical-align:middle;border-bottom:1px solid #f3f4f6;font-weight:700;font-size:15px;color:#2563eb;text-align:center;">${item.quantity}</td>
+        </tr>`;
+    }).join('');
+
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>${picklistName}</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, -apple-system, sans-serif; background: #fff; color: #111827; padding: 24px; }
+    h1 { font-size: 18px; font-weight: 800; color: #111827; }
+    .meta { font-size: 12px; color: #6b7280; margin-top: 4px; margin-bottom: 20px; }
+    table { width: 100%; border-collapse: collapse; }
+    thead th { background: #f3f4f6; padding: 10px 14px; text-align: left; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: #6b7280; border-bottom: 2px solid #e5e7eb; }
+    thead th:last-child { text-align: center; }
+    tbody tr:hover { background: #f9fafb; }
+    @media print {
+      body { padding: 12px; }
+      button { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+    <div>
+      <h1>${picklistName}</h1>
+      <p class="meta">Exported on ${exportDate} &nbsp;·&nbsp; ${rows.length} SKU${rows.length !== 1 ? 's' : ''} &nbsp;·&nbsp; ${rows.reduce((s, r) => s + r.quantity, 0)} pieces total</p>
+    </div>
+    <button onclick="window.print()" style="padding:8px 18px;background:#2563eb;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;">Print / Save PDF</button>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th style="width:148px;">Image</th>
+        <th>Master SKU</th>
+        <th style="width:100px;">Qty Needed</th>
+      </tr>
+    </thead>
+    <tbody>${rowsHtml}</tbody>
+  </table>
+</body>
+</html>`;
+
+    const win = window.open('', '_blank');
+    if (win) {
+      win.document.write(html);
+      win.document.close();
+    }
+
+    setShowExportPicklistDialog(false);
+    setIsExporting(false);
   };
 
   const handleOpenDeletePicklistDialog = async () => {
@@ -628,6 +748,13 @@ export function OrderSheetView({ embedded = false }) {
                 </button>
               )}
               <button
+                onClick={handleOpenExportPicklistDialog}
+                className="gap-2 text-xs px-3 py-1.5 rounded-md border border-soft-border bg-white hover:bg-cloud-gray text-midnight-ink font-medium transition-colors flex items-center"
+              >
+                <FileDown className="h-4 w-4" />
+                Export Picklist
+              </button>
+              <button
                 onClick={handleRefresh}
                 className="gap-2 text-xs px-3 py-1.5 rounded-md border border-soft-border bg-white hover:bg-cloud-gray text-midnight-ink font-medium transition-colors flex items-center"
               >
@@ -706,6 +833,13 @@ export function OrderSheetView({ embedded = false }) {
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                     Delete Picklist
+                  </button>
+                  <button
+                    onClick={handleOpenExportPicklistDialog}
+                    className="gap-1.5 text-xs px-3 py-1 rounded-md border border-soft-border bg-white hover:bg-cloud-gray text-midnight-ink font-medium transition-colors flex items-center"
+                  >
+                    <FileDown className="h-3.5 w-3.5" />
+                    Export Picklist
                   </button>
                   <span className="text-[11px] font-semibold text-cool-gray">{filteredOrders.length} total</span>
                 </div>
@@ -1106,6 +1240,103 @@ export function OrderSheetView({ embedded = false }) {
           </div>
         </div>
       </div>
+
+      {/* Export Picklist Dialog */}
+      {showExportPicklistDialog && (() => {
+        const nums = [
+          ...new Set(
+            orders
+              .filter((o) => o.order_source === 'picklist' && o.picklist_number != null)
+              .map((o) => o.picklist_number)
+          ),
+        ].sort((a, b) => b - a);
+
+        return (
+          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
+            <div className="bg-white rounded-xl shadow-xl max-w-sm w-full border border-soft-border">
+              <div className="p-6">
+                <div className="flex justify-center mb-3">
+                  <div className="flex items-center justify-center w-12 h-12 rounded-full bg-trust-blue/10 border border-trust-blue/30">
+                    <FileDown className="w-6 h-6 text-trust-blue" />
+                  </div>
+                </div>
+                <h3 className="text-lg font-bold text-center text-midnight-ink mb-1">Export Picklist</h3>
+                <p className="text-center text-xs text-cool-gray mb-4">
+                  Choose a picklist to export. The export includes Master SKU, Quantity Needed, and product images.
+                </p>
+
+                {nums.length === 0 ? (
+                  <div className="text-center py-6 text-xs text-cool-gray">No picklists found.</div>
+                ) : (
+                  <div className="space-y-1.5 max-h-56 overflow-y-auto mb-4 pr-1">
+                    {nums.map((num) => {
+                      const picklistOrder = orders.find(
+                        (o) => o.order_source === 'picklist' && o.picklist_number === num
+                      );
+                      const itemCount = (() => {
+                        const m = new Map();
+                        orders
+                          .filter((o) => o.order_source === 'picklist' && o.picklist_number === num)
+                          .forEach((o) => (o.items || []).forEach((i) => {
+                            const v = String(i.sku || '').toUpperCase();
+                            const s = v.includes('/') ? v.substring(0, v.lastIndexOf('/')) : v;
+                            if (s) m.set(s, (m.get(s) || 0) + (Number(i.quantity) || 0));
+                          }));
+                        return { skus: m.size, pieces: Array.from(m.values()).reduce((a, b) => a + b, 0) };
+                      })();
+                      const isSelected = exportPicklistNum === num;
+                      return (
+                        <label
+                          key={num}
+                          className={`flex items-start gap-3 w-full px-3 py-2.5 rounded-lg border cursor-pointer transition-colors ${
+                            isSelected
+                              ? 'border-trust-blue bg-trust-blue/5'
+                              : 'border-soft-border bg-cloud-gray hover:border-trust-blue/50 hover:bg-trust-blue/5'
+                          }`}
+                        >
+                          <input
+                            type="radio"
+                            name="export-picklist"
+                            checked={isSelected}
+                            onChange={() => setExportPicklistNum(num)}
+                            className="mt-0.5 w-4 h-4 accent-trust-blue cursor-pointer shrink-0"
+                          />
+                          <div className="min-w-0">
+                            <p className={`text-xs font-bold ${isSelected ? 'text-trust-blue' : 'text-midnight-ink'}`}>
+                              PICKLIST-{num}
+                            </p>
+                            <p className="text-[11px] text-cool-gray mt-0.5">
+                              {itemCount.skus} SKU{itemCount.skus !== 1 ? 's' : ''} &nbsp;·&nbsp; {itemCount.pieces} pieces
+                              {picklistOrder ? ` · ${new Date(picklistOrder.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}` : ''}
+                            </p>
+                          </div>
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
+
+                <div className="flex gap-2 pt-1">
+                  <button
+                    onClick={() => setShowExportPicklistDialog(false)}
+                    className="flex-1 py-2 rounded-lg border border-soft-border hover:bg-cloud-gray text-sm font-medium transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleExportPicklist}
+                    disabled={exportPicklistNum == null || isExporting || nums.length === 0}
+                    className="flex-1 py-2 rounded-lg bg-trust-blue hover:bg-deep-blue text-white font-medium transition-all text-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
+                  >
+                    <FileDown className="w-4 h-4" />
+                    {isExporting ? 'Exporting…' : 'Export'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Delete Picklist Dialog */}
       {showDeletePicklistDialog && (
