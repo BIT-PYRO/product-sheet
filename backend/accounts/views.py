@@ -128,17 +128,21 @@ class GoogleLoginView(APIView):
 			return Response({'success': False, 'message': 'Google account has no email.'}, status=400)
 
 		User = get_user_model()
-		user, created = User.objects.get_or_create(
-			username=email,
-			defaults={
-				'email': email,
-				'first_name': first_name,
-				'last_name': last_name,
-			},
-		)
-		if created:
-			user.set_unusable_password()
-			user.save()
+		# Look up by email field first so existing accounts (e.g. superusers) are matched.
+		user = User.objects.filter(email=email).first()
+		created = False
+		if user is None:
+			user, created = User.objects.get_or_create(
+				username=email,
+				defaults={
+					'email': email,
+					'first_name': first_name,
+					'last_name': last_name,
+				},
+			)
+			if created:
+				user.set_unusable_password()
+				user.save()
 
 		WorkforceMember.objects.get_or_create(
 			email=email,
@@ -230,16 +234,22 @@ class VerifyOTPView(APIView):
 		latest.save()
 
 		User = get_user_model()
-		user, created = User.objects.get_or_create(
-			username=email,
-			defaults={
-				'email': email,
-				'is_approved': False,
-			},
-		)
-		if created:
-			user.set_unusable_password()
-			user.save()
+		# First look up by email field so existing accounts (e.g. superusers whose
+		# username differs from their email) are matched correctly.
+		user = User.objects.filter(email=email).first()
+		created = False
+		if user is None:
+			# No account with this email — create one keyed by email as username.
+			user, created = User.objects.get_or_create(
+				username=email,
+				defaults={
+					'email': email,
+					'is_approved': False,
+				},
+			)
+			if created:
+				user.set_unusable_password()
+				user.save()
 
 		# Ensure WorkforceMember record exists
 		WorkforceMember.objects.get_or_create(
