@@ -150,14 +150,15 @@ function allPermissions() {
 function PermissionsModal({ member, canEdit, isSelf, onClose, onSaved }) {
   // Superusers viewing themselves get all-perms as default
   const isMemberSuperUser = (() => {
+    if (member.user_is_superuser) return true;
     const des = (member.designation || '').toLowerCase().trim();
     return des === 'chairman' || des === 'ceo';
   })();
   const effectiveCanEdit = canEdit && !isSelf; // nobody edits their own permissions
 
   const [perms, setPerms] = useState(() => {
-    if (isSelf && (canEdit || isMemberSuperUser)) return allPermissions();
     if (isMemberSuperUser) return allPermissions();
+    if (isSelf && canEdit) return allPermissions();
     return mergePermissions(member.permissions);
   });
   const [isApproved, setIsApproved] = useState(member.user_is_approved ?? true);
