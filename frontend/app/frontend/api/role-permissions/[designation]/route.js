@@ -9,9 +9,11 @@ async function resolveDesignation(context) {
 }
 
 export async function PATCH(request, context) {
-  const designation = await resolveDesignation(context);
+  // Decode __SLASH__ → / and __SP__ → ' ' (frontend encodes names to avoid URL path breakage)
+  const raw = await resolveDesignation(context);
+  const designation = (raw || '').replace(/__SLASH__/g, '/').replace(/__SP__/g, ' ');
   const body = await request.text();
-  return proxyAuthenticatedRequest(request, `/api/v1/auth/role-permissions/${designation}/`, {
+  return proxyAuthenticatedRequest(request, `/api/v1/auth/role-permissions/${encodeURIComponent(designation)}/`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body,

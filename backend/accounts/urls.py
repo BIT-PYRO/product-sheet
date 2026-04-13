@@ -13,6 +13,6 @@ urlpatterns = [
     path('set-credentials/', SetCredentialsView.as_view(), name='set_credentials'),
     path('approve-user/', ApproveUserView.as_view(), name='approve_user'),
     path('role-permissions/', RoleDefaultPermissionsListView.as_view(), name='role_permissions_list'),
-    path('role-permissions/<str:role>/<str:department>/', RoleDefaultPermissionsDetailView.as_view(), name='role_permissions_detail'),
+    path('role-permissions/<str:role>/<path:department>/', RoleDefaultPermissionsDetailView.as_view(), name='role_permissions_detail'),
     path('role-permissions/<str:role>/', RoleDefaultPermissionsDetailView.as_view(), name='role_permissions_detail_nodept'),
 ]

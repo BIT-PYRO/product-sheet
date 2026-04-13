@@ -9,8 +9,10 @@ async function resolveParams(context) {
 
 export async function PATCH(request, context) {
   const params = await resolveParams(context);
-  const designation = params?.designation || '';
-  const department = params?.department || '';
+  // Decode __SLASH__ → / and __SP__ → ' ' (frontend encodes names to avoid URL path breakage)
+  const safeDecode = (s) => (s || '').replace(/__SLASH__/g, '/').replace(/__SP__/g, ' ');
+  const designation = safeDecode(params?.designation);
+  const department  = safeDecode(params?.department);
   const body = await request.text();
   return proxyAuthenticatedRequest(
     request,

@@ -373,8 +373,12 @@ export default function RolePermissionsPage() {
         activeKeys.map(k => {
           const [des, dept] = k.split('||');
           const perms = permsMap[k] || emptyPermissions();
+          // Encode / → __SLASH__ and ' ' → __SP__ so path segments are pure alphanumeric+underscore
+          const safeEncode = (s) => s.replace(/\//g, '__SLASH__').replace(/ /g, '__SP__');
+          const safeDes  = safeEncode(des);
+          const safeDept = safeEncode(dept);
           return fetch(
-            `/api/role-permissions/${encodeURIComponent(des)}/${encodeURIComponent(dept)}`,
+            `/api/role-permissions/${safeDes}/${safeDept}`,
             {
               method: 'PATCH',
               headers: { 'Content-Type': 'application/json' },
