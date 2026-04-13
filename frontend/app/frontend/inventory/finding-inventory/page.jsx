@@ -11,6 +11,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { useSheetPermissions } from '@/hooks/use-sheet-permissions';
 
 const MATERIAL_OPTIONS = ['Gold', 'Silver', 'Brass', 'Alloy', 'Platinum'];
 const STAGE_OPTIONS = ['Raw', 'Wax', 'Casting', 'Filing', 'Polish', 'Hand Setting', 'Ready', 'Finished'];
@@ -50,6 +51,7 @@ function Field({ label, value, onChange, textarea = false, type = 'text', childr
 }
 
 export default function FindingInventoryPage() {
+  const { canExport } = useSheetPermissions('inventory');
   const [findings, setFindings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState('');
@@ -642,7 +644,7 @@ export default function FindingInventoryPage() {
                                 <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${statusClass}`}>
                                   {req.status}
                                 </span>
-                                {req.status === 'approved' && (
+                                {req.status === 'approved' && canExport && (
                                   <button
                                     type="button"
                                     onClick={(e) => {
@@ -813,7 +815,7 @@ export default function FindingInventoryPage() {
                 <Button onClick={() => reviewIssueRequest('approved')}>Approve</Button>
               </>
             )}
-            {activeRequest?.status === 'approved' && (
+            {activeRequest?.status === 'approved' && canExport && (
               <Button variant="outline" onClick={() => printIssueVoucher(activeRequest)}>
                 <Printer size={14} className="mr-2" />
                 Print

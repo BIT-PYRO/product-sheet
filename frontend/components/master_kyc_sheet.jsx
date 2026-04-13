@@ -86,7 +86,7 @@ const columnConfig = {
 };
 
 export default function MasterKYCSheet() {
-  const { canEdit, canCreate, canExport } = useSheetPermissions('master-kyc-sheet');
+  const { canView, canEdit, canCreate, canExport, loading: permsLoading } = useSheetPermissions('master-kyc-sheet');
   const [lastUpdated, setLastUpdated] = useState(null);
   const [currentUsername, setCurrentUsername] = useState('');
   const [isLoading, setIsLoading] = useState(true);
@@ -280,6 +280,9 @@ export default function MasterKYCSheet() {
   const safePage = Math.min(currentPage, totalPages);
   const paginatedKycData = sortedProducts.slice((safePage - 1) * rowsPerPage, safePage * rowsPerPage);
 
+  if (permsLoading) return <div className="min-h-screen bg-cloud-gray flex items-center justify-center"><div className="w-8 h-8 border-4 border-trust-blue border-t-transparent rounded-full animate-spin" /></div>;
+  if (!canView) return <div className="min-h-screen bg-cloud-gray flex items-center justify-center"><div className="text-center"><h2 className="text-xl font-bold text-midnight-ink mb-2">Access Denied</h2><p className="text-cool-gray text-sm">You do not have permission to view this sheet. Contact your admin.</p></div></div>;
+
   return (
     <div className="min-h-screen bg-cloud-gray">
       <div className="pt-16 px-3 md:px-4 pb-16">
@@ -368,9 +371,11 @@ export default function MasterKYCSheet() {
             <Button onClick={handleExport} variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8" disabled={!canExport} title={!canExport ? 'You do not have permission to export' : undefined}>
               Export
             </Button>
+            {canExport && (
             <Button onClick={() => window.print()} variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8">
               Print
             </Button>
+            )}
           </div>
 
           {/* Table */}

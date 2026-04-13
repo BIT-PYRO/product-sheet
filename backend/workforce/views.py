@@ -5,6 +5,7 @@ from common.mixins import StandardizedSuccessResponseMixin
 
 from .models import WorkforceMember
 from .serializers import WorkforceMemberSerializer
+from .services.permission_sync import sync_member_permissions
 
 
 @extend_schema_view(
@@ -20,3 +21,16 @@ class WorkforceMemberViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 	serializer_class = WorkforceMemberSerializer
 	filterset_fields = ['active']
 	search_fields = ['full_name', 'phone', 'email', 'department']
+
+	def perform_create(self, serializer):
+		instance = serializer.save()
+		sync_member_permissions(instance)
+
+	def perform_update(self, serializer):
+		old = self.get_object()
+		old_designation = old.designation
+		old_department = old.department
+		instance = serializer.save()
+		# Re-sync permissions if designation or department changed
+		if instance.designation != old_designation or instance.department != old_department:
+			sync_member_permissions(instance)

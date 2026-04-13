@@ -1,24 +1,25 @@
-﻿'use client';
+'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo, useLayoutEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, ShieldCheck, ChevronDown, X } from 'lucide-react';
 import Link from 'next/link';
 
-// â”€â”€ Workforce designation + department data (mirrors enrol-workforce) â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Workforce designation + department data (mirrors enrol-workforce) ─────────
 const DEPT_DATA = {
-  'Marketing':                    { roles: ['Intern','Associate','Manager','Department Head','Director'] },
-  'Customer Relation Management': { roles: ['Intern','Associate','Manager','Department Head','Director'] },
-  'Operations':                   { roles: ['Intern','Associate','Manager','Department Head','Director'] },
-  'Design':                       { roles: ['Intern','Associate','Manager','Department Head','Director'] },
-  'Logistics':                    { roles: ['Intern','Associate','Manager','Department Head','Director'] },
-  'Purchase':                     { roles: ['Associate','Manager','Department Head','Director'] },
-  'Sales / Business Development': { roles: ['Intern','Associate','Manager','Department Head','Director'] },
-  'Finance':                      { roles: ['Intern','Associate','Manager','Department Head','Director'] },
-  'Information Technology':       { roles: ['Intern','Associate','Developer','Project Manager','General Manager','Director'] },
-  'Human Resource':               { roles: ['Intern','Associate','Manager','Department Head','Director'] },
-  'Production':                   { roles: ['Labour','Supervisor','Manager','General Manager','Department Head','Director'] },
-  'Services':                     { roles: ['Security','Electrician','Plumber','CCTV Operator','Carpenter','Ironsmith','Locksmith'] },
+  'Marketing':                    { roles: ['Chairman','CEO','Director','Department Head','Manager','Associate','Intern'] },
+  'Customer Relation Management': { roles: ['Chairman','CEO','Director','Department Head','Manager','Associate','Intern'] },
+  'Operations':                   { roles: ['Chairman','CEO','Director','Department Head','Manager','Associate','Intern'] },
+  'Design':                       { roles: ['Chairman','CEO','Director','Department Head','Manager','Associate','Intern'] },
+  'Logistics':                    { roles: ['Chairman','CEO','Director','Department Head','Manager','Associate','Intern'] },
+  'Purchase':                     { roles: ['Chairman','CEO','Director','Department Head','Manager','Associate'] },
+  'Sales / Business Development': { roles: ['Chairman','CEO','Director','Department Head','Manager','Associate','Intern'] },
+  'Finance':                      { roles: ['Chairman','CEO','Director','Department Head','Manager','Associate','Intern'] },
+  'Information Technology':       { roles: ['Chairman','CEO','Director','Department Head','General Manager','Project Manager','Developer','Associate','Intern'] },
+  'Human Resource':               { roles: ['Chairman','CEO','Director','Department Head','Manager','Associate','Intern'] },
+  'Production':                   { roles: ['Chairman','CEO','Director','Department Head','General Manager','Manager','Supervisor','Labour'] },
+  'Services':                     { roles: ['Security','Electrician','Plumber','CCTV','Carpenter','Ironsmith','Locksmith'] },
   'House Keeping':                { roles: ['Cook','Pantry Boy','Janitor','Messenger'] },
 };
 
@@ -28,7 +29,7 @@ const DESIGNATION_ORDER = [
   'Chairman','CEO','Director','General Manager','Department Head','Project Manager',
   'Manager','Supervisor','Associate','Developer','Intern','Labour','Worker',
   'Cook','Pantry Boy','Janitor','Messenger','Security','Electrician','Plumber',
-  'CCTV Operator','Carpenter','Ironsmith','Locksmith',
+  'CCTV','Carpenter','Ironsmith','Locksmith',
 ];
 
 const ALL_DESIGNATIONS = [...new Set(Object.values(DEPT_DATA).flatMap(d => d.roles))]
@@ -37,11 +38,15 @@ const ALL_DESIGNATIONS = [...new Set(Object.values(DEPT_DATA).flatMap(d => d.rol
     return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
   });
 
-function deptsForDesignation(designation) {
-  return DEPARTMENTS.filter(d => DEPT_DATA[d].roles.includes(designation));
+function deptsForDesignations(designations) {
+  const set = new Set();
+  designations.forEach(des => {
+    DEPARTMENTS.forEach(d => { if (DEPT_DATA[d].roles.includes(des)) set.add(d); });
+  });
+  return DEPARTMENTS.filter(d => set.has(d));
 }
 
-// â”€â”€ Modules â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Modules ───────────────────────────────────────────────────────────────────
 const MODULES = [
   { key: 'product-sheet', label: 'Product Sheet' },
   { key: 'master-product-sheet', label: 'Master Product Sheet' },
@@ -65,7 +70,7 @@ const MODULES = [
 ];
 const PERM_COLS = ['view', 'edit', 'create', 'export', 'amount'];
 
-// â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Helpers ───────────────────────────────────────────────────────────────────
 function emptyPermissions() {
   const sheets = {};
   MODULES.forEach(({ key }) => {
@@ -79,34 +84,169 @@ function mergePermissions(saved) {
   if (!saved) return base;
   if (saved.sheets) {
     Object.keys(saved.sheets).forEach((key) => {
-      if (base.sheets[key]) base.sheets[key] = { ...base.sheets[key], ...saved.sheets[key] };
+      if (base.sheets[key]) {
+        let p = { ...base.sheets[key], ...saved.sheets[key] };
+        // Apply cascading: create→edit+view, edit→view
+        if (p.create) { p.edit = true; p.view = true; }
+        if (p.edit)   { p.view = true; }
+        base.sheets[key] = p;
+      }
     });
   }
   if (typeof saved.manage_members === 'boolean') base.manage_members = saved.manage_members;
   return base;
 }
 
-// â”€â”€ Page â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Multi-select dropdown ─────────────────────────────────────────────────────
+function MultiSelect({ options, selected, onChange, disabled, placeholder }) {
+  const [open, setOpen] = useState(false);
+  const btnRef = useRef(null);
+  const dropRef = useRef(null);
+  const [pos, setPos] = useState({ top: 0, left: 0 });
+
+  useLayoutEffect(() => {
+    if (open && btnRef.current) {
+      const rect = btnRef.current.getBoundingClientRect();
+      setPos({ top: rect.bottom + window.scrollY + 4, left: rect.left + window.scrollX });
+    }
+  }, [open]);
+
+  useEffect(() => {
+    function handleClick(e) {
+      if (btnRef.current?.contains(e.target)) return;
+      if (dropRef.current?.contains(e.target)) return;
+      setOpen(false);
+    }
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
+
+  function toggle(val) {
+    if (disabled) return;
+    onChange(selected.includes(val) ? selected.filter(v => v !== val) : [...selected, val]);
+  }
+
+  function toggleAll() {
+    if (disabled) return;
+    onChange(selected.length === options.length ? [] : [...options]);
+  }
+
+  const displayText = selected.length === 0
+    ? (placeholder || '-- Select --')
+    : selected.length === 1
+      ? selected[0]
+      : `${selected.length} selected`;
+
+  return (
+    <div className="relative">
+      <button
+        ref={btnRef}
+        type="button"
+        onClick={() => !disabled && setOpen(o => !o)}
+        disabled={disabled}
+        className={`h-8 px-2 pr-7 rounded-md border border-soft-border bg-white text-xs text-midnight-ink text-left
+          focus:outline-none focus:ring-1 focus:ring-trust-blue min-w-[180px] relative
+          disabled:opacity-50 disabled:cursor-not-allowed truncate`}
+      >
+        {displayText}
+        <ChevronDown className="h-3.5 w-3.5 absolute right-2 top-1/2 -translate-y-1/2 text-cool-gray pointer-events-none" />
+      </button>
+      {open && createPortal(
+        <div
+          ref={dropRef}
+          style={{ position: 'absolute', top: pos.top, left: pos.left }}
+          className="z-[9999] w-56 bg-white border border-soft-border rounded-lg shadow-lg"
+        >
+          <label className="flex items-center gap-2 px-3 py-1.5 hover:bg-cloud-gray cursor-pointer border-b border-soft-border">
+            <input
+              type="checkbox"
+              checked={selected.length === options.length && options.length > 0}
+              ref={el => { if (el) el.indeterminate = selected.length > 0 && selected.length < options.length; }}
+              onChange={toggleAll}
+              className="accent-trust-blue w-3.5 h-3.5"
+            />
+            <span className="text-xs font-semibold text-midnight-ink">Select All</span>
+          </label>
+          {options.map(opt => (
+            <label key={opt} className="flex items-center gap-2 px-3 py-1.5 hover:bg-cloud-gray cursor-pointer">
+              <input
+                type="checkbox"
+                checked={selected.includes(opt)}
+                onChange={() => toggle(opt)}
+                className="accent-trust-blue w-3.5 h-3.5"
+              />
+              <span className="text-xs text-midnight-ink">{opt}</span>
+            </label>
+          ))}
+        </div>,
+        document.body
+      )}
+    </div>
+  );
+}
+
+// ── 3-state checkbox ──────────────────────────────────────────────────────────
+function TriCheckbox({ allOn, someOn, onChange, disabled }) {
+  return (
+    <input
+      type="checkbox"
+      checked={allOn}
+      ref={el => { if (el) el.indeterminate = !allOn && someOn; }}
+      onChange={onChange}
+      disabled={disabled}
+      className="accent-trust-blue w-3.5 h-3.5 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+    />
+  );
+}
+
+// ── Page ──────────────────────────────────────────────────────────────────────
 export default function RolePermissionsPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [canEdit, setCanEdit] = useState(false);
 
-  const [selectedDesignation, setSelectedDesignation] = useState('');
-  const [selectedDept, setSelectedDept] = useState('');
+  const [selectedDesignations, setSelectedDesignations] = useState([]);
+  const [selectedDepts, setSelectedDepts] = useState([]);
 
-  // permissions keyed by `${designation}||${department}`
   const [permsMap, setPermsMap] = useState({});
   const [loadingPerms, setLoadingPerms] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState('');
   const [isSaveError, setIsSaveError] = useState(false);
 
-  const availableDepts = selectedDesignation ? deptsForDesignation(selectedDesignation) : [];
-  const compositeKey = selectedDesignation && selectedDept ? `${selectedDesignation}||${selectedDept}` : null;
-  const currentPerms = compositeKey ? (permsMap[compositeKey] || emptyPermissions()) : null;
+  const availableDepts = useMemo(
+    () => deptsForDesignations(selectedDesignations),
+    [selectedDesignations]
+  );
 
-  // â”€â”€ Auth â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // When designations change, prune invalid depts; auto-select if only one
+  useEffect(() => {
+    if (selectedDesignations.length === 0) { setSelectedDepts([]); return; }
+    const valid = deptsForDesignations(selectedDesignations);
+    setSelectedDepts(prev => {
+      const filtered = prev.filter(d => valid.includes(d));
+      if (valid.length === 1) return valid;
+      return filtered;
+    });
+    setSaveMsg('');
+  }, [selectedDesignations]);
+
+  // All active designation x department combos (only valid pairs)
+  const activeKeys = useMemo(() => {
+    const keys = [];
+    selectedDesignations.forEach(des => {
+      selectedDepts.forEach(dept => {
+        if (DEPT_DATA[dept]?.roles.includes(des)) {
+          keys.push(`${des}||${dept}`);
+        }
+      });
+    });
+    return keys;
+  }, [selectedDesignations, selectedDepts]);
+
+  const hasSelection = activeKeys.length > 0;
+
+  // ── Auth ───────────────────────────────────────────────────────────────────
   useEffect(() => {
     async function load() {
       try {
@@ -124,7 +264,7 @@ export default function RolePermissionsPage() {
     load();
   }, [router]);
 
-  // â”€â”€ Load all saved permissions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Load all saved permissions ──────────────────────────────────────────────
   const loadAllPermissions = useCallback(async () => {
     setLoadingPerms(true);
     try {
@@ -144,63 +284,117 @@ export default function RolePermissionsPage() {
 
   useEffect(() => { if (!loading) loadAllPermissions(); }, [loading, loadAllPermissions]);
 
-  // â”€â”€ Auto-select dept when only one option â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  useEffect(() => {
-    if (!selectedDesignation) { setSelectedDept(''); return; }
-    const depts = deptsForDesignation(selectedDesignation);
-    setSelectedDept(depts.length === 1 ? depts[0] : '');
-    setSaveMsg('');
-  }, [selectedDesignation]);
-
-  // â”€â”€ Permission toggles â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  function updateCurrent(updater) {
-    if (!compositeKey) return;
-    setPermsMap(prev => ({ ...prev, [compositeKey]: updater(prev[compositeKey] || emptyPermissions()) }));
+  // ── Aggregated permissions across all active keys ───────────────────────────
+  function getAggregated(moduleKey, col) {
+    let on = 0;
+    activeKeys.forEach(k => {
+      const p = permsMap[k] || emptyPermissions();
+      if (p.sheets[moduleKey]?.[col]) on++;
+    });
+    return { allOn: on === activeKeys.length, someOn: on > 0 };
   }
 
+  function getAggregatedAll(moduleKey) {
+    let on = 0;
+    activeKeys.forEach(k => {
+      const p = permsMap[k] || emptyPermissions();
+      if (PERM_COLS.every(c => p.sheets[moduleKey]?.[c])) on++;
+    });
+    return { allOn: on === activeKeys.length, someOn: on > 0 };
+  }
+
+  function getAggregatedManageMembers() {
+    let on = 0;
+    activeKeys.forEach(k => {
+      const p = permsMap[k] || emptyPermissions();
+      if (p.manage_members) on++;
+    });
+    return { allOn: on === activeKeys.length, someOn: on > 0 };
+  }
+
+  // ── Permission toggles (apply to ALL active keys) ─────────────────────────
   function toggleSheetPerm(moduleKey, col) {
-    updateCurrent(perms => ({
-      ...perms,
-      sheets: { ...perms.sheets, [moduleKey]: { ...perms.sheets[moduleKey], [col]: !perms.sheets[moduleKey][col] } },
-    }));
+    const { allOn } = getAggregated(moduleKey, col);
+    const newVal = !allOn;
+    setPermsMap(prev => {
+      const next = { ...prev };
+      activeKeys.forEach(k => {
+        const p = next[k] || emptyPermissions();
+        let updated = { ...p.sheets[moduleKey], [col]: newVal };
+
+        // cascading rules: create→edit+view, edit→view, unview→unedit+uncreate, unedit→uncreate
+        if (newVal) {
+          if (col === 'create') { updated.view = true; updated.edit = true; }
+          if (col === 'edit')   { updated.view = true; }
+        } else {
+          if (col === 'view')   { updated.edit = false; updated.create = false; }
+          if (col === 'edit')   { updated.create = false; }
+        }
+
+        next[k] = { ...p, sheets: { ...p.sheets, [moduleKey]: updated } };
+      });
+      return next;
+    });
   }
 
   function toggleAllForModule(moduleKey) {
-    updateCurrent(perms => {
-      const allOn = PERM_COLS.every(c => perms.sheets[moduleKey][c]);
-      const newSheet = Object.fromEntries(PERM_COLS.map(c => [c, !allOn]));
-      return { ...perms, sheets: { ...perms.sheets, [moduleKey]: newSheet } };
+    const { allOn } = getAggregatedAll(moduleKey);
+    const newVal = !allOn;
+    setPermsMap(prev => {
+      const next = { ...prev };
+      activeKeys.forEach(k => {
+        const p = next[k] || emptyPermissions();
+        const newSheet = Object.fromEntries(PERM_COLS.map(c => [c, newVal]));
+        next[k] = { ...p, sheets: { ...p.sheets, [moduleKey]: newSheet } };
+      });
+      return next;
     });
   }
 
   function toggleManageMembers() {
-    updateCurrent(perms => ({ ...perms, manage_members: !perms.manage_members }));
+    const { allOn } = getAggregatedManageMembers();
+    const newVal = !allOn;
+    setPermsMap(prev => {
+      const next = { ...prev };
+      activeKeys.forEach(k => {
+        const p = next[k] || emptyPermissions();
+        next[k] = { ...p, manage_members: newVal };
+      });
+      return next;
+    });
   }
 
-  // â”€â”€ Save â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Save (bulk-save all active combos) ──────────────────────────────────────
   async function handleSave() {
-    if (!compositeKey || !canEdit) return;
+    if (!hasSelection || !canEdit) return;
     setSaveMsg(''); setIsSaveError(false); setSaving(true);
     try {
-      const res = await fetch(
-        `/api/role-permissions/${encodeURIComponent(selectedDesignation)}/${encodeURIComponent(selectedDept)}`,
-        {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ permissions: currentPerms }),
-        }
+      const results = await Promise.all(
+        activeKeys.map(k => {
+          const [des, dept] = k.split('||');
+          const perms = permsMap[k] || emptyPermissions();
+          return fetch(
+            `/api/role-permissions/${encodeURIComponent(des)}/${encodeURIComponent(dept)}`,
+            {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ permissions: perms }),
+            }
+          ).then(r => r.json().then(j => ({ ok: r.ok, ...j })));
+        })
       );
-      const result = await res.json();
-      if (!res.ok || !result.success) {
-        setSaveMsg(result.message || 'Failed to save.'); setIsSaveError(true); return;
+      const failed = results.filter(r => !r.ok || !r.success);
+      if (failed.length > 0) {
+        setSaveMsg(`${failed.length} of ${results.length} failed to save.`); setIsSaveError(true);
+      } else {
+        setSaveMsg(`Saved ${results.length} combo${results.length > 1 ? 's' : ''} successfully.`);
       }
-      setSaveMsg('Saved successfully.');
     } catch {
       setSaveMsg('Unable to save. Please try again.'); setIsSaveError(true);
     } finally { setSaving(false); }
   }
 
-  // â”€â”€ Render â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Render ──────────────────────────────────────────────────────────────────
   if (loading) {
     return (
       <div className="min-h-screen bg-cloud-gray flex items-center justify-center">
@@ -218,160 +412,149 @@ export default function RolePermissionsPage() {
         <h1 className="text-base font-bold text-midnight-ink">Default Role Permissions</h1>
       </header>
 
-      <div className="max-w-5xl mx-auto px-4 py-8 space-y-6">
-
-        {/* Step 1 â€” Choose designation */}
-        <div className="bg-white rounded-xl border border-soft-border p-5">
-          <div className="flex items-center gap-2 mb-4">
-            <ShieldCheck className="h-4 w-4 text-trust-blue" />
-            <span className="text-xs font-bold text-midnight-ink uppercase tracking-widest">Step 1 â€” Select Designation</span>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {ALL_DESIGNATIONS.map(d => (
-              <button
-                key={d}
-                onClick={() => { setSelectedDesignation(d === selectedDesignation ? '' : d); setSaveMsg(''); }}
-                className={`px-3 py-1.5 rounded-full text-xs font-semibold transition border ${
-                  selectedDesignation === d
-                    ? 'bg-trust-blue text-white border-trust-blue'
-                    : 'bg-white text-cool-gray border-soft-border hover:border-trust-blue hover:text-trust-blue'
-                }`}
-              >{d}</button>
-            ))}
-          </div>
-        </div>
-
-        {/* Step 2 â€” Choose department (only when multiple depts) */}
-        {selectedDesignation && availableDepts.length > 1 && (
-          <div className="bg-white rounded-xl border border-soft-border p-5">
-            <div className="flex items-center gap-2 mb-4">
-              <ShieldCheck className="h-4 w-4 text-trust-blue" />
-              <span className="text-xs font-bold text-midnight-ink uppercase tracking-widest">Step 2 â€” Select Department</span>
+      <div className="mx-auto px-4 py-8 max-w-[1400px]">
+        <div className="bg-white rounded-xl border border-soft-border overflow-hidden">
+          {/* Toolbar */}
+          <div className="flex items-center gap-4 px-5 py-3 border-b border-soft-border bg-cloud-gray flex-wrap">
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="h-4 w-4 text-trust-blue shrink-0" />
+              <span className="text-xs font-bold text-midnight-ink uppercase tracking-widest whitespace-nowrap">Permissions</span>
             </div>
-            <div className="flex flex-wrap gap-2">
-              {availableDepts.map(dep => (
+
+            <div className="flex items-center gap-2">
+              <label className="text-xs font-semibold text-midnight-ink whitespace-nowrap">Designation</label>
+              <MultiSelect
+                options={ALL_DESIGNATIONS}
+                selected={selectedDesignations}
+                onChange={v => { setSelectedDesignations(v); setSaveMsg(''); }}
+                placeholder="-- Select --"
+              />
+            </div>
+
+            <div className="flex items-center gap-2">
+              <label className="text-xs font-semibold text-midnight-ink whitespace-nowrap">Department</label>
+              <MultiSelect
+                options={availableDepts}
+                selected={selectedDepts}
+                onChange={v => { setSelectedDepts(v); setSaveMsg(''); }}
+                disabled={selectedDesignations.length === 0}
+                placeholder={selectedDesignations.length === 0 ? '-- Select designation first --' : '-- Select --'}
+              />
+            </div>
+
+            {loadingPerms && <div className="w-4 h-4 border-2 border-trust-blue border-t-transparent rounded-full animate-spin" />}
+
+            {hasSelection && canEdit && (
+              <div className="flex items-center gap-3 ml-auto">
+                {saveMsg && (
+                  <p className={`text-xs font-medium ${isSaveError ? 'text-red-600' : 'text-green-600'}`}>{saveMsg}</p>
+                )}
                 <button
-                  key={dep}
-                  onClick={() => { setSelectedDept(dep === selectedDept ? '' : dep); setSaveMsg(''); }}
-                  className={`px-3 py-1.5 rounded-full text-xs font-semibold transition border ${
-                    selectedDept === dep
-                      ? 'bg-trust-blue text-white border-trust-blue'
-                      : 'bg-white text-cool-gray border-soft-border hover:border-trust-blue hover:text-trust-blue'
-                  }`}
-                >{dep}</button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Permissions table */}
-        {compositeKey && (
-          <div className="bg-white rounded-xl border border-soft-border overflow-hidden">
-            <div className="flex items-center justify-between px-5 py-3 border-b border-soft-border bg-cloud-gray">
-              <div className="flex items-center gap-2">
-                <ShieldCheck className="h-4 w-4 text-trust-blue shrink-0" />
-                <span className="text-xs font-bold text-midnight-ink uppercase tracking-widest">
-                  Permissions â€” {selectedDesignation} Â· {selectedDept}
-                </span>
+                  onClick={handleSave}
+                  disabled={saving}
+                  className="h-8 px-4 rounded-md bg-trust-blue hover:bg-deep-blue text-white text-xs font-semibold transition disabled:opacity-60 whitespace-nowrap"
+                >
+                  {saving ? 'Saving\u2026' : `Save (${activeKeys.length})`}
+                </button>
               </div>
-              {loadingPerms && <div className="w-4 h-4 border-2 border-trust-blue border-t-transparent rounded-full animate-spin" />}
-            </div>
+            )}
+          </div>
 
-            <div className="p-5 space-y-4">
-              {!currentPerms ? (
-                <div className="flex items-center justify-center py-8">
-                  <div className="w-6 h-6 border-4 border-trust-blue border-t-transparent rounded-full animate-spin" />
-                </div>
-              ) : (
-                <>
-                  <div className="overflow-x-auto rounded-lg border border-soft-border">
-                    <table className="w-full text-xs">
-                      <thead>
-                        <tr className="bg-cloud-gray border-b border-soft-border">
-                          <th className="text-left px-3 py-2 font-semibold text-midnight-ink w-44">Module</th>
-                          {PERM_COLS.map(col => (
-                            <th key={col} className="px-2 py-2 font-semibold text-midnight-ink capitalize text-center w-16">{col}</th>
-                          ))}
-                          <th className="px-2 py-2 font-semibold text-midnight-ink text-center w-12">All</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {MODULES.map(({ key, label }, idx) => {
-                          const sheet = currentPerms.sheets[key] || {};
-                          const allOn = PERM_COLS.every(c => sheet[c]);
-                          return (
-                            <tr key={key} className={idx % 2 === 0 ? 'bg-white' : 'bg-cloud-gray/40'}>
-                              <td className="px-3 py-2 font-medium text-midnight-ink">{label}</td>
-                              {PERM_COLS.map(col => (
-                                <td key={col} className="px-2 py-2 text-center">
-                                  <input
-                                    type="checkbox"
-                                    checked={!!sheet[col]}
-                                    onChange={() => canEdit && toggleSheetPerm(key, col)}
-                                    disabled={!canEdit}
-                                    className="accent-trust-blue w-3.5 h-3.5 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
-                                  />
-                                </td>
-                              ))}
-                              <td className="px-2 py-2 text-center">
-                                <input
-                                  type="checkbox"
-                                  checked={allOn}
-                                  onChange={() => canEdit && toggleAllForModule(key)}
-                                  disabled={!canEdit}
-                                  className="accent-trust-blue w-3.5 h-3.5 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
-                                />
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  <label className={`flex items-center gap-3 select-none w-fit ${canEdit ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'}`}>
-                    <input
-                      type="checkbox"
-                      checked={!!currentPerms.manage_members}
-                      onChange={() => canEdit && toggleManageMembers()}
-                      disabled={!canEdit}
-                      className="accent-trust-blue w-4 h-4"
-                    />
-                    <span className="text-xs font-medium text-midnight-ink">Manage Members access</span>
-                  </label>
-
-                  {canEdit ? (
-                    <div className="flex items-center gap-4">
-                      <button
-                        onClick={handleSave}
-                        disabled={saving}
-                        className="h-9 px-5 rounded-lg bg-trust-blue hover:bg-deep-blue text-white text-sm font-semibold transition disabled:opacity-60"
-                      >
-                        {saving ? 'Savingâ€¦' : `Save ${selectedDesignation} Â· ${selectedDept} Defaults`}
-                      </button>
-                      {saveMsg && (
-                        <p className={`text-xs font-medium ${isSaveError ? 'text-red-600' : 'text-green-600'}`}>{saveMsg}</p>
-                      )}
-                    </div>
-                  ) : (
-                    <p className="text-xs text-cool-gray italic">You have view-only access to default permissions.</p>
-                  )}
-                </>
+          {/* Selected chips */}
+          {(selectedDesignations.length > 0 || selectedDepts.length > 0) && (
+            <div className="flex items-center gap-2 px-5 py-2 border-b border-soft-border flex-wrap">
+              {selectedDesignations.map(d => (
+                <span key={`d-${d}`} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-trust-blue/10 text-trust-blue text-[10px] font-semibold">
+                  {d}
+                  <button onClick={() => setSelectedDesignations(prev => prev.filter(v => v !== d))} className="hover:text-red-500">
+                    <X className="h-3 w-3" />
+                  </button>
+                </span>
+              ))}
+              {selectedDesignations.length > 0 && selectedDepts.length > 0 && (
+                <span className="text-[10px] text-cool-gray font-medium">&times;</span>
+              )}
+              {selectedDepts.map(d => (
+                <span key={`dept-${d}`} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-50 text-green-700 text-[10px] font-semibold">
+                  {d}
+                  <button onClick={() => setSelectedDepts(prev => prev.filter(v => v !== d))} className="hover:text-red-500">
+                    <X className="h-3 w-3" />
+                  </button>
+                </span>
+              ))}
+              {activeKeys.length > 0 && (
+                <span className="text-[10px] text-cool-gray ml-auto">{activeKeys.length} combo{activeKeys.length !== 1 ? 's' : ''}</span>
               )}
             </div>
-          </div>
-        )}
+          )}
 
-        {!selectedDesignation && (
-          <div className="text-center py-12 text-cool-gray text-sm">
-            Select a designation above to view and edit its default permissions.
-          </div>
-        )}
-        {selectedDesignation && availableDepts.length > 1 && !selectedDept && (
-          <div className="text-center py-12 text-cool-gray text-sm">
-            Now select a department to load the permissions for {selectedDesignation}.
-          </div>
-        )}
+          {/* Table */}
+          {hasSelection ? (
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="bg-cloud-gray/60 border-b border-soft-border">
+                    <th className="text-left px-4 py-2.5 font-semibold text-midnight-ink sticky left-0 bg-cloud-gray/60 min-w-[180px]">Module</th>
+                    {PERM_COLS.map(col => (
+                      <th key={col} className="px-3 py-2.5 font-semibold text-midnight-ink capitalize text-center min-w-[70px]">{col}</th>
+                    ))}
+                    <th className="px-3 py-2.5 font-semibold text-midnight-ink text-center min-w-[50px]">All</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {MODULES.map(({ key, label }, idx) => {
+                    const aggAll = getAggregatedAll(key);
+                    return (
+                      <tr key={key} className={`border-b border-soft-border/50 ${idx % 2 === 0 ? 'bg-white' : 'bg-cloud-gray/30'}`}>
+                        <td className="px-4 py-2 font-medium text-midnight-ink sticky left-0 bg-inherit">{label}</td>
+                        {PERM_COLS.map(col => {
+                          const { allOn, someOn } = getAggregated(key, col);
+                          return (
+                            <td key={col} className="px-3 py-2 text-center">
+                              <TriCheckbox
+                                allOn={allOn}
+                                someOn={someOn}
+                                onChange={() => canEdit && toggleSheetPerm(key, col)}
+                                disabled={!canEdit}
+                              />
+                            </td>
+                          );
+                        })}
+                        <td className="px-3 py-2 text-center">
+                          <TriCheckbox
+                            allOn={aggAll.allOn}
+                            someOn={aggAll.someOn}
+                            onChange={() => canEdit && toggleAllForModule(key)}
+                            disabled={!canEdit}
+                          />
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+
+              {/* Manage Members */}
+              <div className="px-4 py-3 border-t border-soft-border flex items-center justify-between">
+                <label className={`flex items-center gap-3 select-none ${canEdit ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'}`}>
+                  {(() => { const { allOn, someOn } = getAggregatedManageMembers(); return (
+                    <TriCheckbox allOn={allOn} someOn={someOn} onChange={() => canEdit && toggleManageMembers()} disabled={!canEdit} />
+                  ); })()}
+                  <span className="text-xs font-medium text-midnight-ink">Manage Members access</span>
+                </label>
+                {!canEdit && (
+                  <p className="text-xs text-cool-gray italic">You have view-only access to default permissions.</p>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-16 text-cool-gray text-sm">
+              {selectedDesignations.length === 0
+                ? 'Select designation(s) and department(s) to view permissions.'
+                : 'Select department(s) to load permissions.'}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

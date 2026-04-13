@@ -3,12 +3,14 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import Link from 'next/link';
 import { RefreshCw, ChevronRight, ArrowLeft, Upload, Trash2, CloudDownload, FileDown } from 'lucide-react';
+import { useSheetPermissions } from '@/hooks/use-sheet-permissions';
 
 const fmt = (n) => `₹${Number(n).toFixed(2)}`;
 
 const PSD_PICKLISTS_KEY = 'psd_picklists';
 
 export function OrderSheetView({ embedded = false }) {
+  const { canExport } = useSheetPermissions('orders');
   const picklistFileInputRef = useRef(null);
   const [isUploadingPicklist, setIsUploadingPicklist] = useState(false);
   const [currentUsername, setCurrentUsername] = useState('');
@@ -733,6 +735,7 @@ export function OrderSheetView({ embedded = false }) {
                   {isSyncing ? 'Syncing...' : 'Sync Picklist'}
                 </button>
               )}
+              {canExport && (
               <button
                 onClick={handleOpenExportPicklistDialog}
                 className="gap-2 text-xs px-3 py-1.5 rounded-md border border-soft-border bg-white hover:bg-cloud-gray text-midnight-ink font-medium transition-colors flex items-center"
@@ -740,6 +743,7 @@ export function OrderSheetView({ embedded = false }) {
                 <FileDown className="h-4 w-4" />
                 Export Picklist
               </button>
+              )}
               <button
                 onClick={handleRefresh}
                 className="gap-2 text-xs px-3 py-1.5 rounded-md border border-soft-border bg-white hover:bg-cloud-gray text-midnight-ink font-medium transition-colors flex items-center"
@@ -820,6 +824,7 @@ export function OrderSheetView({ embedded = false }) {
                     <Trash2 className="h-3.5 w-3.5" />
                     Delete Picklist
                   </button>
+                  {canExport && (
                   <button
                     onClick={handleOpenExportPicklistDialog}
                     className="gap-1.5 text-xs px-3 py-1 rounded-md border border-soft-border bg-white hover:bg-cloud-gray text-midnight-ink font-medium transition-colors flex items-center"
@@ -827,6 +832,7 @@ export function OrderSheetView({ embedded = false }) {
                     <FileDown className="h-3.5 w-3.5" />
                     Export Picklist
                   </button>
+                  )}
                   <span className="text-[11px] font-semibold text-cool-gray">{filteredOrders.length} total</span>
                 </div>
               </div>

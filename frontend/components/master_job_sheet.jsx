@@ -36,7 +36,7 @@ import BulkUploadButton from '@/components/bulk-upload-button';
 import { useSheetPermissions } from '@/hooks/use-sheet-permissions';
 
 export default function MasterJobSheet() {
-  const { canEdit, canCreate, canExport } = useSheetPermissions('master-job-sheet');
+  const { canView, canEdit, canCreate, canExport, loading: permsLoading } = useSheetPermissions('master-job-sheet');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedRows, setSelectedRows] = useState(new Set());
   const [isManageColumnsOpen, setIsManageColumnsOpen] = useState(false);
@@ -414,6 +414,9 @@ export default function MasterJobSheet() {
   const totalPages = Math.max(1, Math.ceil(displayedData.length / rowsPerPage));
   const safePage = Math.min(currentPage, totalPages);
   const paginatedData = displayedData.slice((safePage - 1) * rowsPerPage, safePage * rowsPerPage);
+
+  if (permsLoading) return <div className="min-h-screen bg-cloud-gray flex items-center justify-center"><div className="w-8 h-8 border-4 border-trust-blue border-t-transparent rounded-full animate-spin" /></div>;
+  if (!canView) return <div className="min-h-screen bg-cloud-gray flex items-center justify-center"><div className="text-center"><h2 className="text-xl font-bold text-midnight-ink mb-2">Access Denied</h2><p className="text-cool-gray text-sm">You do not have permission to view this sheet. Contact your admin.</p></div></div>;
 
   return (
     <div className="w-full min-h-screen bg-cloud-gray">
@@ -850,6 +853,7 @@ export default function MasterJobSheet() {
           </Button>
           
           {/* Print Dropdown */}
+          {canExport && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button 
@@ -868,6 +872,7 @@ export default function MasterJobSheet() {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+          )}
         </div>
 
       {/* Filter Row */}

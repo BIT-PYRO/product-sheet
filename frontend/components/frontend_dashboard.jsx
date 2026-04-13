@@ -8,6 +8,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { CreateJobModal } from '@/components/create-job-modal'
 import { GenericJobModal } from '@/components/generic-job-modal'
 import { PrintJobCardModal } from '@/components/print-job-card-modal'
+import { useSheetPermissions } from '@/hooks/use-sheet-permissions'
 import DateTimeStamp from '@/components/date-time-stamp'
 import MasterNavigationDrawer from '@/components/master_navigation_drawer'
 import Link from 'next/link'
@@ -18,6 +19,7 @@ const PRODUCT_SHEET_SYNC_EVENT = 'product_sheet_sync'
 function ProductSheetContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { canView, canEdit, canCreate, canExport, loading: permsLoading } = useSheetPermissions('product-sheet')
   const newProductToken = searchParams.get('new')
   const skuParam = (searchParams.get('sku') || '').trim()
   const fileInputRef = useRef(null)
@@ -1885,24 +1887,24 @@ function ProductSheetContent() {
                 ← BACK
               </button>
               {isViewMode ? (
-                <button onClick={() => setIsViewMode(false)} className="w-fit px-3 h-8 text-sm bg-trust-blue text-white font-semibold rounded-full shadow-sm hover:bg-deep-blue flex items-center gap-1">
+                canEdit && <button onClick={() => setIsViewMode(false)} className="w-fit px-3 h-8 text-sm bg-trust-blue text-white font-semibold rounded-full shadow-sm hover:bg-deep-blue flex items-center gap-1">
                   <Edit3 className="h-3.5 w-3.5" />
                   EDIT
                 </button>
               ) : (
-                <button onClick={handleSaveProduct} disabled={isSaving} className="w-fit px-3 h-8 text-sm bg-success text-white font-semibold rounded-full shadow-sm hover:bg-success/90 disabled:opacity-50 disabled:cursor-not-allowed">{isSaving ? 'Saving...' : 'SAVE'}</button>
+                canEdit && <button onClick={handleSaveProduct} disabled={isSaving} className="w-fit px-3 h-8 text-sm bg-success text-white font-semibold rounded-full shadow-sm hover:bg-success/90 disabled:opacity-50 disabled:cursor-not-allowed">{isSaving ? 'Saving...' : 'SAVE'}</button>
               )}
-              <button onClick={handleDeleteProduct} disabled={isSaving} className="w-fit px-3 h-8 text-sm bg-danger text-white font-semibold rounded-full shadow-sm hover:bg-danger/90 disabled:opacity-50 disabled:cursor-not-allowed">DELETE</button>
+              {canEdit && <button onClick={handleDeleteProduct} disabled={isSaving} className="w-fit px-3 h-8 text-sm bg-danger text-white font-semibold rounded-full shadow-sm hover:bg-danger/90 disabled:opacity-50 disabled:cursor-not-allowed">DELETE</button>}
             </>
           ) : (
             <>
-              <button onClick={handleEditProduct} className="w-fit px-3 h-8 text-sm bg-trust-blue text-white font-semibold rounded-full shadow-sm hover:bg-deep-blue flex items-center gap-1">
+              {canEdit && <button onClick={handleEditProduct} className="w-fit px-3 h-8 text-sm bg-trust-blue text-white font-semibold rounded-full shadow-sm hover:bg-deep-blue flex items-center gap-1">
                 <Edit3 className="h-3.5 w-3.5" />
                 EDIT
-              </button>
-              <button onClick={handleAddProduct} className="w-fit px-3 h-8 text-sm bg-trust-blue text-white font-semibold rounded-full shadow-sm hover:bg-deep-blue">+ ADD PRODUCT</button>
-              <button onClick={handleSaveProduct} disabled={isSaving} className="w-fit px-3 h-8 text-sm bg-success text-white font-semibold rounded-full shadow-sm hover:bg-success/90 disabled:opacity-50 disabled:cursor-not-allowed">{isSaving ? 'Saving...' : 'SAVE'}</button>
-              <button onClick={handleDeleteProduct} disabled={isSaving} className="w-fit px-3 h-8 text-sm bg-danger text-white font-semibold rounded-full shadow-sm hover:bg-danger/90 disabled:opacity-50 disabled:cursor-not-allowed">DELETE</button>
+              </button>}
+              {canCreate && <button onClick={handleAddProduct} className="w-fit px-3 h-8 text-sm bg-trust-blue text-white font-semibold rounded-full shadow-sm hover:bg-deep-blue">+ ADD PRODUCT</button>}
+              {canEdit && <button onClick={handleSaveProduct} disabled={isSaving} className="w-fit px-3 h-8 text-sm bg-success text-white font-semibold rounded-full shadow-sm hover:bg-success/90 disabled:opacity-50 disabled:cursor-not-allowed">{isSaving ? 'Saving...' : 'SAVE'}</button>}
+              {canEdit && <button onClick={handleDeleteProduct} disabled={isSaving} className="w-fit px-3 h-8 text-sm bg-danger text-white font-semibold rounded-full shadow-sm hover:bg-danger/90 disabled:opacity-50 disabled:cursor-not-allowed">DELETE</button>}
             </>
           )}
           {saveStatus && (
@@ -2524,7 +2526,7 @@ function ProductSheetContent() {
           </div>
         </div>
         <div className="mt-2 flex justify-center gap-3">
-          <button onClick={() => setIsCreateJobModalOpen(true)} className="px-6 py-1.5 bg-success text-white font-semibold rounded text-sm hover:bg-success">Create Job</button>
+          {canCreate && <button onClick={() => setIsCreateJobModalOpen(true)} className="px-6 py-1.5 bg-success text-white font-semibold rounded text-sm hover:bg-success">Create Job</button>}
         </div>
       </div>
 

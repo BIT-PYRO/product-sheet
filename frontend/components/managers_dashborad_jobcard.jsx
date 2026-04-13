@@ -31,7 +31,7 @@ import LastUpdatedFooter from '@/components/last-updated-footer';
 import { useSheetPermissions } from '@/hooks/use-sheet-permissions';
 
 export default function ManagersDashboard() {
-  const { canEdit, canCreate } = useSheetPermissions('managers-dashboard');
+  const { canView, canEdit, canCreate, canExport, loading: permsLoading } = useSheetPermissions('managers-dashboard');
   const [lastUpdated, setLastUpdated] = useState(null);
   const [currentUsername, setCurrentUsername] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
@@ -794,6 +794,9 @@ export default function ManagersDashboard() {
     return processData.new.length + processData.wip.length + processData.completed.length;
   };
 
+  if (permsLoading) return <div className="min-h-screen bg-cloud-gray flex items-center justify-center"><div className="w-8 h-8 border-4 border-trust-blue border-t-transparent rounded-full animate-spin" /></div>;
+  if (!canView) return <div className="min-h-screen bg-cloud-gray flex items-center justify-center"><div className="text-center"><h2 className="text-xl font-bold text-midnight-ink mb-2">Access Denied</h2><p className="text-cool-gray text-sm">You do not have permission to view this sheet. Contact your admin.</p></div></div>;
+
   return (
     <div className="w-full min-h-screen bg-cloud-gray">
       {/* Manage Columns Dialog */}
@@ -895,12 +898,12 @@ export default function ManagersDashboard() {
             />
           </div>
           <div className="flex gap-2 flex-wrap">
-            <Button 
+            {canCreate && <Button 
               onClick={handleCreateJob}
               className="bg-success hover:bg-success text-white rounded-full px-4 text-sm h-8"
             >
               Create a Job
-            </Button>
+            </Button>}
             <Button
               onClick={handleSelectAll}
               variant="outline"
@@ -909,23 +912,23 @@ export default function ManagersDashboard() {
               {selectedForPrint.size === allFilteredCardIds.length && allFilteredCardIds.length > 0 ? 'Deselect All' : 'Select All'}
               {selectedForPrint.size > 0 ? ` (${selectedForPrint.size})` : ''}
             </Button>
-            <Button 
+            {canEdit && <Button 
               onClick={handleOpenEdit}
               disabled={!selectedVoucher}
               className="bg-white border border-trust-blue text-trust-blue hover:bg-trust-blue/10 rounded-full px-3 text-sm h-8 gap-1 disabled:opacity-100 disabled:border-trust-blue disabled:text-trust-blue"
             >
               <Pencil className="w-4 h-4" />
               Edit
-            </Button>
-            <Button 
+            </Button>}
+            {canEdit && <Button 
               onClick={handleDeleteVoucher}
               disabled={selectedForPrint.size === 0 && !selectedVoucher}
               className="bg-white border border-red-500 text-red-500 hover:bg-red-50 rounded-full px-3 text-sm h-8 gap-1 disabled:opacity-40 disabled:border-red-300 disabled:text-red-300"
             >
               <Trash2 className="w-4 h-4" />
               Delete{selectedForPrint.size > 0 ? ` (${selectedForPrint.size})` : ''}
-            </Button>
-            <Button
+            </Button>}
+            {canExport && <Button
               onClick={handlePrintSelected}
               disabled={selectedForPrint.size === 0}
               variant="outline"
@@ -933,7 +936,7 @@ export default function ManagersDashboard() {
             >
               <Printer className="w-4 h-4" />
               Print{selectedForPrint.size > 0 ? ` (${selectedForPrint.size})` : ''}
-            </Button>
+            </Button>}
             <Button 
               onClick={handleManageColumns}
               variant="outline"
@@ -941,20 +944,20 @@ export default function ManagersDashboard() {
             >
               Manage Columns
             </Button>
-            <Button
+            {canCreate && <Button
               onClick={() => setIsPendingVouchersOpen(true)}
               variant="outline"
               className="border-trust-blue text-trust-blue rounded-full px-4 text-sm h-8 hover:bg-trust-blue/10 gap-1"
             >
               <FileText className="h-3.5 w-3.5" />
               Vouchers
-            </Button>
-            <Button 
+            </Button>}
+            {canCreate && <Button 
               onClick={() => setIsKYCModalOpen(true)}
               className="bg-trust-blue hover:bg-deep-blue text-white rounded-full px-4 text-sm h-8"
             >
               Company KYC
-            </Button>
+            </Button>}
           </div>
         </div>
         {isLoadingJobs && <p className="text-sm text-cool-gray mb-3">Loading live jobs...</p>}
