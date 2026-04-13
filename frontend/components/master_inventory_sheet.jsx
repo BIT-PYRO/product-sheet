@@ -24,7 +24,80 @@ import DateTimeStamp from '@/components/date-time-stamp';
 import LastUpdatedFooter from '@/components/last-updated-footer';
 import { CreateJobModal } from '@/components/create-job-modal';
 import { PendingVouchersModal } from '@/components/pending-vouchers-modal';
+import { SuggestedVouchersModal } from '@/components/suggested-vouchers-modal';
+import { NeededVouchersModal } from '@/components/needed-vouchers-modal';
 import { useSheetPermissions } from '@/hooks/use-sheet-permissions';
+
+// Stage keys in liveStock object mapped to their display labels (for alert messages)
+const LIVE_STOCK_STAGE_LABELS = [
+  ['rawMaterial',      'Wax Piece'],
+  ['rawSetting',       'Wax Setting'],
+  ['wipLiquidCasting', 'Casting'],
+  ['filing',           'Filling'],
+  ['packing',          'Pre Polish'],
+  ['setting',          'Hand Setting'],
+  ['finalPolish',      'Final Polish'],
+  ['readyForPlacing',  'Plating'],
+];
+
+// Alert badge shown next to Final Stock SKU
+function AlertBadge({ alertData, show = 'both' }) {
+  if (!alertData) return null;
+  const hasRed = alertData.shortage > 0;
+  const hasOrange = alertData.lowStages.length > 0;
+  // Respect `show` filter: 'orange', 'red', or 'both'
+  const showOrange = hasOrange && (show === 'both' || show === 'orange');
+  const showRed = hasRed && (show === 'both' || show === 'red');
+  if (!showOrange && !showRed) return null;
+  const type = showRed ? 'red' : 'orange';
+
+  return (
+    <span className="relative group inline-flex items-center ml-1 align-middle">
+      <span
+        className={`inline-flex items-center justify-center w-3.5 h-3.5 rounded-full text-[9px] font-bold cursor-help select-none ${
+          type === 'red' ? 'bg-red-500 text-white' : 'bg-orange-400 text-white'
+        }`}
+      >
+        !
+      </span>
+      {/* Tooltip — anchored left so it never overflows the left viewport edge */}
+      <div
+        className="pointer-events-none absolute z-[200] top-full left-0 mt-2 w-72 max-w-[calc(100vw-1rem)] bg-gray-900 text-white text-[11px] rounded-lg p-3 shadow-2xl opacity-0 group-hover:opacity-100 transition-opacity whitespace-normal text-left leading-relaxed"
+      >
+        {showRed && (
+          <div className={showOrange ? 'mb-2 pb-2 border-b border-gray-700' : ''}>
+            <div className="font-semibold text-red-300 mb-1">Demand Exceeds Final Stock</div>
+            <div>Total demand: <span className="font-bold">{alertData.demand}</span> pcs</div>
+            <div>Final stock available: <span className="font-bold">{alertData.totalFinalStock}</span> pcs</div>
+            <div>Shortage: <span className="font-bold text-red-300">{alertData.shortage}</span> pcs</div>
+            <div className="mt-1.5 text-gray-300 text-[10px]">
+              <span className="font-bold">Solution:</span> Approve pending or suggested vouchers from the
+              Vouchers tab to fast-track manufacturing, or increase the production speed of active batches.
+            </div>
+          </div>
+        )}
+        {showOrange && (
+          <div>
+            <div className="font-semibold text-orange-300 mb-1">Stage Stock Below Minimum</div>
+            {alertData.lowStages.map(({ label, current, min }) => (
+              <div key={label}>
+                {label}: <span className="font-bold">{current}</span> pcs
+                &nbsp;(min: <span className="font-bold">{min}</span> pcs,
+                short by <span className="font-bold text-orange-300">{min - current}</span>)
+              </div>
+            ))}
+            <div className="mt-1.5 text-gray-300 text-[10px]">
+              <span className="font-bold">Solution:</span> Approve suggested vouchers from the Vouchers
+              tab to replenish these stages, or speed up active production batches.
+            </div>
+          </div>
+        )}
+        {/* Caret arrow — aligned to left edge to match tooltip anchor */}
+        <div className="absolute bottom-full left-2 border-4 border-transparent border-b-gray-900" />
+      </div>
+    </span>
+  );
+}
 
 // Component to render composite WIP/Current Stock values
 function CompositeStockDisplay({ value }) {
@@ -372,6 +445,8 @@ export default function MasterInventorySheet() {
   const [isCreateJobModalOpen, setIsCreateJobModalOpen] = useState(false);
   const [isCreateAllVouchersOpen, setIsCreateAllVouchersOpen] = useState(false);
   const [isPendingVouchersOpen, setIsPendingVouchersOpen] = useState(false);
+  const [isSuggestedVouchersOpen, setIsSuggestedVouchersOpen] = useState(false);
+  const [isNeededVouchersOpen, setIsNeededVouchersOpen] = useState(false);
   const [selectedRows, setSelectedRows] = useState(new Set());
   const [sortField, setSortField] = useState('');
   const [sortDirection, setSortDirection] = useState('asc');
@@ -535,6 +610,26 @@ export default function MasterInventorySheet() {
     return () => {
       window.removeEventListener('storage', handleStorageSync);
       window.removeEventListener(INVENTORY_SYNC_EVENT, handleSameTabSync);
+    };
+  }, [loadProducts]);
+
+  // Auto-refresh inventory every 30 s so alert badges disappear when stock meets minimum
+  // and quantities stay current as vouchers are received/completed elsewhere.
+  useEffect(() => {
+    const POLL_MS = 30_000;
+    const id = setInterval(() => {
+      loadProducts();
+    }, POLL_MS);
+
+    // Also reload immediately whenever the browser tab regains focus / becomes visible.
+    const handleVisible = () => {
+      if (document.visibilityState === 'visible') loadProducts();
+    };
+    document.addEventListener('visibilitychange', handleVisible);
+
+    return () => {
+      clearInterval(id);
+      document.removeEventListener('visibilitychange', handleVisible);
     };
   }, [loadProducts]);
 
@@ -846,6 +941,95 @@ export default function MasterInventorySheet() {
 
     return map;
   }, [inventoryRows, picklistNeededBySku, selectedPicklistData]);
+
+  // Per-product alert data: orange = any stage below min, red = demand > final stock
+  const alertByProductId = useMemo(() => {
+    const map = new Map();
+    sortedProducts.forEach((product) => {
+      const liveStock = product.liveStock || {};
+
+      // Orange: any stage's current stock < its minimum suggested (min > 0)
+      const lowStages = [];
+      for (const [lsKey, label] of LIVE_STOCK_STAGE_LABELS) {
+        const stage = liveStock[lsKey] || {};
+        const min = parseFloat(stage.min || '') || 0;
+        const current = parseFloat(stage.current || '') || 0;
+        if (min > 0 && current < min) {
+          // NOTE: lsKey is included here so SuggestedVouchersModal can look up dept routing
+          lowStages.push({ lsKey, label, current, min });
+        }
+      }
+
+      // Red: total demand > total final stock
+      // When a picklist is active, totalInDemandByRowId looks up by master SKU which
+      // never matches the final-stock-SKU keys in picklistNeededBySku — so we must
+      // sum demands for each of this product's final stock variation SKUs directly.
+      const finalStockArr = Array.isArray(product.finalStock) ? product.finalStock : [];
+      let demand = 0;
+      if (selectedPicklistData) {
+        demand = finalStockArr.reduce((sum, v) => {
+          const varSku = String(v.sku || '').trim().toUpperCase();
+          return sum + (parseFloat(picklistNeededBySku.get(varSku) || 0) || 0);
+        }, 0);
+      } else {
+        demand = parseFloat(totalInDemandByRowId.get(product.id) || '') || 0;
+      }
+      const totalFinalStock = finalStockArr.reduce(
+        (sum, v) => sum + (parseFloat(v.value || '') || 0),
+        0
+      );
+      const shortage = demand > 0 && demand > totalFinalStock ? demand - totalFinalStock : 0;
+
+      if (lowStages.length > 0 || shortage > 0) {
+        map.set(product.id, { lowStages, shortage, demand, totalFinalStock });
+      }
+    });
+    return map;
+  }, [sortedProducts, totalInDemandByRowId, selectedPicklistData, picklistNeededBySku]);
+
+  // Items to pass to NeededVouchersModal — products where demand > finalStock (red !)
+  const neededItems = useMemo(() => {
+    const items = [];
+    sortedProducts.forEach((product) => {
+      const alert = alertByProductId.get(product.id);
+      if (!alert || alert.shortage <= 0) return;
+      items.push({
+        productId:   product.id,
+        sku:         product.sku || product.masterSku || '',
+        category:    product.category || '',
+        material:    product.material || '',
+        settingType: product.settingType || product.setting_type || '',
+        shortage:    alert.shortage,
+        demand:      alert.demand,
+        totalFinalStock: alert.totalFinalStock,
+      });
+    });
+    return items;
+  }, [sortedProducts, alertByProductId]);
+
+  // Items to pass to SuggestedVouchersModal — products with orange ! only
+  const suggestedItems = useMemo(() => {
+    const items = [];
+    sortedProducts.forEach((product) => {
+      const alert = alertByProductId.get(product.id);
+      if (!alert || alert.lowStages.length === 0) return;
+      items.push({
+        productId: product.id,
+        sku: product.sku || product.masterSku || '',
+        listingName: product.listingName || '',
+        material: product.material || '',
+        category: product.category || '',
+        stages: alert.lowStages.map(s => ({
+          lsKey: s.lsKey,
+          label: s.label,
+          current: s.current,
+          min: s.min,
+          neededQty: Math.max(0, s.min - s.current),
+        })),
+      });
+    });
+    return items;
+  }, [sortedProducts, alertByProductId]);
 
   const rowsToRender = useMemo(() => {
     const start = (currentPage - 1) * rowsPerPage;
@@ -1586,12 +1770,31 @@ export default function MasterInventorySheet() {
                   <ChevronDown className="h-3.5 w-3.5" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-52">
+              <DropdownMenuContent align="end" className="w-56">
                 <DropdownMenuItem onClick={() => setIsCreateJobModalOpen(true)} className="cursor-pointer">
                   Create Job
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setIsCreateAllVouchersOpen(true)} className="cursor-pointer">
                   Create All Vouchers
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => setIsSuggestedVouchersOpen(true)}
+                  className="cursor-pointer text-orange-600 font-semibold"
+                >
+                  <span className="inline-flex items-center gap-1.5">
+                    <span className="w-4 h-4 rounded-full bg-orange-400 text-white text-[9px] font-bold flex items-center justify-center shrink-0">!</span>
+                    Create Suggested Vouchers
+                  </span>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => setIsNeededVouchersOpen(true)}
+                  className="cursor-pointer text-red-600 font-semibold"
+                  disabled={neededItems.length === 0}
+                >
+                  <span className="inline-flex items-center gap-1.5">
+                    <span className="w-4 h-4 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center shrink-0">!</span>
+                    Create Needed Vouchers
+                  </span>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>}
@@ -1853,6 +2056,11 @@ export default function MasterInventorySheet() {
 
                               return <CompositeStockDisplay value={row[column.key]} />;
                             })()
+                          ) : column.key === 'sku' ? (
+                            <span className="inline-flex items-center gap-0.5">
+                              <CompositeStockDisplay value={row[column.key]} />
+                              <AlertBadge alertData={alertByProductId.get(row.id)} show="orange" />
+                            </span>
                           ) : (
                             <CompositeStockDisplay value={row[column.key]} />
                           )}
@@ -1900,6 +2108,11 @@ export default function MasterInventorySheet() {
                                   className="w-full min-w-[80px] border border-trust-blue/50 rounded px-1 py-0.5 text-xs text-center bg-blue-50 focus:outline-none focus:ring-1 focus:ring-trust-blue"
                                 />
                               )
+                            ) : column.key === 'finalStockSku' ? (
+                              <span className="inline-flex items-center gap-0.5">
+                                <span>{displayValue}</span>
+                                <AlertBadge alertData={alertByProductId.get(row.id)} show="red" />
+                              </span>
                             ) : (
                               <span>{displayValue}</span>
                             )}
@@ -1987,6 +2200,24 @@ export default function MasterInventorySheet() {
         open={isPendingVouchersOpen}
         onOpenChange={setIsPendingVouchersOpen}
         onVouchersApproved={() => {
+          loadProducts();
+        }}
+      />
+
+      <SuggestedVouchersModal
+        open={isSuggestedVouchersOpen}
+        onOpenChange={setIsSuggestedVouchersOpen}
+        suggestedItems={suggestedItems}
+        onVouchersCreated={() => {
+          loadProducts();
+        }}
+      />
+
+      <NeededVouchersModal
+        open={isNeededVouchersOpen}
+        onOpenChange={setIsNeededVouchersOpen}
+        neededItems={neededItems}
+        onVouchersCreated={() => {
           loadProducts();
         }}
       />
