@@ -331,7 +331,7 @@ export default function MasterProductSheet() {
       const mappedRows = rows.map((product) => ({
         id: product.id,
         sku: product.master_sku || '',
-        listingName: product.name || '',
+        listingName: (product.name && product.name !== product.master_sku) ? product.name : '',
         material: product.material || '',
         weight: product.weight || '',
         category: product.category || '',
@@ -656,7 +656,7 @@ export default function MasterProductSheet() {
     for (const row of editedRows) {
       try {
         const payload = {
-          name: row.listingName || row.sku,
+          name: row.listingName || '',
           category: row.category,
           is_active: String(row.shopifyStatus).toLowerCase() !== 'inactive',
           material: row.material,

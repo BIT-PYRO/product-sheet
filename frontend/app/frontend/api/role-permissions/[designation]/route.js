@@ -3,9 +3,9 @@ import { proxyAuthenticatedRequest } from '@/app/frontend/api/_lib/backend-auth'
 async function resolveRole(context) {
   if (context?.params && typeof context.params.then === 'function') {
     const params = await context.params;
-    return params?.role;
+    return params?.designation;
   }
-  return context?.params?.role;
+  return context?.params?.designation;
 }
 
 export async function PATCH(request, context) {

@@ -49,7 +49,6 @@ export function OrderSheetView({ embedded = false }) {
   const [isExporting, setIsExporting] = useState(false);
 
   const CUSTOMER_DETAILS_PASSCODE = process.env.NEXT_PUBLIC_CUSTOMER_PASSCODE || '1234';
-  const SYNC_INTERVAL_MS = Number(process.env.NEXT_PUBLIC_PICKLIST_SYNC_INTERVAL_MS) || 300_000;
 
   const normalizeSku = (value) => String(value || '').trim().toLowerCase();
 
@@ -161,30 +160,17 @@ export function OrderSheetView({ embedded = false }) {
       .catch(() => {});
   }, []);
 
-  // Check if external sync is configured and set up auto-polling
+  // Check if external sync is configured (to show/hide Sync button)
   useEffect(() => {
     fetch('/frontend/api/picklist-sync', { cache: 'no-store' })
       .then((res) => res.json())
       .then((data) => {
         if (data?.configured) {
           setExternalSyncConfigured(true);
-          // Kick off an immediate sync on page load
-          handleExternalSync();
         }
       })
       .catch(() => {});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  // Auto-poll interval (only starts after we know sync is configured)
-  useEffect(() => {
-    if (!externalSyncConfigured || SYNC_INTERVAL_MS <= 0) return;
-    const id = setInterval(() => {
-      handleExternalSync();
-    }, SYNC_INTERVAL_MS);
-    return () => clearInterval(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [externalSyncConfigured, SYNC_INTERVAL_MS]);
 
   const handleExternalSync = async () => {
     if (isSyncing) return;

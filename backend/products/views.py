@@ -193,19 +193,13 @@ class ProductViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 	search_fields = ['master_sku', 'name', 'designer_sku']
 
 	def create(self, request, *args, **kwargs):
-		"""Override create to handle duplicate master_sku gracefully (upsert)."""
+		"""Override create to reject duplicate master_sku with a clear error."""
 		master_sku = str(request.data.get('master_sku', '')).strip()
-		if master_sku:
-			existing = Product.objects.filter(master_sku__iexact=master_sku).first()
-			if existing:
-				# Upsert: update the existing product instead of failing
-				serializer = self.get_serializer(existing, data=request.data, partial=True)
-				serializer.is_valid(raise_exception=True)
-				serializer.save()
-				return Response(
-					{'success': True, 'message': 'Product updated (existing SKU).', 'data': serializer.data},
-					status=status.HTTP_200_OK,
-				)
+		if master_sku and Product.objects.filter(master_sku__iexact=master_sku).exists():
+			return Response(
+				{'success': False, 'message': f'A product with Master SKU "{master_sku}" already exists.'},
+				status=status.HTTP_409_CONFLICT,
+			)
 		return super().create(request, *args, **kwargs)
 
 	def destroy(self, request, *args, **kwargs):
