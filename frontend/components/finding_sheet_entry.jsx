@@ -81,7 +81,7 @@ const EMPTY_FINDING = () => ({
 })
 
 function FindingSheetEntryContent() {
-  const { canEdit, canCreate } = useSheetPermissions('finding-entry')
+  const { canView, canEdit, canCreate, loading: permsLoading } = useSheetPermissions('finding-entry')
   const router = useRouter()
   const searchParams = useSearchParams()
   const findingCodeParam = (searchParams.get('finding_code') || '').trim()
@@ -365,6 +365,9 @@ function FindingSheetEntryContent() {
   ]
 
   const isLoaded = !!findingRecordId
+
+  if (permsLoading) return <div className="min-h-screen bg-cloud-gray flex items-center justify-center"><div className="w-8 h-8 border-4 border-trust-blue border-t-transparent rounded-full animate-spin" /></div>;
+  if (!canView) return <div className="min-h-screen bg-cloud-gray flex items-center justify-center"><div className="text-center"><h2 className="text-xl font-bold text-midnight-ink mb-2">Access Denied</h2><p className="text-cool-gray text-sm">You do not have permission to view this sheet. Contact your admin.</p></div></div>;
 
   return (
     <div className="min-h-screen bg-white">

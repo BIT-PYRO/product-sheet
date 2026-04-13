@@ -369,6 +369,12 @@ class RoleDefaultPermissionsDetailView(APIView):
 		serializer = RoleDefaultPermissionsSerializer(obj, data=request.data, partial=True)
 		if serializer.is_valid():
 			serializer.save()
-			return api_success(serializer.data, message=f'Default permissions for {role}/{department} updated.')
+			# Push updated defaults to all matching active workforce members
+			from workforce.services.permission_sync import sync_all_members_for_role
+			synced = sync_all_members_for_role(role, department)
+			return api_success(
+				serializer.data,
+				message=f'Default permissions for {role}/{department} updated. {synced} member(s) synced.',
+			)
 		return Response({'success': False, 'errors': serializer.errors}, status=400)
 

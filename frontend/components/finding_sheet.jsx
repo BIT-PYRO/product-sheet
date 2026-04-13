@@ -77,7 +77,7 @@ const EMPTY_FINDING_ROW = {
 };
 
 export default function FindingSheet() {
-  const { canEdit, canCreate } = useSheetPermissions('finding-sheet');
+  const { canView, canEdit, canCreate, canExport, loading: permsLoading } = useSheetPermissions('finding-sheet');
   const [lastUpdated, setLastUpdated] = useState(null);
   const [currentUsername, setCurrentUsername] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
@@ -414,6 +414,9 @@ export default function FindingSheet() {
     return data.find((row) => row.id === selectedId) || null;
   }, [data, selectedRows]);
 
+  if (permsLoading) return <div className="min-h-screen bg-cloud-gray flex items-center justify-center"><div className="w-8 h-8 border-4 border-trust-blue border-t-transparent rounded-full animate-spin" /></div>;
+  if (!canView) return <div className="min-h-screen bg-cloud-gray flex items-center justify-center"><div className="text-center"><h2 className="text-xl font-bold text-midnight-ink mb-2">Access Denied</h2><p className="text-cool-gray text-sm">You do not have permission to view this sheet. Contact your admin.</p></div></div>;
+
   return (
     <div className="relative min-h-screen bg-cloud-gray flex flex-col text-midnight-ink overflow-x-hidden">
       <Dialog open={isManageColumnsOpen} onOpenChange={setIsManageColumnsOpen}>
@@ -646,14 +649,14 @@ export default function FindingSheet() {
           >
             Manage Columns
           </Button>
-          <Button
+          {canExport && <Button
             onClick={handleExport}
             variant="outline"
             className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8"
           >
             Export
-          </Button>
-          <DropdownMenu>
+          </Button>}
+          {canExport && <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
                 variant="outline"
@@ -666,7 +669,7 @@ export default function FindingSheet() {
               <DropdownMenuItem onClick={handlePrintItems}>Product Details</DropdownMenuItem>
               <DropdownMenuItem onClick={handlePrintSheet}>Sheet</DropdownMenuItem>
             </DropdownMenuContent>
-          </DropdownMenu>
+          </DropdownMenu>}
         </div>
 
         <div className="mb-4 border border-soft-border rounded-lg bg-white overflow-hidden">

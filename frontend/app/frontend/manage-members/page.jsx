@@ -70,13 +70,17 @@ function mergePermissions(saved) {
   const savedSheets = saved.sheets || {};
   MODULES.forEach((m) => {
     if (savedSheets[m.key]) {
-      base.sheets[m.key] = {
+      let p = {
         view:   !!savedSheets[m.key].view,
         edit:   !!savedSheets[m.key].edit,
         create: !!savedSheets[m.key].create,
         export: !!savedSheets[m.key].export,
         amount: !!savedSheets[m.key].amount,
       };
+      // Apply cascading: create→edit+view, edit→view
+      if (p.create) { p.edit = true; p.view = true; }
+      if (p.edit)   { p.view = true; }
+      base.sheets[m.key] = p;
     }
   });
   base.manage_members = !!saved.manage_members;
@@ -593,8 +597,10 @@ export default function ManageMembersPage() {
                         {m.user_is_superuser && <sup className="ml-1 text-[10px] font-bold text-red-500 tracking-wide">superuser</sup>}
                       </p>
                       <p className="text-xs text-cool-gray truncate">{m.email || '—'}</p>
-                      {m.designation && (
-                        <p className="text-xs font-medium text-trust-blue truncate mt-0.5">{m.designation}</p>
+                      {(m.designation || m.department) && (
+                        <p className="text-xs font-medium text-trust-blue truncate mt-0.5">
+                          {[m.designation, m.department].filter(Boolean).join(' · ')}
+                        </p>
                       )}
                     </button>
 

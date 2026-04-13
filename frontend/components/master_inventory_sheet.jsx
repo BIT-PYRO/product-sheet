@@ -353,7 +353,7 @@ function loadPicklistsFromStorage() {
 
 
 export default function MasterInventorySheet() {
-  const { canEdit, canCreate, canExport, canAmount } = useSheetPermissions('master-inventory-sheet');
+  const { canView, canEdit, canCreate, canExport, canAmount, loading: permsLoading } = useSheetPermissions('master-inventory-sheet');
   const picklistFileInputRef = useRef(null);
   const [lastUpdated, setLastUpdated] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -1307,6 +1307,9 @@ export default function MasterInventorySheet() {
     }
   }, [selectedRows, loadProducts]);
 
+  if (permsLoading) return <div className="min-h-screen bg-cloud-gray flex items-center justify-center"><div className="w-8 h-8 border-4 border-trust-blue border-t-transparent rounded-full animate-spin" /></div>;
+  if (!canView) return <div className="min-h-screen bg-cloud-gray flex items-center justify-center"><div className="text-center"><h2 className="text-xl font-bold text-midnight-ink mb-2">Access Denied</h2><p className="text-cool-gray text-sm">You do not have permission to view this sheet. Contact your admin.</p></div></div>;
+
   return (
     <div className="w-full min-h-screen bg-cloud-gray">
       {/* ── Edit Field Type Selection Dialog ── */}
@@ -1565,7 +1568,7 @@ export default function MasterInventorySheet() {
               Manage Columns
             </Button>
             <Button variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8" onClick={handleExport} disabled={!canExport} title={!canExport ? 'You do not have permission to export' : undefined}>Export</Button>
-            <Button variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8" onClick={() => window.print()}>Print</Button>
+            {canExport && <Button variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8" onClick={() => window.print()}>Print</Button>}
             <Button
               onClick={() => setIsPendingVouchersOpen(true)}
               variant="outline"
@@ -1574,7 +1577,7 @@ export default function MasterInventorySheet() {
               <FileText className="h-3.5 w-3.5" />
               Vouchers
             </Button>
-            <DropdownMenu>
+            {canCreate && <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
                   className="bg-success text-white rounded-full px-4 text-sm h-8 hover:bg-success/90 gap-1"
@@ -1591,7 +1594,7 @@ export default function MasterInventorySheet() {
                   Create All Vouchers
                 </DropdownMenuItem>
               </DropdownMenuContent>
-            </DropdownMenu>
+            </DropdownMenu>}
             <input
               ref={picklistFileInputRef}
               type="file"

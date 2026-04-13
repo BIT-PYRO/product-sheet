@@ -11,6 +11,7 @@ from drf_spectacular.utils import extend_schema
 
 from .models import WorkforceMember
 from .serializers import WorkforceMemberSerializer
+from .services.permission_sync import sync_member_permissions
 
 logger = logging.getLogger(__name__)
 
@@ -149,6 +150,9 @@ def workforce_webhook(request):
             instance = serializer.save()
             # Store the external software's ID so we can match future updates
             WorkforceMember.objects.filter(pk=instance.pk).update(external_id=external_id)
+            # Sync default permissions based on designation + department
+            instance.refresh_from_db()
+            sync_member_permissions(instance)
             action = 'updated' if existing else 'created'
             logger.info(f'[Workforce Webhook] Member {action}: id={instance.pk}, external_id={external_id}')
             return JsonResponse({

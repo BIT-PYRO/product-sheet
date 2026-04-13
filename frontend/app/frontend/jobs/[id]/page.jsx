@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/select'
 import { ArrowLeft, Printer } from 'lucide-react'
 import { PrintJobCardModal } from '@/components/print-job-card-modal'
+import { useSheetPermissions } from '@/hooks/use-sheet-permissions'
 
 const STATUS_OPTIONS = ['created', 'assigned', 'in_progress', 'completed', 'cancelled']
 const PRIORITY_OPTIONS = ['low', 'medium', 'high', 'urgent']
@@ -23,6 +24,7 @@ export default function JobDetail() {
   const router = useRouter()
   const params = useParams()
   const jobId = params.id
+  const { canExport } = useSheetPermissions('master-job-sheet')
 
   const [job, setJob] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -126,6 +128,7 @@ export default function JobDetail() {
           <div className="flex items-center justify-between">
             <h1 className="text-3xl font-bold text-midnight-ink">{job.title}</h1>
             <div className="flex gap-2">
+              {canExport && (
               <Button
                 onClick={() => setIsPrintModalOpen(true)}
                 variant="outline"
@@ -134,6 +137,7 @@ export default function JobDetail() {
                 <Printer className="h-4 w-4 mr-2" />
                 Print Card
               </Button>
+              )}
               {!isEditing && (
                 <Button
                   onClick={() => setIsEditing(true)}

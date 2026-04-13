@@ -43,7 +43,7 @@ const FILTER_FIELDS_PS = [
 ];
 
 export default function MasterProductSheet() {
-  const { canEdit, canCreate, canExport } = useSheetPermissions('master-product-sheet');
+  const { canView, canEdit, canCreate, canExport, loading: permsLoading } = useSheetPermissions('master-product-sheet');
   const PRODUCT_SHEET_SYNC_KEY = 'product_sheet_updated_at';
   const PRODUCT_SHEET_SYNC_EVENT = 'product_sheet_sync';
   const [lastUpdated, setLastUpdated] = useState(null);
@@ -888,6 +888,9 @@ export default function MasterProductSheet() {
     }
   };
 
+  if (permsLoading) return <div className="min-h-screen bg-cloud-gray flex items-center justify-center"><div className="w-8 h-8 border-4 border-trust-blue border-t-transparent rounded-full animate-spin" /></div>;
+  if (!canView) return <div className="min-h-screen bg-cloud-gray flex items-center justify-center"><div className="text-center"><h2 className="text-xl font-bold text-midnight-ink mb-2">Access Denied</h2><p className="text-cool-gray text-sm">You do not have permission to view this sheet. Contact your admin.</p></div></div>;
+
   return (
     <div className="relative min-h-screen bg-cloud-gray flex flex-col text-midnight-ink overflow-x-hidden">
       {/* Add Collection Dialog */}
@@ -1379,6 +1382,7 @@ export default function MasterProductSheet() {
           </Button>
           
           {/* Print Dropdown */}
+          {canExport && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button 
@@ -1397,6 +1401,7 @@ export default function MasterProductSheet() {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+          )}
         </div>
 
       {/* Filter Row */}

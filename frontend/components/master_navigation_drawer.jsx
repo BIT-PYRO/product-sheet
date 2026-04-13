@@ -32,10 +32,12 @@ export default function MasterNavigationDrawer({ inHeader = false }) {
 
   const handleClose = () => setIsOpen(false);
 
-  // canAccess returns true if the user has view permission for the given permKey
+  // canAccess returns true if the user has any permission for the given permKey
   function canAccess(permKey) {
     if (myPerms === null) return true;
-    return myPerms?.sheets?.[permKey]?.view === true;
+    const p = myPerms?.sheets?.[permKey];
+    if (!p) return false;
+    return !!(p.view || p.edit || p.create || p.export || p.amount);
   }
 
   useEffect(() => {

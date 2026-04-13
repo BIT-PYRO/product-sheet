@@ -146,7 +146,8 @@ export default function HomePage() {
         }
 
         const u = result.user;
-        setUsername(u?.username || u?.id || 'User');
+        const fullName = [u?.first_name, u?.last_name].filter(Boolean).join(' ');
+        setUsername(fullName || u?.username || u?.id || 'User');
         setUserInfo(u);
         // Load profile photo from localStorage
         const key = `profile_photo_${u?.username || u?.id}`;
@@ -167,6 +168,8 @@ export default function HomePage() {
               : Array.isArray(wfData?.results) ? wfData.results : [];
             const match = list.find(m => (m.email || '').toLowerCase() === email);
             if (match) {
+              // Use workforce full_name for the welcome greeting if available
+              if (match.full_name) setUsername(match.full_name);
               const des = (match.designation || '').toLowerCase().trim();
               const isSuperDesig = des === 'chairman' || des === 'ceo';
               setMyPerms(isSuperDesig ? null : (match.permissions || {}));
@@ -196,10 +199,12 @@ export default function HomePage() {
   }, []);
 
   // myPerms === null → admin/superuser/no record → full access
-  // myPerms is an object → check per-block view permission
+  // myPerms is an object → accessible if ANY permission is granted
   function canAccess(permKey) {
     if (myPerms === null) return true;
-    return myPerms?.sheets?.[permKey]?.view === true;
+    const p = myPerms?.sheets?.[permKey];
+    if (!p) return false;
+    return !!(p.view || p.edit || p.create || p.export || p.amount);
   }
 
   function getInitials() {
@@ -295,14 +300,14 @@ export default function HomePage() {
                   </button>
                   {isSettingsOpen && (
                     <div className="border-l-2 border-trust-blue ml-4 mr-2 mb-1">
-                      <Link
-                        href="/frontend/settings/account"
+                      <a
+                        href="/settings/account"
                         onClick={() => { setIsProfileDropdownOpen(false); setIsSettingsOpen(false); }}
                         className="flex items-center gap-2.5 pl-4 pr-2 py-2 text-sm text-midnight-ink hover:bg-cloud-gray transition rounded-r-lg"
                       >
                         <KeyRound className="h-3.5 w-3.5 text-cool-gray shrink-0" />
                         Account Settings
-                      </Link>
+                      </a>
                       {userInfo?.is_superuser && (
                         <Link
                           href="/frontend/settings/role-permissions"
@@ -472,7 +477,7 @@ export default function HomePage() {
               <p className="text-sm text-amber-700 mt-0.5">
                 Your account is awaiting approval from an administrator. Until then, you can only access this page and your Profile.
                 You can set a username &amp; password in{' '}
-                <a href="/settings" className="underline font-semibold">Settings</a>.
+                <a href="/settings/account" className="underline font-semibold">Account Settings</a>.
               </p>
             </div>
           </div>
