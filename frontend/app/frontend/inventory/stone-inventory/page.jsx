@@ -314,7 +314,7 @@ export default function StoneInventoryPage() {
 
     const stone = stones.find((s) => s.id === stoneIdNum);
     const request = {
-      id: Date.now(),
+      id: (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`,
       stoneId: stoneIdNum,
       stoneName: stoneName(stone),
       quantity: quantityNum,
@@ -844,7 +844,7 @@ export default function StoneInventoryPage() {
                   <div className="px-4 py-6 text-sm text-cool-gray">No requests yet.</div>
                 ) : (
                   <div className="divide-y divide-soft-border">
-                    {sortedIssueRequests.map((req) => {
+                    {sortedIssueRequests.map((req, idx) => {
                       const statusClass =
                         req.status === 'approved'
                           ? 'bg-emerald-100 text-emerald-800'
@@ -853,7 +853,7 @@ export default function StoneInventoryPage() {
                             : 'bg-amber-100 text-amber-800';
                       return (
                         <button
-                          key={req.id}
+                          key={req.id ?? idx}
                           onClick={() => openRequestDetails(req.id)}
                           className="w-full rounded-xl px-4 py-3 text-left transition hover:bg-[#F9FAFB]"
                         >

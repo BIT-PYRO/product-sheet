@@ -65,6 +65,7 @@ export default function MasterProductSheet() {
   const [viewMode, setViewMode] = useState('active');
   const [rowsPerPage, setRowsPerPage] = useState(25);
   const [currentPage, setCurrentPage] = useState(1);
+  const [sortOrder, setSortOrder] = useState('default');
   
   // Column definitions for products — images is first
   const columns = [
@@ -867,9 +868,16 @@ export default function MasterProductSheet() {
 
   const displayedData = filteredData;
 
-  const totalPages = Math.max(1, Math.ceil(displayedData.length / rowsPerPage));
+  const sortedDisplayData = sortOrder === 'default' ? displayedData : [...displayedData].sort((a, b) => {
+    if (sortOrder === 'newest') return (b.id || 0) - (a.id || 0);
+    if (sortOrder === 'oldest') return (a.id || 0) - (b.id || 0);
+    const av = String(a.sku || a.listingName || '').toLowerCase(), bv = String(b.sku || b.listingName || '').toLowerCase();
+    return sortOrder === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
+  });
+
+  const totalPages = Math.max(1, Math.ceil(sortedDisplayData.length / rowsPerPage));
   const safePage = Math.min(currentPage, totalPages);
-  const paginatedData = displayedData.slice((safePage - 1) * rowsPerPage, safePage * rowsPerPage);
+  const paginatedData = sortedDisplayData.slice((safePage - 1) * rowsPerPage, safePage * rowsPerPage);
 
   const selectedProduct = useMemo(() => {
     const selectedId = selectedRows.values().next().value;
@@ -1301,6 +1309,20 @@ export default function MasterProductSheet() {
             {isLoading ? 'Refreshing...' : 'Refresh'}
           </Button>
           {canCreate && <BulkUploadButton sheetType="products" onComplete={loadProducts} />}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8">
+                {sortOrder === 'default' ? 'Sort ▾' : sortOrder === 'asc' ? 'A → Z ▾' : sortOrder === 'desc' ? 'Z → A ▾' : sortOrder === 'newest' ? 'Newest ▾' : 'Oldest ▾'}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => { setSortOrder('asc'); setCurrentPage(1); }}>A → Z (Ascending)</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => { setSortOrder('desc'); setCurrentPage(1); }}>Z → A (Descending)</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => { setSortOrder('newest'); setCurrentPage(1); }}>Newest First</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => { setSortOrder('oldest'); setCurrentPage(1); }}>Oldest First</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => { setSortOrder('default'); setCurrentPage(1); }}>Default Order</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           {canCreate && (
             <Button 
               onClick={handleCreateProduct}

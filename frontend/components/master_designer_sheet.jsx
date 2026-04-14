@@ -199,6 +199,7 @@ export default function MasterDesignerSheet() {
   const [rowsPerPage, setRowsPerPage] = useState(25);
   const [currentPage, setCurrentPage] = useState(1);
   const [data, setData] = useState([]);
+  const [sortOrder, setSortOrder] = useState('default');
 
   const [visibleColumns, setVisibleColumns] = useState(
     new Set(COLUMNS.map((c) => c.id))
@@ -449,11 +450,17 @@ export default function MasterDesignerSheet() {
       )
     : rawDisplayed;
 
-  const totalPages = Math.max(1, Math.ceil(displayedData.length / rowsPerPage));
+  const sortedDisplayData = sortOrder === 'default' ? displayedData : [...displayedData].sort((a, b) => {
+    if (sortOrder === 'newest') return (b.id || 0) - (a.id || 0);
+    if (sortOrder === 'oldest') return (a.id || 0) - (b.id || 0);
+    const av = String(a.sku || '').toLowerCase(), bv = String(b.sku || '').toLowerCase();
+    return sortOrder === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
+  });
+  const totalPages = Math.max(1, Math.ceil(sortedDisplayData.length / rowsPerPage));
   const safePage   = Math.min(currentPage, totalPages);
-  const paginatedData = displayedData.slice((safePage - 1) * rowsPerPage, safePage * rowsPerPage);
+  const paginatedData = sortedDisplayData.slice((safePage - 1) * rowsPerPage, safePage * rowsPerPage);
 
-  const displayedRowIds = displayedData.map((r) => r.id);
+  const displayedRowIds = sortedDisplayData.map((r) => r.id);
   const allDisplayedRowsSelected =
     displayedRowIds.length > 0 && displayedRowIds.every((id) => selectedRows.has(id));
 
@@ -587,6 +594,20 @@ export default function MasterDesignerSheet() {
               className="border-2 border-soft-border rounded-lg px-4 py-2 pl-10 w-64"
             />
           </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8">
+                {sortOrder === 'default' ? 'Sort ▾' : sortOrder === 'asc' ? 'A → Z ▾' : sortOrder === 'desc' ? 'Z → A ▾' : sortOrder === 'newest' ? 'Newest ▾' : 'Oldest ▾'}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => { setSortOrder('asc'); setCurrentPage(1); }}>A → Z (Ascending)</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => { setSortOrder('desc'); setCurrentPage(1); }}>Z → A (Descending)</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => { setSortOrder('newest'); setCurrentPage(1); }}>Newest First</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => { setSortOrder('oldest'); setCurrentPage(1); }}>Oldest First</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => { setSortOrder('default'); setCurrentPage(1); }}>Default Order</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           {canCreate && <BulkUploadButton sheetType="designers" onComplete={() => window.location.reload()} />}
           {canEdit && <Button onClick={handleEditRow} variant="outline" className="border-trust-blue text-trust-blue hover:bg-trust-blue/10 rounded-full px-4 text-sm h-8" disabled={isArchivedView}>Edit Row</Button>}
           {canEdit && <Button onClick={handleDeleteSelectedRows} variant="outline" className="border-red-500 text-red-500 hover:bg-red-50 disabled:opacity-100 disabled:border-red-500 disabled:text-red-500 rounded-full px-4 text-sm h-8" disabled={selectedRows.size === 0 || editingRowIds.size > 0}>Delete Selected</Button>}

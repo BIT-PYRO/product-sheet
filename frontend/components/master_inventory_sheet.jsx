@@ -450,6 +450,7 @@ export default function MasterInventorySheet() {
   const [selectedRows, setSelectedRows] = useState(new Set());
   const [sortField, setSortField] = useState('');
   const [sortDirection, setSortDirection] = useState('asc');
+  const [sortOrder, setSortOrder] = useState('default');
   const [backendMode, setBackendMode] = useState('');
   const [rowsPerPage, setRowsPerPage] = useState(25);
   const [currentPage, setCurrentPage] = useState(1);
@@ -745,6 +746,14 @@ export default function MasterInventorySheet() {
   }, [effectiveSearch, filterSelections, products, selectedSku, selectedPicklist, picklists]);
 
   const sortedProducts = useMemo(() => {
+    if (sortOrder !== 'default') {
+      return [...filteredProducts].sort((a, b) => {
+        if (sortOrder === 'newest') return (b.id || 0) - (a.id || 0);
+        if (sortOrder === 'oldest') return (a.id || 0) - (b.id || 0);
+        const av = String(a.sku || '').toLowerCase(), bv = String(b.sku || '').toLowerCase();
+        return sortOrder === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
+      });
+    }
     if (!sortField) {
       return filteredProducts;
     }
@@ -758,7 +767,7 @@ export default function MasterInventorySheet() {
     });
 
     return sorted;
-  }, [filteredProducts, sortDirection, sortField]);
+  }, [filteredProducts, sortDirection, sortField, sortOrder]);
 
   const skuOptions = useMemo(() => {
     const seen = new Set();
@@ -1751,6 +1760,20 @@ export default function MasterInventorySheet() {
             <Button variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8" onClick={() => setIsManageColumnsOpen(true)}>
               Manage Columns
             </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8">
+                  {sortOrder === 'default' ? 'Sort ▾' : sortOrder === 'asc' ? 'A → Z ▾' : sortOrder === 'desc' ? 'Z → A ▾' : sortOrder === 'newest' ? 'Newest ▾' : 'Oldest ▾'}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => { setSortOrder('asc'); setCurrentPage(1); }}>A → Z (Ascending)</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => { setSortOrder('desc'); setCurrentPage(1); }}>Z → A (Descending)</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => { setSortOrder('newest'); setCurrentPage(1); }}>Newest First</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => { setSortOrder('oldest'); setCurrentPage(1); }}>Oldest First</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => { setSortOrder('default'); setCurrentPage(1); }}>Default Order</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Button variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8" onClick={handleExport} disabled={!canExport} title={!canExport ? 'You do not have permission to export' : undefined}>Export</Button>
             {canExport && <Button variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8" onClick={() => window.print()}>Print</Button>}
             <Button
