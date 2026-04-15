@@ -7,10 +7,40 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+def ensure_role_defaults(designation, department=''):
+    """
+    Ensure a RoleDefaultPermissions entry exists for the given
+    designation + department pair. Creates one with empty permissions if absent.
+    Returns the object (existing or newly created).
+    """
+    from accounts.models import RoleDefaultPermissions
+
+    designation = (designation or '').strip()
+    department = (department or '').strip()
+
+    if not designation:
+        return None
+
+    obj, created = RoleDefaultPermissions.objects.get_or_create(
+        role=designation,
+        department=department,
+        defaults={'permissions': {}},
+    )
+    if created:
+        logger.info(
+            f'[PermSync] Auto-created RoleDefaultPermissions for '
+            f'{designation!r}/{department!r}.'
+        )
+    return obj
+
+
 def sync_member_permissions(member):
     """
     Copy the default permissions from RoleDefaultPermissions into the
     given WorkforceMember based on their designation + department.
+
+    Also auto-creates a RoleDefaultPermissions entry for the combo if one
+    does not yet exist (so custom "Other" roles appear in the permissions UI).
 
     Called when:
       - A workforce member is created or their designation/department changes
@@ -22,6 +52,9 @@ def sync_member_permissions(member):
 
     if not designation:
         return
+
+    # Auto-create entry so custom departments/roles are visible in the UI
+    ensure_role_defaults(designation, department)
 
     defaults = RoleDefaultPermissions.objects.filter(
         role=designation, department=department

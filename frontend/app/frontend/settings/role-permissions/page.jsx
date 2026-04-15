@@ -6,8 +6,8 @@ import { useRouter } from 'next/navigation';
 import { ArrowLeft, ShieldCheck, ChevronDown, X } from 'lucide-react';
 import Link from 'next/link';
 
-// ── Workforce designation + department data (mirrors enrol-workforce) ─────────
-const DEPT_DATA = {
+// ── Static (hardcoded) workforce designation + department data ────────────────
+const STATIC_DEPT_DATA = {
   'Marketing':                    { roles: ['Chairman','CEO','Director','Department Head','Manager','Associate','Intern'] },
   'Customer Relation Management': { roles: ['Chairman','CEO','Director','Department Head','Manager','Associate','Intern'] },
   'Operations':                   { roles: ['Chairman','CEO','Director','Department Head','Manager','Associate','Intern'] },
@@ -23,8 +23,6 @@ const DEPT_DATA = {
   'House Keeping':                { roles: ['Cook','Pantry Boy','Janitor','Messenger'] },
 };
 
-const DEPARTMENTS = Object.keys(DEPT_DATA);
-
 const DESIGNATION_ORDER = [
   'Chairman','CEO','Director','General Manager','Department Head','Project Manager',
   'Manager','Supervisor','Associate','Developer','Intern','Labour','Worker',
@@ -32,18 +30,38 @@ const DESIGNATION_ORDER = [
   'CCTV','Carpenter','Ironsmith','Locksmith',
 ];
 
-const ALL_DESIGNATIONS = [...new Set(Object.values(DEPT_DATA).flatMap(d => d.roles))]
-  .sort((a, b) => {
-    const ai = DESIGNATION_ORDER.indexOf(a); const bi = DESIGNATION_ORDER.indexOf(b);
-    return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
+// ── Build merged DEPT_DATA from static defaults + dynamic DB pairs ────────────
+function buildDeptData(roleDeptPairs) {
+  const merged = {};
+  // Start with static
+  Object.entries(STATIC_DEPT_DATA).forEach(([dept, { roles }]) => {
+    merged[dept] = { roles: [...roles] };
   });
+  // Overlay custom pairs from DB
+  (roleDeptPairs || []).forEach(({ role, department }) => {
+    const dept = (department || '').trim();
+    const rol  = (role || '').trim();
+    if (!rol) return;
+    if (dept) {
+      if (!merged[dept]) merged[dept] = { roles: [] };
+      if (!merged[dept].roles.includes(rol)) merged[dept].roles.push(rol);
+    } else {
+      // role without department — add to every department that doesn't yet have it
+      Object.values(merged).forEach(d => {
+        if (!d.roles.includes(rol)) d.roles.push(rol);
+      });
+    }
+  });
+  return merged;
+}
 
-function deptsForDesignations(designations) {
+function deptsForDesignations(designations, deptData) {
+  const departments = Object.keys(deptData);
   const set = new Set();
   designations.forEach(des => {
-    DEPARTMENTS.forEach(d => { if (DEPT_DATA[d].roles.includes(des)) set.add(d); });
+    departments.forEach(d => { if (deptData[d].roles.includes(des)) set.add(d); });
   });
-  return DEPARTMENTS.filter(d => set.has(d));
+  return departments.filter(d => set.has(d));
 }
 
 // ── Modules ───────────────────────────────────────────────────────────────────
@@ -214,31 +232,35 @@ export default function RolePermissionsPage() {
   const [saveMsg, setSaveMsg] = useState('');
   const [isSaveError, setIsSaveError] = useState(false);
 
-  const availableDepts = useMemo(
-    () => deptsForDesignations(selectedDesignations),
-    [selectedDesignations]
+  // Dynamic dept/role data fetched from the backend
+  const [deptData, setDeptData] = useState(STATIC_DEPT_DATA);
+  const [allDesignations, setAllDesignations] = useState(() =>
+    [...new Set(Object.values(STATIC_DEPT_DATA).flatMap(d => d.roles))].sort(
+      (a, b) => {
+        const ai = DESIGNATION_ORDER.indexOf(a); const bi = DESIGNATION_ORDER.indexOf(b);
+        return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
+      }
+    )
   );
 
-  // When designations change, prune invalid depts; auto-select if only one
+  // All departments available — departments and designations are independent
+  const availableDepts = useMemo(
+    () => Object.keys(deptData).sort(),
+    [deptData]
+  );
+
+  // When designations are cleared, also clear departments
   useEffect(() => {
-    if (selectedDesignations.length === 0) { setSelectedDepts([]); return; }
-    const valid = deptsForDesignations(selectedDesignations);
-    setSelectedDepts(prev => {
-      const filtered = prev.filter(d => valid.includes(d));
-      if (valid.length === 1) return valid;
-      return filtered;
-    });
+    if (selectedDesignations.length === 0) { setSelectedDepts([]); }
     setSaveMsg('');
   }, [selectedDesignations]);
 
-  // All active designation x department combos (only valid pairs)
+  // All active designation x department combos — any pairing is allowed
   const activeKeys = useMemo(() => {
     const keys = [];
     selectedDesignations.forEach(des => {
       selectedDepts.forEach(dept => {
-        if (DEPT_DATA[dept]?.roles.includes(des)) {
-          keys.push(`${des}||${dept}`);
-        }
+        keys.push(`${des}||${dept}`);
       });
     });
     return keys;
@@ -264,19 +286,40 @@ export default function RolePermissionsPage() {
     load();
   }, [router]);
 
-  // ── Load all saved permissions ──────────────────────────────────────────────
+  // ── Load all saved permissions + dynamic meta ──────────────────────────────
   const loadAllPermissions = useCallback(async () => {
     setLoadingPerms(true);
     try {
-      const res = await fetch('/api/role-permissions', { cache: 'no-store' });
-      const result = await res.json();
-      if (res.ok && result.success) {
-        const map = {};
-        (result.data || []).forEach((item) => {
-          const key = `${item.role}||${item.department || ''}`;
-          map[key] = mergePermissions(item.permissions);
-        });
-        setPermsMap(map);
+      const [permRes, metaRes] = await Promise.all([
+        fetch('/api/role-permissions', { cache: 'no-store' }),
+        fetch('/api/workforce/meta', { cache: 'no-store' }),
+      ]);
+
+      if (permRes.ok) {
+        const result = await permRes.json();
+        if (result.success) {
+          const map = {};
+          (result.data || []).forEach((item) => {
+            const key = `${item.role}||${item.department || ''}`;
+            map[key] = mergePermissions(item.permissions);
+          });
+          setPermsMap(map);
+        }
+      }
+
+      if (metaRes.ok) {
+        const meta = await metaRes.json();
+        if (meta.success) {
+          const merged = buildDeptData(meta.data?.role_dept_pairs || []);
+          setDeptData(merged);
+          const allRoles = [...new Set(Object.values(merged).flatMap(d => d.roles))].sort(
+            (a, b) => {
+              const ai = DESIGNATION_ORDER.indexOf(a); const bi = DESIGNATION_ORDER.indexOf(b);
+              return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
+            }
+          );
+          setAllDesignations(allRoles);
+        }
       }
     } catch { /* silent */ }
     finally { setLoadingPerms(false); }
@@ -428,7 +471,7 @@ export default function RolePermissionsPage() {
             <div className="flex items-center gap-2">
               <label className="text-xs font-semibold text-midnight-ink whitespace-nowrap">Designation</label>
               <MultiSelect
-                options={ALL_DESIGNATIONS}
+                options={allDesignations}
                 selected={selectedDesignations}
                 onChange={v => { setSelectedDesignations(v); setSaveMsg(''); }}
                 placeholder="-- Select --"

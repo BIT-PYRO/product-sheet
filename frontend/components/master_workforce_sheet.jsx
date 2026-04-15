@@ -156,12 +156,16 @@ export default function MasterWorkforceSheet() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [genderFilter, setGenderFilter] = useState('all');
 
-  const DEPARTMENTS = [
+  const STATIC_DEPARTMENTS = [
     'Marketing','Customer Relation Management','Operations','Design','Logistics',
     'Purchase','Sales / Business Development','Finance','Information Technology',
     'Human Resource','Production','Services','House Keeping',
   ];
   const WORKING_STYLES = ['On-site','Remote','Hybrid','Field Work','Part-time','Contractual'];
+
+  // Dynamic departments and roles derived from loaded + meta data
+  const [dynamicDepartments, setDynamicDepartments] = useState(STATIC_DEPARTMENTS);
+  const [dynamicRoles, setDynamicRoles] = useState([]);
 
   const [data, setData] = useState([]);
 
@@ -172,7 +176,10 @@ export default function MasterWorkforceSheet() {
   useEffect(() => {
     const loadWorkforce = async () => {
       try {
-        const response = await fetch('/api/workforce', { cache: 'no-store' });
+        const [response, metaResponse] = await Promise.all([
+          fetch('/api/workforce', { cache: 'no-store' }),
+          fetch('/api/workforce/meta', { cache: 'no-store' }),
+        ]);
         const result = await response.json().catch(() => null);
         if (!response.ok || !result?.success) return;
 
@@ -216,6 +223,30 @@ export default function MasterWorkforceSheet() {
 
         setData(mappedRows);
         setLastUpdated(new Date());
+
+        // Derive unique departments and roles from real data + meta
+        const rowDepts = [...new Set(mappedRows.map(r => r.department).filter(Boolean))];
+        const rowRoles = [...new Set(mappedRows.map(r => r.designation).filter(Boolean))];
+
+        if (metaResponse.ok) {
+          const meta = await metaResponse.json().catch(() => null);
+          if (meta?.success) {
+            const metaDepts = meta.data?.departments || [];
+            const metaRoles = meta.data?.designations || [];
+            const allDepts = [...new Set([...STATIC_DEPARTMENTS, ...metaDepts, ...rowDepts])].sort();
+            const allRoles = [...new Set([...metaRoles, ...rowRoles])].sort();
+            setDynamicDepartments(allDepts);
+            setDynamicRoles(allRoles);
+          } else {
+            const allDepts = [...new Set([...STATIC_DEPARTMENTS, ...rowDepts])].sort();
+            setDynamicDepartments(allDepts);
+            setDynamicRoles(rowRoles.sort());
+          }
+        } else {
+          const allDepts = [...new Set([...STATIC_DEPARTMENTS, ...rowDepts])].sort();
+          setDynamicDepartments(allDepts);
+          setDynamicRoles(rowRoles.sort());
+        }
       } catch {
         // keep table editable with local rows when backend fails
       }
@@ -908,7 +939,20 @@ export default function MasterWorkforceSheet() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All</SelectItem>
-                {DEPARTMENTS.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+                {dynamicDepartments.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          {/* Designation / Role */}
+          <div>
+            <label className="text-sm font-semibold text-black block mb-1">DESIGNATION</label>
+            <Select value={roleFilter} onValueChange={setRoleFilter}>
+              <SelectTrigger className="h-8 text-sm focus:ring-0 focus:ring-offset-0">
+                <SelectValue placeholder="All" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All</SelectItem>
+                {dynamicRoles.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
