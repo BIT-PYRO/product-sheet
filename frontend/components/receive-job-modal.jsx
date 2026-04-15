@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
@@ -317,7 +317,7 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
   }
 
   function handlePrint() {
-    const deptLabel = (val) => jewelleryDepartments.find(d => d.value === val)?.label || val || '—'
+    const deptLabel = (val) => jewelleryDepartments.find(d => d.value === val)?.label || val || 'ΓÇö'
 
     const wtCell = (wt, unit) => {
       const v = String(wt ?? '').trim()
@@ -346,7 +346,7 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
 
     // Format display date as dd-mm-yyyy
     const fmtDate = (d) => {
-      if (!d) return '—'
+      if (!d) return 'ΓÇö'
       const parts = d.split('-')
       if (parts.length === 3) return `${parts[2]}-${parts[1]}-${parts[0]}`
       return d
@@ -362,7 +362,7 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: Arial, sans-serif; font-size: 9.5px; color: #111; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 
-    /* ── TOP ROW: Issue Date left, rest right ── */
+    /* ΓöÇΓöÇ TOP ROW: Issue Date left, rest right ΓöÇΓöÇ */
     .top-row { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 6px; }
     .top-field { display: flex; flex-direction: column; gap: 1px; }
     .top-field label { font-size: 7px; font-weight: 700; text-transform: uppercase; color: #64748b; letter-spacing: 0.5px; }
@@ -370,7 +370,7 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
     .top-right { display: flex; align-items: flex-end; gap: 12px; }
     .chip { display: inline-block; padding: 1px 7px; border-radius: 3px; background: #eff6ff; border: 1px solid #bfdbfe; color: #1d4ed8; font-size: 10px; font-weight: 600; }
 
-    /* ── SECTION BOXES ── */
+    /* ΓöÇΓöÇ SECTION BOXES ΓöÇΓöÇ */
     .section-box { border: 1px solid #e2e8f0; border-radius: 3px; padding: 4px 8px; margin-bottom: 5px; }
     .section-grid { display: grid; gap: 0 16px; align-items: end; }
     .grid-3 { grid-template-columns: minmax(160px,220px) 1fr minmax(160px,200px); }
@@ -379,14 +379,14 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
     .field-value { font-size: 10px; font-weight: 500; color: #111; }
     .dash-center { text-align: center; font-size: 11px; color: #94a3b8; }
 
-    /* ── DEPT SECTION ── */
+    /* ΓöÇΓöÇ DEPT SECTION ΓöÇΓöÇ */
     .dept-section { border: 2px solid #3b82f6; border-radius: 3px; padding: 5px 10px; margin-bottom: 5px; background: #eff6ff; }
     .dept-grid { display: grid; grid-template-columns: 1fr 40px 1fr; align-items: center; }
     .dept-label { font-size: 7px; font-weight: 700; text-transform: uppercase; color: #1e40af; display: block; margin-bottom: 1px; }
     .dept-value { font-size: 12px; font-weight: 800; color: #1e3a8a; }
     .dept-arrow { text-align: center; font-size: 18px; color: #3b82f6; font-weight: 900; }
 
-    /* ── TABLE ── */
+    /* ΓöÇΓöÇ TABLE ΓöÇΓöÇ */
     table { border-collapse: collapse; margin-bottom: 6px; font-size: 7.5px; width: 100%; table-layout: fixed; }
     th { background: #1a56db; color: white; font-weight: 500; padding: 2px 4px; text-align: center; border: 1px solid #1e40af; white-space: nowrap; overflow: hidden; word-break: break-all; max-width: 0; }
     th.left { text-align: left; padding-left: 5px; }
@@ -411,7 +411,7 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
     td.reissue-wt{ background: rgba(245,158,11,0.07); }
     .unit { font-size: 7px; color: #94a3b8; margin-left: 2px; }
 
-    /* ── FOOTER ── */
+    /* ΓöÇΓöÇ FOOTER ΓöÇΓöÇ */
     .footer-row { display: grid; grid-template-columns: 1fr 1fr 160px; gap: 6px; margin-bottom: 6px; }
     .footer-box { padding: 4px 7px; border: 1px solid #e2e8f0; border-radius: 3px; overflow: hidden; }
     .footer-box label { font-size: 7px; font-weight: 700; text-transform: uppercase; color: #64748b; display: block; margin-bottom: 2px; }
@@ -447,9 +447,9 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
   <!-- ISSUED TO + WORK TYPE -->
   <div class="section-box">
     <div class="section-grid grid-3">
-      <div><span class="field-label">Issued To</span><span class="field-value">${issuedTo || '—'}</span></div>
-      <div class="dash-center">—</div>
-      <div><span class="field-label">Work Type</span><span class="field-value">${workType || '—'}</span></div>
+      <div><span class="field-label">Issued To</span><span class="field-value">${issuedTo || 'ΓÇö'}</span></div>
+      <div class="dash-center">ΓÇö</div>
+      <div><span class="field-label">Work Type</span><span class="field-value">${workType || 'ΓÇö'}</span></div>
     </div>
   </div>
 
@@ -465,9 +465,9 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
   <!-- ISSUED BY + CONTACT -->
   <div class="section-box">
     <div class="section-grid grid-2">
-      <div><span class="field-label">Issued By</span><span class="field-value">${issuedByName || '—'}</span></div>
+      <div><span class="field-label">Issued By</span><span class="field-value">${issuedByName || 'ΓÇö'}</span></div>
       <div></div>
-      <div><span class="field-label">Contact</span><span class="field-value">${issuedByContact || '—'}</span></div>
+      <div><span class="field-label">Contact</span><span class="field-value">${issuedByContact || 'ΓÇö'}</span></div>
     </div>
   </div>
 
@@ -502,8 +502,8 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
 
   <!-- RECEIVED BY + CONTACT + RATING -->
   <div class="footer-row">
-    <div class="footer-box"><label>Received By</label><span>${receivedByName || '—'}</span></div>
-    <div class="footer-box"><label>Contact</label><span>${receivedByContact || '—'}</span></div>
+    <div class="footer-box"><label>Received By</label><span>${receivedByName || 'ΓÇö'}</span></div>
+    <div class="footer-box"><label>Contact</label><span>${receivedByContact || 'ΓÇö'}</span></div>
     <div class="footer-box">
       <label>Rate Workmanship</label>
       <div class="rating">${ratingDots}</div>
@@ -654,7 +654,7 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
                   </SelectContent>
                 </Select>
               </div>
-              <div className="flex items-center justify-center text-sm text-muted-foreground px-6">—</div>
+              <div className="flex items-center justify-center text-sm text-muted-foreground px-6">ΓÇö</div>
               <div className="flex flex-col gap-0.5">
                 <Label className="text-sm font-medium text-muted-foreground">Work Type</Label>
                 <Select value={workType} onValueChange={setWorkType}>
@@ -865,7 +865,7 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
           {submitWarnings.length > 0 && (
             <div className="rounded-md bg-yellow-50 border border-yellow-300 px-3 py-2 text-xs text-yellow-800">
               <p className="font-semibold mb-1">Warnings (inventory updated for other rows):</p>
-              {submitWarnings.map((w, i) => <p key={i}>• {w}</p>)}
+              {submitWarnings.map((w, i) => <p key={i}>ΓÇó {w}</p>)}
             </div>
           )}
 

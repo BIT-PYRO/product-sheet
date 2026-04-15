@@ -1,4 +1,4 @@
-import uuid
+﻿import uuid
 from django.db import transaction
 from django.db.models import Sum, Q
 from django.utils import timezone
@@ -28,7 +28,7 @@ def _activate_ready_batch_vouchers(batch_id):
 	(all other batch vouchers with dept_to == this.dept_from) have all reached
 	a done state (completed or partially_complete).
 
-	When a voucher is activated (→ in_process), pieces are deducted from the
+	When a voucher is activated (ΓåÆ in_process), pieces are deducted from the
 	Current Stock of its dept_from stage (they leave the source department).
 
 	Runs repeatedly until no more vouchers can be activated (handles chains).
@@ -39,7 +39,7 @@ def _activate_ready_batch_vouchers(batch_id):
 	activated = []
 	while True:
 		all_vouchers = list(Job.objects.filter(batch_id=batch_id))
-		# Map: dept_key → list of vouchers whose output feeds that dept
+		# Map: dept_key ΓåÆ list of vouchers whose output feeds that dept
 		output_map = {}
 		for v in all_vouchers:
 			output_map.setdefault(v.dept_to, []).append(v)
@@ -51,7 +51,7 @@ def _activate_ready_batch_vouchers(batch_id):
 			# Predecessors: vouchers that send goods TO this voucher's dept_from
 			preds = output_map.get(v.dept_from, [])
 			if preds and all(p.approval_status in _DONE_STATUSES for p in preds):
-				# ── Propagate actual received qty from predecessors ──────────────
+				# ΓöÇΓöÇ Propagate actual received qty from predecessors ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 				# Only the pieces that physically arrived at this stage should move
 				# forward. Sum all received_rows across every predecessor per SKU.
 				actual_received: dict = {}
@@ -104,7 +104,7 @@ def _propagate_qty_to_active_downstream(batch_id, voucher):
 	active_statuses = {VoucherApprovalStatus.IN_PROCESS, VoucherApprovalStatus.PARTIALLY_COMPLETED}
 
 	# Direct downstream: vouchers whose dept_from == this voucher's dept_to that
-	# are already active (not awaiting — those are handled by _activate_ready_batch_vouchers)
+	# are already active (not awaiting ΓÇö those are handled by _activate_ready_batch_vouchers)
 	downstream = list(Job.objects.filter(
 		batch_id=batch_id,
 		dept_from=voucher.dept_to,
@@ -277,7 +277,7 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 		Awaiting / approved vouchers haven't started work yet so their
 		quantities must NOT appear.
 
-		WIP per row = issued_qty − already_received_qty.
+		WIP per row = issued_qty ΓêÆ already_received_qty.
 		Response: { success: true, data: { "SKU": { "dept_to_key": qty, ... }, ... } }
 		"""
 		active_statuses = {
@@ -343,8 +343,8 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 
 		Products are grouped by stage transition.  If a product only has
 		'hand' setting, the 'wax-setting' stage is removed from its pipeline
-		(pieces go Wax Piece → Casting directly).  If only 'wax' setting,
-		the 'hand-setting' stage is removed (Pre-Polish → Final Polish).
+		(pieces go Wax Piece ΓåÆ Casting directly).  If only 'wax' setting,
+		the 'hand-setting' stage is removed (Pre-Polish ΓåÆ Final Polish).
 		If both or unset, all stages are included.
 		"""
 		ser = BulkVoucherRequestSerializer(data=request.data)
@@ -376,7 +376,7 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 		# ------------------------------------------------------------------
 		# Phase 1: Collect each product's custom pipeline and qty
 		# ------------------------------------------------------------------
-		# transition_key (from_key, to_key) → list of {product, master_sku, qty}
+		# transition_key (from_key, to_key) ΓåÆ list of {product, master_sku, qty}
 		from collections import OrderedDict
 		transition_buckets = OrderedDict()
 
@@ -388,7 +388,7 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 				continue
 
 			# Try exact match first (handles master SKUs with / like AJE15/4),
-			# then fall back to prefix match for variant suffixes (e.g. KARTIK/G → KARTIK)
+			# then fall back to prefix match for variant suffixes (e.g. KARTIK/G ΓåÆ KARTIK)
 			product = Product.objects.filter(master_sku__iexact=sku).first()
 			if not product and '/' in sku:
 				product = Product.objects.filter(
@@ -423,9 +423,9 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 			product_pipeline = []
 			for dept_key, dept_label in DEPARTMENT_PIPELINE:
 				if dept_key == 'wax-setting' and not wants_wax:
-					continue  # hand-only → skip wax-setting stage
+					continue  # hand-only ΓåÆ skip wax-setting stage
 				if dept_key == 'hand-setting' and not wants_hand:
-					continue  # wax-only → skip hand-setting stage
+					continue  # wax-only ΓåÆ skip hand-setting stage
 				product_pipeline.append((dept_key, dept_label))
 
 			# Create transitions from consecutive stages
@@ -501,11 +501,11 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 					department_order=step_idx,
 					material_rows=material_rows,
 					stone_rows=[],
-					notes=f'Step {step_idx + 1}: {from_label} → {to_label}',
+					notes=f'Step {step_idx + 1}: {from_label} ΓåÆ {to_label}',
 				)
 				created_vouchers.append(voucher)
 
-				# NOTE: No inventory transactions here — WIP is computed live from
+				# NOTE: No inventory transactions here ΓÇö WIP is computed live from
 				# in_process vouchers, and source deduction happens at activation.
 
 		serializer = JobSerializer(created_vouchers, many=True)
@@ -569,12 +569,12 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 					v.approved_by = approved_by
 					v.approved_at = now
 					v.save(update_fields=['approval_status', 'approved_by', 'approved_at'])
-					# Root vouchers start working immediately — deduct from source stage
+					# Root vouchers start working immediately ΓÇö deduct from source stage
 					if is_root:
 						_deduct_source_current_stock(v)
 					total_approved += 1
 
-			# Non-batched vouchers → approved directly
+			# Non-batched vouchers ΓåÆ approved directly
 			for v in no_batch:
 				v.approval_status = VoucherApprovalStatus.APPROVED
 				v.approved_by = approved_by
@@ -605,7 +605,7 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 			voucher.status = 'completed'
 			voucher.save(update_fields=['approval_status', 'status'])
 
-			# Add remaining pieces (issued − already received) to Current Stock of
+			# Add remaining pieces (issued ΓêÆ already received) to Current Stock of
 			# the destination stage.  WIP is computed live so no WIP transaction needed.
 			from products.models import Product
 
@@ -668,10 +668,10 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 		  - Adds received_qty to Current Stock of the dept_to stage
 
 		Source deduction happened when the voucher entered in_process.
-		WIP is computed live from active vouchers — no WIP transactions needed.
+		WIP is computed live from active vouchers ΓÇö no WIP transactions needed.
 
-		If is_partial=False  → voucher becomes Completed; next awaiting step activated if not already.
-		If is_partial=True   → voucher becomes Partially Completed; next awaiting step activated immediately.
+		If is_partial=False  ΓåÆ voucher becomes Completed; next awaiting step activated if not already.
+		If is_partial=True   ΓåÆ voucher becomes Partially Completed; next awaiting step activated immediately.
 
 		Subsequent receives on a Partially Completed voucher complete it when is_partial=False,
 		or log another partial batch if is_partial=True.
@@ -685,7 +685,7 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 				VoucherApprovalStatus.IN_PROCESS,
 				VoucherApprovalStatus.PARTIALLY_COMPLETED,
 			]:
-				# Allow pending single (non-batch) vouchers — auto-transition to in_process
+				# Allow pending single (non-batch) vouchers ΓÇö auto-transition to in_process
 				if voucher.approval_status == VoucherApprovalStatus.PENDING and not voucher.batch_id:
 					voucher.approval_status = VoucherApprovalStatus.IN_PROCESS
 					voucher.save(update_fields=['approval_status'])
@@ -705,7 +705,7 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 			if not rows:
 				raise ValidationError({'rows': 'At least one row with a received quantity is required.'})
 
-			# ── Build already-received totals per SKU (from previous partial events) ──
+			# ΓöÇΓöÇ Build already-received totals per SKU (from previous partial events) ΓöÇΓöÇ
 			already_received: dict = {}
 			for event in (voucher.received_rows or []):
 				for prev_row in (event.get('rows') or []):
@@ -715,7 +715,7 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 						+ int(float(prev_row.get('received_qty', 0) or 0))
 					)
 
-			# ── Build issued totals per SKU from material_rows ──
+			# ΓöÇΓöÇ Build issued totals per SKU from material_rows ΓöÇΓöÇ
 			issued_map: dict = {}
 			for mr in (voucher.material_rows or []):
 				key = str(mr.get('sku', '') or '').strip().upper()
@@ -744,7 +744,7 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 				if received_qty > remaining:
 					warnings.append(
 						f'SKU {sku}: received qty ({received_qty}) exceeds remaining '
-						f'({remaining} = issued {issued} − already received {already}). Capped to {remaining}.'
+						f'({remaining} = issued {issued} ΓêÆ already received {already}). Capped to {remaining}.'
 					)
 					received_qty = remaining
 					if received_qty <= 0:
@@ -757,14 +757,14 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 
 				if not product:
 					warnings.append(
-						f'SKU {sku}: no matching product found in database — '
+						f'SKU {sku}: no matching product found in database ΓÇö '
 						'inventory NOT updated for this row.'
 					)
 					continue
 
 				# Add to Current Stock (dept_to stage).
 				# Source deduction already happened when the voucher entered in_process.
-				# WIP is computed live — no WIP transaction needed.
+				# WIP is computed live ΓÇö no WIP transaction needed.
 				if to_stage:
 					InventoryTransaction.objects.create(
 						product=product,
@@ -773,8 +773,8 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 						stage=to_stage,
 						stock_type='current',
 						remark=(
-							f'Received {received_qty} pcs — {voucher.voucher_no} '
-							f'({voucher.dept_from} → {voucher.dept_to})'
+							f'Received {received_qty} pcs ΓÇö {voucher.voucher_no} '
+							f'({voucher.dept_from} ΓåÆ {voucher.dept_to})'
 						),
 					)
 
@@ -783,7 +783,7 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 			if total_received_this_batch == 0 and not warnings:
 				raise ValidationError({'rows': 'No valid received quantities provided.'})
 
-			# ── Append to receive log ──
+			# ΓöÇΓöÇ Append to receive log ΓöÇΓöÇ
 			receive_log = list(voucher.received_rows or [])
 			receive_log.append({
 				'timestamp': timezone.now().isoformat(),
@@ -804,7 +804,7 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 					# Update already-active next-stage vouchers with new total qty
 					_propagate_qty_to_active_downstream(voucher.batch_id, voucher)
 			else:
-				# Full receive → Completed
+				# Full receive ΓåÆ Completed
 				voucher.approval_status = VoucherApprovalStatus.COMPLETED
 				voucher.status = 'completed'
 				voucher.save(update_fields=['approval_status', 'status', 'received_rows', 'received_by'])
@@ -867,7 +867,7 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 				if key not in product_map:
 					product_map[key] = p
 
-		# Build per-product stage → latest location from inventory transactions
+		# Build per-product stage ΓåÆ latest location from inventory transactions
 		product_ids = [p.id for p in product_map.values()]
 		STAGE_LABELS = {
 			'wax_piece':        'Wax Piece',
@@ -887,8 +887,8 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 			.values('product_id', 'stage', 'location', 'created_at')
 			.order_by('product_id', 'stage', 'created_at')  # last one wins via iteration
 		)
-		# product_id → stage → latest location
-		location_map = {}  # product_id → {stage_key: location_str}
+		# product_id ΓåÆ stage ΓåÆ latest location
+		location_map = {}  # product_id ΓåÆ {stage_key: location_str}
 		for txn in txns:
 			pid = txn['product_id']
 			stage = txn['stage']
@@ -1004,7 +1004,7 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 		"""
 		Mark the current in-process (or partially complete) voucher as REPLACED and
 		create new Re-Issue type vouchers from the first pipeline stage up to and
-		including the current stage — with the supplied reissue quantities.
+		including the current stage ΓÇö with the supplied reissue quantities.
 
 		Full-destroy case: reissue_qty == issued_qty for each SKU.
 		Partial case: reissue_qty < issued_qty (some pieces already received before
@@ -1053,7 +1053,7 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 		if not reissue_map:
 			raise ValidationError({'rows': 'No valid reissue quantities provided.'})
 
-		# Validate reissue qty does not exceed remaining (issued − already received) per SKU
+		# Validate reissue qty does not exceed remaining (issued ΓêÆ already received) per SKU
 		already_received: dict = {}
 		for event in (voucher.received_rows or []):
 			for rr in (event.get('rows') or []):
@@ -1069,7 +1069,7 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 				raise ValidationError({
 					'rows': (
 						f'SKU {sku_key}: reissue_qty ({req_qty}) exceeds remaining pieces '
-						f'({remaining} = issued {issued} − already received {already}).'
+						f'({remaining} = issued {issued} ΓêÆ already received {already}).'
 					)
 				})
 
@@ -1111,13 +1111,13 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 		now = timezone.now()
 
 		with transaction.atomic():
-			# ── Mark the current voucher as Replaced ────────────────────────────
+			# ΓöÇΓöÇ Mark the current voucher as Replaced ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 			voucher.approval_status = VoucherApprovalStatus.REPLACED
 			voucher.save(update_fields=['approval_status'])
 
-			# ── Mark earlier completed / partially-complete batch vouchers as Replaced ──
+			# ΓöÇΓöÇ Mark earlier completed / partially-complete batch vouchers as Replaced ΓöÇΓöÇ
 			# All completed (or partially-complete) vouchers in the same batch whose
-			# destination stage is ≤ the current stage are now superseded by the
+			# destination stage is Γëñ the current stage are now superseded by the
 			# re-issue chain.  They should appear as "Replaced" on the dashboard,
 			# not "Completed", so managers can see the full re-issue trail.
 			earlier_ids_to_replace = [
@@ -1134,7 +1134,7 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 					approval_status=VoucherApprovalStatus.REPLACED
 				)
 
-			# ── Return pieces to origin stage (inventory) ────────────────────────
+			# ΓöÇΓöÇ Return pieces to origin stage (inventory) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 			# The re-issue root will call _deduct_source_current_stock, debiting the
 			# origin stage again.  The original pipeline already debited it when the
 			# first batch started.  To avoid double-counting we first credit the
@@ -1168,7 +1168,7 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 							),
 						)
 
-			# ── Create Re-Issue vouchers for each stage ──────────────────────────
+			# ΓöÇΓöÇ Create Re-Issue vouchers for each stage ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 			new_vouchers = []
 			for stage_v in stages_to_redo:
 				new_material_rows = []
@@ -1228,7 +1228,7 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 					'rows': 'No re-issue vouchers could be created. Ensure the SKUs in the rows match those in the voucher.'
 				})
 
-			# ── Auto-approve: root → in_process, others → awaiting ───────────────
+			# ΓöÇΓöÇ Auto-approve: root ΓåÆ in_process, others ΓåÆ awaiting ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 			dest_depts_ri = {v.dept_to for v in new_vouchers}
 			for new_v in sorted(new_vouchers, key=lambda x: x.department_order):
 				is_root = new_v.dept_from not in dest_depts_ri

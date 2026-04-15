@@ -1,4 +1,4 @@
-import { proxyAuthenticatedRequest } from '@/app/frontend/api/_lib/backend-auth';
+﻿import { proxyAuthenticatedRequest } from '@/app/frontend/api/_lib/backend-auth';
 
 export async function POST(request, { params }) {
   const { id } = await params;
