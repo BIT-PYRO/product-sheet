@@ -20,6 +20,20 @@ class User(AbstractUser):
 	)
 
 
+class RoleDefaultPermissions(models.Model):
+	role = models.CharField(max_length=100)  # designation, e.g. Director, Manager, Associate
+	department = models.CharField(max_length=100, default='')  # e.g. Marketing, Finance; '' = all departments
+	permissions = models.JSONField(default=dict, blank=True)
+
+	class Meta:
+		unique_together = [('role', 'department')]
+		verbose_name = 'Role Default Permissions'
+		verbose_name_plural = 'Role Default Permissions'
+
+	def __str__(self):
+		return f'Default permissions for {self.role} / {self.department or "all"}'
+
+
 class EmailOTP(models.Model):
 	email = models.EmailField(db_index=True)
 	otp = models.CharField(max_length=4)

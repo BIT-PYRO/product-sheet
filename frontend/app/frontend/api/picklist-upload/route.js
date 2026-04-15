@@ -47,7 +47,7 @@ function isNoiseLine(value) {
   ].includes(normalized);
 }
 
-function mergePicklistItems(items) {
+export function mergePicklistItems(items) {
   const bySku = new Map();
 
   items.forEach((item) => {
@@ -292,7 +292,7 @@ function parseExcelRows(arrayBuffer) {
 
 // -- File parser dispatcher ---------------------------------------------------
 
-async function parsePicklistFile(file) {
+export async function parsePicklistFile(file) {
   const fileName = String(file?.name || '').trim();
   const extension = fileName.includes('.') ? fileName.split('.').pop().toLowerCase() : '';
 
@@ -366,7 +366,7 @@ function firstValue(row, keys, fallback = '') {
  * Handles both PDF rows (with pre-parsed fields) and CSV/Excel normalised rows.
  * Returns null when the row has no valid SKU.
  */
-function asPicklistItem(row) {
+export function asPicklistItem(row) {
   // PDF rows are already parsed into { sku, listingName, needed }.
   if (row._pdfRow) {
     const sku = String(row.sku || '').trim();
@@ -467,12 +467,12 @@ function isOkResponse(response, payload) {
   return Boolean(response?.ok) && payload?.success !== false;
 }
 
-function sanitizeLabel(value, fallback = '') {
+export function sanitizeLabel(value, fallback = '') {
   const normalized = String(value || '').trim().replace(/::/g, '-').replace(/\s+/g, ' ');
   return normalized || fallback;
 }
 
-function parsePositiveInt(value, fallback = 1) {
+export function parsePositiveInt(value, fallback = 1) {
   const parsed = Number.parseInt(String(value || ''), 10);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
@@ -497,7 +497,7 @@ function mapBackendPicklist(payloadData, fallbackMeta) {
   };
 }
 
-async function savePicklistGroup(request, groupMeta, items) {
+export async function savePicklistGroup(request, groupMeta, items) {
   const payload = {
     id: groupMeta.id,
     number: parsePositiveInt(groupMeta.number, 1),
@@ -525,7 +525,7 @@ async function savePicklistGroup(request, groupMeta, items) {
   return mapBackendPicklist(backendPayload?.data, groupMeta);
 }
 
-async function savePicklistOrder(request, savedGroup) {
+export async function savePicklistOrder(request, savedGroup) {
   const orderItems = savedGroup.items.map((item) => ({
     name: item.listingName || item.sku,
     sku: String(item.sku || '').trim().toUpperCase(),

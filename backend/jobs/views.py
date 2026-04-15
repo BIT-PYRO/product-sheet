@@ -51,9 +51,31 @@ def _activate_ready_batch_vouchers(batch_id):
 			# Predecessors: vouchers that send goods TO this voucher's dept_from
 			preds = output_map.get(v.dept_from, [])
 			if preds and all(p.approval_status in _DONE_STATUSES for p in preds):
+				# ── Propagate actual received qty from predecessors ──────────────
+				# Only the pieces that physically arrived at this stage should move
+				# forward. Sum all received_rows across every predecessor per SKU.
+				actual_received: dict = {}
+				for pred in preds:
+					for event in (pred.received_rows or []):
+						for row in (event.get('rows') or []):
+							s = str(row.get('sku', '') or '').strip().upper()
+							qty = int(float(row.get('received_qty', 0) or 0))
+							if s:
+								actual_received[s] = actual_received.get(s, 0) + qty
+
+				if actual_received:
+					updated_rows = []
+					for mr in (v.material_rows or []):
+						sku_key = str(mr.get('sku', '') or '').strip().upper()
+						if sku_key in actual_received:
+							mr = dict(mr)
+							mr['issued_qty'] = str(actual_received[sku_key])
+						updated_rows.append(mr)
+					v.material_rows = updated_rows
+
 				v.approval_status = VoucherApprovalStatus.IN_PROCESS
 				v.status = 'in_progress'
-				v.save(update_fields=['approval_status', 'status'])
+				v.save(update_fields=['approval_status', 'status', 'material_rows'])
 				_deduct_source_current_stock(v)
 				newly_activated.append(v)
 
@@ -61,6 +83,89 @@ def _activate_ready_batch_vouchers(batch_id):
 			break
 		activated.extend(newly_activated)
 	return activated
+
+
+def _propagate_qty_to_active_downstream(batch_id, voucher):
+	"""
+	When additional pieces are received on `voucher` and its direct downstream
+	neighbour is already IN_PROCESS or PARTIALLY_COMPLETED (activated after an
+	earlier partial receive), update that neighbour's issued_qty to reflect the
+	new running total and deduct the delta from its dept_from Current Stock.
+
+	This is distinct from _activate_ready_batch_vouchers which only handles
+	AWAITING vouchers.  This handles the case where the next stage is already
+	active with a lower qty and needs to be topped up.
+	"""
+	from products.models import Product as _Product
+
+	if not batch_id:
+		return
+
+	active_statuses = {VoucherApprovalStatus.IN_PROCESS, VoucherApprovalStatus.PARTIALLY_COMPLETED}
+
+	# Direct downstream: vouchers whose dept_from == this voucher's dept_to that
+	# are already active (not awaiting — those are handled by _activate_ready_batch_vouchers)
+	downstream = list(Job.objects.filter(
+		batch_id=batch_id,
+		dept_from=voucher.dept_to,
+		approval_status__in=active_statuses,
+	))
+	if not downstream:
+		return
+
+	# Calculate total physically received so far across ALL predecessors feeding
+	# the downstream stage (dept_to == voucher.dept_to).
+	all_preds = list(Job.objects.filter(batch_id=batch_id, dept_to=voucher.dept_to))
+	total_received: dict = {}
+	for pred in all_preds:
+		for event in (pred.received_rows or []):
+			for row in (event.get('rows') or []):
+				s = str(row.get('sku', '') or '').strip().upper()
+				qty = int(float(row.get('received_qty', 0) or 0))
+				if s:
+					total_received[s] = total_received.get(s, 0) + qty
+
+	if not total_received:
+		return
+
+	# The stage key for the downstream's dept_from (= this voucher's dept_to)
+	from_stage = DEPT_TO_STOCK_STAGE.get(voucher.dept_to, '')
+
+	for ds in downstream:
+		changed = False
+		updated_rows = []
+		for mr in (ds.material_rows or []):
+			sku_key = str(mr.get('sku', '') or '').strip().upper()
+			if sku_key in total_received:
+				new_total = total_received[sku_key]
+				old_qty = int(float(mr.get('issued_qty', 0) or 0))
+				delta = new_total - old_qty
+				if delta > 0:
+					# Deduct the extra pieces from source stage current stock
+					# (they are now in WIP of the downstream voucher)
+					if from_stage:
+						product = _Product.objects.filter(
+							Q(master_sku__iexact=mr.get('sku', ''))
+						).first() or ds.product
+						if product:
+							InventoryTransaction.objects.create(
+								product=product,
+								txn_type='adjust',
+								quantity=-delta,
+								stage=from_stage,
+								stock_type='current',
+								remark=(
+									f'Additional {delta} pcs issued to {ds.dept_to}: '
+									f'{ds.voucher_no}'
+								),
+							)
+					mr = dict(mr)
+					mr['issued_qty'] = str(new_total)
+					changed = True
+			updated_rows.append(mr)
+		if changed:
+			ds.material_rows = updated_rows
+			ds.save(update_fields=['material_rows'])
 
 
 def _deduct_source_current_stock(voucher):
@@ -693,17 +798,21 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 			if is_partial:
 				voucher.approval_status = VoucherApprovalStatus.PARTIALLY_COMPLETED
 				voucher.save(update_fields=['approval_status', 'received_rows', 'received_by'])
-				# Activate any vouchers whose predecessors are now all done
 				if voucher.batch_id:
+					# Activate AWAITING next-stage vouchers (first-time activation)
 					_activate_ready_batch_vouchers(voucher.batch_id)
+					# Update already-active next-stage vouchers with new total qty
+					_propagate_qty_to_active_downstream(voucher.batch_id, voucher)
 			else:
 				# Full receive → Completed
 				voucher.approval_status = VoucherApprovalStatus.COMPLETED
 				voucher.status = 'completed'
 				voucher.save(update_fields=['approval_status', 'status', 'received_rows', 'received_by'])
-				# Activate any vouchers whose predecessors are now all done
 				if voucher.batch_id:
+					# Activate AWAITING next-stage vouchers
 					_activate_ready_batch_vouchers(voucher.batch_id)
+					# Update already-active next-stage vouchers with new total qty
+					_propagate_qty_to_active_downstream(voucher.batch_id, voucher)
 
 		serializer = JobSerializer(voucher)
 		response_data = {**serializer.data}
@@ -715,10 +824,11 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 	def photo_guide(self, request, pk=None):
 		"""
 		Return the material rows for this job with product images resolved.
-		Each row: { sku, issued_qty, unit, images: [...] }
+		Each row: { sku, issued_qty, unit, images: [...], location: {wax_piece, wax_setting, ...} }
 		Images are returned as absolute URLs.
 		"""
 		from products.models import Product as ProductModel
+		from inventory.models import InventoryTransaction
 
 		job = self.get_object()
 		material_rows = job.material_rows or []
@@ -757,6 +867,37 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 				if key not in product_map:
 					product_map[key] = p
 
+		# Build per-product stage → latest location from inventory transactions
+		product_ids = [p.id for p in product_map.values()]
+		STAGE_LABELS = {
+			'wax_piece':        'Wax Piece',
+			'wax_setting':      'Wax Setting',
+			'casting':          'Casting',
+			'filling':          'Filling',
+			'pre_polish':       'Pre Polish',
+			'setting':          'Hand Setting',
+			'final_polish':     'Final Polish',
+			'ready_for_plating':'Plating',
+		}
+		# Fetch only transactions that have a non-empty location
+		txns = (
+			InventoryTransaction.objects
+			.filter(product_id__in=product_ids)
+			.exclude(location='')
+			.values('product_id', 'stage', 'location', 'created_at')
+			.order_by('product_id', 'stage', 'created_at')  # last one wins via iteration
+		)
+		# product_id → stage → latest location
+		location_map = {}  # product_id → {stage_key: location_str}
+		for txn in txns:
+			pid = txn['product_id']
+			stage = txn['stage']
+			loc = txn['location'] or ''
+			if loc:
+				if pid not in location_map:
+					location_map[pid] = {}
+				location_map[pid][stage] = loc  # later rows overwrite earlier (ordered by created_at)
+
 		def make_absolute(url):
 			"""Turn a relative /media/... path into an absolute URL."""
 			if not url:
@@ -780,11 +921,80 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 			raw_images = product.images if product and isinstance(product.images, list) else []
 			resolved = [make_absolute(img) for img in raw_images]
 			resolved = [img for img in resolved if img]  # filter None/empty
+
+			# Build location dict for this product
+			stage_locs = location_map.get(product.id, {}) if product else {}
+			location = {label: stage_locs.get(key, '') for key, label in STAGE_LABELS.items()}
+
 			result.append({
 				'sku': sku,
-				'issued_qty': row.get('issued_qty', ''),
+				'quantity': row.get('issued_qty', ''),
 				'unit': row.get('unit1', 'Pcs'),
 				'images': resolved,
+				'location': location,
 			})
+
+		return Response({'success': True, 'data': result})
+
+	@action(detail=True, methods=['get'], url_path='die-guide')
+	def die_guide(self, request, pk=None):
+		"""
+		Return die numbers for SKUs present in this job's material_rows only.
+		Each entry: { sku, die_numbers: [{ value, quantity, location }] }
+		"""
+		from products.models import Product as ProductModel
+		from django.db.models.functions import Upper
+
+		job = self.get_object()
+		material_rows = job.material_rows or []
+
+		# Collect unique, non-empty SKUs while preserving order
+		seen = set()
+		ordered_skus = []
+		for row in material_rows:
+			sku = row.get('sku', '').strip()
+			if sku and sku.upper() not in seen:
+				seen.add(sku.upper())
+				ordered_skus.append(sku)
+
+		upper_skus = [s.upper() for s in ordered_skus]
+
+		# Primary lookup by master_sku
+		products_by_master = (
+			ProductModel.objects
+			.annotate(upper_sku=Upper('master_sku'))
+			.filter(upper_sku__in=upper_skus)
+			.only('master_sku', 'designer_sku', 'die_numbers')
+		)
+		product_map = {p.master_sku.upper(): p for p in products_by_master}
+
+		# Fallback: try designer_sku for unmatched
+		unmatched = [s for s in upper_skus if s not in product_map]
+		if unmatched:
+			products_by_designer = (
+				ProductModel.objects
+				.annotate(upper_designer=Upper('designer_sku'))
+				.filter(upper_designer__in=unmatched)
+				.only('master_sku', 'designer_sku', 'die_numbers')
+			)
+			for p in products_by_designer:
+				key = p.designer_sku.upper()
+				if key not in product_map:
+					product_map[key] = p
+
+		result = []
+		for sku in ordered_skus:
+			product = product_map.get(sku.upper())
+			die_numbers = []
+			if product and isinstance(product.die_numbers, list):
+				for entry in product.die_numbers:
+					if isinstance(entry, dict) and entry.get('value', '').strip():
+						die_numbers.append({
+							'value': entry.get('value', ''),
+							'quantity': entry.get('quantity', ''),
+							'location': entry.get('location', ''),
+						})
+			# Always include the SKU, even if no die numbers are recorded
+			result.append({'sku': sku, 'die_numbers': die_numbers})
 
 		return Response({'success': True, 'data': result})

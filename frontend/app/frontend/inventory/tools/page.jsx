@@ -58,6 +58,7 @@ const isEmptyToolRow = (row) => {
 };
 
 export default function ToolsInventoryPage() {
+  const { canExport } = useSheetPermissions('inventory');
   const [rows, setRows] = useState([]);
   const [status, setStatus] = useState('');
   const [loading, setLoading] = useState(false);
@@ -748,7 +749,7 @@ export default function ToolsInventoryPage() {
                           <p className="mt-0.5 truncate text-xs text-cool-gray">Reason: {req.reason || '-'}</p>
                           <div className="mt-1 flex items-center gap-2">
                             <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${statusClass}`}>{req.status}</span>
-                            {req.status === 'approved' && (
+                            {req.status === 'approved' && canExport && (
                               <button
                                 type="button"
                                 onClick={(e) => { e.stopPropagation(); printIssueVoucher(req); }}
@@ -983,7 +984,7 @@ export default function ToolsInventoryPage() {
                 <Button onClick={() => reviewIssueRequest('approved')}>Approve</Button>
               </>
             )}
-            {activeRequest?.status === 'approved' && (
+            {activeRequest?.status === 'approved' && canExport && (
               <Button variant="outline" onClick={() => printIssueVoucher(activeRequest)}>
                 <Printer size={14} className="mr-2" />
                 Print

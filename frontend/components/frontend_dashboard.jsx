@@ -8,6 +8,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { CreateJobModal } from '@/components/create-job-modal'
 import { GenericJobModal } from '@/components/generic-job-modal'
 import { PrintJobCardModal } from '@/components/print-job-card-modal'
+import { useSheetPermissions } from '@/hooks/use-sheet-permissions'
 import DateTimeStamp from '@/components/date-time-stamp'
 import MasterNavigationDrawer from '@/components/master_navigation_drawer'
 import Link from 'next/link'
@@ -18,6 +19,7 @@ const PRODUCT_SHEET_SYNC_EVENT = 'product_sheet_sync'
 function ProductSheetContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { canView, canEdit, canCreate, canExport, loading: permsLoading } = useSheetPermissions('product-sheet')
   const newProductToken = searchParams.get('new')
   const skuParam = (searchParams.get('sku') || '').trim()
   const fileInputRef = useRef(null)
@@ -64,7 +66,9 @@ function ProductSheetContent() {
   ])
 
   const [sku, setSku] = useState('')
-  const [designerSku, setDesignerSku] = useState('')
+  const [designerSkus, setDesignerSkus] = useState([''])
+  const designerSku = designerSkus[0] ?? ''
+  const setDesignerSku = (v) => setDesignerSkus(prev => [String(v ?? ''), ...prev.slice(1)])
   const [listingName, setListingName] = useState('')
   const [material, setMaterial] = useState('')
   const [materialSku, setMaterialSku] = useState('')
@@ -209,7 +213,7 @@ function ProductSheetContent() {
   })
 
   const [finalStock, setFinalStock] = useState([
-    { id: 1, sku: '', value: '', unit: '' },
+    { id: 1, sku: '', value: '', unit: '', location: '' },
   ])
 
   const TRACKING_DEFAULT_ROWS = () => [
@@ -434,7 +438,7 @@ function ProductSheetContent() {
     setProductImages([])
     setPrimaryImageIndex(0)
     setSku('')
-    setDesignerSku('')
+    setDesignerSkus([''])
     setListingName('')
     setMaterial('')
     setMaterialSku('')
@@ -496,7 +500,7 @@ function ProductSheetContent() {
       finalPolish: { min: '', current: '', wip: '', location: '' },
       readyForPlacing: { min: '', current: '', wip: '', location: '' },
     })
-    setFinalStock([{ id: 1, sku: '', value: '', unit: '' }])
+    setFinalStock([{ id: 1, sku: '', value: '', unit: '', location: '' }])
     setDesignerStoneRows(DESIGNER_STONE_DEFAULT())
     setDesignerPlatingRows(DESIGNER_PLATING_DEFAULT())
     setDesigner({
@@ -551,7 +555,7 @@ function ProductSheetContent() {
         if (!product) return
         setEditProductId(product.id)
         setSku(product.master_sku || '')
-        setDesignerSku(product.designer_sku || '')
+        setDesignerSkus(Array.isArray(product.designer_skus) && product.designer_skus.length ? product.designer_skus : product.designer_sku ? [product.designer_sku] : [''])
         setListingName(product.name || '')
         setMaterial(product.material || '')
         setDropdown1(product.material || '')
@@ -620,16 +624,23 @@ function ProductSheetContent() {
               ? invJson.data.results
               : []
 
-            // Build running totals per stage__stock_type
+            // Build running totals per stage__stock_type + latest location per stage
             const totals = new Map()
+            const locationByStage = new Map()
             txns.forEach((txn) => {
               if (String(txn?.txn_type || '').toLowerCase() === 'demand') return
               const stage = String(txn?.stage || '').trim() || 'default'
               const stockType = String(txn?.stock_type || 'current').trim() || 'current'
               const qty = Number(txn?.quantity || 0)
-              const key = `${stage}__${stockType}`
-              const delta = String(txn?.txn_type || '').toLowerCase() === 'out' ? -qty : qty
-              totals.set(key, (totals.get(key) || 0) + delta)
+              // Only accumulate non-zero qty (location-only syncs have qty=0)
+              if (qty !== 0) {
+                const key = `${stage}__${stockType}`
+                const delta = String(txn?.txn_type || '').toLowerCase() === 'out' ? -qty : qty
+                totals.set(key, (totals.get(key) || 0) + delta)
+              }
+              // Track latest non-empty location per stage
+              const loc = String(txn?.location || '').trim()
+              if (loc) locationByStage.set(stage, loc)
             })
 
             const get = (stage, type) => {
@@ -656,20 +667,21 @@ function ProductSheetContent() {
                   min:      get(stageKey, 'min'),
                   current:  get(stageKey, 'current'),
                   wip:      get(stageKey, 'wip'),
-                  location: prev[frontendKey]?.location || '',
+                  location: locationByStage.get(stageKey) || prev[frontendKey]?.location || '',
                 }
               }
               return next
             })
 
-            // Populate per-variation final stock values from final_stock__{varSku} transactions
+            // Populate per-variation final stock values + location from final_stock__{varSku} transactions
             setFinalStock(prev =>
               prev.map(row => {
                 const varSku = String(row.sku || '').trim()
                 if (!varSku) return row
                 const varStageKey = `final_stock__${varSku.toLowerCase()}`
                 const value = get(varStageKey, 'current')
-                return value !== '' ? { ...row, value } : row
+                const location = locationByStage.get(varStageKey) || ''
+                return (value !== '' || location !== '') ? { ...row, ...(value !== '' ? { value } : {}), ...(location !== '' ? { location } : {}) } : row
               })
             )
           })
@@ -726,97 +738,217 @@ function ProductSheetContent() {
     return () => { cancelled = true }
   }, [skuParam])
 
-  // Auto-fill designer panel, stone info, and plating when Designer SKU is typed
+  // Auto-fill designer panel, stone info, and plating when any Designer SKU is typed
   useEffect(() => {
-    const dSku = designerSku.trim()
-    if (!dSku) return
+    const activeSkus = designerSkus.map(s => s.trim()).filter(Boolean)
+    if (activeSkus.length === 0) return
     if (designerSkuLookupRef.current) clearTimeout(designerSkuLookupRef.current)
-    designerSkuLookupRef.current = setTimeout(() => {
-      fetch(`/api/designers?sku=${encodeURIComponent(dSku)}`, { cache: 'no-store' })
-        .then(r => r.json())
-        .then(json => {
-          const rows = Array.isArray(json.data) ? json.data : (json.data?.results || [])
-          const d = rows.find(r => String(r.sku || '').trim().toLowerCase() === dSku.toLowerCase())
-          if (!d) return
-          setDesignerRecordId(d.id)
-          setDesigner(prev => ({
-            ...prev,
-            image1: d.rendered_photo || d.image || prev.image1,
-            image2: d.technical_drawing || d.designer_image_2 || prev.image2,
-            image3: d.designer_image_3 || prev.image3,
-            designStage: d.design_stage || prev.designStage,
-            settingType: d.setting_type || prev.settingType,
-            enamel: d.enamel || prev.enamel,
-            tdmLength: (d.total_design_measurements?.length) || prev.tdmLength || '',
-            tdmWidth: (d.total_design_measurements?.width) || prev.tdmWidth || '',
-            tdmHeight: (d.total_design_measurements?.height) || prev.tdmHeight || '',
-            designMaterial: d.design_material || prev.designMaterial,
-            dieCode: d.total_die_code != null ? String(d.total_die_code) : (d.die_code || prev.dieCode),
-            moldQtyPerDie: d.total_mold_qty_per_die != null ? String(d.total_mold_qty_per_die) : (d.mold_qty_per_die || prev.moldQtyPerDie),
-            cpxDeadWeight: d.total_cpx_dead_weight != null ? String(d.total_cpx_dead_weight) : (d.cpx_dead_weight || prev.cpxDeadWeight),
-            mechanism: d.mechanism || prev.mechanism,
-            notes: d.designer_notes || prev.notes,
-            trackingRows: Array.isArray(d.tracking_rows) && d.tracking_rows.length
-              ? d.tracking_rows.map((r, i) => ({ id: r.id ?? i + 1, tdm: r.tdm ?? '', stl: r.stl ?? '', motiveCode: r.motiveCode ?? '', motiveSku: r.motiveSku ?? r.masterSku ?? '', dieCode: r.dieCode ?? '', moldDieQty: r.moldDieQty ?? '', length: r.length ?? '', width: r.width ?? '', height: r.height ?? '' }))
-              : prev.trackingRows,
-            findingsRows: Array.isArray(d.findings_entries) && d.findings_entries.length
-              ? d.findings_entries.map((r, i) => ({ id: i + 1, code: r.code || '', quantity: r.quantity || '' }))
-              : prev.findingsRows,
-          }))
-          if (Array.isArray(d.stone_entries) && d.stone_entries.length > 0) {
-            setDesignerStoneRows(d.stone_entries.map((s, i) => ({ id: i + 1, type: s.type || '', species: s.species || '', variety: s.variety || '', color: s.color || '', cut: s.cut || '', shape: s.shape || '', length: s.length || '', width: s.width || '', height: s.height || '', qty: s.qty || '' })))
-            // Auto-fill product stone: cut/shape/length/width/height/qty; type/species/variety/color stay manual
-            setStoneInfo(prev => {
-              return d.stone_entries.map((s, i) => ({
-                id: i + 1,
-                type: prev[i]?.type || '',
-                species: prev[i]?.species || '',
-                variety: prev[i]?.variety || '',
-                color: prev[i]?.color || '',
-                cut: s.cut || '',
-                shape: s.shape || '',
-                length: s.length || '',
-                width: s.width || '',
-                height: s.height || '',
-                qty: s.qty || '',
-              }))
-            })
+    designerSkuLookupRef.current = setTimeout(async () => {
+      try {
+        // Fetch all designer SKUs in parallel
+        const results = await Promise.all(
+          activeSkus.map(dSku =>
+            fetch(`/api/designers?sku=${encodeURIComponent(dSku)}`, { cache: 'no-store' })
+              .then(r => r.json())
+              .then(json => {
+                const rows = Array.isArray(json.data) ? json.data : (json.data?.results || [])
+                return rows.find(r => String(r.sku || '').trim().toLowerCase() === dSku.toLowerCase()) || null
+              })
+              .catch(() => null)
+          )
+        )
+        const designers = results.filter(Boolean)
+        if (designers.length === 0) return
+
+        // ── Helpers ─────────────────────────────────────────────────────────
+        // Sum quantities of entries with the same key; keep other fields from first seen
+        const mergeByKeySum = (arr, keyFn, qtyFn, merge) => {
+          const map = new Map()
+          for (const item of arr) {
+            const k = keyFn(item)
+            if (!k) continue
+            if (map.has(k)) {
+              const prev = map.get(k)
+              const prevQty = parseFloat(prev._qty) || 0
+              const addQty = parseFloat(qtyFn(item)) || 0
+              map.set(k, { ...prev, _qty: String(prevQty + addQty) })
+            } else {
+              map.set(k, { ...item, _qty: String(parseFloat(qtyFn(item)) || 0) })
+            }
           }
-          if (Array.isArray(d.plating_entries) && d.plating_entries.length > 0) {
-            setDesignerPlatingRows(d.plating_entries.map((p, i) => ({ id: i + 1, type: p.type || '', color: p.color || '' })))
-          }
-          // Auto-fill product sheet: die codes from tracking_rows, findings from findings_entries
-          const dieEntries = Array.isArray(d.tracking_rows)
-            ? d.tracking_rows.filter(r => r.dieCode).map((r, i) => ({ id: i + 1, type: 'die_number', value: r.dieCode || '', quantity: r.moldDieQty || '', location: '' }))
-            : []
-          const findingEntries = Array.isArray(d.findings_entries)
-            ? d.findings_entries.filter(r => r.code).map((r, i) => ({ id: dieEntries.length + i + 1, type: 'findings', value: r.code || '', quantity: r.quantity || '', location: '' }))
-            : []
-          const combined = [...dieEntries, ...findingEntries]
-          if (combined.length > 0) {
-            while (combined.length < 5) combined.push({ id: combined.length + 1, type: 'die_number', value: '', quantity: '', location: '' })
-            setManufacturing(prev => ({ ...prev, dieNumbers: combined }))
-          }
-          // Auto-fill product sheet: setting type and enamel
+          return Array.from(map.values()).map((item, i) => merge(item, i))
+        }
+
+        // Deduplicate by key (no sum), first occurrence wins
+        const dedupeByKey = (arr, keyFn) => {
+          const seen = new Set()
+          return arr.filter(item => {
+            const k = keyFn(item)
+            if (!k || seen.has(k)) return false
+            seen.add(k)
+            return true
+          })
+        }
+
+        // ── Use first designer for single-value fields ───────────────────────
+        const d0 = designers[0]
+        setDesignerRecordId(d0.id)
+
+        // Merge tracking rows across all designers (dedupe by dieCode, sum moldDieQty)
+        const allTrackingRaw = designers.flatMap(d => Array.isArray(d.tracking_rows) ? d.tracking_rows : [])
+        const mergedTracking = mergeByKeySum(
+          allTrackingRaw,
+          r => String(r.dieCode || '').trim().toLowerCase(),
+          r => r.moldDieQty,
+          (item, i) => ({
+            id: i + 1,
+            tdm: item.tdm ?? '',
+            stl: item.stl ?? '',
+            motiveCode: item.motiveCode ?? '',
+            motiveSku: item.motiveSku ?? item.masterSku ?? '',
+            dieCode: item.dieCode ?? '',
+            moldDieQty: item._qty,
+            length: item.length ?? '',
+            width: item.width ?? '',
+            height: item.height ?? '',
+          })
+        )
+
+        // Merge findings across all designers (dedupe by code, sum quantity)
+        const allFindingsRaw = designers.flatMap(d => Array.isArray(d.findings_entries) ? d.findings_entries : [])
+        const mergedFindings = mergeByKeySum(
+          allFindingsRaw,
+          r => String(r.code || '').trim().toLowerCase(),
+          r => r.quantity,
+          (item, i) => ({ id: i + 1, code: item.code || '', quantity: item._qty })
+        )
+
+        // Merge stone entries across all designers (dedupe by cut+shape+length+width+height, sum qty)
+        const allStonesRaw = designers.flatMap(d => Array.isArray(d.stone_entries) ? d.stone_entries : [])
+        const mergedStones = mergeByKeySum(
+          allStonesRaw,
+          s => [s.cut, s.shape, s.length, s.width, s.height].map(v => String(v || '').trim().toLowerCase()).join('|'),
+          s => s.qty,
+          (item, i) => ({
+            id: i + 1,
+            type: item.type || '',
+            species: item.species || '',
+            variety: item.variety || '',
+            color: item.color || '',
+            cut: item.cut || '',
+            shape: item.shape || '',
+            length: item.length || '',
+            width: item.width || '',
+            height: item.height || '',
+            qty: item._qty,
+          })
+        )
+
+        // Merge plating entries (dedupe by type+color, no sum needed)
+        const allPlatingRaw = designers.flatMap(d => Array.isArray(d.plating_entries) ? d.plating_entries : [])
+        const mergedPlating = dedupeByKey(
+          allPlatingRaw,
+          p => [String(p.type || '').trim().toLowerCase(), String(p.color || '').trim().toLowerCase()].join('|')
+        ).map((p, i) => ({ id: i + 1, type: p.type || '', color: p.color || '' }))
+
+        // Merge setting type across all designers (collect unique parts)
+        const settingParts = new Set()
+        for (const d of designers) {
           if (d.setting_type) {
             const st = d.setting_type.toLowerCase()
-            const parts = []
-            if (st.includes('wax')) parts.push('wax')
-            if (st.includes('hand')) parts.push('hand')
-            setSettingType(parts.join(','))
+            if (st.includes('wax')) settingParts.add('wax')
+            if (st.includes('hand')) settingParts.add('hand')
           }
+        }
+
+        // Merge enamel: 'yes' wins over 'no' if any designer has it
+        let mergedEnamel = ''
+        for (const d of designers) {
           if (d.enamel) {
             const en = d.enamel.toLowerCase()
-            if (en === 'yes') setEnamelType('yes')
-            else if (en === 'no') setEnamelType('no')
+            if (en === 'yes') { mergedEnamel = 'yes'; break }
+            if (en === 'no') mergedEnamel = 'no'
           }
-          setDesignerSaveStatus({ success: true, message: `Designer data loaded for "${dSku}"` })
-          setTimeout(() => setDesignerSaveStatus(null), 3000)
-        })
-        .catch(() => {})
+        }
+
+        // ── Apply merged data ────────────────────────────────────────────────
+        setDesigner(prev => ({
+          ...prev,
+          image1: d0.rendered_photo || d0.image || prev.image1,
+          image2: d0.technical_drawing || d0.designer_image_2 || prev.image2,
+          image3: d0.designer_image_3 || prev.image3,
+          designStage: d0.design_stage || prev.designStage,
+          settingType: d0.setting_type || prev.settingType,
+          enamel: d0.enamel || prev.enamel,
+          tdmLength: (d0.total_design_measurements?.length) || prev.tdmLength || '',
+          tdmWidth: (d0.total_design_measurements?.width) || prev.tdmWidth || '',
+          tdmHeight: (d0.total_design_measurements?.height) || prev.tdmHeight || '',
+          designMaterial: d0.design_material || prev.designMaterial,
+          dieCode: d0.total_die_code != null ? String(d0.total_die_code) : (d0.die_code || prev.dieCode),
+          moldQtyPerDie: d0.total_mold_qty_per_die != null ? String(d0.total_mold_qty_per_die) : (d0.mold_qty_per_die || prev.moldQtyPerDie),
+          cpxDeadWeight: d0.total_cpx_dead_weight != null ? String(d0.total_cpx_dead_weight) : (d0.cpx_dead_weight || prev.cpxDeadWeight),
+          mechanism: d0.mechanism || prev.mechanism,
+          notes: d0.designer_notes || prev.notes,
+          trackingRows: mergedTracking.length ? mergedTracking : prev.trackingRows,
+          findingsRows: mergedFindings.length ? mergedFindings : prev.findingsRows,
+        }))
+
+        // Stone info
+        if (mergedStones.length > 0) {
+          setDesignerStoneRows(mergedStones)
+          setStoneInfo(prev => mergedStones.map((s, i) => ({
+            id: i + 1,
+            type: prev[i]?.type || '',
+            species: prev[i]?.species || '',
+            variety: prev[i]?.variety || '',
+            color: prev[i]?.color || '',
+            cut: s.cut || '',
+            shape: s.shape || '',
+            length: s.length || '',
+            width: s.width || '',
+            height: s.height || '',
+            qty: s.qty || '',
+          })))
+        }
+
+        // Plating info
+        if (mergedPlating.length > 0) {
+          setDesignerPlatingRows(mergedPlating)
+        }
+
+        // Die numbers + findings merged into manufacturing rows
+        let idCounter = 1
+        const dieRows = mergeByKeySum(
+          designers.flatMap(d => Array.isArray(d.tracking_rows) ? d.tracking_rows.filter(r => r.dieCode) : []),
+          r => String(r.dieCode || '').trim().toLowerCase(),
+          r => r.moldDieQty,
+          (item) => ({ id: idCounter++, type: 'die_number', value: item.dieCode || '', quantity: item._qty, location: '' })
+        )
+        const findingRows = mergeByKeySum(
+          designers.flatMap(d => Array.isArray(d.findings_entries) ? d.findings_entries.filter(r => r.code) : []),
+          r => String(r.code || '').trim().toLowerCase(),
+          r => r.quantity,
+          (item) => ({ id: idCounter++, type: 'findings', value: item.code || '', quantity: item._qty, location: '' })
+        )
+        const combined = [...dieRows, ...findingRows]
+        if (combined.length > 0) {
+          while (combined.length < 5) combined.push({ id: combined.length + 1, type: 'die_number', value: '', quantity: '', location: '' })
+          setManufacturing(prev => ({ ...prev, dieNumbers: combined }))
+        }
+
+        // Setting type
+        if (settingParts.size > 0) setSettingType([...settingParts].join(','))
+
+        // Enamel
+        if (mergedEnamel) setEnamelType(mergedEnamel)
+
+        const loadedSkus = designers.map(d => d.sku).join(', ')
+        setDesignerSaveStatus({ success: true, message: `Designer data loaded for "${loadedSkus}"` })
+        setTimeout(() => setDesignerSaveStatus(null), 3000)
+      } catch {}
     }, 600)
     return () => { if (designerSkuLookupRef.current) clearTimeout(designerSkuLookupRef.current) }
-  }, [designerSku])
+  }, [designerSkus])
 
   useEffect(() => {
     const pendingDraft = localStorage.getItem('pending_draft_load')
@@ -850,17 +982,18 @@ function ProductSheetContent() {
     setFinalStock(prev => {
       const manualRows = prev.filter(r => !r.fromVariation)
       const existingVarMap = new Map(prev.filter(r => r.fromVariation).map(r => [r.sku, r]))
-      const varRows = varSkus.map(sku => existingVarMap.get(sku) || { sku, value: '', unit: '', fromVariation: true })
+      const varRows = varSkus.map(sku => existingVarMap.get(sku) || { sku, value: '', unit: '', location: '', fromVariation: true })
       const allRows = [...varRows, ...manualRows]
       return allRows.length > 0
         ? allRows.map((r, i) => ({ ...r, id: i + 1 }))
-        : [{ id: 1, sku: '', value: '', unit: '', fromVariation: false }]
+        : [{ id: 1, sku: '', value: '', unit: '', location: '', fromVariation: false }]
     })
   }, [variations])
 
   const buildProductData = (overrideValues = {}) => ({
     sku,
-    designerSku,
+    designerSku: designerSkus[0] ?? '',
+    designerSkus,
     listingName,
     material,
     materialSku,
@@ -961,7 +1094,7 @@ function ProductSheetContent() {
 
   const addFinalStockRow = () => {
     const newId = Math.max(...finalStock.map(r => r.id), 0) + 1
-    setFinalStock([...finalStock, { id: newId, sku: '', value: '', unit: '', fromVariation: false }])
+    setFinalStock([...finalStock, { id: newId, sku: '', value: '', unit: '', location: '', fromVariation: false }])
   }
 
   const deleteFinalStock = (id) => {
@@ -1562,7 +1695,7 @@ function ProductSheetContent() {
 
     // Populate all form fields from the backend product
     setSku(product.master_sku || '')
-    setDesignerSku(product.designer_sku || '')
+    setDesignerSkus(Array.isArray(product.designer_skus) && product.designer_skus.length ? product.designer_skus : product.designer_sku ? [product.designer_sku] : [''])
     setListingName(product.name || '')
     setMaterial(product.material || '')
     setDropdown1(product.material || '')
@@ -1701,7 +1834,7 @@ function ProductSheetContent() {
           
           // Clear form after successful deletion
           setSku('');
-          setDesignerSku('');
+          setDesignerSkus(['']);
           setListingName('');
           setDropdown1('');
           setWeightValue('');
@@ -1754,24 +1887,24 @@ function ProductSheetContent() {
                 ← BACK
               </button>
               {isViewMode ? (
-                <button onClick={() => setIsViewMode(false)} className="w-fit px-3 h-8 text-sm bg-trust-blue text-white font-semibold rounded-full shadow-sm hover:bg-deep-blue flex items-center gap-1">
+                canEdit && <button onClick={() => setIsViewMode(false)} className="w-fit px-3 h-8 text-sm bg-trust-blue text-white font-semibold rounded-full shadow-sm hover:bg-deep-blue flex items-center gap-1">
                   <Edit3 className="h-3.5 w-3.5" />
                   EDIT
                 </button>
               ) : (
-                <button onClick={handleSaveProduct} disabled={isSaving} className="w-fit px-3 h-8 text-sm bg-success text-white font-semibold rounded-full shadow-sm hover:bg-success/90 disabled:opacity-50 disabled:cursor-not-allowed">{isSaving ? 'Saving...' : 'SAVE'}</button>
+                canEdit && <button onClick={handleSaveProduct} disabled={isSaving} className="w-fit px-3 h-8 text-sm bg-success text-white font-semibold rounded-full shadow-sm hover:bg-success/90 disabled:opacity-50 disabled:cursor-not-allowed">{isSaving ? 'Saving...' : 'SAVE'}</button>
               )}
-              <button onClick={handleDeleteProduct} disabled={isSaving} className="w-fit px-3 h-8 text-sm bg-danger text-white font-semibold rounded-full shadow-sm hover:bg-danger/90 disabled:opacity-50 disabled:cursor-not-allowed">DELETE</button>
+              {canEdit && <button onClick={handleDeleteProduct} disabled={isSaving} className="w-fit px-3 h-8 text-sm bg-danger text-white font-semibold rounded-full shadow-sm hover:bg-danger/90 disabled:opacity-50 disabled:cursor-not-allowed">DELETE</button>}
             </>
           ) : (
             <>
-              <button onClick={handleEditProduct} className="w-fit px-3 h-8 text-sm bg-trust-blue text-white font-semibold rounded-full shadow-sm hover:bg-deep-blue flex items-center gap-1">
+              {canEdit && <button onClick={handleEditProduct} className="w-fit px-3 h-8 text-sm bg-trust-blue text-white font-semibold rounded-full shadow-sm hover:bg-deep-blue flex items-center gap-1">
                 <Edit3 className="h-3.5 w-3.5" />
                 EDIT
-              </button>
-              <button onClick={handleAddProduct} className="w-fit px-3 h-8 text-sm bg-trust-blue text-white font-semibold rounded-full shadow-sm hover:bg-deep-blue">+ ADD PRODUCT</button>
-              <button onClick={handleSaveProduct} disabled={isSaving} className="w-fit px-3 h-8 text-sm bg-success text-white font-semibold rounded-full shadow-sm hover:bg-success/90 disabled:opacity-50 disabled:cursor-not-allowed">{isSaving ? 'Saving...' : 'SAVE'}</button>
-              <button onClick={handleDeleteProduct} disabled={isSaving} className="w-fit px-3 h-8 text-sm bg-danger text-white font-semibold rounded-full shadow-sm hover:bg-danger/90 disabled:opacity-50 disabled:cursor-not-allowed">DELETE</button>
+              </button>}
+              {canCreate && <button onClick={handleAddProduct} className="w-fit px-3 h-8 text-sm bg-trust-blue text-white font-semibold rounded-full shadow-sm hover:bg-deep-blue">+ ADD PRODUCT</button>}
+              {canEdit && <button onClick={handleSaveProduct} disabled={isSaving} className="w-fit px-3 h-8 text-sm bg-success text-white font-semibold rounded-full shadow-sm hover:bg-success/90 disabled:opacity-50 disabled:cursor-not-allowed">{isSaving ? 'Saving...' : 'SAVE'}</button>}
+              {canEdit && <button onClick={handleDeleteProduct} disabled={isSaving} className="w-fit px-3 h-8 text-sm bg-danger text-white font-semibold rounded-full shadow-sm hover:bg-danger/90 disabled:opacity-50 disabled:cursor-not-allowed">DELETE</button>}
             </>
           )}
           {saveStatus && (
@@ -1934,7 +2067,21 @@ function ProductSheetContent() {
               </div>
               <div className="flex-1 bg-white border-2 border-soft-border rounded-xl shadow-sm px-2 py-1">
                 <div className="font-semibold text-sm mb-0.5">DESIGNER SKU</div>
-                <input type="text" value={designerSku} onChange={(e) => setDesignerSku(e.target.value)} className="w-full bg-transparent outline-none text-sm border border-soft-border rounded px-2 py-0"/>
+                {designerSkus.map((dsku, idx) => (
+                  <div key={idx} className="flex items-center gap-1 mt-0.5">
+                    <input
+                      type="text"
+                      value={dsku}
+                      onChange={(e) => { const updated = [...designerSkus]; updated[idx] = e.target.value; setDesignerSkus(updated) }}
+                      className="flex-1 bg-transparent outline-none text-sm border border-soft-border rounded px-2 py-0"
+                      placeholder={idx === 0 ? 'Designer SKU' : `Designer SKU ${idx + 1}`}
+                    />
+                    {designerSkus.length > 1 && (
+                      <button type="button" onClick={() => setDesignerSkus(prev => prev.filter((_, i) => i !== idx))} className="text-red-400 hover:text-red-600 font-bold px-1 text-sm leading-none" aria-label="Remove">×</button>
+                    )}
+                  </div>
+                ))}
+                <button type="button" onClick={() => setDesignerSkus(prev => [...prev, ''])} className="mt-1 text-xs text-trust-blue hover:underline">+ Add SKU</button>
               </div>
               <div className="flex-1 bg-white border-2 border-soft-border rounded-xl shadow-sm px-2 py-1">
                 <div className="font-semibold text-sm mb-0.5">LISTING NAME</div>
@@ -2282,8 +2429,8 @@ function ProductSheetContent() {
       <div className="bg-cloud-gray p-2 rounded-xl mb-2 border border-soft-border shadow-sm">
         <h2 className="text-sm font-semibold mb-1.5 text-center text-warning">LIVE STOCK SITUATION</h2>
         <div className="flex gap-2 items-start">
-          {/* Main Live Stock Table - 80% */}
-          <div className="flex-shrink-0 bg-white border border-soft-border rounded-xl" style={{width: '80%'}}>
+          {/* Main Live Stock Table - 70% */}
+          <div className="flex-shrink-0 bg-white border border-soft-border rounded-xl" style={{width: '70%'}}>
             <table className="w-full table-fixed text-sm border-collapse text-center">
               <thead>
                 <tr className="bg-[#dce8f5]">
@@ -2348,13 +2495,14 @@ function ProductSheetContent() {
             </table>
           </div>
 
-          {/* Final Stock Table - 20% */}
-          <div className="flex-shrink-0 border border-soft-border rounded-xl overflow-hidden flex flex-col max-h-[170px]" style={{width: '20%'}}>
+          {/* Final Stock Table - 30% */}
+          <div className="flex-shrink-0 border border-soft-border rounded-xl overflow-hidden flex flex-col max-h-[170px]" style={{width: '30%'}}>
             {/* Fixed header */}
             <div className="flex flex-shrink-0 bg-[#dce8f5] border-b border-soft-border">
               <div className="flex-1 border-r border-soft-border px-1 py-1 text-center text-sm font-semibold text-midnight-ink">SKU</div>
               <div className="flex-1 border-r border-soft-border px-1 py-1 text-center text-sm font-semibold text-midnight-ink">Value</div>
               <div className="flex-1 border-r border-soft-border px-1 py-1 text-center text-sm font-semibold text-midnight-ink">Unit</div>
+              <div className="flex-1 border-r border-soft-border px-1 py-1 text-center text-sm font-semibold text-midnight-ink">Location</div>
               <div className="w-6"></div>
             </div>
             {/* Scrollable body — constrained to left table's height */}
@@ -2364,6 +2512,7 @@ function ProductSheetContent() {
                   <input className={`flex-1 min-w-0 px-1 py-1 text-sm outline-none text-center border-r border-soft-border ${row.fromVariation ? 'bg-blue-50 text-trust-blue font-medium cursor-default' : 'bg-transparent'}`} placeholder="SKU" value={row.sku} onChange={(e) => !row.fromVariation && updateFinalStock(row.id, 'sku', e.target.value)} readOnly={!!row.fromVariation} />
                   <input className="flex-1 min-w-0 px-1 py-1 text-sm bg-transparent outline-none text-center border-r border-soft-border" placeholder="Value" value={row.value} onChange={(e) => updateFinalStock(row.id, 'value', e.target.value)} />
                   <input className="flex-1 min-w-0 px-1 py-1 text-sm bg-transparent outline-none text-center border-r border-soft-border" placeholder="Unit" value={row.unit} onChange={(e) => updateFinalStock(row.id, 'unit', e.target.value)} />
+                  <input className="flex-1 min-w-0 px-1 py-1 text-sm bg-transparent outline-none text-center border-r border-soft-border" placeholder="Location" value={row.location || ''} onChange={(e) => updateFinalStock(row.id, 'location', e.target.value)} />
                   <div className="w-6 flex items-center justify-center flex-shrink-0">
                     <button type="button" onClick={() => deleteFinalStock(row.id)} className="text-danger hover:text-danger-dark transition-colors">
                       <Trash2 className="h-3 w-3" />
@@ -2377,7 +2526,7 @@ function ProductSheetContent() {
           </div>
         </div>
         <div className="mt-2 flex justify-center gap-3">
-          <button onClick={() => setIsCreateJobModalOpen(true)} className="px-6 py-1.5 bg-success text-white font-semibold rounded text-sm hover:bg-success">Create Job</button>
+          {canCreate && <button onClick={() => setIsCreateJobModalOpen(true)} className="px-6 py-1.5 bg-success text-white font-semibold rounded text-sm hover:bg-success">Create Job</button>}
         </div>
       </div>
 
@@ -3063,7 +3212,21 @@ function ProductSheetContent() {
                       </div>
                       <div className="flex-1 bg-white border-2 border-soft-border px-2 py-1">
                         <div className="font-semibold text-sm mb-0.5">DESIGNER SKU</div>
-                        <input type="text" value={designerSku} onChange={(e) => setDesignerSku(e.target.value)} className="w-full bg-transparent outline-none text-sm border border-soft-border rounded px-2 py-0"/>
+                        {designerSkus.map((dsku, idx) => (
+                          <div key={idx} className="flex items-center gap-1 mt-0.5">
+                            <input
+                              type="text"
+                              value={dsku}
+                              onChange={(e) => { const updated = [...designerSkus]; updated[idx] = e.target.value; setDesignerSkus(updated) }}
+                              className="flex-1 bg-transparent outline-none text-sm border border-soft-border rounded px-2 py-0"
+                              placeholder={idx === 0 ? 'Designer SKU' : `Designer SKU ${idx + 1}`}
+                            />
+                            {designerSkus.length > 1 && (
+                              <button type="button" onClick={() => setDesignerSkus(prev => prev.filter((_, i) => i !== idx))} className="text-red-400 hover:text-red-600 font-bold px-1 text-sm leading-none" aria-label="Remove">×</button>
+                            )}
+                          </div>
+                        ))}
+                        <button type="button" onClick={() => setDesignerSkus(prev => [...prev, ''])} className="mt-1 text-xs text-trust-blue hover:underline">+ Add SKU</button>
                       </div>
                       <div className="flex-1 bg-white border-2 border-soft-border px-2 py-1">
                         <div className="font-semibold text-sm mb-0.5">LISTING NAME</div>

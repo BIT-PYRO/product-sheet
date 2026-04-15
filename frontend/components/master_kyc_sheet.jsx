@@ -86,7 +86,7 @@ const columnConfig = {
 };
 
 export default function MasterKYCSheet() {
-  const { canEdit, canCreate, canExport } = useSheetPermissions('master-kyc-sheet');
+  const { canView, canEdit, canCreate, canExport, loading: permsLoading } = useSheetPermissions('master-kyc-sheet');
   const [lastUpdated, setLastUpdated] = useState(null);
   const [currentUsername, setCurrentUsername] = useState('');
   const [isLoading, setIsLoading] = useState(true);
@@ -112,6 +112,7 @@ export default function MasterKYCSheet() {
   const [kycTypeFilter, setKycTypeFilter] = useState('All');
   const [rowsPerPage, setRowsPerPage] = useState(25);
   const [currentPage, setCurrentPage] = useState(1);
+  const [sortOrder, setSortOrder] = useState('default');
 
   const KYC_TYPE_OPTIONS = ['All', 'Customer', 'Work from Home', 'Vendor', 'Labour', 'Company'];
 
@@ -269,6 +270,12 @@ export default function MasterKYCSheet() {
   });
 
   const sortedProducts = [...filteredProducts].sort((a, b) => {
+    if (sortOrder !== 'default') {
+      if (sortOrder === 'newest') return (b.id || 0) - (a.id || 0);
+      if (sortOrder === 'oldest') return (a.id || 0) - (b.id || 0);
+      const av = String(a.companyName || '').toLowerCase(), bv = String(b.companyName || '').toLowerCase();
+      return sortOrder === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
+    }
     if (!sortField) return 0;
     const aValue = a[sortField] || '';
     const bValue = b[sortField] || '';
@@ -279,6 +286,9 @@ export default function MasterKYCSheet() {
   const totalPages = Math.max(1, Math.ceil(sortedProducts.length / rowsPerPage));
   const safePage = Math.min(currentPage, totalPages);
   const paginatedKycData = sortedProducts.slice((safePage - 1) * rowsPerPage, safePage * rowsPerPage);
+
+  if (permsLoading) return <div className="min-h-screen bg-cloud-gray flex items-center justify-center"><div className="w-8 h-8 border-4 border-trust-blue border-t-transparent rounded-full animate-spin" /></div>;
+  if (!canView) return <div className="min-h-screen bg-cloud-gray flex items-center justify-center"><div className="text-center"><h2 className="text-xl font-bold text-midnight-ink mb-2">Access Denied</h2><p className="text-cool-gray text-sm">You do not have permission to view this sheet. Contact your admin.</p></div></div>;
 
   return (
     <div className="min-h-screen bg-cloud-gray">
@@ -365,12 +375,28 @@ export default function MasterKYCSheet() {
             <Button onClick={() => setIsManageColumnsOpen(true)} variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8">
               Manage Columns
             </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8">
+                  {sortOrder === 'default' ? 'Sort ▾' : sortOrder === 'asc' ? 'A → Z ▾' : sortOrder === 'desc' ? 'Z → A ▾' : sortOrder === 'newest' ? 'Newest ▾' : 'Oldest ▾'}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => { setSortOrder('asc'); setCurrentPage(1); }}>A → Z (Ascending)</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => { setSortOrder('desc'); setCurrentPage(1); }}>Z → A (Descending)</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => { setSortOrder('newest'); setCurrentPage(1); }}>Newest First</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => { setSortOrder('oldest'); setCurrentPage(1); }}>Oldest First</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => { setSortOrder('default'); setCurrentPage(1); }}>Default Order</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Button onClick={handleExport} variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8" disabled={!canExport} title={!canExport ? 'You do not have permission to export' : undefined}>
               Export
             </Button>
+            {canExport && (
             <Button onClick={() => window.print()} variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8">
               Print
             </Button>
+            )}
           </div>
 
           {/* Table */}

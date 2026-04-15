@@ -8,6 +8,7 @@ import { CreateJobModal } from '@/components/create-job-modal'
 import { QuickEnrollModal } from '@/components/quick-enroll-modal'
 import { EnrolWorkforceForm } from '@/app/frontend/enrol-workforce/page'
 import { CompanyKYCForm } from '@/components/company-kyc-form'
+import { useSheetPermissions } from '@/hooks/use-sheet-permissions'
 
 const DRAFTS_STORAGE_KEY = 'form_drafts'
 const CREATE_ORDER_ENTITY_TYPE = 'create_order'
@@ -102,6 +103,7 @@ const TABLE_CONFIG = {
 
 export default function DraftsPage() {
   const router = useRouter()
+  const { canView, canEdit, canCreate, canExport, loading: permsLoading } = useSheetPermissions('drafts')
   const [drafts, setDrafts] = useState({})
   const [backendCreateOrderDrafts, setBackendCreateOrderDrafts] = useState([])
   const [backendCreateOrderLoading, setBackendCreateOrderLoading] = useState(false)
@@ -231,6 +233,11 @@ export default function DraftsPage() {
 
   return (
     <main className="min-h-screen bg-cloud-gray p-4 md:p-8">
+      {permsLoading ? (
+        <div className="min-h-screen bg-cloud-gray flex items-center justify-center"><div className="w-8 h-8 border-4 border-trust-blue border-t-transparent rounded-full animate-spin" /></div>
+      ) : !canView ? (
+        <div className="min-h-screen bg-cloud-gray flex items-center justify-center"><div className="text-center"><h2 className="text-xl font-bold text-midnight-ink mb-2">Access Denied</h2><p className="text-cool-gray text-sm">You do not have permission to view this sheet. Contact your admin.</p></div></div>
+      ) : (
       <div className="max-w-6xl mx-auto">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-6">
           <div>
@@ -356,6 +363,7 @@ export default function DraftsPage() {
           </section>
         )}
       </div>
+      )}
     </main>
   )
 }

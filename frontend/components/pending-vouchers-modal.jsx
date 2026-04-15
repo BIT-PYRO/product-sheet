@@ -83,10 +83,15 @@ export function PendingVouchersModal({ open, onOpenChange, onVouchersApproved })
     }
   }, [open, loadVouchers])
 
-  const filteredVouchers = filterStatus === 'all'
-    ? vouchers
-    : vouchers.filter(v => v.approval_status === filterStatus)
+  const filteredVouchers = (() => {
+    if (filterStatus === 'all') return vouchers
+    if (filterStatus === 'suggested') return vouchers.filter(v => String(v.batch_id || '').startsWith('suggested-'))
+    if (filterStatus === 'needed') return vouchers.filter(v => String(v.batch_id || '').startsWith('needed-'))
+    return vouchers.filter(v => v.approval_status === filterStatus)
+  })()
 
+  const suggestedVouchers = vouchers.filter(v => String(v.batch_id || '').startsWith('suggested-'))
+  const neededVouchers    = vouchers.filter(v => String(v.batch_id || '').startsWith('needed-'))
   const pendingVouchers = vouchers.filter(v => v.approval_status === 'pending')
   const approvedVouchers = vouchers.filter(v =>
     v.approval_status === 'approved' ||
@@ -231,6 +236,12 @@ export function PendingVouchersModal({ open, onOpenChange, onVouchersApproved })
               <span className="px-2 py-1 rounded bg-amber-100 text-amber-800 font-semibold">
                 Pending: {pendingVouchers.length}
               </span>
+              <span className="px-2 py-1 rounded bg-orange-100 text-orange-700 font-semibold">
+                Suggested: {suggestedVouchers.length}
+              </span>
+              <span className="px-2 py-1 rounded bg-red-100 text-red-700 font-semibold">
+                Needed: {neededVouchers.length}
+              </span>
               <span className="px-2 py-1 rounded bg-blue-100 text-blue-800 font-semibold">
                 Approved: {approvedVouchers.length}
               </span>
@@ -257,6 +268,8 @@ export function PendingVouchersModal({ open, onOpenChange, onVouchersApproved })
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Vouchers</SelectItem>
+                <SelectItem value="suggested">Suggested</SelectItem>
+                <SelectItem value="needed">Needed</SelectItem>
                 <SelectItem value="pending">Pending</SelectItem>
                 <SelectItem value="approved">Approved</SelectItem>
                 <SelectItem value="in_process">In Process</SelectItem>

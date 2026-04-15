@@ -14,12 +14,12 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
-from .models import EmailOTP
+from .models import EmailOTP, RoleDefaultPermissions
 
 from common.api import api_success
 from workforce.models import WorkforceMember
 
-from .serializers import UserSerializer
+from .serializers import RoleDefaultPermissionsSerializer, UserSerializer
 
 
 class LoginView(TokenObtainPairView):
@@ -128,17 +128,21 @@ class GoogleLoginView(APIView):
 			return Response({'success': False, 'message': 'Google account has no email.'}, status=400)
 
 		User = get_user_model()
-		user, created = User.objects.get_or_create(
-			username=email,
-			defaults={
-				'email': email,
-				'first_name': first_name,
-				'last_name': last_name,
-			},
-		)
-		if created:
-			user.set_unusable_password()
-			user.save()
+		# Look up by email field first so existing accounts (e.g. superusers) are matched.
+		user = User.objects.filter(email=email).first()
+		created = False
+		if user is None:
+			user, created = User.objects.get_or_create(
+				username=email,
+				defaults={
+					'email': email,
+					'first_name': first_name,
+					'last_name': last_name,
+				},
+			)
+			if created:
+				user.set_unusable_password()
+				user.save()
 
 		WorkforceMember.objects.get_or_create(
 			email=email,
@@ -230,16 +234,22 @@ class VerifyOTPView(APIView):
 		latest.save()
 
 		User = get_user_model()
-		user, created = User.objects.get_or_create(
-			username=email,
-			defaults={
-				'email': email,
-				'is_approved': False,
-			},
-		)
-		if created:
-			user.set_unusable_password()
-			user.save()
+		# First look up by email field so existing accounts (e.g. superusers whose
+		# username differs from their email) are matched correctly.
+		user = User.objects.filter(email=email).first()
+		created = False
+		if user is None:
+			# No account with this email — create one keyed by email as username.
+			user, created = User.objects.get_or_create(
+				username=email,
+				defaults={
+					'email': email,
+					'is_approved': False,
+				},
+			)
+			if created:
+				user.set_unusable_password()
+				user.save()
 
 		# Ensure WorkforceMember record exists
 		WorkforceMember.objects.get_or_create(
@@ -317,3 +327,54 @@ class SetCredentialsView(APIView):
 		user.save()
 
 		return api_success({'username': new_username}, message='Credentials saved successfully.')
+
+
+class RoleDefaultPermissionsListView(APIView):
+	"""GET all three role permission templates (any authenticated user)."""
+	permission_classes = [IsAuthenticated]
+
+	@extend_schema(summary='List default permissions for all roles', tags=['Auth'])
+	def get(self, request):
+		objs = RoleDefaultPermissions.objects.all().order_by('role')
+		serializer = RoleDefaultPermissionsSerializer(objs, many=True)
+		return api_success(serializer.data, message='Role default permissions fetched.')
+
+
+class RoleDefaultPermissionsDetailView(APIView):
+	"""PATCH to update default permissions for a designation+department pair."""
+	permission_classes = [IsAuthenticated]
+
+	def _is_authorized(self, request):
+		if request.user.is_superuser or getattr(request.user, 'role', None) == 'admin':
+			return True
+		try:
+			from workforce.models import WorkforceMember
+			member = WorkforceMember.objects.filter(user=request.user).first()
+			if member and member.designation in ('CEO', 'Chairman', 'Director', 'General Manager'):
+				return True
+			if member and member.permissions and member.permissions.get('manage_members'):
+				return True
+		except Exception:
+			pass
+		return False
+
+	@extend_schema(summary='Update default permissions for a designation+department', tags=['Auth'])
+	def patch(self, request, role, department=''):
+		if not self._is_authorized(request):
+			return Response({'success': False, 'message': 'Not authorized.'}, status=403)
+
+		obj, _ = RoleDefaultPermissions.objects.get_or_create(
+			role=role, department=department, defaults={'permissions': {}}
+		)
+		serializer = RoleDefaultPermissionsSerializer(obj, data=request.data, partial=True)
+		if serializer.is_valid():
+			serializer.save()
+			# Push updated defaults to all matching active workforce members
+			from workforce.services.permission_sync import sync_all_members_for_role
+			synced = sync_all_members_for_role(role, department)
+			return api_success(
+				serializer.data,
+				message=f'Default permissions for {role}/{department} updated. {synced} member(s) synced.',
+			)
+		return Response({'success': False, 'errors': serializer.errors}, status=400)
+

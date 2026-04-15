@@ -36,7 +36,7 @@ import BulkUploadButton from '@/components/bulk-upload-button';
 import { useSheetPermissions } from '@/hooks/use-sheet-permissions';
 
 export default function MasterJobSheet() {
-  const { canEdit, canCreate, canExport } = useSheetPermissions('master-job-sheet');
+  const { canView, canEdit, canCreate, canExport, loading: permsLoading } = useSheetPermissions('master-job-sheet');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedRows, setSelectedRows] = useState(new Set());
   const [isManageColumnsOpen, setIsManageColumnsOpen] = useState(false);
@@ -55,6 +55,7 @@ export default function MasterJobSheet() {
   const [viewMode, setViewMode] = useState('active');
   const [rowsPerPage, setRowsPerPage] = useState(25);
   const [currentPage, setCurrentPage] = useState(1);
+  const [sortOrder, setSortOrder] = useState('default');
   
   // Column definitions
   const columns = [
@@ -411,9 +412,18 @@ export default function MasterJobSheet() {
   const isArchivedView = viewMode === 'archived';
   const displayedData = isArchivedView ? archivedData : activeData;
 
-  const totalPages = Math.max(1, Math.ceil(displayedData.length / rowsPerPage));
+  const sortedDisplayData = sortOrder === 'default' ? displayedData : [...displayedData].sort((a, b) => {
+    if (sortOrder === 'newest') return (b.id || 0) - (a.id || 0);
+    if (sortOrder === 'oldest') return (a.id || 0) - (b.id || 0);
+    const av = String(a.voucherNo || '').toLowerCase(), bv = String(b.voucherNo || '').toLowerCase();
+    return sortOrder === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
+  });
+  const totalPages = Math.max(1, Math.ceil(sortedDisplayData.length / rowsPerPage));
   const safePage = Math.min(currentPage, totalPages);
-  const paginatedData = displayedData.slice((safePage - 1) * rowsPerPage, safePage * rowsPerPage);
+  const paginatedData = sortedDisplayData.slice((safePage - 1) * rowsPerPage, safePage * rowsPerPage);
+
+  if (permsLoading) return <div className="min-h-screen bg-cloud-gray flex items-center justify-center"><div className="w-8 h-8 border-4 border-trust-blue border-t-transparent rounded-full animate-spin" /></div>;
+  if (!canView) return <div className="min-h-screen bg-cloud-gray flex items-center justify-center"><div className="text-center"><h2 className="text-xl font-bold text-midnight-ink mb-2">Access Denied</h2><p className="text-cool-gray text-sm">You do not have permission to view this sheet. Contact your admin.</p></div></div>;
 
   return (
     <div className="w-full min-h-screen bg-cloud-gray">
@@ -774,6 +784,20 @@ export default function MasterJobSheet() {
             />
           </div>
           <BulkUploadButton sheetType="jobs" onComplete={loadJobs} />
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8">
+                {sortOrder === 'default' ? 'Sort ▾' : sortOrder === 'asc' ? 'A → Z ▾' : sortOrder === 'desc' ? 'Z → A ▾' : sortOrder === 'newest' ? 'Newest ▾' : 'Oldest ▾'}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => { setSortOrder('asc'); setCurrentPage(1); }}>A → Z (Ascending)</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => { setSortOrder('desc'); setCurrentPage(1); }}>Z → A (Descending)</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => { setSortOrder('newest'); setCurrentPage(1); }}>Newest First</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => { setSortOrder('oldest'); setCurrentPage(1); }}>Oldest First</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => { setSortOrder('default'); setCurrentPage(1); }}>Default Order</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <Button
             onClick={loadJobs}
             variant="outline"
@@ -850,6 +874,7 @@ export default function MasterJobSheet() {
           </Button>
           
           {/* Print Dropdown */}
+          {canExport && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button 
@@ -868,6 +893,7 @@ export default function MasterJobSheet() {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+          )}
         </div>
 
       {/* Filter Row */}

@@ -9,7 +9,7 @@ import { OrderProgressSheetView } from '@/app/frontend/orders/progress-sheet/pag
 import { useSheetPermissions } from '@/hooks/use-sheet-permissions';
 
 export default function OrdersPage() {
-  const { canCreate } = useSheetPermissions('orders');
+  const { canView, canCreate, loading: permsLoading } = useSheetPermissions('orders');
   const [showCreateOrderForm, setShowCreateOrderForm] = useState(false);
   const [showOrderSheet, setShowOrderSheet] = useState(false);
   const [showOrderProgressSheet, setShowOrderProgressSheet] = useState(false);
@@ -42,6 +42,9 @@ export default function OrdersPage() {
     if (!showOrderProgressSheet || !orderProgressSectionRef.current) return;
     requestAnimationFrame(() => scrollToSection(orderProgressSectionRef));
   }, [showOrderProgressSheet]);
+
+  if (permsLoading) return <div className="min-h-screen bg-cloud-gray flex items-center justify-center"><div className="w-8 h-8 border-4 border-trust-blue border-t-transparent rounded-full animate-spin" /></div>;
+  if (!canView) return <div className="min-h-screen bg-cloud-gray flex items-center justify-center"><div className="text-center"><h2 className="text-xl font-bold text-midnight-ink mb-2">Access Denied</h2><p className="text-cool-gray text-sm">You do not have permission to view this sheet. Contact your admin.</p></div></div>;
 
   return (
     <main className="min-h-screen bg-cloud-gray">

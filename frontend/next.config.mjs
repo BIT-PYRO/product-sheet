@@ -48,6 +48,7 @@ const nextConfig = {
       { source: '/profile', destination: '/frontend/profile' },
       { source: '/manage-members', destination: '/frontend/manage-members' },
       { source: '/settings', destination: '/frontend/settings' },
+      { source: '/settings/:path*', destination: '/frontend/settings/:path*' },
       // Proxy /media/* requests to the Django backend so product images resolve correctly
       { source: '/media/:path*', destination: `${process.env.BACKEND_BASE_URL || 'https://product-sheet.onrender.com'}/media/:path*` },
     ]

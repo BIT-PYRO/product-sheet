@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import {
   Camera, ArrowLeft, User, Phone, MapPin,
   Briefcase, Globe, FileText, Pencil, Check, X, Shield,
+  CreditCard, Building2,
 } from 'lucide-react';
 
 /* ─── constants ─────────────────────────────────────── */
@@ -20,6 +21,61 @@ const ROLE_DOT = {
   manager: 'bg-midnight-ink',
   staff:   'bg-cool-gray',
 };
+
+const DESIGNATION_ORDER = [
+  'Chairman','CEO','Director','General Manager','Department Head','Project Manager',
+  'Manager','Supervisor','Associate','Developer','Intern','Labour','Worker',
+  'Cook','Pantry Boy','Janitor','Messenger','Security','Electrician','Plumber',
+  'CCTV','Carpenter','Ironsmith','Locksmith',
+];
+
+const DEPT_DATA = {
+  'Marketing':                    { categories: ['Performance','Offline','International','Social Media'], roles: ['Chairman','CEO','Director','Department Head','Manager','Associate','Intern'] },
+  'Customer Relation Management': { categories: ['Inbound Calls','Outbound Calls','Social Media','Emails','Offline'], roles: ['Chairman','CEO','Director','Department Head','Manager','Associate','Intern'] },
+  'Operations':                   { categories: [], roles: ['Chairman','CEO','Director','Department Head','Manager','Associate','Intern'] },
+  'Design':                       { categories: ['Jewellery','Branding','Visuals','Photographer / Videographer'], roles: ['Chairman','CEO','Director','Department Head','Manager','Associate','Intern'] },
+  'Logistics':                    { categories: [], roles: ['Chairman','CEO','Director','Department Head','Manager','Associate','Intern'] },
+  'Purchase':                     { categories: ['Tools / Machinery','Metals','Gemstones'], roles: ['Chairman','CEO','Director','Department Head','Manager','Associate'] },
+  'Sales / Business Development': { categories: ['Domestic','International'], roles: ['Chairman','CEO','Director','Department Head','Manager','Associate','Intern'] },
+  'Finance':                      { categories: [], roles: ['Chairman','CEO','Director','Department Head','Manager','Associate','Intern'] },
+  'Information Technology':       { categories: ['Shopify','Software'], roles: ['Chairman','CEO','Director','Department Head','General Manager','Project Manager','Developer','Associate','Intern'] },
+  'Human Resource':               { categories: [], roles: ['Chairman','CEO','Director','Department Head','Manager','Associate','Intern'] },
+  'Production':                   { categories: ['3D Printing','Die Cutting','Master Making','Wax','Wax Setting','Casting','Filing','Polish','Enamel','Hand Setting','Plating','Quality Check'], roles: ['Chairman','CEO','Director','Department Head','General Manager','Manager','Supervisor','Labour'] },
+  'Services':                     { categories: [], roles: ['Security','Electrician','Plumber','CCTV','Carpenter','Ironsmith','Locksmith'] },
+  'House Keeping':                { categories: [], roles: ['Cook','Pantry Boy','Janitor','Messenger'] },
+};
+
+const DEPARTMENTS = Object.keys(DEPT_DATA);
+
+const WORKING_STYLES = ['On-site','Remote','Hybrid','Field Work','Part-time','Contractual'];
+
+const INDIAN_STATES = [
+  'Andhra Pradesh','Arunachal Pradesh','Assam','Bihar','Chhattisgarh','Goa','Gujarat','Haryana',
+  'Himachal Pradesh','Jharkhand','Karnataka','Kerala','Madhya Pradesh','Maharashtra','Manipur',
+  'Meghalaya','Mizoram','Nagaland','Odisha','Punjab','Rajasthan','Sikkim','Tamil Nadu','Telangana',
+  'Tripura','Uttar Pradesh','Uttarakhand','West Bengal','Andaman and Nicobar Islands','Chandigarh',
+  'Dadra and Nagar Haveli and Daman and Diu','Delhi','Jammu and Kashmir',
+  'Ladakh','Lakshadweep','Puducherry',
+];
+
+const COUNTRIES = [
+  'India','United States','United Kingdom','Canada','Australia','Germany',
+  'France','Singapore','UAE','Saudi Arabia','Qatar','Kuwait','Bahrain',
+  'New Zealand','Netherlands','Switzerland','Japan','China','Bangladesh',
+  'Sri Lanka','Nepal','Pakistan',
+];
+
+const INDIAN_LANGUAGES = [
+  'Assamese','Bengali','Bodo','Dogri','English','Gujarati','Hindi','Kannada','Kashmiri',
+  'Konkani','Maithili','Malayalam','Manipuri','Marathi','Nepali','Odia',
+  'Punjabi','Sanskrit','Santali','Sindhi','Tamil','Telugu','Urdu',
+];
+
+function getDesignationRank(desig) {
+  if (!desig) return 999;
+  const idx = DESIGNATION_ORDER.findIndex(d => d.toLowerCase() === desig.toLowerCase());
+  return idx === -1 ? 998 : idx;
+}
 
 /* ─── helpers ────────────────────────────────────────── */
 function initials(name) {
@@ -54,17 +110,28 @@ function FieldRow({ label, value }) {
   );
 }
 
-function EditableField({ label, name, value, editValue, isEditing, onChange, type = 'text' }) {
+function EditableField({ label, name, value, editValue, isEditing, onChange, type = 'text', options, disabled }) {
   return (
     <div>
       <label className="text-xs font-semibold text-cool-gray uppercase tracking-wide block mb-0.5">{label}</label>
-      {isEditing ? (
-        <input
-          type={type}
-          value={editValue ?? ''}
-          onChange={e => onChange(name, e.target.value)}
-          className="w-full h-9 rounded-lg border border-soft-border px-3 text-sm text-midnight-ink focus:outline-none focus:ring-2 focus:ring-trust-blue bg-cloud-gray"
-        />
+      {isEditing && !disabled ? (
+        options ? (
+          <select
+            value={editValue ?? ''}
+            onChange={e => onChange(name, e.target.value)}
+            className="w-full h-9 rounded-lg border border-soft-border px-3 text-sm text-midnight-ink focus:outline-none focus:ring-2 focus:ring-trust-blue bg-cloud-gray"
+          >
+            <option value="">Select...</option>
+            {options.map(o => <option key={o} value={o}>{o}</option>)}
+          </select>
+        ) : (
+          <input
+            type={type}
+            value={editValue ?? ''}
+            onChange={e => onChange(name, e.target.value)}
+            className="w-full h-9 rounded-lg border border-soft-border px-3 text-sm text-midnight-ink focus:outline-none focus:ring-2 focus:ring-trust-blue bg-cloud-gray"
+          />
+        )
       ) : (
         <p className="text-sm font-medium text-midnight-ink">
           {value || <span className="text-cool-gray italic font-normal">—</span>}
@@ -74,14 +141,63 @@ function EditableField({ label, name, value, editValue, isEditing, onChange, typ
   );
 }
 
-function AddressBlock({ label, addr }) {
-  const parts = [addr?.line1, addr?.line2, addr?.city, addr?.state, addr?.pincode].filter(Boolean);
+function EditableAddress({ title, prefix, addr, editData, isEditing, onChange }) {
+  if (!isEditing) {
+    const parts = [addr?.line1, addr?.line2, addr?.city, addr?.state, addr?.country, addr?.pincode].filter(Boolean);
+    return (
+      <div>
+        <p className="text-sm font-medium text-midnight-ink">
+          {parts.length ? parts.join(', ') : <span className="text-cool-gray italic font-normal">—</span>}
+        </p>
+      </div>
+    );
+  }
+  const get = (field) => editData?.[`${prefix}_${field}`] ?? '';
+  const set = (field, val) => onChange(`${prefix}_${field}`, val);
+  const country = get('country');
   return (
-    <div>
-      <p className="text-xs font-semibold text-cool-gray uppercase tracking-wide mb-0.5">{label}</p>
-      <p className="text-sm font-medium text-midnight-ink">
-        {parts.length ? parts.join(', ') : <span className="text-cool-gray italic font-normal">—</span>}
-      </p>
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-3">
+      <div className="sm:col-span-2">
+        <label className="text-xs font-semibold text-cool-gray uppercase tracking-wide block mb-0.5">Address Line 1</label>
+        <input type="text" value={get('line1')} onChange={e => set('line1', e.target.value)}
+          className="w-full h-9 rounded-lg border border-soft-border px-3 text-sm text-midnight-ink focus:outline-none focus:ring-2 focus:ring-trust-blue bg-cloud-gray" />
+      </div>
+      <div className="sm:col-span-2">
+        <label className="text-xs font-semibold text-cool-gray uppercase tracking-wide block mb-0.5">Address Line 2</label>
+        <input type="text" value={get('line2')} onChange={e => set('line2', e.target.value)}
+          className="w-full h-9 rounded-lg border border-soft-border px-3 text-sm text-midnight-ink focus:outline-none focus:ring-2 focus:ring-trust-blue bg-cloud-gray" />
+      </div>
+      <div>
+        <label className="text-xs font-semibold text-cool-gray uppercase tracking-wide block mb-0.5">Country</label>
+        <select value={country} onChange={e => set('country', e.target.value)}
+          className="w-full h-9 rounded-lg border border-soft-border px-3 text-sm text-midnight-ink focus:outline-none focus:ring-2 focus:ring-trust-blue bg-cloud-gray">
+          <option value="">Select...</option>
+          {COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}
+        </select>
+      </div>
+      <div>
+        <label className="text-xs font-semibold text-cool-gray uppercase tracking-wide block mb-0.5">State</label>
+        {country === 'India' ? (
+          <select value={get('state')} onChange={e => set('state', e.target.value)}
+            className="w-full h-9 rounded-lg border border-soft-border px-3 text-sm text-midnight-ink focus:outline-none focus:ring-2 focus:ring-trust-blue bg-cloud-gray">
+            <option value="">Select...</option>
+            {INDIAN_STATES.map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+        ) : (
+          <input type="text" value={get('state')} onChange={e => set('state', e.target.value)}
+            className="w-full h-9 rounded-lg border border-soft-border px-3 text-sm text-midnight-ink focus:outline-none focus:ring-2 focus:ring-trust-blue bg-cloud-gray" />
+        )}
+      </div>
+      <div>
+        <label className="text-xs font-semibold text-cool-gray uppercase tracking-wide block mb-0.5">City</label>
+        <input type="text" value={get('city')} onChange={e => set('city', e.target.value)}
+          className="w-full h-9 rounded-lg border border-soft-border px-3 text-sm text-midnight-ink focus:outline-none focus:ring-2 focus:ring-trust-blue bg-cloud-gray" />
+      </div>
+      <div>
+        <label className="text-xs font-semibold text-cool-gray uppercase tracking-wide block mb-0.5">Pincode / ZIP</label>
+        <input type="text" value={get('pincode')} onChange={e => set('pincode', e.target.value)}
+          className="w-full h-9 rounded-lg border border-soft-border px-3 text-sm text-midnight-ink focus:outline-none focus:ring-2 focus:ring-trust-blue bg-cloud-gray" />
+      </div>
     </div>
   );
 }
@@ -95,13 +211,15 @@ export default function ProfilePage() {
 
   const [sessionUser, setSessionUser]       = useState(null);
   const [workforceMember, setWorkforceMember] = useState(null);
+  const [viewerMember, setViewerMember]     = useState(null); // the logged-in user's own workforce record
   const [loading, setLoading]               = useState(true);
   const [profilePhoto, setProfilePhoto]     = useState(null);
 
-  const [isEditing, setIsEditing]   = useState(false);
-  const [editData, setEditData]     = useState({});
-  const [saving, setSaving]         = useState(false);
-  const [saveMessage, setSaveMessage] = useState('');
+  const [isEditing, setIsEditing]       = useState(false);
+  const [isEditingJob, setIsEditingJob] = useState(false); // separate edit mode for job details
+  const [editData, setEditData]         = useState({});
+  const [saving, setSaving]             = useState(false);
+  const [saveMessage, setSaveMessage]   = useState('');
 
   /* ── load ── */
   useEffect(() => {
@@ -124,7 +242,10 @@ export default function ProfilePage() {
         const email = u.email || '';
         if (email) {
           const match = rawList.find(m => (m.email || '').toLowerCase() === email.toLowerCase());
-          if (match) setWorkforceMember(match);
+          if (match) {
+            setWorkforceMember(match);
+            setViewerMember(match);   // viewer IS the profile owner on own profile
+          }
         }
 
         const saved = localStorage.getItem(`profile_photo_${u.username}`);
@@ -174,16 +295,71 @@ export default function ProfilePage() {
   function startEdit() {
     if (!workforceMember) return;
     const wf = workforceMember;
+    const ca = wf.current_address || {};
+    const pa = wf.permanent_address || {};
     setEditData({
-      full_name: wf.full_name || '', dob: wf.dob || '', gender: wf.gender || '',
-      phone: wf.phone || '', whatsapp: wf.whatsapp || '', department: wf.department || '',
-      designation: wf.designation || '',
-      current_location: wf.current_location || '', first_language: wf.first_language || '',
-      second_language: wf.second_language || '', gst_number: wf.gst_number || '', notes: wf.notes || '',
+      full_name: wf.full_name || '',
+      dob: wf.dob || '',
+      gender: wf.gender || '',
+      phone: wf.phone || '',
+      whatsapp: wf.whatsapp || '',
+      first_language: wf.first_language || '',
+      second_language: wf.second_language || '',
+      gst_number: wf.gst_number || '',
+      notes: wf.notes || '',
+      category: wf.category || '',
+      working_style: wf.working_style || '',
+      // banking
+      account_name: wf.account_name || '',
+      bank_name: wf.bank_name || '',
+      account_number: wf.account_number || '',
+      ifsc: wf.ifsc || '',
+      // current address (flattened)
+      current_line1: ca.line1 || '',
+      current_line2: ca.line2 || '',
+      current_country: ca.country || '',
+      current_state: ca.state || '',
+      current_city: ca.city || '',
+      current_pincode: ca.pincode || '',
+      // permanent address (flattened)
+      permanent_line1: pa.line1 || '',
+      permanent_line2: pa.line2 || '',
+      permanent_country: pa.country || '',
+      permanent_state: pa.state || '',
+      permanent_city: pa.city || '',
+      permanent_pincode: pa.pincode || '',
     });
     setIsEditing(true);
     setSaveMessage('');
   }
+
+  /* canEditJob: viewer has manage_members, outranks the target, and is NOT the target themselves */
+  const canEditJob = (() => {
+    const vm = viewerMember;
+    const target = workforceMember;
+    if (!vm || !target) return false;
+    if (!vm.permissions?.manage_members) return false;
+    // users cannot edit their own job details
+    if (vm.id === target.id) return false;
+    return getDesignationRank(vm.designation) < getDesignationRank(target.designation);
+  })();
+
+  function startEditJob() {
+    if (!workforceMember) return;
+    const wf = workforceMember;
+    setEditData(prev => ({
+      ...prev,
+      job_department: wf.department || '',
+      job_category: wf.category || '',
+      job_designation: wf.designation || '',
+      job_working_style: wf.working_style || '',
+      job_current_location: wf.current_location || '',
+    }));
+    setIsEditingJob(true);
+    setSaveMessage('');
+  }
+
+  function cancelEditJob() { setIsEditingJob(false); setSaveMessage(''); }
 
   function handleEditChange(name, value) { setEditData(prev => ({ ...prev, [name]: value })); }
 
@@ -191,14 +367,56 @@ export default function ProfilePage() {
     if (!workforceMember?.id) return;
     setSaving(true); setSaveMessage('');
     try {
+      const payload = { ...editData };
+      if (payload.dob === '') payload.dob = null;
+      // reconstruct address objects from flat fields
+      payload.current_address = {
+        line1: payload.current_line1 || '', line2: payload.current_line2 || '',
+        country: payload.current_country || '', state: payload.current_state || '',
+        city: payload.current_city || '', pincode: payload.current_pincode || '',
+      };
+      payload.permanent_address = {
+        line1: payload.permanent_line1 || '', line2: payload.permanent_line2 || '',
+        country: payload.permanent_country || '', state: payload.permanent_state || '',
+        city: payload.permanent_city || '', pincode: payload.permanent_pincode || '',
+      };
+      // remove flat address keys
+      ['current_line1','current_line2','current_country','current_state','current_city','current_pincode',
+       'permanent_line1','permanent_line2','permanent_country','permanent_state','permanent_city','permanent_pincode',
+       'job_department','job_category','job_designation','job_working_style','job_current_location',
+      ].forEach(k => delete payload[k]);
+
       const res    = await fetch(`/api/workforce/${workforceMember.id}`, {
-        method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(editData),
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
       });
       const result = await res.json().catch(() => null);
       if (res.ok && result?.success) {
-        setWorkforceMember(prev => ({ ...prev, ...editData }));
+        setWorkforceMember(prev => ({ ...prev, ...payload }));
         setSaveMessage('Saved successfully!'); setIsEditing(false);
       } else { setSaveMessage(result?.message || 'Failed to save.'); }
+    } catch { setSaveMessage('Network error. Please try again.'); }
+    finally  { setSaving(false); }
+  }
+
+  async function handleSaveJob() {
+    if (!workforceMember?.id) return;
+    setSaving(true); setSaveMessage('');
+    try {
+      const payload = {
+        department: editData.job_department || '',
+        category: editData.job_category || '',
+        designation: editData.job_designation || '',
+        working_style: editData.job_working_style || '',
+        current_location: editData.job_current_location || '',
+      };
+      const res = await fetch(`/api/workforce/${workforceMember.id}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+      });
+      const result = await res.json().catch(() => null);
+      if (res.ok && result?.success) {
+        setWorkforceMember(prev => ({ ...prev, ...payload }));
+        setSaveMessage('Job details saved!'); setIsEditingJob(false);
+      } else { setSaveMessage(result?.message || 'Failed to save job details.'); }
     } catch { setSaveMessage('Network error. Please try again.'); }
     finally  { setSaving(false); }
   }
@@ -376,6 +594,8 @@ export default function ProfilePage() {
                   <div className="px-5 py-4 space-y-3">
                     <FieldRow label="Designation" value={wf?.designation} />
                     <FieldRow label="Department" value={wf?.department} />
+                    <FieldRow label="Category" value={wf?.category} />
+                    <FieldRow label="Working Style" value={wf?.working_style} />
                     <FieldRow label="Location" value={wf?.current_location} />
                     <FieldRow label="GST" value={wf?.gst_number} />
                   </div>
@@ -390,7 +610,7 @@ export default function ProfilePage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4">
                   <EditableField label="Full Name"     name="full_name" value={wf?.full_name} editValue={editData.full_name} isEditing={isEditing} onChange={handleEditChange} />
                   <EditableField label="Date of Birth" name="dob"       type="date" value={wf?.dob} editValue={editData.dob} isEditing={isEditing} onChange={handleEditChange} />
-                  <EditableField label="Gender"        name="gender"    value={wf?.gender} editValue={editData.gender} isEditing={isEditing} onChange={handleEditChange} />
+                  <EditableField label="Gender"        name="gender"    value={wf?.gender} editValue={editData.gender} isEditing={isEditing} onChange={handleEditChange} options={['Male','Female','Other']} />
                   <FieldRow      label="Email Address" value={sessionUser?.email || wf?.email} />
                 </div>
               </SectionCard>
@@ -402,28 +622,102 @@ export default function ProfilePage() {
                 </div>
               </SectionCard>
 
-              <SectionCard icon={Briefcase} title="Work Details">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4">
-                  <EditableField label="Designation"      name="designation"      value={wf?.designation}      editValue={editData.designation}      isEditing={isEditing} onChange={handleEditChange} />
-                  <EditableField label="Department"       name="department"       value={wf?.department}       editValue={editData.department}       isEditing={isEditing} onChange={handleEditChange} />
-                  <EditableField label="Current Location" name="current_location" value={wf?.current_location} editValue={editData.current_location} isEditing={isEditing} onChange={handleEditChange} />
+              {/* ── Job Details (manage_members + hierarchy gated) ── */}
+              <div className="bg-white rounded-xl border border-soft-border overflow-hidden mb-4">
+                <div className="flex items-center gap-2.5 px-5 py-3 border-b border-soft-border bg-cloud-gray">
+                  <Briefcase className="h-4 w-4 text-trust-blue shrink-0" />
+                  <h2 className="text-xs font-bold text-midnight-ink uppercase tracking-widest flex-1">Job Details</h2>
+                  {canEditJob && !isEditingJob && (
+                    <button onClick={startEditJob}
+                      className="flex items-center gap-1 text-trust-blue hover:text-deep-blue text-xs font-semibold transition">
+                      <Pencil className="h-3 w-3" /> Assign Role
+                    </button>
+                  )}
+                  {isEditingJob && (
+                    <div className="flex gap-2">
+                      <button onClick={handleSaveJob} disabled={saving}
+                        className="flex items-center gap-1 bg-trust-blue text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition disabled:opacity-60">
+                        <Check className="h-3 w-3" /> {saving ? 'Saving…' : 'Save'}
+                      </button>
+                      <button onClick={cancelEditJob}
+                        className="flex items-center gap-1 text-cool-gray hover:text-midnight-ink text-xs font-semibold transition">
+                        <X className="h-3 w-3" /> Cancel
+                      </button>
+                    </div>
+                  )}
                 </div>
-              </SectionCard>
+                <div className="px-5 py-4">
+                  {isEditingJob ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4">
+                      <div>
+                        <label className="text-xs font-semibold text-cool-gray uppercase tracking-wide block mb-0.5">Department</label>
+                        <select value={editData.job_department ?? ''} onChange={e => {
+                          handleEditChange('job_department', e.target.value);
+                          handleEditChange('job_category', '');
+                          handleEditChange('job_designation', '');
+                        }} className="w-full h-9 rounded-lg border border-soft-border px-3 text-sm text-midnight-ink focus:outline-none focus:ring-2 focus:ring-trust-blue bg-cloud-gray">
+                          <option value="">Select...</option>
+                          {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-xs font-semibold text-cool-gray uppercase tracking-wide block mb-0.5">Category</label>
+                        <select value={editData.job_category ?? ''} onChange={e => handleEditChange('job_category', e.target.value)}
+                          className="w-full h-9 rounded-lg border border-soft-border px-3 text-sm text-midnight-ink focus:outline-none focus:ring-2 focus:ring-trust-blue bg-cloud-gray">
+                          <option value="">Select...</option>
+                          {(DEPT_DATA[editData.job_department]?.categories || []).map(c => <option key={c} value={c}>{c}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-xs font-semibold text-cool-gray uppercase tracking-wide block mb-0.5">Designation</label>
+                        <select value={editData.job_designation ?? ''} onChange={e => handleEditChange('job_designation', e.target.value)}
+                          className="w-full h-9 rounded-lg border border-soft-border px-3 text-sm text-midnight-ink focus:outline-none focus:ring-2 focus:ring-trust-blue bg-cloud-gray">
+                          <option value="">Select...</option>
+                          {(DEPT_DATA[editData.job_department]?.roles || []).map(r => <option key={r} value={r}>{r}</option>)}
+                        </select>
+                      </div>
+                      <EditableField label="Working Style" name="job_working_style" value={wf?.working_style} editValue={editData.job_working_style} isEditing={true} onChange={handleEditChange} options={WORKING_STYLES} />
+                      <EditableField label="Current Location" name="job_current_location" value={wf?.current_location} editValue={editData.job_current_location} isEditing={true} onChange={handleEditChange} />
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4">
+                      <FieldRow label="Department"       value={wf?.department} />
+                      <FieldRow label="Category"         value={wf?.category} />
+                      <FieldRow label="Designation"      value={wf?.designation} />
+                      <FieldRow label="Working Style"    value={wf?.working_style} />
+                      <FieldRow label="Current Location" value={wf?.current_location} />
+                    </div>
+                  )}
+                  {!canEditJob && !isEditingJob && (
+                    <p className="text-xs text-cool-gray mt-3">Job details can only be updated by a senior with manage access.</p>
+                  )}
+                </div>
+              </div>
 
               <SectionCard icon={MapPin} title="Current Address">
-                <AddressBlock label="Address" addr={wf?.current_address} />
-                {isEditing && <p className="text-xs text-cool-gray mt-2">Address edits require admin update.</p>}
+                <EditableAddress title="Current Address" prefix="current" addr={wf?.current_address} editData={editData} isEditing={isEditing} onChange={handleEditChange} />
               </SectionCard>
 
               <SectionCard icon={MapPin} title="Permanent Address">
-                <AddressBlock label="Address" addr={wf?.permanent_address} />
+                <EditableAddress title="Permanent Address" prefix="permanent" addr={wf?.permanent_address} editData={editData} isEditing={isEditing} onChange={handleEditChange} />
               </SectionCard>
 
               <SectionCard icon={Globe} title="Languages & Other">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4">
-                  <EditableField label="First Language"  name="first_language"  value={wf?.first_language}  editValue={editData.first_language}  isEditing={isEditing} onChange={handleEditChange} />
-                  <EditableField label="Second Language" name="second_language" value={wf?.second_language} editValue={editData.second_language} isEditing={isEditing} onChange={handleEditChange} />
+                  <EditableField label="First Language"  name="first_language"  value={wf?.first_language}  editValue={editData.first_language}  isEditing={isEditing} onChange={handleEditChange} options={INDIAN_LANGUAGES} />
+                  <EditableField label="Second Language" name="second_language" value={wf?.second_language} editValue={editData.second_language} isEditing={isEditing} onChange={handleEditChange} options={INDIAN_LANGUAGES} />
                   <EditableField label="GST Number"      name="gst_number"      value={wf?.gst_number}      editValue={editData.gst_number}      isEditing={isEditing} onChange={handleEditChange} />
+                  <EditableField label="Category"        name="category"        value={wf?.category}        editValue={editData.category}        isEditing={isEditing} onChange={handleEditChange} />
+                  <EditableField label="Working Style"   name="working_style"   value={wf?.working_style}   editValue={editData.working_style}   isEditing={isEditing} onChange={handleEditChange} options={WORKING_STYLES} />
+                </div>
+              </SectionCard>
+
+              <SectionCard icon={CreditCard} title="Banking Details">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4">
+                  <EditableField label="Account Holder Name" name="account_name"   value={wf?.account_name}   editValue={editData.account_name}   isEditing={isEditing} onChange={handleEditChange} />
+                  <EditableField label="Bank Name"           name="bank_name"       value={wf?.bank_name}       editValue={editData.bank_name}       isEditing={isEditing} onChange={handleEditChange} />
+                  <EditableField label="Account Number"      name="account_number"  value={wf?.account_number}  editValue={editData.account_number}  isEditing={isEditing} onChange={handleEditChange} />
+                  <EditableField label="IFSC Code"           name="ifsc"            value={wf?.ifsc}            editValue={editData.ifsc}            isEditing={isEditing} onChange={handleEditChange} />
                 </div>
               </SectionCard>
 

@@ -5,7 +5,7 @@ const REFRESH_COOKIE = 'psd-refresh-token';
 const APPROVED_COOKIE = 'psd-approved';
 
 // Paths unapproved users are allowed to visit
-const PENDING_ALLOWED = ['/home', '/profile', '/settings', '/login'];
+const PENDING_ALLOWED = ['/home', '/profile', '/settings', '/login', '/manage-members'];
 
 function isPublicAsset(pathname) {
   return /\.[^/]+$/.test(pathname);

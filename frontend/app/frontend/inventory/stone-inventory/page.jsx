@@ -116,7 +116,7 @@ function CellInput({ value, onChange, type = 'text', disabled = false, placehold
 // â”€â”€â”€ main page â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export default function StoneInventoryPage() {
-  const { canAmount } = useSheetPermissions('inventory');
+  const { canView, canEdit, canCreate, canExport, canAmount, loading: permsLoading } = useSheetPermissions('inventory');
   const [stones, setStones] = useState([]);
   const [loading, setLoading] = useState(false);
   const [statusMsg, setStatusMsg] = useState('');
@@ -371,7 +371,7 @@ export default function StoneInventoryPage() {
 
     const stone = stones.find((s) => s.id === stoneIdNum);
     const request = {
-      id: Date.now(),
+      id: (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`,
       stoneId: stoneIdNum,
       stoneName: stoneName(stone),
       quantity: quantityNum,
@@ -678,6 +678,9 @@ export default function StoneInventoryPage() {
 
   // â”€â”€â”€ render â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
+
+  if (permsLoading) return <div className="min-h-screen bg-cloud-gray flex items-center justify-center"><div className="w-8 h-8 border-4 border-trust-blue border-t-transparent rounded-full animate-spin" /></div>;
+  if (!canView) return <div className="min-h-screen bg-cloud-gray flex items-center justify-center"><div className="text-center"><h2 className="text-xl font-bold text-midnight-ink mb-2">Access Denied</h2><p className="text-cool-gray text-sm">You do not have permission to view this sheet. Contact your admin.</p></div></div>;
   return (
     <main className="min-h-screen bg-cloud-gray">
       {/* â”€â”€ header â”€â”€ */}
@@ -727,7 +730,7 @@ export default function StoneInventoryPage() {
               Manage Columns
             </button>
 
-            <button
+            {canCreate && <button
               onClick={() => { setStoneForm(emptyStone()); setAddStoneOpen(true); }}
               className="inline-flex items-center gap-2 rounded-lg bg-trust-blue px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 transition"
             >
@@ -744,7 +747,7 @@ export default function StoneInventoryPage() {
               Edit Row
             </button>
 
-            <button
+            {canEdit && <button
               onClick={openStockPopup}
               disabled={selectedIds.size === 0}
               className="inline-flex items-center gap-2 rounded-lg border border-trust-blue bg-white px-3 py-2 text-sm font-medium text-trust-blue hover:bg-blue-50 transition disabled:opacity-40 disabled:cursor-not-allowed"
@@ -756,15 +759,15 @@ export default function StoneInventoryPage() {
                   {selectedIds.size}
                 </span>
               )}
-            </button>
+            </button>}
 
-            <button
+            {canEdit && <button
               onClick={openIssueJobPopup}
               disabled={selectedIds.size === 0}
               className="inline-flex items-center gap-2 rounded-lg border border-trust-blue bg-white px-3 py-2 text-sm font-medium text-trust-blue hover:bg-blue-50 transition disabled:opacity-40 disabled:cursor-not-allowed"
             >
               Issue Stone
-            </button>
+            </button>}
 
             <button
               onClick={() => setRequestsPanelOpen((prev) => !prev)}
@@ -907,7 +910,7 @@ export default function StoneInventoryPage() {
                           {c.render ? c.render(stone[c.key]) : (stone[c.key] ?? 'â€”')}
                         </td>
                       ))}
-                      {visibleColumns.has('actions') && <td className="px-4 py-2.5">
+                      <td className="px-4 py-2.5">
                         <button
                           onClick={() => setDeleteId(stone.id)}
                           className="text-red-500 hover:text-red-700 transition"
@@ -1051,7 +1054,7 @@ export default function StoneInventoryPage() {
                   <div className="px-4 py-6 text-sm text-cool-gray">No requests yet.</div>
                 ) : (
                   <div className="divide-y divide-soft-border">
-                    {sortedIssueRequests.map((req) => {
+                    {sortedIssueRequests.map((req, idx) => {
                       const statusClass =
                         req.status === 'approved'
                           ? 'bg-emerald-100 text-emerald-800'
@@ -1060,7 +1063,7 @@ export default function StoneInventoryPage() {
                             : 'bg-amber-100 text-amber-800';
                       return (
                         <button
-                          key={req.id}
+                          key={req.id ?? idx}
                           onClick={() => openRequestDetails(req.id)}
                           className="w-full rounded-xl px-4 py-3 text-left transition hover:bg-[#F9FAFB]"
                         >
@@ -1080,7 +1083,7 @@ export default function StoneInventoryPage() {
                                 <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${statusClass}`}>
                                   {req.status}
                                 </span>
-                                {req.status === 'approved' && (
+                                {req.status === 'approved' && canExport && (
                                   <button
                                     type="button"
                                     onClick={(e) => {
@@ -1493,7 +1496,7 @@ export default function StoneInventoryPage() {
                 <Button onClick={() => reviewIssueRequest('approved')}>Approve</Button>
               </>
             )}
-            {activeRequest?.status === 'approved' && (
+            {activeRequest?.status === 'approved' && canExport && (
               <Button variant="outline" onClick={() => printIssueVoucher(activeRequest)}>
                 <Printer size={14} className="mr-2" />
                 Print

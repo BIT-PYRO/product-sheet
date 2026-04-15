@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { EnrolWorkforceForm } from '@/app/frontend/enrol-workforce/page';
 import { GenericJobModal } from '@/components/generic-job-modal';
 import DateTimeStamp from '@/components/date-time-stamp';
-import { Search, X, ArrowRight, User, Users, Settings } from 'lucide-react';
+import { Search, X, ArrowRight, User, Users, Settings, ChevronRight, KeyRound, ShieldCheck } from 'lucide-react';
 
 const SHEET_BLOCKS = [
   { href: '/product-sheet', permKey: 'product-sheet', title: 'Product Sheet', subtitle: 'Product entry and live stock form', keywords: ['sku', 'product', 'stock', 'listing', 'material', 'weight', 'variation', 'stone', 'image', 'live stock', 'final stock', 'entry'] },
@@ -43,6 +43,7 @@ export default function HomePage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const searchRef = useRef(null);
   const profileDropdownRef = useRef(null);
 
@@ -146,7 +147,8 @@ export default function HomePage() {
         }
 
         const u = result.user;
-        setUsername(u?.username || u?.id || 'User');
+        const fullName = [u?.first_name, u?.last_name].filter(Boolean).join(' ');
+        setUsername(fullName || u?.username || u?.id || 'User');
         setUserInfo(u);
         // Load profile photo from localStorage
         const key = `profile_photo_${u?.username || u?.id}`;
@@ -167,6 +169,8 @@ export default function HomePage() {
               : Array.isArray(wfData?.results) ? wfData.results : [];
             const match = list.find(m => (m.email || '').toLowerCase() === email);
             if (match) {
+              // Use workforce full_name for the welcome greeting if available
+              if (match.full_name) setUsername(match.full_name);
               const des = (match.designation || '').toLowerCase().trim();
               const isSuperDesig = des === 'chairman' || des === 'ceo';
               setMyPerms(isSuperDesig ? null : (match.permissions || {}));
@@ -196,10 +200,12 @@ export default function HomePage() {
   }, []);
 
   // myPerms === null → admin/superuser/no record → full access
-  // myPerms is an object → check per-block view permission
+  // myPerms is an object → accessible if ANY permission is granted
   function canAccess(permKey) {
     if (myPerms === null) return true;
-    return myPerms?.sheets?.[permKey]?.view === true;
+    const p = myPerms?.sheets?.[permKey];
+    if (!p) return false;
+    return !!(p.view || p.edit || p.create || p.export || p.amount);
   }
 
   function getInitials() {
@@ -216,6 +222,7 @@ export default function HomePage() {
       }
       if (profileDropdownRef.current && !profileDropdownRef.current.contains(e.target)) {
         setIsProfileDropdownOpen(false);
+        setIsSettingsOpen(false);
       }
     }
     document.addEventListener('mousedown', handleClickOutside);
@@ -244,6 +251,9 @@ export default function HomePage() {
               >
                 {username}
               </Link>
+              {userInfo?.is_superuser && (
+                <sup className="ml-1 text-[10px] font-bold text-red-500 tracking-wide">superuser</sup>
+              )}
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -264,7 +274,7 @@ export default function HomePage() {
 
               {/* Dropdown */}
               {isProfileDropdownOpen && (
-                <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl border border-soft-border shadow-lg z-50 py-1 overflow-hidden">
+                <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl border border-soft-border shadow-lg z-50 py-1 overflow-hidden">
                   <Link
                     href="/profile"
                     onClick={() => setIsProfileDropdownOpen(false)}
@@ -273,22 +283,44 @@ export default function HomePage() {
                     <User className="h-4 w-4 text-cool-gray" />
                     My Profile
                   </Link>
-                  <Link
+                  <a
                     href="/manage-members"
                     onClick={() => setIsProfileDropdownOpen(false)}
                     className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-midnight-ink hover:bg-cloud-gray transition"
                   >
                     <Users className="h-4 w-4 text-cool-gray" />
                     Manage Members
-                  </Link>
-                  <Link
-                    href="/settings"
-                    onClick={() => setIsProfileDropdownOpen(false)}
-                    className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-midnight-ink hover:bg-cloud-gray transition"
+                  </a>
+                  <button
+                    onClick={() => setIsSettingsOpen(o => !o)}
+                    className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-midnight-ink hover:bg-cloud-gray transition w-full text-left"
                   >
-                    <Settings className="h-4 w-4 text-cool-gray" />
-                    Settings
-                  </Link>
+                    <Settings className="h-4 w-4 text-cool-gray shrink-0" />
+                    <span className="flex-1">Settings</span>
+                    <ChevronRight className={`h-3.5 w-3.5 text-cool-gray transition-transform duration-150 ${isSettingsOpen ? 'rotate-90' : ''}`} />
+                  </button>
+                  {isSettingsOpen && (
+                    <div className="border-l-2 border-trust-blue ml-4 mr-2 mb-1">
+                      <a
+                        href="/settings/account"
+                        onClick={() => { setIsProfileDropdownOpen(false); setIsSettingsOpen(false); }}
+                        className="flex items-center gap-2.5 pl-4 pr-2 py-2 text-sm text-midnight-ink hover:bg-cloud-gray transition rounded-r-lg"
+                      >
+                        <KeyRound className="h-3.5 w-3.5 text-cool-gray shrink-0" />
+                        Account Settings
+                      </a>
+                      {userInfo?.is_superuser && (
+                        <Link
+                          href="/frontend/settings/role-permissions"
+                          onClick={() => { setIsProfileDropdownOpen(false); setIsSettingsOpen(false); }}
+                          className="flex items-center gap-2.5 pl-4 pr-2 py-2 text-sm text-midnight-ink hover:bg-cloud-gray transition rounded-r-lg"
+                        >
+                          <ShieldCheck className="h-3.5 w-3.5 text-cool-gray shrink-0" />
+                          Default Role Permissions
+                        </Link>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -438,21 +470,21 @@ export default function HomePage() {
           </div>
         )}
 
-        {/* Pending approval banner */}
-        {userInfo && userInfo.is_approved === false && (
+        {/* Pending approval banner — never shown to superusers */}
+        {userInfo && userInfo.is_approved === false && !userInfo.is_superuser && (
           <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 flex flex-col sm:flex-row sm:items-center gap-3">
             <div className="flex-1">
               <p className="text-sm font-semibold text-amber-800">Account Pending Approval</p>
               <p className="text-sm text-amber-700 mt-0.5">
                 Your account is awaiting approval from an administrator. Until then, you can only access this page and your Profile.
                 You can set a username &amp; password in{' '}
-                <a href="/settings" className="underline font-semibold">Settings</a>.
+                <a href="/settings/account" className="underline font-semibold">Account Settings</a>.
               </p>
             </div>
           </div>
         )}
 
-        <section className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 ${userInfo?.is_approved === false ? 'opacity-40 pointer-events-none select-none' : ''}`}>
+        <section className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 ${userInfo?.is_approved === false && !userInfo?.is_superuser ? 'opacity-40 pointer-events-none select-none' : ''}`}>
           {SHEET_BLOCKS.map((block, index) => {
             const accessible = canAccess(block.permKey);
             const num = <span className={`inline-flex items-center justify-center w-5 h-5 rounded-full text-white text-xs font-bold mb-2 ${accessible ? 'bg-trust-blue' : 'bg-gray-300'}`}>{index + 1}</span>;

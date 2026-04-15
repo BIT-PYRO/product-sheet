@@ -515,12 +515,13 @@ function ProductDetailContent() {
                       <th className="border border-soft-border p-2 min-w-[140px]">SKU</th>
                       <th className="border border-soft-border p-2 min-w-[140px]">Value</th>
                       <th className="border border-soft-border p-2 min-w-[120px]">Unit</th>
+                      <th className="border border-soft-border p-2 min-w-[140px]">Location</th>
                     </tr>
                   </thead>
                   <tbody>
                     {finalStockRows.length === 0 && (
                       <tr>
-                        <td className="border border-soft-border p-3 text-center text-sm text-cool-gray" colSpan={3}>
+                        <td className="border border-soft-border p-3 text-center text-sm text-cool-gray" colSpan={4}>
                           No final stock rows available.
                         </td>
                       </tr>
@@ -530,6 +531,7 @@ function ProductDetailContent() {
                         <td className="border border-soft-border p-2">{row?.sku || '—'}</td>
                         <td className="border border-soft-border p-2">{row?.value || '—'}</td>
                         <td className="border border-soft-border p-2">{row?.unit || '—'}</td>
+                        <td className="border border-soft-border p-2">{row?.location || '—'}</td>
                       </tr>
                     ))}
                   </tbody>

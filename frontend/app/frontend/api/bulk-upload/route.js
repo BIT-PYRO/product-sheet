@@ -168,6 +168,51 @@ function createBackendClient(request) {
   };
 }
 
+// ── Extract embedded images from an XLSX buffer using the raw ZIP structure ────
+// SheetJS CE (v0.18.x) does NOT populate ws['!images'] — images must be read
+// directly from xl/drawings/drawing1.xml + xl/drawings/_rels/drawing1.xml.rels
+// + xl/media/* via the bundled CFB ZIP parser.
+//
+// Returns: Map where key = `${excelRow},${excelCol}` (0-based) and value = data URL.
+function extractXlsxImages(rawBuffer) {
+  try {
+    const cfb = XLSX.CFB.read(rawBuffer, { type: 'buffer' });
+    const paths = cfb.FullPaths || [];
+    const getEntry = (p) => { const i = paths.indexOf(p); return i >= 0 ? cfb.FileIndex[i] : null; };
+
+    const relsEntry = getEntry('Root Entry/xl/drawings/_rels/drawing1.xml.rels');
+    const drawEntry = getEntry('Root Entry/xl/drawings/drawing1.xml');
+    if (!relsEntry || !drawEntry) return new Map();
+
+    const relsXml = Buffer.from(relsEntry.content).toString('utf8');
+    const ridToFile = {};
+    let m;
+    const relPat = /Id="(rId\d+)"[^>]+Target="\.\.\/media\/([^"]+)"/g;
+    while ((m = relPat.exec(relsXml)) !== null) ridToFile[m[1]] = m[2];
+
+    const drawXml = Buffer.from(drawEntry.content).toString('utf8');
+    // Handles both oneCellAnchor and twoCellAnchor: capture first <xdr:from> col+row
+    const anchorPat = /<xdr:from>\s*<xdr:col>(\d+)<\/xdr:col>[\s\S]*?<xdr:row>(\d+)<\/xdr:row>[\s\S]*?r:embed="(rId\d+)"/g;
+    const result = new Map();
+    while ((m = anchorPat.exec(drawXml)) !== null) {
+      const col = parseInt(m[1]);
+      const row = parseInt(m[2]);
+      const rid = m[3];
+      const mediaFile = ridToFile[rid];
+      if (!mediaFile) continue;
+      const mediaEntry = getEntry(`Root Entry/xl/media/${mediaFile}`);
+      if (!mediaEntry || !mediaEntry.content) continue;
+      const ext = mediaFile.split('.').pop().toLowerCase();
+      const mime = ext === 'jpg' || ext === 'jpeg' ? 'jpeg' : ext === 'png' ? 'png' : ext;
+      const dataUrl = `data:image/${mime};base64,${Buffer.from(mediaEntry.content).toString('base64')}`;
+      if (!result.has(`${row},${col}`)) result.set(`${row},${col}`, dataUrl);
+    }
+    return result;
+  } catch {
+    return new Map();
+  }
+}
+
 async function parseUploadFile(file) {
   const fileName = String(file?.name || '').toLowerCase();
 
@@ -199,6 +244,8 @@ async function parseUploadFile(file) {
 
   // Excel — XLSX.read requires a Uint8Array for type:'array' (ArrayBuffer is NOT the same).
   // cellText/cellHTML disabled to reduce in-memory footprint.
+  // Supports BOTH single-row headers AND two-row grouped headers (e.g. "Tracking Info" merged
+  // across 9 columns in row 1 with "3DM", "STL", … sub-headers in row 2).
   const arrayBuffer = await file.arrayBuffer();
   const workbook = XLSX.read(new Uint8Array(arrayBuffer), { type: 'array', cellText: false, cellHTML: false, cellStyles: false });
   const firstSheetName = workbook.SheetNames[0];
@@ -208,13 +255,90 @@ async function parseUploadFile(file) {
   }
 
   const sheet = workbook.Sheets[firstSheetName];
-  const rows = XLSX.utils.sheet_to_json(sheet, { defval: '', raw: false });
 
-  if (!Array.isArray(rows) || rows.length === 0) {
-    throw new Error('The uploaded file does not contain any rows.');
+  // Read as raw arrays so we can inspect both header rows before building keys.
+  const rawRows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '', raw: false });
+  if (!rawRows.length) throw new Error('The uploaded file does not contain any rows.');
+
+  const row0 = (rawRows[0] || []).map(c => String(c));
+  const row1 = (rawRows[1] || []).map(c => String(c));
+
+  // Detect two-row grouped header: row 1 has ≥ 2 cells where row 0 is empty but
+  // row 1 contains short non-numeric text (i.e. sub-column names, not data values).
+  const subHeaderCount = row1.filter((v, i) => {
+    const r0 = row0[i].trim();
+    const r1v = v.trim();
+    return !r0 && r1v && isNaN(Number(r1v)) && r1v.length < 60 && !r1v.startsWith('http');
+  }).length;
+  const isTwoRowHeader = subHeaderCount >= 2;
+
+  let effectiveHeaders;
+  let dataStartIndex;
+
+  if (isTwoRowHeader) {
+    // Walk columns left-to-right.  Track the current group name (from row 0).
+    // Rule:
+    //   • row0 non-empty + row1 empty  → standalone column, key = normalizeKey(row0)
+    //   • row0 non-empty + row1 non-empty  → first sub-column of this group,
+    //                                        key = normalizeKey(row0) + normalizeKey(row1)
+    //   • row0 empty     + row1 non-empty  → subsequent sub-column of previous group,
+    //                                        key = groupKey + normalizeKey(row1)
+    //   • both empty → unused column, key = ''
+    const maxCols = Math.max(row0.length, row1.length);
+    effectiveHeaders = [];
+    let groupKey = '';
+    for (let i = 0; i < maxCols; i++) {
+      const r0 = row0[i].trim();
+      const r1v = row1[i].trim();
+      if (r0) groupKey = normalizeKey(r0);
+      const sub = r1v ? normalizeKey(r1v) : '';
+
+      if (r0 && !r1v)  effectiveHeaders.push(normalizeKey(r0));   // standalone
+      else if (sub)    effectiveHeaders.push(groupKey + sub);       // grouped sub-column
+      else             effectiveHeaders.push('');                    // empty
+    }
+    dataStartIndex = 2;   // skip both header rows
+  } else {
+    effectiveHeaders = row0.map(h => normalizeKey(h));
+    dataStartIndex = 1;
   }
 
-  return rows.map((row) => normalizeRow(row));
+  const dataRowsIndexed = rawRows
+    .slice(dataStartIndex)
+    .map((r, i) => ({ row: r, excelRowIdx: i + dataStartIndex }))
+    .filter(({ row }) => row.some(c => String(c).trim()));
+
+  if (!dataRowsIndexed.length) throw new Error('The uploaded file does not contain any rows.');
+
+  const rows = dataRowsIndexed.map(({ row }) =>
+    effectiveHeaders.reduce((obj, key, i) => {
+      if (key) obj[key] = typeof row[i] === 'string' ? row[i].trim() : (row[i] == null ? '' : String(row[i]));
+      return obj;
+    }, {})
+  );
+
+  // ── Extract embedded images via CFB (SheetJS CE does not support ws['!images']) ──
+  const imagesByRowCol = extractXlsxImages(Buffer.from(arrayBuffer));
+  if (imagesByRowCol.size > 0) {
+    // Map column index → field key using effectiveHeaders.
+    // For two-row headers the standalone image columns (Rendered Photo, Technical Drawing,
+    // Other Photo) appear in row0 only — effectiveHeaders already normalises them correctly.
+    const imgColToField = {};
+    effectiveHeaders.forEach((h, col) => {
+      if (h === 'renderedphoto')    imgColToField[col] = 'renderedphoto';
+      else if (h === 'technicaldrawing') imgColToField[col] = 'technicaldrawing';
+      else if (h === 'otherphoto')  imgColToField[col] = 'otherphoto';
+    });
+
+    dataRowsIndexed.forEach(({ excelRowIdx }, idx) => {
+      Object.entries(imgColToField).forEach(([col, fieldKey]) => {
+        const dataUrl = imagesByRowCol.get(`${excelRowIdx},${col}`);
+        if (dataUrl && !rows[idx][fieldKey]) rows[idx][fieldKey] = dataUrl;
+      });
+    });
+  }
+
+  return rows;
 }
 
 function summarizeResult(sheetLabel, createdCount, updatedCount, skippedCount, failures) {
@@ -651,6 +775,90 @@ async function uploadKyc(client, rows) {
   return { createdCount, updatedCount, skippedCount, failures, label: 'KYC sheet' };
 }
 
+// ── Designer helpers ──────────────────────────────────────────────────────────
+
+// Try to parse a JSON string column; return null if it can't be parsed.
+function tryParseJson(value) {
+  const s = String(value || '').trim();
+  if (!s) return null;
+  try { return JSON.parse(s); } catch { return null; }
+}
+
+// Build stone_entries from either a JSON column or flat per-stone columns.
+// Each spreadsheet row maps to ONE designer record; sub-table entries come
+// from semicolon-delimited values  (e.g. "Diamond;Ruby") or a JSON array.
+function buildDesignerStoneEntries(row) {
+  const jsonVal = pickValue(row, ['stoneentries', 'stone_entries', 'stones']);
+  const parsed = tryParseJson(jsonVal);
+  if (Array.isArray(parsed)) return parsed;
+
+  // Accepts both plain flat columns AND two-row grouped headers
+  // (e.g. "Stone Information" group → sub-headers "Type", "Species", …
+  //  normalise to "stoneinformationtype", "stoneinformationspecies", …)
+  const type     = String(pickValue(row, ['stoneinformationtype',    'stonetype',    'stone_type',    'gemtype'])).trim();
+  const species  = String(pickValue(row, ['stoneinformationspecies', 'stonespecies', 'stone_species', 'species'])).trim();
+  const variety  = String(pickValue(row, ['stoneinformationvariety', 'stonevariety', 'stone_variety', 'variety'])).trim();
+  const color    = String(pickValue(row, ['stoneinformationcolor',   'stonecolor',   'stone_color',   'gemcolor', 'stonecolour'])).trim();
+  const cut      = String(pickValue(row, ['stoneinformationcut',     'stonecut',     'stone_cut',     'cut'])).trim();
+  const shape    = String(pickValue(row, ['stoneinformationshape',   'stoneshape',   'stone_shape',   'shape'])).trim();
+  const length   = String(pickValue(row, ['stoneinformationlength',  'stonelength',  'stone_length'])).trim();
+  const width    = String(pickValue(row, ['stoneinformationwidth',   'stonewidth',   'stone_width'])).trim();
+  const height   = String(pickValue(row, ['stoneinformationheight',  'stoneheight',  'stone_height',  'stonedepth'])).trim();
+  const qty      = String(pickValue(row, ['stoneinformationqty',     'stoneqty',     'stone_qty',     'stonecount', 'stonequantity'])).trim();
+
+  if (type || species || variety) {
+    return [{ type, species, variety, color, cut, shape, length, width, height, qty }];
+  }
+  return [];
+}
+
+function buildDesignerPlatingEntries(row) {
+  const jsonVal = pickValue(row, ['platingentries', 'plating_entries', 'plating']);
+  const parsed = tryParseJson(jsonVal);
+  if (Array.isArray(parsed)) return parsed;
+
+  // Two-row grouped header: "Plating Info" + "Plating Type" → "platinginfoplatingtype"
+  const type  = String(pickValue(row, ['platinginfoplatingtype',  'platingtype',  'plating_type',  'plattype'])).trim();
+  const color = String(pickValue(row, ['platinginfoplatingcolor', 'platingcolor', 'plating_color', 'platcolor', 'platcolour', 'platinginfoplatingcolour'])).trim();
+  if (type || color) return [{ type, color }];
+  return [];
+}
+
+function buildDesignerTrackingRows(row) {
+  const jsonVal = pickValue(row, ['trackingrows', 'tracking_rows', 'tracking']);
+  const parsed = tryParseJson(jsonVal);
+  if (Array.isArray(parsed)) return parsed;
+
+  // Accepts both plain flat columns AND two-row grouped headers
+  // (e.g. "Tracking Info" group → "3DM" sub-header → normalised key "trackinginfo3dm")
+  const tdm     = String(pickValue(row, ['trackinginfo3dm',         '3dm',      'tdm',     'tdmfile',   'tdm_file', '3dmlink'])).trim();
+  const stl     = String(pickValue(row, ['trackinginfostl',         'stl',      'stlfile', 'stl_file',  'stllink'])).trim();
+  const mCode   = String(pickValue(row, ['trackinginfomotivecode',  'motivecode',  'motive_code',   'mcode'])).trim();
+  const mSku    = String(pickValue(row, ['trackinginfomotivesku',   'motivesku',   'motive_sku',    'mastersku', 'trackinginfomastersku'])).trim();
+  const dieCode = String(pickValue(row, ['trackinginfodiecode',     'trackingdiecode', 'diecode',   'die_code'])).trim();
+  const moldQty = String(pickValue(row, ['trackinginfomolddieqty', 'trackinginfomolddieqty', 'molddieqty', 'mold_die_qty', 'moldqtyperdie', 'moldqty'])).trim();
+  const length  = String(pickValue(row, ['trackinginfolength',      'tracklength', 'trackingrowlength'])).trim();
+  const width   = String(pickValue(row, ['trackinginfowidth',       'trackwidth',  'trackingrowwidth'])).trim();
+  const height  = String(pickValue(row, ['trackinginfoheight',      'trackheight', 'trackingrowheight'])).trim();
+
+  if (tdm || stl || mCode || mSku || dieCode) {
+    return [{ id: 1, tdm, stl, motiveCode: mCode, motiveSku: mSku, dieCode, moldDieQty: moldQty, length, width, height }];
+  }
+  return [];
+}
+
+function buildDesignerFindingsEntries(row) {
+  const jsonVal = pickValue(row, ['findingsentries', 'findings_entries', 'findings']);
+  const parsed = tryParseJson(jsonVal);
+  if (Array.isArray(parsed)) return parsed;
+
+  // Two-row grouped header: "Findings" + "Code" → "findingscode", "Findings" + "Quantity" → "findingsquantity"
+  const code     = String(pickValue(row, ['findingscode',     'findings_code',     'findingsref', 'partcode'])).trim();
+  const quantity = String(pickValue(row, ['findingsquantity', 'findingsqty',        'findings_quantity', 'partqty'])).trim();
+  if (code) return [{ code, quantity }];
+  return [];
+}
+
 async function uploadDesigners(client, rows) {
   const existingDesigners = await fetchCollection(client, '/api/v1/designers/');
   const designerBySku = new Map(
@@ -664,7 +872,9 @@ async function uploadDesigners(client, rows) {
   const BATCH_SIZE = 3;
 
   const tasks = rows.map((row, index) => {
-    const sku = String(pickValue(row, ['sku', 'mastersku', 'productsku'])).trim();
+    const sku = String(
+      pickValue(row, ['sku', 'designersku', 'designer_sku', 'designsku', 'productsku'])
+    ).trim();
     return { row, index, sku };
   });
 
@@ -673,26 +883,83 @@ async function uploadDesigners(client, rows) {
     await Promise.all(batch.map(async ({ row, index, sku }) => {
       if (!sku) { skippedCount += 1; return; }
 
-      const payload = {
-        sku,
-        image: String(pickValue(row, ['image'])).trim(),
-        tdm_file: String(pickValue(row, ['tdmfile', 'tdm_file', '3dmfile', '3dm_file', '3dm'])).trim(),
-        stl_file: String(pickValue(row, ['stlfile', 'stl_file', 'stl'])).trim(),
-        tdm_status: String(pickValue(row, ['tdmstatus', 'tdm_status', '3dmstatus'])).trim(),
-        stl_status: String(pickValue(row, ['stlstatus', 'stl_status'])).trim(),
-        render_status: String(pickValue(row, ['renderstatus', 'render_status', 'render'])).trim(),
-        print_3d_status: String(pickValue(row, ['print3dstatus', 'print_3d_status', '3dprintstatus', '3dprint'])).trim(),
-        is_active: toBoolean(pickValue(row, ['isactive', 'active'], true), true),
-      };
+      // ── Dimensions ─────────────────────────────────────────────────────────
+      // "Total Design Measurements" group → sub-headers "Length"/"Width"/"Height"
+      // normalise to "totaldesignmeasurementslength" etc. in two-row header files.
+      const tdmLength = String(pickValue(row, ['totaldesignmeasurementslength', 'tdmlength', 'tdm_length', 'totallength', 'total_length', 'designlength'])).trim();
+      const tdmWidth  = String(pickValue(row, ['totaldesignmeasurementswidth',  'tdmwidth',  'tdm_width',  'totalwidth',  'total_width',  'designwidth'])).trim();
+      const tdmHeight = String(pickValue(row, ['totaldesignmeasurementsheight', 'tdmheight', 'tdm_height', 'totalheight', 'total_height', 'designheight'])).trim();
 
-      const dieRaw = String(pickValue(row, ['die', 'dieentries', 'die_entries'])).trim();
-      if (dieRaw) {
-        payload.die_entries = dieRaw.split(',').map((v) => ({ value: v.trim() })).filter((v) => v.value);
+      // total_design_measurements lives as a JSON object; only set it when
+      // individual dimension columns are present, or fall back to a JSON column.
+      let totalDesignMeasurements;
+      if (tdmLength || tdmWidth || tdmHeight) {
+        totalDesignMeasurements = { length: tdmLength, width: tdmWidth, height: tdmHeight };
+      } else {
+        const jsonMeasurements = tryParseJson(
+          pickValue(row, ['totaldesignmeasurements', 'total_design_measurements', 'tdmmeasurements'])
+        );
+        if (jsonMeasurements && typeof jsonMeasurements === 'object') {
+          totalDesignMeasurements = jsonMeasurements;
+        }
       }
 
+      // ── Numeric scalars ────────────────────────────────────────────────────
+      // "Total Die Code", "Total Mold Qty / Die", "Total CPX Dead Weight" are standalone
+      // columns in two-row header files (their sub-header row cell is empty).
+      // normalizeKey("Total Mold Qty / Die") → "totalmoldqtydie"
+      const totalDieCodeRaw = String(pickValue(row, ['totaldiecode',       'total_die_code',            'totaldiecount'])).trim();
+      const moldQtyRaw      = String(pickValue(row, ['totalmoldqtydie',    'totalmoldqtyperdie',         'total_mold_qty_per_die', 'moldqtyperdie', 'moldqty'])).trim();
+      const cpxWeightRaw    = String(pickValue(row, ['totalcpxdeadweight', 'total_cpx_dead_weight',      'cpxdeadweight', 'deadweight', 'cpxwt'])).trim();
+
+      const payload = {
+        sku,
+        // Images (URL or base64; column labels match both single-row and two-row headers)
+        rendered_photo:    String(pickValue(row, ['renderedphoto',    'rendered_photo',    'image1', 'image'])).trim(),
+        technical_drawing: String(pickValue(row, ['technicaldrawing', 'technical_drawing', 'image2'])).trim(),
+        designer_image_3:  String(pickValue(row, ['otherphoto',       'other_photo',       'image3', 'designerimage3'])).trim(),
+
+        // Design identity
+        motive_code: String(pickValue(row, ['motivecode',     'motive_code',      'mcode'])).trim(),
+        motive_sku:  String(pickValue(row, ['motivesku',      'motive_sku',       'mastersku'])).trim(),
+
+        // Design properties (standalone column labels stay the same across header formats)
+        design_stage:    String(pickValue(row, ['designstage',    'design_stage',    'stage',    'designstatus'])).trim(),
+        setting_type:    String(pickValue(row, ['settingtype',    'setting_type',    'setting',  'stonesetting'])).trim(),
+        enamel:          String(pickValue(row, ['enamel',         'enamelwork',      'enamelfinish'])).trim(),
+        design_material: String(pickValue(row, ['designmaterial', 'design_material', 'material', 'metal', 'alloy'])).trim(),
+        mechanism:       String(pickValue(row, ['mechanism',      'closure',         'clasp',    'closuretype'])).trim(),
+        designer_notes:  String(pickValue(row, ['designernotes',  'designer_notes',  'notes',    'remarks', 'comments'])).trim(),
+
+        // Numeric fields (null when blank)
+        ...(totalDieCodeRaw   ? { total_die_code:        toNumber(totalDieCodeRaw, null) } : {}),
+        ...(moldQtyRaw        ? { total_mold_qty_per_die: toNumber(moldQtyRaw, null)      } : {}),
+        ...(cpxWeightRaw      ? { total_cpx_dead_weight:  toNumber(cpxWeightRaw, null)    } : {}),
+
+        // Dimensions
+        ...(totalDesignMeasurements ? { total_design_measurements: totalDesignMeasurements } : {}),
+
+        // Sub-table JSON arrays
+        stone_entries:    buildDesignerStoneEntries(row),
+        plating_entries:  buildDesignerPlatingEntries(row),
+        tracking_rows:    buildDesignerTrackingRows(row),
+        findings_entries: buildDesignerFindingsEntries(row),
+
+        is_active: toBoolean(pickValue(row, ['isactive', 'is_active', 'active'], true), true),
+
+        // Legacy fields (kept so old exports still work)
+        tdm_file:        String(pickValue(row, ['tdmfile', 'tdm_file', '3dmfile'])).trim(),
+        stl_file:        String(pickValue(row, ['stlfile', 'stl_file'])).trim(),
+        tdm_status:      String(pickValue(row, ['tdmstatus', 'tdm_status'])).trim(),
+        stl_status:      String(pickValue(row, ['stlstatus', 'stl_status'])).trim(),
+        render_status:   String(pickValue(row, ['renderstatus', 'render_status'])).trim(),
+        print_3d_status: String(pickValue(row, ['print3dstatus', 'print_3d_status'])).trim(),
+      };
+
       const existing = designerBySku.get(sku.toUpperCase());
-      const path = existing ? `/api/v1/designers/${existing.id}/` : '/api/v1/designers/';
+      const path   = existing ? `/api/v1/designers/${existing.id}/` : '/api/v1/designers/';
       const method = existing ? 'PATCH' : 'POST';
+
       const { response, payload: result } = await client.request(path, {
         method,
         headers: { 'Content-Type': 'application/json' },
@@ -708,8 +975,7 @@ async function uploadDesigners(client, rows) {
         updatedCount += 1;
       } else {
         createdCount += 1;
-        const saved = result?.data || {};
-        designerBySku.set(sku.toUpperCase(), saved);
+        designerBySku.set(sku.toUpperCase(), result?.data || {});
       }
     }));
   }

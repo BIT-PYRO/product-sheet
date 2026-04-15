@@ -98,7 +98,9 @@ export async function GET(request) {
   const meResult = await meResponse.json().catch(() => null);
   const user = meResult?.data || meResult;
 
-  const isApproved = user?.is_approved ?? true;
+  const isSuperuser = !!user?.is_superuser;
+  // Superusers are always treated as approved — they have full access regardless of the DB flag
+  const isApproved = isSuperuser ? true : (user?.is_approved ?? true);
 
   const response = NextResponse.json({
     success: true,
@@ -110,6 +112,7 @@ export async function GET(request) {
       email: user?.email || '',
       role: user?.role || 'staff',
       is_approved: isApproved,
+      is_superuser: isSuperuser,
     },
   });
 
@@ -124,7 +127,7 @@ export async function GET(request) {
     response.cookies.set({ name: ACCESS_COOKIE, value: activeAccessToken, ...cookieOpts, maxAge: 60 * 60 });
   }
 
-  // Keep the approved cookie in sync with latest user data
+  // Keep the approved cookie in sync — superusers always get '1'
   response.cookies.set({ name: APPROVED_COOKIE, value: isApproved ? '1' : '0', ...cookieOpts, maxAge: 60 * 60 * 24 });
 
   return response;

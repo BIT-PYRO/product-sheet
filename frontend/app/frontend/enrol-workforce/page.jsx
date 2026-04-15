@@ -15,6 +15,18 @@ const PENDING_DRAFT_KEY = 'pending_enroll_workforce_draft';
 
 const INPUT_CLS = 'w-full border border-soft-border rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-trust-blue focus:border-transparent bg-cloud-gray text-midnight-ink placeholder-slate-400 transition disabled:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-80';
 
+const DESIGNATION_ORDER = [
+  'Chairman','CEO','Director','General Manager','Department Head','Project Manager',
+  'Manager','Supervisor','Associate','Developer','Intern','Labour','Worker',
+  'Cook','Pantry Boy','Janitor','Messenger','Security','Electrician','Plumber',
+  'CCTV','Carpenter','Ironsmith','Locksmith',
+];
+function getDesignationRank(desig) {
+  if (!desig) return 999;
+  const idx = DESIGNATION_ORDER.findIndex(d => d.toLowerCase() === desig.toLowerCase());
+  return idx === -1 ? 998 : idx;
+}
+
 const INDIAN_STATES = [
   'Andhra Pradesh','Arunachal Pradesh','Assam','Bihar','Chhattisgarh','Goa','Gujarat',
   'Haryana','Himachal Pradesh','Jharkhand','Karnataka','Kerala','Madhya Pradesh',
@@ -51,18 +63,18 @@ const INDIAN_LANGUAGES = [
 const WORKING_STYLES = ['On-site','Remote','Hybrid','Field Work','Part-time','Contractual'];
 
 const DEPT_DATA = {
-  'Marketing':                    { categories: ['Performance','Offline','International','Social Media'], roles: ['Intern','Associate','Manager','Department Head','Director'] },
-  'Customer Relation Management': { categories: ['Inbound Calls','Outbound Calls','Social Media','Emails','Offline'], roles: ['Intern','Associate','Manager','Department Head','Director'] },
-  'Operations':                   { categories: [], roles: ['Intern','Associate','Manager','Department Head','Director'] },
-  'Design':                       { categories: ['Jewellery','Branding','Visuals','Photographer / Videographer'], roles: ['Intern','Associate','Manager','Department Head','Director'] },
-  'Logistics':                    { categories: [], roles: ['Intern','Associate','Manager','Department Head','Director'] },
-  'Purchase':                     { categories: ['Tools / Machinery','Metals','Gemstones'], roles: ['Associate','Manager','Department Head','Director'] },
-  'Sales / Business Development': { categories: ['Domestic','International'], roles: ['Intern','Associate','Manager','Department Head','Director'] },
-  'Finance':                      { categories: [], roles: ['Intern','Associate','Manager','Department Head','Director'] },
-  'Information Technology':       { categories: ['Shopify','Software'], roles: ['Intern','Associate','Developer','Project Manager','General Manager','Director'] },
-  'Human Resource':               { categories: [], roles: ['Intern','Associate','Manager','Department Head','Director'] },
-  'Production':                   { categories: ['3D Printing','Die Cutting','Master Making','Wax','Wax Setting','Casting','Filing','Polish','Enamel','Hand Setting','Plating','Quality Check'], roles: ['Labour','Supervisor','Manager','General Manager','Department Head','Director'] },
-  'Services':                     { categories: [], roles: ['Security','Electrician','Plumber','CCTV Operator','Carpenter','Ironsmith','Locksmith'] },
+  'Marketing':                    { categories: ['Performance','Offline','International','Social Media'], roles: ['Chairman','CEO','Director','Department Head','Manager','Associate','Intern'] },
+  'Customer Relation Management': { categories: ['Inbound Calls','Outbound Calls','Social Media','Emails','Offline'], roles: ['Chairman','CEO','Director','Department Head','Manager','Associate','Intern'] },
+  'Operations':                   { categories: [], roles: ['Chairman','CEO','Director','Department Head','Manager','Associate','Intern'] },
+  'Design':                       { categories: ['Jewellery','Branding','Visuals','Photographer / Videographer'], roles: ['Chairman','CEO','Director','Department Head','Manager','Associate','Intern'] },
+  'Logistics':                    { categories: [], roles: ['Chairman','CEO','Director','Department Head','Manager','Associate','Intern'] },
+  'Purchase':                     { categories: ['Tools / Machinery','Metals','Gemstones'], roles: ['Chairman','CEO','Director','Department Head','Manager','Associate'] },
+  'Sales / Business Development': { categories: ['Domestic','International'], roles: ['Chairman','CEO','Director','Department Head','Manager','Associate','Intern'] },
+  'Finance':                      { categories: [], roles: ['Chairman','CEO','Director','Department Head','Manager','Associate','Intern'] },
+  'Information Technology':       { categories: ['Shopify','Software'], roles: ['Chairman','CEO','Director','Department Head','General Manager','Project Manager','Developer','Associate','Intern'] },
+  'Human Resource':               { categories: [], roles: ['Chairman','CEO','Director','Department Head','Manager','Associate','Intern'] },
+  'Production':                   { categories: ['3D Printing','Die Cutting','Master Making','Wax','Wax Setting','Casting','Filing','Polish','Enamel','Hand Setting','Plating','Quality Check'], roles: ['Chairman','CEO','Director','Department Head','General Manager','Manager','Supervisor','Labour'] },
+  'Services':                     { categories: [], roles: ['Security','Electrician','Plumber','CCTV','Carpenter','Ironsmith','Locksmith'] },
   'House Keeping':                { categories: [], roles: ['Cook','Pantry Boy','Janitor','Messenger'] },
 };
 
@@ -95,9 +107,12 @@ function defaultPermsByRole(designation, department) {
   const allPerm  = (lvl) => Object.fromEntries(ALL_KEYS.map(k => [k, lvl]));
   const baseBuild = () => Object.fromEntries(ALL_KEYS.map(k => [k, N]));
 
-  // ── Tier 0: Top leadership ─────────────────────────────────────────────
-  if (['Chairman','CEO','Director','General Manager'].includes(des)) {
+  // ── Tier 0: Top leadership (manage_members only for Chairman & CEO) ───
+  if (['Chairman','CEO'].includes(des)) {
     return { sheets: allPerm(FULL), manage_members: true };
+  }
+  if (['Director','General Manager'].includes(des)) {
+    return { sheets: allPerm(FULL), manage_members: false };
   }
 
   // ── Tier 1: Department Head / Project Manager ──────────────────────────
@@ -312,6 +327,26 @@ export function EnrolWorkforceForm({ onEnroll, onClose, open = true, draftData =
   const [isReadOnly, setIsReadOnly] = useState(readOnly);
   const savedFormRef = React.useRef(null);
 
+  // Custom roles added via "Other" — fetched from backend meta
+  const [customRoles, setCustomRoles] = useState([]);
+  // Custom departments added via "Other" — fetched from backend meta
+  const [customDepartments, setCustomDepartments] = useState([]);
+
+  useEffect(() => {
+    fetch('/api/workforce/meta', { cache: 'no-store' })
+      .then(r => r.json())
+      .catch(() => null)
+      .then(meta => {
+        if (!meta?.success) return;
+        const staticRoles = new Set(Object.values(DEPT_DATA).flatMap(d => d.roles));
+        const allMetaRoles = meta.data?.designations || [];
+        setCustomRoles(allMetaRoles.filter(r => !staticRoles.has(r)));
+        const staticDepts = new Set(Object.keys(DEPT_DATA));
+        const allMetaDepts = meta.data?.departments || [];
+        setCustomDepartments(allMetaDepts.filter(d => !staticDepts.has(d)));
+      });
+  }, []);
+
   useEffect(() => { if (draftData) setForm(draftData); }, [draftData]);
 
   useEffect(() => {
@@ -367,6 +402,55 @@ export function EnrolWorkforceForm({ onEnroll, onClose, open = true, draftData =
       })
       .catch(() => {});
   }, [editingId]);
+
+  /* ── Viewer's own workforce record (for job-details gating) ── */
+  const [viewerMember, setViewerMember] = useState(null);
+  const [viewerSession, setViewerSession] = useState(null);
+  const [targetDesignation, setTargetDesignation] = useState(null);
+  useEffect(() => {
+    if (!editingId) return;
+    (async () => {
+      try {
+        const sessRes = await fetch('/api/auth/session', { cache: 'no-store' });
+        const sessJson = await sessRes.json();
+        if (!sessRes.ok || !sessJson.success) return;
+        setViewerSession(sessJson.user || null);
+        const email = sessJson.user?.email || '';
+        if (!email) return;
+        const wfRes = await fetch('/api/workforce?page_size=200', { cache: 'no-store' });
+        const wfJson = await wfRes.json().catch(() => null);
+        const list = Array.isArray(wfJson?.data) ? wfJson.data
+          : Array.isArray(wfJson?.data?.results) ? wfJson.data.results
+          : Array.isArray(wfJson?.results) ? wfJson.results : [];
+        const viewer = list.find(m => (m.email || '').toLowerCase() === email.toLowerCase());
+        if (viewer) setViewerMember(viewer);
+        const target = list.find(m => m.id === editingId);
+        if (target) setTargetDesignation(target.designation);
+      } catch {}
+    })();
+  }, [editingId]);
+
+  /* superuser / admin / Chairman / CEO bypass */
+  const viewerIsSuperUser = (() => {
+    if (!viewerSession) return false;
+    if (viewerSession.role === 'admin') return true;
+    if (viewerSession.is_superuser) return true;
+    const des = (viewerMember?.designation || '').toLowerCase().trim();
+    return des === 'chairman' || des === 'ceo';
+  })();
+
+  /* Job details locked unless viewer has manage_members AND outranks the target */
+  const jobDetailsLocked = (() => {
+    if (!editingId) return false; // new enrolment — always editable
+    if (viewerIsSuperUser) return false; // superusers can always edit
+    if (!viewerMember) return true; // still loading or no match — lock
+    if (!viewerMember.permissions?.manage_members) return true;
+    // can't edit own job details
+    if (viewerMember.id === editingId) return true;
+    const viewerRank = getDesignationRank(viewerMember.designation);
+    const targetRank = getDesignationRank(targetDesignation);
+    return viewerRank >= targetRank; // must strictly outrank
+  })();
 
   const handleSameAsCurrent = (checked) => {
     setForm((prev) => ({
@@ -575,6 +659,15 @@ export function EnrolWorkforceForm({ onEnroll, onClose, open = true, draftData =
               {isReadOnly ? 'VIEW WORKFORCE' : editingId ? 'EDIT WORKFORCE' : 'ENROLL WORKFORCE'}
             </DialogTitle>
           </div>
+          {isReadOnly && canEdit && (
+            <button
+              type="button"
+              onClick={() => { savedFormRef.current = { ...form }; setIsReadOnly(false); }}
+              className="absolute left-5 top-3.5 px-4 py-1 bg-white text-trust-blue font-bold text-sm rounded-full hover:bg-gray-100 transition shadow"
+            >
+              Edit
+            </button>
+          )}
           <button
             onClick={handleClose}
             className="absolute right-5 top-4 text-cool-gray hover:text-white"
@@ -638,6 +731,7 @@ export function EnrolWorkforceForm({ onEnroll, onClose, open = true, draftData =
             </div>
 
             {/* ── Section 2: Job Details ── */}
+            <fieldset disabled={isReadOnly || jobDetailsLocked} className="border-0 p-0 m-0 min-w-0">
             <div>
               <h3 className="text-base font-bold text-midnight-ink mb-3 flex items-center gap-2">
                 <svg className="w-5 h-5 text-slate-text" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
@@ -645,6 +739,9 @@ export function EnrolWorkforceForm({ onEnroll, onClose, open = true, draftData =
                 </svg>
                 Job Details
               </h3>
+              {!isReadOnly && jobDetailsLocked && (
+                <p className="text-xs text-cool-gray mb-3">Job details can only be updated by a senior with manage access.</p>
+              )}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Department */}
                 <div>
@@ -660,6 +757,11 @@ export function EnrolWorkforceForm({ onEnroll, onClose, open = true, draftData =
                   >
                     <option value="">Select department...</option>
                     {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
+                    {customDepartments.length > 0 && (
+                      <optgroup label="Custom Departments">
+                        {customDepartments.map(d => <option key={d} value={d}>{d}</option>)}
+                      </optgroup>
+                    )}
                     <option value="Other">Other</option>
                   </select>
                   {form.department === 'Other' && (
@@ -705,6 +807,11 @@ export function EnrolWorkforceForm({ onEnroll, onClose, open = true, draftData =
                         )}
                       </>
                     )}
+                    {customRoles.length > 0 && (
+                      <optgroup label="Custom Roles">
+                        {customRoles.map(r => <option key={r} value={r}>{r}</option>)}
+                      </optgroup>
+                    )}
                     <option value="Other">Other</option>
                   </select>
                   {form.designation === 'Other' && (
@@ -725,6 +832,7 @@ export function EnrolWorkforceForm({ onEnroll, onClose, open = true, draftData =
                 </div>
               </div>
             </div>
+            </fieldset>
 
             {/* ── Section 3: Current Address ── */}
             <div>
@@ -882,15 +990,6 @@ export function EnrolWorkforceForm({ onEnroll, onClose, open = true, draftData =
                 >
                   Close
                 </button>
-                {canEdit && (
-                  <button
-                    type="button"
-                    onClick={() => { savedFormRef.current = { ...form }; setIsReadOnly(false); }}
-                    className="flex-1 h-10 bg-trust-blue hover:bg-deep-blue text-white font-bold text-sm rounded transition shadow-md"
-                  >
-                    Edit
-                  </button>
-                )}
               </div>
             ) : (editingId ? canEdit : canCreate) ? (
               <div className="flex gap-2 mt-2">

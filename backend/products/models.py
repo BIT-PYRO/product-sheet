@@ -49,7 +49,8 @@ class Channel(models.Model):
 class Product(AuditModel):
 	master_sku = models.CharField(max_length=60, unique=True)
 	designer_sku = models.CharField(max_length=60, blank=True, default='')
-	name = models.CharField(max_length=255)
+	designer_skus = models.JSONField(default=list, blank=True, help_text='List of all designer SKUs linked to this master SKU')
+	name = models.CharField(max_length=255, blank=True, default='')
 	category = models.CharField(max_length=120, blank=True, default='')
 	selling_price = models.DecimalField(max_digits=12, decimal_places=2, default=0)
 	cost_price = models.DecimalField(max_digits=12, decimal_places=2, default=0)

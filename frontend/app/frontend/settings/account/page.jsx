@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { ArrowLeft, KeyRound } from 'lucide-react';
 import Link from 'next/link';
 
-export default function SettingsPage() {
+export default function AccountSettingsPage() {
   const router = useRouter();
   const [sessionUser, setSessionUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -88,17 +88,14 @@ export default function SettingsPage() {
 
   return (
     <div className="min-h-screen bg-cloud-gray font-sans">
-      {/* Header */}
       <header className="bg-white border-b border-soft-border px-6 py-4 flex items-center gap-4">
-        <Link href="/home" className="p-1.5 rounded-full hover:bg-cloud-gray transition" title="Back">
+        <Link href="/frontend/home" className="p-1.5 rounded-full hover:bg-cloud-gray transition" title="Back">
           <ArrowLeft className="h-5 w-5 text-midnight-ink" />
         </Link>
-        <h1 className="text-base font-bold text-midnight-ink">Settings</h1>
+        <h1 className="text-base font-bold text-midnight-ink">Account Settings</h1>
       </header>
 
-      {/* Body */}
       <div className="max-w-lg mx-auto px-4 py-8">
-        {/* Account Settings card */}
         <div className="bg-white rounded-xl border border-soft-border overflow-hidden">
           <div className="flex items-center gap-2.5 px-5 py-3 border-b border-soft-border bg-cloud-gray">
             <KeyRound className="h-4 w-4 text-trust-blue shrink-0" />

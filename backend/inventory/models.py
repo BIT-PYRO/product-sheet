@@ -27,6 +27,7 @@ class InventoryTransaction(AuditModel):
 	quantity = models.IntegerField()
 	stage = models.CharField(max_length=60, blank=True, default='')
 	stock_type = models.CharField(max_length=20, choices=StockType.choices, default='current', blank=True)
+	location = models.CharField(max_length=255, blank=True, default='')
 	remark = models.CharField(max_length=255, blank=True)
 
 	def __str__(self):

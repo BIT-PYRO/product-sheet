@@ -88,8 +88,6 @@ class ProductSerializer(serializers.ModelSerializer):
         return attrs
 
     def validate_name(self, value):
-        if not value.strip():
-            raise serializers.ValidationError('Product name cannot be blank.')
         return value.strip()
 
     def validate_master_sku(self, value):

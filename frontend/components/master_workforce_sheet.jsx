@@ -35,7 +35,7 @@ import LastUpdatedFooter from '@/components/last-updated-footer';
 import { useSheetPermissions } from '@/hooks/use-sheet-permissions';
 
 export default function MasterWorkforceSheet() {
-  const { canEdit, canCreate, canExport } = useSheetPermissions('master-workforce-sheet');
+  const { canView, canEdit, canCreate, canExport, loading: permsLoading } = useSheetPermissions('master-workforce-sheet');
   const [lastUpdated, setLastUpdated] = useState(null);
   const [currentUsername, setCurrentUsername] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
@@ -52,6 +52,7 @@ export default function MasterWorkforceSheet() {
   const [viewMode, setViewMode] = useState('active');
   const [rowsPerPage, setRowsPerPage] = useState(25);
   const [currentPage, setCurrentPage] = useState(1);
+  const [sortOrder, setSortOrder] = useState('default');
   const [refreshKey, setRefreshKey] = useState(0);
   const [editingWorkforceId, setEditingWorkforceId] = useState(null);
 
@@ -155,12 +156,16 @@ export default function MasterWorkforceSheet() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [genderFilter, setGenderFilter] = useState('all');
 
-  const DEPARTMENTS = [
+  const STATIC_DEPARTMENTS = [
     'Marketing','Customer Relation Management','Operations','Design','Logistics',
     'Purchase','Sales / Business Development','Finance','Information Technology',
     'Human Resource','Production','Services','House Keeping',
   ];
   const WORKING_STYLES = ['On-site','Remote','Hybrid','Field Work','Part-time','Contractual'];
+
+  // Dynamic departments and roles derived from loaded + meta data
+  const [dynamicDepartments, setDynamicDepartments] = useState(STATIC_DEPARTMENTS);
+  const [dynamicRoles, setDynamicRoles] = useState([]);
 
   const [data, setData] = useState([]);
 
@@ -171,7 +176,10 @@ export default function MasterWorkforceSheet() {
   useEffect(() => {
     const loadWorkforce = async () => {
       try {
-        const response = await fetch('/api/workforce', { cache: 'no-store' });
+        const [response, metaResponse] = await Promise.all([
+          fetch('/api/workforce', { cache: 'no-store' }),
+          fetch('/api/workforce/meta', { cache: 'no-store' }),
+        ]);
         const result = await response.json().catch(() => null);
         if (!response.ok || !result?.success) return;
 
@@ -215,6 +223,30 @@ export default function MasterWorkforceSheet() {
 
         setData(mappedRows);
         setLastUpdated(new Date());
+
+        // Derive unique departments and roles from real data + meta
+        const rowDepts = [...new Set(mappedRows.map(r => r.department).filter(Boolean))];
+        const rowRoles = [...new Set(mappedRows.map(r => r.designation).filter(Boolean))];
+
+        if (metaResponse.ok) {
+          const meta = await metaResponse.json().catch(() => null);
+          if (meta?.success) {
+            const metaDepts = meta.data?.departments || [];
+            const metaRoles = meta.data?.designations || [];
+            const allDepts = [...new Set([...STATIC_DEPARTMENTS, ...metaDepts, ...rowDepts])].sort();
+            const allRoles = [...new Set([...metaRoles, ...rowRoles])].sort();
+            setDynamicDepartments(allDepts);
+            setDynamicRoles(allRoles);
+          } else {
+            const allDepts = [...new Set([...STATIC_DEPARTMENTS, ...rowDepts])].sort();
+            setDynamicDepartments(allDepts);
+            setDynamicRoles(rowRoles.sort());
+          }
+        } else {
+          const allDepts = [...new Set([...STATIC_DEPARTMENTS, ...rowDepts])].sort();
+          setDynamicDepartments(allDepts);
+          setDynamicRoles(rowRoles.sort());
+        }
       } catch {
         // keep table editable with local rows when backend fails
       }
@@ -440,9 +472,15 @@ export default function MasterWorkforceSheet() {
     return true;
   });
 
-  const totalPages = Math.max(1, Math.ceil(displayedData.length / rowsPerPage));
+  const sortedDisplayData = sortOrder === 'default' ? displayedData : [...displayedData].sort((a, b) => {
+    if (sortOrder === 'newest') return (b.id || 0) - (a.id || 0);
+    if (sortOrder === 'oldest') return (a.id || 0) - (b.id || 0);
+    const av = String(a.fullName || '').toLowerCase(), bv = String(b.fullName || '').toLowerCase();
+    return sortOrder === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
+  });
+  const totalPages = Math.max(1, Math.ceil(sortedDisplayData.length / rowsPerPage));
   const safePage = Math.min(currentPage, totalPages);
-  const paginatedData = displayedData.slice((safePage - 1) * rowsPerPage, safePage * rowsPerPage);
+  const paginatedData = sortedDisplayData.slice((safePage - 1) * rowsPerPage, safePage * rowsPerPage);
 
   const displayedRowIds = paginatedData.map((row) => row.id);
   const allDisplayedRowsSelected =
@@ -460,6 +498,9 @@ export default function MasterWorkforceSheet() {
 
     setSelectedRows(new Set(displayedRowIds));
   };
+
+  if (permsLoading) return <div className="min-h-screen bg-cloud-gray flex items-center justify-center"><div className="w-8 h-8 border-4 border-trust-blue border-t-transparent rounded-full animate-spin" /></div>;
+  if (!canView) return <div className="min-h-screen bg-cloud-gray flex items-center justify-center"><div className="text-center"><h2 className="text-xl font-bold text-midnight-ink mb-2">Access Denied</h2><p className="text-cool-gray text-sm">You do not have permission to view this sheet. Contact your admin.</p></div></div>;
 
   return (
     <div className="w-full min-h-screen bg-cloud-gray">
@@ -764,6 +805,20 @@ export default function MasterWorkforceSheet() {
             />
           </div>
           {canCreate && <BulkUploadButton sheetType="workforce" onComplete={() => window.location.reload()} />}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8">
+                {sortOrder === 'default' ? 'Sort ▾' : sortOrder === 'asc' ? 'A → Z ▾' : sortOrder === 'desc' ? 'Z → A ▾' : sortOrder === 'newest' ? 'Newest ▾' : 'Oldest ▾'}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => { setSortOrder('asc'); setCurrentPage(1); }}>A → Z (Ascending)</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => { setSortOrder('desc'); setCurrentPage(1); }}>Z → A (Descending)</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => { setSortOrder('newest'); setCurrentPage(1); }}>Newest First</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => { setSortOrder('oldest'); setCurrentPage(1); }}>Oldest First</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => { setSortOrder('default'); setCurrentPage(1); }}>Default Order</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           {canCreate && (
             <Button 
               onClick={handleQuickEnroll}
@@ -850,6 +905,7 @@ export default function MasterWorkforceSheet() {
           </Button>
           
           {/* Print Dropdown */}
+          {canExport && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button 
@@ -868,6 +924,7 @@ export default function MasterWorkforceSheet() {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+          )}
         </div>
 
       {/* Filter Row */}
@@ -882,7 +939,20 @@ export default function MasterWorkforceSheet() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All</SelectItem>
-                {DEPARTMENTS.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+                {dynamicDepartments.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          {/* Designation / Role */}
+          <div>
+            <label className="text-sm font-semibold text-black block mb-1">DESIGNATION</label>
+            <Select value={roleFilter} onValueChange={setRoleFilter}>
+              <SelectTrigger className="h-8 text-sm focus:ring-0 focus:ring-offset-0">
+                <SelectValue placeholder="All" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All</SelectItem>
+                {dynamicRoles.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>

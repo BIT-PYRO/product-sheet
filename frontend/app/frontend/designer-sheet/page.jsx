@@ -106,6 +106,7 @@ function DesignerSheetContent() {
   const [designerRecordId, setDesignerRecordId] = useState(null)
   const [isSaving, setIsSaving] = useState(false)
   const [saveStatus, setSaveStatus] = useState(null)
+  const [skuError, setSkuError] = useState('')
   const [backendMode, setBackendMode] = useState('')
 
   const [designer, setDesigner] = useState(EMPTY_DESIGNER())
@@ -150,12 +151,17 @@ function DesignerSheetContent() {
           : PLATING_DEFAULT_ROWS(),
       trackingRows:
         Array.isArray(record.tracking_rows) && record.tracking_rows.length > 0
-          ? record.tracking_rows.map((r) => ({
-              ...r,
+          ? record.tracking_rows.map((r, i) => ({
+              id: r.id ?? i + 1,
+              tdm: r.tdm ?? '',
+              stl: r.stl ?? '',
+              motiveCode: r.motiveCode ?? '',
               motiveSku: r.motiveSku ?? r.masterSku ?? '',
-              length: r.length || '',
-              width: r.width || '',
-              height: r.height || '',
+              dieCode: r.dieCode ?? '',
+              moldDieQty: r.moldDieQty ?? '',
+              length: r.length ?? '',
+              width: r.width ?? '',
+              height: r.height ?? '',
             }))
           : TRACKING_DEFAULT_ROWS(),
       findingsRows:
@@ -247,7 +253,27 @@ function DesignerSheetContent() {
     setDesignerRecordId(null)
     setDesigner(EMPTY_DESIGNER())
     setSearchError('')
+    setSkuError('')
     router.replace('/frontend/designer-sheet')
+  }
+
+  // Check for duplicate SKU when creating a new record
+  const handleSkuBlur = async () => {
+    const sku = designer.sku.trim()
+    if (!sku || designerRecordId) { setSkuError(''); return }
+    try {
+      const res = await fetch(`/api/designers?search=${encodeURIComponent(sku)}`, { cache: 'no-store' })
+      const json = await res.json()
+      const rows = Array.isArray(json.data) ? json.data : Array.isArray(json.data?.results) ? json.data.results : []
+      const match = rows.find((d) => String(d.sku || '').trim().toLowerCase() === sku.toLowerCase())
+      if (match) {
+        setSkuError(`SKU "${sku}" already exists. Use the search bar to load and edit it instead.`)
+      } else {
+        setSkuError('')
+      }
+    } catch {
+      setSkuError('')
+    }
   }
 
   const handleImageUpload = (slot) => (e) => {
@@ -319,7 +345,23 @@ function DesignerSheetContent() {
     setDesigner((prev) => ({ ...prev, findingsRows: prev.findingsRows.filter((r) => r.id !== id) }))
   }
 
+  // Extract a human-readable message from a backend error response
+  const extractBackendError = (result, fallback) => {
+    if (!result) return fallback
+    // Field-level validation errors: { error: { details: { sku: ['...already exists'] } } }
+    const details = result?.error?.details
+    if (details && typeof details === 'object') {
+      const msgs = Object.entries(details).flatMap(([field, errs]) => {
+        const list = Array.isArray(errs) ? errs : [String(errs)]
+        return list.map((e) => `${field}: ${e}`)
+      })
+      if (msgs.length) return msgs.join(' | ')
+    }
+    return result?.error?.message || result?.message || fallback
+  }
+
   const handleSave = async () => {
+    if (skuError) return   // block save when SKU duplicate is detected
     setIsSaving(true)
     setSaveStatus(null)
     try {
@@ -356,7 +398,7 @@ function DesignerSheetContent() {
         body: JSON.stringify(payload),
       })
       const result = await res.json()
-      if (!res.ok || !result.success) throw new Error(result.message || 'Failed to save')
+      if (!res.ok || !result.success) throw new Error(extractBackendError(result, 'Failed to save'))
       const savedId = result.data?.id || designerRecordId
       if (savedId) setDesignerRecordId(savedId)
       if (!designer.sku && result.data?.sku) {
@@ -403,18 +445,343 @@ function DesignerSheetContent() {
     const file = e.target.files?.[0]
     e.target.value = ''
     if (!file) return
-    const formData = new FormData()
-    formData.append('file', file)
-    formData.append('sheetType', 'designers')
-    setIsSaving(true)
+
     setSaveStatus(null)
+    setIsSaving(true)
+
+    // Strip ALL non-alphanumeric chars, lowercase — handles spaces, dashes, colons, #, &, dots, etc.
+    const norm = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '')
+
+    // ── Flat designer field aliases (any reasonable variation) ──────────────────
+    const FLAT_MAP = {
+      // SKU
+      'sku': 'sku', 'designersku': 'sku', 'designsku': 'sku', 'dsku': 'sku',
+      'designerskucode': 'sku', 'designcode': 'sku', 'productsku': 'sku',
+      // Design stage
+      'designstage': 'designStage', 'stage': 'designStage', 'designstatus': 'designStage',
+      'currentstage': 'designStage', 'currstage': 'designStage', 'status': 'designStage',
+      'productstage': 'designStage',
+      // Setting type
+      'settingtype': 'settingType', 'setting': 'settingType', 'settype': 'settingType',
+      'stoneset': 'settingType', 'stonesettype': 'settingType', 'stonesetting': 'settingType',
+      // Enamel
+      'enamel': 'enamel', 'enamelwork': 'enamel', 'enamelfinish': 'enamel', 'enamelreqd': 'enamel',
+      // Total design measurements
+      'tdmlength': 'tdmLength', 'totallength': 'tdmLength', 'designlength': 'tdmLength',
+      'overalllength': 'tdmLength', 'productlength': 'tdmLength', 'approxlength': 'tdmLength',
+      'tdmwidth': 'tdmWidth', 'totalwidth': 'tdmWidth', 'designwidth': 'tdmWidth',
+      'overallwidth': 'tdmWidth', 'productwidth': 'tdmWidth', 'approxwidth': 'tdmWidth',
+      'tdmheight': 'tdmHeight', 'totalheight': 'tdmHeight', 'designheight': 'tdmHeight',
+      'overallheight': 'tdmHeight', 'productheight': 'tdmHeight', 'approxheight': 'tdmHeight',
+      // Design material
+      'designmaterial': 'designMaterial', 'material': 'designMaterial', 'metalmaterial': 'designMaterial',
+      'metaltype': 'designMaterial', 'metalalloy': 'designMaterial', 'alloy': 'designMaterial',
+      'metal': 'designMaterial', 'basemetal': 'designMaterial',
+      // Total die code
+      'totaldiecode': 'totalDieCode', 'diecode': 'totalDieCode', 'totaldies': 'totalDieCode',
+      'diecount': 'totalDieCode', 'noofdie': 'totalDieCode', 'numberofdie': 'totalDieCode',
+      // Mold qty per die
+      'totalmoldqtyperdie': 'totalMoldQtyPerDie', 'moldqtyperdie': 'totalMoldQtyPerDie',
+      'moldqty': 'totalMoldQtyPerDie', 'moldsperdie': 'totalMoldQtyPerDie',
+      'qtyperdie': 'totalMoldQtyPerDie', 'moldsperdieqty': 'totalMoldQtyPerDie',
+      // CPX dead weight
+      'totalcpxdeadweight': 'totalCpxDeadWeight', 'cpxdeadweight': 'totalCpxDeadWeight',
+      'deadweight': 'totalCpxDeadWeight', 'cpxwt': 'totalCpxDeadWeight',
+      'cpxweight': 'totalCpxDeadWeight', 'componentdeadweight': 'totalCpxDeadWeight',
+      // Mechanism
+      'mechanism': 'mechanism', 'closure': 'mechanism', 'closuretype': 'mechanism',
+      'clasp': 'mechanism', 'clasptype': 'mechanism',
+      // Notes
+      'notes': 'notes', 'designernotes': 'notes', 'designnotes': 'notes',
+      'remarks': 'notes', 'comment': 'notes', 'comments': 'notes', 'remark': 'notes',
+    }
+
+    // ── Sub-table column maps ────────────────────────────────────────────────────
+    const STONE_COL_MAP = {
+      'type': 'type', 'stonetype': 'type', 'gemtype': 'type', 'gemstone': 'type',
+      'species': 'species', 'gemspecies': 'species', 'stonespecies': 'species',
+      'variety': 'variety', 'gemvariety': 'variety', 'stonevariety': 'variety',
+      'color': 'color', 'colour': 'color', 'stonecolor': 'color', 'gemcolor': 'color', 'stonecolour': 'color',
+      'cut': 'cut', 'gemcut': 'cut', 'cuttingstyle': 'cut', 'cuttingtype': 'cut',
+      'shape': 'shape', 'stoneshape': 'shape', 'gemshape': 'shape',
+      'length': 'length', 'stonelength': 'length', 'gemlength': 'length',
+      'width': 'width', 'stonewidth': 'width', 'gemwidth': 'width',
+      'height': 'height', 'stoneheight': 'height', 'depth': 'height', 'stonedepth': 'height',
+      'qty': 'qty', 'quantity': 'qty', 'stoneqty': 'qty', 'count': 'qty', 'pcs': 'qty', 'pieces': 'qty', 'nos': 'qty',
+    }
+    const PLATING_COL_MAP = {
+      'type': 'type', 'platingtype': 'type', 'plating': 'type', 'plattype': 'type',
+      'color': 'color', 'colour': 'color', 'platingcolor': 'color', 'platingcolour': 'color',
+      'platcolor': 'color', 'platcolour': 'color', 'finish': 'color',
+    }
+    const TRACKING_COL_MAP = {
+      '3dm': 'tdm', 'tdm': 'tdm', '3dmodel': 'tdm', '3dfile': 'tdm',
+      '3dlink': 'tdm', 'tdmlink': 'tdm', 'tdmfile': 'tdm', '3dmlink': 'tdm',
+      'stl': 'stl', 'stlfile': 'stl', 'stllink': 'stl',
+      'motivecode': 'motiveCode', 'mcode': 'motiveCode',
+      'motivesku': 'motiveSku', 'msku': 'motiveSku', 'mastersku': 'motiveSku',
+      'diecode': 'dieCode', 'dienum': 'dieCode', 'dieref': 'dieCode', 'diecoderef': 'dieCode',
+      'molddieqty': 'moldDieQty', 'moldqtyperdie': 'moldDieQty', 'molddiecount': 'moldDieQty',
+      'qtyperdie': 'moldDieQty', 'moldqty': 'moldDieQty',
+      'length': 'length', 'width': 'width', 'height': 'height',
+    }
+    const FINDINGS_COL_MAP = {
+      'code': 'code', 'findingscode': 'code', 'findingsref': 'code', 'partcode': 'code',
+      'itemcode': 'code', 'part': 'code', 'finding': 'code',
+      'quantity': 'quantity', 'qty': 'quantity', 'findingqty': 'quantity',
+      'count': 'quantity', 'pcs': 'quantity', 'pieces': 'quantity',
+    }
+
+    // ── Match a single header to a column map ─────────────────────────────────
+    // Priority: exact → header-contains-key → key-contains-header (min 4 chars to avoid false positives)
+    const matchHeader = (h, colMap) => {
+      const n = norm(h)
+      if (!n) return null
+      if (colMap[n]) return colMap[n]
+      for (const key of Object.keys(colMap)) {
+        if (key.length >= 4 && n.includes(key)) return colMap[key]
+        if (key.length >= 4 && n.length >= 4 && key.includes(n)) return colMap[key]
+      }
+      return null
+    }
+
+    // Map array-of-arrays rows using a column map; skip all-empty rows
+    const mapRows = (headers, dataRows, colMap) =>
+      dataRows
+        .map((row, i) => {
+          const obj = { id: i + 1 }
+          headers.forEach((h, j) => {
+            const mapped = matchHeader(h, colMap)
+            if (mapped && !obj[mapped]) obj[mapped] = String(row[j] ?? '').trim()
+          })
+          return obj
+        })
+        .filter(obj => Object.entries(obj).some(([k, v]) => k !== 'id' && v))
+
+    // ── Auto-detect which row index is the actual header row ───────────────────
+    // Scans rows 0-4; returns the index of the first row where most cells are non-numeric text
+    const ALL_KNOWN_KEYS = new Set([
+      ...Object.keys(FLAT_MAP), ...Object.keys(STONE_COL_MAP),
+      ...Object.keys(PLATING_COL_MAP), ...Object.keys(TRACKING_COL_MAP),
+      ...Object.keys(FINDINGS_COL_MAP),
+    ])
+    const findHeaderRow = (allRows) => {
+      for (let i = 0; i < Math.min(5, allRows.length); i++) {
+        const row = allRows[i]
+        const nonEmpty = row.filter(c => String(c).trim())
+        if (nonEmpty.length < 2) continue
+        // Check how many cells norm-match any known key
+        const matches = nonEmpty.filter(c => {
+          const n = norm(c)
+          if (ALL_KNOWN_KEYS.has(n)) return true
+          for (const key of ALL_KNOWN_KEYS) {
+            if (key.length >= 4 && n.includes(key)) return true
+            if (key.length >= 4 && n.length >= 4 && key.includes(n)) return true
+          }
+          return false
+        })
+        if (matches.length >= 2) return i
+        // If mostly text (not numbers), still a plausible header row
+        const textCells = nonEmpty.filter(c => isNaN(Number(String(c).trim())))
+        if (textCells.length >= Math.max(2, nonEmpty.length * 0.6)) return i
+      }
+      return 0
+    }
+
+    // ── Detect what kind of table data a sheet contains ────────────────────────
+    const detectSheetType = (headers, sheetName) => {
+      const sn = norm(sheetName)
+      if (sn.includes('stone') || sn.includes('gem')) return 'stone'
+      if (sn.includes('plat')) return 'plating'
+      if (sn.includes('track') || sn.includes('3dm') || sn.includes('tdm')) return 'tracking'
+      if (sn.includes('find')) return 'findings'
+      const nh = headers.map(h => norm(h))
+      if (nh.some(h => h.includes('species') || h.includes('variety') || h === 'gemstone')) return 'stone'
+      if (nh.some(h => h.includes('plating') || h.includes('plattype') || h.includes('platcolor'))) return 'plating'
+      if (nh.some(h => h === '3dm' || h.includes('3dm') || h === 'stl' || h.includes('motivecode'))) return 'tracking'
+      if (nh.some(h => h.includes('finding') || h.includes('findingscode'))) return 'findings'
+      return 'main'
+    }
+
     try {
-      const res = await fetch('/api/bulk-upload', { method: 'POST', body: formData })
-      const result = await res.json().catch(() => null)
-      if (!res.ok || !result?.success) throw new Error(result?.message || 'Bulk upload failed')
-      setSaveStatus({ success: true, message: result.message })
+      const updates = {}
+
+      if (file.name.toLowerCase().endsWith('.json')) {
+        // ── JSON format ──
+        const text = await file.text()
+        const raw = JSON.parse(text)
+        const rec = Array.isArray(raw) ? raw[0] : raw
+        const jmap = {
+          sku: 'sku', designer_sku: 'sku',
+          design_stage: 'designStage', setting_type: 'settingType',
+          enamel: 'enamel', design_material: 'designMaterial',
+          total_die_code: 'totalDieCode', total_mold_qty_per_die: 'totalMoldQtyPerDie',
+          total_cpx_dead_weight: 'totalCpxDeadWeight', mechanism: 'mechanism',
+          notes: 'notes', designer_notes: 'notes',
+        }
+        Object.entries(jmap).forEach(([k, v]) => { if (rec[k] != null) updates[v] = String(rec[k]) })
+        const tdm = rec.total_design_measurements
+        if (tdm) {
+          if (tdm.length != null) updates.tdmLength = String(tdm.length)
+          if (tdm.width  != null) updates.tdmWidth  = String(tdm.width)
+          if (tdm.height != null) updates.tdmHeight = String(tdm.height)
+        }
+        if (Array.isArray(rec.stone_entries) && rec.stone_entries.length)
+          updates.stoneRows = rec.stone_entries.map((r, i) => ({ id: i + 1, type: r.type||'', species: r.species||'', variety: r.variety||'', color: r.color||'', cut: r.cut||'', shape: r.shape||'', length: r.length||'', width: r.width||'', height: r.height||'', qty: r.qty||'' }))
+        if (Array.isArray(rec.plating_entries) && rec.plating_entries.length)
+          updates.platingRows = rec.plating_entries.map((r, i) => ({ id: i + 1, type: r.type||'', color: r.color||'' }))
+        if (Array.isArray(rec.tracking_rows) && rec.tracking_rows.length)
+          updates.trackingRows = rec.tracking_rows.map((r, i) => ({ id: r.id ?? i + 1, tdm: r.tdm||'', stl: r.stl||'', motiveCode: r.motiveCode||r.motive_code||'', motiveSku: r.motiveSku||r.motive_sku||'', dieCode: r.dieCode||r.die_code||'', moldDieQty: r.moldDieQty||r.mold_die_qty||'', length: r.length||'', width: r.width||'', height: r.height||'' }))
+        if (Array.isArray(rec.findings_entries) && rec.findings_entries.length)
+          updates.findingsRows = rec.findings_entries.map((r, i) => ({ id: i + 1, code: r.code||'', quantity: r.quantity||'' }))
+
+      } else {
+        // ── Excel / CSV format via SheetJS ──
+        const xlsxMod = await import('xlsx')
+        const XLSX = xlsxMod.default ?? xlsxMod
+        const buffer = await file.arrayBuffer()
+        const wb = XLSX.read(new Uint8Array(buffer), { type: 'array' })
+
+        // ── Extract embedded images once via CFB (SheetJS CE does not support ws['!images']) ──
+        let xlsxImagesByRowCol = new Map() // `${row},${col}` (0-based) → data URL
+        try {
+          if (XLSX.CFB && typeof XLSX.CFB.read === 'function') {
+            const cfb = XLSX.CFB.read(new Uint8Array(buffer), { type: 'array' })
+            const cfbPaths = cfb.FullPaths || []
+            const cfbGet = (p) => { const i = cfbPaths.indexOf(p); return i >= 0 ? cfb.FileIndex[i] : null }
+            const relsEntry = cfbGet('Root Entry/xl/drawings/_rels/drawing1.xml.rels')
+            const drawEntry = cfbGet('Root Entry/xl/drawings/drawing1.xml')
+            if (relsEntry && drawEntry) {
+              const dec = new TextDecoder()
+              const toStr = (c) => dec.decode(c instanceof Uint8Array ? c : new Uint8Array(c))
+              const toB64 = (c) => {
+                const bytes = c instanceof Uint8Array ? c : new Uint8Array(c)
+                let bin = '', j = 0
+                while (j < bytes.length) { const end = Math.min(j + 8192, bytes.length); bin += String.fromCharCode(...bytes.subarray(j, end)); j = end }
+                return btoa(bin)
+              }
+              const relsXml = toStr(relsEntry.content)
+              const ridToFile = {}
+              const relPat = /Id="(rId\d+)"[^>]+Target="\.\.\/media\/([^"]+)"/g
+              let m
+              while ((m = relPat.exec(relsXml)) !== null) ridToFile[m[1]] = m[2]
+              const drawXml = toStr(drawEntry.content)
+              const anchorPat = /<xdr:from>\s*<xdr:col>(\d+)<\/xdr:col>[\s\S]*?<xdr:row>(\d+)<\/xdr:row>[\s\S]*?r:embed="(rId\d+)"/g
+              while ((m = anchorPat.exec(drawXml)) !== null) {
+                const col = parseInt(m[1]), row = parseInt(m[2]), rid = m[3]
+                const mf = ridToFile[rid]; if (!mf) continue
+                const me = cfbGet(`Root Entry/xl/media/${mf}`); if (!me || !me.content) continue
+                const ext = mf.split('.').pop().toLowerCase()
+                const mime = ext === 'jpg' || ext === 'jpeg' ? 'jpeg' : ext === 'png' ? 'png' : ext
+                if (!xlsxImagesByRowCol.has(`${row},${col}`))
+                  xlsxImagesByRowCol.set(`${row},${col}`, `data:image/${mime};base64,${toB64(me.content)}`)
+              }
+            }
+          }
+        } catch { /* non-fatal: images simply won't be extracted */ }
+
+        const stoneAcc = [], platingAcc = [], trackingAcc = [], findingsAcc = []
+        let mainFilled = false
+
+        for (const sheetName of wb.SheetNames) {
+          const ws = wb.Sheets[sheetName]
+          const allRows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' })
+          const nonEmptyRows = allRows.filter(r => r.some(c => String(c).trim()))
+          if (nonEmptyRows.length < 1) continue
+
+          // ── Vertical layout: col A = label, col B = value (e.g. key-value template) ──
+          // Detect: if every row has ≤ 2 non-empty cells and col A looks like text labels
+          const looksVertical =
+            nonEmptyRows.length >= 2 &&
+            nonEmptyRows.every(r => r.filter(c => String(c).trim()).length <= 3) &&
+            nonEmptyRows.filter(r => {
+              const n = norm(r[0])
+              return FLAT_MAP[n] || matchHeader(String(r[0]), FLAT_MAP)
+            }).length >= 2
+
+          if (looksVertical) {
+            nonEmptyRows.forEach(r => {
+              const label = String(r[0] ?? '').trim()
+              const value = String(r[1] ?? '').trim()
+              if (!label || !value) return
+              const mapped = matchHeader(label, FLAT_MAP)
+              if (mapped && !updates[mapped]) updates[mapped] = value
+            })
+            mainFilled = true
+            continue
+          }
+
+          // ── Horizontal layout ──
+          const headerRowIdx = findHeaderRow(nonEmptyRows)
+          const headers  = nonEmptyRows[headerRowIdx].map(h => String(h).trim())
+          const dataRows = nonEmptyRows.slice(headerRowIdx + 1).filter(r => r.some(c => String(c).trim()))
+          if (!dataRows.length) continue
+
+          const sheetType = detectSheetType(headers, sheetName)
+
+          if (sheetType === 'stone') {
+            stoneAcc.push(...mapRows(headers, dataRows, STONE_COL_MAP))
+          } else if (sheetType === 'plating') {
+            platingAcc.push(...mapRows(headers, dataRows, PLATING_COL_MAP))
+          } else if (sheetType === 'tracking') {
+            trackingAcc.push(...mapRows(headers, dataRows, TRACKING_COL_MAP))
+          } else if (sheetType === 'findings') {
+            findingsAcc.push(...mapRows(headers, dataRows, FINDINGS_COL_MAP))
+          } else {
+            // Main / mixed sheet — fill flat fields from first data row
+            if (!mainFilled) {
+              const row = dataRows[0]
+              headers.forEach((h, i) => {
+                const mapped = matchHeader(h, FLAT_MAP)
+                if (mapped && !updates[mapped] && String(row[i] ?? '').trim())
+                  updates[mapped] = String(row[i]).trim()
+              })
+              // ── Images: scan all header rows so two-row grouped headers work ──
+              if (xlsxImagesByRowCol.size > 0) {
+                const absoluteDataRow = allRows.indexOf(dataRows[0])
+                if (absoluteDataRow >= 0) {
+                  const allHdrs = nonEmptyRows.slice(0, headerRowIdx + 1)
+                  const maxCols = Math.max(...allHdrs.map(r => r.length))
+                  for (let col = 0; col < maxCols; col++) {
+                    let imgSlot = null
+                    for (const hr of allHdrs) {
+                      const hn = norm(String(hr[col] || ''))
+                      if (hn.includes('renderedphoto') || hn === 'renderedphoto') { imgSlot = 'image1'; break }
+                      if (hn.includes('technicaldrawing') || hn === 'technicaldrawing') { imgSlot = 'image2'; break }
+                      if (hn.includes('otherphoto') || hn === 'otherphoto') { imgSlot = 'image3'; break }
+                    }
+                    if (!imgSlot) continue
+                    const dataUrl = xlsxImagesByRowCol.get(`${absoluteDataRow},${col}`)
+                    if (dataUrl && !updates[imgSlot]) updates[imgSlot] = dataUrl
+                  }
+                }
+              }
+              mainFilled = true
+            }
+            // Also look for any sub-table columns in the same sheet and extract all rows
+            if (!stoneAcc.length)    { const r = mapRows(headers, dataRows, STONE_COL_MAP);    if (r.length) stoneAcc.push(...r) }
+            if (!platingAcc.length)  { const r = mapRows(headers, dataRows, PLATING_COL_MAP);  if (r.length) platingAcc.push(...r) }
+            if (!trackingAcc.length) { const r = mapRows(headers, dataRows, TRACKING_COL_MAP); if (r.length) trackingAcc.push(...r) }
+            if (!findingsAcc.length) { const r = mapRows(headers, dataRows, FINDINGS_COL_MAP); if (r.length) findingsAcc.push(...r) }
+          }
+        }
+
+        if (stoneAcc.length)    updates.stoneRows    = stoneAcc.map((r, i) => ({ ...r, id: i + 1 }))
+        if (platingAcc.length)  updates.platingRows  = platingAcc.map((r, i) => ({ ...r, id: i + 1 }))
+        if (trackingAcc.length) updates.trackingRows = trackingAcc.map((r, i) => ({ ...r, id: i + 1 }))
+        if (findingsAcc.length) updates.findingsRows = findingsAcc.map((r, i) => ({ ...r, id: i + 1 }))
+      }
+
+      const count = Object.keys(updates).length
+      if (!count) {
+        setSaveStatus({ success: false, message: 'No matching fields found. Check that column headers match form field names.' })
+      } else {
+        setDesigner(prev => ({ ...prev, ...updates }))
+        setIsEditing(true)
+        setSaveStatus({ success: true, message: `File loaded — ${count} field(s) autofilled` })
+      }
     } catch (err) {
-      setSaveStatus({ success: false, message: err.message })
+      setSaveStatus({ success: false, message: `Could not parse file: ${err.message}` })
     } finally {
       setIsSaving(false)
       setTimeout(() => setSaveStatus(null), 6000)
@@ -533,11 +900,15 @@ function DesignerSheetContent() {
             <input
               type="text"
               value={designer.sku}
-              onChange={(e) => setDesigner((prev) => ({ ...prev, sku: e.target.value }))}
+              onChange={(e) => { setDesigner((prev) => ({ ...prev, sku: e.target.value })); setSkuError('') }}
+              onBlur={handleSkuBlur}
               placeholder="e.g. RING-001 (leave blank to auto-generate)"
               disabled={isLoaded && !isEditing}
-              className="w-full border border-soft-border rounded px-3 py-1.5 text-sm outline-none focus:border-trust-blue bg-white disabled:bg-cloud-gray disabled:text-cool-gray disabled:cursor-default"
+              className={`w-full border rounded px-3 py-1.5 text-sm outline-none focus:border-trust-blue bg-white disabled:bg-cloud-gray disabled:text-cool-gray disabled:cursor-default ${skuError ? 'border-danger' : 'border-soft-border'}`}
             />
+            {skuError && (
+              <p className="mt-1 text-xs text-red-600 bg-red-50 border border-red-200 rounded px-2 py-1">{skuError}</p>
+            )}
           </div>
 
           <div className="grid grid-cols-3 gap-2 mb-3">
