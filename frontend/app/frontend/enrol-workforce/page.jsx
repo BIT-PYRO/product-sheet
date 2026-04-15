@@ -90,7 +90,7 @@ function defaultPermsByRole(designation, department) {
     'enrol-customer','master-customer-sheet','master-kyc-sheet',
     'enrol-workforce','master-workforce-sheet','master-job-sheet',
     'managers-dashboard','drafts','orders','my-desk','create-generic-job',
-    'master-designer-sheet','designer-sheet','finding-sheet','finding-entry','inventory',
+    'master-designer-sheet','designer-sheet','finding-sheet','finding-entry','inventory','accountancy',
   ];
   const allPerm  = (lvl) => Object.fromEntries(ALL_KEYS.map(k => [k, lvl]));
   const baseBuild = () => Object.fromEntries(ALL_KEYS.map(k => [k, N]));

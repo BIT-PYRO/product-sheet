@@ -2,10 +2,18 @@ import { NextResponse } from 'next/server';
 
 export const ACCESS_COOKIE = 'psd-access-token';
 export const REFRESH_COOKIE = 'psd-refresh-token';
-const DEFAULT_BACKEND_URL = 'http://127.0.0.1:8000/';
+const DEFAULT_BACKEND_URL = process.env.NODE_ENV === 'production' ? 'https://product-sheet.onrender.com' : 'http://127.0.0.1:8000';
 
 function backendBaseUrl() {
-  return (process.env.BACKEND_BASE_URL || DEFAULT_BACKEND_URL).replace(/\/$/, '');
+  const url = (process.env.BACKEND_BASE_URL || DEFAULT_BACKEND_URL).replace(/\/$/, '');
+  if (process.env.NODE_ENV !== 'production') {
+    const normalized = String(url).toLowerCase();
+    const isLocal = normalized.includes('127.0.0.1') || normalized.includes('localhost') || normalized.includes('0.0.0.0');
+    if (!isLocal) {
+      throw new Error(`Unsafe BACKEND_BASE_URL in development: ${url}. Use a local backend URL only.`);
+    }
+  }
+  return url;
 }
 
 function extractAccessToken(payload) {

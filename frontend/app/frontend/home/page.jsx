@@ -29,6 +29,7 @@ const SHEET_BLOCKS = [
   { href: '/finding-sheet', permKey: 'finding-sheet', title: 'Master Finding Sheet', subtitle: 'Finding records and details', keywords: ['finding', 'findings', 'die number', 'size', 'quantity', 'weight', 'sheet', 'master'] },
   { href: '/finding-entry', permKey: 'finding-entry', title: 'Finding Sheet', subtitle: 'Finding entry with image upload', keywords: ['finding', 'findings', 'image', 'die number', 'size', 'quantity', 'weight', 'entry', 'upload'] },
   { href: '/inventory', permKey: 'inventory', title: 'Inventory', subtitle: 'Inventory final stocks', keywords: ['inventory', 'final stock', 'stock', 'quantity'] },
+  { href: '/accountancy', permKey: 'accountancy', title: 'Accountancy', subtitle: 'Accounting module and journal entry', keywords: ['accounting', 'accountancy', 'journal', 'ledger', 'debit', 'credit', 'finance'] },
 ];
 
 export default function HomePage() {

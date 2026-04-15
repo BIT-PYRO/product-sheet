@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Search, Upload, Trash2, Pencil, Download, RefreshCw } from 'lucide-react';
+import { Search, Upload, Trash2, Pencil, Download, RefreshCw, Printer } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -17,14 +17,29 @@ import MasterNavigationDrawer from '@/components/master_navigation_drawer';
 import DateTimeStamp from '@/components/date-time-stamp';
 import GlobalSearchBar from '@/components/global-search-bar';
 import LastUpdatedFooter from '@/components/last-updated-footer';
+import MultiselectFilterPopover from '@/components/multiselect-filter-popover';
 
 const UNIT_OPTIONS = ['PCS', 'GM', 'KG', 'CT'];
+const PRODUCT_COLUMNS = [
+  { id: 'image', label: 'Image' },
+  { id: 'masterSku', label: 'Master SKU' },
+  { id: 'designerSku', label: 'Designer SKU' },
+  { id: 'finalSku', label: 'Final Stock SKU' },
+  { id: 'value', label: 'Value' },
+  { id: 'unit', label: 'Unit' },
+  { id: 'location', label: 'Location' },
+  { id: 'wip', label: 'WIP' },
+  { id: 'totalInDemand', label: 'Total In Demand' },
+];
 
 export default function ProductInventoryPage() {
   const [data, setData] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [fetchError, setFetchError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+  const [filterUnit, setFilterUnit] = useState([]);
+  const [filterLocation, setFilterLocation] = useState([]);
+  const [filterStockState, setFilterStockState] = useState([]);
   const [selectedRows, setSelectedRows] = useState(new Set());
   const [editingRowIds, setEditingRowIds] = useState(new Set());
   const [editBuffer, setEditBuffer] = useState({});
@@ -41,6 +56,9 @@ export default function ProductInventoryPage() {
   const [bulkUploadText, setBulkUploadText] = useState('');
   const [bulkUploadStatus, setBulkUploadStatus] = useState(null);
   const [isBulkUploading, setIsBulkUploading] = useState(false);
+  const [isManageColumnsOpen, setIsManageColumnsOpen] = useState(false);
+  const [selectedColumnsForAction, setSelectedColumnsForAction] = useState(new Set());
+  const [visibleColumns, setVisibleColumns] = useState(new Set(PRODUCT_COLUMNS.map((column) => column.id)));
   const bulkFileRef = useRef(null);
 
   useEffect(() => {
@@ -159,15 +177,64 @@ export default function ProductInventoryPage() {
   // Search filter
   const filteredData = useMemo(() => {
     const q = searchTerm.trim().toLowerCase();
-    if (!q) return data;
+    const unitFilters = Array.isArray(filterUnit) ? filterUnit : [];
+    const locationFilters = Array.isArray(filterLocation) ? filterLocation : [];
+    const stockStateFilters = (Array.isArray(filterStockState) ? filterStockState : []).map((v) => String(v || '').toLowerCase());
     return data.filter(row => {
-      if (row.masterSku.toLowerCase().includes(q)) return true;
-      if (row.designerSku.toLowerCase().includes(q)) return true;
-      if (row.subRows.some(s => s.finalSku.toLowerCase().includes(q))) return true;
-      if (row.subRows.some(s => s.location.toLowerCase().includes(q))) return true;
-      return false;
+      const searchMatch = !q ||
+        row.masterSku.toLowerCase().includes(q) ||
+        row.designerSku.toLowerCase().includes(q) ||
+        row.subRows.some(s => s.finalSku.toLowerCase().includes(q)) ||
+        row.subRows.some(s => s.location.toLowerCase().includes(q));
+
+      const unitMatch =
+        unitFilters.length === 0 ||
+        row.subRows.some((sub) =>
+          unitFilters.some((unit) => String(sub.unit || '').toLowerCase().includes(String(unit || '').toLowerCase()))
+        );
+      const locationMatch =
+        locationFilters.length === 0 ||
+        row.subRows.some((sub) =>
+          locationFilters.some((location) => String(sub.location || '').toLowerCase().includes(String(location || '').toLowerCase()))
+        );
+
+      const hasInStock = row.subRows.some((sub) => Number(sub.value || 0) > 0);
+      const hasOutOfStock = row.subRows.every((sub) => Number(sub.value || 0) <= 0);
+      const hasWip = Number(row.wip || 0) > 0;
+      const stockStateLabels = [
+        hasInStock ? 'in stock' : '',
+        hasOutOfStock ? 'out of stock' : '',
+        hasWip ? 'wip' : '',
+      ].filter(Boolean);
+
+      const stockStateMatch =
+        stockStateFilters.length === 0 ||
+        stockStateFilters.some((state) => {
+          if (state.includes('in stock') || state === 'in') return hasInStock;
+          if (state.includes('out of stock') || state === 'out') return hasOutOfStock;
+          if (state.includes('wip')) return hasWip;
+          return stockStateLabels.some((label) => label.includes(state));
+        });
+
+      return searchMatch && unitMatch && locationMatch && stockStateMatch;
     });
-  }, [data, searchTerm]);
+  }, [
+    data,
+    searchTerm,
+    filterUnit,
+    filterLocation,
+    filterStockState,
+  ]);
+
+  const locationOptions = useMemo(() => {
+    return Array.from(
+      new Set(
+        data
+          .flatMap((row) => row.subRows.map((sub) => String(sub.location || '').trim()))
+          .filter(Boolean)
+      )
+    ).sort((a, b) => a.localeCompare(b));
+  }, [data]);
 
   // Pagination
   const totalPages = Math.max(1, Math.ceil(filteredData.length / rowsPerPage));
@@ -366,6 +433,46 @@ export default function ProductInventoryPage() {
     URL.revokeObjectURL(url);
   };
 
+  const handlePrintTable = () => {
+    window.print();
+  };
+
+  const toggleColumnSelection = (columnId) => {
+    const next = new Set(selectedColumnsForAction);
+    if (next.has(columnId)) {
+      next.delete(columnId);
+    } else {
+      next.add(columnId);
+    }
+    setSelectedColumnsForAction(next);
+  };
+
+  const toggleSelectAllColumns = () => {
+    if (selectedColumnsForAction.size === PRODUCT_COLUMNS.length) {
+      setSelectedColumnsForAction(new Set());
+    } else {
+      setSelectedColumnsForAction(new Set(PRODUCT_COLUMNS.map((column) => column.id)));
+    }
+  };
+
+  const handleHideColumns = () => {
+    const next = new Set(visibleColumns);
+    selectedColumnsForAction.forEach((columnId) => next.delete(columnId));
+    setVisibleColumns(next);
+    setSelectedColumnsForAction(new Set());
+    setIsManageColumnsOpen(false);
+  };
+
+  const handleShowColumns = () => {
+    const next = new Set(visibleColumns);
+    selectedColumnsForAction.forEach((columnId) => next.add(columnId));
+    setVisibleColumns(next);
+    setSelectedColumnsForAction(new Set());
+    setIsManageColumnsOpen(false);
+  };
+
+  const visibleTableColumnCount = 1 + PRODUCT_COLUMNS.filter((column) => visibleColumns.has(column.id)).length;
+
   // Bulk upload
   const handleBulkFileChange = async (e) => {
     const file = e.target.files?.[0];
@@ -431,6 +538,69 @@ export default function ProductInventoryPage() {
         </DialogContent>
       </Dialog>
 
+      <Dialog open={isManageColumnsOpen} onOpenChange={setIsManageColumnsOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Manage Columns</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 max-h-[400px] overflow-y-auto py-4">
+            <div className="flex items-center justify-between gap-3 pb-3 border-b border-soft-border mb-3">
+              <div className="flex items-center gap-3 flex-1">
+                <Checkbox
+                  id="select-all-product-inventory-columns"
+                  checked={selectedColumnsForAction.size === PRODUCT_COLUMNS.length && PRODUCT_COLUMNS.length > 0}
+                  onCheckedChange={toggleSelectAllColumns}
+                  className="cursor-pointer"
+                />
+                <label htmlFor="select-all-product-inventory-columns" className="text-sm font-semibold cursor-pointer">
+                  Select All
+                </label>
+              </div>
+            </div>
+            {PRODUCT_COLUMNS.map((column) => (
+              <div key={column.id} className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 flex-1">
+                  <Checkbox
+                    id={`product-column-${column.id}`}
+                    checked={selectedColumnsForAction.has(column.id)}
+                    onCheckedChange={() => toggleColumnSelection(column.id)}
+                    className="cursor-pointer"
+                  />
+                  <label htmlFor={`product-column-${column.id}`} className="text-sm cursor-pointer">
+                    {column.label}
+                  </label>
+                </div>
+                <div className="text-sm font-semibold px-2 py-1 rounded">
+                  {!visibleColumns.has(column.id) ? (
+                    <span className="bg-danger/10 text-danger-dark px-2 py-1 rounded-full text-sm">Hidden</span>
+                  ) : (
+                    <span className="bg-success/10 text-success-dark px-2 py-1 rounded-full text-sm">Visible</span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+          <DialogFooter className="flex gap-2">
+            <Button
+              onClick={handleHideColumns}
+              disabled={selectedColumnsForAction.size === 0}
+              variant="outline"
+              className="text-danger border-danger/40 hover:bg-danger/10"
+            >
+              Hide
+            </Button>
+            <Button
+              onClick={handleShowColumns}
+              disabled={selectedColumnsForAction.size === 0}
+              variant="outline"
+              className="text-success border-green-300 hover:bg-success/10"
+            >
+              Show
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <div className="flex-1 pt-16 px-3 md:px-4 pb-16">
         {/* Fixed Header */}
         <div className="fixed top-0 left-0 right-0 z-[60] bg-white/95 py-2 border-b border-soft-border shadow-sm backdrop-blur px-3 md:px-4">
@@ -444,19 +614,55 @@ export default function ProductInventoryPage() {
           </div>
         </div>
 
-        {/* Action Buttons */}
-        <div className="flex flex-wrap gap-2 md:gap-4 justify-end mb-4 items-center">
-          {/* Search */}
-          <div className="relative mr-auto">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-cool-gray w-4 h-4" />
-            <Input
+        {/* Filters */}
+        <section className="border border-soft-border rounded-lg mb-4 bg-[#dbeafe] p-3">
+          <div className="flex flex-wrap gap-2 items-center">
+            <input
               type="text"
-              placeholder="Search SKU, Design Code, Location..."
+              placeholder="Search"
               value={searchTerm}
               onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
-              className="border border-soft-border rounded-lg pl-9 pr-4 h-9 w-80 text-sm"
+              className="h-8 text-sm w-36 bg-white rounded-md border border-trust-blue/40 px-3"
             />
+            <MultiselectFilterPopover
+              label="Unit"
+              selectedValues={filterUnit}
+              onSelectValues={(value) => { setFilterUnit(value); setCurrentPage(1); }}
+              options={UNIT_OPTIONS}
+              storageKey="inventory:product:unit"
+            />
+            <MultiselectFilterPopover
+              label="Location"
+              selectedValues={filterLocation}
+              onSelectValues={(value) => { setFilterLocation(value); setCurrentPage(1); }}
+              options={locationOptions}
+              storageKey="inventory:product:location"
+            />
+            <MultiselectFilterPopover
+              label="Stock State"
+              selectedValues={filterStockState}
+              onSelectValues={(value) => { setFilterStockState(value); setCurrentPage(1); }}
+              options={['In Stock', 'Out of Stock', 'WIP']}
+              storageKey="inventory:product:stock-state"
+            />
+            <button
+              type="button"
+              onClick={() => {
+                setSearchTerm('');
+                setFilterUnit([]);
+                setFilterLocation([]);
+                setFilterStockState([]);
+                setCurrentPage(1);
+              }}
+              className="h-8 px-3 text-sm border rounded bg-trust-blue text-white border-trust-blue font-medium"
+            >
+              Clear
+            </button>
           </div>
+        </section>
+
+        {/* Action Buttons */}
+        <div className="flex flex-wrap gap-2 md:gap-4 justify-end mb-4 items-center">
 
           <Button onClick={loadData} variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8" disabled={isLoading}>
             <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${isLoading ? 'animate-spin' : ''}`} />
@@ -482,6 +688,15 @@ export default function ProductInventoryPage() {
             Export
           </Button>
 
+          <Button onClick={handlePrintTable} variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8">
+            <Printer className="w-3.5 h-3.5 mr-1.5" />
+            Print
+          </Button>
+
+          <Button onClick={() => setIsManageColumnsOpen(true)} variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8">
+            Manage Columns
+          </Button>
+
           <Button
             onClick={handleEditRows}
             variant="outline"
@@ -489,7 +704,7 @@ export default function ProductInventoryPage() {
             disabled={editingRowIds.size > 0}
           >
             <Pencil className="w-3.5 h-3.5 mr-1.5" />
-            Edit Rows
+            Edit Row
           </Button>
 
           <Button
@@ -538,21 +753,21 @@ export default function ProductInventoryPage() {
                       disabled={filteredData.length === 0 || editingRowIds.size > 0}
                     />
                   </th>
-                  <th className="border border-soft-border p-2 min-w-[80px] bg-[#dbeafe]">IMAGE</th>
-                  <th className="border border-soft-border p-2 min-w-[120px] bg-[#dbeafe]">MASTER SKU</th>
-                  <th className="border border-soft-border p-2 min-w-[120px] bg-[#dbeafe]">DESIGNER SKU</th>
-                  <th className="border border-soft-border p-2 min-w-[140px] bg-[#dbeafe]">FINAL STOCK SKU</th>
-                  <th className="border border-soft-border p-2 min-w-[90px] bg-[#dbeafe]">VALUE</th>
-                  <th className="border border-soft-border p-2 min-w-[70px] bg-[#dbeafe]">UNIT</th>
-                  <th className="border border-soft-border p-2 min-w-[120px] bg-[#dbeafe]">LOCATION</th>
-                  <th className="border border-soft-border p-2 min-w-[80px] bg-[#dbeafe]">WIP</th>
-                  <th className="border border-soft-border p-2 min-w-[110px] bg-[#dbeafe]">TOTAL IN DEMAND</th>
+                  {visibleColumns.has('image') && <th className="border border-soft-border p-2 min-w-[80px] bg-[#dbeafe]">IMAGE</th>}
+                  {visibleColumns.has('masterSku') && <th className="border border-soft-border p-2 min-w-[120px] bg-[#dbeafe]">MASTER SKU</th>}
+                  {visibleColumns.has('designerSku') && <th className="border border-soft-border p-2 min-w-[120px] bg-[#dbeafe]">DESIGNER SKU</th>}
+                  {visibleColumns.has('finalSku') && <th className="border border-soft-border p-2 min-w-[140px] bg-[#dbeafe]">FINAL STOCK SKU</th>}
+                  {visibleColumns.has('value') && <th className="border border-soft-border p-2 min-w-[90px] bg-[#dbeafe]">VALUE</th>}
+                  {visibleColumns.has('unit') && <th className="border border-soft-border p-2 min-w-[70px] bg-[#dbeafe]">UNIT</th>}
+                  {visibleColumns.has('location') && <th className="border border-soft-border p-2 min-w-[120px] bg-[#dbeafe]">LOCATION</th>}
+                  {visibleColumns.has('wip') && <th className="border border-soft-border p-2 min-w-[80px] bg-[#dbeafe]">WIP</th>}
+                  {visibleColumns.has('totalInDemand') && <th className="border border-soft-border p-2 min-w-[110px] bg-[#dbeafe]">TOTAL IN DEMAND</th>}
                 </tr>
               </thead>
               <tbody>
                 {paginatedData.length === 0 && !isLoading && (
                   <tr>
-                    <td colSpan={11} className="border border-soft-border p-6 text-center text-cool-gray">
+                    <td colSpan={visibleTableColumnCount} className="border border-soft-border p-6 text-center text-cool-gray">
                       No product inventory found. Use Bulk Upload to add products.
                     </td>
                   </tr>
@@ -564,6 +779,7 @@ export default function ProductInventoryPage() {
                     isSelected={selectedRows.has(row.productId)}
                     isEditing={editingRowIds.size > 0 && selectedRows.has(row.productId)}
                     editBuffer={editBuffer}
+                    visibleColumns={visibleColumns}
                     onToggleSelect={() => toggleRowSelection(row.productId)}
                     onUpdateBuffer={updateEditBuffer}
                     resolveImageUrl={resolveImageUrl}
@@ -629,7 +845,7 @@ export default function ProductInventoryPage() {
   );
 }
 
-function ProductRow({ row, isSelected, isEditing, editBuffer, onToggleSelect, onUpdateBuffer, resolveImageUrl }) {
+function ProductRow({ row, isSelected, isEditing, editBuffer, visibleColumns, onToggleSelect, onUpdateBuffer, resolveImageUrl }) {
   const subRows = row.subRows;
   const span = subRows.length || 1;
   const bgClass = isEditing ? 'bg-trust-blue/5' : 'hover:bg-cloud-gray';
@@ -639,21 +855,21 @@ function ProductRow({ row, isSelected, isEditing, editBuffer, onToggleSelect, on
     const editing = isEditing && buf;
     return (
       <>
-        <td className="border border-soft-border p-1.5">
+        {visibleColumns.has('finalSku') && <td className="border border-soft-border p-1.5">
           {editing ? (
             <Input value={buf.finalSku} onChange={(e) => onUpdateBuffer(sub.id, 'finalSku', e.target.value)} className="border-0 p-1 text-sm h-8" />
           ) : (
             <span className="px-1 text-sm">{sub.finalSku || '—'}</span>
           )}
-        </td>
-        <td className="border border-soft-border p-1.5">
+        </td>}
+        {visibleColumns.has('value') && <td className="border border-soft-border p-1.5">
           {editing ? (
             <Input type="number" value={buf.value} onChange={(e) => onUpdateBuffer(sub.id, 'value', e.target.value)} className="border-0 p-1 text-sm h-8" />
           ) : (
             <span className="px-1 text-sm">{sub.value}</span>
           )}
-        </td>
-        <td className="border border-soft-border p-1.5">
+        </td>}
+        {visibleColumns.has('unit') && <td className="border border-soft-border p-1.5">
           {editing ? (
             <select value={buf.unit} onChange={(e) => onUpdateBuffer(sub.id, 'unit', e.target.value)} className="border rounded px-1 py-1 text-sm h-8 w-full">
               {UNIT_OPTIONS.map(u => <option key={u} value={u}>{u}</option>)}
@@ -661,19 +877,20 @@ function ProductRow({ row, isSelected, isEditing, editBuffer, onToggleSelect, on
           ) : (
             <span className="px-1 text-sm">{sub.unit}</span>
           )}
-        </td>
-        <td className="border border-soft-border p-1.5">
+        </td>}
+        {visibleColumns.has('location') && <td className="border border-soft-border p-1.5">
           {editing ? (
             <Input value={buf.location} onChange={(e) => onUpdateBuffer(sub.id, 'location', e.target.value)} className="border-0 p-1 text-sm h-8" />
           ) : (
             <span className="px-1 text-sm">{sub.location || '—'}</span>
           )}
-        </td>
+        </td>}
       </>
     );
   };
 
   const renderTotalInDemand = (sub) => {
+    if (!visibleColumns.has('totalInDemand')) return null;
     const buf = editBuffer[sub.id];
     const editing = isEditing && buf;
     return (
@@ -688,19 +905,20 @@ function ProductRow({ row, isSelected, isEditing, editBuffer, onToggleSelect, on
   };
 
   if (!subRows.length) {
+    const noStockSpan = ['finalSku', 'value', 'unit', 'location'].filter((key) => visibleColumns.has(key)).length;
     return (
       <tr className="hover:bg-cloud-gray">
         <td className="border border-soft-border p-2 text-center sticky left-0 z-10 bg-white shadow-[2px_0_4px_-1px_rgba(0,0,0,0.08)]">
           <Checkbox checked={isSelected} onCheckedChange={onToggleSelect} className="cursor-pointer" />
         </td>
-        <td className="border border-soft-border p-1.5"><span className="text-xs text-cool-gray">—</span></td>
-        <td className="border border-soft-border p-1.5">
+        {visibleColumns.has('image') && <td className="border border-soft-border p-1.5"><span className="text-xs text-cool-gray">—</span></td>}
+        {visibleColumns.has('masterSku') && <td className="border border-soft-border p-1.5">
           <Link href={`/frontend?sku=${encodeURIComponent(row.masterSku)}`} className="text-deep-blue underline hover:text-deep-blue text-sm">{row.masterSku}</Link>
-        </td>
-        <td className="border border-soft-border p-1.5 text-sm">{row.designerSku || '—'}</td>
-        <td colSpan={4} className="border border-soft-border p-1.5 text-sm text-cool-gray">No stock entries</td>
-        <td className="border border-soft-border p-1.5 text-center text-sm">{row.wip || 0}</td>
-        <td className="border border-soft-border p-1.5 text-sm">—</td>
+        </td>}
+        {visibleColumns.has('designerSku') && <td className="border border-soft-border p-1.5 text-sm">{row.designerSku || '—'}</td>}
+        {noStockSpan > 0 && <td colSpan={noStockSpan} className="border border-soft-border p-1.5 text-sm text-cool-gray">No stock entries</td>}
+        {visibleColumns.has('wip') && <td className="border border-soft-border p-1.5 text-center text-sm">{row.wip || 0}</td>}
+        {visibleColumns.has('totalInDemand') && <td className="border border-soft-border p-1.5 text-sm">—</td>}
       </tr>
     );
   }
@@ -715,7 +933,7 @@ function ProductRow({ row, isSelected, isEditing, editBuffer, onToggleSelect, on
               <td rowSpan={span} className={`border border-soft-border p-2 text-center align-middle sticky left-0 z-10 shadow-[2px_0_4px_-1px_rgba(0,0,0,0.08)] ${isEditing ? 'bg-[#eff6ff]' : 'bg-white'}`}>
                 <Checkbox checked={isSelected} onCheckedChange={onToggleSelect} className="cursor-pointer" disabled={isEditing} />
               </td>
-              <td rowSpan={span} className={`border border-soft-border p-1.5 align-middle ${isEditing ? 'bg-trust-blue/5' : ''}`}>
+              {visibleColumns.has('image') && <td rowSpan={span} className={`border border-soft-border p-1.5 align-middle ${isEditing ? 'bg-trust-blue/5' : ''}`}>
                 {row.images.length > 0 ? (
                   <img
                     src={resolveImageUrl(row.images[0])}
@@ -726,21 +944,21 @@ function ProductRow({ row, isSelected, isEditing, editBuffer, onToggleSelect, on
                 ) : (
                   <span className="text-xs text-cool-gray">—</span>
                 )}
-              </td>
-              <td rowSpan={span} className={`border border-soft-border p-1.5 align-middle ${isEditing ? 'bg-trust-blue/5' : ''}`}>
+              </td>}
+              {visibleColumns.has('masterSku') && <td rowSpan={span} className={`border border-soft-border p-1.5 align-middle ${isEditing ? 'bg-trust-blue/5' : ''}`}>
                 <Link href={`/frontend?sku=${encodeURIComponent(row.masterSku)}`} className="text-deep-blue underline hover:text-deep-blue text-sm">
                   {row.masterSku}
                 </Link>
-              </td>
-              <td rowSpan={span} className={`border border-soft-border p-1.5 text-sm align-middle ${isEditing ? 'bg-trust-blue/5' : ''}`}>
+              </td>}
+              {visibleColumns.has('designerSku') && <td rowSpan={span} className={`border border-soft-border p-1.5 text-sm align-middle ${isEditing ? 'bg-trust-blue/5' : ''}`}>
                 {row.designerSku || '—'}
-              </td>
+              </td>}
             </>
           )}
           {/* Per-sub-row cells: finalSku | value | unit | location */}
           {renderSubCells(sub)}
           {/* WIP — spans all sub-rows, rendered only on first */}
-          {idx === 0 && (
+          {idx === 0 && visibleColumns.has('wip') && (
             <td rowSpan={span} className={`border border-soft-border p-1.5 text-center align-middle text-sm font-medium ${isEditing ? 'bg-trust-blue/5' : ''}`}>
               {row.wip || 0}
             </td>

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Plus, Printer, RefreshCw, Search, X } from 'lucide-react';
+import { ArrowLeft, Pencil, Plus, Printer, RefreshCw, Search, X } from 'lucide-react';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
 import {
   Dialog,
@@ -11,10 +11,24 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import MultiselectFilterPopover from '@/components/multiselect-filter-popover';
 
 const MATERIAL_OPTIONS = ['Gold', 'Silver', 'Brass', 'Alloy', 'Platinum'];
 const STAGE_OPTIONS = ['Raw', 'Wax', 'Casting', 'Filing', 'Polish', 'Hand Setting', 'Ready', 'Finished'];
 const FINDING_ISSUE_REQUESTS_KEY = 'finding_issue_requests_v1';
+const FINDING_COLUMNS = [
+  { id: 'sno', label: '#' },
+  { id: 'finding_code', label: 'Finding Code' },
+  { id: 'die_number', label: 'Die No.' },
+  { id: 'size', label: 'Size' },
+  { id: 'material', label: 'Material' },
+  { id: 'finding_stage', label: 'Stage' },
+  { id: 'mechanism', label: 'Mechanism' },
+  { id: 'quantity', label: 'Quantity' },
+  { id: 'weight', label: 'Weight' },
+  { id: 'dead_weight', label: 'Dead Wt.' },
+  { id: 'mold_qty_per_die', label: 'Mold Qty/Die' },
+];
 
 function emptyFinding() {
   return {
@@ -55,8 +69,9 @@ export default function FindingInventoryPage() {
   const [fetchError, setFetchError] = useState('');
 
   const [search, setSearch] = useState('');
-  const [filterMaterial, setFilterMaterial] = useState('');
-  const [filterStage, setFilterStage] = useState('');
+  const [filterMaterial, setFilterMaterial] = useState([]);
+  const [filterStage, setFilterStage] = useState([]);
+  const [filterMechanism, setFilterMechanism] = useState([]);
 
   // Add New Finding dialog
   const [addOpen, setAddOpen] = useState(false);
@@ -66,6 +81,12 @@ export default function FindingInventoryPage() {
 
   // Row selection
   const [selectedIds, setSelectedIds] = useState(new Set());
+  const [editingRowIds, setEditingRowIds] = useState(new Set());
+  const [editBuffer, setEditBuffer] = useState({});
+  const [savingEdits, setSavingEdits] = useState(false);
+  const [isManageColumnsOpen, setIsManageColumnsOpen] = useState(false);
+  const [selectedColumnsForAction, setSelectedColumnsForAction] = useState(new Set());
+  const [visibleColumns, setVisibleColumns] = useState(new Set(FINDING_COLUMNS.map((column) => column.id)));
 
   // Issue request workflow
   const [issueOpen, setIssueOpen] = useState(false);
@@ -115,19 +136,41 @@ export default function FindingInventoryPage() {
   }, [issueRequests, issueRequestsReady]);
 
   const filtered = useMemo(() => {
+    const materialFilters = Array.isArray(filterMaterial) ? filterMaterial : [];
+    const stageFilters = Array.isArray(filterStage) ? filterStage : [];
+    const mechanismFilters = Array.isArray(filterMechanism) ? filterMechanism : [];
     return findings.filter((f) => {
       const matchSearch =
         !search ||
         (f.finding_code || '').toLowerCase().includes(search.toLowerCase()) ||
         (f.die_number || '').toLowerCase().includes(search.toLowerCase());
-      const matchMaterial = !filterMaterial || (f.material || '') === filterMaterial;
-      const matchStage = !filterStage || (f.finding_stage || '') === filterStage;
-      return matchSearch && matchMaterial && matchStage;
+      const matchMaterial =
+        materialFilters.length === 0 ||
+        materialFilters.some((value) => String(f.material || '').toLowerCase().includes(String(value || '').toLowerCase()));
+      const matchStage =
+        stageFilters.length === 0 ||
+        stageFilters.some((value) => String(f.finding_stage || '').toLowerCase().includes(String(value || '').toLowerCase()));
+      const matchMechanism =
+        mechanismFilters.length === 0 ||
+        mechanismFilters.some((value) => String(f.mechanism || '').toLowerCase().includes(String(value || '').toLowerCase()));
+      return matchSearch && matchMaterial && matchStage && matchMechanism;
     });
-  }, [findings, search, filterMaterial, filterStage]);
+  }, [
+    findings,
+    search,
+    filterMaterial,
+    filterStage,
+    filterMechanism,
+  ]);
+
+  const mechanismOptions = useMemo(
+    () => Array.from(new Set(findings.map((finding) => String(finding.mechanism || '').trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b)),
+    [findings]
+  );
 
   const allSelected = filtered.length > 0 && filtered.every((f) => selectedIds.has(f.id));
   const someSelected = filtered.some((f) => selectedIds.has(f.id)) && !allSelected;
+  const visibleTableColumnCount = 1 + FINDING_COLUMNS.filter((column) => visibleColumns.has(column.id)).length;
 
   const selectedFindings = useMemo(
     () => findings.filter((f) => selectedIds.has(f.id)),
@@ -155,6 +198,7 @@ export default function FindingInventoryPage() {
   }
 
   function toggleSelectAll() {
+    if (editingRowIds.size > 0) return;
     if (allSelected) {
       setSelectedIds((prev) => {
         const next = new Set(prev);
@@ -171,6 +215,7 @@ export default function FindingInventoryPage() {
   }
 
   function toggleRow(id) {
+    if (editingRowIds.size > 0) return;
     setSelectedIds((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
@@ -186,6 +231,77 @@ export default function FindingInventoryPage() {
     }
     setIssueForm({ findingId: String(selectedFindings[0].id), quantity: '', issuedTo: '', reason: '' });
     setIssueOpen(true);
+  }
+
+  function handleEditRows() {
+    if (selectedFindings.length === 0) {
+      setStatusMsg('Select at least one finding row, then click Edit Row.');
+      return;
+    }
+    const buffer = {};
+    selectedFindings.forEach((finding) => {
+      buffer[finding.id] = {
+        finding_code: finding.finding_code || '',
+        die_number: finding.die_number || '',
+        size: finding.size || '',
+        material: finding.material || '',
+        finding_stage: finding.finding_stage || '',
+        mechanism: finding.mechanism || '',
+        quantity: finding.quantity || '',
+        weight: finding.weight || '',
+        dead_weight: finding.dead_weight || '',
+        mold_qty_per_die: finding.mold_qty_per_die || '',
+      };
+    });
+    setEditBuffer(buffer);
+    setEditingRowIds(new Set(selectedFindings.map((finding) => finding.id)));
+    setStatusMsg(`Editing ${selectedFindings.length} finding${selectedFindings.length !== 1 ? 's' : ''}.`);
+  }
+
+  function updateEditBuffer(id, key, value) {
+    if (!editingRowIds.has(id)) return;
+    setEditBuffer((prev) => ({
+      ...prev,
+      [id]: {
+        ...(prev[id] || {}),
+        [key]: value,
+      },
+    }));
+  }
+
+  async function handleSaveEdit() {
+    const ids = Array.from(editingRowIds);
+    if (ids.length === 0) return;
+    setSavingEdits(true);
+    try {
+      for (const id of ids) {
+        const payload = editBuffer[id];
+        if (!payload) continue;
+        const res = await fetch(`/api/findings/${id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err?.message || `Failed to update finding ${id}`);
+        }
+      }
+      setEditingRowIds(new Set());
+      setEditBuffer({});
+      await fetchFindings();
+      setStatusMsg('Selected finding rows updated successfully.');
+    } catch (err) {
+      setStatusMsg(err.message || 'Failed to save finding edits.');
+    } finally {
+      setSavingEdits(false);
+    }
+  }
+
+  function handleCancelEdit() {
+    setEditingRowIds(new Set());
+    setEditBuffer({});
+    setStatusMsg('Edit canceled.');
   }
 
   function createIssueRequest() {
@@ -300,13 +416,52 @@ export default function FindingInventoryPage() {
     opened.print();
   }
 
+  function handlePrintTable() {
+    window.print();
+  }
+
+  function toggleColumnSelection(columnId) {
+    const next = new Set(selectedColumnsForAction);
+    if (next.has(columnId)) next.delete(columnId);
+    else next.add(columnId);
+    setSelectedColumnsForAction(next);
+  }
+
+  function toggleSelectAllColumns() {
+    if (selectedColumnsForAction.size === FINDING_COLUMNS.length) {
+      setSelectedColumnsForAction(new Set());
+    } else {
+      setSelectedColumnsForAction(new Set(FINDING_COLUMNS.map((column) => column.id)));
+    }
+  }
+
+  function handleHideColumns() {
+    const next = new Set(visibleColumns);
+    selectedColumnsForAction.forEach((columnId) => next.delete(columnId));
+    setVisibleColumns(next);
+    setSelectedColumnsForAction(new Set());
+    setIsManageColumnsOpen(false);
+  }
+
+  function handleShowColumns() {
+    const next = new Set(visibleColumns);
+    selectedColumnsForAction.forEach((columnId) => next.add(columnId));
+    setVisibleColumns(next);
+    setSelectedColumnsForAction(new Set());
+    setIsManageColumnsOpen(false);
+  }
+
   const clearFilters = () => {
     setSearch('');
     setFilterMaterial('');
     setFilterStage('');
+    setFilterMechanism('');
+    setCustomMaterialFilter('');
+    setCustomStageFilter('');
+    setCustomMechanismFilter('');
   };
 
-  const hasActiveFilters = search || filterMaterial || filterStage;
+  const hasActiveFilters = search || filterMaterial || filterStage || filterMechanism || customMaterialFilter || customStageFilter || customMechanismFilter;
 
   function ff(key) {
     return (val) => setForm((prev) => ({ ...prev, [key]: val }));
@@ -388,6 +543,30 @@ export default function FindingInventoryPage() {
             </button>
             <button
               type="button"
+              onClick={handlePrintTable}
+              className="inline-flex items-center gap-2 rounded-lg border border-soft-border bg-white px-3 py-2 text-sm font-medium text-midnight-ink hover:border-trust-blue transition"
+            >
+              <Printer className="h-4 w-4" />
+              Print
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsManageColumnsOpen(true)}
+              className="inline-flex items-center gap-2 rounded-lg border border-soft-border bg-white px-3 py-2 text-sm font-medium text-midnight-ink hover:border-trust-blue transition"
+            >
+              Manage Columns
+            </button>
+            <button
+              type="button"
+              onClick={handleEditRows}
+              disabled={editingRowIds.size > 0}
+              className="inline-flex items-center gap-2 rounded-lg border border-trust-blue bg-white px-3 py-2 text-sm font-medium text-trust-blue hover:bg-blue-50 transition disabled:opacity-40"
+            >
+              <Pencil className="h-4 w-4" />
+              Edit Row
+            </button>
+            <button
+              type="button"
               onClick={() => { setForm(emptyFinding()); setStatusMsg(''); setAddOpen(true); }}
               className="inline-flex items-center gap-2 rounded-lg bg-trust-blue px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 transition"
             >
@@ -422,56 +601,66 @@ export default function FindingInventoryPage() {
           </p>
         )}
 
+        {editingRowIds.size > 0 && (
+          <div className="mb-2 flex items-center gap-2">
+            <Button onClick={handleSaveEdit} disabled={savingEdits} className="h-8 px-3 bg-success text-white hover:bg-success/90">
+              {savingEdits ? 'Saving...' : 'Save Changes'}
+            </Button>
+            <Button variant="outline" onClick={handleCancelEdit} disabled={savingEdits} className="h-8 px-3 border-danger text-danger hover:bg-danger/10">
+              Cancel Edit
+            </Button>
+          </div>
+        )}
+
         {/* Filters */}
-        <section className="mb-4 rounded-xl border border-soft-border bg-white p-4 shadow-sm">
-          <div className="flex flex-wrap items-end gap-3">
+        <section className="border border-soft-border rounded-lg mb-4 bg-[#dbeafe] p-3">
+          <div className="flex flex-wrap gap-2 items-center">
             {/* Search */}
-            <div className="relative min-w-[200px] flex-1">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-cool-gray" />
+            <div className="relative">
               <input
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search finding code or die no."
-                className="h-9 w-full rounded-lg border border-soft-border pl-8 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue"
+                placeholder="Search"
+                className="h-8 text-sm w-36 bg-white rounded-md border border-trust-blue/40 px-3"
               />
             </div>
 
-            {/* Material filter */}
-            <select
-              value={filterMaterial}
-              onChange={(e) => setFilterMaterial(e.target.value)}
-              className="h-9 rounded-lg border border-soft-border bg-white px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue"
-            >
-              <option value="">All Materials</option>
-              {MATERIAL_OPTIONS.map((m) => (
-                <option key={m} value={m}>{m}</option>
-              ))}
-            </select>
+            <MultiselectFilterPopover
+              label="Material"
+              selectedValues={filterMaterial}
+              onSelectValues={setFilterMaterial}
+              options={MATERIAL_OPTIONS}
+              storageKey="inventory:finding:material"
+            />
 
-            {/* Stage filter */}
-            <select
-              value={filterStage}
-              onChange={(e) => setFilterStage(e.target.value)}
-              className="h-9 rounded-lg border border-soft-border bg-white px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue"
-            >
-              <option value="">All Stages</option>
-              {STAGE_OPTIONS.map((s) => (
-                <option key={s} value={s}>{s}</option>
-              ))}
-            </select>
+            <MultiselectFilterPopover
+              label="Stage"
+              selectedValues={filterStage}
+              onSelectValues={setFilterStage}
+              options={STAGE_OPTIONS}
+              storageKey="inventory:finding:stage"
+            />
 
-            {/* Clear filters */}
-            {hasActiveFilters && (
-              <button
-                type="button"
-                onClick={clearFilters}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-soft-border bg-white px-3 py-2 text-sm font-medium text-cool-gray hover:border-danger hover:text-danger transition"
-              >
-                <X className="h-3.5 w-3.5" />
-                Clear
-              </button>
-            )}
+            <MultiselectFilterPopover
+              label="Mechanism"
+              selectedValues={filterMechanism}
+              onSelectValues={setFilterMechanism}
+              options={mechanismOptions}
+              storageKey="inventory:finding:mechanism"
+            />
+            <button
+              type="button"
+              onClick={() => {
+                setSearch('');
+                setFilterMaterial([]);
+                setFilterStage([]);
+                setFilterMechanism([]);
+              }}
+              className="h-8 px-3 text-sm border rounded bg-trust-blue text-white border-trust-blue font-medium"
+            >
+              Clear
+            </button>
           </div>
         </section>
 
@@ -487,40 +676,41 @@ export default function FindingInventoryPage() {
           <div className="overflow-x-auto">
             <table className="w-full min-w-[900px] border-collapse text-sm">
               <thead>
-                <tr className="bg-cloud-gray border-b border-soft-border">
+                <tr className="bg-[#dbeafe] border-b border-soft-border">
                   <th className="px-3 py-2.5 text-left">
                     <input
                       type="checkbox"
                       checked={allSelected}
                       ref={(el) => { if (el) el.indeterminate = someSelected; }}
                       onChange={toggleSelectAll}
+                      disabled={editingRowIds.size > 0}
                       className="h-4 w-4 cursor-pointer rounded border-soft-border accent-trust-blue"
                     />
                   </th>
-                  <th className="px-3 py-2.5 text-left text-xs font-bold uppercase tracking-wide text-cool-gray w-12">#</th>
-                  <th className="px-3 py-2.5 text-left text-xs font-bold uppercase tracking-wide text-cool-gray">Finding Code</th>
-                  <th className="px-3 py-2.5 text-left text-xs font-bold uppercase tracking-wide text-cool-gray">Die No.</th>
-                  <th className="px-3 py-2.5 text-left text-xs font-bold uppercase tracking-wide text-cool-gray">Size</th>
-                  <th className="px-3 py-2.5 text-left text-xs font-bold uppercase tracking-wide text-cool-gray">Material</th>
-                  <th className="px-3 py-2.5 text-left text-xs font-bold uppercase tracking-wide text-cool-gray">Stage</th>
-                  <th className="px-3 py-2.5 text-left text-xs font-bold uppercase tracking-wide text-cool-gray">Mechanism</th>
-                  <th className="px-3 py-2.5 text-right text-xs font-bold uppercase tracking-wide text-cool-gray">Quantity</th>
-                  <th className="px-3 py-2.5 text-right text-xs font-bold uppercase tracking-wide text-cool-gray">Weight</th>
-                  <th className="px-3 py-2.5 text-right text-xs font-bold uppercase tracking-wide text-cool-gray">Dead Wt.</th>
-                  <th className="px-3 py-2.5 text-right text-xs font-bold uppercase tracking-wide text-cool-gray">Mold Qty/Die</th>
+                  {visibleColumns.has('sno') && <th className="px-3 py-2.5 text-left text-xs font-bold uppercase tracking-wide text-cool-gray w-12">#</th>}
+                  {visibleColumns.has('finding_code') && <th className="px-3 py-2.5 text-left text-xs font-bold uppercase tracking-wide text-cool-gray">Finding Code</th>}
+                  {visibleColumns.has('die_number') && <th className="px-3 py-2.5 text-left text-xs font-bold uppercase tracking-wide text-cool-gray">Die No.</th>}
+                  {visibleColumns.has('size') && <th className="px-3 py-2.5 text-left text-xs font-bold uppercase tracking-wide text-cool-gray">Size</th>}
+                  {visibleColumns.has('material') && <th className="px-3 py-2.5 text-left text-xs font-bold uppercase tracking-wide text-cool-gray">Material</th>}
+                  {visibleColumns.has('finding_stage') && <th className="px-3 py-2.5 text-left text-xs font-bold uppercase tracking-wide text-cool-gray">Stage</th>}
+                  {visibleColumns.has('mechanism') && <th className="px-3 py-2.5 text-left text-xs font-bold uppercase tracking-wide text-cool-gray">Mechanism</th>}
+                  {visibleColumns.has('quantity') && <th className="px-3 py-2.5 text-right text-xs font-bold uppercase tracking-wide text-cool-gray">Quantity</th>}
+                  {visibleColumns.has('weight') && <th className="px-3 py-2.5 text-right text-xs font-bold uppercase tracking-wide text-cool-gray">Weight</th>}
+                  {visibleColumns.has('dead_weight') && <th className="px-3 py-2.5 text-right text-xs font-bold uppercase tracking-wide text-cool-gray">Dead Wt.</th>}
+                  {visibleColumns.has('mold_qty_per_die') && <th className="px-3 py-2.5 text-right text-xs font-bold uppercase tracking-wide text-cool-gray">Mold Qty/Die</th>}
                 </tr>
               </thead>
               <tbody>
                 {loading && (
                   <tr>
-                    <td colSpan={12} className="px-4 py-10 text-center text-sm text-cool-gray">
+                    <td colSpan={visibleTableColumnCount} className="px-4 py-10 text-center text-sm text-cool-gray">
                       Loading findings…
                     </td>
                   </tr>
                 )}
                 {!loading && filtered.length === 0 && (
                   <tr>
-                    <td colSpan={12} className="px-4 py-10 text-center text-sm text-cool-gray">
+                    <td colSpan={visibleTableColumnCount} className="px-4 py-10 text-center text-sm text-cool-gray">
                       {hasActiveFilters ? 'No findings match your filters.' : 'No findings found.'}
                     </td>
                   </tr>
@@ -538,41 +728,69 @@ export default function FindingInventoryPage() {
                           type="checkbox"
                           checked={isSelected}
                           onChange={() => toggleRow(f.id)}
+                          disabled={editingRowIds.size > 0}
                           className="h-4 w-4 cursor-pointer rounded border-soft-border accent-trust-blue"
                         />
                       </td>
-                      <td className="px-3 py-2.5 text-cool-gray">{index + 1}</td>
-                      <td className="px-3 py-2.5 font-medium">
-                        <Link
-                          href={`/finding-entry?code=${encodeURIComponent(f.finding_code)}`}
-                          className="text-trust-blue hover:underline"
-                        >
-                          {f.finding_code || '—'}
-                        </Link>
-                      </td>
-                      <td className="px-3 py-2.5 text-midnight-ink">{f.die_number || '—'}</td>
-                      <td className="px-3 py-2.5 text-midnight-ink">{f.size || '—'}</td>
-                      <td className="px-3 py-2.5">
-                        {f.material ? (
-                          <span className="inline-block rounded-full bg-cloud-gray px-2.5 py-0.5 text-xs font-medium text-slate-text">
-                            {f.material}
-                          </span>
-                        ) : '—'}
-                      </td>
-                      <td className="px-3 py-2.5">
-                        {f.finding_stage ? (
-                          <span className="inline-block rounded-full bg-sky-50 px-2.5 py-0.5 text-xs font-medium text-sky-700">
-                            {f.finding_stage}
-                          </span>
-                        ) : '—'}
-                      </td>
-                      <td className="px-3 py-2.5 text-midnight-ink">{f.mechanism || '—'}</td>
-                      <td className="px-3 py-2.5 text-right text-midnight-ink font-medium">
-                        {f.quantity || '—'}
-                      </td>
-                      <td className="px-3 py-2.5 text-right text-midnight-ink">{f.weight || '—'}</td>
-                      <td className="px-3 py-2.5 text-right text-midnight-ink">{f.dead_weight || '—'}</td>
-                      <td className="px-3 py-2.5 text-right text-midnight-ink">{f.mold_qty_per_die || '—'}</td>
+                      {visibleColumns.has('sno') && <td className="px-3 py-2.5 text-cool-gray">{index + 1}</td>}
+                      {editingRowIds.has(f.id) ? (
+                        <>
+                          {visibleColumns.has('finding_code') && <td className="px-3 py-2.5"><input type="text" value={editBuffer[f.id]?.finding_code ?? ''} onChange={(e) => updateEditBuffer(f.id, 'finding_code', e.target.value)} className="h-8 w-full rounded border border-soft-border px-2 text-sm" /></td>}
+                          {visibleColumns.has('die_number') && <td className="px-3 py-2.5"><input type="text" value={editBuffer[f.id]?.die_number ?? ''} onChange={(e) => updateEditBuffer(f.id, 'die_number', e.target.value)} className="h-8 w-full rounded border border-soft-border px-2 text-sm" /></td>}
+                          {visibleColumns.has('size') && <td className="px-3 py-2.5"><input type="text" value={editBuffer[f.id]?.size ?? ''} onChange={(e) => updateEditBuffer(f.id, 'size', e.target.value)} className="h-8 w-full rounded border border-soft-border px-2 text-sm" /></td>}
+                          {visibleColumns.has('material') && <td className="px-3 py-2.5">
+                            <select value={editBuffer[f.id]?.material ?? ''} onChange={(e) => updateEditBuffer(f.id, 'material', e.target.value)} className="h-8 w-full rounded border border-soft-border bg-white px-2 text-sm">
+                              <option value="">Select</option>
+                              {MATERIAL_OPTIONS.map((m) => <option key={m} value={m}>{m}</option>)}
+                            </select>
+                          </td>}
+                          {visibleColumns.has('finding_stage') && <td className="px-3 py-2.5">
+                            <select value={editBuffer[f.id]?.finding_stage ?? ''} onChange={(e) => updateEditBuffer(f.id, 'finding_stage', e.target.value)} className="h-8 w-full rounded border border-soft-border bg-white px-2 text-sm">
+                              <option value="">Select</option>
+                              {STAGE_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
+                            </select>
+                          </td>}
+                          {visibleColumns.has('mechanism') && <td className="px-3 py-2.5"><input type="text" value={editBuffer[f.id]?.mechanism ?? ''} onChange={(e) => updateEditBuffer(f.id, 'mechanism', e.target.value)} className="h-8 w-full rounded border border-soft-border px-2 text-sm" /></td>}
+                          {visibleColumns.has('quantity') && <td className="px-3 py-2.5"><input type="number" value={editBuffer[f.id]?.quantity ?? ''} onChange={(e) => updateEditBuffer(f.id, 'quantity', e.target.value)} className="h-8 w-full rounded border border-soft-border px-2 text-sm text-right" /></td>}
+                          {visibleColumns.has('weight') && <td className="px-3 py-2.5"><input type="number" value={editBuffer[f.id]?.weight ?? ''} onChange={(e) => updateEditBuffer(f.id, 'weight', e.target.value)} className="h-8 w-full rounded border border-soft-border px-2 text-sm text-right" /></td>}
+                          {visibleColumns.has('dead_weight') && <td className="px-3 py-2.5"><input type="number" value={editBuffer[f.id]?.dead_weight ?? ''} onChange={(e) => updateEditBuffer(f.id, 'dead_weight', e.target.value)} className="h-8 w-full rounded border border-soft-border px-2 text-sm text-right" /></td>}
+                          {visibleColumns.has('mold_qty_per_die') && <td className="px-3 py-2.5"><input type="number" value={editBuffer[f.id]?.mold_qty_per_die ?? ''} onChange={(e) => updateEditBuffer(f.id, 'mold_qty_per_die', e.target.value)} className="h-8 w-full rounded border border-soft-border px-2 text-sm text-right" /></td>}
+                        </>
+                      ) : (
+                        <>
+                          {visibleColumns.has('finding_code') && <td className="px-3 py-2.5 font-medium">
+                            <Link
+                              href={`/finding-entry?code=${encodeURIComponent(f.finding_code)}`}
+                              className="text-trust-blue hover:underline"
+                            >
+                              {f.finding_code || '—'}
+                            </Link>
+                          </td>}
+                          {visibleColumns.has('die_number') && <td className="px-3 py-2.5 text-midnight-ink">{f.die_number || '—'}</td>}
+                          {visibleColumns.has('size') && <td className="px-3 py-2.5 text-midnight-ink">{f.size || '—'}</td>}
+                          {visibleColumns.has('material') && <td className="px-3 py-2.5">
+                            {f.material ? (
+                              <span className="inline-block rounded-full bg-cloud-gray px-2.5 py-0.5 text-xs font-medium text-slate-text">
+                                {f.material}
+                              </span>
+                            ) : '—'}
+                          </td>}
+                          {visibleColumns.has('finding_stage') && <td className="px-3 py-2.5">
+                            {f.finding_stage ? (
+                              <span className="inline-block rounded-full bg-sky-50 px-2.5 py-0.5 text-xs font-medium text-sky-700">
+                                {f.finding_stage}
+                              </span>
+                            ) : '—'}
+                          </td>}
+                          {visibleColumns.has('mechanism') && <td className="px-3 py-2.5 text-midnight-ink">{f.mechanism || '—'}</td>}
+                          {visibleColumns.has('quantity') && <td className="px-3 py-2.5 text-right text-midnight-ink font-medium">
+                            {f.quantity || '—'}
+                          </td>}
+                          {visibleColumns.has('weight') && <td className="px-3 py-2.5 text-right text-midnight-ink">{f.weight || '—'}</td>}
+                          {visibleColumns.has('dead_weight') && <td className="px-3 py-2.5 text-right text-midnight-ink">{f.dead_weight || '—'}</td>}
+                          {visibleColumns.has('mold_qty_per_die') && <td className="px-3 py-2.5 text-right text-midnight-ink">{f.mold_qty_per_die || '—'}</td>}
+                        </>
+                      )}
                     </tr>
                   );
                 })}
@@ -819,6 +1037,51 @@ export default function FindingInventoryPage() {
                 Print
               </Button>
             )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isManageColumnsOpen} onOpenChange={setIsManageColumnsOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Manage Columns</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 max-h-[400px] overflow-y-auto py-4">
+            <div className="flex items-center justify-between gap-3 pb-3 border-b border-soft-border mb-3">
+              <div className="flex items-center gap-3 flex-1">
+                <input
+                  id="select-all-finding-inventory-columns"
+                  type="checkbox"
+                  checked={selectedColumnsForAction.size === FINDING_COLUMNS.length && FINDING_COLUMNS.length > 0}
+                  onChange={toggleSelectAllColumns}
+                  className="h-4 w-4 cursor-pointer rounded border-soft-border accent-trust-blue"
+                />
+                <label htmlFor="select-all-finding-inventory-columns" className="text-sm font-semibold cursor-pointer">Select All</label>
+              </div>
+            </div>
+            {FINDING_COLUMNS.map((column) => (
+              <div key={column.id} className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 flex-1">
+                  <input
+                    id={`finding-inventory-column-${column.id}`}
+                    type="checkbox"
+                    checked={selectedColumnsForAction.has(column.id)}
+                    onChange={() => toggleColumnSelection(column.id)}
+                    className="h-4 w-4 cursor-pointer rounded border-soft-border accent-trust-blue"
+                  />
+                  <label htmlFor={`finding-inventory-column-${column.id}`} className="text-sm cursor-pointer">{column.label}</label>
+                </div>
+                <div className="text-sm font-semibold px-2 py-1 rounded">
+                  {!visibleColumns.has(column.id)
+                    ? <span className="bg-danger/10 text-danger-dark px-2 py-1 rounded-full text-sm">Hidden</span>
+                    : <span className="bg-success/10 text-success-dark px-2 py-1 rounded-full text-sm">Visible</span>}
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="mt-2 flex justify-end gap-2">
+            <Button onClick={handleHideColumns} disabled={selectedColumnsForAction.size === 0} variant="outline" className="text-danger border-danger/40 hover:bg-danger/10">Hide</Button>
+            <Button onClick={handleShowColumns} disabled={selectedColumnsForAction.size === 0} variant="outline" className="text-success border-green-300 hover:bg-success/10">Show</Button>
           </div>
         </DialogContent>
       </Dialog>

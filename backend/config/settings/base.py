@@ -4,6 +4,7 @@ from pathlib import Path
 import dj_database_url
 import environ
 from celery.schedules import crontab
+from django.core.exceptions import ImproperlyConfigured
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
@@ -44,6 +45,7 @@ INSTALLED_APPS = [
     'customers',
     'designers',
     'findings',
+    'accounting',
 ]
 
 MIDDLEWARE = [
@@ -80,27 +82,53 @@ ASGI_APPLICATION = 'config.asgi.application'
 
 DATABASE_URL = env('DATABASE_URL', default='').strip()
 DATABASE_CONN_MAX_AGE = env.int('POSTGRES_CONN_MAX_AGE', default=60)
+ALLOW_REMOTE_DATABASE_IN_DEBUG = env.bool('ALLOW_REMOTE_DATABASE_IN_DEBUG', default=False)
+USE_SQLITE_IN_DEBUG = env.bool('USE_SQLITE_IN_DEBUG', default=True)
 
-if DATABASE_URL:
-    DATABASES = {
-        'default': dj_database_url.parse(
-            DATABASE_URL,
-            conn_max_age=DATABASE_CONN_MAX_AGE,
-            ssl_require=env.bool('DATABASE_SSL_REQUIRE', default=not DEBUG),
-        )
-    }
-else:
+if DEBUG and USE_SQLITE_IN_DEBUG:
     DATABASES = {
         'default': {
-            'ENGINE': 'django.db.backends.postgresql',
-            'NAME': env('DB_NAME', default=env('POSTGRES_DB', default='product_sheet_design')),
-            'USER': env('DB_USER', default=env('POSTGRES_USER', default='postgres')),
-            'PASSWORD': env('DB_PASSWORD', default=env('POSTGRES_PASSWORD', default='postgres')),
-            'HOST': env('DB_HOST', default=env('POSTGRES_HOST', default='127.0.0.1')),
-            'PORT': env('DB_PORT', default=env('POSTGRES_PORT', default='5432')),
-            'CONN_MAX_AGE': DATABASE_CONN_MAX_AGE,
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
         }
     }
+else:
+    if DEBUG and DATABASE_URL and not ALLOW_REMOTE_DATABASE_IN_DEBUG:
+        normalized_db_url = DATABASE_URL.lower()
+        remote_markers = (
+            'onrender.com',
+            'render.com',
+            'amazonaws.com',
+            'railway.app',
+            'neon.tech',
+            'supabase.co',
+        )
+        if any(marker in normalized_db_url for marker in remote_markers):
+            raise ImproperlyConfigured(
+                'Refusing to use a remote DATABASE_URL while DEBUG is enabled. '
+                'Use a local database for development, or set ALLOW_REMOTE_DATABASE_IN_DEBUG=true to override.'
+            )
+
+    if DATABASE_URL:
+        DATABASES = {
+            'default': dj_database_url.parse(
+                DATABASE_URL,
+                conn_max_age=DATABASE_CONN_MAX_AGE,
+                ssl_require=env.bool('DATABASE_SSL_REQUIRE', default=not DEBUG),
+            )
+        }
+    else:
+        DATABASES = {
+            'default': {
+                'ENGINE': 'django.db.backends.postgresql',
+                'NAME': env('DB_NAME', default=env('POSTGRES_DB', default='product_sheet_design')),
+                'USER': env('DB_USER', default=env('POSTGRES_USER', default='postgres')),
+                'PASSWORD': env('DB_PASSWORD', default=env('POSTGRES_PASSWORD', default='postgres')),
+                'HOST': env('DB_HOST', default=env('POSTGRES_HOST', default='127.0.0.1')),
+                'PORT': env('DB_PORT', default=env('POSTGRES_PORT', default='5432')),
+                'CONN_MAX_AGE': DATABASE_CONN_MAX_AGE,
+            }
+        }
 
 
 REST_FRAMEWORK = {

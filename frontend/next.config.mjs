@@ -43,6 +43,8 @@ const nextConfig = {
       { source: '/inventory/:path*', destination: '/frontend/inventory/:path*' },
       { source: '/orders', destination: '/frontend/orders' },
       { source: '/orders/:path*', destination: '/frontend/orders/:path*' },
+      { source: '/accountancy', destination: '/frontend/accountancy' },
+      { source: '/accountancy/:path*', destination: '/frontend/accountancy/:path*' },
       { source: '/profile', destination: '/frontend/profile' },
       { source: '/manage-members', destination: '/frontend/manage-members' },
       { source: '/settings', destination: '/frontend/settings' },
