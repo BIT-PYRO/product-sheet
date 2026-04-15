@@ -327,6 +327,26 @@ export function EnrolWorkforceForm({ onEnroll, onClose, open = true, draftData =
   const [isReadOnly, setIsReadOnly] = useState(readOnly);
   const savedFormRef = React.useRef(null);
 
+  // Custom roles added via "Other" — fetched from backend meta
+  const [customRoles, setCustomRoles] = useState([]);
+  // Custom departments added via "Other" — fetched from backend meta
+  const [customDepartments, setCustomDepartments] = useState([]);
+
+  useEffect(() => {
+    fetch('/api/workforce/meta', { cache: 'no-store' })
+      .then(r => r.json())
+      .catch(() => null)
+      .then(meta => {
+        if (!meta?.success) return;
+        const staticRoles = new Set(Object.values(DEPT_DATA).flatMap(d => d.roles));
+        const allMetaRoles = meta.data?.designations || [];
+        setCustomRoles(allMetaRoles.filter(r => !staticRoles.has(r)));
+        const staticDepts = new Set(Object.keys(DEPT_DATA));
+        const allMetaDepts = meta.data?.departments || [];
+        setCustomDepartments(allMetaDepts.filter(d => !staticDepts.has(d)));
+      });
+  }, []);
+
   useEffect(() => { if (draftData) setForm(draftData); }, [draftData]);
 
   useEffect(() => {
@@ -737,6 +757,11 @@ export function EnrolWorkforceForm({ onEnroll, onClose, open = true, draftData =
                   >
                     <option value="">Select department...</option>
                     {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
+                    {customDepartments.length > 0 && (
+                      <optgroup label="Custom Departments">
+                        {customDepartments.map(d => <option key={d} value={d}>{d}</option>)}
+                      </optgroup>
+                    )}
                     <option value="Other">Other</option>
                   </select>
                   {form.department === 'Other' && (
@@ -781,6 +806,11 @@ export function EnrolWorkforceForm({ onEnroll, onClose, open = true, draftData =
                           </optgroup>
                         )}
                       </>
+                    )}
+                    {customRoles.length > 0 && (
+                      <optgroup label="Custom Roles">
+                        {customRoles.map(r => <option key={r} value={r}>{r}</option>)}
+                      </optgroup>
                     )}
                     <option value="Other">Other</option>
                   </select>
