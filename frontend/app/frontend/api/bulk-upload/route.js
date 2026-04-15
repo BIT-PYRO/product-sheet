@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import * as XLSX from 'xlsx';
+import { inflateRawSync } from 'zlib';
 
 export const maxDuration = 60; // seconds – extend execution window on Vercel / Render
 
@@ -160,44 +161,111 @@ function createBackendClient(request) {
   };
 }
 
-// ── Extract embedded images from an XLSX buffer using the raw ZIP structure ────
-// SheetJS CE (v0.18.x) does NOT populate ws['!images'] — images must be read
-// directly from xl/drawings/drawing1.xml + xl/drawings/_rels/drawing1.xml.rels
-// + xl/media/* via the bundled CFB ZIP parser.
-//
+// ── Minimal ZIP reader (XLSX files are plain ZIP archives) ───────────────────
+// Parses the ZIP Central Directory to index all entries, then extracts individual
+// files on demand, decompressing deflate-encoded entries with Node's built-in zlib.
+// This is more reliable than XLSX.CFB.read, which can silently fail on some files.
+
+function _zipReadEntries(buf) {
+  const EOCD = 0x06054b50;
+  let eocd = -1;
+  const scanStart = Math.max(0, buf.length - 22 - 65535);
+  for (let i = buf.length - 22; i >= scanStart; i--) {
+    if (buf.length - i >= 22 && buf.readUInt32LE(i) === EOCD) { eocd = i; break; }
+  }
+  if (eocd < 0) return {};
+
+  const cdCount  = buf.readUInt16LE(eocd + 10);
+  const cdOffset = buf.readUInt32LE(eocd + 16);
+  const entries  = {};
+  let pos = cdOffset;
+  for (let e = 0; e < cdCount; e++) {
+    if (pos + 46 > buf.length || buf.readUInt32LE(pos) !== 0x02014b50) break;
+    const method   = buf.readUInt16LE(pos + 10);
+    const csize    = buf.readUInt32LE(pos + 20);
+    const fnLen    = buf.readUInt16LE(pos + 28);
+    const exLen    = buf.readUInt16LE(pos + 30);
+    const cmLen    = buf.readUInt16LE(pos + 32);
+    const lhOffset = buf.readUInt32LE(pos + 42);
+    const name     = buf.slice(pos + 46, pos + 46 + fnLen).toString('utf8');
+    entries[name]  = { method, csize, lhOffset };
+    pos += 46 + fnLen + exLen + cmLen;
+  }
+  return entries;
+}
+
+function _zipReadEntry(buf, entries, name) {
+  const info = entries[name];
+  if (!info) return null;
+  const lh = info.lhOffset;
+  if (lh + 30 > buf.length || buf.readUInt32LE(lh) !== 0x04034b50) return null;
+  const lfnLen  = buf.readUInt16LE(lh + 26);
+  const lexLen  = buf.readUInt16LE(lh + 28);
+  const dataOff = lh + 30 + lfnLen + lexLen;
+  if (dataOff + info.csize > buf.length) return null;
+  const data = buf.slice(dataOff, dataOff + info.csize);
+  if (info.method === 0) return data;
+  if (info.method === 8) { try { return inflateRawSync(data); } catch { return null; } }
+  return null;
+}
+
+// ── Extract embedded images from an XLSX buffer ───────────────────────────────
 // Returns: Map where key = `${excelRow},${excelCol}` (0-based) and value = data URL.
 function extractXlsxImages(rawBuffer) {
   try {
-    const cfb = XLSX.CFB.read(rawBuffer, { type: 'buffer' });
-    const paths = cfb.FullPaths || [];
-    const getEntry = (p) => { const i = paths.indexOf(p); return i >= 0 ? cfb.FileIndex[i] : null; };
+    const buf     = Buffer.isBuffer(rawBuffer) ? rawBuffer : Buffer.from(rawBuffer);
+    const entries = _zipReadEntries(buf);
+    const names   = Object.keys(entries);
 
-    const relsEntry = getEntry('Root Entry/xl/drawings/_rels/drawing1.xml.rels');
-    const drawEntry = getEntry('Root Entry/xl/drawings/drawing1.xml');
-    if (!relsEntry || !drawEntry) return new Map();
+    // Discover all drawing relationship files
+    const drawingNums = new Set();
+    for (const name of names) {
+      const hit = name.match(/^xl\/drawings\/_rels\/drawing(\d+)\.xml\.rels$/i);
+      if (hit) drawingNums.add(Number(hit[1]));
+    }
+    if (!drawingNums.size) drawingNums.add(1);
 
-    const relsXml = Buffer.from(relsEntry.content).toString('utf8');
-    const ridToFile = {};
-    let m;
-    const relPat = /Id="(rId\d+)"[^>]+Target="\.\.\/media\/([^"]+)"/g;
-    while ((m = relPat.exec(relsXml)) !== null) ridToFile[m[1]] = m[2];
-
-    const drawXml = Buffer.from(drawEntry.content).toString('utf8');
-    // Handles both oneCellAnchor and twoCellAnchor: capture first <xdr:from> col+row
-    const anchorPat = /<xdr:from>\s*<xdr:col>(\d+)<\/xdr:col>[\s\S]*?<xdr:row>(\d+)<\/xdr:row>[\s\S]*?r:embed="(rId\d+)"/g;
     const result = new Map();
-    while ((m = anchorPat.exec(drawXml)) !== null) {
-      const col = parseInt(m[1]);
-      const row = parseInt(m[2]);
-      const rid = m[3];
-      const mediaFile = ridToFile[rid];
-      if (!mediaFile) continue;
-      const mediaEntry = getEntry(`Root Entry/xl/media/${mediaFile}`);
-      if (!mediaEntry || !mediaEntry.content) continue;
-      const ext = mediaFile.split('.').pop().toLowerCase();
-      const mime = ext === 'jpg' || ext === 'jpeg' ? 'jpeg' : ext === 'png' ? 'png' : ext;
-      const dataUrl = `data:image/${mime};base64,${Buffer.from(mediaEntry.content).toString('base64')}`;
-      if (!result.has(`${row},${col}`)) result.set(`${row},${col}`, dataUrl);
+
+    for (const n of drawingNums) {
+      const relsData = _zipReadEntry(buf, entries, `xl/drawings/_rels/drawing${n}.xml.rels`);
+      const drawData = _zipReadEntry(buf, entries, `xl/drawings/drawing${n}.xml`);
+      if (!relsData || !drawData) continue;
+
+      // Parse .rels: match any attribute order (Id / Target can appear in any sequence)
+      const relsXml  = relsData.toString('utf8');
+      const ridToFile = {};
+      const relPat   = /<Relationship\s[^>]*/g;
+      let relEl;
+      while ((relEl = relPat.exec(relsXml)) !== null) {
+        const attrs = relEl[0];
+        const idM   = attrs.match(/\bId="(rId[^"]+)"/i);
+        const tgtM  = attrs.match(/\bTarget="\.\.\/media\/([^"]+)"/i);
+        if (idM && tgtM) ridToFile[idM[1]] = tgtM[2];
+      }
+
+      // Parse drawing XML: process each anchor block independently
+      const drawXml   = drawData.toString('utf8');
+      const anchorPat = /<xdr:\w*[Aa]nchor>([\s\S]*?)<\/xdr:\w*[Aa]nchor>/g;
+      let blockM;
+      while ((blockM = anchorPat.exec(drawXml)) !== null) {
+        const block = blockM[1];
+        const fromM = block.match(/<xdr:from>\s*<xdr:col>(\d+)<\/xdr:col>[\s\S]*?<xdr:row>(\d+)<\/xdr:row>/);
+        if (!fromM) continue;
+        const col    = parseInt(fromM[1]);
+        const row    = parseInt(fromM[2]);
+        const embedM = block.match(/\br:embed="(rId[^"]+)"/);
+        if (!embedM) continue;
+        const rid       = embedM[1];
+        const mediaFile = ridToFile[rid];
+        if (!mediaFile) continue;
+        const mediaData = _zipReadEntry(buf, entries, `xl/media/${mediaFile}`);
+        if (!mediaData) continue;
+        const ext  = mediaFile.split('.').pop().toLowerCase();
+        const mime = ext === 'jpg' || ext === 'jpeg' ? 'jpeg' : ext === 'png' ? 'png' : ext;
+        const key  = `${row},${col}`;
+        if (!result.has(key)) result.set(key, `data:image/${mime};base64,${mediaData.toString('base64')}`);
+      }
     }
     return result;
   } catch {
@@ -317,9 +385,13 @@ async function parseUploadFile(file) {
     // Other Photo) appear in row0 only — effectiveHeaders already normalises them correctly.
     const imgColToField = {};
     effectiveHeaders.forEach((h, col) => {
-      if (h === 'renderedphoto')    imgColToField[col] = 'renderedphoto';
-      else if (h === 'technicaldrawing') imgColToField[col] = 'technicaldrawing';
-      else if (h === 'otherphoto')  imgColToField[col] = 'otherphoto';
+      if (!h) return;
+      if (h.includes('renderedphoto') || h.includes('renderedimage') || h.includes('renderpicture'))
+        { if (!imgColToField[col]) imgColToField[col] = 'renderedphoto'; }
+      else if (h.includes('technicaldrawing') || h.includes('technicaldraw'))
+        { if (!imgColToField[col]) imgColToField[col] = 'technicaldrawing'; }
+      else if (h.includes('otherphoto') || h.includes('otherimage') || h.includes('extraphoto'))
+        { if (!imgColToField[col]) imgColToField[col] = 'otherphoto'; }
     });
 
     dataRowsIndexed.forEach(({ excelRowIdx }, idx) => {
@@ -798,10 +870,44 @@ function buildDesignerStoneEntries(row) {
   const height   = String(pickValue(row, ['stoneinformationheight',  'stoneheight',  'stone_height',  'stonedepth'])).trim();
   const qty      = String(pickValue(row, ['stoneinformationqty',     'stoneqty',     'stone_qty',     'stonecount', 'stonequantity'])).trim();
 
-  if (type || species || variety) {
-    return [{ type, species, variety, color, cut, shape, length, width, height, qty }];
-  }
-  return [];
+  // Return empty if no stone field has any value
+  if (!type && !species && !variety && !color && !cut && !shape && !length && !width && !height && !qty) return [];
+
+  // Split "/" delimited values into separate stone entries.
+  // e.g. shape="HEART / ROUND", qty="2 / 2" → 2 entries (one per "/" segment)
+  const splitVal = (val) => val ? val.split('/').map(v => v.trim()) : [''];
+
+  const typeArr    = splitVal(type);
+  const speciesArr = splitVal(species);
+  const varietyArr = splitVal(variety);
+  const colorArr   = splitVal(color);
+  const cutArr     = splitVal(cut);
+  const shapeArr   = splitVal(shape);
+  const lengthArr  = splitVal(length);
+  const widthArr   = splitVal(width);
+  const heightArr  = splitVal(height);
+  const qtyArr     = splitVal(qty);
+
+  const maxLen = Math.max(
+    typeArr.length, speciesArr.length, varietyArr.length, colorArr.length,
+    cutArr.length, shapeArr.length, lengthArr.length, widthArr.length,
+    heightArr.length, qtyArr.length
+  );
+  // Helper: get i-th value; fall back to last element if index out of bounds
+  const at = (arr, i) => (i < arr.length ? arr[i] : arr[arr.length - 1]) || '';
+
+  return Array.from({ length: maxLen }, (_, i) => ({
+    type:    at(typeArr, i),
+    species: at(speciesArr, i),
+    variety: at(varietyArr, i),
+    color:   at(colorArr, i),
+    cut:     at(cutArr, i),
+    shape:   at(shapeArr, i),
+    length:  at(lengthArr, i),
+    width:   at(widthArr, i),
+    height:  at(heightArr, i),
+    qty:     at(qtyArr, i),
+  }));
 }
 
 function buildDesignerPlatingEntries(row) {
@@ -904,12 +1010,17 @@ async function uploadDesigners(client, rows) {
       const moldQtyRaw      = String(pickValue(row, ['totalmoldqtydie',    'totalmoldqtyperdie',         'total_mold_qty_per_die', 'moldqtyperdie', 'moldqty'])).trim();
       const cpxWeightRaw    = String(pickValue(row, ['totalcpxdeadweight', 'total_cpx_dead_weight',      'cpxdeadweight', 'deadweight', 'cpxwt'])).trim();
 
+      // ── Image fields – only included when a value was actually found ────────
+      // Sending '' for a PATCH would erase existing Cloudinary/S3 image URLs.
+      const _rp  = String(pickValue(row, ['renderedphoto',    'rendered_photo',    'image1', 'image'])).trim();
+      const _td  = String(pickValue(row, ['technicaldrawing', 'technical_drawing', 'image2'])).trim();
+      const _op  = String(pickValue(row, ['otherphoto',       'other_photo',       'image3', 'designerimage3'])).trim();
+
       const payload = {
         sku,
-        // Images (URL or base64; column labels match both single-row and two-row headers)
-        rendered_photo:    String(pickValue(row, ['renderedphoto',    'rendered_photo',    'image1', 'image'])).trim(),
-        technical_drawing: String(pickValue(row, ['technicaldrawing', 'technical_drawing', 'image2'])).trim(),
-        designer_image_3:  String(pickValue(row, ['otherphoto',       'other_photo',       'image3', 'designerimage3'])).trim(),
+        ...(_rp ? { rendered_photo:    _rp } : {}),
+        ...(_td ? { technical_drawing: _td } : {}),
+        ...(_op ? { designer_image_3:  _op } : {}),
 
         // Design identity
         motive_code: String(pickValue(row, ['motivecode',     'motive_code',      'mcode'])).trim(),

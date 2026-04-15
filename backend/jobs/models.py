@@ -33,6 +33,7 @@ class VoucherApprovalStatus(models.TextChoices):
 	AWAITING = 'awaiting', 'Awaiting'
 	PARTIALLY_COMPLETED = 'partially_complete', 'Partially Completed'
 	COMPLETED = 'completed', 'Completed'
+	REPLACED = 'replaced', 'Replaced'
 
 
 class Job(AuditModel):

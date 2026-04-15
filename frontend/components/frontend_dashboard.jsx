@@ -1,11 +1,21 @@
 'use client'
 
 import React, { Suspense } from "react"
-import { Trash2, Download, Eye, Upload, Edit3, Search, X } from 'lucide-react'
+import { Trash2, Download, Eye, Upload, Edit3, Search, X, ChevronDown } from 'lucide-react'
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { CreateJobModal } from '@/components/create-job-modal'
+import { CreateAllVouchersModal } from '@/components/create-all-vouchers-modal'
+import { SuggestedVouchersModal } from '@/components/suggested-vouchers-modal'
+import { NeededVouchersModal } from '@/components/needed-vouchers-modal'
 import { GenericJobModal } from '@/components/generic-job-modal'
 import { PrintJobCardModal } from '@/components/print-job-card-modal'
 import { useSheetPermissions } from '@/hooks/use-sheet-permissions'
@@ -32,6 +42,9 @@ function ProductSheetContent() {
   const designerSkuLookupRef = useRef(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isCreateJobModalOpen, setIsCreateJobModalOpen] = useState(false)
+  const [isCreateAllVouchersOpen, setIsCreateAllVouchersOpen] = useState(false)
+  const [isSuggestedVouchersOpen, setIsSuggestedVouchersOpen] = useState(false)
+  const [isNeededVouchersOpen, setIsNeededVouchersOpen] = useState(false)
   const [isGenericJobModalOpen, setIsGenericJobModalOpen] = useState(false)
   const [isPrintJobCardModalOpen, setIsPrintJobCardModalOpen] = useState(false)
   const [jobCardToPrint, setJobCardToPrint] = useState(null)
@@ -2526,7 +2539,32 @@ function ProductSheetContent() {
           </div>
         </div>
         <div className="mt-2 flex justify-center gap-3">
-          {canCreate && <button onClick={() => setIsCreateJobModalOpen(true)} className="px-6 py-1.5 bg-success text-white font-semibold rounded text-sm hover:bg-success">Create Job</button>}
+          {canCreate && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button className="px-6 py-1.5 bg-success text-white font-semibold rounded text-sm hover:bg-success/90 gap-1 h-auto">
+                  Create Job
+                  <ChevronDown className="h-3.5 w-3.5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuItem onClick={() => setIsCreateJobModalOpen(true)} className="cursor-pointer">Create Job</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setIsCreateAllVouchersOpen(true)} className="cursor-pointer">Create All Vouchers</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setIsSuggestedVouchersOpen(true)} className="cursor-pointer text-orange-600 font-semibold">
+                  <span className="inline-flex items-center gap-1.5">
+                    <span className="w-4 h-4 rounded-full bg-orange-400 text-white text-[9px] font-bold flex items-center justify-center shrink-0">!</span>
+                    Create Suggested Vouchers
+                  </span>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setIsNeededVouchersOpen(true)} className="cursor-pointer text-red-600 font-semibold" disabled>
+                  <span className="inline-flex items-center gap-1.5">
+                    <span className="w-4 h-4 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center shrink-0">!</span>
+                    Create Needed Vouchers
+                  </span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
         </div>
       </div>
 
@@ -3674,7 +3712,32 @@ function ProductSheetContent() {
                   </div>
                 </div>
                 <div className="mt-2 flex justify-center">
-                  <button className="px-6 py-1.5 bg-success text-white font-semibold rounded text-sm hover:bg-success">Create a Job</button>
+                  {canCreate && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button className="px-6 py-1.5 bg-success text-white font-semibold rounded text-sm hover:bg-success/90 gap-1 h-auto">
+                          Create Job
+                          <ChevronDown className="h-3.5 w-3.5" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-56">
+                        <DropdownMenuItem onClick={() => setIsCreateJobModalOpen(true)} className="cursor-pointer">Create Job</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setIsCreateAllVouchersOpen(true)} className="cursor-pointer">Create All Vouchers</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setIsSuggestedVouchersOpen(true)} className="cursor-pointer text-orange-600 font-semibold">
+                          <span className="inline-flex items-center gap-1.5">
+                            <span className="w-4 h-4 rounded-full bg-orange-400 text-white text-[9px] font-bold flex items-center justify-center shrink-0">!</span>
+                            Create Suggested Vouchers
+                          </span>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setIsNeededVouchersOpen(true)} className="cursor-pointer text-red-600 font-semibold" disabled>
+                          <span className="inline-flex items-center gap-1.5">
+                            <span className="w-4 h-4 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center shrink-0">!</span>
+                            Create Needed Vouchers
+                          </span>
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
                 </div>
               </div>
 
@@ -4010,6 +4073,9 @@ function ProductSheetContent() {
         </div>
       )}
       </div>
+      <CreateAllVouchersModal open={isCreateAllVouchersOpen} onOpenChange={setIsCreateAllVouchersOpen} />
+      <SuggestedVouchersModal open={isSuggestedVouchersOpen} onOpenChange={setIsSuggestedVouchersOpen} suggestedItems={[]} />
+      <NeededVouchersModal open={isNeededVouchersOpen} onOpenChange={setIsNeededVouchersOpen} neededItems={[]} />
       <CreateJobModal 
         open={isCreateJobModalOpen}
         onOpenChange={setIsCreateJobModalOpen}
