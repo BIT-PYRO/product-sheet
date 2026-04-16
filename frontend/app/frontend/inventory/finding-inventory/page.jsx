@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, Pencil, Plus, Printer, RefreshCw, Search, X } from 'lucide-react';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
+import { useSheetPermissions } from '@/hooks/use-sheet-permissions';
 import {
   Dialog,
   DialogContent,
@@ -96,7 +97,7 @@ export default function FindingInventoryPage() {
   const [activeRequestId, setActiveRequestId] = useState(null);
   const [issueRequests, setIssueRequests] = useState([]);
   const [issueRequestsReady, setIssueRequestsReady] = useState(false);
-  const [issueForm, setIssueForm] = useState({ findingId: '', quantity: '', issuedTo: '', reason: '' });
+  const [issueForm, setIssueForm] = useState({ findingId: '', quantity: '', issuedTo: '', issuedBy: '', reason: '' });
 
   const fetchFindings = async () => {
     setLoading(true);
@@ -230,7 +231,7 @@ export default function FindingInventoryPage() {
       setStatusMsg('Select at least one finding to raise an issue request.');
       return;
     }
-    setIssueForm({ findingId: String(selectedFindings[0].id), quantity: '', issuedTo: '', reason: '' });
+    setIssueForm({ findingId: String(selectedFindings[0].id), quantity: '', issuedTo: '', issuedBy: '', reason: '' });
     setIssueOpen(true);
   }
 
@@ -309,6 +310,7 @@ export default function FindingInventoryPage() {
     const findingIdNum = Number(issueForm.findingId);
     const quantityNum = Number(issueForm.quantity);
     const issuedTo = issueForm.issuedTo.trim();
+    const issuedBy = issueForm.issuedBy.trim();
     const reason = issueForm.reason.trim();
 
     if (!findingIdNum) {
@@ -323,6 +325,10 @@ export default function FindingInventoryPage() {
       setStatusMsg('Please enter who the finding is issued to.');
       return;
     }
+    if (!issuedBy) {
+      setStatusMsg('Please enter who issued the finding.');
+      return;
+    }
     if (!reason) {
       setStatusMsg('Please enter reason of issue.');
       return;
@@ -335,6 +341,7 @@ export default function FindingInventoryPage() {
       findingName: findingName(finding),
       quantity: quantityNum,
       issuedTo,
+      issuedBy,
       reason,
       status: 'pending',
       requestedAt: new Date().toISOString(),
@@ -402,6 +409,7 @@ export default function FindingInventoryPage() {
             <tr><th>Finding Name</th><td>${request.findingName}</td></tr>
             <tr><th>Quantity</th><td>${request.quantity}</td></tr>
             <tr><th>Issued To</th><td>${request.issuedTo}</td></tr>
+            <tr><th>Issued By</th><td>${request.issuedBy || '-'}</td></tr>
             <tr><th>Reason of Issue</th><td>${request.reason || '-'}</td></tr>
             <tr><th>Status</th><td><span class="badge">${String(request.status || '').toUpperCase()}</span></td></tr>
             <tr><th>Requested At</th><td>${requestedAt}</td></tr>
@@ -970,7 +978,7 @@ export default function FindingInventoryPage() {
               </select>
             </div>
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               <Field
                 label="Quantity"
                 type="number"
@@ -988,6 +996,11 @@ export default function FindingInventoryPage() {
                 label="Issued To"
                 value={issueForm.issuedTo}
                 onChange={(value) => setIssueForm((prev) => ({ ...prev, issuedTo: value }))}
+              />
+              <Field
+                label="Issued By"
+                value={issueForm.issuedBy}
+                onChange={(value) => setIssueForm((prev) => ({ ...prev, issuedBy: value }))}
               />
             </div>
 
@@ -1016,6 +1029,7 @@ export default function FindingInventoryPage() {
               <Field label="Finding Code" value={activeRequest.findingName} disabled />
               <Field label="Quantity" value={String(activeRequest.quantity)} disabled />
               <Field label="Issued To" value={activeRequest.issuedTo} disabled />
+              <Field label="Issued By" value={activeRequest.issuedBy || '-'} disabled />
               <Field label="Reason of Issue" value={activeRequest.reason || '-'} disabled />
               <Field label="Status" value={activeRequest.status.toUpperCase()} disabled />
               <Field label="Requested At" value={new Date(activeRequest.requestedAt).toLocaleString()} disabled />

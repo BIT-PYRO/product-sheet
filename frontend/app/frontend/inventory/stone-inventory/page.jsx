@@ -157,6 +157,7 @@ export default function StoneInventoryPage() {
     stoneId: '',
     quantity: '',
     issuedTo: '',
+    issuedBy: '',
     reason: '',
     cut: '',
     shape: '',
@@ -336,6 +337,7 @@ export default function StoneInventoryPage() {
       stoneId: String(selectedStones[0].id),
       quantity: '',
       issuedTo: '',
+      issuedBy: '',
       reason: '',
       cut: String(selectedStone?.cut || ''),
       shape: String(selectedStone?.shape || ''),
@@ -350,6 +352,7 @@ export default function StoneInventoryPage() {
     const stoneIdNum = Number(issueForm.stoneId);
     const quantityNum = Number(issueForm.quantity);
     const issuedTo = issueForm.issuedTo.trim();
+    const issuedBy = issueForm.issuedBy.trim();
     const reason = issueForm.reason.trim();
 
     if (!stoneIdNum) {
@@ -364,6 +367,10 @@ export default function StoneInventoryPage() {
       setStatusMsg('Please enter who the stone is issued to.');
       return;
     }
+    if (!issuedBy) {
+      setStatusMsg('Please enter who issued the stone.');
+      return;
+    }
     if (!reason) {
       setStatusMsg('Please enter reason of issue.');
       return;
@@ -376,6 +383,7 @@ export default function StoneInventoryPage() {
       stoneName: stoneName(stone),
       quantity: quantityNum,
       issuedTo,
+      issuedBy,
       reason,
       cut: issueForm.cut.trim(),
       shape: issueForm.shape.trim(),
@@ -453,6 +461,7 @@ export default function StoneInventoryPage() {
             <tr><th>Stone Name</th><td>${request.stoneName}</td></tr>
             <tr><th>Quantity</th><td>${request.quantity}</td></tr>
             <tr><th>Issued To</th><td>${request.issuedTo}</td></tr>
+            <tr><th>Issued By</th><td>${request.issuedBy || '-'}</td></tr>
             <tr><th>Reason of Issue</th><td>${request.reason || '-'}</td></tr>
             <tr><th>Cut</th><td>${request.cut || '-'}</td></tr>
             <tr><th>Shape</th><td>${request.shape || '-'}</td></tr>
@@ -730,7 +739,7 @@ export default function StoneInventoryPage() {
               Manage Columns
             </button>
 
-            {canCreate && <button
+            <button
               onClick={() => { setStoneForm(emptyStone()); setAddStoneOpen(true); }}
               className="inline-flex items-center gap-2 rounded-lg bg-trust-blue px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 transition"
             >
@@ -910,7 +919,7 @@ export default function StoneInventoryPage() {
                           {c.render ? c.render(stone[c.key]) : (stone[c.key] ?? 'â€”')}
                         </td>
                       ))}
-                      <td className="px-4 py-2.5">
+                      {visibleColumns.has('actions') && <td className="px-4 py-2.5">
                         <button
                           onClick={() => setDeleteId(stone.id)}
                           className="text-red-500 hover:text-red-700 transition"
@@ -1394,7 +1403,7 @@ export default function StoneInventoryPage() {
               </select>
             </div>
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               <Field
                 label="Quantity"
                 type="number"
@@ -1413,6 +1422,11 @@ export default function StoneInventoryPage() {
                 label="Issued To"
                 value={issueForm.issuedTo}
                 onChange={(value) => setIssueForm((prev) => ({ ...prev, issuedTo: value }))}
+              />
+              <Field
+                label="Issued By"
+                value={issueForm.issuedBy}
+                onChange={(value) => setIssueForm((prev) => ({ ...prev, issuedBy: value }))}
               />
             </div>
 
@@ -1469,6 +1483,7 @@ export default function StoneInventoryPage() {
               <Field label="Name of Stone" value={activeRequest.nameOfStone || activeRequest.variety || ''} disabled />
               <Field label="Quantity" value={String(activeRequest.quantity)} disabled />
               <Field label="Issued To" value={activeRequest.issuedTo} disabled />
+              <Field label="Issued By" value={activeRequest.issuedBy || '-'} disabled />
               <Field label="Reason of Issue" value={activeRequest.reason || '-'} disabled />
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
                 <Field label="Cut" value={activeRequest.cut || '-'} disabled />

@@ -266,6 +266,56 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
   const handleUpdateInventory = () => callReceiveApi(false)
   const handlePartialUpdate = () => callReceiveApi(true)
 
+  async function handleReissueForImprovement() {
+    const voucherId = voucherData?.id
+    if (!voucherId) {
+      setSubmitError('No voucher ID found. Please re-open the voucher card.')
+      return
+    }
+    const canReissue = ['in_process', 'partially_complete'].includes(voucherData?.approvalStatus)
+    if (!canReissue) {
+      setSubmitError(`Cannot re-issue a voucher with status: "${voucherData?.approvalStatus}". Only in-process or partially complete vouchers can be re-issued.`)
+      return
+    }
+    if (!voucherData?.batchId) {
+      setSubmitError('Only pipeline vouchers (part of a batch) support Re-Issue for Improvement.')
+      return
+    }
+    const reissueRows = rows
+      .filter(r => String(r.reissueQty || '').trim() !== '' && parseFloat(r.reissueQty) > 0)
+      .map(r => ({ sku: r.sku, reissue_qty: parseFloat(r.reissueQty) || 0 }))
+    if (reissueRows.length === 0) {
+      setSubmitError('Enter a Re-Issue Qty for at least one row before using Re-Issue for Improvement.')
+      return
+    }
+    setIsSubmitting(true)
+    setSubmitError('')
+    setSubmitWarnings([])
+    try {
+      const res = await fetch(`/api/jobs/${voucherId}/reissue-for-improvement/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rows: reissueRows, note: noteForReissue }),
+      })
+      const result = await res.json().catch(() => null)
+      if (!res.ok || !result?.success) {
+        setSubmitError(result?.error?.message || result?.error?.details || 'Failed to create re-issue vouchers.')
+        return
+      }
+      const count = result.data?.new_vouchers?.length || 0
+      const syncTs = new Date().toISOString()
+      try { localStorage.setItem('inventory_sheet_updated_at', syncTs) } catch {}
+      window.dispatchEvent(new CustomEvent('inventory_sheet_sync', { detail: { updatedAt: syncTs } }))
+      onJobReceived?.(result.data)
+      onOpenChange(false)
+      alert(`${count} re-issue voucher(s) created and activated.\nOriginal voucher ${voucherData?.voucherNo} is now marked as Replaced.\n\nThe re-issue pipeline has started automatically from the first stage.`)
+    } catch (err) {
+      setSubmitError(err.message || 'Network error. Please try again.')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
   function handlePrint() {
     const deptLabel = (val) => jewelleryDepartments.find(d => d.value === val)?.label || val || '—'
 
@@ -828,14 +878,10 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
             >
               {isSubmitting ? 'Updating...' : 'Update Inventory'}
             </Button>
-            <Button
-              className="h-7 bg-warning hover:bg-warning/90 text-white font-bold text-sm rounded"
-              onClick={handlePartialUpdate}
-              disabled={isSubmitting}
-            >
+            <Button className="h-7 bg-warning hover:bg-warning/90 text-white font-bold text-sm rounded" onClick={handlePartialUpdate} disabled={isSubmitting}>
               Partial Update
             </Button>
-            <Button className="h-7 bg-warning hover:bg-warning/90 text-white font-bold text-sm rounded">
+            <Button className="h-7 bg-warning hover:bg-warning/90 text-white font-bold text-sm rounded" onClick={handleReissueForImprovement} disabled={isSubmitting}>
               Re-Issue for Improvement
             </Button>
           </div>

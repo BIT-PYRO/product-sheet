@@ -649,17 +649,28 @@ function DesignerSheetContent() {
             const cfb = XLSX.CFB.read(new Uint8Array(buffer), { type: 'array' })
             const cfbPaths = cfb.FullPaths || []
             const cfbGet = (p) => { const i = cfbPaths.indexOf(p); return i >= 0 ? cfb.FileIndex[i] : null }
-            const relsEntry = cfbGet('Root Entry/xl/drawings/_rels/drawing1.xml.rels')
-            const drawEntry = cfbGet('Root Entry/xl/drawings/drawing1.xml')
-            if (relsEntry && drawEntry) {
-              const dec = new TextDecoder()
-              const toStr = (c) => dec.decode(c instanceof Uint8Array ? c : new Uint8Array(c))
-              const toB64 = (c) => {
-                const bytes = c instanceof Uint8Array ? c : new Uint8Array(c)
-                let bin = '', j = 0
-                while (j < bytes.length) { const end = Math.min(j + 8192, bytes.length); bin += String.fromCharCode(...bytes.subarray(j, end)); j = end }
-                return btoa(bin)
-              }
+            // XLSX (ZIP) paths have no 'Root Entry/' prefix; XLS (CFB) paths do.
+            const cfbResolve = (logicalPath) => cfbGet('Root Entry/' + logicalPath) || cfbGet(logicalPath)
+            const dec = new TextDecoder()
+            const toStr = (c) => dec.decode(c instanceof Uint8Array ? c : new Uint8Array(c))
+            const toB64 = (c) => {
+              const bytes = c instanceof Uint8Array ? c : new Uint8Array(c)
+              let bin = '', j = 0
+              while (j < bytes.length) { const end = Math.min(j + 8192, bytes.length); bin += String.fromCharCode(...bytes.subarray(j, end)); j = end }
+              return btoa(bin)
+            }
+            // Discover all drawing files (drawing1, drawing2, …)
+            const drawNums = new Set()
+            for (const p of cfbPaths) {
+              const logical = p.startsWith('Root Entry/') ? p.slice('Root Entry/'.length) : p
+              const hit = logical.match(/^xl\/drawings\/_rels\/drawing(\d+)\.xml\.rels$/i)
+              if (hit) drawNums.add(Number(hit[1]))
+            }
+            if (!drawNums.size) drawNums.add(1)
+            for (const n of drawNums) {
+              const relsEntry = cfbResolve(`xl/drawings/_rels/drawing${n}.xml.rels`)
+              const drawEntry = cfbResolve(`xl/drawings/drawing${n}.xml`)
+              if (!relsEntry || !drawEntry) continue
               const relsXml = toStr(relsEntry.content)
               const ridToFile = {}
               const relPat = /Id="(rId\d+)"[^>]+Target="\.\.\/media\/([^"]+)"/g
@@ -670,7 +681,7 @@ function DesignerSheetContent() {
               while ((m = anchorPat.exec(drawXml)) !== null) {
                 const col = parseInt(m[1]), row = parseInt(m[2]), rid = m[3]
                 const mf = ridToFile[rid]; if (!mf) continue
-                const me = cfbGet(`Root Entry/xl/media/${mf}`); if (!me || !me.content) continue
+                const me = cfbResolve(`xl/media/${mf}`); if (!me || !me.content) continue
                 const ext = mf.split('.').pop().toLowerCase()
                 const mime = ext === 'jpg' || ext === 'jpeg' ? 'jpeg' : ext === 'png' ? 'png' : ext
                 if (!xlsxImagesByRowCol.has(`${row},${col}`))

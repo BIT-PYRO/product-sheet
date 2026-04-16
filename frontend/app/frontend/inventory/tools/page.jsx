@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, Pencil, Plus, Printer, RefreshCw, Trash2, X } from 'lucide-react';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
+import { useSheetPermissions } from '@/hooks/use-sheet-permissions';
 import {
   Dialog,
   DialogContent,
@@ -87,7 +88,7 @@ export default function ToolsInventoryPage() {
   const [activeRequestId, setActiveRequestId] = useState(null);
   const [issueRequests, setIssueRequests] = useState([]);
   const [issueRequestsReady, setIssueRequestsReady] = useState(false);
-  const [issueForm, setIssueForm] = useState({ toolId: '', quantity: '', issuedTo: '', reason: '' });
+  const [issueForm, setIssueForm] = useState({ toolId: '', quantity: '', issuedTo: '', issuedBy: '', reason: '' });
 
   const loadRows = () => {
     setLoading(true);
@@ -327,7 +328,7 @@ export default function ToolsInventoryPage() {
       setStatus('Select at least one tool row to raise issue request.');
       return;
     }
-    setIssueForm({ toolId: String(selectedRows[0].id), quantity: '', issuedTo: '', reason: '' });
+    setIssueForm({ toolId: String(selectedRows[0].id), quantity: '', issuedTo: '', issuedBy: '', reason: '' });
     setIssueOpen(true);
   }
 
@@ -335,6 +336,7 @@ export default function ToolsInventoryPage() {
     const toolIdNum = Number(issueForm.toolId);
     const quantityNum = Number(issueForm.quantity);
     const issuedTo = issueForm.issuedTo.trim();
+    const issuedBy = issueForm.issuedBy.trim();
     const reason = issueForm.reason.trim();
     if (!toolIdNum) {
       setStatus('Please select a tool row for request.');
@@ -348,6 +350,10 @@ export default function ToolsInventoryPage() {
       setStatus('Please enter issued to.');
       return;
     }
+    if (!issuedBy) {
+      setStatus('Please enter issued by.');
+      return;
+    }
     if (!reason) {
       setStatus('Please enter reason of issue.');
       return;
@@ -359,6 +365,7 @@ export default function ToolsInventoryPage() {
       toolName: toolName(row),
       quantity: quantityNum,
       issuedTo,
+      issuedBy,
       reason,
       status: 'pending',
       requestedAt: new Date().toISOString(),
@@ -413,6 +420,7 @@ export default function ToolsInventoryPage() {
       <tr><th>Tool</th><td>${request.toolName}</td></tr>
       <tr><th>Quantity</th><td>${request.quantity}</td></tr>
       <tr><th>Issued To</th><td>${request.issuedTo}</td></tr>
+      <tr><th>Issued By</th><td>${request.issuedBy || '-'}</td></tr>
       <tr><th>Reason of Issue</th><td>${request.reason || '-'}</td></tr>
       <tr><th>Status</th><td><span class="badge">${String(request.status || '').toUpperCase()}</span></td></tr>
       <tr><th>Requested At</th><td>${requestedAt}</td></tr>
@@ -738,10 +746,19 @@ export default function ToolsInventoryPage() {
                     {sortedIssueRequests.map((req) => {
                       const statusClass = req.status === 'approved' ? 'bg-emerald-100 text-emerald-800' : req.status === 'declined' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-800';
                       return (
-                        <button
+                        <div
                           key={req.id}
+                          role="button"
+                          tabIndex={0}
                           onClick={() => { setActiveRequestId(req.id); setRequestDetailsOpen(true); }}
-                          className="w-full rounded-xl px-4 py-3 text-left transition hover:bg-[#F9FAFB]"
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              setActiveRequestId(req.id);
+                              setRequestDetailsOpen(true);
+                            }
+                          }}
+                          className="w-full rounded-xl px-4 py-3 text-left transition hover:bg-[#F9FAFB] cursor-pointer"
                         >
                           <p className="truncate text-sm text-midnight-ink">
                             <span className="font-semibold">{req.issuedTo}</span> requested <span className="font-semibold">{req.quantity}</span> of {req.toolName}
@@ -761,7 +778,7 @@ export default function ToolsInventoryPage() {
                             )}
                             <span className="text-[11px] text-cool-gray">{relativeTime(req.requestedAt)}</span>
                           </div>
-                        </button>
+                        </div>
                       );
                     })}
                   </div>
@@ -791,7 +808,7 @@ export default function ToolsInventoryPage() {
                 ))}
               </select>
             </div>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               <div className="flex flex-col gap-1">
                 <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Quantity</label>
                 <input
@@ -816,6 +833,15 @@ export default function ToolsInventoryPage() {
                   type="text"
                   value={issueForm.issuedTo}
                   onChange={(e) => setIssueForm((prev) => ({ ...prev, issuedTo: e.target.value }))}
+                  className="w-full rounded-md border border-soft-border px-3 py-1.5 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Issued By</label>
+                <input
+                  type="text"
+                  value={issueForm.issuedBy}
+                  onChange={(e) => setIssueForm((prev) => ({ ...prev, issuedBy: e.target.value }))}
                   className="w-full rounded-md border border-soft-border px-3 py-1.5 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
                 />
               </div>
@@ -970,6 +996,7 @@ export default function ToolsInventoryPage() {
               <div className="text-sm text-midnight-ink"><span className="font-semibold">Tool:</span> {activeRequest.toolName}</div>
               <div className="text-sm text-midnight-ink"><span className="font-semibold">Quantity:</span> {activeRequest.quantity}</div>
               <div className="text-sm text-midnight-ink"><span className="font-semibold">Issued To:</span> {activeRequest.issuedTo}</div>
+              <div className="text-sm text-midnight-ink"><span className="font-semibold">Issued By:</span> {activeRequest.issuedBy || '-'}</div>
               <div className="text-sm text-midnight-ink"><span className="font-semibold">Reason:</span> {activeRequest.reason || '-'}</div>
               <div className="text-sm text-midnight-ink"><span className="font-semibold">Status:</span> {activeRequest.status.toUpperCase()}</div>
             </div>

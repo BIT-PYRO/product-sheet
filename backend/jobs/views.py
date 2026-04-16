@@ -19,7 +19,7 @@ from .services.job_service import can_transition, DEPARTMENT_PIPELINE, DEPT_TO_S
 
 logger = logging.getLogger(__name__)
 
-_DONE_STATUSES = {VoucherApprovalStatus.COMPLETED, VoucherApprovalStatus.PARTIALLY_COMPLETED}
+_DONE_STATUSES = {VoucherApprovalStatus.COMPLETED, VoucherApprovalStatus.PARTIALLY_COMPLETED, VoucherApprovalStatus.REPLACED}
 
 
 def _activate_ready_batch_vouchers(batch_id):
@@ -998,3 +998,263 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 			result.append({'sku': sku, 'die_numbers': die_numbers})
 
 		return Response({'success': True, 'data': result})
+
+	@action(detail=True, methods=['post'], url_path='reissue-for-improvement')
+	def reissue_for_improvement(self, request, pk=None):
+		"""
+		Mark the current in-process (or partially complete) voucher as REPLACED and
+		create new Re-Issue type vouchers from the first pipeline stage up to and
+		including the current stage — with the supplied reissue quantities.
+
+		Full-destroy case: reissue_qty == issued_qty for each SKU.
+		Partial case: reissue_qty < issued_qty (some pieces already received before
+		  the accident). The partial receive is preserved; downstream vouchers
+		  already carrying those pieces continue uninterrupted.
+
+		Request body:
+		  { "rows": [{"sku": "AJE23", "reissue_qty": 10}], "note": "optional text" }
+
+		After creation the re-issue vouchers are auto-approved:
+		  - The first stage (root) becomes in_process immediately.
+		  - All later stages become awaiting (activated as each predecessor completes).
+		"""
+		from collections import OrderedDict as _OD
+		from products.models import Product as _Product
+
+		voucher = self.get_object()
+
+		if voucher.approval_status not in [
+			VoucherApprovalStatus.IN_PROCESS,
+			VoucherApprovalStatus.PARTIALLY_COMPLETED,
+		]:
+			raise ValidationError({
+				'approval_status': (
+					f'Cannot re-issue a voucher with status "{voucher.approval_status}". '
+					'Only in-process or partially complete vouchers support re-issue for improvement.'
+				)
+			})
+
+		if not voucher.batch_id:
+			raise ValidationError({
+				'batch_id': 'Only pipeline vouchers (with a batch_id) support re-issue for improvement.'
+			})
+
+		rows = request.data.get('rows', [])
+		note = str(request.data.get('note', '') or '').strip()
+
+		# Build per-SKU reissue qty map
+		reissue_map: dict = {}
+		for row in rows:
+			sku = str(row.get('sku', '') or '').strip()
+			qty = int(float(row.get('reissue_qty', 0) or 0))
+			if sku and qty > 0:
+				reissue_map[sku.upper()] = qty
+
+		if not reissue_map:
+			raise ValidationError({'rows': 'No valid reissue quantities provided.'})
+
+		# Validate reissue qty does not exceed remaining (issued − already received) per SKU
+		already_received: dict = {}
+		for event in (voucher.received_rows or []):
+			for rr in (event.get('rows') or []):
+				s = str(rr.get('sku', '') or '').strip().upper()
+				already_received[s] = already_received.get(s, 0) + int(float(rr.get('received_qty', 0) or 0))
+		for mr in (voucher.material_rows or []):
+			sku_key = str(mr.get('sku', '') or '').strip().upper()
+			issued = int(float(mr.get('issued_qty', 0) or 0))
+			already = already_received.get(sku_key, 0)
+			remaining = issued - already
+			req_qty = reissue_map.get(sku_key, 0)
+			if req_qty > remaining:
+				raise ValidationError({
+					'rows': (
+						f'SKU {sku_key}: reissue_qty ({req_qty}) exceeds remaining pieces '
+						f'({remaining} = issued {issued} − already received {already}).'
+					)
+				})
+
+		batch_id = voucher.batch_id
+		dept_order_map = {key: idx for idx, (key, _) in enumerate(DEPARTMENT_PIPELINE)}
+		v_dest_idx = dept_order_map.get(voucher.dept_to, 999)
+		dept_label_map = {key: lbl for key, lbl in DEPARTMENT_PIPELINE}
+
+		all_batch = list(Job.objects.filter(batch_id=batch_id).order_by('department_order', 'id'))
+
+		# Collect unique (dept_from, dept_to) transitions up to and including the
+		# current voucher's destination stage.  Prefer 'New' templates over old
+		# re-issue ones so we always clone from the original pipeline definition.
+		transition_map: dict = _OD()
+		for bv in sorted(all_batch, key=lambda x: (dept_order_map.get(x.dept_to, 999), x.id)):
+			key = (bv.dept_from, bv.dept_to)
+			dest_idx = dept_order_map.get(bv.dept_to, 999)
+			if dest_idx > v_dest_idx:
+				continue
+			if key not in transition_map:
+				transition_map[key] = bv
+			elif bv.voucher_type == 'New' and transition_map[key].voucher_type != 'New':
+				transition_map[key] = bv  # prefer the original 'New' template
+
+		stages_to_redo = sorted(transition_map.values(), key=lambda bv: dept_order_map.get(bv.dept_to, 999))
+
+		if not stages_to_redo:
+			raise ValidationError({'error': 'No pipeline stages found to re-issue. Ensure the voucher belongs to a valid batch.'})
+
+		# Next voucher counter
+		last_voucher = Job.objects.filter(voucher_no__startswith='JJ-').order_by('-id').first()
+		counter = 1
+		if last_voucher and last_voucher.voucher_no:
+			try:
+				counter = int(last_voucher.voucher_no.split('-')[1]) + 1
+			except (ValueError, IndexError):
+				counter = 1
+
+		now = timezone.now()
+
+		with transaction.atomic():
+			# ── Mark the current voucher as Replaced ────────────────────────────
+			voucher.approval_status = VoucherApprovalStatus.REPLACED
+			voucher.save(update_fields=['approval_status'])
+
+			# ── Mark earlier completed / partially-complete batch vouchers as Replaced ──
+			# All completed (or partially-complete) vouchers in the same batch whose
+			# destination stage is ≤ the current stage are now superseded by the
+			# re-issue chain.  They should appear as "Replaced" on the dashboard,
+			# not "Completed", so managers can see the full re-issue trail.
+			earlier_ids_to_replace = [
+				bv.pk for bv in all_batch
+				if bv.pk != voucher.pk
+				and bv.approval_status in (
+					VoucherApprovalStatus.COMPLETED,
+					VoucherApprovalStatus.PARTIALLY_COMPLETED,
+				)
+				and dept_order_map.get(bv.dept_to, 999) <= v_dest_idx
+			]
+			if earlier_ids_to_replace:
+				Job.objects.filter(pk__in=earlier_ids_to_replace).update(
+					approval_status=VoucherApprovalStatus.REPLACED
+				)
+
+			# ── Return pieces to origin stage (inventory) ────────────────────────
+			# The re-issue root will call _deduct_source_current_stock, debiting the
+			# origin stage again.  The original pipeline already debited it when the
+			# first batch started.  To avoid double-counting we first credit the
+			# origin stage with the reissue qty, representing the pieces physically
+			# returning to the start of the pipeline for rework.
+			origin_stage = (
+				DEPT_TO_STOCK_STAGE.get(stages_to_redo[0].dept_from, '')
+				if stages_to_redo else ''
+			)
+			if origin_stage:
+				_product_cache: dict = {}
+				for sku_key, ri_qty in reissue_map.items():
+					if ri_qty <= 0:
+						continue
+					prod = _product_cache.get(sku_key)
+					if prod is None:
+						prod = _Product.objects.filter(
+							Q(master_sku__iexact=sku_key)
+						).first() or voucher.product
+						_product_cache[sku_key] = prod
+					if prod:
+						InventoryTransaction.objects.create(
+							product=prod,
+							txn_type='adjust',
+							quantity=ri_qty,
+							stage=origin_stage,
+							stock_type='current',
+							remark=(
+								f'{ri_qty} pcs returned to {stages_to_redo[0].dept_from} '
+								f'for re-issue of {voucher.voucher_no}'
+							),
+						)
+
+			# ── Create Re-Issue vouchers for each stage ──────────────────────────
+			new_vouchers = []
+			for stage_v in stages_to_redo:
+				new_material_rows = []
+				for mr in (stage_v.material_rows or []):
+					sku = str(mr.get('sku', '') or '').strip()
+					sku_key = sku.upper()
+					reissue_qty = reissue_map.get(sku_key, 0)
+					if reissue_qty <= 0:
+						continue
+					new_material_rows.append({
+						'sku': sku,
+						'category': mr.get('category', ''),
+						'metal': mr.get('metal', ''),
+						'issued_qty': str(reissue_qty),
+						'unit1': mr.get('unit1', 'Pcs'),
+						'issued_weight': '',
+						'unit2': mr.get('unit2', ''),
+					})
+
+				if not new_material_rows:
+					continue  # no matching SKUs in this stage, skip
+
+				voucher_no = f'JJ-{str(counter).zfill(2)}'
+				counter += 1
+
+				from_label = dept_label_map.get(stage_v.dept_from, stage_v.dept_from)
+				to_label = dept_label_map.get(stage_v.dept_to, stage_v.dept_to)
+				title = f'RE-ISSUE {voucher_no} - {from_label} to {to_label}'
+				notes_text = f'Re-Issue for Improvement of {voucher.voucher_no}.'
+				if note:
+					notes_text += f' {note}'
+
+				new_v = Job.objects.create(
+					title=title,
+					product=stage_v.product,
+					status='created',
+					voucher_no=voucher_no,
+					voucher_type='Re-Issue',
+					dept_from=stage_v.dept_from,
+					dept_to=stage_v.dept_to,
+					work_type=stage_v.work_type or voucher.work_type,
+					issued_to=stage_v.issued_to or voucher.issued_to,
+					issued_by=stage_v.issued_by or voucher.issued_by,
+					contact=stage_v.contact or voucher.contact,
+					approval_status=VoucherApprovalStatus.PENDING,
+					picklist_group=voucher.picklist_group,
+					batch_id=batch_id,
+					department_order=dept_order_map.get(stage_v.dept_to, 99),
+					material_rows=new_material_rows,
+					stone_rows=stage_v.stone_rows or [],
+					notes=notes_text,
+				)
+				new_vouchers.append(new_v)
+
+			if not new_vouchers:
+				raise ValidationError({
+					'rows': 'No re-issue vouchers could be created. Ensure the SKUs in the rows match those in the voucher.'
+				})
+
+			# ── Auto-approve: root → in_process, others → awaiting ───────────────
+			dest_depts_ri = {v.dept_to for v in new_vouchers}
+			for new_v in sorted(new_vouchers, key=lambda x: x.department_order):
+				is_root = new_v.dept_from not in dest_depts_ri
+				new_v.approval_status = (
+					VoucherApprovalStatus.IN_PROCESS if is_root
+					else VoucherApprovalStatus.AWAITING
+				)
+				new_v.approved_by = 'auto-approved (re-issue for improvement)'
+				new_v.approved_at = now
+				new_v.save(update_fields=['approval_status', 'approved_by', 'approved_at'])
+				if is_root:
+					_deduct_source_current_stock(new_v)
+
+		serializer = JobSerializer(new_vouchers, many=True)
+		return Response(
+			{
+				'success': True,
+				'message': (
+					f'{len(new_vouchers)} re-issue voucher(s) created and activated. '
+					f'Original voucher {voucher.voucher_no} is now marked as Replaced.'
+				),
+				'data': {
+					'replaced_voucher_no': voucher.voucher_no,
+					'replaced_voucher_id': voucher.id,
+					'new_vouchers': serializer.data,
+				},
+			},
+			status=status.HTTP_201_CREATED,
+		)

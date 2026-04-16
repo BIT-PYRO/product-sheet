@@ -43,7 +43,8 @@ class DesignerSheetViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
             return Response({'success': False, 'message': 'Invalid field parameter.'}, status=400)
 
         try:
-            image_url = upload_image_file(image_file, folder=f'designers/{designer.pk}')
+            sku_safe = (designer.sku or str(designer.pk)).replace('/', '-').replace(' ', '-').strip('-') or str(designer.pk)
+            image_url = upload_image_file(image_file, folder=f'designers/{sku_safe}', public_id=field)
         except Exception as exc:
             return Response({'success': False, 'message': f'Upload failed: {exc}'}, status=500)
 

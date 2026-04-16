@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Search, Eye, FileIcon } from 'lucide-react';
+import { Search, Eye, FileIcon, ChevronDown } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -30,6 +30,9 @@ import { EnrolWorkforceForm } from '@/app/frontend/enrol-workforce/page';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
 import GlobalSearchBar from '@/components/global-search-bar';
 import { CreateJobModal } from '@/components/create-job-modal';
+import { CreateAllVouchersModal } from '@/components/create-all-vouchers-modal';
+import { SuggestedVouchersModal } from '@/components/suggested-vouchers-modal';
+import { NeededVouchersModal } from '@/components/needed-vouchers-modal';
 import { ReceiveJobModal } from '@/components/receive-job-modal';
 import DateTimeStamp from '@/components/date-time-stamp';
 import BulkUploadButton from '@/components/bulk-upload-button';
@@ -50,6 +53,9 @@ export default function MasterJobSheet() {
   const [isQuickEnrollOpen, setIsQuickEnrollOpen] = useState(false);
   const [isEnrollWorkforceOpen, setIsEnrollWorkforceOpen] = useState(false);
   const [isCreateJobModalOpen, setIsCreateJobModalOpen] = useState(false);
+  const [isCreateAllVouchersOpen, setIsCreateAllVouchersOpen] = useState(false);
+  const [isSuggestedVouchersOpen, setIsSuggestedVouchersOpen] = useState(false);
+  const [isNeededVouchersOpen, setIsNeededVouchersOpen] = useState(false);
   const [editingRowIds, setEditingRowIds] = useState(new Set());
   const [archivedRows, setArchivedRows] = useState(new Set());
   const [viewMode, setViewMode] = useState('active');
@@ -807,12 +813,30 @@ export default function MasterJobSheet() {
             {isLoading ? 'Loading...' : 'Refresh'}
           </Button>
           {canCreate && (
-            <Button 
-              onClick={handleCreateJob}
-              className="bg-success hover:bg-success text-white rounded-full px-4 h-8 text-sm"
-            >
-              Create a Job
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button className="bg-success hover:bg-success/90 text-white rounded-full px-4 h-8 text-sm gap-1">
+                  Create a Job
+                  <ChevronDown className="h-3.5 w-3.5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuItem onClick={() => setIsCreateJobModalOpen(true)} className="cursor-pointer">Create Job</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setIsCreateAllVouchersOpen(true)} className="cursor-pointer">Create All Vouchers</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setIsSuggestedVouchersOpen(true)} className="cursor-pointer text-orange-600 font-semibold">
+                  <span className="inline-flex items-center gap-1.5">
+                    <span className="w-4 h-4 rounded-full bg-orange-400 text-white text-[9px] font-bold flex items-center justify-center shrink-0">!</span>
+                    Create Suggested Vouchers
+                  </span>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setIsNeededVouchersOpen(true)} className="cursor-pointer text-red-600 font-semibold" disabled>
+                  <span className="inline-flex items-center gap-1.5">
+                    <span className="w-4 h-4 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center shrink-0">!</span>
+                    Create Needed Vouchers
+                  </span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           )}
           {canEdit && (
             <Button 
@@ -1252,6 +1276,9 @@ export default function MasterJobSheet() {
         onOpenChange={setIsCreateJobModalOpen}
         onJobCreated={loadJobs}
       />
+      <CreateAllVouchersModal open={isCreateAllVouchersOpen} onOpenChange={setIsCreateAllVouchersOpen} onVouchersCreated={loadJobs} />
+      <SuggestedVouchersModal open={isSuggestedVouchersOpen} onOpenChange={setIsSuggestedVouchersOpen} suggestedItems={[]} onVouchersCreated={loadJobs} />
+      <NeededVouchersModal open={isNeededVouchersOpen} onOpenChange={setIsNeededVouchersOpen} neededItems={[]} onVouchersCreated={loadJobs} />
 
       {/* Enroll Workforce Modal */}
       <Dialog open={isEnrollWorkforceOpen} onOpenChange={setIsEnrollWorkforceOpen}>

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Search, Pencil, Trash2, FileText, Printer } from 'lucide-react';
+import { Search, Pencil, Trash2, FileText, Printer, ChevronDown } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -19,9 +19,18 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
 import GlobalSearchBar from '@/components/global-search-bar';
 import { CreateJobModal } from '@/components/create-job-modal';
+import { CreateAllVouchersModal } from '@/components/create-all-vouchers-modal';
+import { SuggestedVouchersModal } from '@/components/suggested-vouchers-modal';
+import { NeededVouchersModal } from '@/components/needed-vouchers-modal';
 import { PendingVouchersModal } from '@/components/pending-vouchers-modal';
 import { CompanyKYCForm } from '@/components/company-kyc-form';
 import { ReceiveJobModal } from '@/components/receive-job-modal';
@@ -41,6 +50,9 @@ export default function ManagersDashboard() {
   const [isManageColumnsOpen, setIsManageColumnsOpen] = useState(false);
   const [selectedColumnsForAction, setSelectedColumnsForAction] = useState(new Set());
   const [isCreateJobModalOpen, setIsCreateJobModalOpen] = useState(false);
+  const [isCreateAllVouchersOpen, setIsCreateAllVouchersOpen] = useState(false);
+  const [isSuggestedVouchersOpen, setIsSuggestedVouchersOpen] = useState(false);
+  const [isNeededVouchersOpen, setIsNeededVouchersOpen] = useState(false);
   const [isPendingVouchersOpen, setIsPendingVouchersOpen] = useState(false);
   const [isKYCModalOpen, setIsKYCModalOpen] = useState(false);
   const [selectedForPrint, setSelectedForPrint] = useState(new Set());
@@ -165,6 +177,7 @@ export default function ManagersDashboard() {
     if (approvalStatus === 'completed') return 'completed';
     if (approvalStatus === 'in_process') return 'wip';
     if (approvalStatus === 'partially_complete') return 'wip';
+    if (approvalStatus === 'replaced') return 'completed';
     if (approvalStatus === 'awaiting') return 'new';
     if (approvalStatus === 'approved') return 'new';
     // Fallback to job status
@@ -281,7 +294,7 @@ export default function ManagersDashboard() {
       jobs.forEach((job) => {
         // Only show approved/in_process/awaiting/completed/partially_complete vouchers (not pending)
         const approvalStatus = job.approval_status || '';
-        const showOnDashboard = ['approved', 'in_process', 'awaiting', 'completed', 'partially_complete'].includes(approvalStatus)
+        const showOnDashboard = ['approved', 'in_process', 'awaiting', 'completed', 'partially_complete', 'replaced'].includes(approvalStatus)
           || !job.batch_id; // Non-batch jobs (single vouchers) always show
 
         if (!showOnDashboard) return;
@@ -713,6 +726,7 @@ export default function ManagersDashboard() {
       completed:          { text: 'Completed',          cls: 'bg-green-500 text-white' },
       partially_complete: { text: 'Partial',            cls: 'bg-yellow-300 text-yellow-900' },
       approved:           { text: 'Approved',           cls: 'bg-blue-200 text-blue-800' },
+      replaced:           { text: 'Replaced',           cls: 'bg-gray-400 text-white' },
     };
     const approvalBadge = approvalLabels[card.approvalStatus];
 
@@ -898,12 +912,32 @@ export default function ManagersDashboard() {
             />
           </div>
           <div className="flex gap-2 flex-wrap">
-            {canCreate && <Button 
-              onClick={handleCreateJob}
-              className="bg-success hover:bg-success text-white rounded-full px-4 text-sm h-8"
-            >
-              Create a Job
-            </Button>}
+            {canCreate && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button className="bg-success hover:bg-success/90 text-white rounded-full px-4 text-sm h-8 gap-1">
+                    Create a Job
+                    <ChevronDown className="h-3.5 w-3.5" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuItem onClick={() => setIsCreateJobModalOpen(true)} className="cursor-pointer">Create Job</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setIsCreateAllVouchersOpen(true)} className="cursor-pointer">Create All Vouchers</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setIsSuggestedVouchersOpen(true)} className="cursor-pointer text-orange-600 font-semibold">
+                    <span className="inline-flex items-center gap-1.5">
+                      <span className="w-4 h-4 rounded-full bg-orange-400 text-white text-[9px] font-bold flex items-center justify-center shrink-0">!</span>
+                      Create Suggested Vouchers
+                    </span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setIsNeededVouchersOpen(true)} className="cursor-pointer text-red-600 font-semibold" disabled>
+                    <span className="inline-flex items-center gap-1.5">
+                      <span className="w-4 h-4 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center shrink-0">!</span>
+                      Create Needed Vouchers
+                    </span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
             <Button
               onClick={handleSelectAll}
               variant="outline"
@@ -1172,6 +1206,9 @@ export default function ManagersDashboard() {
         mode="single-pipeline"
         onJobCreated={loadJobs}
       />
+      <CreateAllVouchersModal open={isCreateAllVouchersOpen} onOpenChange={setIsCreateAllVouchersOpen} onVouchersCreated={loadJobs} />
+      <SuggestedVouchersModal open={isSuggestedVouchersOpen} onOpenChange={setIsSuggestedVouchersOpen} suggestedItems={[]} onVouchersCreated={loadJobs} />
+      <NeededVouchersModal open={isNeededVouchersOpen} onOpenChange={setIsNeededVouchersOpen} neededItems={[]} onVouchersCreated={loadJobs} />
 
       <PendingVouchersModal
         open={isPendingVouchersOpen}
