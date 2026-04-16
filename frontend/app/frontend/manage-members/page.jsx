@@ -56,6 +56,7 @@ const MODULES = [
   { key: 'finding-sheet',          label: 'Master Finding Sheet' },
   { key: 'finding-entry',          label: 'Finding Sheet' },
   { key: 'inventory',              label: 'Inventory' },
+  { key: 'accountancy',            label: 'Accountancy' },
 ];
 
 function defaultPermissions() {

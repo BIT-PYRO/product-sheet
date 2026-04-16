@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Plus, Printer, RefreshCw, Trash2, X } from 'lucide-react';
+import { ArrowLeft, Pencil, Plus, Printer, RefreshCw, Trash2, X } from 'lucide-react';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
+import { useSheetPermissions } from '@/hooks/use-sheet-permissions';
 import {
   Dialog,
   DialogContent,
@@ -11,10 +12,21 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { useSheetPermissions } from '@/hooks/use-sheet-permissions';
+import CreatableFilterPopover from '@/components/creatable-filter-popover';
+import MultiselectFilterPopover from '@/components/multiselect-filter-popover';
 
 const STORAGE_KEY = 'inventory_tools_v1';
 const TOOL_ISSUE_REQUESTS_KEY = 'tool_issue_requests_v1';
+const TOOLS_COLUMNS = [
+  { id: 'sno', label: 'S. No.' },
+  { id: 'toolName', label: 'Tool name' },
+  { id: 'particulars', label: 'Particulars' },
+  { id: 'department', label: 'Department' },
+  { id: 'quantity', label: 'Quantity' },
+  { id: 'unit', label: 'Unit' },
+  { id: 'location', label: 'Location' },
+  { id: 'action', label: 'Action' },
+];
 
 const createToolRow = (id) => ({
   id,
@@ -52,6 +64,23 @@ export default function ToolsInventoryPage() {
   const [status, setStatus] = useState('');
   const [loading, setLoading] = useState(false);
   const [selectedIds, setSelectedIds] = useState(new Set());
+  const [editingRowIds, setEditingRowIds] = useState(new Set());
+  const [editBuffer, setEditBuffer] = useState({});
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterDepartment, setFilterDepartment] = useState([]);
+  const [filterUnit, setFilterUnit] = useState([]);
+  const [isAddToolOpen, setIsAddToolOpen] = useState(false);
+  const [addToolForm, setAddToolForm] = useState({
+    toolName: '',
+    particulars: '',
+    department: '',
+    quantity: '',
+    unit: 'PCS',
+    location: '',
+  });
+  const [isManageColumnsOpen, setIsManageColumnsOpen] = useState(false);
+  const [selectedColumnsForAction, setSelectedColumnsForAction] = useState(new Set());
+  const [visibleColumns, setVisibleColumns] = useState(new Set(TOOLS_COLUMNS.map((column) => column.id)));
 
   const [issueOpen, setIssueOpen] = useState(false);
   const [requestsPanelOpen, setRequestsPanelOpen] = useState(false);
@@ -59,7 +88,7 @@ export default function ToolsInventoryPage() {
   const [activeRequestId, setActiveRequestId] = useState(null);
   const [issueRequests, setIssueRequests] = useState([]);
   const [issueRequestsReady, setIssueRequestsReady] = useState(false);
-  const [issueForm, setIssueForm] = useState({ toolId: '', quantity: '', issuedTo: '', reason: '' });
+  const [issueForm, setIssueForm] = useState({ toolId: '', quantity: '', issuedTo: '', issuedBy: '', reason: '' });
 
   const loadRows = () => {
     setLoading(true);
@@ -112,37 +141,182 @@ export default function ToolsInventoryPage() {
   }, [issueRequests, issueRequestsReady]);
 
   const updateRow = (id, key, nextValue) => {
-    setRows((prev) =>
-      prev.map((row) => (row.id === id ? { ...normalizeToolRow(row, id), [key]: nextValue } : normalizeToolRow(row, row.id)))
+    if (!editingRowIds.has(id)) return;
+    setEditBuffer((prev) => ({
+      ...prev,
+      [id]: {
+        ...(prev[id] || normalizeToolRow(rows.find((row) => row.id === id), id)),
+        [key]: nextValue,
+      },
+    }));
+  };
+
+  const openAddToolDialog = () => {
+    setAddToolForm({
+      toolName: '',
+      particulars: '',
+      department: '',
+      quantity: '',
+      unit: 'PCS',
+      location: '',
+    });
+    setIsAddToolOpen(true);
+  };
+
+  const handleAddTool = () => {
+    if (!String(addToolForm.toolName || '').trim()) {
+      setStatus('Tool name is required.');
+      return;
+    }
+
+    const nextRow = normalizeToolRow(
+      {
+        toolName: addToolForm.toolName,
+        particulars: addToolForm.particulars,
+        department: addToolForm.department,
+        quantity: addToolForm.quantity,
+        unit: addToolForm.unit,
+        location: addToolForm.location,
+      },
+      rows.length + 1
     );
+
+    setRows((prev) => [...prev, nextRow]);
+    setIsAddToolOpen(false);
+    setStatus('Tool added. Click Save to persist.');
   };
 
-  const addRow = () => {
-    setRows((prev) => [...prev, createToolRow(prev.length + 1)]);
-  };
+  const filteredRows = useMemo(() => {
+    const search = searchTerm.trim().toLowerCase();
+    return rows.filter((row) => {
+      const matchesSearch = !search || [row.toolName, row.particulars, row.department, row.location].some((v) => String(v || '').toLowerCase().includes(search));
+      const matchesDepartment = !filterDepartment || filterDepartment.length === 0 || filterDepartment.some(dept => String(row.department || '').toLowerCase().includes(String(dept).toLowerCase()));
+      const matchesUnit = !filterUnit || filterUnit.length === 0 || filterUnit.some(unit => String(row.unit || '').toLowerCase().includes(String(unit).toLowerCase()));
+      return matchesSearch && matchesDepartment && matchesUnit;
+    });
+  }, [rows, searchTerm, filterDepartment, filterUnit]);
 
-  const allSelected = rows.length > 0 && selectedIds.size === rows.length;
+  const departmentOptions = useMemo(
+    () => Array.from(new Set(rows.map((row) => String(row.department || '').trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b)),
+    [rows]
+  );
+
+  const unitOptions = useMemo(
+    () => Array.from(new Set(rows.map((row) => String(row.unit || '').trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b)),
+    [rows]
+  );
+
+  const allSelected = filteredRows.length > 0 && filteredRows.every((row) => selectedIds.has(row.id));
   const someSelected = selectedIds.size > 0 && !allSelected;
   const selectedRows = rows.filter((r) => selectedIds.has(r.id));
+  const visibleTableColumnCount = 1 + TOOLS_COLUMNS.filter((column) => visibleColumns.has(column.id)).length;
   const pendingIssueRequests = issueRequests.filter((r) => r.status === 'pending');
   const sortedIssueRequests = [...issueRequests].sort((a, b) => new Date(b.requestedAt) - new Date(a.requestedAt));
   const activeRequest = issueRequests.find((r) => r.id === activeRequestId) || null;
 
   function toggleSelectAll() {
+    if (editingRowIds.size > 0) return;
     if (allSelected) {
-      setSelectedIds(new Set());
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        filteredRows.forEach((row) => next.delete(row.id));
+        return next;
+      });
     } else {
-      setSelectedIds(new Set(rows.map((r) => r.id)));
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        filteredRows.forEach((row) => next.add(row.id));
+        return next;
+      });
     }
   }
 
   function toggleRow(id) {
+    if (editingRowIds.size > 0) return;
     setSelectedIds((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
       return next;
     });
+  }
+
+  function handleEditRows() {
+    if (selectedIds.size === 0) {
+      setStatus('Select at least one row, then click Edit Row.');
+      return;
+    }
+    const ids = new Set(selectedRows.map((row) => row.id));
+    const buffer = {};
+    selectedRows.forEach((row) => {
+      buffer[row.id] = { ...normalizeToolRow(row, row.id) };
+    });
+    setEditingRowIds(ids);
+    setEditBuffer(buffer);
+    setStatus(`Editing ${ids.size} row${ids.size !== 1 ? 's' : ''}.`);
+  }
+
+  function handleCancelEdit() {
+    setEditingRowIds(new Set());
+    setEditBuffer({});
+    setStatus('Edit canceled.');
+  }
+
+  function handleSaveEdit() {
+    const ids = Array.from(editingRowIds);
+    if (ids.length === 0) return;
+    setRows((prev) =>
+      prev.map((row) => {
+        if (!editingRowIds.has(row.id)) return row;
+        const edited = editBuffer[row.id];
+        return edited ? { ...normalizeToolRow(edited, row.id), id: row.id } : row;
+      })
+    );
+    setEditingRowIds(new Set());
+    setEditBuffer({});
+    setStatus(`Saved ${ids.length} row${ids.length !== 1 ? 's' : ''}. Click Save to persist.`);
+  }
+
+  function getRowValue(row, key) {
+    if (editingRowIds.has(row.id) && editBuffer[row.id]) {
+      return editBuffer[row.id][key] ?? '';
+    }
+    return row[key] ?? '';
+  }
+
+  function handlePrintTable() {
+    window.print();
+  }
+
+  function toggleColumnSelection(columnId) {
+    const next = new Set(selectedColumnsForAction);
+    if (next.has(columnId)) next.delete(columnId);
+    else next.add(columnId);
+    setSelectedColumnsForAction(next);
+  }
+
+  function toggleSelectAllColumns() {
+    if (selectedColumnsForAction.size === TOOLS_COLUMNS.length) {
+      setSelectedColumnsForAction(new Set());
+    } else {
+      setSelectedColumnsForAction(new Set(TOOLS_COLUMNS.map((column) => column.id)));
+    }
+  }
+
+  function handleHideColumns() {
+    const next = new Set(visibleColumns);
+    selectedColumnsForAction.forEach((columnId) => next.delete(columnId));
+    setVisibleColumns(next);
+    setSelectedColumnsForAction(new Set());
+    setIsManageColumnsOpen(false);
+  }
+
+  function handleShowColumns() {
+    const next = new Set(visibleColumns);
+    selectedColumnsForAction.forEach((columnId) => next.add(columnId));
+    setVisibleColumns(next);
+    setSelectedColumnsForAction(new Set());
+    setIsManageColumnsOpen(false);
   }
 
   function toolName(row) {
@@ -154,7 +328,7 @@ export default function ToolsInventoryPage() {
       setStatus('Select at least one tool row to raise issue request.');
       return;
     }
-    setIssueForm({ toolId: String(selectedRows[0].id), quantity: '', issuedTo: '', reason: '' });
+    setIssueForm({ toolId: String(selectedRows[0].id), quantity: '', issuedTo: '', issuedBy: '', reason: '' });
     setIssueOpen(true);
   }
 
@@ -162,6 +336,7 @@ export default function ToolsInventoryPage() {
     const toolIdNum = Number(issueForm.toolId);
     const quantityNum = Number(issueForm.quantity);
     const issuedTo = issueForm.issuedTo.trim();
+    const issuedBy = issueForm.issuedBy.trim();
     const reason = issueForm.reason.trim();
     if (!toolIdNum) {
       setStatus('Please select a tool row for request.');
@@ -175,6 +350,10 @@ export default function ToolsInventoryPage() {
       setStatus('Please enter issued to.');
       return;
     }
+    if (!issuedBy) {
+      setStatus('Please enter issued by.');
+      return;
+    }
     if (!reason) {
       setStatus('Please enter reason of issue.');
       return;
@@ -186,6 +365,7 @@ export default function ToolsInventoryPage() {
       toolName: toolName(row),
       quantity: quantityNum,
       issuedTo,
+      issuedBy,
       reason,
       status: 'pending',
       requestedAt: new Date().toISOString(),
@@ -240,6 +420,7 @@ export default function ToolsInventoryPage() {
       <tr><th>Tool</th><td>${request.toolName}</td></tr>
       <tr><th>Quantity</th><td>${request.quantity}</td></tr>
       <tr><th>Issued To</th><td>${request.issuedTo}</td></tr>
+      <tr><th>Issued By</th><td>${request.issuedBy || '-'}</td></tr>
       <tr><th>Reason of Issue</th><td>${request.reason || '-'}</td></tr>
       <tr><th>Status</th><td><span class="badge">${String(request.status || '').toUpperCase()}</span></td></tr>
       <tr><th>Requested At</th><td>${requestedAt}</td></tr>
@@ -305,11 +486,35 @@ export default function ToolsInventoryPage() {
             </button>
             <button
               type="button"
-              onClick={addRow}
+              onClick={handlePrintTable}
+              className="inline-flex items-center gap-2 rounded-lg border border-soft-border bg-white px-3 py-2 text-sm font-medium text-midnight-ink hover:border-trust-blue transition"
+            >
+              <Printer className="h-4 w-4" />
+              Print
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsManageColumnsOpen(true)}
+              className="inline-flex items-center gap-2 rounded-lg border border-soft-border bg-white px-3 py-2 text-sm font-medium text-midnight-ink hover:border-trust-blue transition"
+            >
+              Manage Columns
+            </button>
+            <button
+              type="button"
+              onClick={handleEditRows}
+              disabled={editingRowIds.size > 0}
+              className="inline-flex items-center gap-2 rounded-lg border border-trust-blue bg-white px-3 py-2 text-sm font-medium text-trust-blue hover:bg-blue-50 transition disabled:opacity-40"
+            >
+              <Pencil className="h-4 w-4" />
+              Edit Row
+            </button>
+            <button
+              type="button"
+              onClick={openAddToolDialog}
               className="inline-flex items-center gap-2 rounded-lg border border-trust-blue bg-white px-3 py-2 text-sm font-medium text-trust-blue hover:bg-blue-50 transition"
             >
               <Plus className="h-4 w-4" />
-              Add Tool Row
+              Add Tool
             </button>
             <button
               type="button"
@@ -346,109 +551,161 @@ export default function ToolsInventoryPage() {
           </p>
         )}
 
+        {editingRowIds.size > 0 && (
+          <div className="mb-2 flex items-center gap-2">
+            <Button onClick={handleSaveEdit} className="h-8 px-3 bg-success text-white hover:bg-success/90">Save Changes</Button>
+            <Button variant="outline" onClick={handleCancelEdit} className="h-8 px-3 border-danger text-danger hover:bg-danger/10">Cancel Edit</Button>
+          </div>
+        )}
+
         {status && (
           <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
             {status}
           </div>
         )}
 
+        <section className="border border-soft-border rounded-lg mb-4 bg-[#dbeafe] p-3">
+          <div className="flex flex-wrap gap-2 items-center">
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Search"
+              className="h-8 text-sm w-36 bg-white rounded-md border border-trust-blue/40 px-3"
+            />
+            <MultiselectFilterPopover
+              label="Department"
+              selectedValues={filterDepartment}
+              onSelectValues={setFilterDepartment}
+              options={departmentOptions}
+              storageKey="inventory:tools:department"
+            />
+            <MultiselectFilterPopover
+              label="Unit"
+              selectedValues={filterUnit}
+              onSelectValues={setFilterUnit}
+              options={unitOptions}
+              storageKey="inventory:tools:unit"
+            />
+            <button
+              type="button"
+              onClick={() => {
+                setSearchTerm('');
+                setFilterDepartment([]);
+                setFilterUnit([]);
+              }}
+              className="h-8 px-3 text-sm border rounded bg-trust-blue text-white border-trust-blue font-medium"
+            >
+              Clear
+            </button>
+          </div>
+        </section>
+
         <section className="rounded-xl border border-soft-border bg-white shadow-sm">
           <div className="overflow-x-auto">
             <table className="w-full min-w-[1120px] text-sm">
               <thead>
-                <tr className="border-b border-soft-border bg-[#F8F9FA]">
+                <tr className="border-b border-soft-border bg-[#dbeafe]">
                   <th className="px-3 py-3">
                     <input
                       type="checkbox"
                       checked={allSelected}
                       ref={(el) => { if (el) el.indeterminate = someSelected; }}
                       onChange={toggleSelectAll}
+                      disabled={editingRowIds.size > 0}
                       className="h-4 w-4 cursor-pointer rounded border-soft-border accent-trust-blue"
                     />
                   </th>
-                  <th className="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray w-16">S. No.</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray">Tool name</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray">Particulars</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray">Department</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray">Quantity</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray">Unit</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray">Location</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray w-24">Action</th>
+                  {visibleColumns.has('sno') && <th className="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray w-16">S. No.</th>}
+                  {visibleColumns.has('toolName') && <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray">Tool name</th>}
+                  {visibleColumns.has('particulars') && <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray">Particulars</th>}
+                  {visibleColumns.has('department') && <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray">Department</th>}
+                  {visibleColumns.has('quantity') && <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray">Quantity</th>}
+                  {visibleColumns.has('unit') && <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray">Unit</th>}
+                  {visibleColumns.has('location') && <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray">Location</th>}
+                  {visibleColumns.has('action') && <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray w-24">Action</th>}
                 </tr>
               </thead>
               <tbody>
-                {rows.length === 0 ? (
+                {filteredRows.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="px-4 py-6 text-center text-sm text-cool-gray">
+                    <td colSpan={visibleTableColumnCount} className="px-4 py-6 text-center text-sm text-cool-gray">
                       No tools found. Add one using the button above.
                     </td>
                   </tr>
-                ) : rows.map((row) => (
+                ) : filteredRows.map((row) => (
                   <tr key={row.id} className="border-b border-soft-border last:border-0 transition hover:bg-[#F8F9FA]">
                     <td className="px-3 py-2.5">
                       <input
                         type="checkbox"
                         checked={selectedIds.has(row.id)}
                         onChange={() => toggleRow(row.id)}
+                        disabled={editingRowIds.size > 0}
                         className="h-4 w-4 cursor-pointer rounded border-soft-border accent-trust-blue"
                       />
                     </td>
-                    <td className="px-3 py-2.5 text-midnight-ink">{row.id}</td>
-                    <td className="px-4 py-2.5">
+                    {visibleColumns.has('sno') && <td className="px-3 py-2.5 text-midnight-ink">{row.id}</td>}
+                    {visibleColumns.has('toolName') && <td className="px-4 py-2.5">
                       <input
                         type="text"
-                        value={row.toolName ?? ''}
+                        value={getRowValue(row, 'toolName')}
                         onChange={(e) => updateRow(row.id, 'toolName', e.target.value)}
                         placeholder="Enter tool name"
-                        className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue"
+                        readOnly={!editingRowIds.has(row.id)}
+                        className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue read-only:bg-gray-50 read-only:text-cool-gray"
                       />
-                    </td>
-                    <td className="px-4 py-2.5">
+                    </td>}
+                    {visibleColumns.has('particulars') && <td className="px-4 py-2.5">
                       <input
                         type="text"
-                        value={row.particulars ?? ''}
+                        value={getRowValue(row, 'particulars')}
                         onChange={(e) => updateRow(row.id, 'particulars', e.target.value)}
                         placeholder="Enter particulars"
-                        className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue"
+                        readOnly={!editingRowIds.has(row.id)}
+                        className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue read-only:bg-gray-50 read-only:text-cool-gray"
                       />
-                    </td>
-                    <td className="px-4 py-2.5">
+                    </td>}
+                    {visibleColumns.has('department') && <td className="px-4 py-2.5">
                       <input
                         type="text"
-                        value={row.department ?? ''}
+                        value={getRowValue(row, 'department')}
                         onChange={(e) => updateRow(row.id, 'department', e.target.value)}
                         placeholder="Enter department"
-                        className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue"
+                        readOnly={!editingRowIds.has(row.id)}
+                        className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue read-only:bg-gray-50 read-only:text-cool-gray"
                       />
-                    </td>
-                    <td className="px-4 py-2.5">
+                    </td>}
+                    {visibleColumns.has('quantity') && <td className="px-4 py-2.5">
                       <input
                         type="number"
-                        value={row.quantity ?? ''}
+                        value={getRowValue(row, 'quantity')}
                         onChange={(e) => updateRow(row.id, 'quantity', e.target.value)}
                         placeholder="0"
-                        className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue"
+                        readOnly={!editingRowIds.has(row.id)}
+                        className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue read-only:bg-gray-50 read-only:text-cool-gray"
                       />
-                    </td>
-                    <td className="px-4 py-2.5">
+                    </td>}
+                    {visibleColumns.has('unit') && <td className="px-4 py-2.5">
                       <input
                         type="text"
-                        value={row.unit ?? ''}
+                        value={getRowValue(row, 'unit')}
                         onChange={(e) => updateRow(row.id, 'unit', e.target.value)}
                         placeholder="PCS"
-                        className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue"
+                        readOnly={!editingRowIds.has(row.id)}
+                        className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue read-only:bg-gray-50 read-only:text-cool-gray"
                       />
-                    </td>
-                    <td className="px-4 py-2.5">
+                    </td>}
+                    {visibleColumns.has('location') && <td className="px-4 py-2.5">
                       <input
                         type="text"
-                        value={row.location ?? ''}
+                        value={getRowValue(row, 'location')}
                         onChange={(e) => updateRow(row.id, 'location', e.target.value)}
                         placeholder="Store room A"
-                        className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue"
+                        readOnly={!editingRowIds.has(row.id)}
+                        className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue read-only:bg-gray-50 read-only:text-cool-gray"
                       />
-                    </td>
-                    <td className="px-4 py-2.5">
+                    </td>}
+                    {visibleColumns.has('action') && <td className="px-4 py-2.5">
                       <button
                         type="button"
                         onClick={() => deleteRow(row.id)}
@@ -457,7 +714,7 @@ export default function ToolsInventoryPage() {
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>
-                    </td>
+                    </td>}
                   </tr>
                 ))}
               </tbody>
@@ -489,10 +746,19 @@ export default function ToolsInventoryPage() {
                     {sortedIssueRequests.map((req) => {
                       const statusClass = req.status === 'approved' ? 'bg-emerald-100 text-emerald-800' : req.status === 'declined' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-800';
                       return (
-                        <button
+                        <div
                           key={req.id}
+                          role="button"
+                          tabIndex={0}
                           onClick={() => { setActiveRequestId(req.id); setRequestDetailsOpen(true); }}
-                          className="w-full rounded-xl px-4 py-3 text-left transition hover:bg-[#F9FAFB]"
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              setActiveRequestId(req.id);
+                              setRequestDetailsOpen(true);
+                            }
+                          }}
+                          className="w-full rounded-xl px-4 py-3 text-left transition hover:bg-[#F9FAFB] cursor-pointer"
                         >
                           <p className="truncate text-sm text-midnight-ink">
                             <span className="font-semibold">{req.issuedTo}</span> requested <span className="font-semibold">{req.quantity}</span> of {req.toolName}
@@ -512,7 +778,7 @@ export default function ToolsInventoryPage() {
                             )}
                             <span className="text-[11px] text-cool-gray">{relativeTime(req.requestedAt)}</span>
                           </div>
-                        </button>
+                        </div>
                       );
                     })}
                   </div>
@@ -542,7 +808,7 @@ export default function ToolsInventoryPage() {
                 ))}
               </select>
             </div>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               <div className="flex flex-col gap-1">
                 <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Quantity</label>
                 <input
@@ -570,6 +836,15 @@ export default function ToolsInventoryPage() {
                   className="w-full rounded-md border border-soft-border px-3 py-1.5 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
                 />
               </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Issued By</label>
+                <input
+                  type="text"
+                  value={issueForm.issuedBy}
+                  onChange={(e) => setIssueForm((prev) => ({ ...prev, issuedBy: e.target.value }))}
+                  className="w-full rounded-md border border-soft-border px-3 py-1.5 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                />
+              </div>
             </div>
             <div className="flex flex-col gap-1">
               <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Reason of Issue</label>
@@ -588,6 +863,129 @@ export default function ToolsInventoryPage() {
         </DialogContent>
       </Dialog>
 
+      <Dialog open={isAddToolOpen} onOpenChange={setIsAddToolOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-semibold text-midnight-ink">Add Tool</DialogTitle>
+          </DialogHeader>
+          <div className="mt-2 grid grid-cols-1 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Tool Name</label>
+                <input
+                  type="text"
+                  value={addToolForm.toolName}
+                  onChange={(e) => setAddToolForm((prev) => ({ ...prev, toolName: e.target.value }))}
+                  className="w-full rounded-md border border-soft-border px-3 py-1.5 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Particulars</label>
+                <input
+                  type="text"
+                  value={addToolForm.particulars}
+                  onChange={(e) => setAddToolForm((prev) => ({ ...prev, particulars: e.target.value }))}
+                  className="w-full rounded-md border border-soft-border px-3 py-1.5 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                />
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Department</label>
+              <div className="w-fit">
+                <CreatableFilterPopover
+                  label="Department"
+                  selectedValue={addToolForm.department}
+                  onSelectValue={(value) => setAddToolForm((prev) => ({ ...prev, department: value }))}
+                  options={departmentOptions}
+                  storageKey="inventory:tools:department"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Quantity</label>
+                <input
+                  type="number"
+                  min={0}
+                  value={addToolForm.quantity}
+                  onChange={(e) => setAddToolForm((prev) => ({ ...prev, quantity: e.target.value }))}
+                  className="w-full rounded-md border border-soft-border px-3 py-1.5 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Unit</label>
+                <input
+                  type="text"
+                  value={addToolForm.unit}
+                  onChange={(e) => setAddToolForm((prev) => ({ ...prev, unit: e.target.value }))}
+                  className="w-full rounded-md border border-soft-border px-3 py-1.5 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                />
+              </div>
+              <div className="flex flex-col gap-1 sm:col-span-1">
+                <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Location</label>
+                <input
+                  type="text"
+                  value={addToolForm.location}
+                  onChange={(e) => setAddToolForm((prev) => ({ ...prev, location: e.target.value }))}
+                  className="w-full rounded-md border border-soft-border px-3 py-1.5 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                />
+              </div>
+            </div>
+          </div>
+          <div className="mt-5 flex justify-end gap-3">
+            <Button variant="outline" onClick={() => setIsAddToolOpen(false)}>Cancel</Button>
+            <Button onClick={handleAddTool}>Add Tool</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isManageColumnsOpen} onOpenChange={setIsManageColumnsOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Manage Columns</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 max-h-[400px] overflow-y-auto py-4">
+            <div className="flex items-center justify-between gap-3 pb-3 border-b border-soft-border mb-3">
+              <div className="flex items-center gap-3 flex-1">
+                <input
+                  id="select-all-tools-columns"
+                  type="checkbox"
+                  checked={selectedColumnsForAction.size === TOOLS_COLUMNS.length && TOOLS_COLUMNS.length > 0}
+                  onChange={toggleSelectAllColumns}
+                  className="h-4 w-4 cursor-pointer rounded border-soft-border accent-trust-blue"
+                />
+                <label htmlFor="select-all-tools-columns" className="text-sm font-semibold cursor-pointer">Select All</label>
+              </div>
+            </div>
+            {TOOLS_COLUMNS.map((column) => (
+              <div key={column.id} className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 flex-1">
+                  <input
+                    id={`tools-column-${column.id}`}
+                    type="checkbox"
+                    checked={selectedColumnsForAction.has(column.id)}
+                    onChange={() => toggleColumnSelection(column.id)}
+                    className="h-4 w-4 cursor-pointer rounded border-soft-border accent-trust-blue"
+                  />
+                  <label htmlFor={`tools-column-${column.id}`} className="text-sm cursor-pointer">{column.label}</label>
+                </div>
+                <div className="text-sm font-semibold px-2 py-1 rounded">
+                  {!visibleColumns.has(column.id)
+                    ? <span className="bg-danger/10 text-danger-dark px-2 py-1 rounded-full text-sm">Hidden</span>
+                    : <span className="bg-success/10 text-success-dark px-2 py-1 rounded-full text-sm">Visible</span>}
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="mt-2 flex justify-end gap-2">
+            <Button onClick={handleHideColumns} disabled={selectedColumnsForAction.size === 0} variant="outline" className="text-danger border-danger/40 hover:bg-danger/10">Hide</Button>
+            <Button onClick={handleShowColumns} disabled={selectedColumnsForAction.size === 0} variant="outline" className="text-success border-green-300 hover:bg-success/10">Show</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={requestDetailsOpen} onOpenChange={setRequestDetailsOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
@@ -598,6 +996,7 @@ export default function ToolsInventoryPage() {
               <div className="text-sm text-midnight-ink"><span className="font-semibold">Tool:</span> {activeRequest.toolName}</div>
               <div className="text-sm text-midnight-ink"><span className="font-semibold">Quantity:</span> {activeRequest.quantity}</div>
               <div className="text-sm text-midnight-ink"><span className="font-semibold">Issued To:</span> {activeRequest.issuedTo}</div>
+              <div className="text-sm text-midnight-ink"><span className="font-semibold">Issued By:</span> {activeRequest.issuedBy || '-'}</div>
               <div className="text-sm text-midnight-ink"><span className="font-semibold">Reason:</span> {activeRequest.reason || '-'}</div>
               <div className="text-sm text-midnight-ink"><span className="font-semibold">Status:</span> {activeRequest.status.toUpperCase()}</div>
             </div>

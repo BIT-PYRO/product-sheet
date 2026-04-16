@@ -1,0 +1,29 @@
+from django.contrib import admin
+
+from .models import Account, JournalEntry, JournalItem, Ledger
+
+
+@admin.register(Ledger)
+class LedgerAdmin(admin.ModelAdmin):
+    list_display = ('id', 'name', 'type')
+    search_fields = ('name',)
+    list_filter = ('type',)
+
+
+class JournalItemInline(admin.TabularInline):
+    model = JournalItem
+    extra = 0
+
+
+@admin.register(JournalEntry)
+class JournalEntryAdmin(admin.ModelAdmin):
+    list_display = ('id', 'date', 'created_at')
+    search_fields = ('description',)
+    inlines = [JournalItemInline]
+
+
+@admin.register(Account)
+class AccountAdmin(admin.ModelAdmin):
+    list_display = ('id', 'name', 'type', 'balance')
+    search_fields = ('name',)
+    list_filter = ('type',)

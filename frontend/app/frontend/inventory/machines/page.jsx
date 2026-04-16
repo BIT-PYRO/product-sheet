@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Printer, RefreshCw, Trash2, X } from 'lucide-react';
+import { ArrowLeft, Pencil, Printer, RefreshCw, Trash2, X } from 'lucide-react';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
+import { useSheetPermissions } from '@/hooks/use-sheet-permissions';
 import {
   Dialog,
   DialogContent,
@@ -11,7 +12,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { useSheetPermissions } from '@/hooks/use-sheet-permissions';
+import CreatableFilterPopover from '@/components/creatable-filter-popover';
+import MultiselectFilterPopover from '@/components/multiselect-filter-popover';
 
 const STORAGE_KEY = 'inventory_machines_v1';
 const MACHINE_ISSUE_REQUESTS_KEY = 'machine_issue_requests_v1';
@@ -28,6 +30,22 @@ const STATE_FIELDS = {
   breakdown: { qty: 'breakdownQty', location: 'breakdownLocation' },
   maintenance: { qty: 'maintenanceQty', location: 'maintenanceLocation' },
 };
+const MACHINE_COLUMNS = [
+  { id: 'sno', label: 'S. No.' },
+  { id: 'machineName', label: 'Machine Name' },
+  { id: 'particulars', label: 'Particulars' },
+  { id: 'department', label: 'Department' },
+  { id: 'runningQty', label: 'Running Qty' },
+  { id: 'runningLocation', label: 'Running Location' },
+  { id: 'idleQty', label: 'Idle Qty' },
+  { id: 'idleLocation', label: 'Idle Location' },
+  { id: 'breakdownQty', label: 'Breakdown Qty' },
+  { id: 'breakdownLocation', label: 'Breakdown Location' },
+  { id: 'maintenanceQty', label: 'Under Maintenance Qty' },
+  { id: 'maintenanceLocation', label: 'Under Maintenance Location' },
+  { id: 'minRequiredStock', label: 'Minimum Required in Stock' },
+  { id: 'action', label: 'Action' },
+];
 
 const createMachineRow = (id) => ({
   id,
@@ -89,7 +107,19 @@ export default function MachinesInventoryPage() {
   const [status, setStatus] = useState('');
   const [loading, setLoading] = useState(false);
   const [selectedIds, setSelectedIds] = useState(new Set());
-  const [activePanel, setActivePanel] = useState('');
+  const [editingRowIds, setEditingRowIds] = useState(new Set());
+  const [editBuffer, setEditBuffer] = useState({});
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterDepartment, setFilterDepartment] = useState([]);
+  const [filterState, setFilterState] = useState([]);
+  const [customDepartmentFilter, setCustomDepartmentFilter] = useState('');
+  const [customStateFilter, setCustomStateFilter] = useState('');
+  const [isManageColumnsOpen, setIsManageColumnsOpen] = useState(false);
+  const [isAddMachineOpen, setIsAddMachineOpen] = useState(false);
+  const [isAddMachineStockOpen, setIsAddMachineStockOpen] = useState(false);
+  const [isUpdateMachineStockOpen, setIsUpdateMachineStockOpen] = useState(false);
+  const [selectedColumnsForAction, setSelectedColumnsForAction] = useState(new Set());
+  const [visibleColumns, setVisibleColumns] = useState(new Set(MACHINE_COLUMNS.map((column) => column.id)));
   const [newMachine, setNewMachine] = useState({ machineName: '', particulars: '', department: '', minRequiredStock: '' });
   const [addStockForm, setAddStockForm] = useState({ machineId: '', stateKey: 'running', qty: '', location: '' });
   const [updateStockForm, setUpdateStockForm] = useState({ machineId: '', fromState: 'idle', toState: 'running', qty: '' });
@@ -153,37 +183,158 @@ export default function MachinesInventoryPage() {
   }, [issueRequests, issueRequestsReady]);
 
   const updateRow = (id, key, nextValue) => {
-    setRows((prev) =>
-      prev.map((row) => (row.id === id ? { ...normalizeMachineRow(row, id), [key]: nextValue } : normalizeMachineRow(row, row.id)))
-    );
+    if (!editingRowIds.has(id)) return;
+    setEditBuffer((prev) => ({
+      ...prev,
+      [id]: {
+        ...(prev[id] || normalizeMachineRow(rows.find((row) => row.id === id), id)),
+        [key]: nextValue,
+      },
+    }));
   };
 
   const addRow = () => {
     setRows((prev) => [...prev, createMachineRow(prev.length + 1)]);
   };
 
-  const allSelected = rows.length > 0 && selectedIds.size === rows.length;
+  const filteredRows = useMemo(() => {
+    const search = searchTerm.trim().toLowerCase();
+    const effectiveDepartmentFilter = (filterDepartment && filterDepartment.length > 0) ? filterDepartment : [];
+    const effectiveStateFilter = (filterState && filterState.length > 0) ? filterState : [];
+    return rows.filter((row) => {
+      const matchesSearch = !search || [row.machineName, row.particulars, row.department].some((v) => String(v || '').toLowerCase().includes(search));
+      const matchesDepartment = effectiveDepartmentFilter.length === 0 || effectiveDepartmentFilter.some(f => String(row.department || '').toLowerCase().includes(f.toLowerCase()));
+      const matchesState = effectiveStateFilter.length === 0 || effectiveStateFilter.some(stateLabel => {
+        const stateKey = STATE_OPTIONS.find(opt => opt.label === stateLabel)?.key;
+        if (!stateKey) return false;
+        const field = STATE_FIELDS[stateKey];
+        return field ? Number(row[field.qty] || 0) > 0 : false;
+      });
+      return matchesSearch && matchesDepartment && matchesState;
+    });
+  }, [rows, searchTerm, filterDepartment, filterState]);
+
+  const departmentOptions = useMemo(
+    () => Array.from(new Set(rows.map((row) => String(row.department || '').trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b)),
+    [rows]
+  );
+
+  const allSelected = filteredRows.length > 0 && filteredRows.every((row) => selectedIds.has(row.id));
   const someSelected = selectedIds.size > 0 && !allSelected;
   const selectedRows = rows.filter((r) => selectedIds.has(r.id));
+  const runningVisibleCount = ['runningQty', 'runningLocation'].filter((key) => visibleColumns.has(key)).length;
+  const idleVisibleCount = ['idleQty', 'idleLocation'].filter((key) => visibleColumns.has(key)).length;
+  const breakdownVisibleCount = ['breakdownQty', 'breakdownLocation'].filter((key) => visibleColumns.has(key)).length;
+  const maintenanceVisibleCount = ['maintenanceQty', 'maintenanceLocation'].filter((key) => visibleColumns.has(key)).length;
+  const hasSubHeaders = runningVisibleCount + idleVisibleCount + breakdownVisibleCount + maintenanceVisibleCount > 0;
+  const visibleTableColumnCount = 1 + MACHINE_COLUMNS.filter((column) => visibleColumns.has(column.id)).length;
   const pendingIssueRequests = issueRequests.filter((r) => r.status === 'pending');
   const sortedIssueRequests = [...issueRequests].sort((a, b) => new Date(b.requestedAt) - new Date(a.requestedAt));
   const activeRequest = issueRequests.find((r) => r.id === activeRequestId) || null;
 
   function toggleSelectAll() {
+    if (editingRowIds.size > 0) return;
     if (allSelected) {
-      setSelectedIds(new Set());
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        filteredRows.forEach((row) => next.delete(row.id));
+        return next;
+      });
     } else {
-      setSelectedIds(new Set(rows.map((r) => r.id)));
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        filteredRows.forEach((row) => next.add(row.id));
+        return next;
+      });
     }
   }
 
   function toggleRow(id) {
+    if (editingRowIds.size > 0) return;
     setSelectedIds((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
       return next;
     });
+  }
+
+  function handleEditRows() {
+    if (selectedIds.size === 0) {
+      setStatus('Select at least one row, then click Edit Row.');
+      return;
+    }
+    const ids = new Set(selectedRows.map((row) => row.id));
+    const buffer = {};
+    selectedRows.forEach((row) => {
+      buffer[row.id] = { ...normalizeMachineRow(row, row.id) };
+    });
+    setEditingRowIds(ids);
+    setEditBuffer(buffer);
+    setStatus(`Editing ${ids.size} row${ids.size !== 1 ? 's' : ''}.`);
+  }
+
+  function handleCancelEdit() {
+    setEditingRowIds(new Set());
+    setEditBuffer({});
+    setStatus('Edit canceled.');
+  }
+
+  function handleSaveEdit() {
+    const ids = Array.from(editingRowIds);
+    if (ids.length === 0) return;
+    setRows((prev) =>
+      prev.map((row) => {
+        if (!editingRowIds.has(row.id)) return row;
+        const edited = editBuffer[row.id];
+        return edited ? { ...normalizeMachineRow(edited, row.id), id: row.id } : row;
+      })
+    );
+    setEditingRowIds(new Set());
+    setEditBuffer({});
+    setStatus(`Saved ${ids.length} row${ids.length !== 1 ? 's' : ''}. Click Save to persist.`);
+  }
+
+  function getRowValue(row, key) {
+    if (editingRowIds.has(row.id) && editBuffer[row.id]) {
+      return editBuffer[row.id][key] ?? '';
+    }
+    return row[key] ?? '';
+  }
+
+  function handlePrintTable() {
+    window.print();
+  }
+
+  function toggleColumnSelection(columnId) {
+    const next = new Set(selectedColumnsForAction);
+    if (next.has(columnId)) next.delete(columnId);
+    else next.add(columnId);
+    setSelectedColumnsForAction(next);
+  }
+
+  function toggleSelectAllColumns() {
+    if (selectedColumnsForAction.size === MACHINE_COLUMNS.length) {
+      setSelectedColumnsForAction(new Set());
+    } else {
+      setSelectedColumnsForAction(new Set(MACHINE_COLUMNS.map((column) => column.id)));
+    }
+  }
+
+  function handleHideColumns() {
+    const next = new Set(visibleColumns);
+    selectedColumnsForAction.forEach((columnId) => next.delete(columnId));
+    setVisibleColumns(next);
+    setSelectedColumnsForAction(new Set());
+    setIsManageColumnsOpen(false);
+  }
+
+  function handleShowColumns() {
+    const next = new Set(visibleColumns);
+    selectedColumnsForAction.forEach((columnId) => next.add(columnId));
+    setVisibleColumns(next);
+    setSelectedColumnsForAction(new Set());
+    setIsManageColumnsOpen(false);
   }
 
   function machineName(row) {
@@ -329,6 +480,7 @@ export default function MachinesInventoryPage() {
 
     setRows((prev) => [...prev, nextRow]);
     setNewMachine({ machineName: '', particulars: '', department: '', minRequiredStock: '' });
+    setIsAddMachineOpen(false);
     setStatus('Machine added. You can now update stock and save.');
   };
 
@@ -368,6 +520,7 @@ export default function MachinesInventoryPage() {
     }
 
     setAddStockForm((prev) => ({ ...prev, qty: '', location: '' }));
+    setIsAddMachineStockOpen(false);
     setStatus('Machine stock added successfully.');
   };
 
@@ -425,6 +578,7 @@ export default function MachinesInventoryPage() {
     }
 
     setUpdateStockForm((prev) => ({ ...prev, qty: '' }));
+    setIsUpdateMachineStockOpen(false);
     setStatus('Machine stock state updated successfully.');
   };
 
@@ -455,46 +609,80 @@ export default function MachinesInventoryPage() {
               type="button"
               onClick={loadRows}
               disabled={loading}
-              className="inline-flex items-center gap-2 rounded-lg border border-soft-border bg-white px-3 py-2 text-sm font-medium text-midnight-ink hover:border-trust-blue transition disabled:opacity-50"
+              className="inline-flex items-center gap-2 rounded-full border border-midnight-ink bg-white px-4 h-8 text-sm font-medium text-midnight-ink disabled:opacity-50"
             >
               <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
               Refresh
             </button>
             <button
               type="button"
-              onClick={() => setActivePanel((prev) => (prev === 'addMachine' ? '' : 'addMachine'))}
-              className="inline-flex items-center gap-2 rounded-lg border border-trust-blue bg-white px-3 py-2 text-sm font-medium text-trust-blue hover:bg-blue-50 transition"
+              onClick={handlePrintTable}
+              className="inline-flex items-center gap-2 rounded-full border border-midnight-ink bg-white px-4 h-8 text-sm font-medium text-midnight-ink"
+            >
+              <Printer className="h-4 w-4" />
+              Print
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsManageColumnsOpen(true)}
+              className="inline-flex items-center gap-2 rounded-full border border-midnight-ink bg-white px-4 h-8 text-sm font-medium text-midnight-ink"
+            >
+              Manage Columns
+            </button>
+            <button
+              type="button"
+              onClick={handleEditRows}
+              disabled={editingRowIds.size > 0}
+              className="inline-flex items-center gap-2 rounded-full border border-trust-blue bg-white px-4 h-8 text-sm font-medium text-trust-blue disabled:opacity-40"
+            >
+              <Pencil className="h-4 w-4" />
+              Edit Row
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setNewMachine({ machineName: '', particulars: '', department: '', minRequiredStock: '' });
+                setIsAddMachineOpen(true);
+              }}
+              className="inline-flex items-center gap-2 rounded-full border border-trust-blue bg-white px-4 h-8 text-sm font-medium text-trust-blue"
             >
               Add Machine
             </button>
             <button
               type="button"
-              onClick={() => setActivePanel((prev) => (prev === 'addStock' ? '' : 'addStock'))}
-              className="inline-flex items-center gap-2 rounded-lg border border-trust-blue bg-white px-3 py-2 text-sm font-medium text-trust-blue hover:bg-blue-50 transition"
+              onClick={() => {
+                setAddStockForm({ machineId: '', stateKey: 'running', qty: '', location: '' });
+                setIsAddMachineStockOpen(true);
+              }}
+              className="inline-flex items-center gap-2 rounded-full border border-trust-blue bg-white px-4 h-8 text-sm font-medium text-trust-blue"
             >
               Add Machine Stock
             </button>
             <button
               type="button"
-              onClick={() => setActivePanel((prev) => (prev === 'updateStock' ? '' : 'updateStock'))}
-              className="inline-flex items-center gap-2 rounded-lg border border-trust-blue bg-white px-3 py-2 text-sm font-medium text-trust-blue hover:bg-blue-50 transition"
+              onClick={() => {
+                setUpdateStockForm({ machineId: '', fromState: 'idle', toState: 'running', qty: '' });
+                setIsUpdateMachineStockOpen(true);
+              }}
+              className="inline-flex items-center gap-2 rounded-full border border-trust-blue bg-white px-4 h-8 text-sm font-medium text-trust-blue"
             >
               Update Machine Stock
             </button>
             <button
               type="button"
               onClick={saveRows}
-              className="inline-flex items-center gap-2 rounded-lg bg-trust-blue px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 transition"
+              className="inline-flex items-center gap-2 rounded-full bg-trust-blue px-4 h-8 text-sm font-semibold text-white"
             >
               Save
             </button>
           </div>
         </div>
 
-        {selectedIds.size > 0 && (
-          <p className="mb-2 text-xs text-trust-blue">
-            {selectedIds.size} row{selectedIds.size !== 1 ? 's' : ''} selected — click "Issue Machine" to create a request.
-          </p>
+        {editingRowIds.size > 0 && (
+          <div className="mb-2 flex items-center gap-2">
+            <Button onClick={handleSaveEdit} className="h-8 px-3 bg-success text-white hover:bg-success/90">Save Changes</Button>
+            <Button variant="outline" onClick={handleCancelEdit} className="h-8 px-3 border-danger text-danger hover:bg-danger/10">Cancel Edit</Button>
+          </div>
         )}
 
         {status && (
@@ -503,166 +691,151 @@ export default function MachinesInventoryPage() {
           </div>
         )}
 
-        {activePanel && (
-          <section className="mb-4 rounded-xl border border-soft-border bg-white p-4 shadow-sm">
-            {activePanel === 'addMachine' && (
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-2">
-              <input type="text" value={newMachine.machineName} onChange={(e) => setNewMachine((prev) => ({ ...prev, machineName: e.target.value }))} placeholder="Machine Name" className="h-9 rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue" />
-              <input type="text" value={newMachine.particulars} onChange={(e) => setNewMachine((prev) => ({ ...prev, particulars: e.target.value }))} placeholder="Particulars" className="h-9 rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue" />
-              <input type="text" value={newMachine.department} onChange={(e) => setNewMachine((prev) => ({ ...prev, department: e.target.value }))} placeholder="Department" className="h-9 rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue" />
-              <input type="number" value={newMachine.minRequiredStock} onChange={(e) => setNewMachine((prev) => ({ ...prev, minRequiredStock: e.target.value }))} placeholder="Minimum Required in Stock" className="h-9 rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue" />
-              <button type="button" onClick={handleAddMachine} className="h-9 rounded-lg border border-trust-blue bg-trust-blue px-3 text-sm font-semibold text-white hover:opacity-95 transition">Add Machine</button>
-            </div>
-            )}
-
-            {activePanel === 'addStock' && (
-              <div className="grid grid-cols-1 md:grid-cols-5 gap-2">
-              <select value={addStockForm.machineId} onChange={(e) => setAddStockForm((prev) => ({ ...prev, machineId: e.target.value }))} className="h-9 rounded-lg border border-soft-border bg-white px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue">
-                <option value="">Select Machine</option>
-                {rows.map((row) => (
-                  <option key={row.id} value={row.id}>{row.machineName || `Machine ${row.id}`}</option>
-                ))}
-              </select>
-              <select value={addStockForm.stateKey} onChange={(e) => setAddStockForm((prev) => ({ ...prev, stateKey: e.target.value }))} className="h-9 rounded-lg border border-soft-border bg-white px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue">
-                {STATE_OPTIONS.map((option) => (
-                  <option key={option.key} value={option.key}>{option.label}</option>
-                ))}
-              </select>
-              <input type="number" value={addStockForm.qty} onChange={(e) => setAddStockForm((prev) => ({ ...prev, qty: e.target.value }))} placeholder="Qty to add" className="h-9 rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue" />
-              <input type="text" value={addStockForm.location} onChange={(e) => setAddStockForm((prev) => ({ ...prev, location: e.target.value }))} placeholder="Location (optional)" className="h-9 rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue" />
-              <button type="button" onClick={handleAddMachineStock} className="h-9 rounded-lg border border-trust-blue bg-trust-blue px-3 text-sm font-semibold text-white hover:opacity-95 transition">Add Stock</button>
-            </div>
-            )}
-
-            {activePanel === 'updateStock' && (
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-2">
-              <select value={updateStockForm.machineId} onChange={(e) => setUpdateStockForm((prev) => ({ ...prev, machineId: e.target.value }))} className="h-9 rounded-lg border border-soft-border bg-white px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue">
-                <option value="">Select Machine</option>
-                {rows.map((row) => (
-                  <option key={row.id} value={row.id}>{row.machineName || `Machine ${row.id}`}</option>
-                ))}
-              </select>
-              <select value={updateStockForm.fromState} onChange={(e) => setUpdateStockForm((prev) => ({ ...prev, fromState: e.target.value }))} className="h-9 rounded-lg border border-soft-border bg-white px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue">
-                {STATE_OPTIONS.map((option) => (
-                  <option key={option.key} value={option.key}>From: {option.label}</option>
-                ))}
-              </select>
-              <select value={updateStockForm.toState} onChange={(e) => setUpdateStockForm((prev) => ({ ...prev, toState: e.target.value }))} className="h-9 rounded-lg border border-soft-border bg-white px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue">
-                {STATE_OPTIONS.map((option) => (
-                  <option key={option.key} value={option.key}>To: {option.label}</option>
-                ))}
-              </select>
-              <input type="number" value={updateStockForm.qty} onChange={(e) => setUpdateStockForm((prev) => ({ ...prev, qty: e.target.value }))} placeholder="Qty to move" className="h-9 rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue" />
-              <button type="button" onClick={handleUpdateMachineStock} className="h-9 rounded-lg border border-trust-blue bg-trust-blue px-3 text-sm font-semibold text-white hover:opacity-95 transition">Update Stock</button>
-            </div>
-            )}
-          </section>
-        )}
+        <section className="border border-soft-border rounded-lg mb-4 bg-[#dbeafe] p-3">
+          <div className="flex flex-wrap gap-2 items-center">
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Search"
+              className="h-8 text-sm w-36 bg-white rounded-md border border-trust-blue/40 px-3"
+            />
+            <MultiselectFilterPopover
+              label="Department"
+              selectedValues={filterDepartment}
+              onSelectValues={setFilterDepartment}
+              options={departmentOptions}
+              storageKey="inventory:machines:department"
+            />
+            <MultiselectFilterPopover
+              label="State"
+              selectedValues={filterState}
+              onSelectValues={setFilterState}
+              options={STATE_OPTIONS.map((option) => option.label)}
+              storageKey="inventory:machines:state"
+            />
+            <button
+              type="button"
+              onClick={() => {
+                setSearchTerm('');
+                setFilterDepartment([]);
+                setFilterState([]);
+              }}
+              className="h-8 px-3 text-sm border rounded bg-trust-blue text-white border-trust-blue font-medium"
+            >
+              Clear
+            </button>
+          </div>
+        </section>
 
         <section className="rounded-xl border border-soft-border bg-white shadow-sm">
           <div className="overflow-x-auto">
             <table className="w-full min-w-[2000px] text-sm">
               <thead>
-                <tr className="border-b border-soft-border bg-[#F8F9FA]">
+                <tr className="border-b border-soft-border bg-[#dbeafe]">
                   <th rowSpan={2} className="px-3 py-3">
                     <input
                       type="checkbox"
                       checked={allSelected}
                       ref={(el) => { if (el) el.indeterminate = someSelected; }}
                       onChange={toggleSelectAll}
+                      disabled={editingRowIds.size > 0}
                       className="h-4 w-4 cursor-pointer rounded border-soft-border accent-trust-blue"
                     />
                   </th>
-                  <th rowSpan={2} className="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray w-16">S. No.</th>
-                  <th rowSpan={2} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray min-w-[170px]">Machine Name</th>
-                  <th rowSpan={2} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray min-w-[170px]">Particulars</th>
-                  <th rowSpan={2} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray min-w-[170px]">Department</th>
-                  <th colSpan={2} className="bg-emerald-50 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-success">Running</th>
-                  <th colSpan={2} className="bg-yellow-100 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-yellow-800">Idle</th>
-                  <th colSpan={2} className="bg-red-50 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-danger">Breakdown</th>
-                  <th colSpan={2} className="bg-orange-200 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-orange-900">Under Maintenance</th>
-                  <th rowSpan={2} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray min-w-[210px]">Minimum Required in Stock</th>
-                  <th rowSpan={2} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray w-24">Action</th>
+                  {visibleColumns.has('sno') && <th rowSpan={2} className="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray w-16">S. No.</th>}
+                  {visibleColumns.has('machineName') && <th rowSpan={2} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray min-w-[170px]">Machine Name</th>}
+                  {visibleColumns.has('particulars') && <th rowSpan={2} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray min-w-[170px]">Particulars</th>}
+                  {visibleColumns.has('department') && <th rowSpan={2} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray min-w-[170px]">Department</th>}
+                  {runningVisibleCount > 0 && <th colSpan={runningVisibleCount} className="bg-emerald-50 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-success">Running</th>}
+                  {idleVisibleCount > 0 && <th colSpan={idleVisibleCount} className="bg-yellow-100 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-yellow-800">Idle</th>}
+                  {breakdownVisibleCount > 0 && <th colSpan={breakdownVisibleCount} className="bg-red-50 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-danger">Breakdown</th>}
+                  {maintenanceVisibleCount > 0 && <th colSpan={maintenanceVisibleCount} className="bg-orange-200 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-orange-900">Under Maintenance</th>}
+                  {visibleColumns.has('minRequiredStock') && <th rowSpan={2} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray min-w-[210px]">Minimum Required in Stock</th>}
+                  {visibleColumns.has('action') && <th rowSpan={2} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray w-24">Action</th>}
                 </tr>
-                <tr className="border-b border-soft-border bg-[#F8F9FA]">
-                  <th className="bg-emerald-50 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray min-w-[90px]">Qty</th>
-                  <th className="bg-emerald-50 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray min-w-[140px]">Location</th>
+                {hasSubHeaders && (
+                  <tr className="border-b border-soft-border bg-[#F8F9FA]">
+                    {visibleColumns.has('runningQty') && <th className="bg-emerald-50 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray min-w-[90px]">Qty</th>}
+                    {visibleColumns.has('runningLocation') && <th className="bg-emerald-50 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray min-w-[140px]">Location</th>}
 
-                  <th className="bg-yellow-100 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray min-w-[90px]">Qty</th>
-                  <th className="bg-yellow-100 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray min-w-[140px]">Location</th>
+                    {visibleColumns.has('idleQty') && <th className="bg-yellow-100 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray min-w-[90px]">Qty</th>}
+                    {visibleColumns.has('idleLocation') && <th className="bg-yellow-100 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray min-w-[140px]">Location</th>}
 
-                  <th className="bg-red-50 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray min-w-[90px]">Qty</th>
-                  <th className="bg-red-50 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray min-w-[140px]">Location</th>
+                    {visibleColumns.has('breakdownQty') && <th className="bg-red-50 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray min-w-[90px]">Qty</th>}
+                    {visibleColumns.has('breakdownLocation') && <th className="bg-red-50 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray min-w-[140px]">Location</th>}
 
-                  <th className="bg-orange-200 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray min-w-[90px]">Qty</th>
-                  <th className="bg-orange-200 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray min-w-[140px]">Location</th>
-                </tr>
+                    {visibleColumns.has('maintenanceQty') && <th className="bg-orange-200 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray min-w-[90px]">Qty</th>}
+                    {visibleColumns.has('maintenanceLocation') && <th className="bg-orange-200 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray min-w-[140px]">Location</th>}
+                  </tr>
+                )}
               </thead>
               <tbody>
-                {rows.length === 0 ? (
+                {filteredRows.length === 0 ? (
                   <tr>
-                    <td colSpan={15} className="px-4 py-6 text-center text-sm text-cool-gray">
+                    <td colSpan={visibleTableColumnCount} className="px-4 py-6 text-center text-sm text-cool-gray">
                       No machines found. Add one using the options above.
                     </td>
                   </tr>
-                ) : rows.map((row) => (
+                ) : filteredRows.map((row) => (
                   <tr key={row.id} className="border-b border-soft-border last:border-0 transition hover:bg-[#F8F9FA]">
                     <td className="px-3 py-2.5">
                       <input
                         type="checkbox"
                         checked={selectedIds.has(row.id)}
                         onChange={() => toggleRow(row.id)}
+                        disabled={editingRowIds.size > 0}
                         className="h-4 w-4 cursor-pointer rounded border-soft-border accent-trust-blue"
                       />
                     </td>
-                    <td className="px-3 py-2.5 text-midnight-ink">{row.id}</td>
-                    <td className="px-4 py-2.5">
-                      <input type="text" value={row.machineName ?? ''} onChange={(e) => updateRow(row.id, 'machineName', e.target.value)} placeholder="Enter machine name" className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue" />
-                    </td>
-                    <td className="px-4 py-2.5">
-                      <input type="text" value={row.particulars ?? ''} onChange={(e) => updateRow(row.id, 'particulars', e.target.value)} placeholder="Enter particulars" className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue" />
-                    </td>
-                    <td className="px-4 py-2.5">
-                      <input type="text" value={row.department ?? ''} onChange={(e) => updateRow(row.id, 'department', e.target.value)} placeholder="Enter department" className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue" />
-                    </td>
+                    {visibleColumns.has('sno') && <td className="px-3 py-2.5 text-midnight-ink">{row.id}</td>}
+                    {visibleColumns.has('machineName') && <td className="px-4 py-2.5">
+                      <input type="text" value={getRowValue(row, 'machineName')} onChange={(e) => updateRow(row.id, 'machineName', e.target.value)} placeholder="Enter machine name" readOnly={!editingRowIds.has(row.id)} className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue read-only:bg-gray-50 read-only:text-cool-gray" />
+                    </td>}
+                    {visibleColumns.has('particulars') && <td className="px-4 py-2.5">
+                      <input type="text" value={getRowValue(row, 'particulars')} onChange={(e) => updateRow(row.id, 'particulars', e.target.value)} placeholder="Enter particulars" readOnly={!editingRowIds.has(row.id)} className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue read-only:bg-gray-50 read-only:text-cool-gray" />
+                    </td>}
+                    {visibleColumns.has('department') && <td className="px-4 py-2.5">
+                      <input type="text" value={getRowValue(row, 'department')} onChange={(e) => updateRow(row.id, 'department', e.target.value)} placeholder="Enter department" readOnly={!editingRowIds.has(row.id)} className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue read-only:bg-gray-50 read-only:text-cool-gray" />
+                    </td>}
 
-                    <td className="bg-emerald-50/40 px-4 py-2.5">
-                      <input type="number" value={row.runningQty ?? ''} onChange={(e) => updateRow(row.id, 'runningQty', e.target.value)} placeholder="0" className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue" />
-                    </td>
-                    <td className="bg-emerald-50/40 px-4 py-2.5">
-                      <input type="text" value={row.runningLocation ?? ''} onChange={(e) => updateRow(row.id, 'runningLocation', e.target.value)} placeholder="Line 1" className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue" />
-                    </td>
+                    {visibleColumns.has('runningQty') && <td className="bg-emerald-50/40 px-4 py-2.5">
+                      <input type="number" value={getRowValue(row, 'runningQty')} onChange={(e) => updateRow(row.id, 'runningQty', e.target.value)} placeholder="0" readOnly={!editingRowIds.has(row.id)} className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue read-only:bg-gray-50 read-only:text-cool-gray" />
+                    </td>}
+                    {visibleColumns.has('runningLocation') && <td className="bg-emerald-50/40 px-4 py-2.5">
+                      <input type="text" value={getRowValue(row, 'runningLocation')} onChange={(e) => updateRow(row.id, 'runningLocation', e.target.value)} placeholder="Line 1" readOnly={!editingRowIds.has(row.id)} className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue read-only:bg-gray-50 read-only:text-cool-gray" />
+                    </td>}
 
-                    <td className="bg-yellow-100/70 px-4 py-2.5">
-                      <input type="number" value={row.idleQty ?? ''} onChange={(e) => updateRow(row.id, 'idleQty', e.target.value)} placeholder="0" className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue" />
-                    </td>
-                    <td className="bg-yellow-100/70 px-4 py-2.5">
-                      <input type="text" value={row.idleLocation ?? ''} onChange={(e) => updateRow(row.id, 'idleLocation', e.target.value)} placeholder="Warehouse" className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue" />
-                    </td>
+                    {visibleColumns.has('idleQty') && <td className="bg-yellow-100/70 px-4 py-2.5">
+                      <input type="number" value={getRowValue(row, 'idleQty')} onChange={(e) => updateRow(row.id, 'idleQty', e.target.value)} placeholder="0" readOnly={!editingRowIds.has(row.id)} className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue read-only:bg-gray-50 read-only:text-cool-gray" />
+                    </td>}
+                    {visibleColumns.has('idleLocation') && <td className="bg-yellow-100/70 px-4 py-2.5">
+                      <input type="text" value={getRowValue(row, 'idleLocation')} onChange={(e) => updateRow(row.id, 'idleLocation', e.target.value)} placeholder="Warehouse" readOnly={!editingRowIds.has(row.id)} className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue read-only:bg-gray-50 read-only:text-cool-gray" />
+                    </td>}
 
-                    <td className="bg-red-50/60 px-4 py-2.5">
-                      <input type="number" value={row.breakdownQty ?? ''} onChange={(e) => updateRow(row.id, 'breakdownQty', e.target.value)} placeholder="0" className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue" />
-                    </td>
-                    <td className="bg-red-50/60 px-4 py-2.5">
-                      <input type="text" value={row.breakdownLocation ?? ''} onChange={(e) => updateRow(row.id, 'breakdownLocation', e.target.value)} placeholder="Repair bay" className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue" />
-                    </td>
+                    {visibleColumns.has('breakdownQty') && <td className="bg-red-50/60 px-4 py-2.5">
+                      <input type="number" value={getRowValue(row, 'breakdownQty')} onChange={(e) => updateRow(row.id, 'breakdownQty', e.target.value)} placeholder="0" readOnly={!editingRowIds.has(row.id)} className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue read-only:bg-gray-50 read-only:text-cool-gray" />
+                    </td>}
+                    {visibleColumns.has('breakdownLocation') && <td className="bg-red-50/60 px-4 py-2.5">
+                      <input type="text" value={getRowValue(row, 'breakdownLocation')} onChange={(e) => updateRow(row.id, 'breakdownLocation', e.target.value)} placeholder="Repair bay" readOnly={!editingRowIds.has(row.id)} className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue read-only:bg-gray-50 read-only:text-cool-gray" />
+                    </td>}
 
-                    <td className="bg-orange-200/60 px-4 py-2.5">
-                      <input type="number" value={row.maintenanceQty ?? ''} onChange={(e) => updateRow(row.id, 'maintenanceQty', e.target.value)} placeholder="0" className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue" />
-                    </td>
-                    <td className="bg-orange-200/60 px-4 py-2.5">
-                      <input type="text" value={row.maintenanceLocation ?? ''} onChange={(e) => updateRow(row.id, 'maintenanceLocation', e.target.value)} placeholder="Service center" className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue" />
-                    </td>
+                    {visibleColumns.has('maintenanceQty') && <td className="bg-orange-200/60 px-4 py-2.5">
+                      <input type="number" value={getRowValue(row, 'maintenanceQty')} onChange={(e) => updateRow(row.id, 'maintenanceQty', e.target.value)} placeholder="0" readOnly={!editingRowIds.has(row.id)} className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue read-only:bg-gray-50 read-only:text-cool-gray" />
+                    </td>}
+                    {visibleColumns.has('maintenanceLocation') && <td className="bg-orange-200/60 px-4 py-2.5">
+                      <input type="text" value={getRowValue(row, 'maintenanceLocation')} onChange={(e) => updateRow(row.id, 'maintenanceLocation', e.target.value)} placeholder="Service center" readOnly={!editingRowIds.has(row.id)} className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue read-only:bg-gray-50 read-only:text-cool-gray" />
+                    </td>}
 
-                    <td className="px-4 py-2.5">
-                      <input type="number" value={row.minRequiredStock ?? ''} onChange={(e) => updateRow(row.id, 'minRequiredStock', e.target.value)} placeholder="0" className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue" />
-                    </td>
+                    {visibleColumns.has('minRequiredStock') && <td className="px-4 py-2.5">
+                      <input type="number" value={getRowValue(row, 'minRequiredStock')} onChange={(e) => updateRow(row.id, 'minRequiredStock', e.target.value)} placeholder="0" readOnly={!editingRowIds.has(row.id)} className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue read-only:bg-gray-50 read-only:text-cool-gray" />
+                    </td>}
 
-                    <td className="px-4 py-2.5">
+                    {visibleColumns.has('action') && <td className="px-4 py-2.5">
                       <button type="button" onClick={() => deleteRow(row.id)} className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-rose-200 text-rose-600 hover:bg-rose-50 transition" aria-label={`Delete row ${row.id}`}>
                         <Trash2 className="h-4 w-4" />
                       </button>
-                    </td>
+                    </td>}
                   </tr>
                 ))}
               </tbody>
@@ -793,6 +966,191 @@ export default function MachinesInventoryPage() {
         </DialogContent>
       </Dialog>
 
+      <Dialog open={isAddMachineOpen} onOpenChange={setIsAddMachineOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-semibold text-midnight-ink">Add Machine</DialogTitle>
+          </DialogHeader>
+          <div className="mt-2 grid grid-cols-1 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Machine Name</label>
+                <input
+                  type="text"
+                  value={newMachine.machineName}
+                  onChange={(e) => setNewMachine((prev) => ({ ...prev, machineName: e.target.value }))}
+                  className="w-full rounded-md border border-soft-border px-3 py-1.5 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Particulars</label>
+                <input
+                  type="text"
+                  value={newMachine.particulars}
+                  onChange={(e) => setNewMachine((prev) => ({ ...prev, particulars: e.target.value }))}
+                  className="w-full rounded-md border border-soft-border px-3 py-1.5 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                />
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Department</label>
+              <div className="w-fit">
+                <CreatableFilterPopover
+                  label="Department"
+                  selectedValue={newMachine.department}
+                  onSelectValue={(value) => setNewMachine((prev) => ({ ...prev, department: value }))}
+                  options={departmentOptions}
+                  storageKey="inventory:machines:department"
+                />
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Minimum Required in Stock</label>
+              <input
+                type="number"
+                min={0}
+                value={newMachine.minRequiredStock}
+                onChange={(e) => setNewMachine((prev) => ({ ...prev, minRequiredStock: e.target.value }))}
+                className="w-full rounded-md border border-soft-border px-3 py-1.5 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+              />
+            </div>
+          </div>
+          <div className="mt-5 flex justify-end gap-3">
+            <Button variant="outline" onClick={() => setIsAddMachineOpen(false)}>Cancel</Button>
+            <Button onClick={handleAddMachine}>Add Machine</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isAddMachineStockOpen} onOpenChange={setIsAddMachineStockOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-semibold text-midnight-ink">Add Machine Stock</DialogTitle>
+          </DialogHeader>
+          <div className="mt-2 grid grid-cols-1 gap-4">
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Machine</label>
+              <select
+                value={addStockForm.machineId}
+                onChange={(e) => setAddStockForm((prev) => ({ ...prev, machineId: e.target.value }))}
+                className="w-full rounded-md border border-soft-border bg-white px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+              >
+                <option value="">Select Machine</option>
+                {rows.map((row) => (
+                  <option key={row.id} value={row.id}>{row.machineName || `Machine ${row.id}`}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">State</label>
+                <select
+                  value={addStockForm.stateKey}
+                  onChange={(e) => setAddStockForm((prev) => ({ ...prev, stateKey: e.target.value }))}
+                  className="w-full rounded-md border border-soft-border bg-white px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                >
+                  {STATE_OPTIONS.map((option) => (
+                    <option key={option.key} value={option.key}>{option.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Quantity</label>
+                <input
+                  type="number"
+                  min={0}
+                  value={addStockForm.qty}
+                  onChange={(e) => setAddStockForm((prev) => ({ ...prev, qty: e.target.value }))}
+                  className="w-full rounded-md border border-soft-border px-3 py-1.5 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                />
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Location (optional)</label>
+              <input
+                type="text"
+                value={addStockForm.location}
+                onChange={(e) => setAddStockForm((prev) => ({ ...prev, location: e.target.value }))}
+                className="w-full rounded-md border border-soft-border px-3 py-1.5 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+              />
+            </div>
+          </div>
+          <div className="mt-5 flex justify-end gap-3">
+            <Button variant="outline" onClick={() => setIsAddMachineStockOpen(false)}>Cancel</Button>
+            <Button onClick={handleAddMachineStock}>Add Stock</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isUpdateMachineStockOpen} onOpenChange={setIsUpdateMachineStockOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-semibold text-midnight-ink">Update Machine Stock</DialogTitle>
+          </DialogHeader>
+          <div className="mt-2 grid grid-cols-1 gap-4">
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Machine</label>
+              <select
+                value={updateStockForm.machineId}
+                onChange={(e) => setUpdateStockForm((prev) => ({ ...prev, machineId: e.target.value }))}
+                className="w-full rounded-md border border-soft-border bg-white px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+              >
+                <option value="">Select Machine</option>
+                {rows.map((row) => (
+                  <option key={row.id} value={row.id}>{row.machineName || `Machine ${row.id}`}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">From State</label>
+                <select
+                  value={updateStockForm.fromState}
+                  onChange={(e) => setUpdateStockForm((prev) => ({ ...prev, fromState: e.target.value }))}
+                  className="w-full rounded-md border border-soft-border bg-white px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                >
+                  {STATE_OPTIONS.map((option) => (
+                    <option key={option.key} value={option.key}>{option.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">To State</label>
+                <select
+                  value={updateStockForm.toState}
+                  onChange={(e) => setUpdateStockForm((prev) => ({ ...prev, toState: e.target.value }))}
+                  className="w-full rounded-md border border-soft-border bg-white px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                >
+                  {STATE_OPTIONS.map((option) => (
+                    <option key={option.key} value={option.key}>{option.label}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Quantity to Move</label>
+              <input
+                type="number"
+                min={0}
+                value={updateStockForm.qty}
+                onChange={(e) => setUpdateStockForm((prev) => ({ ...prev, qty: e.target.value }))}
+                className="w-full rounded-md border border-soft-border px-3 py-1.5 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+              />
+            </div>
+          </div>
+          <div className="mt-5 flex justify-end gap-3">
+            <Button variant="outline" onClick={() => setIsUpdateMachineStockOpen(false)}>Cancel</Button>
+            <Button onClick={handleUpdateMachineStock}>Update Stock</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={requestDetailsOpen} onOpenChange={setRequestDetailsOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
@@ -823,6 +1181,51 @@ export default function MachinesInventoryPage() {
                 Print
               </Button>
             )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isManageColumnsOpen} onOpenChange={setIsManageColumnsOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Manage Columns</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 max-h-[400px] overflow-y-auto py-4">
+            <div className="flex items-center justify-between gap-3 pb-3 border-b border-soft-border mb-3">
+              <div className="flex items-center gap-3 flex-1">
+                <input
+                  id="select-all-machines-columns"
+                  type="checkbox"
+                  checked={selectedColumnsForAction.size === MACHINE_COLUMNS.length && MACHINE_COLUMNS.length > 0}
+                  onChange={toggleSelectAllColumns}
+                  className="h-4 w-4 cursor-pointer rounded border-soft-border accent-trust-blue"
+                />
+                <label htmlFor="select-all-machines-columns" className="text-sm font-semibold cursor-pointer">Select All</label>
+              </div>
+            </div>
+            {MACHINE_COLUMNS.map((column) => (
+              <div key={column.id} className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 flex-1">
+                  <input
+                    id={`machines-column-${column.id}`}
+                    type="checkbox"
+                    checked={selectedColumnsForAction.has(column.id)}
+                    onChange={() => toggleColumnSelection(column.id)}
+                    className="h-4 w-4 cursor-pointer rounded border-soft-border accent-trust-blue"
+                  />
+                  <label htmlFor={`machines-column-${column.id}`} className="text-sm cursor-pointer">{column.label}</label>
+                </div>
+                <div className="text-sm font-semibold px-2 py-1 rounded">
+                  {!visibleColumns.has(column.id)
+                    ? <span className="bg-danger/10 text-danger-dark px-2 py-1 rounded-full text-sm">Hidden</span>
+                    : <span className="bg-success/10 text-success-dark px-2 py-1 rounded-full text-sm">Visible</span>}
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="mt-2 flex justify-end gap-2">
+            <Button onClick={handleHideColumns} disabled={selectedColumnsForAction.size === 0} variant="outline" className="text-danger border-danger/40 hover:bg-danger/10">Hide</Button>
+            <Button onClick={handleShowColumns} disabled={selectedColumnsForAction.size === 0} variant="outline" className="text-success border-green-300 hover:bg-success/10">Show</Button>
           </div>
         </DialogContent>
       </Dialog>

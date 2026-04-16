@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Plus, Printer, RefreshCw, Trash2, X } from 'lucide-react';
+import { ArrowLeft, Pencil, Plus, Printer, RefreshCw, Trash2, X } from 'lucide-react';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
 import { useSheetPermissions } from '@/hooks/use-sheet-permissions';
 import {
@@ -12,8 +12,28 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import MultiselectFilterPopover from '@/components/multiselect-filter-popover';
 
 const ISSUE_REQUESTS_KEY = 'stone_issue_requests_v1';
+const STONE_MANAGE_COLUMNS = [
+  { id: 'stone_type', label: 'Type' },
+  { id: 'species', label: 'Species' },
+  { id: 'variety', label: 'Variety' },
+  { id: 'color', label: 'Color' },
+  { id: 'quality', label: 'Quality' },
+  { id: 'wax_setting', label: 'Wax Setting' },
+  { id: 'cut', label: 'Cut' },
+  { id: 'shape', label: 'Shape' },
+  { id: 'length', label: 'Length' },
+  { id: 'width', label: 'Width' },
+  { id: 'height', label: 'Height' },
+  { id: 'qty', label: 'Qty' },
+  { id: 'weight_cts', label: 'Weight (cts)' },
+  { id: 'averageWeightStock', label: 'Avg Weight of Stock' },
+  { id: 'dos', label: "Do's" },
+  { id: 'donts', label: "Don'ts" },
+  { id: 'actions', label: 'Actions' },
+];
 
 // â”€â”€â”€ helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
@@ -103,6 +123,13 @@ export default function StoneInventoryPage() {
 
   // Row selection (main table checkboxes)
   const [selectedIds, setSelectedIds] = useState(new Set());
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterType, setFilterType] = useState([]);
+  const [filterSpecies, setFilterSpecies] = useState([]);
+  const [filterShape, setFilterShape] = useState([]);
+  const [isManageColumnsOpen, setIsManageColumnsOpen] = useState(false);
+  const [selectedColumnsForAction, setSelectedColumnsForAction] = useState(new Set());
+  const [visibleColumns, setVisibleColumns] = useState(new Set(STONE_MANAGE_COLUMNS.map((column) => column.id)));
 
   // Add New Stone dialog
   const [addStoneOpen, setAddStoneOpen] = useState(false);
@@ -130,6 +157,7 @@ export default function StoneInventoryPage() {
     stoneId: '',
     quantity: '',
     issuedTo: '',
+    issuedBy: '',
     reason: '',
     cut: '',
     shape: '',
@@ -180,14 +208,44 @@ export default function StoneInventoryPage() {
 
   // â”€â”€ row selection â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-  const allSelected = stones.length > 0 && selectedIds.size === stones.length;
+  const filteredStones = useMemo(() => {
+    const search = searchTerm.trim().toLowerCase();
+    return stones.filter((stone) => {
+      const matchesSearch = !search || [stone.stone_type, stone.species, stone.variety, stone.color].some((v) => String(v || '').toLowerCase().includes(search));
+      const matchesType = filterType.length === 0 || filterType.some((type) => String(stone.stone_type || '').toLowerCase().includes(String(type || '').toLowerCase()));
+      const matchesSpecies = filterSpecies.length === 0 || filterSpecies.some((species) => String(stone.species || '').toLowerCase().includes(String(species || '').toLowerCase()));
+      const matchesShape = filterShape.length === 0 || filterShape.some((shape) => String(stone.shape || '').toLowerCase().includes(String(shape || '').toLowerCase()));
+      return matchesSearch && matchesType && matchesSpecies && matchesShape;
+    });
+  }, [
+    stones,
+    searchTerm,
+    filterType,
+    filterSpecies,
+    filterShape,
+  ]);
+
+  const typeOptions = useMemo(() => Array.from(new Set(stones.map((stone) => String(stone.stone_type || '').trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b)), [stones]);
+  const speciesOptions = useMemo(() => Array.from(new Set(stones.map((stone) => String(stone.species || '').trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b)), [stones]);
+  const shapeOptions = useMemo(() => Array.from(new Set(stones.map((stone) => String(stone.shape || '').trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b)), [stones]);
+
+  const allSelected = filteredStones.length > 0 && filteredStones.every((stone) => selectedIds.has(stone.id));
   const someSelected = selectedIds.size > 0 && !allSelected;
+  const visibleTableColumnCount = 1 + STONE_MANAGE_COLUMNS.filter((column) => visibleColumns.has(column.id)).length;
 
   function toggleSelectAll() {
     if (allSelected) {
-      setSelectedIds(new Set());
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        filteredStones.forEach((stone) => next.delete(stone.id));
+        return next;
+      });
     } else {
-      setSelectedIds(new Set(stones.map((s) => s.id)));
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        filteredStones.forEach((stone) => next.add(stone.id));
+        return next;
+      });
     }
   }
 
@@ -279,6 +337,7 @@ export default function StoneInventoryPage() {
       stoneId: String(selectedStones[0].id),
       quantity: '',
       issuedTo: '',
+      issuedBy: '',
       reason: '',
       cut: String(selectedStone?.cut || ''),
       shape: String(selectedStone?.shape || ''),
@@ -293,6 +352,7 @@ export default function StoneInventoryPage() {
     const stoneIdNum = Number(issueForm.stoneId);
     const quantityNum = Number(issueForm.quantity);
     const issuedTo = issueForm.issuedTo.trim();
+    const issuedBy = issueForm.issuedBy.trim();
     const reason = issueForm.reason.trim();
 
     if (!stoneIdNum) {
@@ -307,6 +367,10 @@ export default function StoneInventoryPage() {
       setStatusMsg('Please enter who the stone is issued to.');
       return;
     }
+    if (!issuedBy) {
+      setStatusMsg('Please enter who issued the stone.');
+      return;
+    }
     if (!reason) {
       setStatusMsg('Please enter reason of issue.');
       return;
@@ -319,6 +383,7 @@ export default function StoneInventoryPage() {
       stoneName: stoneName(stone),
       quantity: quantityNum,
       issuedTo,
+      issuedBy,
       reason,
       cut: issueForm.cut.trim(),
       shape: issueForm.shape.trim(),
@@ -396,6 +461,7 @@ export default function StoneInventoryPage() {
             <tr><th>Stone Name</th><td>${request.stoneName}</td></tr>
             <tr><th>Quantity</th><td>${request.quantity}</td></tr>
             <tr><th>Issued To</th><td>${request.issuedTo}</td></tr>
+            <tr><th>Issued By</th><td>${request.issuedBy || '-'}</td></tr>
             <tr><th>Reason of Issue</th><td>${request.reason || '-'}</td></tr>
             <tr><th>Cut</th><td>${request.cut || '-'}</td></tr>
             <tr><th>Shape</th><td>${request.shape || '-'}</td></tr>
@@ -414,6 +480,45 @@ export default function StoneInventoryPage() {
     opened.document.close();
     opened.focus();
     opened.print();
+  }
+
+  function handlePrintTable() {
+    window.print();
+  }
+
+  function handleEditRows() {
+    openStockPopup();
+  }
+
+  function toggleColumnSelection(columnId) {
+    const next = new Set(selectedColumnsForAction);
+    if (next.has(columnId)) next.delete(columnId);
+    else next.add(columnId);
+    setSelectedColumnsForAction(next);
+  }
+
+  function toggleSelectAllColumns() {
+    if (selectedColumnsForAction.size === STONE_MANAGE_COLUMNS.length) {
+      setSelectedColumnsForAction(new Set());
+    } else {
+      setSelectedColumnsForAction(new Set(STONE_MANAGE_COLUMNS.map((column) => column.id)));
+    }
+  }
+
+  function handleHideColumns() {
+    const next = new Set(visibleColumns);
+    selectedColumnsForAction.forEach((columnId) => next.delete(columnId));
+    setVisibleColumns(next);
+    setSelectedColumnsForAction(new Set());
+    setIsManageColumnsOpen(false);
+  }
+
+  function handleShowColumns() {
+    const next = new Set(visibleColumns);
+    selectedColumnsForAction.forEach((columnId) => next.add(columnId));
+    setVisibleColumns(next);
+    setSelectedColumnsForAction(new Set());
+    setIsManageColumnsOpen(false);
   }
 
   // â”€â”€ add new stone â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -619,13 +724,37 @@ export default function StoneInventoryPage() {
               Refresh
             </button>
 
-            {canCreate && <button
+            <button
+              onClick={handlePrintTable}
+              className="inline-flex items-center gap-2 rounded-lg border border-soft-border bg-white px-3 py-2 text-sm font-medium text-midnight-ink hover:border-trust-blue transition"
+            >
+              <Printer size={14} />
+              Print
+            </button>
+
+            <button
+              onClick={() => setIsManageColumnsOpen(true)}
+              className="inline-flex items-center gap-2 rounded-lg border border-soft-border bg-white px-3 py-2 text-sm font-medium text-midnight-ink hover:border-trust-blue transition"
+            >
+              Manage Columns
+            </button>
+
+            <button
               onClick={() => { setStoneForm(emptyStone()); setAddStoneOpen(true); }}
               className="inline-flex items-center gap-2 rounded-lg bg-trust-blue px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 transition"
             >
               <Plus size={14} />
               Add New Stone
-            </button>}
+            </button>
+
+            <button
+              onClick={handleEditRows}
+              disabled={selectedIds.size === 0}
+              className="inline-flex items-center gap-2 rounded-lg border border-trust-blue bg-white px-3 py-2 text-sm font-medium text-trust-blue hover:bg-blue-50 transition disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <Pencil size={14} />
+              Edit Row
+            </button>
 
             {canEdit && <button
               onClick={openStockPopup}
@@ -673,6 +802,51 @@ export default function StoneInventoryPage() {
           </div>
         )}
 
+        <section className="border border-soft-border rounded-lg mb-4 bg-[#dbeafe] p-3">
+          <div className="flex flex-wrap gap-2 items-center">
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Search"
+              className="h-8 text-sm w-36 bg-white rounded-md border border-trust-blue/40 px-3"
+            />
+            <MultiselectFilterPopover
+              label="Type"
+              selectedValues={filterType}
+              onSelectValues={setFilterType}
+              options={typeOptions}
+              storageKey="inventory:stone:type"
+            />
+            <MultiselectFilterPopover
+              label="Species"
+              selectedValues={filterSpecies}
+              onSelectValues={setFilterSpecies}
+              options={speciesOptions}
+              storageKey="inventory:stone:species"
+            />
+            <MultiselectFilterPopover
+              label="Shape"
+              selectedValues={filterShape}
+              onSelectValues={setFilterShape}
+              options={shapeOptions}
+              storageKey="inventory:stone:shape"
+            />
+            <button
+              type="button"
+              onClick={() => {
+                setSearchTerm('');
+                setFilterType([]);
+                setFilterSpecies([]);
+                setFilterShape([]);
+              }}
+              className="h-8 px-3 text-sm border rounded bg-trust-blue text-white border-trust-blue font-medium"
+            >
+              Clear
+            </button>
+          </div>
+        </section>
+
         {/* â”€â”€ selection hint â”€â”€ */}
         {selectedIds.size > 0 && (
           <p className="mb-2 text-xs text-trust-blue">
@@ -684,7 +858,7 @@ export default function StoneInventoryPage() {
         <div className="overflow-x-auto rounded-xl border border-soft-border bg-white shadow-sm">
           <table className="min-w-full text-sm">
             <thead>
-              <tr className="border-b border-soft-border bg-[#F8F9FA]">
+              <tr className="border-b border-soft-border bg-[#dbeafe]">
                 <th className="px-3 py-3">
                   <input
                     type="checkbox"
@@ -694,7 +868,7 @@ export default function StoneInventoryPage() {
                     className="h-4 w-4 cursor-pointer rounded border-soft-border accent-trust-blue"
                   />
                 </th>
-                {COLS.map((c) => (
+                {COLS.filter((c) => visibleColumns.has(c.key)).map((c) => (
                   <th
                     key={c.key}
                     className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray"
@@ -702,28 +876,28 @@ export default function StoneInventoryPage() {
                     {c.label}
                   </th>
                 ))}
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray">
+                {visibleColumns.has('actions') && <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray">
                   Actions
-                </th>
+                </th>}
               </tr>
             </thead>
             <tbody>
               {loading && (
                 <tr>
-                  <td colSpan={COLS.length + 2} className="px-4 py-6 text-center text-cool-gray">
+                  <td colSpan={visibleTableColumnCount} className="px-4 py-6 text-center text-cool-gray">
                     Loading...
                   </td>
                 </tr>
               )}
-              {!loading && stones.length === 0 && (
+              {!loading && filteredStones.length === 0 && (
                 <tr>
-                  <td colSpan={COLS.length + 2} className="px-4 py-6 text-center text-cool-gray">
+                  <td colSpan={visibleTableColumnCount} className="px-4 py-6 text-center text-cool-gray">
                     No stones found. Add one using the button above.
                   </td>
                 </tr>
               )}
               {!loading &&
-                stones.map((stone) => {
+                filteredStones.map((stone) => {
                   const isSelected = selectedIds.has(stone.id);
                   return (
                     <tr
@@ -740,12 +914,12 @@ export default function StoneInventoryPage() {
                           className="h-4 w-4 cursor-pointer rounded border-soft-border accent-trust-blue"
                         />
                       </td>
-                      {COLS.map((c) => (
+                      {COLS.filter((c) => visibleColumns.has(c.key)).map((c) => (
                         <td key={c.key} className="whitespace-nowrap px-4 py-2.5 text-midnight-ink">
                           {c.render ? c.render(stone[c.key]) : (stone[c.key] ?? 'â€”')}
                         </td>
                       ))}
-                      {canEdit && <td className="px-4 py-2.5">
+                      {visibleColumns.has('actions') && <td className="px-4 py-2.5">
                         <button
                           onClick={() => setDeleteId(stone.id)}
                           className="text-red-500 hover:text-red-700 transition"
@@ -761,6 +935,51 @@ export default function StoneInventoryPage() {
           </table>
         </div>
       </div>
+
+      <Dialog open={isManageColumnsOpen} onOpenChange={setIsManageColumnsOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Manage Columns</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 max-h-[400px] overflow-y-auto py-4">
+            <div className="flex items-center justify-between gap-3 pb-3 border-b border-soft-border mb-3">
+              <div className="flex items-center gap-3 flex-1">
+                <input
+                  id="select-all-stone-columns"
+                  type="checkbox"
+                  checked={selectedColumnsForAction.size === STONE_MANAGE_COLUMNS.length && STONE_MANAGE_COLUMNS.length > 0}
+                  onChange={toggleSelectAllColumns}
+                  className="h-4 w-4 cursor-pointer rounded border-soft-border accent-trust-blue"
+                />
+                <label htmlFor="select-all-stone-columns" className="text-sm font-semibold cursor-pointer">Select All</label>
+              </div>
+            </div>
+            {STONE_MANAGE_COLUMNS.map((column) => (
+              <div key={column.id} className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 flex-1">
+                  <input
+                    id={`stone-column-${column.id}`}
+                    type="checkbox"
+                    checked={selectedColumnsForAction.has(column.id)}
+                    onChange={() => toggleColumnSelection(column.id)}
+                    className="h-4 w-4 cursor-pointer rounded border-soft-border accent-trust-blue"
+                  />
+                  <label htmlFor={`stone-column-${column.id}`} className="text-sm cursor-pointer">{column.label}</label>
+                </div>
+                <div className="text-sm font-semibold px-2 py-1 rounded">
+                  {!visibleColumns.has(column.id)
+                    ? <span className="bg-danger/10 text-danger-dark px-2 py-1 rounded-full text-sm">Hidden</span>
+                    : <span className="bg-success/10 text-success-dark px-2 py-1 rounded-full text-sm">Visible</span>}
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="mt-2 flex justify-end gap-2">
+            <Button onClick={handleHideColumns} disabled={selectedColumnsForAction.size === 0} variant="outline" className="text-danger border-danger/40 hover:bg-danger/10">Hide</Button>
+            <Button onClick={handleShowColumns} disabled={selectedColumnsForAction.size === 0} variant="outline" className="text-success border-green-300 hover:bg-success/10">Show</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
           Add New Stone dialog
@@ -1184,7 +1403,7 @@ export default function StoneInventoryPage() {
               </select>
             </div>
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               <Field
                 label="Quantity"
                 type="number"
@@ -1203,6 +1422,11 @@ export default function StoneInventoryPage() {
                 label="Issued To"
                 value={issueForm.issuedTo}
                 onChange={(value) => setIssueForm((prev) => ({ ...prev, issuedTo: value }))}
+              />
+              <Field
+                label="Issued By"
+                value={issueForm.issuedBy}
+                onChange={(value) => setIssueForm((prev) => ({ ...prev, issuedBy: value }))}
               />
             </div>
 
@@ -1259,6 +1483,7 @@ export default function StoneInventoryPage() {
               <Field label="Name of Stone" value={activeRequest.nameOfStone || activeRequest.variety || ''} disabled />
               <Field label="Quantity" value={String(activeRequest.quantity)} disabled />
               <Field label="Issued To" value={activeRequest.issuedTo} disabled />
+              <Field label="Issued By" value={activeRequest.issuedBy || '-'} disabled />
               <Field label="Reason of Issue" value={activeRequest.reason || '-'} disabled />
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
                 <Field label="Cut" value={activeRequest.cut || '-'} disabled />
