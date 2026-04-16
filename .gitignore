@@ -8,7 +8,11 @@ instrumentation-client.ts
 # ── Frontend (Next.js) ──────────────────────────────────────
 node_modules/
 frontend/node_modules/
-.next/
+.next/from urllib.parse import unquote
+
+def patch(self, request, role, department=''):
+    department = unquote(department)
+    # ...rest of your code...
 frontend/.next/
 .env.local
 .env*.local
