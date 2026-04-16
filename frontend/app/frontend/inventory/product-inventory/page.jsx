@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Search, Upload, Trash2, Pencil, Download, RefreshCw, Printer } from 'lucide-react';
+import { ArrowLeft, Search, Upload, Trash2, Pencil, Download, RefreshCw, Printer } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -602,6 +602,16 @@ export default function ProductInventoryPage() {
       </Dialog>
 
       <div className="flex-1 pt-16 px-3 md:px-4 pb-16">
+        <div className="mb-4 flex justify-end">
+          <Link
+            href="/inventory"
+            className="inline-flex items-center gap-2 rounded-lg border border-soft-border bg-white px-3 py-2 text-sm font-medium text-midnight-ink hover:border-trust-blue transition"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back
+          </Link>
+        </div>
+
         {/* Fixed Header */}
         <div className="fixed top-0 left-0 right-0 z-[60] bg-white/95 py-2 border-b border-soft-border shadow-sm backdrop-blur px-3 md:px-4">
           <div className="flex items-center justify-between gap-3">

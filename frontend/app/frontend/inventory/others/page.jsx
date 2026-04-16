@@ -335,7 +335,7 @@ export default function OthersInventoryPage() {
         <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
           <p className="text-base text-cool-gray">Track consumables and purchased items like coffee powder, water bottles, tissue, and more.</p>
           <Link href="/inventory" className="inline-flex items-center gap-2 rounded-lg border border-soft-border bg-white px-3 py-2 text-sm font-medium text-midnight-ink hover:border-trust-blue transition">
-            <ArrowLeft className="h-4 w-4" /> Back to Inventory
+            <ArrowLeft className="h-4 w-4" /> Back
           </Link>
         </div>
 
