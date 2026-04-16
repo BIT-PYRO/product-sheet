@@ -4,6 +4,7 @@ from pathlib import Path
 import dj_database_url
 import environ
 from celery.schedules import crontab
+from django.core.exceptions import ImproperlyConfigured
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
@@ -44,6 +45,7 @@ INSTALLED_APPS = [
     'customers',
     'designers',
     'findings',
+    'accounting',
 ]
 
 MIDDLEWARE = [
@@ -80,7 +82,6 @@ ASGI_APPLICATION = 'config.asgi.application'
 
 DATABASE_URL = env('DATABASE_URL', default='').strip()
 DATABASE_CONN_MAX_AGE = env.int('POSTGRES_CONN_MAX_AGE', default=60)
-
 if DATABASE_URL:
     DATABASES = {
         'default': dj_database_url.parse(

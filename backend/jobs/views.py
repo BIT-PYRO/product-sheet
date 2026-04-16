@@ -19,6 +19,7 @@ from .services.job_service import can_transition, DEPARTMENT_PIPELINE, DEPT_TO_S
 
 logger = logging.getLogger(__name__)
 
+
 _DONE_STATUSES = {VoucherApprovalStatus.COMPLETED, VoucherApprovalStatus.PARTIALLY_COMPLETED, VoucherApprovalStatus.REPLACED}
 
 
