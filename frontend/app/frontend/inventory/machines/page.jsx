@@ -698,7 +698,7 @@ export default function MachinesInventoryPage() {
               }}
               className="inline-flex items-center gap-2 rounded-full border border-emerald-500 bg-white px-4 h-8 text-sm font-medium text-emerald-600"
             >
-              Receive Machine
+              Add Machine
             </button>
             <button
               type="button"
@@ -1090,7 +1090,7 @@ export default function MachinesInventoryPage() {
       <Dialog open={isAddMachineStockOpen} onOpenChange={setIsAddMachineStockOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle className="text-lg font-semibold text-midnight-ink">Receive Machine Stock</DialogTitle>
+            <DialogTitle className="text-lg font-semibold text-midnight-ink">Add Machine Stock</DialogTitle>
           </DialogHeader>
           <div className="mt-2 grid grid-cols-1 gap-4">
             <div className="flex flex-col gap-1">
