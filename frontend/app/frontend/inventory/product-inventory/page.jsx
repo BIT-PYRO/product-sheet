@@ -61,6 +61,10 @@ export default function ProductInventoryPage() {
   const [visibleColumns, setVisibleColumns] = useState(new Set(PRODUCT_COLUMNS.map((column) => column.id)));
   const bulkFileRef = useRef(null);
 
+  // Receive Product workflow
+  const [receiveOpen, setReceiveOpen] = useState(false);
+  const [receiveForm, setReceiveForm] = useState({ productId: '', quantity: '', employeeVendorName: '', referenceId: '', price: '', usage: 'new' });
+
   useEffect(() => {
     fetch('/api/auth/session').then(r => r.json()).then(d => { if (d?.user?.username) setCurrentUsername(d.user.username); }).catch(() => {});
   }, []);
@@ -257,6 +261,29 @@ export default function ProductInventoryPage() {
     if (next.has(productId)) next.delete(productId);
     else next.add(productId);
     setSelectedRows(next);
+  };
+
+  // Receive
+  const openReceivePopup = () => {
+    setReceiveForm({ productId: '', quantity: '', employeeVendorName: '', referenceId: '', price: '', usage: 'new' });
+    setReceiveOpen(true);
+  };
+
+  const createReceiveRequest = () => {
+    const productId = receiveForm.productId;
+    const quantityNum = Number(receiveForm.quantity);
+    const employeeVendorName = receiveForm.employeeVendorName.trim();
+    const referenceId = receiveForm.referenceId.trim();
+    const price = receiveForm.price.trim();
+    if (!productId) { alert('Please select a product.'); return; }
+    if (!Number.isFinite(quantityNum) || quantityNum <= 0) { alert('Please enter a valid quantity greater than 0.'); return; }
+    if (!employeeVendorName) { alert('Please enter employee/vendor name.'); return; }
+    if (!referenceId) { alert('Please enter a reference ID.'); return; }
+    if (!price) { alert('Please enter a price.'); return; }
+    const row = data.find((r) => r.productId === productId);
+    setReceiveOpen(false);
+    setSaveStatus({ success: true, message: `Received ${quantityNum} of ${row?.masterSku || 'Product'} from ${employeeVendorName}.` });
+    setTimeout(() => setSaveStatus(null), 3000);
   };
 
   // Edit
@@ -601,6 +628,91 @@ export default function ProductInventoryPage() {
         </DialogContent>
       </Dialog>
 
+      <Dialog open={receiveOpen} onOpenChange={setReceiveOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-semibold text-midnight-ink">Add Product</DialogTitle>
+          </DialogHeader>
+          <div className="mt-2 grid grid-cols-1 gap-4">
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Product</label>
+              <select
+                value={receiveForm.productId}
+                onChange={(e) => setReceiveForm((prev) => ({ ...prev, productId: e.target.value }))}
+                className="w-full rounded-md border border-soft-border bg-white px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+              >
+                <option value="">Select product</option>
+                {data.map((r) => (
+                  <option key={r.productId} value={r.productId}>{r.masterSku || r.designerSku || `Product #${r.productId}`}</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Employee / Vendor Name</label>
+              <input
+                type="text"
+                value={receiveForm.employeeVendorName}
+                onChange={(e) => setReceiveForm((prev) => ({ ...prev, employeeVendorName: e.target.value }))}
+                placeholder="e.g. John Doe or ABC Supplies"
+                className="w-full rounded-md border border-soft-border px-3 py-1.5 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+              />
+            </div>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Reference ID</label>
+                <input
+                  type="text"
+                  value={receiveForm.referenceId}
+                  onChange={(e) => setReceiveForm((prev) => ({ ...prev, referenceId: e.target.value }))}
+                  placeholder="e.g. REF-001"
+                  className="w-full rounded-md border border-soft-border px-3 py-1.5 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Quantity</label>
+                <input
+                  type="number"
+                  min={0}
+                  value={receiveForm.quantity}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (value === '') { setReceiveForm((prev) => ({ ...prev, quantity: '' })); return; }
+                    const num = Number(value);
+                    setReceiveForm((prev) => ({ ...prev, quantity: String(Number.isFinite(num) ? Math.max(0, num) : 0) }));
+                  }}
+                  className="w-full rounded-md border border-soft-border px-3 py-1.5 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Price</label>
+                <input
+                  type="text"
+                  value={receiveForm.price}
+                  onChange={(e) => setReceiveForm((prev) => ({ ...prev, price: e.target.value }))}
+                  placeholder="e.g. 500"
+                  className="w-full rounded-md border border-soft-border px-3 py-1.5 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                />
+              </div>
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Usage</label>
+              <select
+                value={receiveForm.usage}
+                onChange={(e) => setReceiveForm((prev) => ({ ...prev, usage: e.target.value }))}
+                className="w-full rounded-md border border-soft-border bg-white px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+              >
+                <option value="new">New</option>
+                <option value="used">Used</option>
+              </select>
+            </div>
+          </div>
+          <div className="mt-5 flex justify-end gap-3">
+            <Button variant="outline" onClick={() => setReceiveOpen(false)}>Cancel</Button>
+            <Button onClick={createReceiveRequest}>Receive</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <div className="flex-1 pt-16 px-3 md:px-4 pb-16">
         <div className="mb-4 flex justify-end">
           <Link
@@ -715,6 +827,15 @@ export default function ProductInventoryPage() {
           >
             <Pencil className="w-3.5 h-3.5 mr-1.5" />
             Edit Row
+          </Button>
+
+          <Button
+            onClick={openReceivePopup}
+            variant="outline"
+            className="border-emerald-500 text-emerald-600 hover:bg-emerald-50 rounded-full px-4 text-sm h-8"
+            disabled={editingRowIds.size > 0}
+          >
+            Add Product
           </Button>
 
           <Button

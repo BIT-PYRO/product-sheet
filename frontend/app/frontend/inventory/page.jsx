@@ -1,7 +1,13 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { AlertTriangle } from 'lucide-react';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
+
+const TOOLS_KEY    = 'inventory_tools_v1';
+const MACHINES_KEY = 'inventory_machines_v1';
+const LS_THRESHOLD = 5;
 
 const INVENTORY_BUTTONS = [
   { href: '/inventory/product-inventory', title: 'Product inventory', subtitle: 'Track and manage final product stock' },
@@ -9,10 +15,24 @@ const INVENTORY_BUTTONS = [
   { href: '/inventory/finding-inventory', title: 'Finding inventory', subtitle: 'Monitor findings stock and movement' },
   { href: '/inventory/others', title: 'Others', subtitle: 'Manage consumables and purchased items stock' },
   { href: '/inventory/tools', title: 'Tools', subtitle: 'Track tools by department and purchase value' },
-  { href: '/inventory/machines', title: 'Machines', subtitle: 'Track machine stock and condition-wise availability' },
+  { href: '/inventory/machines',   title: 'Machines',   subtitle: 'Track machine stock and condition-wise availability' },
+  { href: '/inventory/stock-log', title: 'Stock Log', subtitle: 'Tools, machinery & others received/issued movement log' },
+  { href: '/inventory/stone-log', title: 'Stone Log', subtitle: 'Stone inventory received/issued movement log' },
+  { href: '/inventory/product-log', title: 'Product & Finding Log', subtitle: 'Product and finding inventory received/issued movement log' },
 ];
 
 export default function InventoryPage() {
+  const [lowCount, setLowCount] = useState(null);
+
+  useEffect(() => {
+    function readLS(key) {
+      try { const d = localStorage.getItem(key); return d ? JSON.parse(d) : []; } catch { return []; }
+    }
+    const tools    = readLS(TOOLS_KEY).filter((r) => Number(r.quantity ?? 0) <= LS_THRESHOLD);
+    const machines = readLS(MACHINES_KEY).filter((r) => Number(r.quantity ?? 0) <= LS_THRESHOLD);
+    setLowCount(tools.length + machines.length);
+  }, []);
+
   return (
     <main className="min-h-screen bg-cloud-gray">
       <div className="transition-[left,width] duration-300 ease-in-out fixed top-0 left-0 right-0 z-[60] bg-white/95 py-2 border-b border-soft-border shadow-sm backdrop-blur px-3 md:px-4">
@@ -41,6 +61,25 @@ export default function InventoryPage() {
               <p className="text-sm text-cool-gray mt-2">{item.subtitle}</p>
             </Link>
           ))}
+
+          {/* Low Stock – dynamic highlight */}
+          <Link
+            href="/inventory/low-stock"
+            className={`block text-left rounded-xl p-6 hover:shadow-md transition ${
+              lowCount
+                ? 'border-2 border-amber-400 bg-amber-50 hover:border-amber-500'
+                : 'border border-soft-border bg-white hover:border-trust-blue'
+            }`}
+          >
+            <div className="flex items-center gap-2 mb-1">
+              {lowCount ? <AlertTriangle className="h-5 w-5 text-amber-500" /> : null}
+              <h2 className={`text-lg font-semibold ${lowCount ? 'text-amber-800' : 'text-midnight-ink'}`}>Low Stock</h2>
+              {lowCount ? (
+                <span className="ml-auto text-xs font-bold bg-amber-400 text-white rounded-full px-2 py-0.5">{lowCount}</span>
+              ) : null}
+            </div>
+            <p className={`text-sm ${lowCount ? 'text-amber-700' : 'text-cool-gray'}`}>View low-stock alerts across all inventories and fulfill orders</p>
+          </Link>
         </section>
       </div>
     </main>
