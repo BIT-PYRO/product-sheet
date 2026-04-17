@@ -67,3 +67,143 @@ class LedgerSummaryView(APIView):
         ]
 
         return api_success(data, message='Ledger summary fetched successfully.')
+
+
+class TrialBalanceView(APIView):
+    """
+    GET /api/accounting/trial-balance/
+
+    Computes the trial balance dynamically from JournalItems.
+    Each ledger's net balance (total_debit - total_credit) is placed
+    on the debit side when positive, credit side when negative.
+    Validates that grand total debit == grand total credit.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        # Aggregate per ledger
+        rows = (
+            JournalItem.objects
+            .values('ledger__id', 'ledger__name', 'ledger__type')
+            .annotate(total_debit=Sum('debit'), total_credit=Sum('credit'))
+            .order_by('ledger__name')
+        )
+
+        entries = []
+        grand_debit = 0
+        grand_credit = 0
+
+        for row in rows:
+            d = float(row['total_debit'] or 0)
+            c = float(row['total_credit'] or 0)
+            balance = d - c
+
+            # Positive balance → debit side; negative → credit side
+            if balance >= 0:
+                debit_val = round(balance, 2)
+                credit_val = 0
+            else:
+                debit_val = 0
+                credit_val = round(abs(balance), 2)
+
+            grand_debit += debit_val
+            grand_credit += credit_val
+
+            entries.append({
+                'ledger_id': row['ledger__id'],
+                'ledger': row['ledger__name'],
+                'type': row['ledger__type'],
+                'debit': debit_val,
+                'credit': credit_val,
+            })
+
+        grand_debit = round(grand_debit, 2)
+        grand_credit = round(grand_credit, 2)
+        is_balanced = grand_debit == grand_credit
+
+        if not is_balanced:
+            import logging
+            logging.getLogger(__name__).warning(
+                'Trial balance mismatch: debit=%s credit=%s', grand_debit, grand_credit
+            )
+
+        return api_success(
+            {
+                'entries': entries,
+                'total_debit': grand_debit,
+                'total_credit': grand_credit,
+                'is_balanced': is_balanced,
+            },
+            message='Trial balance fetched successfully.',
+        )
+
+
+class TrialBalanceView(APIView):
+    """
+    GET /api/accounting/trial-balance/
+
+    Computes the trial balance dynamically from JournalItems.
+    Each ledger's net balance (total_debit - total_credit) is placed
+    on the debit side when positive, credit side when negative.
+    Validates that grand total debit == grand total credit.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        # Aggregate per ledger
+        rows = (
+            JournalItem.objects
+            .values('ledger__id', 'ledger__name', 'ledger__type')
+            .annotate(total_debit=Sum('debit'), total_credit=Sum('credit'))
+            .order_by('ledger__name')
+        )
+
+        entries = []
+        grand_debit = 0
+        grand_credit = 0
+
+        for row in rows:
+            d = float(row['total_debit'] or 0)
+            c = float(row['total_credit'] or 0)
+            balance = d - c
+
+            # Positive balance → debit side; negative → credit side
+            if balance >= 0:
+                debit_val = round(balance, 2)
+                credit_val = 0
+            else:
+                debit_val = 0
+                credit_val = round(abs(balance), 2)
+
+            grand_debit += debit_val
+            grand_credit += credit_val
+
+            entries.append({
+                'ledger_id': row['ledger__id'],
+                'ledger': row['ledger__name'],
+                'type': row['ledger__type'],
+                'debit': debit_val,
+                'credit': credit_val,
+            })
+
+        grand_debit = round(grand_debit, 2)
+        grand_credit = round(grand_credit, 2)
+        is_balanced = grand_debit == grand_credit
+
+        if not is_balanced:
+            import logging
+            logging.getLogger(__name__).warning(
+                'Trial balance mismatch: debit=%s credit=%s', grand_debit, grand_credit
+            )
+
+        return api_success(
+            {
+                'entries': entries,
+                'total_debit': grand_debit,
+                'total_credit': grand_credit,
+                'is_balanced': is_balanced,
+            },
+            message='Trial balance fetched successfully.',
+        )

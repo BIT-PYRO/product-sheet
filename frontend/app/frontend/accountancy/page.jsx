@@ -3,48 +3,64 @@
 import { useState } from 'react';
 import AccountingJournalForm from '@/components/accounting-journal-form';
 import AccountingLedgerSummary from '@/components/accounting-ledger-summary';
+import AccountingTrialBalance from '@/components/accounting-trial-balance';
+import MasterNavigationDrawer from '@/components/master_navigation_drawer';
+import DateTimeStamp from '@/components/date-time-stamp';
 
 const TABS = [
   { key: 'journal', label: 'Journal Entry' },
   { key: 'ledger', label: 'Ledger Summary' },
+  { key: 'trial-balance', label: 'Trial Balance' },
 ];
 
 export default function AccountancyPage() {
   const [activeTab, setActiveTab] = useState('journal');
 
   return (
-    <main style={{ padding: 24 }}>
-      <h1 style={{ fontSize: 22, fontWeight: 700, marginBottom: 4 }}>Accountancy</h1>
-      <p style={{ marginBottom: 16, color: '#6b7280', fontSize: 14 }}>
-        Manage journal entries and view ledger summaries.
-      </p>
+    <main className="min-h-screen bg-cloud-gray">
 
-      {/* Tab bar */}
-      <div style={{ display: 'flex', gap: 4, marginBottom: 20, borderBottom: '1px solid #e5e7eb' }}>
-        {TABS.map((tab) => (
-          <button
-            key={tab.key}
-            type="button"
-            onClick={() => setActiveTab(tab.key)}
-            style={{
-              padding: '10px 18px',
-              border: 'none',
-              borderBottom: activeTab === tab.key ? '2px solid #2563eb' : '2px solid transparent',
-              background: 'transparent',
-              color: activeTab === tab.key ? '#2563eb' : '#6b7280',
-              fontWeight: activeTab === tab.key ? 600 : 400,
-              cursor: 'pointer',
-              fontSize: 14,
-            }}
-          >
-            {tab.label}
-          </button>
-        ))}
+      {/* Fixed header — same pattern as Orders, Master Sheets */}
+      <div className="transition-[left,width] duration-300 ease-in-out fixed top-0 left-0 right-0 z-[60] bg-white/95 py-2 border-b border-soft-border shadow-sm backdrop-blur px-3 md:px-4">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <MasterNavigationDrawer inHeader />
+            <h1 className="text-xl font-bold tracking-tight text-midnight-ink">ACCOUNTANCY</h1>
+          </div>
+          <DateTimeStamp />
+        </div>
       </div>
 
-      {/* Tab content */}
-      {activeTab === 'journal' && <AccountingJournalForm />}
-      {activeTab === 'ledger' && <AccountingLedgerSummary />}
+      {/* Page body — padded below fixed header */}
+      <div className="w-full pt-16 px-3 md:px-6 pb-10">
+
+        {/* Sub-header */}
+        <div className="mb-6 pt-4">
+          <p className="text-sm text-cool-gray">Manage journal entries and view ledger summaries.</p>
+        </div>
+
+        {/* Tab bar */}
+        <div className="flex gap-1 mb-6 border-b border-soft-border">
+          {TABS.map((tab) => (
+            <button
+              key={tab.key}
+              type="button"
+              onClick={() => setActiveTab(tab.key)}
+              className={`px-5 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+                activeTab === tab.key
+                  ? 'border-trust-blue text-trust-blue'
+                  : 'border-transparent text-cool-gray hover:text-midnight-ink'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Tab content */}
+        {activeTab === 'journal' && <AccountingJournalForm />}
+        {activeTab === 'ledger' && <AccountingLedgerSummary />}
+        {activeTab === 'trial-balance' && <AccountingTrialBalance />}
+      </div>
     </main>
   );
 }
