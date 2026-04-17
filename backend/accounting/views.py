@@ -1,10 +1,12 @@
+from django.db.models import Sum
+
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from common.api import api_success
 
-from .models import Ledger
+from .models import JournalItem, Ledger
 from .serializers import JournalEntryCreateSerializer, JournalEntrySerializer, LedgerSerializer
 
 
@@ -33,4 +35,35 @@ class JournalCreateView(APIView):
 
         entry = serializer.save()
         data = JournalEntrySerializer(entry).data
-        return api_success(data, message='Journal entry created successfully.', status_code=201)
+        return api_success(
+            {**data, 'entry_id': entry.pk},
+            message='Journal entry created.',
+            status_code=201,
+        )
+
+
+class LedgerSummaryView(APIView):
+    """Aggregate debit/credit totals per ledger from all journal items."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        summary = (
+            JournalItem.objects
+            .values('ledger__id', 'ledger__name', 'ledger__type')
+            .annotate(total_debit=Sum('debit'), total_credit=Sum('credit'))
+            .order_by('ledger__name')
+        )
+
+        data = [
+            {
+                'ledger_id': row['ledger__id'],
+                'ledger': row['ledger__name'],
+                'type': row['ledger__type'],
+                'total_debit': str(row['total_debit']),
+                'total_credit': str(row['total_credit']),
+            }
+            for row in summary
+        ]
+
+        return api_success(data, message='Ledger summary fetched successfully.')
