@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, Pencil, Plus, Printer, Trash2 } from 'lucide-react';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
@@ -12,19 +12,6 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 
-// ── Storage ────────────────────────────────────────────────────────────────
-const STORAGE_KEY = 'inventory_stone_log_v1';
-
-function readLS() {
-  try {
-    const d = localStorage.getItem(STORAGE_KEY);
-    return d ? JSON.parse(d) : [];
-  } catch { return []; }
-}
-
-function writeLS(value) {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(value)); } catch {}
-}
 
 // ── Constants ──────────────────────────────────────────────────────────────
 const INVENTORY_TYPES = ['Natural', 'Lab Grown', 'Synthetic', 'Treated'];
@@ -94,10 +81,21 @@ const emptyEntry = () => ({
 
 // ── Component ──────────────────────────────────────────────────────────────
 export default function StoneLogPage() {
-  const [rows, setRows] = useState(() => {
-    if (typeof window === 'undefined') return [];
-    return readLS();
-  });
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchRows = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch('/api/stone-log?page_size=500');
+      if (!res.ok) throw new Error(`Error ${res.status}`);
+      const data = await res.json();
+      const results = data?.data?.results ?? data?.results ?? data?.data ?? [];
+      setRows(Array.isArray(results) ? results : []);
+    } catch { /* non-fatal */ } finally { setLoading(false); }
+  }, []);
+
+  useEffect(() => { fetchRows(); }, [fetchRows]);
 
   const [status, setStatus]         = useState('');
   const [statusType, setStatusType] = useState('success');
@@ -171,21 +169,46 @@ export default function StoneLogPage() {
   const hasFilter = fSearch || fReceivedFrom || fIssuedTo || fInvType || fVariety || fType || fShape || fColor || fStatus || fRI || fDateFrom || fDateTo;
 
   // ── Add entry ─────────────────────────────────────────────────────────────
-  const handleAdd = () => {
+  const handleAdd = async () => {
     if (!addForm.stoneName.trim()) { showStatus('Stone Name is required.', 'error'); return; }
-    const entry = {
-      ...addForm,
-      id: Date.now(),
-      amount: calcAmount(addForm.qty, addForm.weight, addForm.price) || addForm.amount,
+    const payload = {
+      txn_date: addForm.date,
+      txn_type: (addForm.receivedIssued || '').toLowerCase(),
+      inventory_type: addForm.inventoryType,
+      stone_name: addForm.stoneName,
+      variety: addForm.variety,
+      stone_type: addForm.type,
+      shape: addForm.shape,
+      color: addForm.color,
+      species: addForm.species,
+      quality: addForm.quality,
+      cut: addForm.cut,
+      length: addForm.length || 0,
+      width: addForm.width || 0,
+      height: addForm.height || 0,
+      qty: addForm.qty || 0,
+      weight: addForm.weight || 0,
+      weight_unit: addForm.weightUnit,
+      location: addForm.location,
+      price: addForm.price || 0,
+      amount: calcAmount(addForm.qty, addForm.weight, addForm.price) || addForm.amount || 0,
+      received_from: addForm.receivedFrom,
+      issued_to: addForm.issuedTo,
+      remark: addForm.remark,
+      activity_status: addForm.activityStatus,
     };
-    const next = [entry, ...rows];
-    setRows(next); writeLS(next);
-    setAddOpen(false);
-    showStatus('Entry added.');
+    try {
+      const res = await fetch('/api/stone-log', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+      if (!res.ok) throw new Error(`Error ${res.status}`);
+      setAddOpen(false);
+      setAddForm(emptyEntry());
+      await fetchRows();
+      showStatus('Entry added.');
+    } catch (err) { showStatus(err.message || 'Add failed', 'error'); }
   };
 
   // ── Edit helpers ──────────────────────────────────────────────────────────
-  const getF = (row, key) => editBuffer[row.id]?.[key] !== undefined ? editBuffer[row.id][key] : (row[key] ?? '');
+  const getF = (row, key) => editBuffer[row.id]?.[key] !== undefined ? editBuffer[row.id][key] : rowVal(row, key);
   const setF = (id, key, val) => {
     if (!editingIds.has(id)) return;
     setEditBuffer((prev) => {
@@ -211,26 +234,66 @@ export default function StoneLogPage() {
 
   const cancelEdit = () => { setEditBuffer({}); setEditingIds(new Set()); };
 
-  const saveEdits = () => {
-    const next = rows.map((r) => editingIds.has(r.id) ? { ...r, ...editBuffer[r.id] } : r);
-    setRows(next); writeLS(next);
-    setEditBuffer({}); setEditingIds(new Set()); setSelectedIds(new Set());
-    showStatus('Changes saved.');
+  const saveEdits = async () => {
+    try {
+      for (const id of Array.from(editingIds)) {
+        const buf = editBuffer[id];
+        if (!buf) continue;
+        const payload = {
+          txn_date: buf.date ?? buf.txn_date,
+          txn_type: (buf.receivedIssued ?? buf.txn_type ?? '').toLowerCase(),
+          inventory_type: buf.inventoryType ?? buf.inventory_type,
+          stone_name: buf.stoneName ?? buf.stone_name,
+          variety: buf.variety,
+          stone_type: buf.type ?? buf.stone_type,
+          shape: buf.shape,
+          color: buf.color,
+          species: buf.species,
+          quality: buf.quality,
+          cut: buf.cut,
+          length: buf.length ?? 0,
+          width: buf.width ?? 0,
+          height: buf.height ?? 0,
+          qty: buf.qty ?? 0,
+          weight: buf.weight ?? 0,
+          weight_unit: buf.weightUnit ?? buf.weight_unit,
+          location: buf.location,
+          price: buf.price ?? 0,
+          amount: buf.amount ?? 0,
+          received_from: buf.receivedFrom ?? buf.received_from,
+          issued_to: buf.issuedTo ?? buf.issued_to,
+          remark: buf.remark,
+          activity_status: buf.activityStatus ?? buf.activity_status,
+        };
+        await fetch(`/api/stone-log/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+      }
+      setEditBuffer({}); setEditingIds(new Set()); setSelectedIds(new Set());
+      await fetchRows();
+      showStatus('Changes saved.');
+    } catch (err) { showStatus(err.message || 'Save failed', 'error'); }
   };
 
   // ── Delete ────────────────────────────────────────────────────────────────
-  const deleteRow = (id) => {
-    const next = rows.filter((r) => r.id !== id);
-    setRows(next); writeLS(next);
-    setSelectedIds((prev) => { const n = new Set(prev); n.delete(id); return n; });
-    showStatus('Entry deleted.');
+  const deleteRow = async (id) => {
+    try {
+      const res = await fetch(`/api/stone-log/${id}`, { method: 'DELETE' });
+      if (!res.ok && res.status !== 204) throw new Error(`Error ${res.status}`);
+      setRows((prev) => prev.filter((r) => r.id !== id));
+      setSelectedIds((prev) => { const n = new Set(prev); n.delete(id); return n; });
+      showStatus('Entry deleted.');
+    } catch (err) { showStatus(err.message || 'Delete failed', 'error'); }
   };
 
-  const deleteSelected = () => {
+  const deleteSelected = async () => {
     if (selectedIds.size === 0) return;
-    const next = rows.filter((r) => !selectedIds.has(r.id));
-    setRows(next); writeLS(next); setSelectedIds(new Set());
-    showStatus(`${selectedIds.size} entries deleted.`);
+    try {
+      for (const id of Array.from(selectedIds)) {
+        await fetch(`/api/stone-log/${id}`, { method: 'DELETE' });
+      }
+      await fetchRows();
+      setSelectedIds(new Set());
+      showStatus(`${selectedIds.size} entries deleted.`);
+    } catch (err) { showStatus(err.message || 'Delete failed', 'error'); }
   };
 
   // ── Select all ────────────────────────────────────────────────────────────
@@ -253,9 +316,10 @@ export default function StoneLogPage() {
 
   // ── Print ─────────────────────────────────────────────────────────────────
   const handlePrint = () => {
+    const fieldMapPrint = { date: 'txn_date', receivedIssued: 'txn_type', inventoryType: 'inventory_type', stoneName: 'stone_name', weightUnit: 'weight_unit', receivedFrom: 'received_from', issuedTo: 'issued_to', activityStatus: 'activity_status', type: 'stone_type' };
     const headers = LOG_COLUMNS.filter((c) => visibleColumns.has(c.id) && c.id !== 'action' && c.id !== 'sno').map((c) => `<th>${c.label}</th>`).join('');
     const rowsHtml = filteredRows.map((r, i) => {
-      const cells = LOG_COLUMNS.filter((c) => visibleColumns.has(c.id) && c.id !== 'action' && c.id !== 'sno').map((c) => `<td>${r[c.id] ?? ''}</td>`).join('');
+      const cells = LOG_COLUMNS.filter((c) => visibleColumns.has(c.id) && c.id !== 'action' && c.id !== 'sno').map((c) => { const k = fieldMapPrint[c.id] || c.id; return `<td>${r[k] ?? r[c.id] ?? ''}</td>`; }).join('');
       return `<tr><td>${i + 1}</td>${cells}</tr>`;
     }).join('');
     const w = window.open('', '_blank');

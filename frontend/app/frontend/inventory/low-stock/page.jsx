@@ -12,9 +12,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 
-// ── localStorage keys ──────────────────────────────────────────────────────
-const TOOLS_KEY      = 'inventory_tools_v1';
-const MACHINES_KEY   = 'inventory_machines_v1';
+// ── localStorage keys (kept for fulfill log only) ────────────────────────
 const FULFILL_LOG_KEY = 'low_stock_fulfill_log_v1';
 
 // ── per-source low-stock threshold (for localStorage sources) ──────────────
@@ -96,23 +94,37 @@ export default function LowStockPage() {
     setStatus('');
     const all = [];
 
-    // Tools – localStorage
-    const toolRows = readLS(TOOLS_KEY);
-    for (const r of toolRows) {
-      const q = Number(r.quantity ?? 0);
-      if (q <= LS_LOW_THRESHOLD) {
-        all.push({ ...r, _source: 'tools', _qty: q, _name: r.toolName || `Tool #${r.id}` });
+    // Tools – API
+    try {
+      const res = await fetch('/api/tools?page_size=500');
+      if (res.ok) {
+        const data = await res.json();
+        const rows = data?.data?.results ?? data?.results ?? data?.data ?? [];
+        for (const r of rows) {
+          const q = Number(r.quantity ?? 0);
+          const ml = Number(r.min_level ?? 0);
+          if (q <= (ml > 0 ? ml : API_LOW_THRESHOLD)) {
+            all.push({ ...r, _source: 'tools', _qty: q, _minLevel: ml, _name: r.tool_name || `Tool #${r.id}` });
+          }
+        }
       }
-    }
+    } catch { /* non-fatal */ }
 
-    // Machines – localStorage
-    const machineRows = readLS(MACHINES_KEY);
-    for (const r of machineRows) {
-      const q = Number(r.quantity ?? 0);
-      if (q <= LS_LOW_THRESHOLD) {
-        all.push({ ...r, _source: 'machines', _qty: q, _name: r.machineName || `Machine #${r.id}` });
+    // Machines – API
+    try {
+      const res = await fetch('/api/machines?page_size=500');
+      if (res.ok) {
+        const data = await res.json();
+        const rows = data?.data?.results ?? data?.results ?? data?.data ?? [];
+        for (const r of rows) {
+          const q = Number(r.running_qty ?? 0) + Number(r.idle_qty ?? 0) + Number(r.breakdown_qty ?? 0) + Number(r.maintenance_qty ?? 0);
+          const ml = Number(r.min_required_stock ?? 0);
+          if (q <= (ml > 0 ? ml : API_LOW_THRESHOLD)) {
+            all.push({ ...r, _source: 'machines', _qty: q, _minLevel: ml, _name: r.machine_name || `Machine #${r.id}` });
+          }
+        }
       }
-    }
+    } catch { /* non-fatal */ }
 
     // Others – API
     try {
@@ -145,9 +157,9 @@ export default function LowStockPage() {
       }
     } catch { /* non-fatal */ }
 
-    // Finding – API
+    // Finding – API (standalone finding-inventory)
     try {
-      const res = await fetch('/api/findings?page_size=500');
+      const res = await fetch('/api/finding-inventory?page_size=500');
       if (res.ok) {
         const data = await res.json();
         const rows = data?.data?.results ?? data?.results ?? data?.data ?? (Array.isArray(data) ? data : []);
@@ -247,22 +259,25 @@ export default function LowStockPage() {
       const source = fulfillItem._source;
 
       if (source === 'tools') {
-        const rows = readLS(TOOLS_KEY);
-        const updated = rows.map((r) =>
-          r.id === fulfillItem.id
-            ? { ...r, quantity: String(Number(r.quantity ?? 0) + qty) }
-            : r
-        );
-        writeLS(TOOLS_KEY, updated);
+        const newQty = (fulfillItem._qty ?? 0) + qty;
+        const res = await fetch(`/api/tools/${fulfillItem.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ quantity: String(newQty) }),
+        });
+        if (!res.ok) throw new Error(`Tools update failed (${res.status})`);
+        await fetch('/api/stock-transactions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ txn_date: new Date().toISOString().slice(0,10), inventory_type: 'tools', txn_type: 'received', item_name: fulfillItem._name, qty, received_from: vendor, price, remark: refId, tool: fulfillItem.id }) });
 
       } else if (source === 'machines') {
-        const rows = readLS(MACHINES_KEY);
-        const updated = rows.map((r) =>
-          r.id === fulfillItem.id
-            ? { ...r, quantity: String(Number(r.quantity ?? 0) + qty) }
-            : r
-        );
-        writeLS(MACHINES_KEY, updated);
+        const newQty = (fulfillItem._qty ?? 0) + qty;
+        // add to running_qty by default
+        const res = await fetch(`/api/machines/${fulfillItem.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ running_qty: String(Number(fulfillItem.running_qty ?? 0) + qty) }),
+        });
+        if (!res.ok) throw new Error(`Machines update failed (${res.status})`);
+        await fetch('/api/stock-transactions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ txn_date: new Date().toISOString().slice(0,10), inventory_type: 'machines', txn_type: 'received', item_name: fulfillItem._name, qty, received_from: vendor, price, remark: refId, machine: fulfillItem.id }) });
 
       } else if (source === 'others') {
         const newQty = (fulfillItem._qty ?? 0) + qty;
@@ -284,12 +299,13 @@ export default function LowStockPage() {
 
       } else if (source === 'finding') {
         const newQty = (fulfillItem._qty ?? 0) + qty;
-        const res = await fetch(`/api/findings/${fulfillItem.id}/`, {
+        const res = await fetch(`/api/finding-inventory/${fulfillItem.id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ quantity: String(newQty) }),
         });
         if (!res.ok) throw new Error(`Finding update failed (${res.status})`);
+        await fetch('/api/finding-transactions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ txn_date: new Date().toISOString().slice(0,10), txn_type: 'received', finding: fulfillItem.id, finding_code: fulfillItem.finding_code || '', qty, received_from: vendor, price, remark: refId }) });
       }
 
       // Save fulfill log

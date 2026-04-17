@@ -19,7 +19,7 @@ import { EnrolWorkforceForm } from '@/app/frontend/enrol-workforce/page';
 
 const MATERIAL_OPTIONS = ['Gold', 'Silver', 'Brass', 'Alloy', 'Platinum'];
 const STAGE_OPTIONS = ['Raw', 'Wax', 'Casting', 'Filing', 'Polish', 'Hand Setting', 'Ready', 'Finished'];
-const FINDING_ISSUE_REQUESTS_KEY = 'finding_issue_requests_v1';
+const FINDING_ISSUE_REQUESTS_KEY = 'finding_issue_requests_v1'; // kept for migration reference only
 const FINDING_COLUMNS = [
   { id: 'sno', label: '#' },
   { id: 'finding_code', label: 'Finding Code' },
@@ -99,7 +99,7 @@ export default function FindingInventoryPage() {
   const [requestDetailsOpen, setRequestDetailsOpen] = useState(false);
   const [activeRequestId, setActiveRequestId] = useState(null);
   const [issueRequests, setIssueRequests] = useState([]);
-  const [issueRequestsReady, setIssueRequestsReady] = useState(false);
+  // issueRequestsReady removed — now using API
   const [issueForm, setIssueForm] = useState({ findingId: '', quantity: '', issuedTo: '', issuedBy: '', reason: '' });
   const [workforceMembers, setWorkforceMembers] = useState([]);
   const [enrollWorkforceOpen, setEnrollWorkforceOpen] = useState(false);
@@ -112,7 +112,7 @@ export default function FindingInventoryPage() {
     setLoading(true);
     setFetchError('');
     try {
-      const res = await fetch('/api/findings?is_active=true&page_size=500');
+      const res = await fetch('/api/finding-inventory?page_size=500');
       if (!res.ok) throw new Error(`Error ${res.status}`);
       const data = await res.json();
       const results = data?.data?.results ?? data?.results ?? data?.data ?? [];
@@ -124,8 +124,19 @@ export default function FindingInventoryPage() {
     }
   };
 
+  const fetchIssueRequests = async () => {
+    try {
+      const res = await fetch('/api/issue-requests?inventory_type=finding&page_size=200');
+      if (!res.ok) return;
+      const data = await res.json();
+      const results = data?.data?.results ?? data?.results ?? data?.data ?? [];
+      setIssueRequests(Array.isArray(results) ? results : []);
+    } catch { /* non-fatal */ }
+  };
+
   useEffect(() => {
     fetchFindings();
+    fetchIssueRequests();
   }, []);
 
   useEffect(() => {
@@ -144,21 +155,9 @@ export default function FindingInventoryPage() {
 
   useEffect(() => {
     try {
-      const stored = localStorage.getItem(FINDING_ISSUE_REQUESTS_KEY);
-      if (!stored) return;
-      const parsed = JSON.parse(stored);
-      if (Array.isArray(parsed)) setIssueRequests(parsed);
-    } catch {
-      // Ignore malformed local data.
-    } finally {
-      setIssueRequestsReady(true);
-    }
+      // migrated from localStorage — no longer needed
+    } catch { /* noop */ }
   }, []);
-
-  useEffect(() => {
-    if (!issueRequestsReady) return;
-    localStorage.setItem(FINDING_ISSUE_REQUESTS_KEY, JSON.stringify(issueRequests));
-  }, [issueRequests, issueRequestsReady]);
 
   const filtered = useMemo(() => {
     const materialFilters = Array.isArray(filterMaterial) ? filterMaterial : [];
@@ -208,7 +207,7 @@ export default function FindingInventoryPage() {
   );
 
   const sortedIssueRequests = useMemo(
-    () => [...issueRequests].sort((a, b) => new Date(b.requestedAt) - new Date(a.requestedAt)),
+    () => [...issueRequests].sort((a, b) => new Date(b.requested_at || b.requestedAt || 0) - new Date(a.requested_at || a.requestedAt || 0)),
     [issueRequests]
   );
 
@@ -259,21 +258,28 @@ export default function FindingInventoryPage() {
     setReceiveOpen(true);
   }
 
-  function createReceiveRequest() {
+  async function createReceiveRequest() {
     const findingIdNum = Number(receiveForm.findingId);
     const quantityNum = Number(receiveForm.quantity);
     const employeeVendorName = receiveForm.employeeVendorName.trim();
     const referenceId = receiveForm.referenceId.trim();
-    const price = receiveForm.price.trim();
     if (!findingIdNum) { setStatusMsg('Please select a finding.'); return; }
     if (!Number.isFinite(quantityNum) || quantityNum <= 0) { setStatusMsg('Please enter a valid quantity greater than 0.'); return; }
     if (!employeeVendorName) { setStatusMsg('Please enter employee/vendor name.'); return; }
     if (!referenceId) { setStatusMsg('Please enter a reference ID.'); return; }
-    if (!price) { setStatusMsg('Please enter a price.'); return; }
     const finding = findings.find((f) => f.id === findingIdNum);
-    setFindings((prev) => prev.map((f) => f.id === findingIdNum ? { ...f, quantity: Number(f.quantity || 0) + quantityNum } : f));
-    setReceiveOpen(false);
-    setStatusMsg(`Received ${quantityNum} of ${finding?.finding_name || finding?.finding_code || 'Finding #' + findingIdNum} from ${employeeVendorName}.`);
+    try {
+      const newQty = Number(finding?.quantity || 0) + quantityNum;
+      await fetch(`/api/finding-inventory/${findingIdNum}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ quantity: newQty }) });
+      await fetch('/api/finding-transactions', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ txn_date: new Date().toISOString().slice(0, 10), txn_type: 'received', finding: findingIdNum, finding_code: finding?.finding_code || '', die_number: finding?.die_number || '', qty: quantityNum, weight: finding?.weight || 0, dead_weight: finding?.dead_weight || 0, received_from: employeeVendorName, remark: referenceId, price: receiveForm.price || 0 }),
+      });
+      setReceiveOpen(false);
+      setReceiveForm({ findingId: '', quantity: '', employeeVendorName: '', referenceId: '', price: '', usage: 'new' });
+      await fetchFindings();
+      setStatusMsg(`Received ${quantityNum} of ${findingName(finding)} from ${employeeVendorName}.`);
+    } catch (err) { setStatusMsg(err.message || 'Receive failed'); }
   }
 
   function handleEditRows() {
@@ -320,7 +326,7 @@ export default function FindingInventoryPage() {
       for (const id of ids) {
         const payload = editBuffer[id];
         if (!payload) continue;
-        const res = await fetch(`/api/findings/${id}`, {
+        const res = await fetch(`/api/finding-inventory/${id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
@@ -347,50 +353,29 @@ export default function FindingInventoryPage() {
     setStatusMsg('Edit canceled.');
   }
 
-  function createIssueRequest() {
+  async function createIssueRequest() {
     const findingIdNum = Number(issueForm.findingId);
     const quantityNum = Number(issueForm.quantity);
     const issuedTo = issueForm.issuedTo.trim();
     const issuedBy = issueForm.issuedBy.trim();
     const reason = issueForm.reason.trim();
-
-    if (!findingIdNum) {
-      setStatusMsg('Please select a finding for the request.');
-      return;
-    }
-    if (!Number.isFinite(quantityNum) || quantityNum <= 0) {
-      setStatusMsg('Please enter a valid quantity greater than 0.');
-      return;
-    }
-    if (!issuedTo) {
-      setStatusMsg('Please enter who the finding is issued to.');
-      return;
-    }
-    if (!issuedBy) {
-      setStatusMsg('Please enter who issued the finding.');
-      return;
-    }
-    if (!reason) {
-      setStatusMsg('Please enter reason of issue.');
-      return;
-    }
-
+    if (!findingIdNum) { setStatusMsg('Please select a finding for the request.'); return; }
+    if (!Number.isFinite(quantityNum) || quantityNum <= 0) { setStatusMsg('Please enter a valid quantity greater than 0.'); return; }
+    if (!issuedTo) { setStatusMsg('Please enter who the finding is issued to.'); return; }
+    if (!issuedBy) { setStatusMsg('Please enter who issued the finding.'); return; }
+    if (!reason) { setStatusMsg('Please enter reason of issue.'); return; }
     const finding = findings.find((f) => f.id === findingIdNum);
-    const request = {
-      id: Date.now(),
-      findingId: findingIdNum,
-      findingName: findingName(finding),
-      quantity: quantityNum,
-      issuedTo,
-      issuedBy,
-      reason,
-      status: 'pending',
-      requestedAt: new Date().toISOString(),
-      reviewedAt: null,
-    };
-    setIssueRequests((prev) => [request, ...prev]);
-    setIssueOpen(false);
-    setStatusMsg('Issue request created.');
+    try {
+      const res = await fetch('/api/issue-requests', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ inventory_type: 'finding', item_id: findingIdNum, item_name: findingName(finding), quantity: quantityNum, issued_to: issuedTo, issued_by: issuedBy, reason }),
+      });
+      if (!res.ok) throw new Error(`Error ${res.status}`);
+      setIssueOpen(false);
+      setIssueForm({ findingId: '', quantity: '', issuedTo: '', issuedBy: '', reason: '' });
+      await fetchIssueRequests();
+      setStatusMsg('Issue request created.');
+    } catch (err) { setStatusMsg(err.message || 'Failed to create issue request'); }
   }
 
   function openRequestDetails(requestId) {
@@ -398,13 +383,30 @@ export default function FindingInventoryPage() {
     setRequestDetailsOpen(true);
   }
 
-  function reviewIssueRequest(nextStatus) {
+  async function reviewIssueRequest(nextStatus) {
     if (!activeRequest) return;
-    setIssueRequests((prev) =>
-      prev.map((r) => (r.id === activeRequest.id ? { ...r, status: nextStatus, reviewedAt: new Date().toISOString() } : r))
-    );
-    setRequestDetailsOpen(false);
-    setStatusMsg(`Request ${nextStatus}.`);
+    try {
+      const res = await fetch(`/api/issue-requests/${activeRequest.id}/review`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: nextStatus }),
+      });
+      if (!res.ok) throw new Error(`Error ${res.status}`);
+      if (nextStatus === 'approved') {
+        const finding = findings.find((f) => f.id === activeRequest.item_id);
+        if (finding) {
+          const newQty = Math.max(0, Number(finding.quantity || 0) - Number(activeRequest.quantity || 0));
+          await fetch(`/api/finding-inventory/${finding.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ quantity: newQty }) });
+          await fetch('/api/finding-transactions', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ txn_date: new Date().toISOString().slice(0, 10), txn_type: 'issued', finding: finding.id, finding_code: finding.finding_code || '', qty: activeRequest.quantity, issued_to: activeRequest.issued_to, remark: activeRequest.reason }),
+          });
+          await fetchFindings();
+        }
+      }
+      setRequestDetailsOpen(false);
+      await fetchIssueRequests();
+      setStatusMsg(`Request ${nextStatus}.`);
+    } catch (err) { setStatusMsg(err.message || 'Review failed'); }
   }
 
   function relativeTime(iso) {
@@ -426,8 +428,8 @@ export default function FindingInventoryPage() {
       setStatusMsg('Popup blocked. Please allow popups to print voucher.');
       return;
     }
-    const requestedAt = request.requestedAt ? new Date(request.requestedAt).toLocaleString() : '-';
-    const reviewedAt = request.reviewedAt ? new Date(request.reviewedAt).toLocaleString() : '-';
+    const requestedAt = (request.requested_at || request.requestedAt) ? new Date(request.requested_at || request.requestedAt).toLocaleString() : '-';
+    const reviewedAt = (request.reviewed_at || request.reviewedAt) ? new Date(request.reviewed_at || request.reviewedAt).toLocaleString() : '-';
     const html = `
       <html>
         <head>
@@ -447,10 +449,10 @@ export default function FindingInventoryPage() {
           <p>Generated from Finding Inventory requests panel</p>
           <table>
             <tr><th>Request ID</th><td>${request.id}</td></tr>
-            <tr><th>Finding Name</th><td>${request.findingName}</td></tr>
+            <tr><th>Finding Name</th><td>${request.item_name || request.findingName}</td></tr>
             <tr><th>Quantity</th><td>${request.quantity}</td></tr>
-            <tr><th>Issued To</th><td>${request.issuedTo}</td></tr>
-            <tr><th>Issued By</th><td>${request.issuedBy || '-'}</td></tr>
+            <tr><th>Issued To</th><td>${request.issued_to || request.issuedTo}</td></tr>
+            <tr><th>Issued By</th><td>${request.issued_by || request.issuedBy || '-'}</td></tr>
             <tr><th>Reason of Issue</th><td>${request.reason || '-'}</td></tr>
             <tr><th>Status</th><td><span class="badge">${String(request.status || '').toUpperCase()}</span></td></tr>
             <tr><th>Requested At</th><td>${requestedAt}</td></tr>
@@ -525,7 +527,7 @@ export default function FindingInventoryPage() {
     setSaving(true);
     setStatusMsg('');
     try {
-      const res = await fetch('/api/findings', {
+      const res = await fetch('/api/finding-inventory', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(form),
@@ -863,11 +865,11 @@ export default function FindingInventoryPage() {
                         >
                           <div className="flex items-start gap-3">
                             <div className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-full bg-[#EEF2FF] text-xs font-semibold text-trust-blue">
-                              {String(req.findingName || 'F').charAt(0).toUpperCase()}
+                              {String(req.item_name || req.findingName || 'F').charAt(0).toUpperCase()}
                             </div>
                             <div className="min-w-0 flex-1">
                               <p className="truncate text-sm text-midnight-ink">
-                                <span className="font-semibold">{req.issuedTo}</span> requested <span className="font-semibold">{req.quantity}</span> of {req.findingName}
+                                <span className="font-semibold">{req.issued_to || req.issuedTo}</span> requested <span className="font-semibold">{req.quantity}</span> of {req.item_name || req.findingName}
                               </p>
                               <p className="mt-0.5 truncate text-xs text-cool-gray">Reason: {req.reason || '-'}</p>
                               <div className="mt-1 flex items-center gap-2">
@@ -887,7 +889,7 @@ export default function FindingInventoryPage() {
                                     Print
                                   </button>
                                 )}
-                                <span className="text-[11px] text-cool-gray">{relativeTime(req.requestedAt)}</span>
+                                <span className="text-[11px] text-cool-gray">{relativeTime(req.requested_at || req.requestedAt)}</span>
                               </div>
                             </div>
                           </div>
@@ -1147,13 +1149,13 @@ export default function FindingInventoryPage() {
 
           {activeRequest ? (
             <div className="mt-2 grid grid-cols-1 gap-3">
-              <Field label="Finding Code" value={activeRequest.findingName} disabled />
+              <Field label="Finding Code" value={activeRequest.item_name || activeRequest.findingName} disabled />
               <Field label="Quantity" value={String(activeRequest.quantity)} disabled />
-              <Field label="Issued To" value={activeRequest.issuedTo} disabled />
-              <Field label="Issued By" value={activeRequest.issuedBy || '-'} disabled />
+              <Field label="Issued To" value={activeRequest.issued_to || activeRequest.issuedTo} disabled />
+              <Field label="Issued By" value={activeRequest.issued_by || activeRequest.issuedBy || '-'} disabled />
               <Field label="Reason of Issue" value={activeRequest.reason || '-'} disabled />
               <Field label="Status" value={activeRequest.status.toUpperCase()} disabled />
-              <Field label="Requested At" value={new Date(activeRequest.requestedAt).toLocaleString()} disabled />
+              <Field label="Requested At" value={new Date(activeRequest.requested_at || activeRequest.requestedAt).toLocaleString()} disabled />
             </div>
           ) : (
             <p className="text-sm text-cool-gray">Request not found.</p>

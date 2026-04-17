@@ -196,3 +196,227 @@ class ProductInventoryItem(AuditModel):
 
 	def __str__(self):
 		return f'{self.product.master_sku} | {self.final_sku} | {self.value} {self.unit}'
+
+
+# ── Stock Transaction (movement log for Tools / Machines / Others) ──────────
+
+class StockTransaction(AuditModel):
+	"""Received / Issued movement log for Tools, Machines and Others inventory."""
+
+	INVENTORY_TYPE_CHOICES = [
+		('tools', 'Tools'),
+		('machines', 'Machines'),
+		('others', 'Others'),
+	]
+	TXN_CHOICES = [
+		('received', 'Received'),
+		('issued', 'Issued'),
+	]
+
+	txn_date = models.DateField()
+	inventory_type = models.CharField(max_length=20, choices=INVENTORY_TYPE_CHOICES)
+	txn_type = models.CharField(max_length=10, choices=TXN_CHOICES)
+	item_name = models.CharField(max_length=255)
+	particulars = models.CharField(max_length=255, blank=True, default='')
+	qty = models.DecimalField(max_digits=12, decimal_places=3, default=0)
+	qty_unit = models.CharField(max_length=30, blank=True, default='PCS')
+	weight = models.DecimalField(max_digits=12, decimal_places=4, null=True, blank=True)
+	weight_unit = models.CharField(max_length=20, blank=True, default='KG')
+	location = models.CharField(max_length=255, blank=True, default='')
+	price = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+	amount = models.DecimalField(max_digits=16, decimal_places=2, default=0)
+	received_from = models.CharField(max_length=255, blank=True, default='')
+	issued_to = models.CharField(max_length=255, blank=True, default='')
+	activity_status = models.CharField(max_length=60, blank=True, default='')
+	remark = models.CharField(max_length=255, blank=True, default='')
+	tool = models.ForeignKey('ToolItem', on_delete=models.SET_NULL, null=True, blank=True, related_name='stock_transactions')
+	machine = models.ForeignKey('MachineItem', on_delete=models.SET_NULL, null=True, blank=True, related_name='stock_transactions')
+	other_item = models.ForeignKey('OtherItem', on_delete=models.SET_NULL, null=True, blank=True, related_name='stock_transactions')
+
+	class Meta:
+		ordering = ('-txn_date', '-created_at')
+
+	def __str__(self):
+		return f'{self.inventory_type} | {self.txn_type} | {self.item_name} | {self.qty}'
+
+
+# ── Stone Transaction (movement log for Stone Inventory) ────────────────────
+
+class StoneTransaction(AuditModel):
+	"""Received / Issued movement log for Stone inventory."""
+
+	TXN_CHOICES = [
+		('received', 'Received'),
+		('issued', 'Issued'),
+	]
+
+	txn_date = models.DateField()
+	txn_type = models.CharField(max_length=10, choices=TXN_CHOICES)
+	inventory_type = models.CharField(max_length=60, blank=True, default='')
+	stone_name = models.CharField(max_length=255, blank=True, default='')
+	variety = models.CharField(max_length=120, blank=True, default='')
+	stone_type = models.CharField(max_length=120, blank=True, default='')
+	shape = models.CharField(max_length=120, blank=True, default='')
+	color = models.CharField(max_length=120, blank=True, default='')
+	species = models.CharField(max_length=120, blank=True, default='')
+	quality = models.CharField(max_length=120, blank=True, default='')
+	cut = models.CharField(max_length=120, blank=True, default='')
+	length = models.CharField(max_length=60, blank=True, default='')
+	width = models.CharField(max_length=60, blank=True, default='')
+	height = models.CharField(max_length=60, blank=True, default='')
+	qty = models.DecimalField(max_digits=12, decimal_places=3, default=0)
+	weight = models.DecimalField(max_digits=12, decimal_places=4, default=0)
+	weight_unit = models.CharField(max_length=20, blank=True, default='CTS')
+	location = models.CharField(max_length=255, blank=True, default='')
+	price = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+	amount = models.DecimalField(max_digits=16, decimal_places=2, default=0)
+	received_from = models.CharField(max_length=255, blank=True, default='')
+	issued_to = models.CharField(max_length=255, blank=True, default='')
+	remark = models.CharField(max_length=255, blank=True, default='')
+	activity_status = models.CharField(max_length=60, blank=True, default='')
+	stone = models.ForeignKey('StoneItem', on_delete=models.SET_NULL, null=True, blank=True, related_name='stone_transactions')
+
+	class Meta:
+		ordering = ('-txn_date', '-created_at')
+
+	def __str__(self):
+		return f'{self.txn_type} | {self.stone_name} | {self.qty}'
+
+
+# ── Finding Inventory Item (standalone — separate from findings.Finding) ─────
+
+class FindingInventoryItem(AuditModel):
+	"""Standalone finding inventory. NOT linked to the Master Finding Sheet."""
+
+	finding_code = models.CharField(max_length=120)
+	die_number = models.CharField(max_length=120, blank=True, default='')
+	size = models.CharField(max_length=60, blank=True, default='')
+	material = models.CharField(max_length=120, blank=True, default='')
+	finding_stage = models.CharField(max_length=120, blank=True, default='')
+	mechanism = models.CharField(max_length=120, blank=True, default='')
+	quantity = models.DecimalField(max_digits=12, decimal_places=3, default=0)
+	weight = models.DecimalField(max_digits=12, decimal_places=4, default=0)
+	dead_weight = models.DecimalField(max_digits=12, decimal_places=4, default=0)
+	mold_qty_per_die = models.CharField(max_length=60, blank=True, default='')
+	polish = models.CharField(max_length=120, blank=True, default='')
+	total_measurements = models.CharField(max_length=120, blank=True, default='')
+	design_material = models.CharField(max_length=120, blank=True, default='')
+	min_level = models.DecimalField(max_digits=12, decimal_places=3, default=0)
+	notes = models.TextField(blank=True, default='')
+
+	class Meta:
+		ordering = ('-created_at',)
+
+	def __str__(self):
+		return f'{self.finding_code} | {self.material} | {self.quantity}'
+
+
+# ── Finding Inventory Transaction ────────────────────────────────────────────
+
+class FindingInventoryTransaction(AuditModel):
+	"""Movement log for standalone Finding inventory."""
+
+	TXN_CHOICES = [
+		('received', 'Received'),
+		('issued', 'Issued'),
+	]
+
+	txn_date = models.DateField()
+	finding = models.ForeignKey('FindingInventoryItem', on_delete=models.SET_NULL, null=True, blank=True, related_name='transactions')
+	finding_code = models.CharField(max_length=120, blank=True, default='')
+	txn_type = models.CharField(max_length=10, choices=TXN_CHOICES)
+	inventory_type = models.CharField(max_length=60, blank=True, default='')
+	die_number = models.CharField(max_length=120, blank=True, default='')
+	size = models.CharField(max_length=60, blank=True, default='')
+	material = models.CharField(max_length=120, blank=True, default='')
+	stage = models.CharField(max_length=120, blank=True, default='')
+	qty = models.DecimalField(max_digits=12, decimal_places=3, default=0)
+	weight = models.DecimalField(max_digits=12, decimal_places=4, default=0)
+	dead_weight = models.DecimalField(max_digits=12, decimal_places=4, default=0)
+	price = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+	amount = models.DecimalField(max_digits=16, decimal_places=2, default=0)
+	received_from = models.CharField(max_length=255, blank=True, default='')
+	issued_to = models.CharField(max_length=255, blank=True, default='')
+	remark = models.CharField(max_length=255, blank=True, default='')
+	activity_status = models.CharField(max_length=60, blank=True, default='')
+
+	class Meta:
+		ordering = ('-txn_date', '-created_at')
+
+	def __str__(self):
+		return f'{self.txn_type} | {self.finding_code} | {self.qty}'
+
+
+# ── Product Inventory Transaction ────────────────────────────────────────────
+
+class ProductInventoryTransaction(AuditModel):
+	"""Movement log for Product inventory."""
+
+	TXN_CHOICES = [
+		('received', 'Received'),
+		('issued', 'Issued'),
+	]
+
+	txn_date = models.DateField()
+	product = models.ForeignKey(Product, on_delete=models.SET_NULL, null=True, blank=True, related_name='inventory_txns')
+	master_sku = models.CharField(max_length=120, blank=True, default='')
+	designer_sku = models.CharField(max_length=120, blank=True, default='')
+	final_sku = models.CharField(max_length=120, blank=True, default='')
+	txn_type = models.CharField(max_length=10, choices=TXN_CHOICES)
+	inventory_type = models.CharField(max_length=60, blank=True, default='')
+	metal = models.CharField(max_length=60, blank=True, default='')
+	value = models.DecimalField(max_digits=14, decimal_places=3, default=0)
+	unit = models.CharField(max_length=30, blank=True, default='PCS')
+	location = models.CharField(max_length=255, blank=True, default='')
+	wip = models.DecimalField(max_digits=14, decimal_places=3, default=0)
+	total_in_demand = models.DecimalField(max_digits=14, decimal_places=3, default=0)
+	price = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+	amount = models.DecimalField(max_digits=16, decimal_places=2, default=0)
+	received_from = models.CharField(max_length=255, blank=True, default='')
+	issued_to = models.CharField(max_length=255, blank=True, default='')
+	remark = models.CharField(max_length=255, blank=True, default='')
+	activity_status = models.CharField(max_length=60, blank=True, default='')
+
+	class Meta:
+		ordering = ('-txn_date', '-created_at')
+
+	def __str__(self):
+		return f'{self.txn_type} | {self.master_sku} | {self.value}'
+
+
+# ── Issue Request (persisted issue requests for all inventory types) ─────────
+
+class IssueRequest(AuditModel):
+	"""Persisted issue request for any inventory type."""
+
+	INVENTORY_TYPE_CHOICES = [
+		('tools', 'Tools'),
+		('machines', 'Machines'),
+		('others', 'Others'),
+		('stone', 'Stone'),
+		('finding', 'Finding'),
+	]
+	STATUS_CHOICES = [
+		('pending', 'Pending'),
+		('approved', 'Approved'),
+		('rejected', 'Rejected'),
+	]
+
+	inventory_type = models.CharField(max_length=20, choices=INVENTORY_TYPE_CHOICES)
+	item_id = models.IntegerField(null=True, blank=True)
+	item_name = models.CharField(max_length=255)
+	quantity = models.DecimalField(max_digits=12, decimal_places=3)
+	issued_to = models.CharField(max_length=255)
+	issued_by = models.CharField(max_length=255, blank=True, default='')
+	reason = models.TextField(blank=True, default='')
+	reference_id = models.CharField(max_length=120, blank=True, default='')
+	status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+	requested_at = models.DateTimeField(auto_now_add=True)
+	reviewed_at = models.DateTimeField(null=True, blank=True)
+	remark = models.CharField(max_length=255, blank=True, default='')
+
+	class Meta:
+		ordering = ('-requested_at',)
+
+	def __str__(self):
+		return f'{self.inventory_type} | {self.item_name} | {self.quantity} | {self.status}'

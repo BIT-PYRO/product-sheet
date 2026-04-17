@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, Pencil, Plus, Printer, Trash2 } from 'lucide-react';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
@@ -12,18 +12,6 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 
-// ── Storage ────────────────────────────────────────────────────────────────
-const STORAGE = {
-  product: 'inventory_product_log_v1',
-  finding: 'inventory_finding_log_v1',
-};
-
-function readLS(key) {
-  try { const d = localStorage.getItem(key); return d ? JSON.parse(d) : []; } catch { return []; }
-}
-function writeLS(key, value) {
-  try { localStorage.setItem(key, JSON.stringify(value)); } catch {}
-}
 
 // ── Product constants ──────────────────────────────────────────────────────
 const P_INVENTORY_TYPES   = ['Finished Product', 'WIP', 'Sample', 'Return', 'Rejected'];
@@ -109,14 +97,36 @@ export default function ProductFindingLogPage() {
   const [activeTab, setActiveTab] = useState('product');
 
   // ── Per-tab rows ──────────────────────────────────────────────────────────
-  const [pRows, setPRows] = useState(() => typeof window !== 'undefined' ? readLS(STORAGE.product) : []);
-  const [fRows, setFRows] = useState(() => typeof window !== 'undefined' ? readLS(STORAGE.finding) : []);
+  const [pRows, setPRows] = useState([]);
+  const [fRows, setFRows] = useState([]);
+  const [loadingP, setLoadingP] = useState(true);
+  const [loadingF, setLoadingF] = useState(true);
 
   const rows    = activeTab === 'product' ? pRows : fRows;
-  const setRows = (next) => {
-    if (activeTab === 'product') { setPRows(next); writeLS(STORAGE.product, next); }
-    else                         { setFRows(next); writeLS(STORAGE.finding, next); }
-  };
+
+  const fetchProductRows = useCallback(async () => {
+    setLoadingP(true);
+    try {
+      const res = await fetch('/api/product-transactions?page_size=500');
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      setPRows(Array.isArray(data?.data?.results ?? data?.results ?? data?.data) ? (data?.data?.results ?? data?.results ?? data?.data) : []);
+    } catch { /* non-fatal */ } finally { setLoadingP(false); }
+  }, []);
+
+  const fetchFindingRows = useCallback(async () => {
+    setLoadingF(true);
+    try {
+      const res = await fetch('/api/finding-transactions?page_size=500');
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      setFRows(Array.isArray(data?.data?.results ?? data?.results ?? data?.data) ? (data?.data?.results ?? data?.results ?? data?.data) : []);
+    } catch { /* non-fatal */ } finally { setLoadingF(false); }
+  }, []);
+
+  useEffect(() => { fetchProductRows(); fetchFindingRows(); }, [fetchProductRows, fetchFindingRows]);
+
+  const fetchRows = activeTab === 'product' ? fetchProductRows : fetchFindingRows;
 
   // ── Per-tab visible columns ───────────────────────────────────────────────
   const [pVisibleCols, setPVisibleCols] = useState(() => new Set(PRODUCT_COLUMNS.map((c) => c.id)));
@@ -186,24 +196,48 @@ export default function ProductFindingLogPage() {
   }, [rows, filters, activeTab]);
 
   // ── Add entry ─────────────────────────────────────────────────────────────
-  const handleAdd = () => {
+  const handleAdd = async () => {
     if (activeTab === 'product') {
       if (!pAddForm.masterSku?.trim() && !pAddForm.finalSku?.trim()) {
         showStatus('Master SKU or Final SKU is required.', 'error'); return;
       }
-      const entry = { ...pAddForm, id: Date.now(), amount: calcAmount(pAddForm.value, pAddForm.price) || pAddForm.amount };
-      setRows([entry, ...rows]);
+      const payload = {
+        txn_date: pAddForm.date, txn_type: (pAddForm.receivedIssued || '').toLowerCase(),
+        inventory_type: pAddForm.inventoryType, master_sku: pAddForm.masterSku, designer_sku: pAddForm.designerSku,
+        final_sku: pAddForm.finalSku, metal: pAddForm.metal, value: pAddForm.value || 0, unit: pAddForm.unit,
+        location: pAddForm.location, wip: pAddForm.wip || 0, total_in_demand: pAddForm.totalInDemand || 0,
+        price: pAddForm.price || 0, amount: calcAmount(pAddForm.value, pAddForm.price) || pAddForm.amount || 0,
+        received_from: pAddForm.receivedFrom, issued_to: pAddForm.issuedTo, remark: pAddForm.remark,
+        activity_status: pAddForm.activityStatus,
+      };
+      try {
+        const res = await fetch('/api/product-transactions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        if (!res.ok) throw new Error(`Error ${res.status}`);
+        setAddOpen(false); setPAddForm(productEmpty());
+        await fetchProductRows(); showStatus('Entry added.');
+      } catch (err) { showStatus(err.message || 'Add failed', 'error'); }
     } else {
       if (!fAddForm.findingCode?.trim()) { showStatus('Finding Code is required.', 'error'); return; }
-      const entry = { ...fAddForm, id: Date.now(), amount: calcAmount(fAddForm.qty, fAddForm.price) || fAddForm.amount };
-      setRows([entry, ...rows]);
+      const payload = {
+        txn_date: fAddForm.date, txn_type: (fAddForm.receivedIssued || '').toLowerCase(),
+        inventory_type: fAddForm.inventoryType, finding_code: fAddForm.findingCode, die_number: fAddForm.dieNumber,
+        size: fAddForm.size, material: fAddForm.metal, stage: fAddForm.stage, qty: fAddForm.qty || 0,
+        weight: fAddForm.weight || 0, dead_weight: fAddForm.deadWeight || 0,
+        price: fAddForm.price || 0, amount: calcAmount(fAddForm.qty, fAddForm.price) || fAddForm.amount || 0,
+        received_from: fAddForm.receivedFrom, issued_to: fAddForm.issuedTo, remark: fAddForm.remark,
+        activity_status: fAddForm.activityStatus,
+      };
+      try {
+        const res = await fetch('/api/finding-transactions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        if (!res.ok) throw new Error(`Error ${res.status}`);
+        setAddOpen(false); setFAddForm(findingEmpty());
+        await fetchFindingRows(); showStatus('Entry added.');
+      } catch (err) { showStatus(err.message || 'Add failed', 'error'); }
     }
-    setAddOpen(false);
-    showStatus('Entry added.');
   };
 
   // ── Edit helpers ──────────────────────────────────────────────────────────
-  const getF = (row, key) => editBuffer[row.id]?.[key] !== undefined ? editBuffer[row.id][key] : (row[key] ?? '');
+  const getF = (row, key) => editBuffer[row.id]?.[key] !== undefined ? editBuffer[row.id][key] : rowVal(row, key);
   const setEF = (id, key, val) => {
     if (!editingIds.has(id)) return;
     setEditBuffer((prev) => {
@@ -230,24 +264,64 @@ export default function ProductFindingLogPage() {
     setEditBuffer(buf); setEditingIds(new Set(selectedIds));
   };
   const cancelEdit = () => { setEditBuffer({}); setEditingIds(new Set()); };
-  const saveEdits = () => {
-    const next = rows.map((r) => editingIds.has(r.id) ? { ...r, ...editBuffer[r.id] } : r);
-    setRows(next); setEditBuffer({}); setEditingIds(new Set()); setSelectedIds(new Set());
-    showStatus('Changes saved.');
+  const saveEdits = async () => {
+    try {
+      const endpoint = activeTab === 'product' ? 'product-transactions' : 'finding-transactions';
+      for (const id of Array.from(editingIds)) {
+        const buf = editBuffer[id];
+        if (!buf) continue;
+        let payload;
+        if (activeTab === 'product') {
+          payload = {
+            txn_date: buf.date ?? buf.txn_date, txn_type: (buf.receivedIssued ?? buf.txn_type ?? '').toLowerCase(),
+            inventory_type: buf.inventoryType ?? buf.inventory_type, master_sku: buf.masterSku ?? buf.master_sku,
+            designer_sku: buf.designerSku ?? buf.designer_sku, final_sku: buf.finalSku ?? buf.final_sku,
+            metal: buf.metal, value: buf.value ?? 0, unit: buf.unit, location: buf.location,
+            wip: buf.wip ?? 0, total_in_demand: buf.totalInDemand ?? buf.total_in_demand ?? 0,
+            price: buf.price ?? 0, amount: buf.amount ?? 0,
+            received_from: buf.receivedFrom ?? buf.received_from, issued_to: buf.issuedTo ?? buf.issued_to,
+            remark: buf.remark, activity_status: buf.activityStatus ?? buf.activity_status,
+          };
+        } else {
+          payload = {
+            txn_date: buf.date ?? buf.txn_date, txn_type: (buf.receivedIssued ?? buf.txn_type ?? '').toLowerCase(),
+            inventory_type: buf.inventoryType ?? buf.inventory_type,
+            finding_code: buf.findingCode ?? buf.finding_code, die_number: buf.dieNumber ?? buf.die_number,
+            size: buf.size, material: buf.metal, stage: buf.stage, qty: buf.qty ?? 0,
+            weight: buf.weight ?? 0, dead_weight: buf.deadWeight ?? buf.dead_weight ?? 0,
+            price: buf.price ?? 0, amount: buf.amount ?? 0,
+            received_from: buf.receivedFrom ?? buf.received_from, issued_to: buf.issuedTo ?? buf.issued_to,
+            remark: buf.remark, activity_status: buf.activityStatus ?? buf.activity_status,
+          };
+        }
+        await fetch(`/api/${endpoint}/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+      }
+      setEditBuffer({}); setEditingIds(new Set()); setSelectedIds(new Set());
+      await fetchRows();
+      showStatus('Changes saved.');
+    } catch (err) { showStatus(err.message || 'Save failed', 'error'); }
   };
 
   // ── Delete ────────────────────────────────────────────────────────────────
-  const deleteRow = (id) => {
-    setRows(rows.filter((r) => r.id !== id));
-    setSelectedIds((p) => { const n = new Set(p); n.delete(id); return n; });
-    showStatus('Entry deleted.');
+  const deleteRow = async (id) => {
+    const endpoint = activeTab === 'product' ? 'product-transactions' : 'finding-transactions';
+    try {
+      const res = await fetch(`/api/${endpoint}/${id}`, { method: 'DELETE' });
+      if (!res.ok && res.status !== 204) throw new Error(`Error ${res.status}`);
+      if (activeTab === 'product') setPRows((p) => p.filter((r) => r.id !== id));
+      else setFRows((p) => p.filter((r) => r.id !== id));
+      setSelectedIds((p) => { const n = new Set(p); n.delete(id); return n; });
+      showStatus('Entry deleted.');
+    } catch (err) { showStatus(err.message || 'Delete failed', 'error'); }
   };
-  const deleteSelected = () => {
+  const deleteSelected = async () => {
     if (!selectedIds.size) return;
     const count = selectedIds.size;
-    setRows(rows.filter((r) => !selectedIds.has(r.id)));
-    setSelectedIds(new Set());
-    showStatus(`${count} entries deleted.`);
+    const endpoint = activeTab === 'product' ? 'product-transactions' : 'finding-transactions';
+    try {
+      for (const id of Array.from(selectedIds)) { await fetch(`/api/${endpoint}/${id}`, { method: 'DELETE' }); }
+      await fetchRows(); setSelectedIds(new Set()); showStatus(`${count} entries deleted.`);
+    } catch (err) { showStatus(err.message || 'Delete failed', 'error'); }
   };
 
   // ── Select ────────────────────────────────────────────────────────────────
@@ -264,9 +338,12 @@ export default function ProductFindingLogPage() {
 
   // ── Print ─────────────────────────────────────────────────────────────────
   const handlePrint = () => {
+    const fieldMapPrint = activeTab === 'product'
+      ? { date: 'txn_date', receivedIssued: 'txn_type', inventoryType: 'inventory_type', masterSku: 'master_sku', designerSku: 'designer_sku', finalSku: 'final_sku', totalInDemand: 'total_in_demand', receivedFrom: 'received_from', issuedTo: 'issued_to', activityStatus: 'activity_status' }
+      : { date: 'txn_date', receivedIssued: 'txn_type', inventoryType: 'inventory_type', findingCode: 'finding_code', dieNumber: 'die_number', deadWeight: 'dead_weight', receivedFrom: 'received_from', issuedTo: 'issued_to', activityStatus: 'activity_status' };
     const headers = COLUMNS.filter((c) => visibleColumns.has(c.id) && c.id !== 'action' && c.id !== 'sno').map((c) => `<th>${c.label}</th>`).join('');
     const rowsHtml = filteredRows.map((r, i) => {
-      const cells = COLUMNS.filter((c) => visibleColumns.has(c.id) && c.id !== 'action' && c.id !== 'sno').map((c) => `<td>${r[c.id] ?? ''}</td>`).join('');
+      const cells = COLUMNS.filter((c) => visibleColumns.has(c.id) && c.id !== 'action' && c.id !== 'sno').map((c) => { const k = fieldMapPrint[c.id] || c.id; return `<td>${r[k] ?? r[c.id] ?? ''}</td>`; }).join('');
       return `<tr><td>${i + 1}</td>${cells}</tr>`;
     }).join('');
     const title = activeTab === 'product' ? 'Product Inventory Log' : 'Finding Inventory Log';

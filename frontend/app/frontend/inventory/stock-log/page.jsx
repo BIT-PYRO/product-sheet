@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, Pencil, Plus, Printer, Trash2, X } from 'lucide-react';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
@@ -11,20 +11,6 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-
-// ── Storage ────────────────────────────────────────────────────────────────
-const STORAGE_KEY = 'inventory_stock_log_v1';
-
-function readLS() {
-  try {
-    const d = localStorage.getItem(STORAGE_KEY);
-    return d ? JSON.parse(d) : [];
-  } catch { return []; }
-}
-
-function writeLS(value) {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(value)); } catch {}
-}
 
 // ── Constants ──────────────────────────────────────────────────────────────
 const INVENTORY_TYPES = ['Tools', 'Machines', 'Others'];
@@ -73,11 +59,21 @@ const emptyEntry = () => ({
 
 // ── Component ──────────────────────────────────────────────────────────────
 export default function StockLogPage() {
-  // Load rows lazily from localStorage (only on client)
-  const [rows, setRows] = useState(() => {
-    if (typeof window === 'undefined') return [];
-    return readLS();
-  });
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchRows = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch('/api/stock-transactions?page_size=500');
+      if (!res.ok) throw new Error(`Error ${res.status}`);
+      const data = await res.json();
+      const results = data?.data?.results ?? data?.results ?? data?.data ?? [];
+      setRows(Array.isArray(results) ? results : []);
+    } catch { /* non-fatal */ } finally { setLoading(false); }
+  }, []);
+
+  useEffect(() => { fetchRows(); }, [fetchRows]);
 
   const [status, setStatus]     = useState('');
   const [statusType, setStatusType] = useState('success');
@@ -118,16 +114,23 @@ export default function StockLogPage() {
   const filteredRows = useMemo(() => {
     const s = fSearch.trim().toLowerCase();
     return rows.filter((r) => {
-      if (s && !['stockName','particulars','receivedFrom','issuedTo','location'].some(
-        (k) => String(r[k] || '').toLowerCase().includes(s)
+      const itemName = r.item_name || r.stockName || '';
+      const receivedFrom = r.received_from || r.receivedFrom || '';
+      const issuedTo = r.issued_to || r.issuedTo || '';
+      const inventoryType = r.inventory_type || r.inventoryType || '';
+      const activityStatus = r.activity_status || r.activityStatus || '';
+      const receivedIssued = r.txn_type || r.receivedIssued || '';
+      const txnDate = r.txn_date || r.date || '';
+      if (s && ![itemName, r.particulars||'', receivedFrom, issuedTo, r.location||''].some(
+        (v) => v.toLowerCase().includes(s)
       )) return false;
-      if (fReceivedFrom && !String(r.receivedFrom||'').toLowerCase().includes(fReceivedFrom.toLowerCase())) return false;
-      if (fIssuedTo     && !String(r.issuedTo||'').toLowerCase().includes(fIssuedTo.toLowerCase())) return false;
-      if (fType   && r.inventoryType  !== fType)   return false;
-      if (fStatus && r.activityStatus !== fStatus) return false;
-      if (fRI     && r.receivedIssued !== fRI)     return false;
-      if (fDateFrom && r.date < fDateFrom) return false;
-      if (fDateTo   && r.date > fDateTo)   return false;
+      if (fReceivedFrom && !receivedFrom.toLowerCase().includes(fReceivedFrom.toLowerCase())) return false;
+      if (fIssuedTo     && !issuedTo.toLowerCase().includes(fIssuedTo.toLowerCase())) return false;
+      if (fType   && inventoryType  !== fType)   return false;
+      if (fStatus && activityStatus !== fStatus) return false;
+      if (fRI     && receivedIssued.toLowerCase() !== fRI.toLowerCase()) return false;
+      if (fDateFrom && txnDate < fDateFrom) return false;
+      if (fDateTo   && txnDate > fDateTo)   return false;
       return true;
     });
   }, [rows, fSearch, fReceivedFrom, fIssuedTo, fType, fStatus, fRI, fDateFrom, fDateTo]);
@@ -141,21 +144,39 @@ export default function StockLogPage() {
   const hasFilter = fSearch || fReceivedFrom || fIssuedTo || fType || fStatus || fRI || fDateFrom || fDateTo;
 
   // ── Add entry ────────────────────────────────────────────────────────────
-  const handleAdd = () => {
+  const handleAdd = async () => {
     if (!addForm.stockName.trim()) { showStatus('Stock Name is required.', 'error'); return; }
-    const entry = {
-      ...addForm,
-      id: Date.now(),
-      amount: calcAmount(addForm.qty, addForm.price) || addForm.amount,
+    const payload = {
+      txn_date: addForm.date,
+      inventory_type: addForm.inventoryType,
+      txn_type: (addForm.receivedIssued || '').toLowerCase(),
+      item_name: addForm.stockName,
+      particulars: addForm.particulars,
+      qty: addForm.qty || 0,
+      qty_unit: addForm.qtyUnit,
+      weight: addForm.weight || 0,
+      weight_unit: addForm.weightUnit,
+      location: addForm.location,
+      price: addForm.price || 0,
+      amount: calcAmount(addForm.qty, addForm.price) || addForm.amount || 0,
+      received_from: addForm.receivedFrom,
+      issued_to: addForm.issuedTo,
+      activity_status: addForm.activityStatus,
     };
-    const next = [entry, ...rows];
-    setRows(next); writeLS(next);
-    setAddOpen(false);
-    showStatus('Entry added.');
+    try {
+      const res = await fetch('/api/stock-transactions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+      if (!res.ok) throw new Error(`Error ${res.status}`);
+      setAddOpen(false);
+      setAddForm(emptyEntry());
+      await fetchRows();
+      showStatus('Entry added.');
+    } catch (err) { showStatus(err.message || 'Add failed', 'error'); }
   };
 
   // ── Edit helpers ─────────────────────────────────────────────────────────
-  const getF = (row, key) => editBuffer[row.id]?.[key] !== undefined ? editBuffer[row.id][key] : (row[key] ?? '');
+  const FIELD_MAP = { date: 'txn_date', inventoryType: 'inventory_type', receivedIssued: 'txn_type', stockName: 'item_name', qtyUnit: 'qty_unit', weightUnit: 'weight_unit', receivedFrom: 'received_from', issuedTo: 'issued_to', activityStatus: 'activity_status' };
+  const rowVal = (row, key) => { const apiKey = FIELD_MAP[key] || key; return row[apiKey] !== undefined ? row[apiKey] : (row[key] ?? ''); };
+  const getF = (row, key) => editBuffer[row.id]?.[key] !== undefined ? editBuffer[row.id][key] : rowVal(row, key);
   const setF = (id, key, val) => {
     if (!editingIds.has(id)) return;
     setEditBuffer((prev) => {
@@ -182,26 +203,57 @@ export default function StockLogPage() {
 
   const cancelEdit = () => { setEditBuffer({}); setEditingIds(new Set()); };
 
-  const saveEdits = () => {
-    const next = rows.map((r) => editingIds.has(r.id) ? { ...r, ...editBuffer[r.id] } : r);
-    setRows(next); writeLS(next);
-    setEditBuffer({}); setEditingIds(new Set()); setSelectedIds(new Set());
-    showStatus('Changes saved.');
+  const saveEdits = async () => {
+    try {
+      for (const id of Array.from(editingIds)) {
+        const buf = editBuffer[id];
+        if (!buf) continue;
+        const payload = {
+          txn_date: buf.date ?? buf.txn_date,
+          inventory_type: buf.inventoryType ?? buf.inventory_type,
+          txn_type: (buf.receivedIssued ?? buf.txn_type ?? '').toLowerCase(),
+          item_name: buf.stockName ?? buf.item_name,
+          particulars: buf.particulars,
+          qty: buf.qty ?? 0,
+          qty_unit: buf.qtyUnit ?? buf.qty_unit,
+          weight: buf.weight ?? 0,
+          weight_unit: buf.weightUnit ?? buf.weight_unit,
+          location: buf.location,
+          price: buf.price ?? 0,
+          amount: buf.amount ?? 0,
+          received_from: buf.receivedFrom ?? buf.received_from,
+          issued_to: buf.issuedTo ?? buf.issued_to,
+          activity_status: buf.activityStatus ?? buf.activity_status,
+        };
+        await fetch(`/api/stock-transactions/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+      }
+      setEditBuffer({}); setEditingIds(new Set()); setSelectedIds(new Set());
+      await fetchRows();
+      showStatus('Changes saved.');
+    } catch (err) { showStatus(err.message || 'Save failed', 'error'); }
   };
 
   // ── Delete ───────────────────────────────────────────────────────────────
-  const deleteRow = (id) => {
-    const next = rows.filter((r) => r.id !== id);
-    setRows(next); writeLS(next);
-    setSelectedIds((prev) => { const n = new Set(prev); n.delete(id); return n; });
-    showStatus('Entry deleted.');
+  const deleteRow = async (id) => {
+    try {
+      const res = await fetch(`/api/stock-transactions/${id}`, { method: 'DELETE' });
+      if (!res.ok && res.status !== 204) throw new Error(`Error ${res.status}`);
+      setRows((prev) => prev.filter((r) => r.id !== id));
+      setSelectedIds((prev) => { const n = new Set(prev); n.delete(id); return n; });
+      showStatus('Entry deleted.');
+    } catch (err) { showStatus(err.message || 'Delete failed', 'error'); }
   };
 
-  const deleteSelected = () => {
+  const deleteSelected = async () => {
     if (selectedIds.size === 0) return;
-    const next = rows.filter((r) => !selectedIds.has(r.id));
-    setRows(next); writeLS(next); setSelectedIds(new Set());
-    showStatus(`${selectedIds.size} entries deleted.`);
+    try {
+      for (const id of Array.from(selectedIds)) {
+        await fetch(`/api/stock-transactions/${id}`, { method: 'DELETE' });
+      }
+      await fetchRows();
+      setSelectedIds(new Set());
+      showStatus(`${selectedIds.size} entries deleted.`);
+    } catch (err) { showStatus(err.message || 'Delete failed', 'error'); }
   };
 
   // ── Select all ───────────────────────────────────────────────────────────
@@ -226,9 +278,10 @@ export default function StockLogPage() {
 
   // ── Print ────────────────────────────────────────────────────────────────
   const handlePrint = () => {
+    const fieldMap = { date: 'txn_date', inventoryType: 'inventory_type', receivedIssued: 'txn_type', stockName: 'item_name', qtyUnit: 'qty_unit', weightUnit: 'weight_unit', receivedFrom: 'received_from', issuedTo: 'issued_to', activityStatus: 'activity_status' };
     const headers = LOG_COLUMNS.filter((c) => visibleColumns.has(c.id) && c.id !== 'action' && c.id !== 'sno').map((c) => `<th>${c.label}</th>`).join('');
     const rowsHtml = filteredRows.map((r, i) => {
-      const cells = LOG_COLUMNS.filter((c) => visibleColumns.has(c.id) && c.id !== 'action' && c.id !== 'sno').map((c) => `<td>${r[c.id] ?? ''}</td>`).join('');
+      const cells = LOG_COLUMNS.filter((c) => visibleColumns.has(c.id) && c.id !== 'action' && c.id !== 'sno').map((c) => { const k = fieldMap[c.id] || c.id; return `<td>${r[k] ?? r[c.id] ?? ''}</td>`; }).join('');
       return `<tr><td>${i+1}</td>${cells}</tr>`;
     }).join('');
     const w = window.open('', '_blank');

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, Pencil, Plus, Printer, RefreshCw, Trash2, X } from 'lucide-react';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
@@ -18,8 +18,6 @@ import CreatableFilterPopover from '@/components/creatable-filter-popover';
 import MultiselectFilterPopover from '@/components/multiselect-filter-popover';
 import { EnrolWorkforceForm } from '@/app/frontend/enrol-workforce/page';
 
-const STORAGE_KEY = 'inventory_tools_v1';
-const TOOL_ISSUE_REQUESTS_KEY = 'tool_issue_requests_v1';
 const TOOLS_COLUMNS = [
   { id: 'sno', label: 'S. No.' },
   { id: 'toolName', label: 'Tool name' },
@@ -30,36 +28,6 @@ const TOOLS_COLUMNS = [
   { id: 'location', label: 'Location' },
   { id: 'action', label: 'Action' },
 ];
-
-const createToolRow = (id) => ({
-  id,
-  toolName: '',
-  particulars: '',
-  department: '',
-  quantity: '',
-  unit: '',
-  location: '',
-});
-
-const normalizeToolRow = (row, id) => {
-  const safeRow = row && typeof row === 'object' ? row : {};
-  return {
-    ...createToolRow(id),
-    ...safeRow,
-    id,
-    toolName: String(safeRow.toolName ?? ''),
-    particulars: String(safeRow.particulars ?? ''),
-    department: String(safeRow.department ?? ''),
-    quantity: String(safeRow.quantity ?? ''),
-    unit: String(safeRow.unit ?? ''),
-    location: String(safeRow.location ?? ''),
-  };
-};
-
-const isEmptyToolRow = (row) => {
-  return [row.toolName, row.particulars, row.department, row.quantity, row.unit, row.location]
-    .every((value) => String(value ?? '').trim() === '');
-};
 
 export default function ToolsInventoryPage() {
   const { canExport } = useSheetPermissions('inventory');
@@ -92,42 +60,31 @@ export default function ToolsInventoryPage() {
   const [requestDetailsOpen, setRequestDetailsOpen] = useState(false);
   const [activeRequestId, setActiveRequestId] = useState(null);
   const [issueRequests, setIssueRequests] = useState([]);
-  const [issueRequestsReady, setIssueRequestsReady] = useState(false);
+  const [issueRequestsLoading, setIssueRequestsLoading] = useState(false); // eslint-disable-line no-unused-vars
   const [issueForm, setIssueForm] = useState({ toolId: '', quantity: '', issuedTo: '', issuedBy: '', reason: '', referenceId: '' });
   const [workforceMembers, setWorkforceMembers] = useState([]);
   const [enrollWorkforceOpen, setEnrollWorkforceOpen] = useState(false);
 
-  const loadRows = () => {
+  const loadRows = useCallback(async () => {
     setLoading(true);
     try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (!stored) {
-        setRows([]);
-        setSelectedIds(new Set());
-        return;
-      }
-      const parsed = JSON.parse(stored);
-      if (!Array.isArray(parsed) || parsed.length === 0) {
-        setRows([]);
-        setSelectedIds(new Set());
-        return;
-      }
-      const normalizedRows = parsed.map((row, index) => normalizeToolRow(row, index + 1));
-      const filteredRows = normalizedRows.filter((row) => !isEmptyToolRow(row));
-      setRows(filteredRows.map((row, index) => ({ ...row, id: index + 1 })));
+      const res = await fetch('/api/tools?page_size=500');
+      if (!res.ok) throw new Error(`Error ${res.status}`);
+      const data = await res.json();
+      const results = data?.data?.results ?? data?.results ?? data?.data ?? [];
+      setRows(Array.isArray(results) ? results : []);
       setSelectedIds(new Set());
+      setEditBuffer({});
+      setEditingRowIds(new Set());
       setStatus('Tools inventory refreshed.');
-    } catch {
-      setStatus('Unable to refresh saved tools data.');
+    } catch (err) {
+      setStatus(err.message || 'Unable to load tools.');
     } finally {
       setLoading(false);
     }
-  };
-
-  useEffect(() => {
-    loadRows();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => { loadRows(); }, [loadRows]);
 
   useEffect(() => {
     fetch('/api/workforce?page_size=200')
@@ -143,74 +100,47 @@ export default function ToolsInventoryPage() {
       .catch(() => {});
   };
 
-  useEffect(() => {
+  const loadIssueRequests = useCallback(async () => {
     try {
-      const stored = localStorage.getItem(TOOL_ISSUE_REQUESTS_KEY);
-      if (!stored) return;
-      const parsed = JSON.parse(stored);
-      if (Array.isArray(parsed)) setIssueRequests(parsed);
-    } catch {
-      // Ignore malformed local data.
-    } finally {
-      setIssueRequestsReady(true);
-    }
+      const res = await fetch('/api/issue-requests?inventory_type=tools&page_size=200');
+      if (!res.ok) return;
+      const data = await res.json();
+      const results = data?.data?.results ?? data?.results ?? data?.data ?? [];
+      setIssueRequests(Array.isArray(results) ? results : []);
+    } catch { /* non-fatal */ }
   }, []);
 
-  useEffect(() => {
-    if (!issueRequestsReady) return;
-    localStorage.setItem(TOOL_ISSUE_REQUESTS_KEY, JSON.stringify(issueRequests));
-  }, [issueRequests, issueRequestsReady]);
+  useEffect(() => { loadIssueRequests(); }, [loadIssueRequests]);
 
   const updateRow = (id, key, nextValue) => {
     if (!editingRowIds.has(id)) return;
-    setEditBuffer((prev) => ({
-      ...prev,
-      [id]: {
-        ...(prev[id] || normalizeToolRow(rows.find((row) => row.id === id), id)),
-        [key]: nextValue,
-      },
-    }));
+    setEditBuffer((prev) => ({ ...prev, [id]: { ...(prev[id] || {}), [key]: nextValue } }));
   };
 
   const openAddToolDialog = () => {
-    setAddToolForm({
-      toolName: '',
-      particulars: '',
-      department: '',
-      quantity: '',
-      unit: 'PCS',
-      location: '',
-    });
+    setAddToolForm({ toolName: '', particulars: '', department: '', quantity: '', unit: 'PCS', location: '' });
     setIsAddToolOpen(true);
   };
 
-  const handleAddTool = () => {
-    if (!String(addToolForm.toolName || '').trim()) {
-      setStatus('Tool name is required.');
-      return;
-    }
-
-    const nextRow = normalizeToolRow(
-      {
-        toolName: addToolForm.toolName,
-        particulars: addToolForm.particulars,
-        department: addToolForm.department,
-        quantity: addToolForm.quantity,
-        unit: addToolForm.unit,
-        location: addToolForm.location,
-      },
-      rows.length + 1
-    );
-
-    setRows((prev) => [...prev, nextRow]);
-    setIsAddToolOpen(false);
-    setStatus('Tool added. Click Save to persist.');
+  const handleAddTool = async () => {
+    if (!String(addToolForm.toolName || '').trim()) { setStatus('Tool name is required.'); return; }
+    try {
+      const res = await fetch('/api/tools', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tool_name: addToolForm.toolName, particulars: addToolForm.particulars, department: addToolForm.department, quantity: addToolForm.quantity || 0, unit: addToolForm.unit, location: addToolForm.location }),
+      });
+      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e?.message || 'Failed to create tool'); }
+      setIsAddToolOpen(false);
+      await loadRows();
+      setStatus('Tool added.');
+    } catch (err) { setStatus(err.message || 'Failed to add tool'); }
   };
 
   const filteredRows = useMemo(() => {
     const search = searchTerm.trim().toLowerCase();
     return rows.filter((row) => {
-      const matchesSearch = !search || [row.toolName, row.particulars, row.department, row.location].some((v) => String(v || '').toLowerCase().includes(search));
+      const matchesSearch = !search || [row.tool_name || row.toolName, row.particulars, row.department, row.location].some((v) => String(v || '').toLowerCase().includes(search));
       const matchesDepartment = !filterDepartment || filterDepartment.length === 0 || filterDepartment.some(dept => String(row.department || '').toLowerCase().includes(String(dept).toLowerCase()));
       const matchesUnit = !filterUnit || filterUnit.length === 0 || filterUnit.some(unit => String(row.unit || '').toLowerCase().includes(String(unit).toLowerCase()));
       return matchesSearch && matchesDepartment && matchesUnit;
@@ -232,7 +162,7 @@ export default function ToolsInventoryPage() {
   const selectedRows = rows.filter((r) => selectedIds.has(r.id));
   const visibleTableColumnCount = 1 + TOOLS_COLUMNS.filter((column) => visibleColumns.has(column.id)).length;
   const pendingIssueRequests = issueRequests.filter((r) => r.status === 'pending');
-  const sortedIssueRequests = [...issueRequests].sort((a, b) => new Date(b.requestedAt) - new Date(a.requestedAt));
+  const sortedIssueRequests = [...issueRequests].sort((a, b) => new Date(b.requested_at || b.requestedAt || 0) - new Date(a.requested_at || a.requestedAt || 0));
   const activeRequest = issueRequests.find((r) => r.id === activeRequestId) || null;
 
   function toggleSelectAll() {
@@ -270,7 +200,7 @@ export default function ToolsInventoryPage() {
     const ids = new Set(selectedRows.map((row) => row.id));
     const buffer = {};
     selectedRows.forEach((row) => {
-      buffer[row.id] = { ...normalizeToolRow(row, row.id) };
+      buffer[row.id] = { tool_name: row.tool_name ?? '', particulars: row.particulars ?? '', department: row.department ?? '', quantity: row.quantity ?? '', unit: row.unit ?? '', location: row.location ?? '' };
     });
     setEditingRowIds(ids);
     setEditBuffer(buffer);
@@ -283,19 +213,21 @@ export default function ToolsInventoryPage() {
     setStatus('Edit canceled.');
   }
 
-  function handleSaveEdit() {
+  async function handleSaveEdit() {
     const ids = Array.from(editingRowIds);
     if (ids.length === 0) return;
-    setRows((prev) =>
-      prev.map((row) => {
-        if (!editingRowIds.has(row.id)) return row;
-        const edited = editBuffer[row.id];
-        return edited ? { ...normalizeToolRow(edited, row.id), id: row.id } : row;
-      })
-    );
-    setEditingRowIds(new Set());
-    setEditBuffer({});
-    setStatus(`Saved ${ids.length} row${ids.length !== 1 ? 's' : ''}. Click Save to persist.`);
+    try {
+      await Promise.all(
+        Object.entries(editBuffer).map(async ([id, fields]) => {
+          const res = await fetch(`/api/tools/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(fields) });
+          if (!res.ok) throw new Error(`Error saving tool ${id}`);
+        })
+      );
+      setEditingRowIds(new Set());
+      setEditBuffer({});
+      await loadRows();
+      setStatus(`Saved ${ids.length} row${ids.length !== 1 ? 's' : ''}.`);
+    } catch (err) { setStatus(err.message || 'Failed to save edits'); }
   }
 
   function getRowValue(row, key) {
@@ -341,7 +273,7 @@ export default function ToolsInventoryPage() {
   }
 
   function toolName(row) {
-    return row?.toolName ? row.toolName : `Tool #${row?.id ?? ''}`;
+    return row?.tool_name || row?.toolName || `Tool #${row?.id ?? ''}`;
   }
 
   function openIssuePopup() {
@@ -354,79 +286,79 @@ export default function ToolsInventoryPage() {
     setReceiveOpen(true);
   }
 
-  function createReceiveRequest() {
+  async function createReceiveRequest() {
     const toolIdNum = Number(receiveForm.toolId);
     const quantityNum = Number(receiveForm.quantity);
     const employeeVendorName = receiveForm.employeeVendorName.trim();
     const referenceId = receiveForm.referenceId.trim();
-    const price = receiveForm.price.trim();
     if (!toolIdNum) { setStatus('Please select a tool.'); return; }
     if (!Number.isFinite(quantityNum) || quantityNum <= 0) { setStatus('Please enter a valid quantity greater than 0.'); return; }
     if (!employeeVendorName) { setStatus('Please enter employee/vendor name.'); return; }
     if (!referenceId) { setStatus('Please enter a reference ID.'); return; }
-    if (!price) { setStatus('Please enter a price.'); return; }
     const row = rows.find((r) => r.id === toolIdNum);
-    setRows((prev) => prev.map((r) => r.id === toolIdNum ? { ...r, quantity: String(Number(r.quantity || 0) + quantityNum) } : r));
-    setReceiveOpen(false);
-    setStatus(`Received ${quantityNum} of ${toolName(row)} from ${employeeVendorName}.`);
+    try {
+      const newQty = Number(row?.quantity || 0) + quantityNum;
+      await fetch(`/api/tools/${toolIdNum}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ quantity: newQty }) });
+      await fetch('/api/stock-transactions', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ txn_date: new Date().toISOString().slice(0, 10), inventory_type: 'tools', txn_type: 'received', item_name: row?.tool_name || toolName(row), particulars: row?.particulars || '', qty: quantityNum, qty_unit: row?.unit || 'PCS', location: row?.location || '', price: receiveForm.price || 0, amount: quantityNum * Number(receiveForm.price || 0), received_from: employeeVendorName, remark: referenceId, tool: toolIdNum }),
+      });
+      setReceiveOpen(false);
+      setReceiveForm({ toolId: '', quantity: '', employeeVendorName: '', referenceId: '', price: '', usage: 'new' });
+      await loadRows();
+      setStatus(`Received ${quantityNum} of ${toolName(row)} from ${employeeVendorName}.`);
+    } catch (err) { setStatus(err.message || 'Receive failed'); }
   }
 
-  function createIssueRequest() {
+  async function createIssueRequest() {
     const toolIdNum = Number(issueForm.toolId);
     const quantityNum = Number(issueForm.quantity);
     const issuedTo = issueForm.issuedTo.trim();
     const issuedBy = issueForm.issuedBy.trim();
     const reason = issueForm.reason.trim();
-    if (!toolIdNum) {
-      setStatus('Please select a tool row for request.');
-      return;
-    }
-    if (!Number.isFinite(quantityNum) || quantityNum <= 0) {
-      setStatus('Please enter a valid quantity greater than 0.');
-      return;
-    }
-    if (!issuedTo) {
-      setStatus('Please enter issued to.');
-      return;
-    }
-    if (!issuedBy) {
-      setStatus('Please enter issued by.');
-      return;
-    }
-    if (!reason) {
-      setStatus('Please enter reason of issue.');
-      return;
-    }
+    if (!toolIdNum) { setStatus('Please select a tool row for request.'); return; }
+    if (!Number.isFinite(quantityNum) || quantityNum <= 0) { setStatus('Please enter a valid quantity greater than 0.'); return; }
+    if (!issuedTo) { setStatus('Please enter issued to.'); return; }
+    if (!issuedBy) { setStatus('Please enter issued by.'); return; }
+    if (!reason) { setStatus('Please enter reason of issue.'); return; }
     const row = rows.find((r) => r.id === toolIdNum);
-    const currentStock = Number(row?.quantity ?? 0);
-    if (currentStock > 0 && quantityNum > currentStock) {
-      setStatus(`Warning: Requested quantity (${quantityNum}) exceeds current stock (${currentStock}).`);
-    }
-    const request = {
-      id: Date.now(),
-      toolId: toolIdNum,
-      toolName: toolName(row),
-      quantity: quantityNum,
-      issuedTo,
-      issuedBy,
-      reason,
-      referenceId: issueForm.referenceId.trim(),
-      status: 'pending',
-      requestedAt: new Date().toISOString(),
-      reviewedAt: null,
-    };
-    setIssueRequests((prev) => [request, ...prev]);
-    setIssueOpen(false);
-    setStatus('Issue request created.');
+    try {
+      const res = await fetch('/api/issue-requests', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ inventory_type: 'tools', item_id: toolIdNum, item_name: row?.tool_name || toolName(row), quantity: quantityNum, issued_to: issuedTo, issued_by: issuedBy, reason, reference_id: issueForm.referenceId.trim() }),
+      });
+      if (!res.ok) throw new Error(`Error ${res.status}`);
+      setIssueOpen(false);
+      setIssueForm({ toolId: '', quantity: '', issuedTo: '', issuedBy: '', reason: '', referenceId: '' });
+      await loadIssueRequests();
+      setStatus('Issue request created.');
+    } catch (err) { setStatus(err.message || 'Failed to create issue request'); }
   }
 
-  function reviewIssueRequest(nextStatus) {
+  async function reviewIssueRequest(nextStatus) {
     if (!activeRequest) return;
-    setIssueRequests((prev) =>
-      prev.map((r) => (r.id === activeRequest.id ? { ...r, status: nextStatus, reviewedAt: new Date().toISOString() } : r))
-    );
-    setRequestDetailsOpen(false);
-    setStatus(`Request ${nextStatus}.`);
+    try {
+      const res = await fetch(`/api/issue-requests/${activeRequest.id}/review`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: nextStatus }),
+      });
+      if (!res.ok) throw new Error(`Error ${res.status}`);
+      if (nextStatus === 'approved') {
+        const row = rows.find((r) => r.id === activeRequest.item_id);
+        if (row) {
+          const newQty = Math.max(0, Number(row.quantity || 0) - Number(activeRequest.quantity || 0));
+          await fetch(`/api/tools/${row.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ quantity: newQty }) });
+          await fetch('/api/stock-transactions', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ txn_date: new Date().toISOString().slice(0, 10), inventory_type: 'tools', txn_type: 'issued', item_name: activeRequest.item_name, qty: activeRequest.quantity, qty_unit: row?.unit || 'PCS', issued_to: activeRequest.issued_to, remark: activeRequest.reason, tool: row.id }),
+          });
+          await loadRows();
+        }
+      }
+      setRequestDetailsOpen(false);
+      await loadIssueRequests();
+      setStatus(`Request ${nextStatus}.`);
+    } catch (err) { setStatus(err.message || 'Review failed'); }
   }
 
   function relativeTime(iso) {
@@ -447,8 +379,8 @@ export default function ToolsInventoryPage() {
       setStatus('Popup blocked. Please allow popups to print voucher.');
       return;
     }
-    const requestedAt = request.requestedAt ? new Date(request.requestedAt).toLocaleString() : '-';
-    const reviewedAt = request.reviewedAt ? new Date(request.reviewedAt).toLocaleString() : '-';
+    const requestedAt = (request.requested_at || request.requestedAt) ? new Date(request.requested_at || request.requestedAt).toLocaleString() : '-';
+    const reviewedAt = (request.reviewed_at || request.reviewedAt) ? new Date(request.reviewed_at || request.reviewedAt).toLocaleString() : '-';
     const html = `
       <html><head><title>Tool Issue Voucher</title>
       <style>
@@ -461,11 +393,11 @@ export default function ToolsInventoryPage() {
       <h1>Tool Issue Voucher</h1>
       <table>
       <tr><th>Request ID</th><td>${request.id}</td></tr>
-      <tr><th>Reference ID</th><td>${request.referenceId || '-'}</td></tr>
-      <tr><th>Tool</th><td>${request.toolName}</td></tr>
+      <tr><th>Reference ID</th><td>${request.reference_id || request.referenceId || '-'}</td></tr>
+      <tr><th>Tool</th><td>${request.item_name || request.toolName || '-'}</td></tr>
       <tr><th>Quantity</th><td>${request.quantity}</td></tr>
-      <tr><th>Issued To</th><td>${request.issuedTo}</td></tr>
-      <tr><th>Issued By</th><td>${request.issuedBy || '-'}</td></tr>
+      <tr><th>Issued To</th><td>${request.issued_to || request.issuedTo || '-'}</td></tr>
+      <tr><th>Issued By</th><td>${request.issued_by || request.issuedBy || '-'}</td></tr>
       <tr><th>Reason of Issue</th><td>${request.reason || '-'}</td></tr>
       <tr><th>Status</th><td><span class="badge">${String(request.status || '').toUpperCase()}</span></td></tr>
       <tr><th>Requested At</th><td>${requestedAt}</td></tr>
@@ -479,22 +411,14 @@ export default function ToolsInventoryPage() {
     opened.print();
   }
 
-  const deleteRow = (id) => {
-    setRows((prev) => {
-      const next = prev.filter((row) => row.id !== id);
-      if (next.length === 0) return [];
-      return next.map((row, index) => ({ ...row, id: index + 1 }));
-    });
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      next.delete(id);
-      return next;
-    });
-  };
-
-  const saveRows = () => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(rows));
-    setStatus('Tools inventory saved locally.');
+  const deleteRow = async (id) => {
+    try {
+      const res = await fetch(`/api/tools/${id}`, { method: 'DELETE' });
+      if (!res.ok && res.status !== 204) throw new Error(`Error ${res.status}`);
+      setRows((prev) => prev.filter((row) => row.id !== id));
+      setSelectedIds((prev) => { const n = new Set(prev); n.delete(id); return n; });
+      setStatus('Tool deleted.');
+    } catch (err) { setStatus(err.message || 'Delete failed'); }
   };
 
   return (
@@ -540,9 +464,6 @@ export default function ToolsInventoryPage() {
           <Button onClick={openAddToolDialog} variant="outline" className="border-trust-blue text-trust-blue hover:bg-trust-blue/10 rounded-full px-4 text-sm h-8">
             <Plus className="w-3.5 h-3.5 mr-1.5" />
             New Tool
-          </Button>
-          <Button onClick={saveRows} variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8">
-            Save
           </Button>
           <Button onClick={openReceivePopup} variant="outline" className="border-emerald-500 text-emerald-600 hover:bg-emerald-50 rounded-full px-4 text-sm h-8">
             Receive Tool
@@ -657,8 +578,8 @@ export default function ToolsInventoryPage() {
                     {visibleColumns.has('toolName') && <td className="px-4 py-2.5">
                       <input
                         type="text"
-                        value={getRowValue(row, 'toolName')}
-                        onChange={(e) => updateRow(row.id, 'toolName', e.target.value)}
+                        value={getRowValue(row, 'tool_name')}
+                        onChange={(e) => updateRow(row.id, 'tool_name', e.target.value)}
                         placeholder="Enter tool name"
                         readOnly={!editingRowIds.has(row.id)}
                         className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue read-only:bg-gray-50 read-only:text-cool-gray"
@@ -770,7 +691,7 @@ export default function ToolsInventoryPage() {
                           className="w-full rounded-xl px-4 py-3 text-left transition hover:bg-[#F9FAFB] cursor-pointer"
                         >
                           <p className="truncate text-sm text-midnight-ink">
-                            <span className="font-semibold">{req.issuedTo}</span> requested <span className="font-semibold">{req.quantity}</span> of {req.toolName}
+                            <span className="font-semibold">{req.issued_to || req.issuedTo}</span> requested <span className="font-semibold">{req.quantity}</span> of {req.item_name || req.toolName}
                           </p>
                           <p className="mt-0.5 truncate text-xs text-cool-gray">Reason: {req.reason || '-'}</p>
                           <div className="mt-1 flex items-center gap-2">
@@ -785,7 +706,7 @@ export default function ToolsInventoryPage() {
                                 Print
                               </button>
                             )}
-                            <span className="text-[11px] text-cool-gray">{relativeTime(req.requestedAt)}</span>
+                            <span className="text-[11px] text-cool-gray">{relativeTime(req.requested_at || req.requestedAt)}</span>
                           </div>
                         </div>
                       );
@@ -1138,11 +1059,11 @@ export default function ToolsInventoryPage() {
           </DialogHeader>
           {activeRequest ? (
             <div className="mt-2 grid grid-cols-1 gap-3">
-              {activeRequest.referenceId && <div className="text-sm text-midnight-ink"><span className="font-semibold">Reference ID:</span> {activeRequest.referenceId}</div>}
-              <div className="text-sm text-midnight-ink"><span className="font-semibold">Tool:</span> {activeRequest.toolName}</div>
+              {activeRequest.reference_id && <div className="text-sm text-midnight-ink"><span className="font-semibold">Reference ID:</span> {activeRequest.reference_id || activeRequest.referenceId}</div>}
+              <div className="text-sm text-midnight-ink"><span className="font-semibold">Tool:</span> {activeRequest.item_name || activeRequest.toolName}</div>
               <div className="text-sm text-midnight-ink"><span className="font-semibold">Quantity:</span> {activeRequest.quantity}</div>
-              <div className="text-sm text-midnight-ink"><span className="font-semibold">Issued To:</span> {activeRequest.issuedTo}</div>
-              <div className="text-sm text-midnight-ink"><span className="font-semibold">Issued By:</span> {activeRequest.issuedBy || '-'}</div>
+              <div className="text-sm text-midnight-ink"><span className="font-semibold">Issued To:</span> {activeRequest.issued_to || activeRequest.issuedTo}</div>
+              <div className="text-sm text-midnight-ink"><span className="font-semibold">Issued By:</span> {activeRequest.issued_by || activeRequest.issuedBy || '-'}</div>
               <div className="text-sm text-midnight-ink"><span className="font-semibold">Reason:</span> {activeRequest.reason || '-'}</div>
               <div className="text-sm text-midnight-ink"><span className="font-semibold">Status:</span> {activeRequest.status.toUpperCase()}</div>
             </div>
