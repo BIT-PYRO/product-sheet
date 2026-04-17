@@ -49,8 +49,12 @@ def _activate_ready_batch_vouchers(batch_id):
 		for v in all_vouchers:
 			if v.approval_status != VoucherApprovalStatus.AWAITING:
 				continue
-			# Predecessors: vouchers that send goods TO this voucher's dept_from
-			preds = output_map.get(v.dept_from, [])
+			# Predecessors: vouchers that send goods TO this voucher's dept_from.
+			# Filter by same voucher_type so New and Re-Issue chains activate independently.
+			preds = [
+				p for p in output_map.get(v.dept_from, [])
+				if p.voucher_type == v.voucher_type
+			]
 			if preds and all(p.approval_status in _DONE_STATUSES for p in preds):
 				# ΓöÇΓöÇ Propagate actual received qty from predecessors ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 				# Only the pieces that physically arrived at this stage should move
@@ -105,18 +109,20 @@ def _propagate_qty_to_active_downstream(batch_id, voucher):
 	active_statuses = {VoucherApprovalStatus.IN_PROCESS, VoucherApprovalStatus.PARTIALLY_COMPLETED}
 
 	# Direct downstream: vouchers whose dept_from == this voucher's dept_to that
-	# are already active (not awaiting ΓÇö those are handled by _activate_ready_batch_vouchers)
+	# are already active (not awaiting — those are handled by _activate_ready_batch_vouchers).
+	# Filter by same voucher_type so Re-Issue completions don't top-up New chain vouchers.
 	downstream = list(Job.objects.filter(
 		batch_id=batch_id,
 		dept_from=voucher.dept_to,
+		voucher_type=voucher.voucher_type,
 		approval_status__in=active_statuses,
 	))
 	if not downstream:
 		return
 
-	# Calculate total physically received so far across ALL predecessors feeding
-	# the downstream stage (dept_to == voucher.dept_to).
-	all_preds = list(Job.objects.filter(batch_id=batch_id, dept_to=voucher.dept_to))
+	# Calculate total physically received so far across predecessors of the same
+	# voucher_type feeding the downstream stage (dept_to == voucher.dept_to).
+	all_preds = list(Job.objects.filter(batch_id=batch_id, dept_to=voucher.dept_to, voucher_type=voucher.voucher_type))
 	total_received: dict = {}
 	for pred in all_preds:
 		for event in (pred.received_rows or []):
@@ -315,13 +321,18 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 			if not dept_to:
 				continue
 
-			# Sum already-received quantities per SKU from all previous receive events
+			# Sum already-received AND already-lost quantities per SKU from all
+			# previous receive events.  Loss pieces leave the pipeline at this
+			# stage (they go into a Re-Issue chain), so they must not count as WIP.
 			already_rcvd: dict = {}
+			already_lost: dict = {}
 			for event in (job.received_rows or []):
 				for row in (event.get('rows') or []):
 					s = resolve_sku(str(row.get('sku', '') or '').strip())
 					qty = int(float(row.get('received_qty', 0) or 0))
+					loss = int(float(row.get('loss_qty', 0) or 0))
 					already_rcvd[s] = already_rcvd.get(s, 0) + qty
+					already_lost[s] = already_lost.get(s, 0) + loss
 
 			for row in (job.material_rows or []):
 				raw_sku = str(row.get('sku', '') or '').strip()
@@ -330,7 +341,9 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 				master_sku = resolve_sku(raw_sku)
 				issued = int(float(row.get('issued_qty', 0) or 0))
 				received = already_rcvd.get(master_sku, 0)
-				remaining = max(0, issued - received)
+				lost = already_lost.get(master_sku, 0)
+				# WIP = issued − received − lost  (lost pieces are handled by Re-Issue chain)
+				remaining = max(0, issued - received - lost)
 				if remaining == 0:
 					continue
 				wip.setdefault(master_sku, {})
@@ -821,6 +834,376 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 			response_data['warnings'] = warnings
 		return Response({'success': True, 'data': response_data})
 
+	@action(detail=True, methods=['post'], url_path='send-for-next-stage')
+	def send_for_next_stage(self, request, pk=None):
+		"""
+		Single combined action replacing "Update Inventory", "Partial Update",
+		and "Re-Issue for Improvement".
+
+		Request body:
+		  {
+		    "rows": [{"sku": "X", "received_qty": 2, "loss_qty": 3}],
+		    "received_by": "Kartik",
+		    "note": "optional"
+		  }
+
+		Per-SKU math (loss pieces auto-become reissue pieces):
+		  reissue_qty  = loss_qty
+		  carry_fwd    = received_qty   (pieces going forward)
+		  must satisfy: received_qty + loss_qty <= issued_qty - already_received
+
+		Status determination (per SKU):
+		  if sum(received + loss) == issued  → fully accounted for
+		  if any SKU still has pieces unaccounted → PARTIALLY_COMPLETED
+
+		If ANY loss_qty > 0  → full reissue pipeline triggered for those pieces
+		  (current voucher marked REPLACED; Re-Issue chain created for all stages)
+		If NO loss at all    → standard receive:
+		  fully accounted    → COMPLETED
+		  not yet            → PARTIALLY_COMPLETED
+		"""
+		from collections import OrderedDict as _OD
+		from products.models import Product as _Product
+
+		with transaction.atomic():
+			voucher = Job.objects.select_for_update().get(pk=pk)
+
+			if voucher.approval_status not in [
+				VoucherApprovalStatus.IN_PROCESS,
+				VoucherApprovalStatus.PARTIALLY_COMPLETED,
+			]:
+				if voucher.approval_status == VoucherApprovalStatus.PENDING and not voucher.batch_id:
+					voucher.approval_status = VoucherApprovalStatus.IN_PROCESS
+					voucher.save(update_fields=['approval_status'])
+					_deduct_source_current_stock(voucher)
+				else:
+					raise ValidationError({
+						'approval_status': (
+							f'Cannot process a voucher with status "{voucher.approval_status}". '
+							'Only in-process or partially complete vouchers can be sent for the next stage.'
+						)
+					})
+
+			rows_data = request.data.get('rows', [])
+			received_by = str(request.data.get('received_by', '') or '').strip()
+			note = str(request.data.get('note', '') or '').strip()
+
+			if not rows_data:
+				raise ValidationError({'rows': 'At least one row is required.'})
+
+			# ── Build existing received totals ──────────────────────────────────
+			already_received: dict = {}
+			for event in (voucher.received_rows or []):
+				for prev_row in (event.get('rows') or []):
+					key = str(prev_row.get('sku', '') or '').strip().upper()
+					already_received[key] = (
+						already_received.get(key, 0)
+						+ int(float(prev_row.get('received_qty', 0) or 0))
+					)
+
+			# ── Build issued map ────────────────────────────────────────────────
+			issued_map: dict = {}
+			for mr in (voucher.material_rows or []):
+				key = str(mr.get('sku', '') or '').strip().upper()
+				issued_map[key] = issued_map.get(key, 0) + int(float(mr.get('issued_qty', 0) or 0))
+
+			# ── Parse & validate incoming rows ──────────────────────────────────
+			parsed: list = []
+			any_loss = False
+			warnings_list: list = []
+
+			for row_data in rows_data:
+				sku = str(row_data.get('sku', '') or '').strip()
+				if not sku:
+					continue
+				sku_key = sku.upper()
+				received_qty = max(0, int(float(row_data.get('received_qty', 0) or 0)))
+				loss_qty = max(0, int(float(row_data.get('loss_qty', 0) or 0)))
+				# loss auto-becomes reissue
+				reissue_qty = loss_qty
+
+				issued = issued_map.get(sku_key, 0)
+				already = already_received.get(sku_key, 0)
+				remaining = issued - already
+
+				total_this = received_qty + loss_qty
+				if total_this > remaining:
+					raise ValidationError({
+						'rows': (
+							f'SKU {sku_key}: received_qty ({received_qty}) + loss_qty ({loss_qty}) = {total_this} '
+							f'exceeds remaining pieces ({remaining} = issued {issued} − already received {already}).'
+						)
+					})
+
+				if loss_qty > 0:
+					any_loss = True
+
+				parsed.append({
+					'sku': sku,
+					'sku_key': sku_key,
+					'received_qty': received_qty,
+					'loss_qty': loss_qty,
+					'reissue_qty': reissue_qty,
+					'issued': issued,
+					'already': already,
+					'remaining': remaining,
+				})
+
+			if not parsed:
+				raise ValidationError({'rows': 'No valid rows provided.'})
+
+			# ── Check if fully accounted ────────────────────────────────────────
+			# A SKU is fully accounted when:
+			#   already_received + received_qty + loss_qty >= issued_qty
+			all_accounted = all(
+				p['already'] + p['received_qty'] + p['loss_qty'] >= p['issued']
+				for p in parsed
+			)
+
+			to_stage = DEPT_TO_STOCK_STAGE.get(voucher.dept_to, '')
+			now = timezone.now()
+
+			# ── Credit received pieces to dest-stage current stock ──────────────
+			total_received_this_batch = 0
+			for p in parsed:
+				if p['received_qty'] <= 0:
+					continue
+				product = _Product.objects.filter(
+					Q(master_sku__iexact=p['sku'])
+				).first() or voucher.product
+				if not product:
+					warnings_list.append(
+						f"SKU {p['sku']}: no matching product found — inventory NOT updated for this row."
+					)
+					continue
+				if to_stage:
+					InventoryTransaction.objects.create(
+						product=product,
+						txn_type='adjust',
+						quantity=p['received_qty'],
+						stage=to_stage,
+						stock_type='current',
+						remark=(
+							f"Received {p['received_qty']} pcs — {voucher.voucher_no} "
+							f"({voucher.dept_from} → {voucher.dept_to})"
+						),
+					)
+				total_received_this_batch += p['received_qty']
+
+			# ── Append receive event ────────────────────────────────────────────
+			# ── Log receive event (includes loss_qty for accurate WIP) ────────
+			receive_log = list(voucher.received_rows or [])
+			receive_log.append({
+				'timestamp': now.isoformat(),
+				'received_by': received_by,
+				'is_partial': not all_accounted,
+				'total_received': total_received_this_batch,
+				'rows': [
+					{
+						'sku': p['sku'],
+						'received_qty': str(p['received_qty']),
+						'loss_qty': str(p['loss_qty']),
+					}
+					for p in parsed
+				],
+			})
+			voucher.received_rows = receive_log
+			voucher.received_by = received_by
+
+			# ── Set voucher status ──────────────────────────────────────────────
+			# "received" = pieces that physically arrived at the destination.
+			# Loss pieces are tracked separately; they go into Re-Issue chain.
+			# COMPLETED   → all issued pieces actually received (no loss)
+			# PARTIALLY_COMPLETE → anything else (loss present OR pieces still outstanding)
+			if not any_loss and all_accounted:
+				voucher.approval_status = VoucherApprovalStatus.COMPLETED
+				voucher.status = 'completed'
+				voucher.save(update_fields=['approval_status', 'status', 'received_rows', 'received_by'])
+			else:
+				# Loss present OR still outstanding pieces → PARTIALLY_COMPLETE.
+				# The voucher stays open so the remaining in-transit pieces can
+				# be received in a later submission.
+				voucher.approval_status = VoucherApprovalStatus.PARTIALLY_COMPLETED
+				voucher.save(update_fields=['approval_status', 'received_rows', 'received_by'])
+
+			# ── Always activate downstream carry-forward chain ──────────────────
+			# Received pieces must flow immediately to the next awaiting stage
+			# regardless of whether there is loss or not.
+			if voucher.batch_id:
+				_activate_ready_batch_vouchers(voucher.batch_id)
+				_propagate_qty_to_active_downstream(voucher.batch_id, voucher)
+
+			if not any_loss:
+				# Pure receive (no losses) — done after activating downstream.
+				serializer = JobSerializer(voucher)
+				response_data = {**serializer.data}
+				if warnings_list:
+					response_data['warnings'] = warnings_list
+				return Response({'success': True, 'data': response_data})
+
+			# ── Reissue path (losses present) ───────────────────────────────────
+
+			# Build reissue_map from loss quantities
+			reissue_map: dict = {
+				p['sku_key']: p['reissue_qty']
+				for p in parsed
+				if p['reissue_qty'] > 0
+			}
+
+			# Carry-forward = received qty per SKU (already credited above)
+			carry_forward: dict = {
+				p['sku_key']: p['received_qty']
+				for p in parsed
+				if p['received_qty'] > 0
+			}
+
+			batch_id = voucher.batch_id
+			dept_order_map = {key: idx for idx, (key, _) in enumerate(DEPARTMENT_PIPELINE)}
+			v_dest_idx = dept_order_map.get(voucher.dept_to, 999)
+			dept_label_map = {key: lbl for key, lbl in DEPARTMENT_PIPELINE}
+
+			all_batch = list(
+				Job.objects.filter(batch_id=batch_id).order_by('department_order', 'id')
+				if batch_id else []
+			)
+
+			# ── Return reissue pieces to origin stage (inventory credit) ─────────
+			transition_map: dict = _OD()
+			for bv in sorted(all_batch, key=lambda x: (dept_order_map.get(x.dept_to, 999), x.id)):
+				key = (bv.dept_from, bv.dept_to)
+				if key not in transition_map:
+					transition_map[key] = bv
+				elif bv.voucher_type == 'New' and transition_map[key].voucher_type != 'New':
+					transition_map[key] = bv
+
+			stages_to_redo = sorted(
+				transition_map.values(),
+				key=lambda bv: dept_order_map.get(bv.dept_to, 999)
+			)
+
+			if stages_to_redo:
+				origin_stage = DEPT_TO_STOCK_STAGE.get(stages_to_redo[0].dept_from, '')
+				if origin_stage:
+					prod_cache: dict = {}
+					for sku_key, ri_qty in reissue_map.items():
+						if ri_qty <= 0:
+							continue
+						prod = prod_cache.get(sku_key) or (
+							_Product.objects.filter(Q(master_sku__iexact=sku_key)).first()
+							or voucher.product
+						)
+						prod_cache[sku_key] = prod
+						if prod:
+							InventoryTransaction.objects.create(
+								product=prod,
+								txn_type='adjust',
+								quantity=ri_qty,
+								stage=origin_stage,
+								stock_type='current',
+								remark=(
+									f'{ri_qty} pcs returned to {stages_to_redo[0].dept_from} '
+									f'for re-issue of {voucher.voucher_no}'
+								),
+							)
+
+			# ── Create Re-Issue vouchers for ALL pipeline stages ─────────────────
+			last_voucher = Job.objects.filter(voucher_no__startswith='JJ-').order_by('-id').first()
+			counter = 1
+			if last_voucher and last_voucher.voucher_no:
+				try:
+					counter = int(last_voucher.voucher_no.split('-')[1]) + 1
+				except (ValueError, IndexError):
+					pass
+
+			new_vouchers = []
+			for stage_v in stages_to_redo:
+				new_material_rows = []
+				for mr in (stage_v.material_rows or []):
+					sku = str(mr.get('sku', '') or '').strip()
+					sku_key = sku.upper()
+					ri_qty = reissue_map.get(sku_key, 0)
+					if ri_qty <= 0:
+						continue
+					new_material_rows.append({
+						'sku': sku,
+						'category': mr.get('category', ''),
+						'metal': mr.get('metal', ''),
+						'issued_qty': str(ri_qty),
+						'unit1': mr.get('unit1', 'Pcs'),
+						'issued_weight': '',
+						'unit2': mr.get('unit2', ''),
+					})
+
+				if not new_material_rows:
+					continue
+
+				voucher_no_new = f'JJ-{str(counter).zfill(2)}'
+				counter += 1
+				from_label = dept_label_map.get(stage_v.dept_from, stage_v.dept_from)
+				to_label = dept_label_map.get(stage_v.dept_to, stage_v.dept_to)
+				notes_text = f'Re-Issue for Improvement of {voucher.voucher_no}.'
+				if note:
+					notes_text += f' {note}'
+
+				new_v = Job.objects.create(
+					title=f'RE-ISSUE {voucher_no_new} - {from_label} to {to_label}',
+					product=stage_v.product,
+					status='created',
+					voucher_no=voucher_no_new,
+					voucher_type='Re-Issue',
+					dept_from=stage_v.dept_from,
+					dept_to=stage_v.dept_to,
+					work_type=stage_v.work_type or voucher.work_type,
+					issued_to=stage_v.issued_to or voucher.issued_to,
+					issued_by=stage_v.issued_by or voucher.issued_by,
+					contact=stage_v.contact or voucher.contact,
+					approval_status=VoucherApprovalStatus.PENDING,
+					picklist_group=voucher.picklist_group,
+					batch_id=batch_id,
+					department_order=dept_order_map.get(stage_v.dept_to, 99),
+					material_rows=new_material_rows,
+					stone_rows=stage_v.stone_rows or [],
+					notes=notes_text,
+				)
+				new_vouchers.append(new_v)
+
+			# ── Auto-approve re-issue chain ──────────────────────────────────────
+			dest_depts_ri = {v.dept_to for v in new_vouchers}
+			for new_v in sorted(new_vouchers, key=lambda x: x.department_order):
+				is_root = new_v.dept_from not in dest_depts_ri
+				new_v.approval_status = (
+					VoucherApprovalStatus.IN_PROCESS if is_root
+					else VoucherApprovalStatus.AWAITING
+				)
+				new_v.approved_by = 'auto-approved (send-for-next-stage reissue)'
+				new_v.approved_at = now
+				new_v.save(update_fields=['approval_status', 'approved_by', 'approved_at'])
+				if is_root:
+					_deduct_source_current_stock(new_v)
+
+			# Downstream New chain was already activated above via
+			# _activate_ready_batch_vouchers before entering the reissue path.
+
+		total_carry_fwd = sum(carry_forward.values()) if any_loss else 0
+		serializer = JobSerializer(voucher)
+		response_data = {**serializer.data}
+		response_data['reissue_vouchers_created'] = len(new_vouchers) if any_loss else 0
+		response_data['carry_forward'] = carry_forward if any_loss else {}
+		if warnings_list:
+			response_data['warnings'] = warnings_list
+		return Response({
+			'success': True,
+			'message': (
+				(
+					f'{len(new_vouchers)} re-issue voucher(s) created for all pipeline stages. '
+					f'{total_carry_fwd} carry-forward piece(s) continue in the New voucher chain.'
+				) if any_loss else (
+					'Inventory updated successfully.'
+				)
+			),
+			'data': response_data,
+		})
+
 	@action(detail=True, methods=['get'], url_path='photo-guide')
 	def photo_guide(self, request, pk=None):
 		"""
@@ -1004,13 +1387,18 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 	def reissue_for_improvement(self, request, pk=None):
 		"""
 		Mark the current in-process (or partially complete) voucher as REPLACED and
-		create new Re-Issue type vouchers from the first pipeline stage up to and
-		including the current stage ΓÇö with the supplied reissue quantities.
+		create Re-Issue type vouchers for ALL pipeline stages — carrying the reissue qty
+		through the full pipeline from Die to Final Stock.
 
-		Full-destroy case: reissue_qty == issued_qty for each SKU.
-		Partial case: reissue_qty < issued_qty (some pieces already received before
-		  the accident). The partial receive is preserved; downstream vouchers
-		  already carrying those pieces continue uninterrupted.
+		Simultaneously the carry-forward pieces (issued − already_received − reissue_qty)
+		continue through the remaining downstream "New" vouchers so both chains run in
+		parallel:
+		  • Re-Issue chain (destroyed pcs): Die → … → Final Stock, 15 pcs
+		  • New carry-fwd chain (surviving pcs): picks up at the stage AFTER the destroyed
+		    voucher's destination and continues to Final Stock, 5 pcs
+
+		Full-destroy case: reissue_qty == issued_qty − already_received for each SKU.
+		Carry-forward = 0 → all downstream "New" AWAITING vouchers are marked Replaced.
 
 		Request body:
 		  { "rows": [{"sku": "AJE23", "reissue_qty": 10}], "note": "optional text" }
@@ -1018,6 +1406,8 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 		After creation the re-issue vouchers are auto-approved:
 		  - The first stage (root) becomes in_process immediately.
 		  - All later stages become awaiting (activated as each predecessor completes).
+		  - _activate_ready_batch_vouchers is called at the end so the carry-forward New
+		    downstream voucher is activated immediately with the correct carry-fwd qty.
 		"""
 		from collections import OrderedDict as _OD
 		from products.models import Product as _Product
@@ -1054,7 +1444,7 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 		if not reissue_map:
 			raise ValidationError({'rows': 'No valid reissue quantities provided.'})
 
-		# Validate reissue qty does not exceed remaining (issued ΓêÆ already received) per SKU
+		# Validate reissue qty does not exceed remaining (issued − already received) per SKU
 		already_received: dict = {}
 		for event in (voucher.received_rows or []):
 			for rr in (event.get('rows') or []):
@@ -1070,9 +1460,22 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 				raise ValidationError({
 					'rows': (
 						f'SKU {sku_key}: reissue_qty ({req_qty}) exceeds remaining pieces '
-						f'({remaining} = issued {issued} ΓêÆ already received {already}).'
+						f'({remaining} = issued {issued} − already received {already}).'
 					)
 				})
+
+		# Compute carry-forward qty per SKU: pieces that survived and continue downstream
+		carry_forward: dict = {}
+		for mr in (voucher.material_rows or []):
+			sku_key = str(mr.get('sku', '') or '').strip().upper()
+			if not sku_key:
+				continue
+			issued = int(float(mr.get('issued_qty', 0) or 0))
+			already = already_received.get(sku_key, 0)
+			reissue_qty = reissue_map.get(sku_key, 0)
+			cf = max(0, issued - already - reissue_qty)
+			if cf > 0:
+				carry_forward[sku_key] = cf
 
 		batch_id = voucher.batch_id
 		dept_order_map = {key: idx for idx, (key, _) in enumerate(DEPARTMENT_PIPELINE)}
@@ -1081,15 +1484,12 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 
 		all_batch = list(Job.objects.filter(batch_id=batch_id).order_by('department_order', 'id'))
 
-		# Collect unique (dept_from, dept_to) transitions up to and including the
-		# current voucher's destination stage.  Prefer 'New' templates over old
-		# re-issue ones so we always clone from the original pipeline definition.
+		# Collect unique (dept_from, dept_to) transitions for ALL pipeline stages.
+		# Prefer 'New' templates over old re-issue ones so we always clone from the
+		# original pipeline definition.
 		transition_map: dict = _OD()
 		for bv in sorted(all_batch, key=lambda x: (dept_order_map.get(x.dept_to, 999), x.id)):
 			key = (bv.dept_from, bv.dept_to)
-			dest_idx = dept_order_map.get(bv.dept_to, 999)
-			if dest_idx > v_dest_idx:
-				continue
 			if key not in transition_map:
 				transition_map[key] = bv
 			elif bv.voucher_type == 'New' and transition_map[key].voucher_type != 'New':
@@ -1229,7 +1629,7 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 					'rows': 'No re-issue vouchers could be created. Ensure the SKUs in the rows match those in the voucher.'
 				})
 
-			# ΓöÇΓöÇ Auto-approve: root ΓåÆ in_process, others ΓåÆ awaiting ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+			# ════ Auto-approve: root → in_process, others → awaiting ════
 			dest_depts_ri = {v.dept_to for v in new_vouchers}
 			for new_v in sorted(new_vouchers, key=lambda x: x.department_order):
 				is_root = new_v.dept_from not in dest_depts_ri
@@ -1243,17 +1643,90 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 				if is_root:
 					_deduct_source_current_stock(new_v)
 
+			# ════ Handle carry-forward pieces (e.g. 5 pcs that survived casting) ════
+			# These pieces have physically passed the destroyed stage and should
+			# continue through the downstream "New" vouchers.
+			dest_stage_key = DEPT_TO_STOCK_STAGE.get(voucher.dept_to, '')
+			if dest_stage_key:
+				# Credit carry-forward qty back to the current stage's output stock
+				# so the downstream New voucher's activation can deduct from it.
+				cf_product_cache: dict = {}
+				for sku_key, cf_qty in carry_forward.items():
+					if cf_qty <= 0:
+						continue
+					prod = cf_product_cache.get(sku_key)
+					if prod is None:
+						prod = _Product.objects.filter(
+							Q(master_sku__iexact=sku_key)
+						).first() or voucher.product
+						cf_product_cache[sku_key] = prod
+					if prod:
+						InventoryTransaction.objects.create(
+							product=prod,
+							txn_type='adjust',
+							quantity=cf_qty,
+							stage=dest_stage_key,
+							stock_type='current',
+							remark=(
+								f'{cf_qty} carry-forward pcs at {voucher.dept_to} '
+								f'continuing after re-issue of {voucher.voucher_no}'
+							),
+						)
+
+				# Record a synthetic receive event on the destroyed voucher covering
+				# ALL SKUs (carry-forward qty, or 0 for fully re-issued ones).
+				# This ensures _activate_ready_batch_vouchers sets the correct qty
+				# on the downstream New voucher — including zeroing out SKUs where
+				# all pieces were re-issued.
+				synthetic_rows = []
+				for mr in (voucher.material_rows or []):
+					sku_key = str(mr.get('sku', '') or '').strip().upper()
+					if not sku_key:
+						continue
+					cf_qty = carry_forward.get(sku_key, 0)
+					synthetic_rows.append({'sku': sku_key, 'received_qty': str(cf_qty)})
+
+				if synthetic_rows:
+					existing_received = list(voucher.received_rows or [])
+					existing_received.append({
+						'timestamp': now.isoformat(),
+						'received_by': 'system (carry-forward)',
+						'is_partial': False,
+						'rows': synthetic_rows,
+					})
+					voucher.received_rows = existing_received
+					voucher.save(update_fields=['received_rows'])
+
+			if not carry_forward:
+				# Full destruction — cancel all downstream "New" AWAITING vouchers
+				# (they have no pieces to carry forward). Mark as Replaced for audit trail.
+				Job.objects.filter(
+					batch_id=batch_id,
+					voucher_type='New',
+					approval_status=VoucherApprovalStatus.AWAITING,
+					department_order__gt=v_dest_idx,
+				).update(approval_status=VoucherApprovalStatus.REPLACED)
+
+			# ════ Activate carry-forward New chain and Re-Issue chain downstream ════
+			# This call respects voucher_type filtering (fixed above), so:
+			#  - New Filing activates using the synthetic receive event (carry-fwd pcs)
+			#  - Re-Issue Filing stays AWAITING until Re-Issue Casting completes
+			_activate_ready_batch_vouchers(batch_id)
+
+		total_carry_fwd = sum(carry_forward.values())
 		serializer = JobSerializer(new_vouchers, many=True)
 		return Response(
 			{
 				'success': True,
 				'message': (
-					f'{len(new_vouchers)} re-issue voucher(s) created and activated. '
-					f'Original voucher {voucher.voucher_no} is now marked as Replaced.'
+					f'{len(new_vouchers)} re-issue voucher(s) created for all pipeline stages. '
+					f'Original voucher {voucher.voucher_no} is now marked as Replaced. '
+					f'{total_carry_fwd} carry-forward piece(s) continue in the existing New voucher chain.'
 				),
 				'data': {
 					'replaced_voucher_no': voucher.voucher_no,
 					'replaced_voucher_id': voucher.id,
+					'carry_forward': carry_forward,
 					'new_vouchers': serializer.data,
 				},
 			},

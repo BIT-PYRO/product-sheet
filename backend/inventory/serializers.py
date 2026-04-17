@@ -34,13 +34,17 @@ class PicklistGroupSerializer(serializers.ModelSerializer):
     date = serializers.DateTimeField(source='uploaded_at', required=False)
     dateFormatted = serializers.SerializerMethodField()
     items = PicklistItemSerializer(many=True)
+    total_items = serializers.SerializerMethodField()
 
     class Meta:
         model = PicklistGroup
-        fields = ('id', 'db_id', 'number', 'name', 'uploadedBy', 'date', 'dateFormatted', 'items')
+        fields = ('id', 'db_id', 'number', 'name', 'uploadedBy', 'date', 'dateFormatted', 'total_items', 'items')
 
     def get_dateFormatted(self, obj):
         return obj.uploaded_at.astimezone().strftime('%Y-%m-%d %H:%M:%S')
+
+    def get_total_items(self, obj):
+        return obj.items.count()
 
     def _resolve_next_number(self, desired_number):
         if desired_number and not PicklistGroup.objects.filter(number=desired_number).exists():

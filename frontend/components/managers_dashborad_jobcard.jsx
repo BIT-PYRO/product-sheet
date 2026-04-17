@@ -28,7 +28,6 @@ import {
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
 import GlobalSearchBar from '@/components/global-search-bar';
 import { CreateJobModal } from '@/components/create-job-modal';
-import { CreateAllVouchersModal } from '@/components/create-all-vouchers-modal';
 import { SuggestedVouchersModal } from '@/components/suggested-vouchers-modal';
 import { NeededVouchersModal } from '@/components/needed-vouchers-modal';
 import { PendingVouchersModal } from '@/components/pending-vouchers-modal';
@@ -304,6 +303,22 @@ export default function ManagersDashboard() {
         const totalQty = materialRows.reduce((sum, r) => sum + (parseFloat(r.issued_qty) || 0), 0)
         const totalWeight = materialRows.reduce((sum, r) => sum + (parseFloat(r.issued_weight) || 0), 0)
 
+        // For partial vouchers, show remaining (issued - already received) on the card
+        let displayQty = totalQty
+        let displayWeight = totalWeight
+        if (approvalStatus === 'partially_complete') {
+          const receivedEvents = Array.isArray(job.received_rows) ? job.received_rows : []
+          let rxQty = 0, rxWeight = 0
+          for (const event of receivedEvents) {
+            for (const row of (event.rows || [])) {
+              rxQty += parseFloat(row.received_qty) || 0
+              rxWeight += parseFloat(row.received_weight) || 0
+            }
+          }
+          displayQty = Math.max(0, totalQty - rxQty)
+          displayWeight = Math.max(0, totalWeight - rxWeight)
+        }
+
         // Determine which column this voucher belongs to based on dept_to
         const targetColumn = DEPT_TO_COLUMN[job.dept_to] || 'Others';
 
@@ -313,8 +328,8 @@ export default function ManagersDashboard() {
           voucherType: job.voucher_type || 'New',
           name: job.issued_to || job.assignee_name || 'Unassigned',
           category: job.title,
-          qty: totalQty || job.quantity || '-',
-          weight: totalWeight || job.weight || '-',
+          qty: displayQty || job.quantity || '-',
+          weight: displayWeight || job.weight || '-',
           status: job.status,
           approvalStatus: approvalStatus,
           deptFrom: job.dept_from || '',
@@ -1206,7 +1221,7 @@ export default function ManagersDashboard() {
         mode="single-pipeline"
         onJobCreated={loadJobs}
       />
-      <CreateAllVouchersModal open={isCreateAllVouchersOpen} onOpenChange={setIsCreateAllVouchersOpen} onVouchersCreated={loadJobs} />
+      <CreateJobModal open={isCreateAllVouchersOpen} onOpenChange={setIsCreateAllVouchersOpen} mode="all" onJobCreated={loadJobs} />
       <SuggestedVouchersModal open={isSuggestedVouchersOpen} onOpenChange={setIsSuggestedVouchersOpen} suggestedItems={[]} onVouchersCreated={loadJobs} />
       <NeededVouchersModal open={isNeededVouchersOpen} onOpenChange={setIsNeededVouchersOpen} neededItems={[]} onVouchersCreated={loadJobs} />
 

@@ -13,7 +13,6 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { CreateJobModal } from '@/components/create-job-modal'
-import { CreateAllVouchersModal } from '@/components/create-all-vouchers-modal'
 import { SuggestedVouchersModal } from '@/components/suggested-vouchers-modal'
 import { NeededVouchersModal } from '@/components/needed-vouchers-modal'
 import { GenericJobModal } from '@/components/generic-job-modal'
@@ -4073,7 +4072,7 @@ function ProductSheetContent() {
         </div>
       )}
       </div>
-      <CreateAllVouchersModal open={isCreateAllVouchersOpen} onOpenChange={setIsCreateAllVouchersOpen} />
+      <CreateJobModal open={isCreateAllVouchersOpen} onOpenChange={setIsCreateAllVouchersOpen} mode="all" />
       <SuggestedVouchersModal open={isSuggestedVouchersOpen} onOpenChange={setIsSuggestedVouchersOpen} suggestedItems={[]} />
       <NeededVouchersModal open={isNeededVouchersOpen} onOpenChange={setIsNeededVouchersOpen} neededItems={[]} />
       <CreateJobModal 

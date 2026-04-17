@@ -23,7 +23,10 @@ function toIsoZ(date) {
 }
 
 function buildDateRange() {
-  const daysBack = Math.max(0, parseInt(process.env.PICKLIST_SYNC_DAYS_BACK || '1', 10));
+  // Default 7 days: if auto-sync misses a day, we still catch recent batches.
+  // Unify filters by batch printing date (not order creation date), so a wider
+  // window never double-counts — dedup by batch ID handles re-syncing.
+  const daysBack = Math.max(0, parseInt(process.env.PICKLIST_SYNC_DAYS_BACK || '7', 10));
   const now = new Date();
 
   // Work in UTC so the window is never clipped by the server's local timezone
@@ -152,36 +155,72 @@ function extractGroupFromObject(pl) {
  * normalised picklist groups: [{ externalId, name, date, items: [...] }]
  */
 function extractPicklistGroups(payload) {
-  // ── Unify-specific shape ──────────────────────────────────────────────────
+  // ── Unify-specific shape: one picklist per dispatch batch ──────────────────
   // { shop_id, period,
-  //   summary: [ { sku, title, total_quantity } ],   ← pre-aggregated per SKU
-  //   orders:  [ { id, created_at, items: [{sku, title, quantity}] } ] }
+  //   summary: [ { sku, title, total_quantity } ],   ← aggregate across all batches (ignored)
+  //   orders:  [ { id, created_at, batch_numbers: [{id, name}], items: [...] } ] }
   //
-  // ALWAYS prefer `summary` — it is already de-duplicated/aggregated and
-  // avoids double-counting when the date window spans multiple days.
-  // Fall back to merging individual `orders` only when summary is absent.
-  if (Array.isArray(payload?.summary) || Array.isArray(payload?.orders)) {
-    const latestDate = Array.isArray(payload?.orders)
-      ? (payload.orders.map((o) => o?.created_at).filter(Boolean).sort().pop() || null)
-      : null;
+  // We group orders by batch_numbers so each dispatch batch becomes its own
+  // picklist. The flat `summary` is intentionally ignored because it merges
+  // all batches into one, which is exactly what we want to avoid.
+  // Orders with no batch go into a shared "Unbatched" group.
+  if (Array.isArray(payload?.orders) && payload.orders.length > 0) {
+    const NO_BATCH_KEY = '__no_batch__';
+    const batchMap = new Map(); // batchKey → { externalId, name, date, rawItems[] }
 
-    // Prefer summary (already aggregated per SKU)
-    if (Array.isArray(payload?.summary) && payload.summary.length > 0) {
-      const items = payload.summary.map(extractItem).filter(Boolean);
-      if (items.length) {
-        return [{ externalId: null, name: null, date: latestDate, items }];
+    for (const order of payload.orders) {
+      const batches =
+        Array.isArray(order.batch_numbers) && order.batch_numbers.length > 0
+          ? order.batch_numbers
+          : [{ id: NO_BATCH_KEY, name: null }];
+
+      for (const batch of batches) {
+        const batchKey = String(batch.id ?? NO_BATCH_KEY);
+        if (!batchMap.has(batchKey)) {
+          batchMap.set(batchKey, {
+            externalId: batchKey !== NO_BATCH_KEY ? batchKey : null,
+            name: batch.name || null,
+            date: order.created_at || null,
+            rawItems: [],
+            nullSkuOrders: [], // orders whose items had no valid SKU
+          });
+        }
+        const entry = batchMap.get(batchKey);
+        // Track the latest order date within this batch
+        if (order.created_at && (!entry.date || order.created_at > entry.date)) {
+          entry.date = order.created_at;
+        }
+        const orderItems = Array.isArray(order.items) ? order.items : [];
+        let hasValidSku = false;
+        for (const item of orderItems) {
+          entry.rawItems.push(item);
+          if (item.sku) hasValidSku = true;
+        }
+        // Track orders where ALL items have no SKU (e.g. "box chain" with sku: null)
+        if (!hasValidSku && orderItems.length > 0) {
+          entry.nullSkuOrders.push({
+            order_number: order.order_number,
+            items: orderItems.map((i) => i.title || 'Unknown item'),
+          });
+        }
       }
     }
 
-    // Fall back: merge individual order lines (may inflate counts over wide windows)
-    if (Array.isArray(payload?.orders)) {
-      const allItems = payload.orders
-        .flatMap((order) => (Array.isArray(order?.items) ? order.items : []))
-        .map(extractItem)
-        .filter(Boolean);
-      if (allItems.length) {
-        return [{ externalId: null, name: null, date: latestDate, items: allItems }];
+    if (batchMap.size > 0) {
+      const groups = [];
+      for (const [, entry] of batchMap) {
+        const items = entry.rawItems.map(extractItem).filter(Boolean);
+        if (items.length) {
+          groups.push({
+            externalId: entry.externalId,
+            name: entry.name,
+            date: entry.date,
+            items,
+            nullSkuOrders: entry.nullSkuOrders || [],
+          });
+        }
       }
+      if (groups.length) return groups;
     }
   }
 
@@ -388,6 +427,9 @@ export async function POST(request) {
   //  process restart, causing duplicate saves after Render cold starts)
   const existingGroups = await getExistingPicklistGroups(request);
   const existingFingerprints = new Set(existingGroups.map(buildBackendFingerprint));
+  // Also track stored group IDs so we can skip a batch that was already saved
+  // even if its item fingerprint changed (e.g. duplicate SKUs merged differently).
+  const existingIds = new Set(existingGroups.map((g) => String(g?.id || '')).filter(Boolean));
 
   const nextNumber = existingGroups.length > 0
     ? Math.max(...existingGroups.map((g) => parsePositiveInt(g?.number ?? g?.id, 0))) + 1
@@ -403,8 +445,13 @@ export async function POST(request) {
     if (!merged.length) continue;
 
     const incomingFingerprint = buildIncomingFingerprint(merged);
+    // Compute the group ID early so we can check it against already-saved IDs
+    const shortHash = incomingFingerprint.length.toString(36) +
+      Math.abs(incomingFingerprint.split('').reduce((h, c) => (Math.imul(31, h) + c.charCodeAt(0)) | 0, 0)).toString(36);
+    const groupId = sanitizeLabel(group.externalId ? `ext-${group.externalId}` : `sync-${shortHash}`);
 
-    if (existingFingerprints.has(incomingFingerprint)) {
+    // Skip if this batch ID was already saved, or if identical content exists
+    if (existingIds.has(groupId) || existingFingerprints.has(incomingFingerprint)) {
       skippedGroups.push(group);
       continue;
     }
@@ -413,20 +460,30 @@ export async function POST(request) {
       ? new Date(group.date).toISOString()
       : new Date().toISOString();
 
-    const groupName = group.name
-      ? sanitizeLabel(group.name)
-      : `Auto-sync ${new Date(uploadedAt).toLocaleDateString(undefined, {
-          day: '2-digit',
-          month: 'short',
-          year: 'numeric',
-        })}`;
-
-    // Deterministic id: hash of fingerprint so re-syncing the same data is idempotent
-    const shortHash = incomingFingerprint.length.toString(36) +
-      Math.abs(incomingFingerprint.split('').reduce((h, c) => (Math.imul(31, h) + c.charCodeAt(0)) | 0, 0)).toString(36);
+    // Format batch name: "printed_AWB_batch_20260417_050512" → "Batch #118 · 17 Apr 2026"
+    let groupName;
+    if (group.name) {
+      const dateMatch = group.name.match(/(\d{8})/);
+      if (dateMatch) {
+        const raw = dateMatch[1];
+        const d = new Date(`${raw.slice(0, 4)}-${raw.slice(4, 6)}-${raw.slice(6, 8)}`);
+        const formatted = !isNaN(d)
+          ? d.toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' })
+          : raw;
+        groupName = group.externalId ? `Batch #${group.externalId} · ${formatted}` : `Batch ${formatted}`;
+      } else {
+        groupName = sanitizeLabel(group.name);
+      }
+    } else {
+      groupName = `Auto-sync ${new Date(uploadedAt).toLocaleDateString(undefined, {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+      })}`;
+    }
 
     const groupMeta = {
-      id: sanitizeLabel(group.externalId ? `ext-${group.externalId}` : `sync-${shortHash}`),
+      id: groupId,
       number: picklistNumber,
       uploadedBy: 'auto-sync',
       date: uploadedAt,
@@ -438,7 +495,7 @@ export async function POST(request) {
     try {
       savedGroup = await savePicklistGroup(request, groupMeta, merged);
       await savePicklistOrder(request, savedGroup);
-      savedGroups.push(savedGroup);
+      savedGroups.push({ ...savedGroup, nullSkuOrders: group.nullSkuOrders || [] });
       picklistNumber += 1;
     } catch (err) {
       return Response.json(
@@ -457,19 +514,26 @@ export async function POST(request) {
   }
 
   const totalItems = savedGroups.reduce((sum, g) => sum + g.items.length, 0);
+  // Collect all null-SKU orders across all saved groups so the caller can surface them
+  const allNullSkuOrders = savedGroups.flatMap((g) => g.nullSkuOrders || []);
 
   return Response.json({
     success: true,
     skipped: false,
-    message: `Synced ${savedGroups.length} picklist(s) · ${totalItems} item(s) total.`,
+    message: `Synced ${savedGroups.length} picklist(s) · ${totalItems} item(s) total.`
+      + (allNullSkuOrders.length
+        ? ` ⚠ ${allNullSkuOrders.length} order(s) had no valid SKU and were not added to the picklist.`
+        : ''),
     syncedPicklists: savedGroups.length,
     totalItems,
+    nullSkuOrders: allNullSkuOrders,
     picklistGroups: savedGroups.map((g) => ({
       id: g.id,
       number: g.number,
       name: g.name,
       date: g.date,
       itemCount: g.items.length,
+      skippedOrders: g.nullSkuOrders?.length || 0,
     })),
   });
 }
