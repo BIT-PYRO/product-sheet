@@ -12,8 +12,11 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import GlobalSearchBar from '@/components/global-search-bar';
+import DateTimeStamp from '@/components/date-time-stamp';
 import CreatableFilterPopover from '@/components/creatable-filter-popover';
 import MultiselectFilterPopover from '@/components/multiselect-filter-popover';
+import { EnrolWorkforceForm } from '@/app/frontend/enrol-workforce/page';
 
 const STORAGE_KEY = 'inventory_tools_v1';
 const TOOL_ISSUE_REQUESTS_KEY = 'tool_issue_requests_v1';
@@ -83,12 +86,16 @@ export default function ToolsInventoryPage() {
   const [visibleColumns, setVisibleColumns] = useState(new Set(TOOLS_COLUMNS.map((column) => column.id)));
 
   const [issueOpen, setIssueOpen] = useState(false);
+  const [receiveOpen, setReceiveOpen] = useState(false);
+  const [receiveForm, setReceiveForm] = useState({ toolId: '', quantity: '', employeeVendorName: '', referenceId: '', price: '', usage: 'new' });
   const [requestsPanelOpen, setRequestsPanelOpen] = useState(false);
   const [requestDetailsOpen, setRequestDetailsOpen] = useState(false);
   const [activeRequestId, setActiveRequestId] = useState(null);
   const [issueRequests, setIssueRequests] = useState([]);
   const [issueRequestsReady, setIssueRequestsReady] = useState(false);
-  const [issueForm, setIssueForm] = useState({ toolId: '', quantity: '', issuedTo: '', issuedBy: '', reason: '' });
+  const [issueForm, setIssueForm] = useState({ toolId: '', quantity: '', issuedTo: '', issuedBy: '', reason: '', referenceId: '' });
+  const [workforceMembers, setWorkforceMembers] = useState([]);
+  const [enrollWorkforceOpen, setEnrollWorkforceOpen] = useState(false);
 
   const loadRows = () => {
     setLoading(true);
@@ -121,6 +128,20 @@ export default function ToolsInventoryPage() {
     loadRows();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    fetch('/api/workforce?page_size=200')
+      .then((r) => r.json())
+      .then((d) => setWorkforceMembers(Array.isArray(d?.results) ? d.results : Array.isArray(d) ? d : []))
+      .catch(() => {});
+  }, []);
+
+  const refreshWorkforce = () => {
+    fetch('/api/workforce?page_size=200')
+      .then((r) => r.json())
+      .then((d) => setWorkforceMembers(Array.isArray(d?.results) ? d.results : Array.isArray(d) ? d : []))
+      .catch(() => {});
+  };
 
   useEffect(() => {
     try {
@@ -324,12 +345,30 @@ export default function ToolsInventoryPage() {
   }
 
   function openIssuePopup() {
-    if (selectedRows.length === 0) {
-      setStatus('Select at least one tool row to raise issue request.');
-      return;
-    }
-    setIssueForm({ toolId: String(selectedRows[0].id), quantity: '', issuedTo: '', issuedBy: '', reason: '' });
+    setIssueForm({ toolId: '', quantity: '', issuedTo: '', issuedBy: '', reason: '', referenceId: '' });
     setIssueOpen(true);
+  }
+
+  function openReceivePopup() {
+    setReceiveForm({ toolId: '', quantity: '', employeeVendorName: '', referenceId: '', price: '', usage: 'new' });
+    setReceiveOpen(true);
+  }
+
+  function createReceiveRequest() {
+    const toolIdNum = Number(receiveForm.toolId);
+    const quantityNum = Number(receiveForm.quantity);
+    const employeeVendorName = receiveForm.employeeVendorName.trim();
+    const referenceId = receiveForm.referenceId.trim();
+    const price = receiveForm.price.trim();
+    if (!toolIdNum) { setStatus('Please select a tool.'); return; }
+    if (!Number.isFinite(quantityNum) || quantityNum <= 0) { setStatus('Please enter a valid quantity greater than 0.'); return; }
+    if (!employeeVendorName) { setStatus('Please enter employee/vendor name.'); return; }
+    if (!referenceId) { setStatus('Please enter a reference ID.'); return; }
+    if (!price) { setStatus('Please enter a price.'); return; }
+    const row = rows.find((r) => r.id === toolIdNum);
+    setRows((prev) => prev.map((r) => r.id === toolIdNum ? { ...r, quantity: String(Number(r.quantity || 0) + quantityNum) } : r));
+    setReceiveOpen(false);
+    setStatus(`Received ${quantityNum} of ${toolName(row)} from ${employeeVendorName}.`);
   }
 
   function createIssueRequest() {
@@ -359,6 +398,10 @@ export default function ToolsInventoryPage() {
       return;
     }
     const row = rows.find((r) => r.id === toolIdNum);
+    const currentStock = Number(row?.quantity ?? 0);
+    if (currentStock > 0 && quantityNum > currentStock) {
+      setStatus(`Warning: Requested quantity (${quantityNum}) exceeds current stock (${currentStock}).`);
+    }
     const request = {
       id: Date.now(),
       toolId: toolIdNum,
@@ -367,6 +410,7 @@ export default function ToolsInventoryPage() {
       issuedTo,
       issuedBy,
       reason,
+      referenceId: issueForm.referenceId.trim(),
       status: 'pending',
       requestedAt: new Date().toISOString(),
       reviewedAt: null,
@@ -417,6 +461,7 @@ export default function ToolsInventoryPage() {
       <h1>Tool Issue Voucher</h1>
       <table>
       <tr><th>Request ID</th><td>${request.id}</td></tr>
+      <tr><th>Reference ID</th><td>${request.referenceId || '-'}</td></tr>
       <tr><th>Tool</th><td>${request.toolName}</td></tr>
       <tr><th>Quantity</th><td>${request.quantity}</td></tr>
       <tr><th>Issued To</th><td>${request.issuedTo}</td></tr>
@@ -460,12 +505,13 @@ export default function ToolsInventoryPage() {
             <MasterNavigationDrawer inHeader />
             <h1 className="text-xl font-bold tracking-tight text-midnight-ink">TOOLS INVENTORY</h1>
           </div>
-          <div />
+          <GlobalSearchBar />
+          <DateTimeStamp />
         </div>
       </div>
 
       <div className="w-full px-4 md:px-6 pt-20 pb-8">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div className="mb-4 flex justify-end">
           <Link
             href="/inventory"
             className="inline-flex items-center gap-2 rounded-lg border border-soft-border bg-white px-3 py-2 text-sm font-medium text-midnight-ink hover:border-trust-blue transition"
@@ -473,83 +519,46 @@ export default function ToolsInventoryPage() {
             <ArrowLeft className="h-4 w-4" />
             Back
           </Link>
-
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={loadRows}
-              disabled={loading}
-              className="inline-flex items-center gap-2 rounded-lg border border-soft-border bg-white px-3 py-2 text-sm font-medium text-midnight-ink hover:border-trust-blue transition disabled:opacity-50"
-            >
-              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-              Refresh
-            </button>
-            <button
-              type="button"
-              onClick={handlePrintTable}
-              className="inline-flex items-center gap-2 rounded-lg border border-soft-border bg-white px-3 py-2 text-sm font-medium text-midnight-ink hover:border-trust-blue transition"
-            >
-              <Printer className="h-4 w-4" />
-              Print
-            </button>
-            <button
-              type="button"
-              onClick={() => setIsManageColumnsOpen(true)}
-              className="inline-flex items-center gap-2 rounded-lg border border-soft-border bg-white px-3 py-2 text-sm font-medium text-midnight-ink hover:border-trust-blue transition"
-            >
-              Manage Columns
-            </button>
-            <button
-              type="button"
-              onClick={handleEditRows}
-              disabled={editingRowIds.size > 0}
-              className="inline-flex items-center gap-2 rounded-lg border border-trust-blue bg-white px-3 py-2 text-sm font-medium text-trust-blue hover:bg-blue-50 transition disabled:opacity-40"
-            >
-              <Pencil className="h-4 w-4" />
-              Edit Row
-            </button>
-            <button
-              type="button"
-              onClick={openAddToolDialog}
-              className="inline-flex items-center gap-2 rounded-lg border border-trust-blue bg-white px-3 py-2 text-sm font-medium text-trust-blue hover:bg-blue-50 transition"
-            >
-              <Plus className="h-4 w-4" />
-              Add Tool
-            </button>
-            <button
-              type="button"
-              onClick={saveRows}
-              className="inline-flex items-center gap-2 rounded-lg bg-trust-blue px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 transition"
-            >
-              Save
-            </button>
-            <button
-              type="button"
-              onClick={openIssuePopup}
-              disabled={selectedIds.size === 0}
-              className="inline-flex items-center gap-2 rounded-lg border border-trust-blue bg-white px-3 py-2 text-sm font-medium text-trust-blue hover:bg-blue-50 transition disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              Issue Tool
-            </button>
-            <button
-              onClick={() => setRequestsPanelOpen((prev) => !prev)}
-              className="inline-flex items-center gap-2 rounded-xl border border-soft-border bg-white px-3 py-2 text-sm font-medium text-midnight-ink hover:border-trust-blue transition"
-            >
-              Requests
-              {pendingIssueRequests.length > 0 && (
-                <span className="rounded-full bg-danger px-1.5 py-0.5 text-[10px] text-white leading-none">
-                  {pendingIssueRequests.length}
-                </span>
-              )}
-            </button>
-          </div>
         </div>
 
-        {selectedIds.size > 0 && (
-          <p className="mb-2 text-xs text-trust-blue">
-            {selectedIds.size} row{selectedIds.size !== 1 ? 's' : ''} selected — click "Issue Tool" to create a request.
-          </p>
-        )}
+        <div className="mb-4 flex flex-wrap gap-2 md:gap-3 justify-end items-center">
+          <Button onClick={loadRows} variant="outline" disabled={loading} className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8">
+            <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${loading ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
+          <Button onClick={handlePrintTable} variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8">
+            <Printer className="w-3.5 h-3.5 mr-1.5" />
+            Print
+          </Button>
+          <Button onClick={() => setIsManageColumnsOpen(true)} variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8">
+            Manage Columns
+          </Button>
+          <Button onClick={handleEditRows} variant="outline" disabled={editingRowIds.size > 0} className="border-trust-blue text-trust-blue hover:bg-trust-blue/10 rounded-full px-4 text-sm h-8">
+            <Pencil className="w-3.5 h-3.5 mr-1.5" />
+            Edit Row
+          </Button>
+          <Button onClick={openAddToolDialog} variant="outline" className="border-trust-blue text-trust-blue hover:bg-trust-blue/10 rounded-full px-4 text-sm h-8">
+            <Plus className="w-3.5 h-3.5 mr-1.5" />
+            New Tool
+          </Button>
+          <Button onClick={saveRows} variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8">
+            Save
+          </Button>
+          <Button onClick={openReceivePopup} variant="outline" className="border-emerald-500 text-emerald-600 hover:bg-emerald-50 rounded-full px-4 text-sm h-8">
+            Receive Tool
+          </Button>
+          <Button onClick={openIssuePopup} variant="outline" className="border-trust-blue text-trust-blue hover:bg-trust-blue/10 rounded-full px-4 text-sm h-8">
+            Issue Tool
+          </Button>
+          <Button onClick={() => setRequestsPanelOpen((prev) => !prev)} variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8">
+            Requests
+            {pendingIssueRequests.length > 0 && (
+              <span className="ml-1 rounded-full bg-danger px-1.5 py-0.5 text-[10px] text-white leading-none">
+                {pendingIssueRequests.length}
+              </span>
+            )}
+          </Button>
+        </div>
 
         {editingRowIds.size > 0 && (
           <div className="mb-2 flex items-center gap-2">
@@ -792,9 +801,19 @@ export default function ToolsInventoryPage() {
       <Dialog open={issueOpen} onOpenChange={setIssueOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle className="text-lg font-semibold text-midnight-ink">Issue Tool Request</DialogTitle>
+            <DialogTitle className="text-lg font-semibold text-midnight-ink">Issue Tool</DialogTitle>
           </DialogHeader>
           <div className="mt-2 grid grid-cols-1 gap-4">
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Reference ID <span className="text-cool-gray/50 normal-case">(optional)</span></label>
+              <input
+                type="text"
+                value={issueForm.referenceId}
+                onChange={(e) => setIssueForm((prev) => ({ ...prev, referenceId: e.target.value }))}
+                placeholder="e.g. REF-001"
+                className="w-full rounded-md border border-soft-border px-3 py-1.5 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+              />
+            </div>
             <div className="flex flex-col gap-1">
               <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Tool</label>
               <select
@@ -803,10 +822,19 @@ export default function ToolsInventoryPage() {
                 className="w-full rounded-md border border-soft-border bg-white px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
               >
                 <option value="">Select tool</option>
-                {selectedRows.map((r) => (
+                {rows.map((r) => (
                   <option key={r.id} value={r.id}>{toolName(r)}</option>
                 ))}
               </select>
+              {issueForm.toolId && (() => {
+                const _row = rows.find((r) => r.id === Number(issueForm.toolId));
+                const _stock = Number(_row?.quantity ?? 0);
+                return (
+                  <p className="text-xs text-cool-gray mt-0.5">
+                    Current stock: <span className={_stock <= 5 ? 'font-semibold text-amber-600' : 'font-semibold text-emerald-600'}>{_stock} {_row?.unit || 'PCS'}</span>
+                  </p>
+                );
+              })()}
             </div>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               <div className="flex flex-col gap-1">
@@ -826,24 +854,43 @@ export default function ToolsInventoryPage() {
                   }}
                   className="w-full rounded-md border border-soft-border px-3 py-1.5 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
                 />
+                {issueForm.toolId && issueForm.quantity && (() => {
+                  const _row = rows.find((r) => r.id === Number(issueForm.toolId));
+                  const _stock = Number(_row?.quantity ?? 0);
+                  const _qty = Number(issueForm.quantity);
+                  if (_stock > 0 && _qty > _stock) {
+                    return <p className="text-xs text-red-600 font-medium mt-0.5">⚠ Exceeds stock by {_qty - _stock}</p>;
+                  }
+                  return null;
+                })()}
               </div>
               <div className="flex flex-col gap-1">
                 <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Issued To</label>
-                <input
-                  type="text"
+                <select
                   value={issueForm.issuedTo}
                   onChange={(e) => setIssueForm((prev) => ({ ...prev, issuedTo: e.target.value }))}
-                  className="w-full rounded-md border border-soft-border px-3 py-1.5 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
-                />
+                  className="w-full rounded-md border border-soft-border bg-white px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                >
+                  <option value="">Select person</option>
+                  {workforceMembers.map((m) => (
+                    <option key={m.id} value={m.full_name}>{m.full_name}</option>
+                  ))}
+                </select>
+                <button type="button" onClick={() => setEnrollWorkforceOpen(true)} className="text-xs text-trust-blue hover:underline mt-0.5 text-left">+ Quick Enrol Workforce</button>
               </div>
               <div className="flex flex-col gap-1">
                 <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Issued By</label>
-                <input
-                  type="text"
+                <select
                   value={issueForm.issuedBy}
                   onChange={(e) => setIssueForm((prev) => ({ ...prev, issuedBy: e.target.value }))}
-                  className="w-full rounded-md border border-soft-border px-3 py-1.5 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
-                />
+                  className="w-full rounded-md border border-soft-border bg-white px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                >
+                  <option value="">Select person</option>
+                  {workforceMembers.map((m) => (
+                    <option key={m.id} value={m.full_name}>{m.full_name}</option>
+                  ))}
+                </select>
+                <button type="button" onClick={() => setEnrollWorkforceOpen(true)} className="text-xs text-trust-blue hover:underline mt-0.5 text-left">+ Quick Enrol Workforce</button>
               </div>
             </div>
             <div className="flex flex-col gap-1">
@@ -859,6 +906,104 @@ export default function ToolsInventoryPage() {
           <div className="mt-5 flex justify-end gap-3">
             <Button variant="outline" onClick={() => setIssueOpen(false)}>Cancel</Button>
             <Button onClick={createIssueRequest}>Request</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={receiveOpen} onOpenChange={setReceiveOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-semibold text-midnight-ink">Add Tool</DialogTitle>
+          </DialogHeader>
+          <div className="mt-2 grid grid-cols-1 gap-4">
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Tool</label>
+              <select
+                value={receiveForm.toolId}
+                onChange={(e) => setReceiveForm((prev) => ({ ...prev, toolId: e.target.value }))}
+                className="w-full rounded-md border border-soft-border bg-white px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+              >
+                <option value="">Select tool</option>
+                {rows.map((r) => (
+                  <option key={r.id} value={r.id}>{toolName(r)}</option>
+                ))}
+              </select>
+              {receiveForm.toolId && (() => {
+                const _row = rows.find((r) => r.id === Number(receiveForm.toolId));
+                const _stock = Number(_row?.quantity ?? 0);
+                return (
+                  <p className="text-xs text-cool-gray mt-0.5">
+                    Current stock: <span className="font-semibold text-emerald-600">{_stock} {_row?.unit || 'PCS'}</span>
+                  </p>
+                );
+              })()}
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Employee / Vendor Name</label>
+              <select
+                value={receiveForm.employeeVendorName}
+                onChange={(e) => setReceiveForm((prev) => ({ ...prev, employeeVendorName: e.target.value }))}
+                className="w-full rounded-md border border-soft-border bg-white px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+              >
+                <option value="">Select person</option>
+                {workforceMembers.map((m) => (
+                  <option key={m.id} value={m.full_name}>{m.full_name}</option>
+                ))}
+              </select>
+              <button type="button" onClick={() => setEnrollWorkforceOpen(true)} className="text-xs text-trust-blue hover:underline mt-0.5 text-left">+ Quick Enrol Workforce</button>
+            </div>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Reference ID</label>
+                <input
+                  type="text"
+                  value={receiveForm.referenceId}
+                  onChange={(e) => setReceiveForm((prev) => ({ ...prev, referenceId: e.target.value }))}
+                  placeholder="e.g. REF-001"
+                  className="w-full rounded-md border border-soft-border px-3 py-1.5 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Quantity</label>
+                <input
+                  type="number"
+                  min={0}
+                  value={receiveForm.quantity}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (value === '') { setReceiveForm((prev) => ({ ...prev, quantity: '' })); return; }
+                    const num = Number(value);
+                    setReceiveForm((prev) => ({ ...prev, quantity: String(Number.isFinite(num) ? Math.max(0, num) : 0) }));
+                  }}
+                  className="w-full rounded-md border border-soft-border px-3 py-1.5 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Price</label>
+                <input
+                  type="text"
+                  value={receiveForm.price}
+                  onChange={(e) => setReceiveForm((prev) => ({ ...prev, price: e.target.value }))}
+                  placeholder="e.g. 500"
+                  className="w-full rounded-md border border-soft-border px-3 py-1.5 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                />
+              </div>
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Usage</label>
+              <select
+                value={receiveForm.usage}
+                onChange={(e) => setReceiveForm((prev) => ({ ...prev, usage: e.target.value }))}
+                className="w-full rounded-md border border-soft-border bg-white px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+              >
+                <option value="new">New</option>
+                <option value="used">Used</option>
+              </select>
+            </div>
+          </div>
+          <div className="mt-5 flex justify-end gap-3">
+            <Button variant="outline" onClick={() => setReceiveOpen(false)}>Cancel</Button>
+            <Button onClick={createReceiveRequest}>Receive</Button>
           </div>
         </DialogContent>
       </Dialog>
@@ -993,6 +1138,7 @@ export default function ToolsInventoryPage() {
           </DialogHeader>
           {activeRequest ? (
             <div className="mt-2 grid grid-cols-1 gap-3">
+              {activeRequest.referenceId && <div className="text-sm text-midnight-ink"><span className="font-semibold">Reference ID:</span> {activeRequest.referenceId}</div>}
               <div className="text-sm text-midnight-ink"><span className="font-semibold">Tool:</span> {activeRequest.toolName}</div>
               <div className="text-sm text-midnight-ink"><span className="font-semibold">Quantity:</span> {activeRequest.quantity}</div>
               <div className="text-sm text-midnight-ink"><span className="font-semibold">Issued To:</span> {activeRequest.issuedTo}</div>
@@ -1020,6 +1166,14 @@ export default function ToolsInventoryPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {enrollWorkforceOpen && (
+        <EnrolWorkforceForm
+          open={enrollWorkforceOpen}
+          onEnroll={() => { refreshWorkforce(); setEnrollWorkforceOpen(false); }}
+          onClose={() => setEnrollWorkforceOpen(false)}
+        />
+      )}
     </main>
   );
 }

@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import CreatableFilterPopover from '@/components/creatable-filter-popover';
+import { EnrolWorkforceForm } from '@/app/frontend/enrol-workforce/page';
 import MultiselectFilterPopover from '@/components/multiselect-filter-popover';
 
 const STORAGE_KEY = 'inventory_machines_v1';
@@ -130,7 +131,9 @@ export default function MachinesInventoryPage() {
   const [activeRequestId, setActiveRequestId] = useState(null);
   const [issueRequests, setIssueRequests] = useState([]);
   const [issueRequestsReady, setIssueRequestsReady] = useState(false);
-  const [issueForm, setIssueForm] = useState({ machineId: '', quantity: '', issuedTo: '', reason: '' });
+  const [issueForm, setIssueForm] = useState({ machineId: '', quantity: '', issuedTo: '', issuedBy: '', reason: '' });
+  const [workforceMembers, setWorkforceMembers] = useState([]);
+  const [enrollWorkforceOpen, setEnrollWorkforceOpen] = useState(false);
 
   const loadRows = () => {
     setLoading(true);
@@ -163,6 +166,20 @@ export default function MachinesInventoryPage() {
     loadRows();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    fetch('/api/workforce?page_size=200')
+      .then((r) => r.json())
+      .then((d) => setWorkforceMembers(Array.isArray(d?.results) ? d.results : Array.isArray(d) ? d : []))
+      .catch(() => {});
+  }, []);
+
+  const refreshWorkforce = () => {
+    fetch('/api/workforce?page_size=200')
+      .then((r) => r.json())
+      .then((d) => setWorkforceMembers(Array.isArray(d?.results) ? d.results : Array.isArray(d) ? d : []))
+      .catch(() => {});
+  };
 
   useEffect(() => {
     try {
@@ -342,11 +359,7 @@ export default function MachinesInventoryPage() {
   }
 
   function openIssuePopup() {
-    if (selectedRows.length === 0) {
-      setStatus('Select at least one machine row to raise issue request.');
-      return;
-    }
-    setIssueForm({ machineId: String(selectedRows[0].id), quantity: '', issuedTo: '', reason: '' });
+    setIssueForm({ machineId: selectedRows.length > 0 ? String(selectedRows[0].id) : '', quantity: '', issuedTo: '', issuedBy: '', reason: '' });
     setIssueOpen(true);
   }
 
@@ -354,9 +367,10 @@ export default function MachinesInventoryPage() {
     const machineIdNum = Number(issueForm.machineId);
     const quantityNum = Number(issueForm.quantity);
     const issuedTo = issueForm.issuedTo.trim();
+    const issuedBy = issueForm.issuedBy.trim();
     const reason = issueForm.reason.trim();
     if (!machineIdNum) {
-      setStatus('Please select a machine row for request.');
+      setStatus('Please select a machine for request.');
       return;
     }
     if (!Number.isFinite(quantityNum) || quantityNum <= 0) {
@@ -364,7 +378,7 @@ export default function MachinesInventoryPage() {
       return;
     }
     if (!issuedTo) {
-      setStatus('Please enter issued to.');
+      setStatus('Please select who the machine is issued to.');
       return;
     }
     if (!reason) {
@@ -378,6 +392,7 @@ export default function MachinesInventoryPage() {
       machineName: machineName(row),
       quantity: quantityNum,
       issuedTo,
+      issuedBy,
       reason,
       status: 'pending',
       requestedAt: new Date().toISOString(),
@@ -432,6 +447,7 @@ export default function MachinesInventoryPage() {
       <tr><th>Machine</th><td>${request.machineName}</td></tr>
       <tr><th>Quantity</th><td>${request.quantity}</td></tr>
       <tr><th>Issued To</th><td>${request.issuedTo}</td></tr>
+      <tr><th>Issued By</th><td>${request.issuedBy || '-'}</td></tr>
       <tr><th>Reason of Issue</th><td>${request.reason || '-'}</td></tr>
       <tr><th>Status</th><td><span class="badge">${String(request.status || '').toUpperCase()}</span></td></tr>
       <tr><th>Requested At</th><td>${requestedAt}</td></tr>
@@ -478,10 +494,14 @@ export default function MachinesInventoryPage() {
       minRequiredStock: String(newMachine.minRequiredStock || ''),
     };
 
-    setRows((prev) => [...prev, nextRow]);
+    setRows((prev) => {
+      const updated = [...prev, nextRow];
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+      return updated;
+    });
     setNewMachine({ machineName: '', particulars: '', department: '', minRequiredStock: '' });
     setIsAddMachineOpen(false);
-    setStatus('Machine added. You can now update stock and save.');
+    setStatus('Machine added and saved.');
   };
 
   const handleAddMachineStock = () => {
@@ -521,7 +541,8 @@ export default function MachinesInventoryPage() {
 
     setAddStockForm((prev) => ({ ...prev, qty: '', location: '' }));
     setIsAddMachineStockOpen(false);
-    setStatus('Machine stock added successfully.');
+    setStatus('Machine stock added and saved.');
+    setTimeout(() => { localStorage.setItem(STORAGE_KEY, JSON.stringify(rows)); }, 0);
   };
 
   const handleUpdateMachineStock = () => {
@@ -579,7 +600,8 @@ export default function MachinesInventoryPage() {
 
     setUpdateStockForm((prev) => ({ ...prev, qty: '' }));
     setIsUpdateMachineStockOpen(false);
-    setStatus('Machine stock state updated successfully.');
+    setStatus('Machine stock updated and saved.');
+    setTimeout(() => { localStorage.setItem(STORAGE_KEY, JSON.stringify(rows)); }, 0);
   };
 
   return (
@@ -646,7 +668,7 @@ export default function MachinesInventoryPage() {
               }}
               className="inline-flex items-center gap-2 rounded-full border border-trust-blue bg-white px-4 h-8 text-sm font-medium text-trust-blue"
             >
-              Add Machine
+              + New Machine
             </button>
             <button
               type="button"
@@ -654,7 +676,7 @@ export default function MachinesInventoryPage() {
                 setAddStockForm({ machineId: '', stateKey: 'running', qty: '', location: '' });
                 setIsAddMachineStockOpen(true);
               }}
-              className="inline-flex items-center gap-2 rounded-full border border-trust-blue bg-white px-4 h-8 text-sm font-medium text-trust-blue"
+              className="inline-flex items-center gap-2 rounded-full border border-midnight-ink bg-white px-4 h-8 text-sm font-medium text-midnight-ink"
             >
               Add Machine Stock
             </button>
@@ -664,23 +686,45 @@ export default function MachinesInventoryPage() {
                 setUpdateStockForm({ machineId: '', fromState: 'idle', toState: 'running', qty: '' });
                 setIsUpdateMachineStockOpen(true);
               }}
-              className="inline-flex items-center gap-2 rounded-full border border-trust-blue bg-white px-4 h-8 text-sm font-medium text-trust-blue"
+              className="inline-flex items-center gap-2 rounded-full border border-midnight-ink bg-white px-4 h-8 text-sm font-medium text-midnight-ink"
             >
               Update Machine Stock
             </button>
             <button
               type="button"
-              onClick={saveRows}
-              className="inline-flex items-center gap-2 rounded-full bg-trust-blue px-4 h-8 text-sm font-semibold text-white"
+              onClick={() => {
+                setAddStockForm({ machineId: '', stateKey: 'running', qty: '', location: '' });
+                setIsAddMachineStockOpen(true);
+              }}
+              className="inline-flex items-center gap-2 rounded-full border border-emerald-500 bg-white px-4 h-8 text-sm font-medium text-emerald-600"
             >
-              Save
+              Receive Machine
+            </button>
+            <button
+              type="button"
+              onClick={openIssuePopup}
+              className="inline-flex items-center gap-2 rounded-full border border-orange-400 bg-white px-4 h-8 text-sm font-medium text-orange-500"
+            >
+              Issue Machine
+            </button>
+            <button
+              type="button"
+              onClick={() => setRequestsPanelOpen((prev) => !prev)}
+              className="inline-flex items-center gap-2 rounded-full border border-midnight-ink bg-white px-4 h-8 text-sm font-medium text-midnight-ink"
+            >
+              Requests
+              {pendingIssueRequests.length > 0 && (
+                <span className="ml-1 rounded-full bg-danger px-1.5 py-0.5 text-[10px] text-white leading-none">
+                  {pendingIssueRequests.length}
+                </span>
+              )}
             </button>
           </div>
         </div>
 
         {editingRowIds.size > 0 && (
           <div className="mb-2 flex items-center gap-2">
-            <Button onClick={handleSaveEdit} className="h-8 px-3 bg-success text-white hover:bg-success/90">Save Changes</Button>
+            <Button onClick={() => { handleSaveEdit(); saveRows(); }} className="h-8 px-3 bg-success text-white hover:bg-success/90">Save Changes</Button>
             <Button variant="outline" onClick={handleCancelEdit} className="h-8 px-3 border-danger text-danger hover:bg-danger/10">Cancel Edit</Button>
           </div>
         )}
@@ -904,7 +948,7 @@ export default function MachinesInventoryPage() {
       <Dialog open={issueOpen} onOpenChange={setIssueOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle className="text-lg font-semibold text-midnight-ink">Issue Machine Request</DialogTitle>
+            <DialogTitle className="text-lg font-semibold text-midnight-ink">Issue Machine</DialogTitle>
           </DialogHeader>
           <div className="mt-2 grid grid-cols-1 gap-4">
             <div className="flex flex-col gap-1">
@@ -915,7 +959,7 @@ export default function MachinesInventoryPage() {
                 className="w-full rounded-md border border-soft-border bg-white px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
               >
                 <option value="">Select machine</option>
-                {selectedRows.map((r) => (
+                {rows.map((r) => (
                   <option key={r.id} value={r.id}>{machineName(r)}</option>
                 ))}
               </select>
@@ -941,12 +985,31 @@ export default function MachinesInventoryPage() {
               </div>
               <div className="flex flex-col gap-1">
                 <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Issued To</label>
-                <input
-                  type="text"
+                <select
                   value={issueForm.issuedTo}
                   onChange={(e) => setIssueForm((prev) => ({ ...prev, issuedTo: e.target.value }))}
-                  className="w-full rounded-md border border-soft-border px-3 py-1.5 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
-                />
+                  className="w-full rounded-md border border-soft-border bg-white px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                >
+                  <option value="">Select person</option>
+                  {workforceMembers.map((m) => (
+                    <option key={m.id} value={m.full_name}>{m.full_name}</option>
+                  ))}
+                </select>
+                <button type="button" onClick={() => setEnrollWorkforceOpen(true)} className="text-xs text-trust-blue hover:underline mt-0.5 text-left">+ Quick Enrol Workforce</button>
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Issued By</label>
+                <select
+                  value={issueForm.issuedBy}
+                  onChange={(e) => setIssueForm((prev) => ({ ...prev, issuedBy: e.target.value }))}
+                  className="w-full rounded-md border border-soft-border bg-white px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                >
+                  <option value="">Select person</option>
+                  {workforceMembers.map((m) => (
+                    <option key={m.id} value={m.full_name}>{m.full_name}</option>
+                  ))}
+                </select>
+                <button type="button" onClick={() => setEnrollWorkforceOpen(true)} className="text-xs text-trust-blue hover:underline mt-0.5 text-left">+ Quick Enrol Workforce</button>
               </div>
             </div>
             <div className="flex flex-col gap-1">
@@ -1027,7 +1090,7 @@ export default function MachinesInventoryPage() {
       <Dialog open={isAddMachineStockOpen} onOpenChange={setIsAddMachineStockOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle className="text-lg font-semibold text-midnight-ink">Add Machine Stock</DialogTitle>
+            <DialogTitle className="text-lg font-semibold text-midnight-ink">Receive Machine Stock</DialogTitle>
           </DialogHeader>
           <div className="mt-2 grid grid-cols-1 gap-4">
             <div className="flex flex-col gap-1">
@@ -1229,6 +1292,14 @@ export default function MachinesInventoryPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {enrollWorkforceOpen && (
+        <EnrolWorkforceForm
+          open={enrollWorkforceOpen}
+          onEnroll={() => { refreshWorkforce(); setEnrollWorkforceOpen(false); }}
+          onClose={() => setEnrollWorkforceOpen(false)}
+        />
+      )}
     </main>
   );
 }

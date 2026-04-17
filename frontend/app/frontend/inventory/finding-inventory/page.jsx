@@ -12,7 +12,10 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import GlobalSearchBar from '@/components/global-search-bar';
+import DateTimeStamp from '@/components/date-time-stamp';
 import MultiselectFilterPopover from '@/components/multiselect-filter-popover';
+import { EnrolWorkforceForm } from '@/app/frontend/enrol-workforce/page';
 
 const MATERIAL_OPTIONS = ['Gold', 'Silver', 'Brass', 'Alloy', 'Platinum'];
 const STAGE_OPTIONS = ['Raw', 'Wax', 'Casting', 'Filing', 'Polish', 'Hand Setting', 'Ready', 'Finished'];
@@ -98,6 +101,12 @@ export default function FindingInventoryPage() {
   const [issueRequests, setIssueRequests] = useState([]);
   const [issueRequestsReady, setIssueRequestsReady] = useState(false);
   const [issueForm, setIssueForm] = useState({ findingId: '', quantity: '', issuedTo: '', issuedBy: '', reason: '' });
+  const [workforceMembers, setWorkforceMembers] = useState([]);
+  const [enrollWorkforceOpen, setEnrollWorkforceOpen] = useState(false);
+
+  // Receive Finding workflow
+  const [receiveOpen, setReceiveOpen] = useState(false);
+  const [receiveForm, setReceiveForm] = useState({ findingId: '', quantity: '', employeeVendorName: '', referenceId: '', price: '', usage: 'new' });
 
   const fetchFindings = async () => {
     setLoading(true);
@@ -118,6 +127,20 @@ export default function FindingInventoryPage() {
   useEffect(() => {
     fetchFindings();
   }, []);
+
+  useEffect(() => {
+    fetch('/api/workforce?page_size=200')
+      .then((r) => r.json())
+      .then((d) => setWorkforceMembers(Array.isArray(d?.results) ? d.results : Array.isArray(d) ? d : []))
+      .catch(() => {});
+  }, []);
+
+  const refreshWorkforce = () => {
+    fetch('/api/workforce?page_size=200')
+      .then((r) => r.json())
+      .then((d) => setWorkforceMembers(Array.isArray(d?.results) ? d.results : Array.isArray(d) ? d : []))
+      .catch(() => {});
+  };
 
   useEffect(() => {
     try {
@@ -227,12 +250,30 @@ export default function FindingInventoryPage() {
   }
 
   function openIssuePopup() {
-    if (selectedFindings.length === 0) {
-      setStatusMsg('Select at least one finding to raise an issue request.');
-      return;
-    }
-    setIssueForm({ findingId: String(selectedFindings[0].id), quantity: '', issuedTo: '', issuedBy: '', reason: '' });
+    setIssueForm({ findingId: '', quantity: '', issuedTo: '', issuedBy: '', reason: '' });
     setIssueOpen(true);
+  }
+
+  function openReceivePopup() {
+    setReceiveForm({ findingId: '', quantity: '', employeeVendorName: '', referenceId: '', price: '', usage: 'new' });
+    setReceiveOpen(true);
+  }
+
+  function createReceiveRequest() {
+    const findingIdNum = Number(receiveForm.findingId);
+    const quantityNum = Number(receiveForm.quantity);
+    const employeeVendorName = receiveForm.employeeVendorName.trim();
+    const referenceId = receiveForm.referenceId.trim();
+    const price = receiveForm.price.trim();
+    if (!findingIdNum) { setStatusMsg('Please select a finding.'); return; }
+    if (!Number.isFinite(quantityNum) || quantityNum <= 0) { setStatusMsg('Please enter a valid quantity greater than 0.'); return; }
+    if (!employeeVendorName) { setStatusMsg('Please enter employee/vendor name.'); return; }
+    if (!referenceId) { setStatusMsg('Please enter a reference ID.'); return; }
+    if (!price) { setStatusMsg('Please enter a price.'); return; }
+    const finding = findings.find((f) => f.id === findingIdNum);
+    setFindings((prev) => prev.map((f) => f.id === findingIdNum ? { ...f, quantity: Number(f.quantity || 0) + quantityNum } : f));
+    setReceiveOpen(false);
+    setStatusMsg(`Received ${quantityNum} of ${finding?.finding_name || finding?.finding_code || 'Finding #' + findingIdNum} from ${employeeVendorName}.`);
   }
 
   function handleEditRows() {
@@ -513,7 +554,8 @@ export default function FindingInventoryPage() {
             <MasterNavigationDrawer inHeader />
             <h1 className="text-xl font-bold tracking-tight text-midnight-ink">FINDING INVENTORY</h1>
           </div>
-          <div />
+          <GlobalSearchBar />
+          <DateTimeStamp />
         </div>
       </div>
 
@@ -527,88 +569,51 @@ export default function FindingInventoryPage() {
         )}
 
         {/* Back + summary row */}
-        <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <Link
-              href="/inventory"
-              className="inline-flex items-center gap-2 rounded-lg border border-soft-border bg-white px-3 py-2 text-sm font-medium text-midnight-ink hover:border-trust-blue transition"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Back
-            </Link>
-            <span className="text-sm text-cool-gray">
-              {loading ? 'Loading…' : `${filtered.length} finding${filtered.length !== 1 ? 's' : ''}`}
-            </span>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={fetchFindings}
-              className="inline-flex items-center gap-2 rounded-lg border border-soft-border bg-white px-3 py-2 text-sm font-medium text-midnight-ink hover:border-trust-blue transition"
-            >
-              <RefreshCw className="h-4 w-4" />
-              Refresh
-            </button>
-            <button
-              type="button"
-              onClick={handlePrintTable}
-              className="inline-flex items-center gap-2 rounded-lg border border-soft-border bg-white px-3 py-2 text-sm font-medium text-midnight-ink hover:border-trust-blue transition"
-            >
-              <Printer className="h-4 w-4" />
-              Print
-            </button>
-            <button
-              type="button"
-              onClick={() => setIsManageColumnsOpen(true)}
-              className="inline-flex items-center gap-2 rounded-lg border border-soft-border bg-white px-3 py-2 text-sm font-medium text-midnight-ink hover:border-trust-blue transition"
-            >
-              Manage Columns
-            </button>
-            <button
-              type="button"
-              onClick={handleEditRows}
-              disabled={editingRowIds.size > 0}
-              className="inline-flex items-center gap-2 rounded-lg border border-trust-blue bg-white px-3 py-2 text-sm font-medium text-trust-blue hover:bg-blue-50 transition disabled:opacity-40"
-            >
-              <Pencil className="h-4 w-4" />
-              Edit Row
-            </button>
-            <button
-              type="button"
-              onClick={() => { setForm(emptyFinding()); setStatusMsg(''); setAddOpen(true); }}
-              className="inline-flex items-center gap-2 rounded-lg bg-trust-blue px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 transition"
-            >
-              <Plus className="h-4 w-4" />
-              Add New Finding
-            </button>
-            <button
-              type="button"
-              onClick={openIssuePopup}
-              disabled={selectedIds.size === 0}
-              className="inline-flex items-center gap-2 rounded-lg border border-trust-blue bg-white px-3 py-2 text-sm font-medium text-trust-blue hover:bg-blue-50 transition disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              Issue Finding
-            </button>
-            <button
-              onClick={() => setRequestsPanelOpen((prev) => !prev)}
-              className="inline-flex items-center gap-2 rounded-xl border border-soft-border bg-white px-3 py-2 text-sm font-medium text-midnight-ink hover:border-trust-blue transition"
-            >
-              Requests
-              {pendingIssueRequests.length > 0 && (
-                <span className="rounded-full bg-danger px-1.5 py-0.5 text-[10px] text-white leading-none">
-                  {pendingIssueRequests.length}
-                </span>
-              )}
-            </button>
-          </div>
+        <div className="mb-4 flex justify-end">
+          <Link
+            href="/inventory"
+            className="inline-flex items-center gap-2 rounded-lg border border-soft-border bg-white px-3 py-2 text-sm font-medium text-midnight-ink hover:border-trust-blue transition"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back
+          </Link>
         </div>
 
-        {selectedIds.size > 0 && (
-          <p className="mb-2 text-xs text-trust-blue">
-            {selectedIds.size} finding{selectedIds.size !== 1 ? 's' : ''} selected — click "Issue Finding" to create a request.
-          </p>
-        )}
+        <div className="mb-4 flex flex-wrap gap-2 md:gap-3 justify-end items-center">
+          <Button onClick={fetchFindings} variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8">
+            <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
+            Refresh
+          </Button>
+          <Button onClick={handlePrintTable} variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8">
+            <Printer className="w-3.5 h-3.5 mr-1.5" />
+            Print
+          </Button>
+          <Button onClick={() => setIsManageColumnsOpen(true)} variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8">
+            Manage Columns
+          </Button>
+          <Button onClick={handleEditRows} variant="outline" disabled={editingRowIds.size > 0} className="border-trust-blue text-trust-blue hover:bg-trust-blue/10 rounded-full px-4 text-sm h-8">
+            <Pencil className="w-3.5 h-3.5 mr-1.5" />
+            Edit Row
+          </Button>
+          <Button onClick={() => { setForm(emptyFinding()); setStatusMsg(''); setAddOpen(true); }} variant="outline" className="border-trust-blue text-trust-blue hover:bg-trust-blue/10 rounded-full px-4 text-sm h-8">
+            <Plus className="w-3.5 h-3.5 mr-1.5" />
+            New Finding
+          </Button>
+          <Button onClick={openReceivePopup} variant="outline" className="border-emerald-500 text-emerald-600 hover:bg-emerald-50 rounded-full px-4 text-sm h-8">
+            Receive Finding
+          </Button>
+          <Button onClick={openIssuePopup} variant="outline" className="border-trust-blue text-trust-blue hover:bg-trust-blue/10 rounded-full px-4 text-sm h-8">
+            Issue Finding
+          </Button>
+          <Button onClick={() => setRequestsPanelOpen((prev) => !prev)} variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8">
+            Requests
+            {pendingIssueRequests.length > 0 && (
+              <span className="ml-1 rounded-full bg-danger px-1.5 py-0.5 text-[10px] text-white leading-none">
+                {pendingIssueRequests.length}
+              </span>
+            )}
+          </Button>
+        </div>
 
         {editingRowIds.size > 0 && (
           <div className="mb-2 flex items-center gap-2">
@@ -960,7 +965,7 @@ export default function FindingInventoryPage() {
       <Dialog open={issueOpen} onOpenChange={setIssueOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle className="text-lg font-semibold text-midnight-ink">Issue Finding Request</DialogTitle>
+            <DialogTitle className="text-lg font-semibold text-midnight-ink">Issue Finding</DialogTitle>
           </DialogHeader>
 
           <div className="mt-2 grid grid-cols-1 gap-4">
@@ -972,7 +977,7 @@ export default function FindingInventoryPage() {
                 className="w-full rounded-md border border-soft-border bg-white px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
               >
                 <option value="">Select finding</option>
-                {selectedFindings.map((finding) => (
+                {findings.map((finding) => (
                   <option key={finding.id} value={finding.id}>{findingName(finding)}</option>
                 ))}
               </select>
@@ -992,16 +997,34 @@ export default function FindingInventoryPage() {
                   setIssueForm((prev) => ({ ...prev, quantity: String(Number.isFinite(num) ? Math.max(0, num) : 0) }));
                 }}
               />
-              <Field
-                label="Issued To"
-                value={issueForm.issuedTo}
-                onChange={(value) => setIssueForm((prev) => ({ ...prev, issuedTo: value }))}
-              />
-              <Field
-                label="Issued By"
-                value={issueForm.issuedBy}
-                onChange={(value) => setIssueForm((prev) => ({ ...prev, issuedBy: value }))}
-              />
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Issued To</label>
+                <select
+                  value={issueForm.issuedTo}
+                  onChange={(e) => setIssueForm((prev) => ({ ...prev, issuedTo: e.target.value }))}
+                  className="w-full rounded-md border border-soft-border bg-white px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                >
+                  <option value="">Select person</option>
+                  {workforceMembers.map((m) => (
+                    <option key={m.id} value={m.full_name}>{m.full_name}</option>
+                  ))}
+                </select>
+                <button type="button" onClick={() => setEnrollWorkforceOpen(true)} className="text-xs text-trust-blue hover:underline mt-0.5 text-left">+ Quick Enrol Workforce</button>
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Issued By</label>
+                <select
+                  value={issueForm.issuedBy}
+                  onChange={(e) => setIssueForm((prev) => ({ ...prev, issuedBy: e.target.value }))}
+                  className="w-full rounded-md border border-soft-border bg-white px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                >
+                  <option value="">Select person</option>
+                  {workforceMembers.map((m) => (
+                    <option key={m.id} value={m.full_name}>{m.full_name}</option>
+                  ))}
+                </select>
+                <button type="button" onClick={() => setEnrollWorkforceOpen(true)} className="text-xs text-trust-blue hover:underline mt-0.5 text-left">+ Quick Enrol Workforce</button>
+              </div>
             </div>
 
             <Field
@@ -1014,6 +1037,104 @@ export default function FindingInventoryPage() {
           <div className="mt-5 flex justify-end gap-3">
             <Button variant="outline" onClick={() => setIssueOpen(false)}>Cancel</Button>
             <Button onClick={createIssueRequest}>Request</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={receiveOpen} onOpenChange={setReceiveOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-semibold text-midnight-ink">Add Finding</DialogTitle>
+          </DialogHeader>
+          <div className="mt-2 grid grid-cols-1 gap-4">
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Finding</label>
+              <select
+                value={receiveForm.findingId}
+                onChange={(e) => setReceiveForm((prev) => ({ ...prev, findingId: e.target.value }))}
+                className="w-full rounded-md border border-soft-border bg-white px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+              >
+                <option value="">Select finding</option>
+                {findings.map((f) => (
+                  <option key={f.id} value={f.id}>{f.finding_name || f.finding_code || `Finding #${f.id}`}</option>
+                ))}
+              </select>
+              {receiveForm.findingId && (() => {
+                const _f = findings.find((f) => f.id === Number(receiveForm.findingId));
+                const _stock = Number(_f?.quantity ?? 0);
+                return (
+                  <p className="text-xs text-cool-gray mt-0.5">
+                    Current stock: <span className="font-semibold text-emerald-600">{_stock}</span>
+                  </p>
+                );
+              })()}
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Employee / Vendor Name</label>
+              <select
+                value={receiveForm.employeeVendorName}
+                onChange={(e) => setReceiveForm((prev) => ({ ...prev, employeeVendorName: e.target.value }))}
+                className="w-full rounded-md border border-soft-border bg-white px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+              >
+                <option value="">Select person</option>
+                {workforceMembers.map((m) => (
+                  <option key={m.id} value={m.full_name}>{m.full_name}</option>
+                ))}
+              </select>
+              <button type="button" onClick={() => setEnrollWorkforceOpen(true)} className="text-xs text-trust-blue hover:underline mt-0.5 text-left">+ Quick Enrol Workforce</button>
+            </div>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Reference ID</label>
+                <input
+                  type="text"
+                  value={receiveForm.referenceId}
+                  onChange={(e) => setReceiveForm((prev) => ({ ...prev, referenceId: e.target.value }))}
+                  placeholder="e.g. REF-001"
+                  className="w-full rounded-md border border-soft-border px-3 py-1.5 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Quantity</label>
+                <input
+                  type="number"
+                  min={0}
+                  value={receiveForm.quantity}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (value === '') { setReceiveForm((prev) => ({ ...prev, quantity: '' })); return; }
+                    const num = Number(value);
+                    setReceiveForm((prev) => ({ ...prev, quantity: String(Number.isFinite(num) ? Math.max(0, num) : 0) }));
+                  }}
+                  className="w-full rounded-md border border-soft-border px-3 py-1.5 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Price</label>
+                <input
+                  type="text"
+                  value={receiveForm.price}
+                  onChange={(e) => setReceiveForm((prev) => ({ ...prev, price: e.target.value }))}
+                  placeholder="e.g. 500"
+                  className="w-full rounded-md border border-soft-border px-3 py-1.5 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                />
+              </div>
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Usage</label>
+              <select
+                value={receiveForm.usage}
+                onChange={(e) => setReceiveForm((prev) => ({ ...prev, usage: e.target.value }))}
+                className="w-full rounded-md border border-soft-border bg-white px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+              >
+                <option value="new">New</option>
+                <option value="used">Used</option>
+              </select>
+            </div>
+          </div>
+          <div className="mt-5 flex justify-end gap-3">
+            <Button variant="outline" onClick={() => setReceiveOpen(false)}>Cancel</Button>
+            <Button onClick={createReceiveRequest}>Receive</Button>
           </div>
         </DialogContent>
       </Dialog>
@@ -1100,6 +1221,14 @@ export default function FindingInventoryPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {enrollWorkforceOpen && (
+        <EnrolWorkforceForm
+          open={enrollWorkforceOpen}
+          onEnroll={() => { refreshWorkforce(); setEnrollWorkforceOpen(false); }}
+          onClose={() => setEnrollWorkforceOpen(false)}
+        />
+      )}
     </main>
   );
 }
