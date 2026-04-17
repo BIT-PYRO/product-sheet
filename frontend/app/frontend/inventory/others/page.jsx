@@ -2,8 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Pencil, Plus, Printer, RefreshCw, Trash2 } from 'lucide-react';
+import { ArrowLeft, Pencil, Plus, Printer, RefreshCw, Trash2, X } from 'lucide-react';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
+import { Button } from '@/components/ui/button';
+import GlobalSearchBar from '@/components/global-search-bar';
+import DateTimeStamp from '@/components/date-time-stamp';
 import {
   Dialog,
   DialogContent,
@@ -12,9 +15,11 @@ import {
 } from '@/components/ui/dialog';
 import CreatableFilterPopover from '@/components/creatable-filter-popover';
 import MultiselectFilterPopover from '@/components/multiselect-filter-popover';
+import { EnrolWorkforceForm } from '@/app/frontend/enrol-workforce/page';
 
 const UNITS = ['PCS', 'BOX', 'PACKET', 'BOTTLE', 'KG', 'GM', 'LITER'];
 const CATEGORIES = ['Pantry', 'Stationery', 'Housekeeping', 'Packaging', 'Utilities', 'Other'];
+const ISSUE_REQUESTS_KEY = 'others_issue_requests_v1';
 const OTHERS_COLUMNS = [
   { id: 'sno', label: '#' },
   { id: 'item_name', label: 'Item Name' },
@@ -45,6 +50,17 @@ export default function OthersInventoryPage() {
   const [selectedColumnsForAction, setSelectedColumnsForAction] = useState(new Set());
   const [visibleColumns, setVisibleColumns] = useState(new Set(OTHERS_COLUMNS.map((column) => column.id)));
   const [isAddItemOpen, setIsAddItemOpen] = useState(false);
+  const [receiveOpen, setReceiveOpen] = useState(false);
+  const [receiveForm, setReceiveForm] = useState({ itemId: '', quantity: '', employeeVendorName: '', referenceId: '', price: '', usage: 'new' });
+  const [issueOpen, setIssueOpen] = useState(false);
+  const [issueForm, setIssueForm] = useState({ itemId: '', quantity: '', issuedTo: '', issuedBy: '', reason: '' });
+  const [workforceMembers, setWorkforceMembers] = useState([]);
+  const [enrollWorkforceOpen, setEnrollWorkforceOpen] = useState(false);
+  const [requestsPanelOpen, setRequestsPanelOpen] = useState(false);
+  const [issueRequests, setIssueRequests] = useState([]);
+  const [issueRequestsReady, setIssueRequestsReady] = useState(false);
+  const [activeRequestId, setActiveRequestId] = useState(null);
+  const [requestDetailsOpen, setRequestDetailsOpen] = useState(false);
   const [addItemForm, setAddItemForm] = useState({
     item_name: '',
     category: '',
@@ -81,6 +97,65 @@ export default function OthersInventoryPage() {
 
   useEffect(() => { fetchItems(); }, [fetchItems]);
 
+  useEffect(() => {
+    fetch('/api/workforce?page_size=200')
+      .then((r) => r.json())
+      .then((d) => setWorkforceMembers(Array.isArray(d?.results) ? d.results : Array.isArray(d) ? d : []))
+      .catch(() => {});
+  }, []);
+
+  const refreshWorkforce = () => {
+    fetch('/api/workforce?page_size=200')
+      .then((r) => r.json())
+      .then((d) => setWorkforceMembers(Array.isArray(d?.results) ? d.results : Array.isArray(d) ? d : []))
+      .catch(() => {});
+  };
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(ISSUE_REQUESTS_KEY);
+      if (!stored) return;
+      const parsed = JSON.parse(stored);
+      if (Array.isArray(parsed)) setIssueRequests(parsed);
+    } catch {
+      // ignore
+    } finally {
+      setIssueRequestsReady(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!issueRequestsReady) return;
+    localStorage.setItem(ISSUE_REQUESTS_KEY, JSON.stringify(issueRequests));
+  }, [issueRequests, issueRequestsReady]);
+
+  const pendingIssueRequests = useMemo(() => issueRequests.filter((r) => r.status === 'pending'), [issueRequests]);
+  const sortedIssueRequests = useMemo(() => [...issueRequests].sort((a, b) => new Date(b.requestedAt) - new Date(a.requestedAt)), [issueRequests]);
+  const activeRequest = useMemo(() => issueRequests.find((r) => r.id === activeRequestId) || null, [issueRequests, activeRequestId]);
+
+  function relativeTime(iso) {
+    if (!iso) return '';
+    const diff = Date.now() - new Date(iso).getTime();
+    const min = Math.floor(diff / 60000);
+    if (min < 1) return 'just now';
+    if (min < 60) return `${min}m`;
+    const hr = Math.floor(min / 60);
+    if (hr < 24) return `${hr}h`;
+    return `${Math.floor(hr / 24)}d`;
+  }
+
+  function openRequestDetails(requestId) {
+    setActiveRequestId(requestId);
+    setRequestDetailsOpen(true);
+  }
+
+  function reviewIssueRequest(nextStatus) {
+    if (!activeRequest) return;
+    setIssueRequests((prev) => prev.map((r) => r.id === activeRequest.id ? { ...r, status: nextStatus, reviewedAt: new Date().toISOString() } : r));
+    setRequestDetailsOpen(false);
+    showStatus(`Request ${nextStatus}.`);
+  }
+
   const getField = (row, key) => edits[row.id]?.[key] !== undefined ? edits[row.id][key] : (row[key] ?? '');
 
   const setField = (id, key, value) => {
@@ -115,6 +190,62 @@ export default function OthersInventoryPage() {
       notes: '',
     });
     setIsAddItemOpen(true);
+  };
+
+  const openReceivePopup = () => {
+    setReceiveForm({ itemId: '', quantity: '', employeeVendorName: '', referenceId: '', price: '', usage: 'new' });
+    setReceiveOpen(true);
+  };
+
+  const openIssuePopup = () => {
+    setIssueForm({ itemId: '', quantity: '', issuedTo: '', issuedBy: '', reason: '' });
+    setIssueOpen(true);
+  };
+
+  const createIssueRequest = () => {
+    const itemIdNum = Number(issueForm.itemId);
+    const quantityNum = Number(issueForm.quantity);
+    const issuedTo = issueForm.issuedTo.trim();
+    const issuedBy = issueForm.issuedBy.trim();
+    const reason = issueForm.reason.trim();
+    if (!itemIdNum) { showStatus('Please select an item.', 'error'); return; }
+    if (!Number.isFinite(quantityNum) || quantityNum <= 0) { showStatus('Please enter a valid quantity greater than 0.', 'error'); return; }
+    if (!issuedTo) { showStatus('Please enter who the item is issued to.', 'error'); return; }
+    if (!issuedBy) { showStatus('Please enter who issued the item.', 'error'); return; }
+    if (!reason) { showStatus('Please enter a reason for issue.', 'error'); return; }
+    const row = rows.find((r) => r.id === itemIdNum);
+    const request = {
+      id: (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`,
+      itemId: itemIdNum,
+      itemName: row?.item_name || `Item #${itemIdNum}`,
+      quantity: quantityNum,
+      issuedTo,
+      issuedBy,
+      reason,
+      status: 'pending',
+      requestedAt: new Date().toISOString(),
+      reviewedAt: null,
+    };
+    setIssueRequests((prev) => [request, ...prev]);
+    setIssueOpen(false);
+    showStatus(`Issue request created for ${quantityNum} of ${request.itemName} to ${issuedTo}.`);
+  };
+
+  const createReceiveRequest = () => {
+    const itemIdNum = Number(receiveForm.itemId);
+    const quantityNum = Number(receiveForm.quantity);
+    const employeeVendorName = receiveForm.employeeVendorName.trim();
+    const referenceId = receiveForm.referenceId.trim();
+    const price = receiveForm.price.trim();
+    if (!itemIdNum) { showStatus('Please select an item.', 'error'); return; }
+    if (!Number.isFinite(quantityNum) || quantityNum <= 0) { showStatus('Please enter a valid quantity greater than 0.', 'error'); return; }
+    if (!employeeVendorName) { showStatus('Please enter employee/vendor name.', 'error'); return; }
+    if (!referenceId) { showStatus('Please enter a reference ID.', 'error'); return; }
+    if (!price) { showStatus('Please enter a price.', 'error'); return; }
+    const row = rows.find((r) => r.id === itemIdNum);
+    setRows((prev) => prev.map((r) => r.id === itemIdNum ? { ...r, quantity: Number(r.quantity || 0) + quantityNum } : r));
+    setReceiveOpen(false);
+    showStatus(`Received ${quantityNum} of ${row?.item_name || 'Item #' + itemIdNum} from ${employeeVendorName}.`);
   };
 
   const handleAddItem = () => {
@@ -319,39 +450,79 @@ export default function OthersInventoryPage() {
 
   return (
     <main className="min-h-screen bg-cloud-gray">
+      {/* Header */}
       <div className="transition-[left,width] duration-300 ease-in-out fixed top-0 left-0 right-0 z-[60] bg-white/95 py-2 border-b border-soft-border shadow-sm backdrop-blur px-3 md:px-4">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <MasterNavigationDrawer inHeader />
             <h1 className="text-xl font-bold tracking-tight text-midnight-ink">OTHERS INVENTORY</h1>
           </div>
-          <button type="button" onClick={fetchItems} className="inline-flex items-center gap-1.5 rounded-lg border border-soft-border bg-white px-3 py-1.5 text-sm font-medium text-midnight-ink hover:border-trust-blue transition">
-            <RefreshCw className="h-3.5 w-3.5" /> Refresh
-          </button>
+          <GlobalSearchBar />
+          <DateTimeStamp />
         </div>
       </div>
 
       <div className="w-full px-4 md:px-6 pt-20 pb-8">
-        <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
-          <p className="text-base text-cool-gray">Track consumables and purchased items like coffee powder, water bottles, tissue, and more.</p>
+        {status && (
+          <div className={`fixed top-16 right-4 z-50 rounded-lg border px-4 py-2 text-sm shadow-md ${statusType === 'error' ? 'border-rose-200 bg-rose-50 text-rose-700' : 'border-emerald-200 bg-emerald-50 text-emerald-700'}`}>
+            {status}
+          </div>
+        )}
+
+        {/* Back + buttons row */}
+        <div className="mb-4 flex justify-end">
           <Link href="/inventory" className="inline-flex items-center gap-2 rounded-lg border border-soft-border bg-white px-3 py-2 text-sm font-medium text-midnight-ink hover:border-trust-blue transition">
             <ArrowLeft className="h-4 w-4" /> Back
           </Link>
         </div>
 
-        {!loading && (
-          <div className="mb-4 flex items-center gap-3">
-            <span className="rounded-full bg-white border border-soft-border px-3 py-1 text-xs font-semibold text-midnight-ink">Total Items: {rows.length}</span>
-            <span className="rounded-full bg-amber-50 border border-amber-200 px-3 py-1 text-xs font-semibold text-amber-700">Low Stock: {lowStockCount}</span>
+        <div className="mb-4 flex flex-wrap gap-2 md:gap-3 justify-end items-center">
+          <Button onClick={fetchItems} variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8">
+            <RefreshCw className="w-3.5 h-3.5 mr-1.5" /> Refresh
+          </Button>
+          <Button onClick={handlePrintTable} variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8">
+            <Printer className="w-3.5 h-3.5 mr-1.5" /> Print
+          </Button>
+          <Button onClick={() => setIsManageColumnsOpen(true)} variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8">
+            Manage Columns
+          </Button>
+          <Button onClick={handleEditRows} variant="outline" disabled={editingRowIds.size > 0} className="border-trust-blue text-trust-blue hover:bg-trust-blue/10 rounded-full px-4 text-sm h-8">
+            <Pencil className="w-3.5 h-3.5 mr-1.5" /> Edit Row
+          </Button>
+          <Button onClick={openAddItemDialog} variant="outline" className="border-trust-blue text-trust-blue hover:bg-trust-blue/10 rounded-full px-4 text-sm h-8">
+            <Plus className="w-3.5 h-3.5 mr-1.5" /> New Item
+          </Button>
+          <Button onClick={saveAll} variant="outline" disabled={saving || editingRowIds.size > 0} className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8 disabled:opacity-60">
+            {saving ? 'Saving…' : 'Save Stock'}
+          </Button>
+          <Button onClick={openReceivePopup} variant="outline" className="border-emerald-500 text-emerald-600 hover:bg-emerald-50 rounded-full px-4 text-sm h-8">
+            Add Item
+          </Button>
+          <Button onClick={openIssuePopup} variant="outline" className="border-trust-blue text-trust-blue hover:bg-trust-blue/10 rounded-full px-4 text-sm h-8">
+            Issue Item
+          </Button>
+          <Button onClick={() => setRequestsPanelOpen((prev) => !prev)} variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8">
+            Requests
+            {pendingIssueRequests.length > 0 && (
+              <span className="ml-1 rounded-full bg-danger px-1.5 py-0.5 text-[10px] text-white leading-none">
+                {pendingIssueRequests.length}
+              </span>
+            )}
+          </Button>
+        </div>
+
+        {editingRowIds.size > 0 && (
+          <div className="mb-2 flex items-center gap-2">
+            <Button onClick={handleSaveEdit} disabled={saving} className="h-8 px-3 bg-success text-white hover:bg-success/90 rounded-full">
+              {saving ? 'Saving…' : 'Save Changes'}
+            </Button>
+            <Button variant="outline" onClick={handleCancelEdit} disabled={saving} className="h-8 px-3 border-danger text-danger hover:bg-danger/10 rounded-full">
+              Cancel Edit
+            </Button>
           </div>
         )}
 
-        {status && (
-          <div className={`mb-4 rounded-lg border px-3 py-2 text-sm ${statusType === 'error' ? 'border-rose-200 bg-rose-50 text-rose-700' : 'border-emerald-200 bg-emerald-50 text-emerald-700'}`}>
-            {status}
-          </div>
-        )}
-
+        {/* Filters */}
         <section className="border border-soft-border rounded-lg mb-4 bg-[#dbeafe] p-3">
           <div className="flex flex-wrap gap-2 items-center">
             <input
@@ -377,11 +548,7 @@ export default function OthersInventoryPage() {
             />
             <button
               type="button"
-              onClick={() => {
-                setSearchTerm('');
-                setFilterCategory([]);
-                setFilterUnit([]);
-              }}
+              onClick={() => { setSearchTerm(''); setFilterCategory([]); setFilterUnit([]); }}
               className="h-8 px-3 text-sm border rounded bg-trust-blue text-white border-trust-blue font-medium"
             >
               Clear
@@ -390,38 +557,6 @@ export default function OthersInventoryPage() {
         </section>
 
         <section className="rounded-xl border border-soft-border bg-white p-4 md:p-6 shadow-sm mb-6">
-          <div className="flex items-center justify-between gap-3 mb-3">
-            <h2 className="text-lg font-semibold text-midnight-ink">Current Stock</h2>
-            <div className="flex items-center gap-2">
-              <button type="button" onClick={handlePrintTable} className="inline-flex items-center gap-2 rounded-lg border border-soft-border bg-white px-3 py-2 text-sm font-medium text-midnight-ink hover:border-trust-blue transition">
-                <Printer className="h-4 w-4" /> Print
-              </button>
-              <button type="button" onClick={() => setIsManageColumnsOpen(true)} className="inline-flex items-center gap-2 rounded-lg border border-soft-border bg-white px-3 py-2 text-sm font-medium text-midnight-ink hover:border-trust-blue transition">
-                Manage Columns
-              </button>
-              <button type="button" onClick={handleEditRows} disabled={editingRowIds.size > 0} className="inline-flex items-center gap-2 rounded-lg border border-trust-blue bg-white px-3 py-2 text-sm font-medium text-trust-blue hover:bg-blue-50 transition disabled:opacity-40">
-                <Pencil className="h-4 w-4" /> Edit Row
-              </button>
-              <button type="button" onClick={openAddItemDialog} className="inline-flex items-center gap-2 rounded-lg border border-soft-border bg-white px-3 py-2 text-sm font-medium text-midnight-ink hover:border-trust-blue transition">
-                <Plus className="h-4 w-4" /> Add Item
-              </button>
-              <button type="button" onClick={saveAll} disabled={saving || editingRowIds.size > 0} className="rounded-lg border border-trust-blue bg-trust-blue px-3 py-2 text-sm font-semibold text-white hover:opacity-95 transition disabled:opacity-60">
-                {saving ? 'Saving…' : 'Save Stock'}
-              </button>
-            </div>
-          </div>
-
-          {editingRowIds.size > 0 && (
-            <div className="mb-3 flex items-center gap-2">
-              <button type="button" onClick={handleSaveEdit} disabled={saving} className="rounded-lg border border-success bg-success px-3 py-2 text-sm font-semibold text-white hover:opacity-95 transition disabled:opacity-60">
-                {saving ? 'Saving…' : 'Save Changes'}
-              </button>
-              <button type="button" onClick={handleCancelEdit} disabled={saving} className="rounded-lg border border-danger bg-white px-3 py-2 text-sm font-semibold text-danger hover:bg-danger/10 transition disabled:opacity-60">
-                Cancel Edit
-              </button>
-            </div>
-          )}
-
           {loading ? (
             <p className="py-10 text-center text-sm text-cool-gray">Loading…</p>
           ) : (
@@ -651,6 +786,279 @@ export default function OthersInventoryPage() {
           <div className="mt-2 flex justify-end gap-2">
             <button type="button" onClick={handleHideColumns} disabled={selectedColumnsForAction.size === 0} className="rounded-md border border-danger/40 px-3 py-2 text-sm font-medium text-danger hover:bg-danger/10 disabled:opacity-50">Hide</button>
             <button type="button" onClick={handleShowColumns} disabled={selectedColumnsForAction.size === 0} className="rounded-md border border-green-300 px-3 py-2 text-sm font-medium text-success hover:bg-success/10 disabled:opacity-50">Show</button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={receiveOpen} onOpenChange={setReceiveOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-semibold text-midnight-ink">Add Item</DialogTitle>
+          </DialogHeader>
+          <div className="mt-2 grid grid-cols-1 gap-4">
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Item</label>
+              <select
+                value={receiveForm.itemId}
+                onChange={(e) => setReceiveForm((prev) => ({ ...prev, itemId: e.target.value }))}
+                className="w-full rounded-md border border-soft-border bg-white px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+              >
+                <option value="">Select item</option>
+                {rows.map((r) => (
+                  <option key={r.id} value={r.id}>{r.item_name || `Item #${r.id}`}</option>
+                ))}
+              </select>
+              {receiveForm.itemId && (() => {
+                const _row = rows.find((r) => r.id === Number(receiveForm.itemId));
+                const _stock = Number(_row?.quantity ?? 0);
+                return (
+                  <p className="text-xs text-cool-gray mt-0.5">
+                    Current stock: <span className="font-semibold text-emerald-600">{_stock} {_row?.unit || 'PCS'}</span>
+                  </p>
+                );
+              })()}
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Employee / Vendor Name</label>
+              <select
+                value={receiveForm.employeeVendorName}
+                onChange={(e) => setReceiveForm((prev) => ({ ...prev, employeeVendorName: e.target.value }))}
+                className="w-full rounded-md border border-soft-border bg-white px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+              >
+                <option value="">Select person</option>
+                {workforceMembers.map((m) => (
+                  <option key={m.id} value={m.full_name}>{m.full_name}</option>
+                ))}
+              </select>
+              <button type="button" onClick={() => setEnrollWorkforceOpen(true)} className="text-xs text-trust-blue hover:underline mt-0.5 text-left">+ Quick Enrol Workforce</button>
+            </div>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Reference ID</label>
+                <input
+                  type="text"
+                  value={receiveForm.referenceId}
+                  onChange={(e) => setReceiveForm((prev) => ({ ...prev, referenceId: e.target.value }))}
+                  placeholder="e.g. REF-001"
+                  className="w-full rounded-md border border-soft-border px-3 py-1.5 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Quantity</label>
+                <input
+                  type="number"
+                  min={0}
+                  value={receiveForm.quantity}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (value === '') { setReceiveForm((prev) => ({ ...prev, quantity: '' })); return; }
+                    const num = Number(value);
+                    setReceiveForm((prev) => ({ ...prev, quantity: String(Number.isFinite(num) ? Math.max(0, num) : 0) }));
+                  }}
+                  className="w-full rounded-md border border-soft-border px-3 py-1.5 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Price</label>
+                <input
+                  type="text"
+                  value={receiveForm.price}
+                  onChange={(e) => setReceiveForm((prev) => ({ ...prev, price: e.target.value }))}
+                  placeholder="e.g. 500"
+                  className="w-full rounded-md border border-soft-border px-3 py-1.5 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                />
+              </div>
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Usage</label>
+              <select
+                value={receiveForm.usage}
+                onChange={(e) => setReceiveForm((prev) => ({ ...prev, usage: e.target.value }))}
+                className="w-full rounded-md border border-soft-border bg-white px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+              >
+                <option value="new">New</option>
+                <option value="used">Used</option>
+              </select>
+            </div>
+          </div>
+          <div className="mt-5 flex justify-end gap-3">
+            <button type="button" onClick={() => setReceiveOpen(false)} className="inline-flex items-center gap-2 rounded-lg border border-soft-border bg-white px-3 py-2 text-sm font-medium text-midnight-ink hover:border-trust-blue transition">
+              Cancel
+            </button>
+            <button type="button" onClick={createReceiveRequest} className="rounded-lg border border-trust-blue bg-trust-blue px-3 py-2 text-sm font-semibold text-white hover:opacity-95 transition">
+              Receive
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={issueOpen} onOpenChange={setIssueOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-semibold text-midnight-ink">Issue Item</DialogTitle>
+          </DialogHeader>
+          <div className="mt-2 grid grid-cols-1 gap-4">
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Item</label>
+              <select
+                value={issueForm.itemId}
+                onChange={(e) => setIssueForm((prev) => ({ ...prev, itemId: e.target.value }))}
+                className="w-full rounded-md border border-soft-border bg-white px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+              >
+                <option value="">Select item</option>
+                {rows.map((r) => (
+                  <option key={r.id} value={r.id}>{r.item_name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="grid grid-cols-3 gap-4">
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Quantity</label>
+                <input
+                  type="number"
+                  value={issueForm.quantity}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val === '') { setIssueForm((prev) => ({ ...prev, quantity: '' })); return; }
+                    const num = Number(val);
+                    setIssueForm((prev) => ({ ...prev, quantity: String(Number.isFinite(num) ? Math.max(0, num) : 0) }));
+                  }}
+                  className="w-full rounded-md border border-soft-border bg-white px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Issued To</label>
+                <select
+                  value={issueForm.issuedTo}
+                  onChange={(e) => setIssueForm((prev) => ({ ...prev, issuedTo: e.target.value }))}
+                  className="w-full rounded-md border border-soft-border bg-white px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                >
+                  <option value="">Select person</option>
+                  {workforceMembers.map((m) => (
+                    <option key={m.id} value={m.full_name}>{m.full_name}</option>
+                  ))}
+                </select>
+                <button type="button" onClick={() => setEnrollWorkforceOpen(true)} className="text-xs text-trust-blue hover:underline mt-0.5 text-left">+ Quick Enrol Workforce</button>
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Issued By</label>
+                <select
+                  value={issueForm.issuedBy}
+                  onChange={(e) => setIssueForm((prev) => ({ ...prev, issuedBy: e.target.value }))}
+                  className="w-full rounded-md border border-soft-border bg-white px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                >
+                  <option value="">Select person</option>
+                  {workforceMembers.map((m) => (
+                    <option key={m.id} value={m.full_name}>{m.full_name}</option>
+                  ))}
+                </select>
+                <button type="button" onClick={() => setEnrollWorkforceOpen(true)} className="text-xs text-trust-blue hover:underline mt-0.5 text-left">+ Quick Enrol Workforce</button>
+              </div>
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Reason of Issue</label>
+              <input
+                type="text"
+                value={issueForm.reason}
+                onChange={(e) => setIssueForm((prev) => ({ ...prev, reason: e.target.value }))}
+                className="w-full rounded-md border border-soft-border bg-white px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+              />
+            </div>
+          </div>
+          <div className="mt-5 flex justify-end gap-3">
+            <button type="button" onClick={() => setIssueOpen(false)} className="inline-flex items-center gap-2 rounded-lg border border-soft-border bg-white px-3 py-2 text-sm font-medium text-midnight-ink hover:border-trust-blue transition">
+              Cancel
+            </button>
+            <button type="button" onClick={createIssueRequest} className="rounded-lg border border-trust-blue bg-trust-blue px-3 py-2 text-sm font-semibold text-white hover:opacity-95 transition">
+              Request
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {enrollWorkforceOpen && (
+        <EnrolWorkforceForm
+          open={enrollWorkforceOpen}
+          onEnroll={() => { refreshWorkforce(); setEnrollWorkforceOpen(false); }}
+          onClose={() => setEnrollWorkforceOpen(false)}
+        />
+      )}
+
+      {requestsPanelOpen && (
+        <>
+          <div className="fixed inset-0 z-[75] bg-black/20" onClick={() => setRequestsPanelOpen(false)} />
+          <aside className="fixed right-2 top-[64px] z-[80] h-[calc(100vh-72px)] w-full max-w-[390px] rounded-2xl border border-soft-border bg-white shadow-2xl">
+            <div className="flex h-full flex-col">
+              <div className="flex items-center justify-between border-b border-soft-border px-4 py-3">
+                <div>
+                  <h3 className="text-base font-semibold text-midnight-ink">Notifications</h3>
+                  <p className="text-xs text-cool-gray">Issue requests for items</p>
+                </div>
+                <button onClick={() => setRequestsPanelOpen(false)} className="rounded-md p-1 text-cool-gray hover:bg-[#F3F4F6] hover:text-midnight-ink">
+                  <X size={16} />
+                </button>
+              </div>
+              <div className="flex-1 overflow-y-auto">
+                {sortedIssueRequests.length === 0 ? (
+                  <div className="px-4 py-6 text-sm text-cool-gray">No requests yet.</div>
+                ) : (
+                  <div className="divide-y divide-soft-border">
+                    {sortedIssueRequests.map((req, idx) => {
+                      const statusClass = req.status === 'approved' ? 'bg-emerald-100 text-emerald-800' : req.status === 'declined' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-800';
+                      return (
+                        <button key={req.id ?? idx} onClick={() => openRequestDetails(req.id)} className="w-full rounded-xl px-4 py-3 text-left transition hover:bg-[#F9FAFB]">
+                          <div className="flex items-start gap-3">
+                            <div className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-full bg-[#EEF2FF] text-xs font-semibold text-trust-blue">
+                              {String(req.itemName || 'I').charAt(0).toUpperCase()}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-sm text-midnight-ink">
+                                <span className="font-semibold">{req.issuedTo}</span> requested <span className="font-semibold">{req.quantity}</span> of {req.itemName}
+                              </p>
+                              <p className="mt-0.5 truncate text-xs text-cool-gray">Reason: {req.reason || '-'}</p>
+                              <div className="mt-1 flex items-center gap-2">
+                                <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${statusClass}`}>{req.status}</span>
+                                <span className="text-[11px] text-cool-gray">{relativeTime(req.requestedAt)}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          </aside>
+        </>
+      )}
+
+      <Dialog open={requestDetailsOpen} onOpenChange={setRequestDetailsOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-semibold text-midnight-ink">Issue Request Details</DialogTitle>
+          </DialogHeader>
+          {activeRequest ? (
+            <div className="mt-2 grid grid-cols-1 gap-3 text-sm">
+              <div><span className="font-medium text-cool-gray">Item:</span> {activeRequest.itemName}</div>
+              <div><span className="font-medium text-cool-gray">Quantity:</span> {activeRequest.quantity}</div>
+              <div><span className="font-medium text-cool-gray">Issued To:</span> {activeRequest.issuedTo}</div>
+              <div><span className="font-medium text-cool-gray">Issued By:</span> {activeRequest.issuedBy || '-'}</div>
+              <div><span className="font-medium text-cool-gray">Reason:</span> {activeRequest.reason || '-'}</div>
+              <div><span className="font-medium text-cool-gray">Status:</span> {activeRequest.status.toUpperCase()}</div>
+              <div><span className="font-medium text-cool-gray">Requested At:</span> {new Date(activeRequest.requestedAt).toLocaleString()}</div>
+            </div>
+          ) : (
+            <p className="text-sm text-cool-gray">Request not found.</p>
+          )}
+          <div className="mt-5 flex justify-end gap-3">
+            <Button variant="outline" onClick={() => setRequestDetailsOpen(false)}>Close</Button>
+            {activeRequest?.status === 'pending' && (
+              <>
+                <Button variant="destructive" onClick={() => reviewIssueRequest('declined')}>Decline</Button>
+                <Button onClick={() => reviewIssueRequest('approved')}>Approve</Button>
+              </>
+            )}
           </div>
         </DialogContent>
       </Dialog>

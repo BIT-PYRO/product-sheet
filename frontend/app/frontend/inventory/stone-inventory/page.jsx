@@ -12,7 +12,10 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import GlobalSearchBar from '@/components/global-search-bar';
+import DateTimeStamp from '@/components/date-time-stamp';
 import MultiselectFilterPopover from '@/components/multiselect-filter-popover';
+import { EnrolWorkforceForm } from '@/app/frontend/enrol-workforce/page';
 
 const ISSUE_REQUESTS_KEY = 'stone_issue_requests_v1';
 const STONE_MANAGE_COLUMNS = [
@@ -166,6 +169,12 @@ export default function StoneInventoryPage() {
     height: '',
   });
 
+  // Receive Stone workflow
+  const [receiveOpen, setReceiveOpen] = useState(false);
+  const [receiveForm, setReceiveForm] = useState({ stoneId: '', quantity: '', employeeVendorName: '', referenceId: '', price: '', usage: 'new', cut: '', shape: '', length: '', width: '', height: '' });
+  const [workforceMembers, setWorkforceMembers] = useState([]);
+  const [enrollWorkforceOpen, setEnrollWorkforceOpen] = useState(false);
+
   // â”€â”€ load â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   const loadStones = useCallback(async () => {
@@ -187,6 +196,20 @@ export default function StoneInventoryPage() {
   useEffect(() => {
     loadStones();
   }, [loadStones]);
+
+  useEffect(() => {
+    fetch('/api/workforce?page_size=200')
+      .then((r) => r.json())
+      .then((d) => setWorkforceMembers(Array.isArray(d?.results) ? d.results : Array.isArray(d) ? d : []))
+      .catch(() => {});
+  }, []);
+
+  const refreshWorkforce = () => {
+    fetch('/api/workforce?page_size=200')
+      .then((r) => r.json())
+      .then((d) => setWorkforceMembers(Array.isArray(d?.results) ? d.results : Array.isArray(d) ? d : []))
+      .catch(() => {});
+  };
 
   useEffect(() => {
     try {
@@ -328,24 +351,41 @@ export default function StoneInventoryPage() {
   }
 
   function openIssueJobPopup() {
-    if (selectedStones.length === 0) {
-      setStatusMsg('Select at least one stone to raise an issue request.');
-      return;
-    }
-    const selectedStone = selectedStones[0];
     setIssueForm({
-      stoneId: String(selectedStones[0].id),
+      stoneId: '',
       quantity: '',
       issuedTo: '',
       issuedBy: '',
       reason: '',
-      cut: String(selectedStone?.cut || ''),
-      shape: String(selectedStone?.shape || ''),
-      length: String(selectedStone?.length || ''),
-      width: String(selectedStone?.width || ''),
-      height: String(selectedStone?.height || ''),
+      cut: '',
+      shape: '',
+      length: '',
+      width: '',
+      height: '',
     });
     setIssueJobOpen(true);
+  }
+
+  function openReceivePopup() {
+    setReceiveForm({ stoneId: '', quantity: '', employeeVendorName: '', referenceId: '', price: '', usage: 'new', cut: '', shape: '', length: '', width: '', height: '' });
+    setReceiveOpen(true);
+  }
+
+  function createReceiveRequest() {
+    const stoneIdNum = Number(receiveForm.stoneId);
+    const quantityNum = Number(receiveForm.quantity);
+    const employeeVendorName = receiveForm.employeeVendorName.trim();
+    const referenceId = receiveForm.referenceId.trim();
+    const price = receiveForm.price.trim();
+    if (!stoneIdNum) { setStatusMsg('Please select a stone.'); return; }
+    if (!Number.isFinite(quantityNum) || quantityNum <= 0) { setStatusMsg('Please enter a valid quantity greater than 0.'); return; }
+    if (!employeeVendorName) { setStatusMsg('Please enter employee/vendor name.'); return; }
+    if (!referenceId) { setStatusMsg('Please enter a reference ID.'); return; }
+    if (!price) { setStatusMsg('Please enter a price.'); return; }
+    const stone = stones.find((s) => s.id === stoneIdNum);
+    setStones((prev) => prev.map((s) => s.id === stoneIdNum ? { ...s, qty: Number(s.qty || 0) + quantityNum } : s));
+    setReceiveOpen(false);
+    setStatusMsg(`Received ${quantityNum} of ${stone?.species || 'Stone #' + stoneIdNum} from ${employeeVendorName}.`);
   }
 
   function createIssueRequest() {
@@ -699,13 +739,14 @@ export default function StoneInventoryPage() {
             <MasterNavigationDrawer inHeader />
             <h1 className="text-xl font-bold tracking-tight text-midnight-ink">STONE INVENTORY</h1>
           </div>
-          <div />
+          <GlobalSearchBar />
+          <DateTimeStamp />
         </div>
       </div>
 
       <div className="w-full px-4 md:px-6 pt-20 pb-8">
-        {/* â”€â”€ toolbar â”€â”€ */}
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        {/* toolbar */}
+        <div className="mb-4 flex justify-end">
           <Link
             href="/inventory"
             className="inline-flex items-center gap-2 rounded-lg border border-soft-border bg-white px-3 py-2 text-sm font-medium text-midnight-ink hover:border-trust-blue transition"
@@ -713,83 +754,46 @@ export default function StoneInventoryPage() {
             <ArrowLeft size={16} />
             Back
           </Link>
+        </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              onClick={loadStones}
-              disabled={loading}
-              className="inline-flex items-center gap-2 rounded-lg border border-soft-border bg-white px-3 py-2 text-sm font-medium text-midnight-ink hover:border-trust-blue transition disabled:opacity-50"
-            >
-              <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-              Refresh
-            </button>
-
-            <button
-              onClick={handlePrintTable}
-              className="inline-flex items-center gap-2 rounded-lg border border-soft-border bg-white px-3 py-2 text-sm font-medium text-midnight-ink hover:border-trust-blue transition"
-            >
-              <Printer size={14} />
-              Print
-            </button>
-
-            <button
-              onClick={() => setIsManageColumnsOpen(true)}
-              className="inline-flex items-center gap-2 rounded-lg border border-soft-border bg-white px-3 py-2 text-sm font-medium text-midnight-ink hover:border-trust-blue transition"
-            >
-              Manage Columns
-            </button>
-
-            <button
-              onClick={() => { setStoneForm(emptyStone()); setAddStoneOpen(true); }}
-              className="inline-flex items-center gap-2 rounded-lg bg-trust-blue px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 transition"
-            >
-              <Plus size={14} />
-              Add New Stone
-            </button>
-
-            <button
-              onClick={handleEditRows}
-              disabled={selectedIds.size === 0}
-              className="inline-flex items-center gap-2 rounded-lg border border-trust-blue bg-white px-3 py-2 text-sm font-medium text-trust-blue hover:bg-blue-50 transition disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              <Pencil size={14} />
-              Edit Row
-            </button>
-
-            {canEdit && <button
-              onClick={openStockPopup}
-              disabled={selectedIds.size === 0}
-              className="inline-flex items-center gap-2 rounded-lg border border-trust-blue bg-white px-3 py-2 text-sm font-medium text-trust-blue hover:bg-blue-50 transition disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              <Plus size={14} />
-              Add Stone Stock
-              {selectedIds.size > 0 && (
-                <span className="ml-1 rounded-full bg-trust-blue px-1.5 py-0.5 text-[10px] text-white leading-none">
-                  {selectedIds.size}
-                </span>
-              )}
-            </button>}
-
-            {canEdit && <button
-              onClick={openIssueJobPopup}
-              disabled={selectedIds.size === 0}
-              className="inline-flex items-center gap-2 rounded-lg border border-trust-blue bg-white px-3 py-2 text-sm font-medium text-trust-blue hover:bg-blue-50 transition disabled:opacity-40 disabled:cursor-not-allowed"
-            >
+        <div className="mb-4 flex flex-wrap gap-2 md:gap-3 justify-end items-center">
+          <Button onClick={loadStones} variant="outline" disabled={loading} className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8">
+            <RefreshCw size={14} className={`mr-1.5 ${loading ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
+          <Button onClick={handlePrintTable} variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8">
+            <Printer size={14} className="mr-1.5" />
+            Print
+          </Button>
+          <Button onClick={() => setIsManageColumnsOpen(true)} variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8">
+            Manage Columns
+          </Button>
+          <Button onClick={() => { setStoneForm(emptyStone()); setAddStoneOpen(true); }} variant="outline" className="border-trust-blue text-trust-blue hover:bg-trust-blue/10 rounded-full px-4 text-sm h-8">
+            <Plus size={14} className="mr-1.5" />
+            New Stone
+          </Button>
+          <Button onClick={handleEditRows} variant="outline" className="border-trust-blue text-trust-blue hover:bg-trust-blue/10 rounded-full px-4 text-sm h-8">
+            <Pencil size={14} className="mr-1.5" />
+            Edit Row
+          </Button>
+          {canEdit && (
+            <Button onClick={openReceivePopup} variant="outline" className="border-emerald-500 text-emerald-600 hover:bg-emerald-50 rounded-full px-4 text-sm h-8">
+              Add Stone
+            </Button>
+          )}
+          {canEdit && (
+            <Button onClick={openIssueJobPopup} variant="outline" className="border-trust-blue text-trust-blue hover:bg-trust-blue/10 rounded-full px-4 text-sm h-8">
               Issue Stone
-            </button>}
-
-            <button
-              onClick={() => setRequestsPanelOpen((prev) => !prev)}
-              className="inline-flex items-center gap-2 rounded-xl border border-soft-border bg-white px-3 py-2 text-sm font-medium text-midnight-ink hover:border-trust-blue transition"
-            >
-              Requests
-              {pendingIssueRequests.length > 0 && (
-                <span className="rounded-full bg-danger px-1.5 py-0.5 text-[10px] text-white leading-none">
-                  {pendingIssueRequests.length}
-                </span>
-              )}
-            </button>
-          </div>
+            </Button>
+          )}
+          <Button onClick={() => setRequestsPanelOpen((prev) => !prev)} variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8">
+            Requests
+            {pendingIssueRequests.length > 0 && (
+              <span className="ml-1 rounded-full bg-danger px-1.5 py-0.5 text-[10px] text-white leading-none">
+                {pendingIssueRequests.length}
+              </span>
+            )}
+          </Button>
         </div>
 
         {/* â”€â”€ status â”€â”€ */}
@@ -1373,7 +1377,7 @@ export default function StoneInventoryPage() {
       <Dialog open={issueJobOpen} onOpenChange={setIssueJobOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle className="text-lg font-semibold text-midnight-ink">Issue Job Request</DialogTitle>
+            <DialogTitle className="text-lg font-semibold text-midnight-ink">Issue Stone</DialogTitle>
           </DialogHeader>
 
           <div className="mt-2 grid grid-cols-1 gap-4">
@@ -1397,7 +1401,7 @@ export default function StoneInventoryPage() {
                 className="w-full rounded-md border border-soft-border bg-white px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
               >
                 <option value="">Select stone</option>
-                {selectedStones.map((stone) => (
+                {stones.map((stone) => (
                   <option key={stone.id} value={stone.id}>{stoneName(stone)}</option>
                 ))}
               </select>
@@ -1418,16 +1422,34 @@ export default function StoneInventoryPage() {
                 }}
               />
 
-              <Field
-                label="Issued To"
-                value={issueForm.issuedTo}
-                onChange={(value) => setIssueForm((prev) => ({ ...prev, issuedTo: value }))}
-              />
-              <Field
-                label="Issued By"
-                value={issueForm.issuedBy}
-                onChange={(value) => setIssueForm((prev) => ({ ...prev, issuedBy: value }))}
-              />
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Issued To</label>
+                <select
+                  value={issueForm.issuedTo}
+                  onChange={(e) => setIssueForm((prev) => ({ ...prev, issuedTo: e.target.value }))}
+                  className="w-full rounded-md border border-soft-border bg-white px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                >
+                  <option value="">Select person</option>
+                  {workforceMembers.map((m) => (
+                    <option key={m.id} value={m.full_name}>{m.full_name}</option>
+                  ))}
+                </select>
+                <button type="button" onClick={() => setEnrollWorkforceOpen(true)} className="text-xs text-trust-blue hover:underline mt-0.5 text-left">+ Quick Enrol Workforce</button>
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Issued By</label>
+                <select
+                  value={issueForm.issuedBy}
+                  onChange={(e) => setIssueForm((prev) => ({ ...prev, issuedBy: e.target.value }))}
+                  className="w-full rounded-md border border-soft-border bg-white px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                >
+                  <option value="">Select person</option>
+                  {workforceMembers.map((m) => (
+                    <option key={m.id} value={m.full_name}>{m.full_name}</option>
+                  ))}
+                </select>
+                <button type="button" onClick={() => setEnrollWorkforceOpen(true)} className="text-xs text-trust-blue hover:underline mt-0.5 text-left">+ Quick Enrol Workforce</button>
+              </div>
             </div>
 
             <Field
@@ -1468,6 +1490,117 @@ export default function StoneInventoryPage() {
           <div className="mt-5 flex justify-end gap-3">
             <Button variant="outline" onClick={() => setIssueJobOpen(false)}>Cancel</Button>
             <Button onClick={createIssueRequest}>Request</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={receiveOpen} onOpenChange={setReceiveOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-semibold text-midnight-ink">Add Stone</DialogTitle>
+          </DialogHeader>
+          <div className="mt-2 grid grid-cols-1 gap-4">
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Stone</label>
+              <select
+                value={receiveForm.stoneId}
+                onChange={(e) => setReceiveForm((prev) => ({ ...prev, stoneId: e.target.value }))}
+                className="w-full rounded-md border border-soft-border bg-white px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+              >
+                <option value="">Select stone</option>
+                {stones.map((s) => (
+                  <option key={s.id} value={s.id}>{s.species || s.variety || `Stone #${s.id}`}</option>
+                ))}
+              </select>
+              {receiveForm.stoneId && (() => {
+                const _stone = stones.find((s) => s.id === Number(receiveForm.stoneId));
+                const _stock = Number(_stone?.qty ?? 0);
+                return (
+                  <p className="text-xs text-cool-gray mt-0.5">
+                    Current stock: <span className="font-semibold text-emerald-600">{_stock}</span>
+                  </p>
+                );
+              })()}
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Employee / Vendor Name</label>
+              <select
+                value={receiveForm.employeeVendorName}
+                onChange={(e) => setReceiveForm((prev) => ({ ...prev, employeeVendorName: e.target.value }))}
+                className="w-full rounded-md border border-soft-border bg-white px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+              >
+                <option value="">Select person</option>
+                {workforceMembers.map((m) => (
+                  <option key={m.id} value={m.full_name}>{m.full_name}</option>
+                ))}
+              </select>
+              <button type="button" onClick={() => setEnrollWorkforceOpen(true)} className="text-xs text-trust-blue hover:underline mt-0.5 text-left">+ Quick Enrol Workforce</button>
+            </div>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Reference ID</label>
+                <input
+                  type="text"
+                  value={receiveForm.referenceId}
+                  onChange={(e) => setReceiveForm((prev) => ({ ...prev, referenceId: e.target.value }))}
+                  placeholder="e.g. REF-001"
+                  className="w-full rounded-md border border-soft-border px-3 py-1.5 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Quantity</label>
+                <input
+                  type="number"
+                  min={0}
+                  value={receiveForm.quantity}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (value === '') { setReceiveForm((prev) => ({ ...prev, quantity: '' })); return; }
+                    const num = Number(value);
+                    setReceiveForm((prev) => ({ ...prev, quantity: String(Number.isFinite(num) ? Math.max(0, num) : 0) }));
+                  }}
+                  className="w-full rounded-md border border-soft-border px-3 py-1.5 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Price</label>
+                <input
+                  type="text"
+                  value={receiveForm.price}
+                  onChange={(e) => setReceiveForm((prev) => ({ ...prev, price: e.target.value }))}
+                  placeholder="e.g. 500"
+                  className="w-full rounded-md border border-soft-border px-3 py-1.5 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                />
+              </div>
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Usage</label>
+              <select
+                value={receiveForm.usage}
+                onChange={(e) => setReceiveForm((prev) => ({ ...prev, usage: e.target.value }))}
+                className="w-full rounded-md border border-soft-border bg-white px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+              >
+                <option value="new">New</option>
+                <option value="used">Used</option>
+              </select>
+            </div>
+            <div className="grid grid-cols-5 gap-2">
+              {[['Cut', 'cut'], ['Shape', 'shape'], ['Length', 'length'], ['Width', 'width'], ['Height', 'height']].map(([label, key]) => (
+                <div key={key} className="flex flex-col gap-1">
+                  <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">{label}</label>
+                  <input
+                    type="text"
+                    value={receiveForm[key]}
+                    onChange={(e) => setReceiveForm((prev) => ({ ...prev, [key]: e.target.value }))}
+                    className="w-full rounded-md border border-soft-border px-2 py-1.5 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="mt-5 flex justify-end gap-3">
+            <Button variant="outline" onClick={() => setReceiveOpen(false)}>Cancel</Button>
+            <Button onClick={createReceiveRequest}>Receive</Button>
           </div>
         </DialogContent>
       </Dialog>
@@ -1520,6 +1653,14 @@ export default function StoneInventoryPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {enrollWorkforceOpen && (
+        <EnrolWorkforceForm
+          open={enrollWorkforceOpen}
+          onEnroll={() => { refreshWorkforce(); setEnrollWorkforceOpen(false); }}
+          onClose={() => setEnrollWorkforceOpen(false)}
+        />
+      )}
     </main>
   );
 }

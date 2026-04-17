@@ -22,6 +22,7 @@ class OrderItemSerializer(serializers.ModelSerializer):
 
 class OrderListSerializer(serializers.ModelSerializer):
     items = OrderItemSerializer(many=True, read_only=True)
+    total_items = serializers.SerializerMethodField()
 
     class Meta:
         model = Order
@@ -48,6 +49,7 @@ class OrderListSerializer(serializers.ModelSerializer):
             'order_source',
             'created_at',
             'updated_at',
+            'total_items',
             'items',
         ]
         read_only_fields = [
@@ -60,10 +62,14 @@ class OrderListSerializer(serializers.ModelSerializer):
             'created_at',
             'updated_at',
         ]
+
+    def get_total_items(self, obj):
+        return obj.items.count()
 
 
 class OrderDetailSerializer(serializers.ModelSerializer):
     items = OrderItemSerializer(many=True)
+    total_items = serializers.SerializerMethodField()
 
     class Meta:
         model = Order
@@ -90,6 +96,7 @@ class OrderDetailSerializer(serializers.ModelSerializer):
             'order_source',
             'created_at',
             'updated_at',
+            'total_items',
             'items',
         ]
         read_only_fields = [
@@ -99,6 +106,9 @@ class OrderDetailSerializer(serializers.ModelSerializer):
             'created_at',
             'updated_at',
         ]
+
+    def get_total_items(self, obj):
+        return obj.items.count()
 
     def create(self, validated_data):
         items_data = validated_data.pop('items', [])

@@ -10,24 +10,24 @@ async function resolveId(context) {
 
 export async function GET(request, context) {
   const id = await resolveId(context);
-  return proxyAuthenticatedRequest(request, `/api/v1/inventory/machines/${id}/`);
-}
-
-export async function PUT(request, context) {
-  const id = await resolveId(context);
-  const body = await request.text();
-  return proxyAuthenticatedRequest(request, `/api/v1/inventory/machines/${id}/`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body,
-  });
+  return proxyAuthenticatedRequest(request, `/api/v1/inventory/finding-inventory/${id}/`);
 }
 
 export async function PATCH(request, context) {
   const id = await resolveId(context);
   const body = await request.text();
-  return proxyAuthenticatedRequest(request, `/api/v1/inventory/machines/${id}/`, {
+  return proxyAuthenticatedRequest(request, `/api/v1/inventory/finding-inventory/${id}/`, {
     method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body,
+  });
+}
+
+export async function PUT(request, context) {
+  const id = await resolveId(context);
+  const body = await request.text();
+  return proxyAuthenticatedRequest(request, `/api/v1/inventory/finding-inventory/${id}/`, {
+    method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body,
   });
@@ -35,7 +35,7 @@ export async function PATCH(request, context) {
 
 export async function DELETE(request, context) {
   const id = await resolveId(context);
-  return proxyAuthenticatedRequest(request, `/api/v1/inventory/machines/${id}/`, {
+  return proxyAuthenticatedRequest(request, `/api/v1/inventory/finding-inventory/${id}/`, {
     method: 'DELETE',
   });
 }

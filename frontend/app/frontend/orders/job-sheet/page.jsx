@@ -342,10 +342,11 @@ export function OrderSheetView({ embedded = false }) {
       (o) => o.order_source === 'picklist' && o.picklist_number === exportPicklistNum
     );
 
-    // Merge items by master SKU (sum quantities).
+    // Group by master SKU, tracking each variation SKU and its qty separately.
     // Order items store the variation SKU (e.g. AJE116/G); strip the last /suffix
-    // to recover the master SKU (e.g. AJE116), exactly as groupedItems does.
-    const itemMap = new Map();
+    // to recover the master SKU (e.g. AJE116).
+    // masterMap: masterSku → { productName, totalQty, variations: Map<variationSku, qty> }
+    const masterMap = new Map();
     picklistOrders.forEach((order) => {
       (order.items || []).forEach((item) => {
         const variationSku = String(item.sku || '').trim().toUpperCase();
@@ -353,35 +354,63 @@ export function OrderSheetView({ embedded = false }) {
         const masterSku = variationSku.includes('/')
           ? variationSku.substring(0, variationSku.lastIndexOf('/'))
           : variationSku;
-        if (itemMap.has(masterSku)) {
-          itemMap.get(masterSku).quantity += Number(item.quantity) || 0;
-        } else {
-          itemMap.set(masterSku, { sku: masterSku, quantity: Number(item.quantity) || 0 });
+        const qty = Number(item.quantity) || 0;
+        const productName = String(item.name || '').trim();
+
+        if (!masterMap.has(masterSku)) {
+          masterMap.set(masterSku, { productName, totalQty: 0, variations: new Map() });
         }
+        const entry = masterMap.get(masterSku);
+        entry.totalQty += qty;
+        // Use the item name as product name if not set yet
+        if (!entry.productName && productName) entry.productName = productName;
+        // Aggregate per variation SKU
+        entry.variations.set(variationSku, (entry.variations.get(variationSku) || 0) + qty);
       });
     });
 
-    const rows = Array.from(itemMap.values()).sort((a, b) => a.sku.localeCompare(b.sku));
+    const rows = Array.from(masterMap.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([masterSku, entry]) => ({ masterSku, ...entry }));
 
     // Build printable HTML
     const picklistName = `PICKLIST-${exportPicklistNum}`;
     const exportDate = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+    const totalPiecesAll = rows.reduce((s, r) => s + r.totalQty, 0);
 
     const rowsHtml = rows.map((item) => {
-      const normalized = item.sku.toLowerCase();
+      const normalized = item.masterSku.toLowerCase();
       const product = productsBySku[normalized] || null;
       const imageList = Array.isArray(product?.images) ? product.images : [];
       const firstImage = imageList[0] || null;
+      const displayName = item.productName || product?.listing_name || product?.name || '';
 
       const imgHtml = firstImage
-        ? `<img src="${firstImage}" alt="${item.sku}" style="width:120px;height:120px;object-fit:cover;border-radius:8px;border:1px solid #e5e7eb;" />`
-        : `<div style="width:120px;height:120px;border-radius:8px;border:1px solid #e5e7eb;background:#f9fafb;display:flex;align-items:center;justify-content:center;color:#9ca3af;font-size:11px;">No image</div>`;
+        ? `<img src="${firstImage}" alt="${item.masterSku}" style="width:100px;height:100px;object-fit:cover;border-radius:8px;border:1px solid #e5e7eb;" />`
+        : `<div style="width:100px;height:100px;border-radius:8px;border:1px solid #e5e7eb;background:#f9fafb;display:flex;align-items:center;justify-content:center;color:#9ca3af;font-size:11px;">No image</div>`;
+
+      // Variation rows (only shown if there are multiple variations or variation ≠ master)
+      const variationEntries = Array.from(item.variations.entries());
+      const showVariations = variationEntries.length > 0 && !(variationEntries.length === 1 && variationEntries[0][0] === item.masterSku);
+      const variationsHtml = showVariations
+        ? `<div style="margin-top:6px;display:flex;flex-direction:column;gap:3px;">
+            ${variationEntries.map(([vSku, vQty]) => `
+              <div style="display:flex;align-items:center;gap:8px;">
+                <span style="font-size:11px;color:#6b7280;background:#f3f4f6;padding:1px 6px;border-radius:4px;font-family:monospace;">${vSku}</span>
+                <span style="font-size:11px;font-weight:600;color:#374151;">×${vQty}</span>
+              </div>`).join('')}
+          </div>`
+        : '';
 
       return `
         <tr>
           <td style="padding:10px 14px;vertical-align:middle;border-bottom:1px solid #f3f4f6;">${imgHtml}</td>
-          <td style="padding:10px 14px;vertical-align:middle;border-bottom:1px solid #f3f4f6;font-weight:700;font-size:13px;color:#111827;">${item.sku}</td>
-          <td style="padding:10px 14px;vertical-align:middle;border-bottom:1px solid #f3f4f6;font-weight:700;font-size:15px;color:#2563eb;text-align:center;">${item.quantity}</td>
+          <td style="padding:10px 14px;vertical-align:top;border-bottom:1px solid #f3f4f6;">
+            <div style="font-weight:700;font-size:13px;color:#111827;">${item.masterSku}</div>
+            ${displayName ? `<div style="font-size:12px;color:#6b7280;margin-top:2px;">${displayName}</div>` : ''}
+            ${variationsHtml}
+          </td>
+          <td style="padding:10px 14px;vertical-align:middle;border-bottom:1px solid #f3f4f6;font-weight:700;font-size:15px;color:#2563eb;text-align:center;">${item.totalQty}</td>
         </tr>`;
     }).join('');
 
@@ -409,15 +438,15 @@ export function OrderSheetView({ embedded = false }) {
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
     <div>
       <h1>${picklistName}</h1>
-      <p class="meta">Exported on ${exportDate} &nbsp;·&nbsp; ${rows.length} SKU${rows.length !== 1 ? 's' : ''} &nbsp;·&nbsp; ${rows.reduce((s, r) => s + r.quantity, 0)} pieces total</p>
+      <p class="meta">Exported on ${exportDate} &nbsp;·&nbsp; ${rows.length} SKU${rows.length !== 1 ? 's' : ''} &nbsp;·&nbsp; ${totalPiecesAll} pieces total</p>
     </div>
     <button onclick="window.print()" style="padding:8px 18px;background:#2563eb;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;">Print / Save PDF</button>
   </div>
   <table>
     <thead>
       <tr>
-        <th style="width:148px;">Image</th>
-        <th>Master SKU</th>
+        <th style="width:124px;">Image</th>
+        <th>Master SKU &amp; Product Name</th>
         <th style="width:100px;">Qty Needed</th>
       </tr>
     </thead>
@@ -682,6 +711,7 @@ export function OrderSheetView({ embedded = false }) {
   // Strip the /suffix to get the display master SKU, and keep the full SKU as the variation.
   const groupedItems = useMemo(() => {
     if (!selectedOrder?.items) return [];
+    // Map: masterSku → { productName, items[] }
     const groups = new Map();
     selectedOrder.items.forEach((item) => {
       const fullSku = item.sku || '—';
@@ -689,14 +719,17 @@ export function OrderSheetView({ embedded = false }) {
         ? fullSku.substring(0, fullSku.lastIndexOf('/'))
         : fullSku;
       if (!groups.has(masterSkuDisplay)) {
-        groups.set(masterSkuDisplay, []);
+        groups.set(masterSkuDisplay, { productName: '', items: [] });
       }
-      groups.get(masterSkuDisplay).push({
+      const entry = groups.get(masterSkuDisplay);
+      // Use first non-empty name encountered as productName
+      if (!entry.productName && item.name) entry.productName = String(item.name).trim();
+      entry.items.push({
         variationSku: fullSku,
         quantity: item.quantity ?? '—',
       });
     });
-    return Array.from(groups.entries()).map(([masterSku, items]) => ({ masterSku, items }));
+    return Array.from(groups.entries()).map(([masterSku, { productName, items }]) => ({ masterSku, productName, items }));
   }, [selectedOrder]);
 
   return (
@@ -925,10 +958,11 @@ export function OrderSheetView({ embedded = false }) {
                       <th className="text-left px-4 py-3 text-xs font-bold text-cool-gray uppercase tracking-wide w-[10%]">Time</th>
                       <th className="text-left px-4 py-3 text-xs font-bold text-cool-gray uppercase tracking-wide w-[12%]">Order Type</th>
                       <th className="text-left px-4 py-3 text-xs font-bold text-cool-gray uppercase tracking-wide w-[14%]">Order Reference</th>
-                      <th className="text-left px-4 py-3 text-xs font-bold text-cool-gray uppercase tracking-wide w-[18%]">Order Name</th>
-                      <th className="text-left px-4 py-3 text-xs font-bold text-cool-gray uppercase tracking-wide w-[10%]">Order No</th>
-                      <th className="text-right px-4 py-3 text-xs font-bold text-cool-gray uppercase tracking-wide w-[12%]">Total Pieces</th>
-                      <th className="text-right px-4 py-3 text-xs font-bold text-cool-gray uppercase tracking-wide w-[12%]">Units</th>
+                      <th className="text-left px-4 py-3 text-xs font-bold text-cool-gray uppercase tracking-wide w-[14%]">Order Name</th>
+                      <th className="text-left px-4 py-3 text-xs font-bold text-cool-gray uppercase tracking-wide w-[8%]">Order No</th>
+                      <th className="text-right px-4 py-3 text-xs font-bold text-cool-gray uppercase tracking-wide w-[10%]">Total Items</th>
+                      <th className="text-right px-4 py-3 text-xs font-bold text-cool-gray uppercase tracking-wide w-[10%]">Total Pieces</th>
+                      <th className="text-right px-4 py-3 text-xs font-bold text-cool-gray uppercase tracking-wide w-[10%]">Units</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-soft-border">
@@ -938,6 +972,7 @@ export function OrderSheetView({ embedded = false }) {
                         ? `PICKLIST-${order.picklist_number ?? order.id}`
                         : `CUSTOM-${order.id}`;
                       const totalPieces = (order.items || []).reduce((sum, i) => sum + (Number(i.quantity) || 0), 0);
+                      const totalItems = order.total_items ?? (order.items || []).length;
                       const isEditingType = editingCell?.orderId === order.id && editingCell?.field === 'order_type';
                       const isEditingUnits = editingCell?.orderId === order.id && editingCell?.field === 'units';
                       const isSavingType = savingCell?.orderId === order.id && savingCell?.field === 'order_type';
@@ -1018,6 +1053,12 @@ export function OrderSheetView({ embedded = false }) {
                         <td className="px-4 py-3">
                           <span className="font-bold text-trust-blue group-hover:text-deep-blue transition-colors text-xs">
                             {order.order_no || order.id}
+                          </span>
+                        </td>
+                        {/* Total Items — distinct SKU rows */}
+                        <td className="px-4 py-3 text-right">
+                          <span className="font-bold text-midnight-ink text-xs">
+                            {totalItems > 0 ? totalItems : '—'}
                           </span>
                         </td>
                         {/* Total Pieces — computed */}
@@ -1181,6 +1222,7 @@ export function OrderSheetView({ embedded = false }) {
                               <thead className="bg-cloud-gray border-b border-soft-border sticky top-0">
                                 <tr>
                                   <th className="text-left px-3 py-2 font-bold text-midnight-ink whitespace-nowrap border-r border-soft-border">Master SKU</th>
+                                  <th className="text-left px-3 py-2 font-bold text-midnight-ink whitespace-nowrap border-r border-soft-border">Product Name</th>
                                   <th className="text-left px-3 py-2 font-bold text-midnight-ink whitespace-nowrap">SKU (Variation)</th>
                                   <th className="text-left px-3 py-2 font-bold text-midnight-ink whitespace-nowrap">Quantity</th>
                                 </tr>
@@ -1198,6 +1240,14 @@ export function OrderSheetView({ embedded = false }) {
                                           className="px-3 py-2 font-semibold text-midnight-ink align-middle border-r border-soft-border bg-cloud-gray/40 whitespace-nowrap"
                                         >
                                           {group.masterSku}
+                                        </td>
+                                      )}
+                                      {idx === 0 && (
+                                        <td
+                                          rowSpan={group.items.length}
+                                          className="px-3 py-2 text-cool-gray align-middle border-r border-soft-border whitespace-nowrap"
+                                        >
+                                          {group.productName || '—'}
                                         </td>
                                       )}
                                       <td className="px-3 py-2 text-midnight-ink whitespace-nowrap">{item.variationSku}</td>

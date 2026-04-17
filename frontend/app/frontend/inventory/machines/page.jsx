@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, Pencil, Printer, RefreshCw, Trash2, X } from 'lucide-react';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
@@ -13,10 +13,9 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import CreatableFilterPopover from '@/components/creatable-filter-popover';
+import { EnrolWorkforceForm } from '@/app/frontend/enrol-workforce/page';
 import MultiselectFilterPopover from '@/components/multiselect-filter-popover';
 
-const STORAGE_KEY = 'inventory_machines_v1';
-const MACHINE_ISSUE_REQUESTS_KEY = 'machine_issue_requests_v1';
 const STATE_OPTIONS = [
   { key: 'running', label: 'Running' },
   { key: 'idle', label: 'Idle' },
@@ -25,11 +24,12 @@ const STATE_OPTIONS = [
 ];
 
 const STATE_FIELDS = {
-  running: { qty: 'runningQty', location: 'runningLocation' },
-  idle: { qty: 'idleQty', location: 'idleLocation' },
-  breakdown: { qty: 'breakdownQty', location: 'breakdownLocation' },
-  maintenance: { qty: 'maintenanceQty', location: 'maintenanceLocation' },
+  running: { qty: 'running_qty', location: 'running_location' },
+  idle: { qty: 'idle_qty', location: 'idle_location' },
+  breakdown: { qty: 'breakdown_qty', location: 'breakdown_location' },
+  maintenance: { qty: 'maintenance_qty', location: 'maintenance_location' },
 };
+
 const MACHINE_COLUMNS = [
   { id: 'sno', label: 'S. No.' },
   { id: 'machineName', label: 'Machine Name' },
@@ -46,60 +46,6 @@ const MACHINE_COLUMNS = [
   { id: 'minRequiredStock', label: 'Minimum Required in Stock' },
   { id: 'action', label: 'Action' },
 ];
-
-const createMachineRow = (id) => ({
-  id,
-  machineName: '',
-  particulars: '',
-  department: '',
-  minRequiredStock: '',
-  runningQty: '',
-  runningLocation: '',
-  idleQty: '',
-  idleLocation: '',
-  breakdownQty: '',
-  breakdownLocation: '',
-  maintenanceQty: '',
-  maintenanceLocation: '',
-});
-
-const normalizeMachineRow = (row, id) => {
-  const safeRow = row && typeof row === 'object' ? row : {};
-  return {
-    ...createMachineRow(id),
-    ...safeRow,
-    id,
-    machineName: String(safeRow.machineName ?? ''),
-    particulars: String(safeRow.particulars ?? ''),
-    department: String(safeRow.department ?? ''),
-    minRequiredStock: String(safeRow.minRequiredStock ?? ''),
-    runningQty: String(safeRow.runningQty ?? ''),
-    runningLocation: String(safeRow.runningLocation ?? ''),
-    idleQty: String(safeRow.idleQty ?? ''),
-    idleLocation: String(safeRow.idleLocation ?? ''),
-    breakdownQty: String(safeRow.breakdownQty ?? ''),
-    breakdownLocation: String(safeRow.breakdownLocation ?? ''),
-    maintenanceQty: String(safeRow.maintenanceQty ?? ''),
-    maintenanceLocation: String(safeRow.maintenanceLocation ?? ''),
-  };
-};
-
-const isEmptyMachineRow = (row) => {
-  return [
-    row.machineName,
-    row.particulars,
-    row.department,
-    row.minRequiredStock,
-    row.runningQty,
-    row.runningLocation,
-    row.idleQty,
-    row.idleLocation,
-    row.breakdownQty,
-    row.breakdownLocation,
-    row.maintenanceQty,
-    row.maintenanceLocation,
-  ].every((value) => String(value ?? '').trim() === '');
-};
 
 export default function MachinesInventoryPage() {
   const { canExport } = useSheetPermissions('inventory');
@@ -129,72 +75,61 @@ export default function MachinesInventoryPage() {
   const [requestDetailsOpen, setRequestDetailsOpen] = useState(false);
   const [activeRequestId, setActiveRequestId] = useState(null);
   const [issueRequests, setIssueRequests] = useState([]);
-  const [issueRequestsReady, setIssueRequestsReady] = useState(false);
-  const [issueForm, setIssueForm] = useState({ machineId: '', quantity: '', issuedTo: '', reason: '' });
+  // issueRequestsReady removed — now using API
+  const [issueForm, setIssueForm] = useState({ machineId: '', quantity: '', issuedTo: '', issuedBy: '', reason: '' });
+  const [workforceMembers, setWorkforceMembers] = useState([]);
+  const [enrollWorkforceOpen, setEnrollWorkforceOpen] = useState(false);
 
-  const loadRows = () => {
+  const loadRows = useCallback(async () => {
     setLoading(true);
     try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (!stored) {
-        setRows([]);
-        setSelectedIds(new Set());
-        return;
-      }
-      const parsed = JSON.parse(stored);
-      if (!Array.isArray(parsed) || parsed.length === 0) {
-        setRows([]);
-        setSelectedIds(new Set());
-        return;
-      }
-      const normalizedRows = parsed.map((row, index) => normalizeMachineRow(row, index + 1));
-      const filteredRows = normalizedRows.filter((row) => !isEmptyMachineRow(row));
-      setRows(filteredRows.map((row, index) => ({ ...row, id: index + 1 })));
+      const res = await fetch('/api/machines?page_size=500');
+      if (!res.ok) throw new Error(`Error ${res.status}`);
+      const data = await res.json();
+      const results = data?.data?.results ?? data?.results ?? data?.data ?? [];
+      setRows(Array.isArray(results) ? results : []);
       setSelectedIds(new Set());
+      setEditBuffer({});
+      setEditingRowIds(new Set());
       setStatus('Machines inventory refreshed.');
-    } catch {
-      setStatus('Unable to refresh saved machines data.');
+    } catch (err) {
+      setStatus(err.message || 'Unable to load machines.');
     } finally {
       setLoading(false);
     }
-  };
-
-  useEffect(() => {
-    loadRows();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useEffect(() => {
+  const loadIssueRequests = useCallback(async () => {
     try {
-      const stored = localStorage.getItem(MACHINE_ISSUE_REQUESTS_KEY);
-      if (!stored) return;
-      const parsed = JSON.parse(stored);
-      if (Array.isArray(parsed)) setIssueRequests(parsed);
-    } catch {
-      // Ignore malformed local data.
-    } finally {
-      setIssueRequestsReady(true);
-    }
+      const res = await fetch('/api/issue-requests?inventory_type=machines&page_size=200');
+      if (!res.ok) return;
+      const data = await res.json();
+      const results = data?.data?.results ?? data?.results ?? data?.data ?? [];
+      setIssueRequests(Array.isArray(results) ? results : []);
+    } catch { /* non-fatal */ }
   }, []);
 
+  useEffect(() => { loadRows(); }, [loadRows]);
+  useEffect(() => { loadIssueRequests(); }, [loadIssueRequests]);
+
   useEffect(() => {
-    if (!issueRequestsReady) return;
-    localStorage.setItem(MACHINE_ISSUE_REQUESTS_KEY, JSON.stringify(issueRequests));
-  }, [issueRequests, issueRequestsReady]);
+    fetch('/api/workforce?page_size=200')
+      .then((r) => r.json())
+      .then((d) => setWorkforceMembers(Array.isArray(d?.results) ? d.results : Array.isArray(d) ? d : []))
+      .catch(() => {});
+  }, []);
+
+  const refreshWorkforce = () => {
+    fetch('/api/workforce?page_size=200')
+      .then((r) => r.json())
+      .then((d) => setWorkforceMembers(Array.isArray(d?.results) ? d.results : Array.isArray(d) ? d : []))
+      .catch(() => {});
+  };
 
   const updateRow = (id, key, nextValue) => {
     if (!editingRowIds.has(id)) return;
-    setEditBuffer((prev) => ({
-      ...prev,
-      [id]: {
-        ...(prev[id] || normalizeMachineRow(rows.find((row) => row.id === id), id)),
-        [key]: nextValue,
-      },
-    }));
-  };
-
-  const addRow = () => {
-    setRows((prev) => [...prev, createMachineRow(prev.length + 1)]);
+    const apiKey = { machineName: 'machine_name', minRequiredStock: 'min_required_stock', runningQty: 'running_qty', runningLocation: 'running_location', idleQty: 'idle_qty', idleLocation: 'idle_location', breakdownQty: 'breakdown_qty', breakdownLocation: 'breakdown_location', maintenanceQty: 'maintenance_qty', maintenanceLocation: 'maintenance_location' }[key] || key;
+    setEditBuffer((prev) => ({ ...prev, [id]: { ...(prev[id] || {}), [apiKey]: nextValue } }));
   };
 
   const filteredRows = useMemo(() => {
@@ -202,13 +137,15 @@ export default function MachinesInventoryPage() {
     const effectiveDepartmentFilter = (filterDepartment && filterDepartment.length > 0) ? filterDepartment : [];
     const effectiveStateFilter = (filterState && filterState.length > 0) ? filterState : [];
     return rows.filter((row) => {
-      const matchesSearch = !search || [row.machineName, row.particulars, row.department].some((v) => String(v || '').toLowerCase().includes(search));
+      const machineName = row.machine_name || row.machineName || '';
+      const matchesSearch = !search || [machineName, row.particulars, row.department].some((v) => String(v || '').toLowerCase().includes(search));
       const matchesDepartment = effectiveDepartmentFilter.length === 0 || effectiveDepartmentFilter.some(f => String(row.department || '').toLowerCase().includes(f.toLowerCase()));
       const matchesState = effectiveStateFilter.length === 0 || effectiveStateFilter.some(stateLabel => {
         const stateKey = STATE_OPTIONS.find(opt => opt.label === stateLabel)?.key;
         if (!stateKey) return false;
         const field = STATE_FIELDS[stateKey];
-        return field ? Number(row[field.qty] || 0) > 0 : false;
+        const apiField = stateKey + '_qty';
+        return field ? (Number(row[field.qty] || 0) > 0 || Number(row[apiField] || 0) > 0) : false;
       });
       return matchesSearch && matchesDepartment && matchesState;
     });
@@ -229,7 +166,7 @@ export default function MachinesInventoryPage() {
   const hasSubHeaders = runningVisibleCount + idleVisibleCount + breakdownVisibleCount + maintenanceVisibleCount > 0;
   const visibleTableColumnCount = 1 + MACHINE_COLUMNS.filter((column) => visibleColumns.has(column.id)).length;
   const pendingIssueRequests = issueRequests.filter((r) => r.status === 'pending');
-  const sortedIssueRequests = [...issueRequests].sort((a, b) => new Date(b.requestedAt) - new Date(a.requestedAt));
+  const sortedIssueRequests = [...issueRequests].sort((a, b) => new Date(b.requested_at || b.requestedAt || 0) - new Date(a.requested_at || a.requestedAt || 0));
   const activeRequest = issueRequests.find((r) => r.id === activeRequestId) || null;
 
   function toggleSelectAll() {
@@ -260,14 +197,11 @@ export default function MachinesInventoryPage() {
   }
 
   function handleEditRows() {
-    if (selectedIds.size === 0) {
-      setStatus('Select at least one row, then click Edit Row.');
-      return;
-    }
+    if (selectedIds.size === 0) { setStatus('Select at least one row, then click Edit Row.'); return; }
     const ids = new Set(selectedRows.map((row) => row.id));
     const buffer = {};
     selectedRows.forEach((row) => {
-      buffer[row.id] = { ...normalizeMachineRow(row, row.id) };
+      buffer[row.id] = { machine_name: row.machine_name ?? row.machineName ?? '', particulars: row.particulars ?? '', department: row.department ?? '', min_required_stock: row.min_required_stock ?? row.minRequiredStock ?? '', running_qty: row.running_qty ?? row.runningQty ?? '', running_location: row.running_location ?? row.runningLocation ?? '', idle_qty: row.idle_qty ?? row.idleQty ?? '', idle_location: row.idle_location ?? row.idleLocation ?? '', breakdown_qty: row.breakdown_qty ?? row.breakdownQty ?? '', breakdown_location: row.breakdown_location ?? row.breakdownLocation ?? '', maintenance_qty: row.maintenance_qty ?? row.maintenanceQty ?? '', maintenance_location: row.maintenance_location ?? row.maintenanceLocation ?? '' };
     });
     setEditingRowIds(ids);
     setEditBuffer(buffer);
@@ -280,26 +214,32 @@ export default function MachinesInventoryPage() {
     setStatus('Edit canceled.');
   }
 
-  function handleSaveEdit() {
+  async function handleSaveEdit() {
     const ids = Array.from(editingRowIds);
     if (ids.length === 0) return;
-    setRows((prev) =>
-      prev.map((row) => {
-        if (!editingRowIds.has(row.id)) return row;
-        const edited = editBuffer[row.id];
-        return edited ? { ...normalizeMachineRow(edited, row.id), id: row.id } : row;
-      })
-    );
-    setEditingRowIds(new Set());
-    setEditBuffer({});
-    setStatus(`Saved ${ids.length} row${ids.length !== 1 ? 's' : ''}. Click Save to persist.`);
+    try {
+      await Promise.all(
+        Object.entries(editBuffer).map(async ([id, fields]) => {
+          const res = await fetch(`/api/machines/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(fields) });
+          if (!res.ok) throw new Error(`Error saving machine ${id}`);
+        })
+      );
+      setEditingRowIds(new Set());
+      setEditBuffer({});
+      await loadRows();
+      setStatus(`Saved ${ids.length} row${ids.length !== 1 ? 's' : ''}.`);
+    } catch (err) { setStatus(err.message || 'Failed to save edits'); }
   }
 
+  // Maps camelCase UI keys to snake_case API keys
+  const FIELD_MAP = { machineName: 'machine_name', minRequiredStock: 'min_required_stock', runningQty: 'running_qty', runningLocation: 'running_location', idleQty: 'idle_qty', idleLocation: 'idle_location', breakdownQty: 'breakdown_qty', breakdownLocation: 'breakdown_location', maintenanceQty: 'maintenance_qty', maintenanceLocation: 'maintenance_location' };
+
   function getRowValue(row, key) {
+    const apiKey = FIELD_MAP[key] || key;
     if (editingRowIds.has(row.id) && editBuffer[row.id]) {
-      return editBuffer[row.id][key] ?? '';
+      return editBuffer[row.id][apiKey] ?? editBuffer[row.id][key] ?? '';
     }
-    return row[key] ?? '';
+    return row[apiKey] ?? row[key] ?? '';
   }
 
   function handlePrintTable() {
@@ -338,63 +278,59 @@ export default function MachinesInventoryPage() {
   }
 
   function machineName(row) {
-    return row?.machineName ? row.machineName : `Machine #${row?.id ?? ''}`;
+    return row?.machine_name || row?.machineName || `Machine #${row?.id ?? ''}`;
   }
 
   function openIssuePopup() {
-    if (selectedRows.length === 0) {
-      setStatus('Select at least one machine row to raise issue request.');
-      return;
-    }
-    setIssueForm({ machineId: String(selectedRows[0].id), quantity: '', issuedTo: '', reason: '' });
+    setIssueForm({ machineId: selectedRows.length > 0 ? String(selectedRows[0].id) : '', quantity: '', issuedTo: '', issuedBy: '', reason: '' });
     setIssueOpen(true);
   }
 
-  function createIssueRequest() {
+  async function createIssueRequest() {
     const machineIdNum = Number(issueForm.machineId);
     const quantityNum = Number(issueForm.quantity);
     const issuedTo = issueForm.issuedTo.trim();
+    const issuedBy = issueForm.issuedBy.trim();
     const reason = issueForm.reason.trim();
-    if (!machineIdNum) {
-      setStatus('Please select a machine row for request.');
-      return;
-    }
-    if (!Number.isFinite(quantityNum) || quantityNum <= 0) {
-      setStatus('Please enter a valid quantity greater than 0.');
-      return;
-    }
-    if (!issuedTo) {
-      setStatus('Please enter issued to.');
-      return;
-    }
-    if (!reason) {
-      setStatus('Please enter reason of issue.');
-      return;
-    }
+    if (!machineIdNum) { setStatus('Please select a machine for request.'); return; }
+    if (!Number.isFinite(quantityNum) || quantityNum <= 0) { setStatus('Please enter a valid quantity greater than 0.'); return; }
+    if (!issuedTo) { setStatus('Please select who the machine is issued to.'); return; }
+    if (!reason) { setStatus('Please enter reason of issue.'); return; }
     const row = rows.find((r) => r.id === machineIdNum);
-    const request = {
-      id: Date.now(),
-      machineId: machineIdNum,
-      machineName: machineName(row),
-      quantity: quantityNum,
-      issuedTo,
-      reason,
-      status: 'pending',
-      requestedAt: new Date().toISOString(),
-      reviewedAt: null,
-    };
-    setIssueRequests((prev) => [request, ...prev]);
-    setIssueOpen(false);
-    setStatus('Issue request created.');
+    try {
+      const res = await fetch('/api/issue-requests', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ inventory_type: 'machines', item_id: machineIdNum, item_name: machineName(row), quantity: quantityNum, issued_to: issuedTo, issued_by: issuedBy, reason }),
+      });
+      if (!res.ok) throw new Error(`Error ${res.status}`);
+      setIssueOpen(false);
+      setIssueForm({ machineId: '', quantity: '', issuedTo: '', issuedBy: '', reason: '' });
+      await loadIssueRequests();
+      setStatus('Issue request created.');
+    } catch (err) { setStatus(err.message || 'Failed to create issue request'); }
   }
 
-  function reviewIssueRequest(nextStatus) {
+  async function reviewIssueRequest(nextStatus) {
     if (!activeRequest) return;
-    setIssueRequests((prev) =>
-      prev.map((r) => (r.id === activeRequest.id ? { ...r, status: nextStatus, reviewedAt: new Date().toISOString() } : r))
-    );
-    setRequestDetailsOpen(false);
-    setStatus(`Request ${nextStatus}.`);
+    try {
+      const res = await fetch(`/api/issue-requests/${activeRequest.id}/review`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: nextStatus }),
+      });
+      if (!res.ok) throw new Error(`Error ${res.status}`);
+      if (nextStatus === 'approved') {
+        const row = rows.find((r) => r.id === activeRequest.item_id);
+        if (row) {
+          await fetch('/api/stock-transactions', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ txn_date: new Date().toISOString().slice(0, 10), inventory_type: 'machines', txn_type: 'issued', item_name: activeRequest.item_name, qty: activeRequest.quantity, issued_to: activeRequest.issued_to, remark: activeRequest.reason, machine: row.id }),
+          });
+        }
+      }
+      setRequestDetailsOpen(false);
+      await loadIssueRequests();
+      setStatus(`Request ${nextStatus}.`);
+    } catch (err) { setStatus(err.message || 'Review failed'); }
   }
 
   function relativeTime(iso) {
@@ -415,8 +351,8 @@ export default function MachinesInventoryPage() {
       setStatus('Popup blocked. Please allow popups to print voucher.');
       return;
     }
-    const requestedAt = request.requestedAt ? new Date(request.requestedAt).toLocaleString() : '-';
-    const reviewedAt = request.reviewedAt ? new Date(request.reviewedAt).toLocaleString() : '-';
+    const requestedAt = (request.requested_at || request.requestedAt) ? new Date(request.requested_at || request.requestedAt).toLocaleString() : '-';
+    const reviewedAt = (request.reviewed_at || request.reviewedAt) ? new Date(request.reviewed_at || request.reviewedAt).toLocaleString() : '-';
     const html = `
       <html><head><title>Machine Issue Voucher</title>
       <style>
@@ -429,9 +365,10 @@ export default function MachinesInventoryPage() {
       <h1>Machine Issue Voucher</h1>
       <table>
       <tr><th>Request ID</th><td>${request.id}</td></tr>
-      <tr><th>Machine</th><td>${request.machineName}</td></tr>
+      <tr><th>Machine</th><td>${request.item_name || request.machineName}</td></tr>
       <tr><th>Quantity</th><td>${request.quantity}</td></tr>
-      <tr><th>Issued To</th><td>${request.issuedTo}</td></tr>
+      <tr><th>Issued To</th><td>${request.issued_to || request.issuedTo}</td></tr>
+      <tr><th>Issued By</th><td>${request.issued_by || request.issuedBy || '-'}</td></tr>
       <tr><th>Reason of Issue</th><td>${request.reason || '-'}</td></tr>
       <tr><th>Status</th><td><span class="badge">${String(request.status || '').toUpperCase()}</span></td></tr>
       <tr><th>Requested At</th><td>${requestedAt}</td></tr>
@@ -445,141 +382,82 @@ export default function MachinesInventoryPage() {
     opened.print();
   }
 
-  const deleteRow = (id) => {
-    setRows((prev) => {
-      const next = prev.filter((row) => row.id !== id);
-      if (next.length === 0) return [];
-      return next.map((row, index) => ({ ...row, id: index + 1 }));
-    });
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      next.delete(id);
-      return next;
-    });
+  const deleteRow = async (id) => {
+    try {
+      const res = await fetch(`/api/machines/${id}`, { method: 'DELETE' });
+      if (!res.ok && res.status !== 204) throw new Error(`Error ${res.status}`);
+      setRows((prev) => prev.filter((row) => row.id !== id));
+      setSelectedIds((prev) => { const n = new Set(prev); n.delete(id); return n; });
+      setStatus('Machine deleted.');
+    } catch (err) { setStatus(err.message || 'Delete failed'); }
   };
 
-  const saveRows = () => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(rows));
-    setStatus('Machines inventory saved locally.');
+  const handleAddMachine = async () => {
+    const name = newMachine.machineName.trim();
+    if (!name) { setStatus('Machine Name is required to add a machine.'); return; }
+    try {
+      const res = await fetch('/api/machines', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ machine_name: name, particulars: newMachine.particulars.trim(), department: newMachine.department.trim(), min_required_stock: newMachine.minRequiredStock || 0 }),
+      });
+      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e?.message || 'Failed to create machine'); }
+      setNewMachine({ machineName: '', particulars: '', department: '', minRequiredStock: '' });
+      setIsAddMachineOpen(false);
+      await loadRows();
+      setStatus('Machine added.');
+    } catch (err) { setStatus(err.message || 'Failed to add machine'); }
   };
 
-  const handleAddMachine = () => {
-    const machineName = newMachine.machineName.trim();
-    if (!machineName) {
-      setStatus('Machine Name is required to add a machine.');
-      return;
-    }
-
-    const nextRow = {
-      ...createMachineRow(rows.length + 1),
-      machineName,
-      particulars: newMachine.particulars.trim(),
-      department: newMachine.department.trim(),
-      minRequiredStock: String(newMachine.minRequiredStock || ''),
-    };
-
-    setRows((prev) => [...prev, nextRow]);
-    setNewMachine({ machineName: '', particulars: '', department: '', minRequiredStock: '' });
-    setIsAddMachineOpen(false);
-    setStatus('Machine added. You can now update stock and save.');
-  };
-
-  const handleAddMachineStock = () => {
+  const handleAddMachineStock = async () => {
     const machineId = Number(addStockForm.machineId);
     const qtyToAdd = Number(addStockForm.qty);
     const target = STATE_FIELDS[addStockForm.stateKey];
-
-    if (!machineId || !target) {
-      setStatus('Select a machine and stock state.');
-      return;
-    }
-    if (!Number.isFinite(qtyToAdd) || qtyToAdd <= 0) {
-      setStatus('Enter a valid quantity greater than 0.');
-      return;
-    }
-
-    let found = false;
-    setRows((prev) =>
-      prev.map((row) => {
-        const safeRow = normalizeMachineRow(row, row.id);
-        if (safeRow.id !== machineId) return safeRow;
-        found = true;
-
-        const currentQty = Number(safeRow[target.qty] || 0);
-        return {
-          ...safeRow,
-          [target.qty]: String(currentQty + qtyToAdd),
-          [target.location]: addStockForm.location.trim() || safeRow[target.location],
-        };
-      })
-    );
-
-    if (!found) {
-      setStatus('Selected machine was not found.');
-      return;
-    }
-
-    setAddStockForm((prev) => ({ ...prev, qty: '', location: '' }));
-    setIsAddMachineStockOpen(false);
-    setStatus('Machine stock added successfully.');
+    if (!machineId || !target) { setStatus('Select a machine and stock state.'); return; }
+    if (!Number.isFinite(qtyToAdd) || qtyToAdd <= 0) { setStatus('Enter a valid quantity greater than 0.'); return; }
+    const row = rows.find((r) => r.id === machineId);
+    const qtyFieldApi = addStockForm.stateKey + '_qty';
+    const locFieldApi = addStockForm.stateKey + '_location';
+    const currentQty = Number(row?.[qtyFieldApi] ?? row?.[target.qty] ?? 0);
+    try {
+      await fetch(`/api/machines/${machineId}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ [qtyFieldApi]: currentQty + qtyToAdd, ...(addStockForm.location.trim() ? { [locFieldApi]: addStockForm.location.trim() } : {}) }),
+      });
+      await fetch('/api/stock-transactions', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ txn_date: new Date().toISOString().slice(0, 10), inventory_type: 'machines', txn_type: 'received', item_name: machineName(row), qty: qtyToAdd, location: addStockForm.location.trim() || '', machine: machineId }),
+      });
+      setAddStockForm((prev) => ({ ...prev, qty: '', location: '' }));
+      setIsAddMachineStockOpen(false);
+      await loadRows();
+      setStatus('Machine stock added.');
+    } catch (err) { setStatus(err.message || 'Failed to add stock'); }
   };
 
-  const handleUpdateMachineStock = () => {
+  const handleUpdateMachineStock = async () => {
     const machineId = Number(updateStockForm.machineId);
     const qtyToMove = Number(updateStockForm.qty);
     const from = STATE_FIELDS[updateStockForm.fromState];
     const to = STATE_FIELDS[updateStockForm.toState];
-
-    if (!machineId || !from || !to) {
-      setStatus('Select machine and valid from/to states.');
-      return;
-    }
-    if (updateStockForm.fromState === updateStockForm.toState) {
-      setStatus('From and To states must be different.');
-      return;
-    }
-    if (!Number.isFinite(qtyToMove) || qtyToMove <= 0) {
-      setStatus('Enter a valid transfer quantity greater than 0.');
-      return;
-    }
-
-    let found = false;
-    let insufficient = false;
-
-    setRows((prev) =>
-      prev.map((row) => {
-        const safeRow = normalizeMachineRow(row, row.id);
-        if (safeRow.id !== machineId) return safeRow;
-        found = true;
-
-        const fromQty = Number(safeRow[from.qty] || 0);
-        const toQty = Number(safeRow[to.qty] || 0);
-
-        if (fromQty < qtyToMove) {
-          insufficient = true;
-          return safeRow;
-        }
-
-        return {
-          ...safeRow,
-          [from.qty]: String(fromQty - qtyToMove),
-          [to.qty]: String(toQty + qtyToMove),
-        };
-      })
-    );
-
-    if (!found) {
-      setStatus('Selected machine was not found.');
-      return;
-    }
-    if (insufficient) {
-      setStatus('Not enough quantity in source state.');
-      return;
-    }
-
-    setUpdateStockForm((prev) => ({ ...prev, qty: '' }));
-    setIsUpdateMachineStockOpen(false);
-    setStatus('Machine stock state updated successfully.');
+    if (!machineId || !from || !to) { setStatus('Select machine and valid from/to states.'); return; }
+    if (updateStockForm.fromState === updateStockForm.toState) { setStatus('From and To states must be different.'); return; }
+    if (!Number.isFinite(qtyToMove) || qtyToMove <= 0) { setStatus('Enter a valid transfer quantity greater than 0.'); return; }
+    const row = rows.find((r) => r.id === machineId);
+    const fromQtyField = updateStockForm.fromState + '_qty';
+    const toQtyField = updateStockForm.toState + '_qty';
+    const fromQty = Number(row?.[fromQtyField] ?? row?.[from.qty] ?? 0);
+    const toQty = Number(row?.[toQtyField] ?? row?.[to.qty] ?? 0);
+    if (fromQty < qtyToMove) { setStatus('Not enough quantity in source state.'); return; }
+    try {
+      await fetch(`/api/machines/${machineId}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ [fromQtyField]: fromQty - qtyToMove, [toQtyField]: toQty + qtyToMove }),
+      });
+      setUpdateStockForm((prev) => ({ ...prev, qty: '' }));
+      setIsUpdateMachineStockOpen(false);
+      await loadRows();
+      setStatus('Machine stock updated.');
+    } catch (err) { setStatus(err.message || 'Failed to update stock'); }
   };
 
   return (
@@ -646,7 +524,7 @@ export default function MachinesInventoryPage() {
               }}
               className="inline-flex items-center gap-2 rounded-full border border-trust-blue bg-white px-4 h-8 text-sm font-medium text-trust-blue"
             >
-              Add Machine
+              + New Machine
             </button>
             <button
               type="button"
@@ -654,7 +532,7 @@ export default function MachinesInventoryPage() {
                 setAddStockForm({ machineId: '', stateKey: 'running', qty: '', location: '' });
                 setIsAddMachineStockOpen(true);
               }}
-              className="inline-flex items-center gap-2 rounded-full border border-trust-blue bg-white px-4 h-8 text-sm font-medium text-trust-blue"
+              className="inline-flex items-center gap-2 rounded-full border border-midnight-ink bg-white px-4 h-8 text-sm font-medium text-midnight-ink"
             >
               Add Machine Stock
             </button>
@@ -664,16 +542,38 @@ export default function MachinesInventoryPage() {
                 setUpdateStockForm({ machineId: '', fromState: 'idle', toState: 'running', qty: '' });
                 setIsUpdateMachineStockOpen(true);
               }}
-              className="inline-flex items-center gap-2 rounded-full border border-trust-blue bg-white px-4 h-8 text-sm font-medium text-trust-blue"
+              className="inline-flex items-center gap-2 rounded-full border border-midnight-ink bg-white px-4 h-8 text-sm font-medium text-midnight-ink"
             >
               Update Machine Stock
             </button>
             <button
               type="button"
-              onClick={saveRows}
-              className="inline-flex items-center gap-2 rounded-full bg-trust-blue px-4 h-8 text-sm font-semibold text-white"
+              onClick={() => {
+                setAddStockForm({ machineId: '', stateKey: 'running', qty: '', location: '' });
+                setIsAddMachineStockOpen(true);
+              }}
+              className="inline-flex items-center gap-2 rounded-full border border-emerald-500 bg-white px-4 h-8 text-sm font-medium text-emerald-600"
             >
-              Save
+              Add Machine
+            </button>
+            <button
+              type="button"
+              onClick={openIssuePopup}
+              className="inline-flex items-center gap-2 rounded-full border border-orange-400 bg-white px-4 h-8 text-sm font-medium text-orange-500"
+            >
+              Issue Machine
+            </button>
+            <button
+              type="button"
+              onClick={() => setRequestsPanelOpen((prev) => !prev)}
+              className="inline-flex items-center gap-2 rounded-full border border-midnight-ink bg-white px-4 h-8 text-sm font-medium text-midnight-ink"
+            >
+              Requests
+              {pendingIssueRequests.length > 0 && (
+                <span className="ml-1 rounded-full bg-danger px-1.5 py-0.5 text-[10px] text-white leading-none">
+                  {pendingIssueRequests.length}
+                </span>
+              )}
             </button>
           </div>
         </div>
@@ -865,7 +765,7 @@ export default function MachinesInventoryPage() {
                 ) : (
                   <div className="divide-y divide-soft-border">
                     {sortedIssueRequests.map((req) => {
-                      const statusClass = req.status === 'approved' ? 'bg-emerald-100 text-emerald-800' : req.status === 'declined' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-800';
+                      const statusClass = req.status === 'approved' ? 'bg-emerald-100 text-emerald-800' : req.status === 'rejected' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-800';
                       return (
                         <button
                           key={req.id}
@@ -873,7 +773,7 @@ export default function MachinesInventoryPage() {
                           className="w-full rounded-xl px-4 py-3 text-left transition hover:bg-[#F9FAFB]"
                         >
                           <p className="truncate text-sm text-midnight-ink">
-                            <span className="font-semibold">{req.issuedTo}</span> requested <span className="font-semibold">{req.quantity}</span> of {req.machineName}
+                            <span className="font-semibold">{req.issued_to || req.issuedTo}</span> requested <span className="font-semibold">{req.quantity}</span> of {req.item_name || req.machineName}
                           </p>
                           <p className="mt-0.5 truncate text-xs text-cool-gray">Reason: {req.reason || '-'}</p>
                           <div className="mt-1 flex items-center gap-2">
@@ -888,7 +788,7 @@ export default function MachinesInventoryPage() {
                                 Print
                               </button>
                             )}
-                            <span className="text-[11px] text-cool-gray">{relativeTime(req.requestedAt)}</span>
+                            <span className="text-[11px] text-cool-gray">{relativeTime(req.requested_at || req.requestedAt)}</span>
                           </div>
                         </button>
                       );
@@ -904,7 +804,7 @@ export default function MachinesInventoryPage() {
       <Dialog open={issueOpen} onOpenChange={setIssueOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle className="text-lg font-semibold text-midnight-ink">Issue Machine Request</DialogTitle>
+            <DialogTitle className="text-lg font-semibold text-midnight-ink">Issue Machine</DialogTitle>
           </DialogHeader>
           <div className="mt-2 grid grid-cols-1 gap-4">
             <div className="flex flex-col gap-1">
@@ -915,7 +815,7 @@ export default function MachinesInventoryPage() {
                 className="w-full rounded-md border border-soft-border bg-white px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
               >
                 <option value="">Select machine</option>
-                {selectedRows.map((r) => (
+                {rows.map((r) => (
                   <option key={r.id} value={r.id}>{machineName(r)}</option>
                 ))}
               </select>
@@ -941,12 +841,31 @@ export default function MachinesInventoryPage() {
               </div>
               <div className="flex flex-col gap-1">
                 <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Issued To</label>
-                <input
-                  type="text"
+                <select
                   value={issueForm.issuedTo}
                   onChange={(e) => setIssueForm((prev) => ({ ...prev, issuedTo: e.target.value }))}
-                  className="w-full rounded-md border border-soft-border px-3 py-1.5 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
-                />
+                  className="w-full rounded-md border border-soft-border bg-white px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                >
+                  <option value="">Select person</option>
+                  {workforceMembers.map((m) => (
+                    <option key={m.id} value={m.full_name}>{m.full_name}</option>
+                  ))}
+                </select>
+                <button type="button" onClick={() => setEnrollWorkforceOpen(true)} className="text-xs text-trust-blue hover:underline mt-0.5 text-left">+ Quick Enrol Workforce</button>
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Issued By</label>
+                <select
+                  value={issueForm.issuedBy}
+                  onChange={(e) => setIssueForm((prev) => ({ ...prev, issuedBy: e.target.value }))}
+                  className="w-full rounded-md border border-soft-border bg-white px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                >
+                  <option value="">Select person</option>
+                  {workforceMembers.map((m) => (
+                    <option key={m.id} value={m.full_name}>{m.full_name}</option>
+                  ))}
+                </select>
+                <button type="button" onClick={() => setEnrollWorkforceOpen(true)} className="text-xs text-trust-blue hover:underline mt-0.5 text-left">+ Quick Enrol Workforce</button>
               </div>
             </div>
             <div className="flex flex-col gap-1">
@@ -1039,7 +958,7 @@ export default function MachinesInventoryPage() {
               >
                 <option value="">Select Machine</option>
                 {rows.map((row) => (
-                  <option key={row.id} value={row.id}>{row.machineName || `Machine ${row.id}`}</option>
+                  <option key={row.id} value={row.id}>{row.machine_name || row.machineName || `Machine ${row.id}`}</option>
                 ))}
               </select>
             </div>
@@ -1101,7 +1020,7 @@ export default function MachinesInventoryPage() {
               >
                 <option value="">Select Machine</option>
                 {rows.map((row) => (
-                  <option key={row.id} value={row.id}>{row.machineName || `Machine ${row.id}`}</option>
+                  <option key={row.id} value={row.id}>{row.machine_name || row.machineName || `Machine ${row.id}`}</option>
                 ))}
               </select>
             </div>
@@ -1158,9 +1077,9 @@ export default function MachinesInventoryPage() {
           </DialogHeader>
           {activeRequest ? (
             <div className="mt-2 grid grid-cols-1 gap-3">
-              <div className="text-sm text-midnight-ink"><span className="font-semibold">Machine:</span> {activeRequest.machineName}</div>
+              <div className="text-sm text-midnight-ink"><span className="font-semibold">Machine:</span> {activeRequest.item_name || activeRequest.machineName}</div>
               <div className="text-sm text-midnight-ink"><span className="font-semibold">Quantity:</span> {activeRequest.quantity}</div>
-              <div className="text-sm text-midnight-ink"><span className="font-semibold">Issued To:</span> {activeRequest.issuedTo}</div>
+              <div className="text-sm text-midnight-ink"><span className="font-semibold">Issued To:</span> {activeRequest.issued_to || activeRequest.issuedTo}</div>
               <div className="text-sm text-midnight-ink"><span className="font-semibold">Reason:</span> {activeRequest.reason || '-'}</div>
               <div className="text-sm text-midnight-ink"><span className="font-semibold">Status:</span> {activeRequest.status.toUpperCase()}</div>
             </div>
@@ -1171,7 +1090,7 @@ export default function MachinesInventoryPage() {
             <Button variant="outline" onClick={() => setRequestDetailsOpen(false)}>Close</Button>
             {activeRequest?.status === 'pending' && (
               <>
-                <Button variant="destructive" onClick={() => reviewIssueRequest('declined')}>Decline</Button>
+                <Button variant="destructive" onClick={() => reviewIssueRequest('rejected')}>Decline</Button>
                 <Button onClick={() => reviewIssueRequest('approved')}>Approve</Button>
               </>
             )}
@@ -1229,6 +1148,14 @@ export default function MachinesInventoryPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {enrollWorkforceOpen && (
+        <EnrolWorkforceForm
+          open={enrollWorkforceOpen}
+          onEnroll={() => { refreshWorkforce(); setEnrollWorkforceOpen(false); }}
+          onClose={() => setEnrollWorkforceOpen(false)}
+        />
+      )}
     </main>
   );
 }

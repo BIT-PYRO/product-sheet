@@ -30,7 +30,6 @@ import { EnrolWorkforceForm } from '@/app/frontend/enrol-workforce/page';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
 import GlobalSearchBar from '@/components/global-search-bar';
 import { CreateJobModal } from '@/components/create-job-modal';
-import { CreateAllVouchersModal } from '@/components/create-all-vouchers-modal';
 import { SuggestedVouchersModal } from '@/components/suggested-vouchers-modal';
 import { NeededVouchersModal } from '@/components/needed-vouchers-modal';
 import { ReceiveJobModal } from '@/components/receive-job-modal';
@@ -1276,7 +1275,7 @@ export default function MasterJobSheet() {
         onOpenChange={setIsCreateJobModalOpen}
         onJobCreated={loadJobs}
       />
-      <CreateAllVouchersModal open={isCreateAllVouchersOpen} onOpenChange={setIsCreateAllVouchersOpen} onVouchersCreated={loadJobs} />
+      <CreateJobModal open={isCreateAllVouchersOpen} onOpenChange={setIsCreateAllVouchersOpen} mode="all" onJobCreated={loadJobs} />
       <SuggestedVouchersModal open={isSuggestedVouchersOpen} onOpenChange={setIsSuggestedVouchersOpen} suggestedItems={[]} onVouchersCreated={loadJobs} />
       <NeededVouchersModal open={isNeededVouchersOpen} onOpenChange={setIsNeededVouchersOpen} neededItems={[]} onVouchersCreated={loadJobs} />
 

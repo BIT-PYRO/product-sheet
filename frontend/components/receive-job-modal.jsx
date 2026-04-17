@@ -43,6 +43,7 @@ const jewelleryDepartments = [
 export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData }) {
   const [issueDate, setIssueDate] = useState("")
   const [voucherNo, setVoucherNo] = useState("")
+  const [voucherType, setVoucherType] = useState("New")
   const [issuedTo, setIssuedTo] = useState("")
   const [workType, setWorkType] = useState("")
   const [deptFrom, setDeptFrom] = useState("")
@@ -70,6 +71,7 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
   useEffect(() => {
     if (voucherData && open) {
       setVoucherNo(voucherData.voucherNo || "")
+      setVoucherType(voucherData.voucherType || voucherData.voucher_type || "New")
       setIssuedTo(voucherData.name || voucherData.firstName || "")
       setWorkType(voucherData.workType || voucherData.type || "")
       setDeptFrom(voucherData.deptFrom || voucherData.department || "")
@@ -126,6 +128,7 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
   }, [voucherData, open])
 
   // Fetch full job data on open to reliably get picklist_name / order_name
+  // and, for partial vouchers, recalculate remaining issued qty per row
   useEffect(() => {
     if (!open || !voucherData?.id) return
     fetch(`/api/jobs/${voucherData.id}`, { cache: 'no-store' })
@@ -135,6 +138,33 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
         if (!job) return
         if (job.picklist_name) setPicklistName(job.picklist_name)
         if (job.order_name) setOrderName(job.order_name)
+
+        // For partially_complete vouchers, set issuedQty to the remaining
+        // (original issued − already received) so the form shows what's still outstanding
+        if (job.approval_status === 'partially_complete') {
+          const receivedEvents = Array.isArray(job.received_rows) ? job.received_rows : []
+          const alreadyReceived = {}
+          const alreadyReceivedWeight = {}
+          for (const event of receivedEvents) {
+            for (const row of (event.rows || [])) {
+              const key = (row.sku || '').trim().toUpperCase()
+              alreadyReceived[key] = (alreadyReceived[key] || 0) + (parseFloat(row.received_qty) || 0)
+              alreadyReceivedWeight[key] = (alreadyReceivedWeight[key] || 0) + (parseFloat(row.received_weight) || 0)
+            }
+          }
+          setRows(prevRows => prevRows.map(r => {
+            const key = (r.sku || '').trim().toUpperCase()
+            const issuedQty = parseFloat(r.issuedQty) || 0
+            const issuedWeight = parseFloat(r.issuedWeight) || 0
+            const remainingQty = Math.max(0, issuedQty - (alreadyReceived[key] || 0))
+            const remainingWeight = Math.max(0, issuedWeight - (alreadyReceivedWeight[key] || 0))
+            return {
+              ...r,
+              issuedQty: String(remainingQty),
+              issuedWeight: remainingWeight > 0 ? String(remainingWeight) : r.issuedWeight,
+            }
+          }))
+        }
       })
       .catch(() => {})
   }, [open, voucherData?.id])
@@ -183,7 +213,15 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
   }
 
   const updateRow = (id, field, value) => {
-    setRows(rows.map(row => (row.id === id ? { ...row, [field]: value } : row)))
+    setRows(rows.map(row => {
+      if (row.id !== id) return row
+      const updated = { ...row, [field]: value }
+      // Loss auto-syncs to Re-Issue (lost pieces must be remade)
+      if (field === 'lossQty') {
+        updated.reissueQty = value
+      }
+      return updated
+    }))
   }
 
   const deleteRow = (id) => {
@@ -263,52 +301,59 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
     }
   }
 
-  const handleUpdateInventory = () => callReceiveApi(false)
-  const handlePartialUpdate = () => callReceiveApi(true)
-
-  async function handleReissueForImprovement() {
+  async function handleSendForNextStage() {
     const voucherId = voucherData?.id
     if (!voucherId) {
       setSubmitError('No voucher ID found. Please re-open the voucher card.')
       return
     }
-    const canReissue = ['in_process', 'partially_complete'].includes(voucherData?.approvalStatus)
-    if (!canReissue) {
-      setSubmitError(`Cannot re-issue a voucher with status: "${voucherData?.approvalStatus}". Only in-process or partially complete vouchers can be re-issued.`)
+    const canSend = ['in_process', 'partially_complete'].includes(voucherData?.approvalStatus)
+    if (!canSend) {
+      setSubmitError(`Cannot process a voucher with status: "${voucherData?.approvalStatus}". Only in-process or partially complete vouchers can be sent for the next stage.`)
       return
     }
-    if (!voucherData?.batchId) {
-      setSubmitError('Only pipeline vouchers (part of a batch) support Re-Issue for Improvement.')
+    const payloadRows = rows
+      .filter(r => r.sku)
+      .map(r => ({
+        sku: r.sku,
+        received_qty: parseFloat(r.receivedQty) || 0,
+        loss_qty: parseFloat(r.lossQty) || 0,
+      }))
+    if (payloadRows.length === 0) {
+      setSubmitError('No rows with SKU found.')
       return
     }
-    const reissueRows = rows
-      .filter(r => String(r.reissueQty || '').trim() !== '' && parseFloat(r.reissueQty) > 0)
-      .map(r => ({ sku: r.sku, reissue_qty: parseFloat(r.reissueQty) || 0 }))
-    if (reissueRows.length === 0) {
-      setSubmitError('Enter a Re-Issue Qty for at least one row before using Re-Issue for Improvement.')
+    const hasAnyQty = payloadRows.some(r => r.received_qty > 0 || r.loss_qty > 0)
+    if (!hasAnyQty) {
+      setSubmitError('Enter at least one Received Qty or Loss Qty before submitting.')
       return
     }
     setIsSubmitting(true)
     setSubmitError('')
     setSubmitWarnings([])
     try {
-      const res = await fetch(`/api/jobs/${voucherId}/reissue-for-improvement/`, {
+      const res = await fetch(`/api/jobs/${voucherId}/send-for-next-stage/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ rows: reissueRows, note: noteForReissue }),
+        body: JSON.stringify({
+          rows: payloadRows,
+          received_by: receivedByName || issuedByName,
+          note: noteForReissue,
+        }),
       })
       const result = await res.json().catch(() => null)
       if (!res.ok || !result?.success) {
-        setSubmitError(result?.error?.message || result?.error?.details || 'Failed to create re-issue vouchers.')
+        setSubmitError(result?.error?.message || result?.error?.details || 'Failed to process voucher.')
         return
       }
-      const count = result.data?.new_vouchers?.length || 0
+      if (result?.data?.warnings?.length) {
+        setSubmitWarnings(result.data.warnings)
+      }
       const syncTs = new Date().toISOString()
       try { localStorage.setItem('inventory_sheet_updated_at', syncTs) } catch {}
       window.dispatchEvent(new CustomEvent('inventory_sheet_sync', { detail: { updatedAt: syncTs } }))
       onJobReceived?.(result.data)
       onOpenChange(false)
-      alert(`${count} re-issue voucher(s) created and activated.\nOriginal voucher ${voucherData?.voucherNo} is now marked as Replaced.\n\nThe re-issue pipeline has started automatically from the first stage.`)
     } catch (err) {
       setSubmitError(err.message || 'Network error. Please try again.')
     } finally {
@@ -437,7 +482,7 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
       <span>${fmtDate(issueDate)}</span>
     </div>
     <div class="top-right">
-      <div class="top-field"><label>Voucher Type</label><span>New</span></div>
+      <div class="top-field"><label>Voucher Type</label><span>${voucherType || 'New'}</span></div>
       ${picklistName ? `<div class="top-field"><label>Picklist</label><span class="chip">${picklistName}</span></div>` : ''}
       ${orderName ? `<div class="top-field"><label>Order</label><span class="chip">${orderName}</span></div>` : ''}
       <div class="top-field"><label>Voucher No.</label><span style="font-size:12px;font-weight:700;">${voucherNo}</span></div>
@@ -600,7 +645,7 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
             <div className="flex items-end gap-3 flex-wrap">
               <div className="flex flex-col gap-0.5">
                 <Label className="text-sm font-bold uppercase tracking-wide text-muted-foreground">Voucher Type</Label>
-                <Select defaultValue="New">
+                <Select value={voucherType} onValueChange={setVoucherType}>
                   <SelectTrigger className="h-7 text-sm bg-background border-border">
                     <SelectValue />
                   </SelectTrigger>
@@ -817,13 +862,11 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
                         </select>
                       </div>
                     </td>
-                    {/* Re-Issue Qty+Unit */}
+                    {/* Re-Issue Qty+Unit — read-only, auto-filled from Loss Qty */}
                     <td className="border-l-2 border-l-amber-300 bg-amber-50/50 p-0 whitespace-nowrap">
                       <div className="flex items-center h-7 px-1 gap-0.5">
-                        <input type="number" className="w-11 bg-transparent border-0 outline-none text-xs text-center" placeholder="0" value={row.reissueQty} onChange={(e) => updateRow(row.id, 'reissueQty', e.target.value)} />
-                        <select className="bg-transparent border-0 outline-none appearance-none cursor-pointer flex-shrink-0 text-gray-400" style={{ fontSize: 9 }} value={row.unit7 || 'Pcs'} onChange={(e) => updateRow(row.id, 'unit7', e.target.value)}>
-                          <option>Pcs</option><option>Pairs</option>
-                        </select>
+                        <input type="number" className="w-11 bg-amber-100/70 border-0 outline-none text-xs text-center cursor-not-allowed" placeholder="0" value={row.reissueQty} readOnly tabIndex={-1} />
+                        <span className="text-gray-400 flex-shrink-0" style={{ fontSize: 9 }}>{row.unit7 || 'Pcs'}</span>
                       </div>
                     </td>
                     {/* Re-Issue Weight+Unit */}
@@ -869,20 +912,14 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
             </div>
           )}
 
-          {/* Action Buttons Row */}
-          <div className="grid grid-cols-3 gap-1.5">
+          {/* Action Button */}
+          <div className="flex">
             <Button
-              className="h-7 bg-success hover:bg-success text-white font-bold text-sm rounded"
-              onClick={handleUpdateInventory}
+              className="flex-1 h-9 bg-trust-blue hover:bg-deep-blue text-white font-bold text-sm rounded"
+              onClick={handleSendForNextStage}
               disabled={isSubmitting}
             >
-              {isSubmitting ? 'Updating...' : 'Update Inventory'}
-            </Button>
-            <Button className="h-7 bg-warning hover:bg-warning/90 text-white font-bold text-sm rounded" onClick={handlePartialUpdate} disabled={isSubmitting}>
-              Partial Update
-            </Button>
-            <Button className="h-7 bg-warning hover:bg-warning/90 text-white font-bold text-sm rounded" onClick={handleReissueForImprovement} disabled={isSubmitting}>
-              Re-Issue for Improvement
+              {isSubmitting ? 'Processing...' : 'Send for Next Stage'}
             </Button>
           </div>
 

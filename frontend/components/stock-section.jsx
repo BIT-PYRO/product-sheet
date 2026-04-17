@@ -19,7 +19,6 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { CreateJobModal } from "@/components/create-job-modal"
-import { CreateAllVouchersModal } from "@/components/create-all-vouchers-modal"
 import { SuggestedVouchersModal } from "@/components/suggested-vouchers-modal"
 import { NeededVouchersModal } from "@/components/needed-vouchers-modal"
 
@@ -97,7 +96,7 @@ export function StockSection() {
       </DropdownMenu>
 
       <CreateJobModal open={isCreateJobOpen} onOpenChange={setIsCreateJobOpen} />
-      <CreateAllVouchersModal open={isCreateAllVouchersOpen} onOpenChange={setIsCreateAllVouchersOpen} />
+      <CreateJobModal open={isCreateAllVouchersOpen} onOpenChange={setIsCreateAllVouchersOpen} mode="all" />
       <SuggestedVouchersModal open={isSuggestedVouchersOpen} onOpenChange={setIsSuggestedVouchersOpen} suggestedItems={[]} />
       <NeededVouchersModal open={isNeededVouchersOpen} onOpenChange={setIsNeededVouchersOpen} neededItems={[]} />
     </div>

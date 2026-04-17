@@ -1,7 +1,13 @@
 from rest_framework import serializers
 from django.db import transaction
 
-from .models import InventoryTransaction, PicklistGroup, PicklistItem, StoneItem, StoneStockEntry, ToolItem, OtherItem, MachineItem, ProductInventoryItem
+from .models import (
+    InventoryTransaction, PicklistGroup, PicklistItem,
+    StoneItem, StoneStockEntry, ToolItem, OtherItem, MachineItem, ProductInventoryItem,
+    StockTransaction, StoneTransaction,
+    FindingInventoryItem, FindingInventoryTransaction,
+    ProductInventoryTransaction, IssueRequest,
+)
 
 
 class InventoryTransactionSerializer(serializers.ModelSerializer):
@@ -34,13 +40,17 @@ class PicklistGroupSerializer(serializers.ModelSerializer):
     date = serializers.DateTimeField(source='uploaded_at', required=False)
     dateFormatted = serializers.SerializerMethodField()
     items = PicklistItemSerializer(many=True)
+    total_items = serializers.SerializerMethodField()
 
     class Meta:
         model = PicklistGroup
-        fields = ('id', 'db_id', 'number', 'name', 'uploadedBy', 'date', 'dateFormatted', 'items')
+        fields = ('id', 'db_id', 'number', 'name', 'uploadedBy', 'date', 'dateFormatted', 'total_items', 'items')
 
     def get_dateFormatted(self, obj):
         return obj.uploaded_at.astimezone().strftime('%Y-%m-%d %H:%M:%S')
+
+    def get_total_items(self, obj):
+        return obj.items.count()
 
     def _resolve_next_number(self, desired_number):
         if desired_number and not PicklistGroup.objects.filter(number=desired_number).exists():
@@ -164,3 +174,71 @@ class ProductInventoryItemSerializer(serializers.ModelSerializer):
             'created_at', 'updated_at', 'created_by', 'updated_by',
         ]
         read_only_fields = ['created_at', 'updated_at', 'created_by', 'updated_by']
+
+
+class StockTransactionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = StockTransaction
+        fields = [
+            'id', 'txn_date', 'inventory_type', 'txn_type', 'item_name', 'particulars',
+            'qty', 'qty_unit', 'weight', 'weight_unit', 'location', 'price', 'amount',
+            'received_from', 'issued_to', 'activity_status', 'remark',
+            'tool', 'machine', 'other_item', 'created_at', 'updated_at',
+        ]
+
+
+class StoneTransactionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = StoneTransaction
+        fields = [
+            'id', 'txn_date', 'txn_type', 'inventory_type', 'stone_name', 'variety',
+            'stone_type', 'shape', 'color', 'species', 'quality', 'cut',
+            'length', 'width', 'height', 'qty', 'weight', 'weight_unit',
+            'location', 'price', 'amount', 'received_from', 'issued_to',
+            'remark', 'activity_status', 'stone', 'created_at', 'updated_at',
+        ]
+
+
+class FindingInventoryItemSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = FindingInventoryItem
+        fields = [
+            'id', 'finding_code', 'die_number', 'size', 'material', 'finding_stage',
+            'mechanism', 'quantity', 'weight', 'dead_weight', 'mold_qty_per_die',
+            'polish', 'total_measurements', 'design_material', 'min_level', 'notes',
+            'created_at', 'updated_at',
+        ]
+
+
+class FindingInventoryTransactionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = FindingInventoryTransaction
+        fields = [
+            'id', 'txn_date', 'finding', 'finding_code', 'txn_type', 'inventory_type',
+            'die_number', 'size', 'material', 'stage', 'qty', 'weight', 'dead_weight',
+            'price', 'amount', 'received_from', 'issued_to', 'remark', 'activity_status',
+            'created_at', 'updated_at',
+        ]
+
+
+class ProductInventoryTransactionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ProductInventoryTransaction
+        fields = [
+            'id', 'txn_date', 'product', 'master_sku', 'designer_sku', 'final_sku',
+            'txn_type', 'inventory_type', 'metal', 'value', 'unit', 'location',
+            'wip', 'total_in_demand', 'price', 'amount', 'received_from', 'issued_to',
+            'remark', 'activity_status', 'created_at', 'updated_at',
+        ]
+
+
+class IssueRequestSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = IssueRequest
+        fields = [
+            'id', 'inventory_type', 'item_id', 'item_name', 'quantity',
+            'issued_to', 'issued_by', 'reason', 'reference_id',
+            'status', 'requested_at', 'reviewed_at', 'remark',
+            'created_at', 'updated_at',
+        ]
+        read_only_fields = ['requested_at', 'created_at', 'updated_at']
