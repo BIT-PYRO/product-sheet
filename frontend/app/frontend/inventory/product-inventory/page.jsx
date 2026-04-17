@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
-import { ArrowLeft, Search, Upload, Trash2, Pencil, Download, RefreshCw, Printer } from 'lucide-react';
+import { ArrowLeft, Search, Upload, Trash2, Pencil, Download, RefreshCw, Printer, X } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -18,8 +18,10 @@ import DateTimeStamp from '@/components/date-time-stamp';
 import GlobalSearchBar from '@/components/global-search-bar';
 import LastUpdatedFooter from '@/components/last-updated-footer';
 import MultiselectFilterPopover from '@/components/multiselect-filter-popover';
+import { EnrolWorkforceForm } from '@/app/frontend/enrol-workforce/page';
 
 const UNIT_OPTIONS = ['PCS', 'GM', 'KG', 'CT'];
+const ISSUE_REQUESTS_KEY = 'product_issue_requests_v1';
 const PRODUCT_COLUMNS = [
   { id: 'image', label: 'Image' },
   { id: 'masterSku', label: 'Master SKU' },
@@ -65,9 +67,64 @@ export default function ProductInventoryPage() {
   const [receiveOpen, setReceiveOpen] = useState(false);
   const [receiveForm, setReceiveForm] = useState({ productId: '', quantity: '', employeeVendorName: '', referenceId: '', price: '', usage: 'new' });
 
+  // Issue Product workflow
+  const [issueOpen, setIssueOpen] = useState(false);
+  const [issueForm, setIssueForm] = useState({ productId: '', quantity: '', issuedTo: '', issuedBy: '', reason: '' });
+
+  // Workforce
+  const [workforceMembers, setWorkforceMembers] = useState([]);
+  const [enrollWorkforceOpen, setEnrollWorkforceOpen] = useState(false);
+
+  // Issue Requests
+  const [requestsPanelOpen, setRequestsPanelOpen] = useState(false);
+  const [issueRequests, setIssueRequests] = useState([]);
+  const [issueRequestsReady, setIssueRequestsReady] = useState(false);
+  const [activeRequestId, setActiveRequestId] = useState(null);
+  const [requestDetailsOpen, setRequestDetailsOpen] = useState(false);
+
   useEffect(() => {
     fetch('/api/auth/session').then(r => r.json()).then(d => { if (d?.user?.username) setCurrentUsername(d.user.username); }).catch(() => {});
   }, []);
+
+  // Load workforce
+  useEffect(() => {
+    fetch('/api/workforce?page_size=200')
+      .then((r) => r.json())
+      .then((d) => setWorkforceMembers(Array.isArray(d?.results) ? d.results : Array.isArray(d) ? d : []))
+      .catch(() => {});
+  }, []);
+
+  const refreshWorkforce = () => {
+    fetch('/api/workforce?page_size=200')
+      .then((r) => r.json())
+      .then((d) => setWorkforceMembers(Array.isArray(d?.results) ? d.results : Array.isArray(d) ? d : []))
+      .catch(() => {});
+  };
+
+  // Load issue requests from localStorage
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(ISSUE_REQUESTS_KEY);
+      if (!stored) return;
+      const parsed = JSON.parse(stored);
+      if (Array.isArray(parsed)) setIssueRequests(parsed);
+    } catch {
+      // ignore
+    } finally {
+      setIssueRequestsReady(true);
+    }
+  }, []);
+
+  // Save issue requests to localStorage
+  useEffect(() => {
+    if (!issueRequestsReady) return;
+    localStorage.setItem(ISSUE_REQUESTS_KEY, JSON.stringify(issueRequests));
+  }, [issueRequests, issueRequestsReady]);
+
+  // Computed request values
+  const pendingIssueRequests = useMemo(() => issueRequests.filter((r) => r.status === 'pending'), [issueRequests]);
+  const sortedIssueRequests = useMemo(() => [...issueRequests].sort((a, b) => new Date(b.requestedAt) - new Date(a.requestedAt)), [issueRequests]);
+  const activeRequest = useMemo(() => issueRequests.find((r) => r.id === activeRequestId) || null, [issueRequests, activeRequestId]);
 
   const backendBase = typeof window !== 'undefined' && window.location.hostname === 'localhost'
     ? 'http://localhost:8000'
@@ -285,6 +342,67 @@ export default function ProductInventoryPage() {
     setSaveStatus({ success: true, message: `Received ${quantityNum} of ${row?.masterSku || 'Product'} from ${employeeVendorName}.` });
     setTimeout(() => setSaveStatus(null), 3000);
   };
+
+  // Issue
+  const openIssuePopup = () => {
+    setIssueForm({ productId: '', quantity: '', issuedTo: '', issuedBy: '', reason: '' });
+    setIssueOpen(true);
+  };
+
+  const createIssueRequest = () => {
+    const productId = issueForm.productId;
+    const quantityNum = Number(issueForm.quantity);
+    const issuedTo = issueForm.issuedTo.trim();
+    const issuedBy = issueForm.issuedBy.trim();
+    const reason = issueForm.reason.trim();
+    if (!productId) { alert('Please select a product.'); return; }
+    if (!Number.isFinite(quantityNum) || quantityNum <= 0) { alert('Please enter a valid quantity greater than 0.'); return; }
+    if (!issuedTo) { alert('Please enter who the product is issued to.'); return; }
+    if (!issuedBy) { alert('Please enter who issued the product.'); return; }
+    if (!reason) { alert('Please enter a reason for issue.'); return; }
+    const row = data.find((r) => r.productId === productId);
+    const request = {
+      id: (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`,
+      productId,
+      productName: row?.masterSku || row?.designerSku || `Product #${productId}`,
+      quantity: quantityNum,
+      issuedTo,
+      issuedBy,
+      reason,
+      status: 'pending',
+      requestedAt: new Date().toISOString(),
+      reviewedAt: null,
+    };
+    setIssueRequests((prev) => [request, ...prev]);
+    setIssueOpen(false);
+    setSaveStatus({ success: true, message: `Issue request created for ${quantityNum} of ${request.productName} to ${issuedTo}.` });
+    setTimeout(() => setSaveStatus(null), 3000);
+  };
+
+  // Request helpers
+  function relativeTime(iso) {
+    if (!iso) return '';
+    const diff = Date.now() - new Date(iso).getTime();
+    const min = Math.floor(diff / 60000);
+    if (min < 1) return 'just now';
+    if (min < 60) return `${min}m`;
+    const hr = Math.floor(min / 60);
+    if (hr < 24) return `${hr}h`;
+    return `${Math.floor(hr / 24)}d`;
+  }
+
+  function openRequestDetails(requestId) {
+    setActiveRequestId(requestId);
+    setRequestDetailsOpen(true);
+  }
+
+  function reviewIssueRequest(nextStatus) {
+    if (!activeRequest) return;
+    setIssueRequests((prev) => prev.map((r) => r.id === activeRequest.id ? { ...r, status: nextStatus, reviewedAt: new Date().toISOString() } : r));
+    setRequestDetailsOpen(false);
+    setSaveStatus({ success: true, message: `Request ${nextStatus}.` });
+    setTimeout(() => setSaveStatus(null), 3000);
+  }
 
   // Edit
   const handleEditRows = () => {
@@ -649,13 +767,17 @@ export default function ProductInventoryPage() {
             </div>
             <div className="flex flex-col gap-1">
               <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Employee / Vendor Name</label>
-              <input
-                type="text"
+              <select
                 value={receiveForm.employeeVendorName}
                 onChange={(e) => setReceiveForm((prev) => ({ ...prev, employeeVendorName: e.target.value }))}
-                placeholder="e.g. John Doe or ABC Supplies"
-                className="w-full rounded-md border border-soft-border px-3 py-1.5 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
-              />
+                className="w-full rounded-md border border-soft-border bg-white px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+              >
+                <option value="">Select person</option>
+                {workforceMembers.map((m) => (
+                  <option key={m.id} value={m.full_name}>{m.full_name}</option>
+                ))}
+              </select>
+              <button type="button" onClick={() => setEnrollWorkforceOpen(true)} className="text-xs text-trust-blue hover:underline mt-0.5 text-left">+ Quick Enrol Workforce</button>
             </div>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               <div className="flex flex-col gap-1">
@@ -712,6 +834,181 @@ export default function ProductInventoryPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Issue Product Dialog */}
+      <Dialog open={issueOpen} onOpenChange={setIssueOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-semibold text-midnight-ink">Issue Product</DialogTitle>
+          </DialogHeader>
+          <div className="mt-2 grid grid-cols-1 gap-4">
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Product</label>
+              <select
+                value={issueForm.productId}
+                onChange={(e) => setIssueForm((prev) => ({ ...prev, productId: e.target.value }))}
+                className="w-full rounded-md border border-soft-border bg-white px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+              >
+                <option value="">Select product</option>
+                {data.map((r) => (
+                  <option key={r.productId} value={r.productId}>{r.masterSku || r.designerSku || `Product #${r.productId}`}</option>
+                ))}
+              </select>
+            </div>
+            <div className="grid grid-cols-3 gap-4">
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Quantity</label>
+                <input
+                  type="number"
+                  value={issueForm.quantity}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val === '') { setIssueForm((prev) => ({ ...prev, quantity: '' })); return; }
+                    const num = Number(val);
+                    setIssueForm((prev) => ({ ...prev, quantity: String(Number.isFinite(num) ? Math.max(0, num) : 0) }));
+                  }}
+                  className="w-full rounded-md border border-soft-border bg-white px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Issued To</label>
+                <select
+                  value={issueForm.issuedTo}
+                  onChange={(e) => setIssueForm((prev) => ({ ...prev, issuedTo: e.target.value }))}
+                  className="w-full rounded-md border border-soft-border bg-white px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                >
+                  <option value="">Select person</option>
+                  {workforceMembers.map((m) => (
+                    <option key={m.id} value={m.full_name}>{m.full_name}</option>
+                  ))}
+                </select>
+                <button type="button" onClick={() => setEnrollWorkforceOpen(true)} className="text-xs text-trust-blue hover:underline mt-0.5 text-left">+ Quick Enrol Workforce</button>
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Issued By</label>
+                <select
+                  value={issueForm.issuedBy}
+                  onChange={(e) => setIssueForm((prev) => ({ ...prev, issuedBy: e.target.value }))}
+                  className="w-full rounded-md border border-soft-border bg-white px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                >
+                  <option value="">Select person</option>
+                  {workforceMembers.map((m) => (
+                    <option key={m.id} value={m.full_name}>{m.full_name}</option>
+                  ))}
+                </select>
+                <button type="button" onClick={() => setEnrollWorkforceOpen(true)} className="text-xs text-trust-blue hover:underline mt-0.5 text-left">+ Quick Enrol Workforce</button>
+              </div>
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Reason of Issue</label>
+              <input
+                type="text"
+                value={issueForm.reason}
+                onChange={(e) => setIssueForm((prev) => ({ ...prev, reason: e.target.value }))}
+                className="w-full rounded-md border border-soft-border bg-white px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+              />
+            </div>
+          </div>
+          <div className="mt-5 flex justify-end gap-3">
+            <button type="button" onClick={() => setIssueOpen(false)} className="inline-flex items-center gap-2 rounded-lg border border-soft-border bg-white px-3 py-2 text-sm font-medium text-midnight-ink hover:border-trust-blue transition">
+              Cancel
+            </button>
+            <button type="button" onClick={createIssueRequest} className="rounded-lg border border-trust-blue bg-trust-blue px-3 py-2 text-sm font-semibold text-white hover:opacity-95 transition">
+              Request
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Request Details Dialog */}
+      <Dialog open={requestDetailsOpen} onOpenChange={setRequestDetailsOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-semibold text-midnight-ink">Issue Request Details</DialogTitle>
+          </DialogHeader>
+          {activeRequest ? (
+            <div className="mt-2 grid grid-cols-1 gap-3 text-sm">
+              <div><span className="font-medium text-cool-gray">Product:</span> {activeRequest.productName}</div>
+              <div><span className="font-medium text-cool-gray">Quantity:</span> {activeRequest.quantity}</div>
+              <div><span className="font-medium text-cool-gray">Issued To:</span> {activeRequest.issuedTo}</div>
+              <div><span className="font-medium text-cool-gray">Issued By:</span> {activeRequest.issuedBy || '-'}</div>
+              <div><span className="font-medium text-cool-gray">Reason:</span> {activeRequest.reason || '-'}</div>
+              <div><span className="font-medium text-cool-gray">Status:</span> {activeRequest.status.toUpperCase()}</div>
+              <div><span className="font-medium text-cool-gray">Requested At:</span> {new Date(activeRequest.requestedAt).toLocaleString()}</div>
+            </div>
+          ) : (
+            <p className="text-sm text-cool-gray">Request not found.</p>
+          )}
+          <div className="mt-5 flex justify-end gap-3">
+            <Button variant="outline" onClick={() => setRequestDetailsOpen(false)}>Close</Button>
+            {activeRequest?.status === 'pending' && (
+              <>
+                <Button variant="destructive" onClick={() => reviewIssueRequest('declined')}>Decline</Button>
+                <Button onClick={() => reviewIssueRequest('approved')}>Approve</Button>
+              </>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* EnrolWorkforceForm */}
+      {enrollWorkforceOpen && (
+        <EnrolWorkforceForm
+          open={enrollWorkforceOpen}
+          onEnroll={() => { refreshWorkforce(); setEnrollWorkforceOpen(false); }}
+          onClose={() => setEnrollWorkforceOpen(false)}
+        />
+      )}
+
+      {/* Requests Panel */}
+      {requestsPanelOpen && (
+        <>
+          <div className="fixed inset-0 z-[75] bg-black/20" onClick={() => setRequestsPanelOpen(false)} />
+          <aside className="fixed right-2 top-[64px] z-[80] h-[calc(100vh-72px)] w-full max-w-[390px] rounded-2xl border border-soft-border bg-white shadow-2xl">
+            <div className="flex h-full flex-col">
+              <div className="flex items-center justify-between border-b border-soft-border px-4 py-3">
+                <div>
+                  <h3 className="text-base font-semibold text-midnight-ink">Notifications</h3>
+                  <p className="text-xs text-cool-gray">Issue requests for products</p>
+                </div>
+                <button onClick={() => setRequestsPanelOpen(false)} className="rounded-md p-1 text-cool-gray hover:bg-[#F3F4F6] hover:text-midnight-ink">
+                  <X size={16} />
+                </button>
+              </div>
+              <div className="flex-1 overflow-y-auto">
+                {sortedIssueRequests.length === 0 ? (
+                  <div className="px-4 py-6 text-sm text-cool-gray">No requests yet.</div>
+                ) : (
+                  <div className="divide-y divide-soft-border">
+                    {sortedIssueRequests.map((req, idx) => {
+                      const statusClass = req.status === 'approved' ? 'bg-emerald-100 text-emerald-800' : req.status === 'declined' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-800';
+                      return (
+                        <button key={req.id ?? idx} onClick={() => openRequestDetails(req.id)} className="w-full rounded-xl px-4 py-3 text-left transition hover:bg-[#F9FAFB]">
+                          <div className="flex items-start gap-3">
+                            <div className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-full bg-[#EEF2FF] text-xs font-semibold text-trust-blue">
+                              {String(req.productName || 'P').charAt(0).toUpperCase()}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-sm text-midnight-ink">
+                                <span className="font-semibold">{req.issuedTo}</span> requested <span className="font-semibold">{req.quantity}</span> of {req.productName}
+                              </p>
+                              <p className="mt-0.5 truncate text-xs text-cool-gray">Reason: {req.reason || '-'}</p>
+                              <div className="mt-1 flex items-center gap-2">
+                                <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${statusClass}`}>{req.status}</span>
+                                <span className="text-[11px] text-cool-gray">{relativeTime(req.requestedAt)}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          </aside>
+        </>
+      )}
 
       <div className="flex-1 pt-16 px-3 md:px-4 pb-16">
         <div className="mb-4 flex justify-end">
@@ -791,25 +1088,6 @@ export default function ProductInventoryPage() {
             Refresh
           </Button>
 
-          {/* Bulk Upload */}
-          <div>
-            <input ref={bulkFileRef} type="file" accept=".csv,.json" className="hidden" onChange={handleBulkFileChange} />
-            <Button
-              onClick={() => bulkFileRef.current?.click()}
-              variant="outline"
-              className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8"
-              disabled={isBulkUploading}
-            >
-              <Upload className="w-3.5 h-3.5 mr-1.5" />
-              {isBulkUploading ? 'Uploading...' : 'Bulk Upload'}
-            </Button>
-          </div>
-
-          <Button onClick={handleExport} variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8">
-            <Download className="w-3.5 h-3.5 mr-1.5" />
-            Export
-          </Button>
-
           <Button onClick={handlePrintTable} variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8">
             <Printer className="w-3.5 h-3.5 mr-1.5" />
             Print
@@ -829,6 +1107,25 @@ export default function ProductInventoryPage() {
             Edit Row
           </Button>
 
+          {/* Bulk Upload */}
+          <div>
+            <input ref={bulkFileRef} type="file" accept=".csv,.json" className="hidden" onChange={handleBulkFileChange} />
+            <Button
+              onClick={() => bulkFileRef.current?.click()}
+              variant="outline"
+              className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8"
+              disabled={isBulkUploading}
+            >
+              <Upload className="w-3.5 h-3.5 mr-1.5" />
+              {isBulkUploading ? 'Uploading...' : 'Bulk Upload'}
+            </Button>
+          </div>
+
+          <Button onClick={handleExport} variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8">
+            <Download className="w-3.5 h-3.5 mr-1.5" />
+            Export
+          </Button>
+
           <Button
             onClick={openReceivePopup}
             variant="outline"
@@ -836,6 +1133,24 @@ export default function ProductInventoryPage() {
             disabled={editingRowIds.size > 0}
           >
             Add Product
+          </Button>
+
+          <Button
+            onClick={openIssuePopup}
+            variant="outline"
+            className="border-trust-blue text-trust-blue hover:bg-trust-blue/10 rounded-full px-4 text-sm h-8"
+            disabled={editingRowIds.size > 0}
+          >
+            Issue Product
+          </Button>
+
+          <Button onClick={() => setRequestsPanelOpen((prev) => !prev)} variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8">
+            Requests
+            {pendingIssueRequests.length > 0 && (
+              <span className="ml-1 rounded-full bg-danger px-1.5 py-0.5 text-[10px] text-white leading-none">
+                {pendingIssueRequests.length}
+              </span>
+            )}
           </Button>
 
           <Button

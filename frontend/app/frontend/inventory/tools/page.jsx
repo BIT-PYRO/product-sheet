@@ -466,7 +466,7 @@ export default function ToolsInventoryPage() {
             New Tool
           </Button>
           <Button onClick={openReceivePopup} variant="outline" className="border-emerald-500 text-emerald-600 hover:bg-emerald-50 rounded-full px-4 text-sm h-8">
-            Receive Tool
+            Add Tool
           </Button>
           <Button onClick={openIssuePopup} variant="outline" className="border-trust-blue text-trust-blue hover:bg-trust-blue/10 rounded-full px-4 text-sm h-8">
             Issue Tool
