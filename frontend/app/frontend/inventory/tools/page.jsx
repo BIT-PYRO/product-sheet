@@ -674,7 +674,7 @@ export default function ToolsInventoryPage() {
                 ) : (
                   <div className="divide-y divide-soft-border">
                     {sortedIssueRequests.map((req) => {
-                      const statusClass = req.status === 'approved' ? 'bg-emerald-100 text-emerald-800' : req.status === 'declined' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-800';
+                      const statusClass = req.status === 'approved' ? 'bg-emerald-100 text-emerald-800' : req.status === 'rejected' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-800';
                       return (
                         <div
                           key={req.id}
@@ -1074,7 +1074,7 @@ export default function ToolsInventoryPage() {
             <Button variant="outline" onClick={() => setRequestDetailsOpen(false)}>Close</Button>
             {activeRequest?.status === 'pending' && (
               <>
-                <Button variant="destructive" onClick={() => reviewIssueRequest('declined')}>Decline</Button>
+                <Button variant="destructive" onClick={() => reviewIssueRequest('rejected')}>Decline</Button>
                 <Button onClick={() => reviewIssueRequest('approved')}>Approve</Button>
               </>
             )}
