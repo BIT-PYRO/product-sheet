@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, Pencil, Plus, Printer, RefreshCw, Trash2, X } from 'lucide-react';
+import BulkUploadButton from '@/components/bulk-upload-button';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
 import { Button } from '@/components/ui/button';
 import GlobalSearchBar from '@/components/global-search-bar';
@@ -25,6 +26,7 @@ const OTHERS_COLUMNS = [
   { id: 'item_name', label: 'Item Name' },
   { id: 'category', label: 'Category' },
   { id: 'quantity', label: 'Quantity' },
+  { id: 'used_qty', label: 'Used Qty' },
   { id: 'unit', label: 'Unit' },
   { id: 'min_level', label: 'Min Level' },
   { id: 'notes', label: 'Notes' },
@@ -276,7 +278,13 @@ export default function OthersInventoryPage() {
     if (!referenceId) { showStatus('Please enter a reference ID.', 'error'); return; }
     if (!price) { showStatus('Please enter a price.', 'error'); return; }
     const row = rows.find((r) => r.id === itemIdNum);
-    setRows((prev) => prev.map((r) => r.id === itemIdNum ? { ...r, quantity: Number(r.quantity || 0) + quantityNum } : r));
+    if (receiveForm.usage === 'used') {
+      setRows((prev) => prev.map((r) => r.id === itemIdNum ? { ...r, used_qty: Number(r.used_qty || 0) + quantityNum } : r));
+      setEdits((prev) => ({ ...prev, [itemIdNum]: { ...(prev[itemIdNum] || {}), used_qty: Number((prev[itemIdNum]?.used_qty ?? row?.used_qty) || 0) + quantityNum } }));
+    } else {
+      setRows((prev) => prev.map((r) => r.id === itemIdNum ? { ...r, quantity: Number(r.quantity || 0) + quantityNum } : r));
+      setEdits((prev) => ({ ...prev, [itemIdNum]: { ...(prev[itemIdNum] || {}), quantity: Number((prev[itemIdNum]?.quantity ?? row?.quantity) || 0) + quantityNum } }));
+    }
     setReceiveOpen(false);
     showStatus(`Received ${quantityNum} of ${row?.item_name || 'Item #' + itemIdNum} from ${employeeVendorName}.`);
   };
@@ -534,6 +542,7 @@ export default function OthersInventoryPage() {
           <Button onClick={openIssuePopup} variant="outline" className="border-trust-blue text-trust-blue hover:bg-trust-blue/10 rounded-full px-4 text-sm h-8">
             Issue Item
           </Button>
+          <BulkUploadButton sheetType="others" onComplete={fetchItems} className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8" />
           <Button onClick={() => setRequestsPanelOpen((prev) => !prev)} variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8">
             Requests
             {pendingIssueRequests.length > 0 && (
@@ -611,6 +620,7 @@ export default function OthersInventoryPage() {
                     {visibleColumns.has('item_name') && <th className="px-3 py-2 text-left text-xs font-bold uppercase tracking-wide text-cool-gray">Item Name</th>}
                     {visibleColumns.has('category') && <th className="px-3 py-2 text-left text-xs font-bold uppercase tracking-wide text-cool-gray">Category</th>}
                     {visibleColumns.has('quantity') && <th className="px-3 py-2 text-left text-xs font-bold uppercase tracking-wide text-cool-gray">Quantity</th>}
+                    {visibleColumns.has('used_qty') && <th className="px-3 py-2 text-left text-xs font-bold uppercase tracking-wide text-cool-gray">Used Qty</th>}
                     {visibleColumns.has('unit') && <th className="px-3 py-2 text-left text-xs font-bold uppercase tracking-wide text-cool-gray">Unit</th>}
                     {visibleColumns.has('min_level') && <th className="px-3 py-2 text-left text-xs font-bold uppercase tracking-wide text-cool-gray">Min Level</th>}
                     {visibleColumns.has('notes') && <th className="px-3 py-2 text-left text-xs font-bold uppercase tracking-wide text-cool-gray">Notes</th>}
@@ -642,6 +652,7 @@ export default function OthersInventoryPage() {
                           </select>
                         </td>}
                         {visibleColumns.has('quantity') && <td className="px-3 py-2"><input type="number" value={getField(row, 'quantity')} onChange={(e) => setField(row.id, 'quantity', e.target.value)} readOnly={!editingRowIds.has(row.id)} placeholder="0" className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue read-only:bg-gray-50 read-only:text-cool-gray" /></td>}
+                        {visibleColumns.has('used_qty') && <td className="px-3 py-2"><input type="number" value={getField(row, 'used_qty')} onChange={(e) => setField(row.id, 'used_qty', e.target.value)} readOnly={!editingRowIds.has(row.id)} placeholder="0" className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue read-only:bg-gray-50 read-only:text-cool-gray" /></td>}
                         {visibleColumns.has('unit') && <td className="px-3 py-2">
                           <select value={getField(row, 'unit')} onChange={(e) => setField(row.id, 'unit', e.target.value)} disabled={!editingRowIds.has(row.id)} className="h-9 w-full rounded-lg border border-soft-border bg-white px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue disabled:bg-gray-50 disabled:text-cool-gray">
                             {UNITS.map((u) => <option key={u} value={u}>{u}</option>)}

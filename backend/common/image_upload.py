@@ -18,10 +18,21 @@ upload_image_base64(data_url, folder, public_id=None)
 
 import base64
 import io
+import logging
 import os
 import uuid
 
 from django.conf import settings
+
+logger = logging.getLogger(__name__)
+
+# MIME sub-types that Cloudinary (and Pillow local fallback) can handle.
+# EMF, WMF, BMP-variant strings etc. are NOT in this set — they get skipped.
+_SUPPORTED_MIMES = {
+    'jpeg', 'jpg', 'png', 'gif', 'webp',
+    'bmp', 'tiff', 'tif', 'avif', 'heic', 'heif',
+    'ico', 'svg+xml',
+}
 
 
 def _safe_folder(folder: str) -> str:
@@ -64,6 +75,15 @@ def upload_image_base64(data_url: str, folder: str, public_id: str = None) -> st
         # header looks like "data:image/jpeg;base64"
         mime = header.split(';')[0].split(':')[1].lower()  # e.g. "image/jpeg"
         ext  = mime.split('/')[1]
+
+        # Reject formats Cloudinary cannot process (e.g. EMF, WMF pasted from clipboard).
+        if ext not in _SUPPORTED_MIMES:
+            logger.warning(
+                'upload_image_base64: unsupported MIME type %r for folder=%r – skipping upload.',
+                mime, folder,
+            )
+            return ''  # caller should treat '' as "no image" and not overwrite existing URL
+
         if ext == 'jpeg':
             ext = 'jpg'
 
@@ -80,9 +100,15 @@ def upload_image_base64(data_url: str, folder: str, public_id: str = None) -> st
             )
         return _upload_to_local_bytes(image_bytes, folder, file_name)
 
-    except Exception:
-        # If anything goes wrong keep the original value rather than losing the image
-        return data_url
+    except Exception as exc:
+        logger.error(
+            'upload_image_base64: upload failed for folder=%r public_id=%r: %s',
+            folder, public_id, exc,
+        )
+        # Return empty string – callers must not store raw base64 blobs in the DB.
+        # Existing Cloudinary/local URLs are unaffected because _process_images
+        # only calls this function when the incoming value starts with "data:image/".
+        return ''
 
 
 # ── Internal helpers ──────────────────────────────────────────────────────────

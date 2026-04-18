@@ -116,7 +116,7 @@ class StoneItemSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'stone_type', 'species', 'variety', 'color', 'quality',
             'wax_setting', 'cut', 'dos', 'donts', 'shape', 'length', 'width', 'height',
-            'qty', 'weight_cts', 'averageWeightStock', 'created_at', 'updated_at',
+            'qty', 'used_qty', 'weight_cts', 'averageWeightStock', 'created_at', 'updated_at',
         ]
 
 
@@ -138,13 +138,13 @@ class StoneStockEntrySerializer(serializers.ModelSerializer):
 class ToolItemSerializer(serializers.ModelSerializer):
     class Meta:
         model = ToolItem
-        fields = ['id', 'tool_name', 'particulars', 'department', 'quantity', 'min_level', 'unit', 'location', 'created_at', 'updated_at']
+        fields = ['id', 'tool_name', 'particulars', 'department', 'quantity', 'used_qty', 'min_level', 'unit', 'location', 'created_at', 'updated_at']
 
 
 class OtherItemSerializer(serializers.ModelSerializer):
     class Meta:
         model = OtherItem
-        fields = ['id', 'item_name', 'category', 'quantity', 'unit', 'min_level', 'notes', 'created_at', 'updated_at']
+        fields = ['id', 'item_name', 'category', 'quantity', 'used_qty', 'unit', 'min_level', 'notes', 'created_at', 'updated_at']
 
 
 class MachineItemSerializer(serializers.ModelSerializer):
@@ -182,7 +182,7 @@ class StockTransactionSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'txn_date', 'inventory_type', 'txn_type', 'item_name', 'particulars',
             'qty', 'qty_unit', 'weight', 'weight_unit', 'location', 'price', 'amount',
-            'received_from', 'issued_to', 'activity_status', 'remark',
+            'received_from', 'issued_to', 'usage', 'activity_status', 'remark',
             'tool', 'machine', 'other_item', 'created_at', 'updated_at',
         ]
 
@@ -195,7 +195,7 @@ class StoneTransactionSerializer(serializers.ModelSerializer):
             'stone_type', 'shape', 'color', 'species', 'quality', 'cut',
             'length', 'width', 'height', 'qty', 'weight', 'weight_unit',
             'location', 'price', 'amount', 'received_from', 'issued_to',
-            'remark', 'activity_status', 'stone', 'created_at', 'updated_at',
+            'usage', 'remark', 'activity_status', 'stone', 'created_at', 'updated_at',
         ]
 
 
@@ -204,7 +204,7 @@ class FindingInventoryItemSerializer(serializers.ModelSerializer):
         model = FindingInventoryItem
         fields = [
             'id', 'finding_code', 'die_number', 'size', 'material', 'finding_stage',
-            'mechanism', 'quantity', 'weight', 'dead_weight', 'mold_qty_per_die',
+            'mechanism', 'quantity', 'used_qty', 'weight', 'dead_weight', 'mold_qty_per_die',
             'polish', 'total_measurements', 'design_material', 'min_level', 'notes',
             'created_at', 'updated_at',
         ]
@@ -216,7 +216,7 @@ class FindingInventoryTransactionSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'txn_date', 'finding', 'finding_code', 'txn_type', 'inventory_type',
             'die_number', 'size', 'material', 'stage', 'qty', 'weight', 'dead_weight',
-            'price', 'amount', 'received_from', 'issued_to', 'remark', 'activity_status',
+            'price', 'amount', 'received_from', 'issued_to', 'usage', 'remark', 'activity_status',
             'created_at', 'updated_at',
         ]
 

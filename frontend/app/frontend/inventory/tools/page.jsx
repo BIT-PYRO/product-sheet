@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, Pencil, Plus, Printer, RefreshCw, Trash2, X } from 'lucide-react';
+import BulkUploadButton from '@/components/bulk-upload-button';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
 import { useSheetPermissions } from '@/hooks/use-sheet-permissions';
 import {
@@ -24,6 +25,7 @@ const TOOLS_COLUMNS = [
   { id: 'particulars', label: 'Particulars' },
   { id: 'department', label: 'Department' },
   { id: 'quantity', label: 'Quantity' },
+  { id: 'used_qty', label: 'Used Qty' },
   { id: 'min_level', label: 'Min Level' },
   { id: 'unit', label: 'Unit' },
   { id: 'location', label: 'Location' },
@@ -340,11 +342,18 @@ export default function ToolsInventoryPage() {
     if (!referenceId) { setStatus('Please enter a reference ID.'); return; }
     const row = rows.find((r) => r.id === toolIdNum);
     try {
-      const newQty = Number(row?.quantity || 0) + quantityNum;
-      await fetch(`/api/tools/${toolIdNum}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ quantity: newQty }) });
+      if (receiveForm.usage === 'used') {
+        // Used: add to used_qty only, do NOT change quantity
+        const newUsedQty = Number(row?.used_qty || 0) + quantityNum;
+        await fetch(`/api/tools/${toolIdNum}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ used_qty: newUsedQty }) });
+      } else {
+        // New: add to quantity
+        const newQty = Number(row?.quantity || 0) + quantityNum;
+        await fetch(`/api/tools/${toolIdNum}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ quantity: newQty }) });
+      }
       await fetch('/api/stock-transactions', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ txn_date: new Date().toISOString().slice(0, 10), inventory_type: 'tools', txn_type: 'received', item_name: row?.tool_name || toolName(row), particulars: row?.particulars || '', qty: quantityNum, qty_unit: row?.unit || 'PCS', location: row?.location || '', price: receiveForm.price || 0, amount: quantityNum * Number(receiveForm.price || 0), received_from: employeeVendorName, remark: referenceId, tool: toolIdNum }),
+        body: JSON.stringify({ txn_date: new Date().toISOString().slice(0, 10), inventory_type: 'tools', txn_type: 'received', item_name: row?.tool_name || toolName(row), particulars: row?.particulars || '', qty: quantityNum, qty_unit: row?.unit || 'PCS', location: row?.location || '', price: receiveForm.price || 0, amount: quantityNum * Number(receiveForm.price || 0), received_from: employeeVendorName, remark: referenceId, usage: receiveForm.usage || 'new', tool: toolIdNum }),
       });
       setReceiveOpen(false);
       setReceiveForm({ toolId: '', quantity: '', employeeVendorName: '', referenceId: '', price: '', usage: 'new' });
@@ -511,6 +520,7 @@ export default function ToolsInventoryPage() {
           <Button onClick={openIssuePopup} variant="outline" className="border-trust-blue text-trust-blue hover:bg-trust-blue/10 rounded-full px-4 text-sm h-8">
             Issue Tool
           </Button>
+          <BulkUploadButton sheetType="tools" onComplete={loadRows} className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8" />
           <Button onClick={() => setRequestsPanelOpen((prev) => !prev)} variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8">
             Requests
             {pendingIssueRequests.length > 0 && (
@@ -591,6 +601,7 @@ export default function ToolsInventoryPage() {
                   {visibleColumns.has('particulars') && <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray">Particulars</th>}
                   {visibleColumns.has('department') && <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray">Department</th>}
                   {visibleColumns.has('quantity') && <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray">Quantity</th>}
+                  {visibleColumns.has('used_qty') && <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray">Used Qty</th>}
                   {visibleColumns.has('unit') && <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray">Unit</th>}
                   {visibleColumns.has('location') && <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray">Location</th>}
                   {visibleColumns.has('action') && <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray w-24">Action</th>}
@@ -650,6 +661,16 @@ export default function ToolsInventoryPage() {
                         type="number"
                         value={getRowValue(row, 'quantity')}
                         onChange={(e) => updateRow(row.id, 'quantity', e.target.value)}
+                        placeholder="0"
+                        readOnly={!editingRowIds.has(row.id)}
+                        className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue read-only:bg-gray-50 read-only:text-cool-gray"
+                      />
+                    </td>}
+                    {visibleColumns.has('used_qty') && <td className="px-4 py-2.5">
+                      <input
+                        type="number"
+                        value={getRowValue(row, 'used_qty')}
+                        onChange={(e) => updateRow(row.id, 'used_qty', e.target.value)}
                         placeholder="0"
                         readOnly={!editingRowIds.has(row.id)}
                         className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue read-only:bg-gray-50 read-only:text-cool-gray"

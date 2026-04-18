@@ -7,6 +7,7 @@ from .models import DesignerSheet
 _IMAGE_FIELDS = {
     'rendered_photo':    'rendered_photo',
     'technical_drawing': 'technical_drawing',
+    'designer_image_2':  'designer_image_2',
     'designer_image_3':  'other_photo',
 }
 
@@ -29,6 +30,12 @@ class DesignerSheetSerializer(serializers.ModelSerializer):
         upload it to Cloudinary (or local storage in dev) and replace the
         value with the returned URL before saving to the database.
 
+        - If the upload succeeds, stores the returned URL.
+        - If the upload returns '' (unsupported MIME or error), the field is
+          removed from validated_data so existing Cloudinary URLs are preserved
+          on PATCH and the slot is left empty on POST.
+        - Raw base64 blobs are never stored in the database.
+
         Folder: designers/{sku}/
         Public-id: slot name (rendered_photo / technical_drawing / other_photo)
         """
@@ -40,9 +47,15 @@ class DesignerSheetSerializer(serializers.ModelSerializer):
         for field, public_id in _IMAGE_FIELDS.items():
             val = validated_data.get(field)
             if val and isinstance(val, str) and val.startswith('data:image/'):
-                validated_data[field] = upload_image_base64(
-                    val, folder=folder, public_id=public_id
-                )
+                result = upload_image_base64(val, folder=folder, public_id=public_id)
+                if result and not result.startswith('data:image/'):
+                    # Successfully uploaded — store the returned Cloudinary/local URL.
+                    validated_data[field] = result
+                else:
+                    # Upload failed or unsupported MIME — don't store raw base64 in DB.
+                    # For PATCH: removes the key so the existing URL is unchanged.
+                    # For POST:  the model default ('') will be used.
+                    validated_data.pop(field, None)
         return validated_data
 
     def create(self, validated_data):

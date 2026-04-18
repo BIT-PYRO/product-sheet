@@ -29,6 +29,7 @@ const FINDING_COLUMNS = [
   { id: 'finding_stage', label: 'Stage' },
   { id: 'mechanism', label: 'Mechanism' },
   { id: 'quantity', label: 'Quantity' },
+  { id: 'used_qty', label: 'Used Qty' },
   { id: 'weight', label: 'Weight' },
   { id: 'dead_weight', label: 'Dead Wt.' },
   { id: 'mold_qty_per_die', label: 'Mold Qty/Die' },
@@ -294,11 +295,18 @@ export default function FindingInventoryPage() {
     if (!referenceId) { setStatusMsg('Please enter a reference ID.'); return; }
     const finding = findings.find((f) => f.id === findingIdNum);
     try {
-      const newQty = Number(finding?.quantity || 0) + quantityNum;
-      await fetch(`/api/finding-inventory/${findingIdNum}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ quantity: newQty }) });
+      if (receiveForm.usage === 'used') {
+        // Used: add to used_qty only, do NOT change quantity
+        const newUsedQty = Number(finding?.used_qty || 0) + quantityNum;
+        await fetch(`/api/finding-inventory/${findingIdNum}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ used_qty: newUsedQty }) });
+      } else {
+        // New: add to quantity
+        const newQty = Number(finding?.quantity || 0) + quantityNum;
+        await fetch(`/api/finding-inventory/${findingIdNum}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ quantity: newQty }) });
+      }
       await fetch('/api/finding-transactions', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ txn_date: new Date().toISOString().slice(0, 10), txn_type: 'received', finding: findingIdNum, finding_code: finding?.finding_code || '', die_number: finding?.die_number || '', qty: quantityNum, weight: finding?.weight || 0, dead_weight: finding?.dead_weight || 0, received_from: employeeVendorName, remark: referenceId, price: receiveForm.price || 0 }),
+        body: JSON.stringify({ txn_date: new Date().toISOString().slice(0, 10), txn_type: 'received', finding: findingIdNum, finding_code: finding?.finding_code || '', die_number: finding?.die_number || '', qty: quantityNum, weight: finding?.weight || 0, dead_weight: finding?.dead_weight || 0, received_from: employeeVendorName, remark: referenceId, price: receiveForm.price || 0, usage: receiveForm.usage || 'new' }),
       });
       setReceiveOpen(false);
       setReceiveForm({ findingId: '', quantity: '', employeeVendorName: '', referenceId: '', price: '', usage: 'new' });
@@ -731,6 +739,7 @@ export default function FindingInventoryPage() {
                   {visibleColumns.has('finding_stage') && <th className="px-3 py-2.5 text-left text-xs font-bold uppercase tracking-wide text-cool-gray">Stage</th>}
                   {visibleColumns.has('mechanism') && <th className="px-3 py-2.5 text-left text-xs font-bold uppercase tracking-wide text-cool-gray">Mechanism</th>}
                   {visibleColumns.has('quantity') && <th className="px-3 py-2.5 text-right text-xs font-bold uppercase tracking-wide text-cool-gray">Quantity</th>}
+                  {visibleColumns.has('used_qty') && <th className="px-3 py-2.5 text-right text-xs font-bold uppercase tracking-wide text-cool-gray">Used Qty</th>}
                   {visibleColumns.has('weight') && <th className="px-3 py-2.5 text-right text-xs font-bold uppercase tracking-wide text-cool-gray">Weight</th>}
                   {visibleColumns.has('dead_weight') && <th className="px-3 py-2.5 text-right text-xs font-bold uppercase tracking-wide text-cool-gray">Dead Wt.</th>}
                   {visibleColumns.has('mold_qty_per_die') && <th className="px-3 py-2.5 text-right text-xs font-bold uppercase tracking-wide text-cool-gray">Mold Qty/Die</th>}
@@ -788,6 +797,7 @@ export default function FindingInventoryPage() {
                           </td>}
                           {visibleColumns.has('mechanism') && <td className="px-3 py-2.5"><input type="text" value={editBuffer[f.id]?.mechanism ?? ''} onChange={(e) => updateEditBuffer(f.id, 'mechanism', e.target.value)} className="h-8 w-full rounded border border-soft-border px-2 text-sm" /></td>}
                           {visibleColumns.has('quantity') && <td className="px-3 py-2.5"><input type="number" value={editBuffer[f.id]?.quantity ?? ''} onChange={(e) => updateEditBuffer(f.id, 'quantity', e.target.value)} className="h-8 w-full rounded border border-soft-border px-2 text-sm text-right" /></td>}
+                          {visibleColumns.has('used_qty') && <td className="px-3 py-2.5"><input type="number" value={editBuffer[f.id]?.used_qty ?? ''} onChange={(e) => updateEditBuffer(f.id, 'used_qty', e.target.value)} className="h-8 w-full rounded border border-soft-border px-2 text-sm text-right" /></td>}
                           {visibleColumns.has('weight') && <td className="px-3 py-2.5"><input type="number" value={editBuffer[f.id]?.weight ?? ''} onChange={(e) => updateEditBuffer(f.id, 'weight', e.target.value)} className="h-8 w-full rounded border border-soft-border px-2 text-sm text-right" /></td>}
                           {visibleColumns.has('dead_weight') && <td className="px-3 py-2.5"><input type="number" value={editBuffer[f.id]?.dead_weight ?? ''} onChange={(e) => updateEditBuffer(f.id, 'dead_weight', e.target.value)} className="h-8 w-full rounded border border-soft-border px-2 text-sm text-right" /></td>}
                           {visibleColumns.has('mold_qty_per_die') && <td className="px-3 py-2.5"><input type="number" value={editBuffer[f.id]?.mold_qty_per_die ?? ''} onChange={(e) => updateEditBuffer(f.id, 'mold_qty_per_die', e.target.value)} className="h-8 w-full rounded border border-soft-border px-2 text-sm text-right" /></td>}
@@ -821,6 +831,9 @@ export default function FindingInventoryPage() {
                           {visibleColumns.has('mechanism') && <td className="px-3 py-2.5 text-midnight-ink">{f.mechanism || '—'}</td>}
                           {visibleColumns.has('quantity') && <td className="px-3 py-2.5 text-right text-midnight-ink font-medium">
                             {f.quantity || '—'}
+                          </td>}
+                          {visibleColumns.has('used_qty') && <td className="px-3 py-2.5 text-right text-midnight-ink font-medium">
+                            {f.used_qty || '—'}
                           </td>}
                           {visibleColumns.has('weight') && <td className="px-3 py-2.5 text-right text-midnight-ink">{f.weight || '—'}</td>}
                           {visibleColumns.has('dead_weight') && <td className="px-3 py-2.5 text-right text-midnight-ink">{f.dead_weight || '—'}</td>}

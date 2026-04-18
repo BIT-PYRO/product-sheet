@@ -293,6 +293,34 @@ async function parseUploadFile(file) {
     return parsed.map((row) => normalizeRow(row));
   }
 
+  // PDF — extract text and parse as a space-delimited table (best-effort)
+  if (fileName.endsWith('.pdf')) {
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    const pdfParseModule = await import('pdf-parse');
+    const pdfParse = pdfParseModule.default || pdfParseModule;
+    if (typeof pdfParse !== 'function') {
+      throw new Error('PDF parser is not available. Please use Excel or CSV format instead.');
+    }
+    const { text } = await pdfParse(buffer);
+    const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+    if (lines.length < 2) throw new Error('Could not extract table data from PDF. Please use Excel or CSV format instead.');
+    // Split each line into cells by 2+ spaces or tabs
+    const splitLine = (line) => line.split(/\t|  +/).map((c) => c.trim()).filter((c, i, arr) => c || i === 0 || arr[i - 1]);
+    const headers = splitLine(lines[0]);
+    if (headers.length < 2) throw new Error('Could not detect column headers in PDF. Please use Excel or CSV format instead.');
+    const rows = lines.slice(1)
+      .map((line) => {
+        const cells = splitLine(line);
+        const row = {};
+        headers.forEach((h, i) => { row[h] = cells[i] ?? ''; });
+        return normalizeRow(row);
+      })
+      .filter((row) => Object.values(row).some((v) => String(v).trim()));
+    if (rows.length === 0) throw new Error('No data rows found in PDF. Please use Excel or CSV format instead.');
+    return rows;
+  }
+
   // CSV / TSV — parse as text so we don't rely on the Excel binary reader.
   if (fileName.endsWith('.csv') || fileName.endsWith('.tsv')) {
     const text = await file.text();
@@ -392,14 +420,65 @@ async function parseUploadFile(file) {
     // For two-row headers the standalone image columns (Rendered Photo, Technical Drawing,
     // Other Photo) appear in row0 only — effectiveHeaders already normalises them correctly.
     const imgColToField = {};
+    // Unmatched generic headers (e.g. "Photo", "Image") — assigned positionally below.
+    const _unmatchedImgCols = [];
+
     effectiveHeaders.forEach((h, col) => {
       if (!h) return;
-      if (h.includes('renderedphoto') || h.includes('renderedimage') || h.includes('renderpicture'))
-        { if (!imgColToField[col]) imgColToField[col] = 'renderedphoto'; }
-      else if (h.includes('technicaldrawing') || h.includes('technicaldraw'))
-        { if (!imgColToField[col]) imgColToField[col] = 'technicaldrawing'; }
-      else if (h.includes('otherphoto') || h.includes('otherimage') || h.includes('extraphoto'))
-        { if (!imgColToField[col]) imgColToField[col] = 'otherphoto'; }
+
+      // ── Slot 1: Rendered Photo ──────────────────────────────────────────────
+      if (
+        h.includes('renderedphoto')   || h.includes('renderedimage')  ||
+        h.includes('renderpicture')   || h.includes('renderedpicture') ||
+        h === 'renderphoto'           || h === 'renderimage'          ||
+        h === 'designphoto'           || h === 'mainphoto'            ||
+        h === 'mainimage'             || h === 'render'               ||
+        h.includes('photo1')          || h.includes('image1')         ||
+        h.includes('pic1')
+      ) {
+        if (!imgColToField[col]) imgColToField[col] = 'renderedphoto';
+
+      // ── Slot 2: Technical Drawing ───────────────────────────────────────────
+      } else if (
+        h.includes('technicaldrawing') || h.includes('technicaldraw') ||
+        h.includes('technical')        || h === 'drawing'             ||
+        h === 'sketch'                 || h === 'techimage'           ||
+        h.includes('photo2')           || h.includes('image2')        ||
+        h.includes('pic2')
+      ) {
+        if (!imgColToField[col]) imgColToField[col] = 'technicaldrawing';
+
+      // ── Slot 3: Other Photo (designer_image_3) ──────────────────────────────
+      } else if (
+        h.includes('otherphoto')      || h.includes('otherimage')     ||
+        h.includes('extraphoto')      || h.includes('designerimage3') ||
+        h.includes('photo3')          || h.includes('image3')         ||
+        h.includes('pic3')            || h === 'extra'                ||
+        h === 'additional'
+      ) {
+        if (!imgColToField[col]) imgColToField[col] = 'otherphoto';
+
+      // ── Slot 4: designer_image_2 ────────────────────────────────────────────
+      } else if (
+        h.includes('designerimage2')  || h.includes('photo4')         ||
+        h.includes('image4')          || h.includes('pic4')
+      ) {
+        if (!imgColToField[col]) imgColToField[col] = 'designerimage2';
+
+      // ── Positional fallback for generic names ───────────────────────────────
+      // Only match if the WHOLE normalized header is a generic photo/image word
+      // (avoids false-positives on non-image columns that happen to contain "image").
+      } else if (/^(photo|image|picture|pic)$/.test(h)) {
+        _unmatchedImgCols.push(col);
+      }
+    });
+
+    // Assign positional slots for unmatched generic columns in left-to-right order.
+    const _positionalSlots = ['renderedphoto', 'technicaldrawing', 'otherphoto', 'designerimage2'];
+    const _usedSlots = new Set(Object.values(imgColToField));
+    _unmatchedImgCols.forEach((col) => {
+      const nextSlot = _positionalSlots.find((s) => !_usedSlots.has(s));
+      if (nextSlot) { imgColToField[col] = nextSlot; _usedSlots.add(nextSlot); }
     });
 
     dataRowsIndexed.forEach(({ excelRowIdx }, idx) => {
@@ -413,7 +492,7 @@ async function parseUploadFile(file) {
   return rows;
 }
 
-function summarizeResult(sheetLabel, createdCount, updatedCount, skippedCount, failures) {
+function summarizeResult(sheetLabel, createdCount, updatedCount, skippedCount, failures, imagesFound = 0, imagesUploaded = 0) {
   const parts = [];
 
   if (createdCount > 0) {
@@ -429,6 +508,10 @@ function summarizeResult(sheetLabel, createdCount, updatedCount, skippedCount, f
   const failureCount = failures.length;
   if (failureCount > 0) {
     parts.push(`failed ${failureCount}`);
+  }
+
+  if (imagesFound > 0) {
+    parts.push(`${imagesUploaded}/${imagesFound} images uploaded`);
   }
 
   const base = parts.length > 0 ? parts.join(', ') : 'no rows processed';
@@ -974,8 +1057,13 @@ async function uploadDesigners(client, rows) {
   let createdCount = 0;
   let updatedCount = 0;
   let skippedCount = 0;
+  let imagesFound = 0;     // base64 images detected in the uploaded file
+  let imagesUploaded = 0;  // images that came back as real URLs from the backend
   const failures = [];
-  const BATCH_SIZE = 3;
+  // Designers may carry base64 images (several MB each). Process one row at a
+  // time so we never send multiple multi-MB payloads concurrently, which would
+  // time out or hit reverse-proxy body-size limits.
+  const BATCH_SIZE = 1;
 
   const tasks = rows.map((row, index) => {
     const sku = String(
@@ -1020,15 +1108,47 @@ async function uploadDesigners(client, rows) {
 
       // ── Image fields – only included when a value was actually found ────────
       // Sending '' for a PATCH would erase existing Cloudinary/S3 image URLs.
-      const _rp  = String(pickValue(row, ['renderedphoto',    'rendered_photo',    'image1', 'image'])).trim();
-      const _td  = String(pickValue(row, ['technicaldrawing', 'technical_drawing', 'image2'])).trim();
-      const _op  = String(pickValue(row, ['otherphoto',       'other_photo',       'image3', 'designerimage3'])).trim();
+      // Field keys injected by extractXlsxImages match the imgColToField values
+      // above (e.g. 'renderedphoto', 'technicaldrawing', 'otherphoto', 'designerimage2').
+      const _rp  = String(pickValue(row, ['renderedphoto',    'rendered_photo',    'renderphoto',     'mainphoto',   'designphoto',    'render',    'image1', 'photo1', 'pic1', 'image'])).trim();
+      const _td  = String(pickValue(row, ['technicaldrawing', 'technical_drawing', 'technicaldraw',   'technical',   'drawing',        'sketch',    'image2', 'photo2', 'pic2'])).trim();
+      const _op  = String(pickValue(row, ['otherphoto',       'other_photo',       'extraphoto',      'extra',       'designerimage3', 'additional','image3', 'photo3', 'pic3'])).trim();
+      const _d2  = String(pickValue(row, ['designerimage2',   'designer_image_2',  'image4',          'photo4',      'pic4'])).trim();
+
+      // Per-image size guard: base64-encoded PNGs can be several MB.
+      // Log oversized images as failures but still attempt the upload — the backend
+      // will log the Cloudinary error if it also fails there.
+      const MAX_IMAGE_B64_BYTES = 10 * 1024 * 1024; // 10 MB base64 string ≈ ~7.5 MB binary
+      const _checkSize = (b64, label) => {
+        if (b64 && b64.startsWith('data:') && b64.length > MAX_IMAGE_B64_BYTES) {
+          failures.push(`Row ${index + 2} (${sku}): ${label} image is ${(b64.length / 1024 / 1024).toFixed(1)} MB (base64) — upload may fail. Consider resizing before uploading.`);
+        }
+        return b64;
+      };
+      const rp = _checkSize(_rp, 'Rendered Photo');
+      const td = _checkSize(_td, 'Technical Drawing');
+      const op = _checkSize(_op, 'Other Photo');
+      const d2 = _checkSize(_d2, 'Designer Image 2');
+
+      // ── Image-upload stats ────────────────────────────────────────────────
+      const _imageSlots = [
+        { field: 'rendered_photo',    val: rp },
+        { field: 'technical_drawing', val: td },
+        { field: 'designer_image_3',  val: op },
+        { field: 'designer_image_2',  val: d2 },
+      ];
+      const _rowImagesFound = _imageSlots.filter(s => s.val && s.val.startsWith('data:')).length;
+      imagesFound += _rowImagesFound;
+      if (_rowImagesFound > 0) {
+        console.log(`[bulk-upload] Row ${index + 2} (${sku}): ${_rowImagesFound} image(s) found — sending to backend`);
+      }
 
       const payload = {
         sku,
-        ...(_rp ? { rendered_photo:    _rp } : {}),
-        ...(_td ? { technical_drawing: _td } : {}),
-        ...(_op ? { designer_image_3:  _op } : {}),
+        ...(rp ? { rendered_photo:    rp } : {}),
+        ...(td ? { technical_drawing: td } : {}),
+        ...(op ? { designer_image_3:  op } : {}),
+        ...(d2 ? { designer_image_2:  d2 } : {}),
 
         // Design identity
         motive_code: String(pickValue(row, ['motivecode',     'motive_code',      'mcode'])).trim(),
@@ -1088,10 +1208,157 @@ async function uploadDesigners(client, rows) {
         createdCount += 1;
         designerBySku.set(sku.toUpperCase(), result?.data || {});
       }
+
+      // Check which images were actually saved (backend returned a real URL).
+      if (_rowImagesFound > 0) {
+        const savedData = result?.data || {};
+        const _rowImagesUploaded = _imageSlots.filter(s => {
+          if (!s.val || !s.val.startsWith('data:')) return false;
+          const returned = savedData[s.field];
+          return returned && typeof returned === 'string' && !returned.startsWith('data:') && returned.length > 4;
+        }).length;
+        imagesUploaded += _rowImagesUploaded;
+        console.log(`[bulk-upload] Row ${index + 2} (${sku}): ${_rowImagesUploaded}/${_rowImagesFound} image(s) saved`);
+        if (_rowImagesUploaded < _rowImagesFound) {
+          failures.push(`${sku}: ${_rowImagesFound - _rowImagesUploaded} of ${_rowImagesFound} image(s) failed to upload — check server logs`);
+        }
+      }
     }));
   }
 
-  return { createdCount, updatedCount, skippedCount, failures, label: 'Designer sheet' };
+  return { createdCount, updatedCount, skippedCount, failures, label: 'Designer sheet', imagesFound, imagesUploaded };
+}
+
+async function uploadTools(client, rows) {
+  const existing = await fetchCollection(client, '/api/v1/inventory/tools/');
+  const byName = new Map(existing.map((t) => [String(t.tool_name || '').trim().toLowerCase(), t]));
+
+  let createdCount = 0;
+  let updatedCount = 0;
+  let skippedCount = 0;
+  const failures = [];
+
+  for (const [index, row] of rows.entries()) {
+    const toolName = String(pickValue(row, ['toolname', 'tool_name', 'tool name', 'name'])).trim();
+    if (!toolName) { skippedCount += 1; continue; }
+
+    const payload = {
+      tool_name: toolName,
+      particulars: String(pickValue(row, ['particulars', 'particular', 'description'])).trim(),
+      department: String(pickValue(row, ['department', 'dept'])).trim(),
+      quantity: toNumber(pickValue(row, ['quantity', 'qty']), 0),
+      used_qty: toNumber(pickValue(row, ['usedqty', 'used_qty', 'used qty']), 0),
+      min_level: toNumber(pickValue(row, ['minlevel', 'min_level', 'minimum level', 'min level']), 0),
+      unit: String(pickValue(row, ['unit'], 'PCS')).trim().toUpperCase() || 'PCS',
+      location: String(pickValue(row, ['location'])).trim(),
+    };
+
+    const existingItem = byName.get(toolName.toLowerCase());
+    const path = existingItem ? `/api/v1/inventory/tools/${existingItem.id}/` : '/api/v1/inventory/tools/';
+    const method = existingItem ? 'PATCH' : 'POST';
+    const { response, payload: result } = await client.request(path, {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      failures.push(`Row ${index + 2}: ${errorMessageFromPayload(result, `Failed to save tool ${toolName}`)}`);
+      continue;
+    }
+    if (existingItem) { updatedCount += 1; } else { createdCount += 1; byName.set(toolName.toLowerCase(), result?.data || {}); }
+  }
+
+  return { createdCount, updatedCount, skippedCount, failures, label: 'Tools inventory' };
+}
+
+async function uploadMachines(client, rows) {
+  const existing = await fetchCollection(client, '/api/v1/inventory/machines/');
+  const byName = new Map(existing.map((m) => [String(m.machine_name || '').trim().toLowerCase(), m]));
+
+  let createdCount = 0;
+  let updatedCount = 0;
+  let skippedCount = 0;
+  const failures = [];
+
+  for (const [index, row] of rows.entries()) {
+    const machineName = String(pickValue(row, ['machinename', 'machine_name', 'machine name', 'name'])).trim();
+    if (!machineName) { skippedCount += 1; continue; }
+
+    const payload = {
+      machine_name: machineName,
+      particulars: String(pickValue(row, ['particulars', 'particular', 'description'])).trim(),
+      department: String(pickValue(row, ['department', 'dept'])).trim(),
+      running_qty: toNumber(pickValue(row, ['runningqty', 'running_qty', 'running qty']), 0),
+      running_location: String(pickValue(row, ['runninglocation', 'running_location', 'running location'])).trim(),
+      idle_qty: toNumber(pickValue(row, ['idleqty', 'idle_qty', 'idle qty']), 0),
+      idle_location: String(pickValue(row, ['idlelocation', 'idle_location', 'idle location'])).trim(),
+      breakdown_qty: toNumber(pickValue(row, ['breakdownqty', 'breakdown_qty', 'breakdown qty']), 0),
+      breakdown_location: String(pickValue(row, ['breakdownlocation', 'breakdown_location', 'breakdown location'])).trim(),
+      maintenance_qty: toNumber(pickValue(row, ['maintenanceqty', 'maintenance_qty', 'maintenance qty', 'under_maintenance_qty', 'undermaintenanceqty']), 0),
+      maintenance_location: String(pickValue(row, ['maintenancelocation', 'maintenance_location', 'maintenance location'])).trim(),
+      min_required_stock: toNumber(pickValue(row, ['minrequiredstock', 'min_required_stock', 'min required stock', 'minstock', 'min_stock']), 0),
+    };
+
+    const existingItem = byName.get(machineName.toLowerCase());
+    const path = existingItem ? `/api/v1/inventory/machines/${existingItem.id}/` : '/api/v1/inventory/machines/';
+    const method = existingItem ? 'PATCH' : 'POST';
+    const { response, payload: result } = await client.request(path, {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      failures.push(`Row ${index + 2}: ${errorMessageFromPayload(result, `Failed to save machine ${machineName}`)}`);
+      continue;
+    }
+    if (existingItem) { updatedCount += 1; } else { createdCount += 1; byName.set(machineName.toLowerCase(), result?.data || {}); }
+  }
+
+  return { createdCount, updatedCount, skippedCount, failures, label: 'Machines inventory' };
+}
+
+async function uploadOthers(client, rows) {
+  const existing = await fetchCollection(client, '/api/v1/inventory/others/');
+  const byName = new Map(existing.map((o) => [String(o.item_name || '').trim().toLowerCase(), o]));
+
+  let createdCount = 0;
+  let updatedCount = 0;
+  let skippedCount = 0;
+  const failures = [];
+
+  for (const [index, row] of rows.entries()) {
+    const itemName = String(pickValue(row, ['itemname', 'item_name', 'item name', 'name'])).trim();
+    if (!itemName) { skippedCount += 1; continue; }
+
+    const payload = {
+      item_name: itemName,
+      category: String(pickValue(row, ['category'])).trim(),
+      quantity: toNumber(pickValue(row, ['quantity', 'qty']), 0),
+      used_qty: toNumber(pickValue(row, ['usedqty', 'used_qty', 'used qty']), 0),
+      unit: String(pickValue(row, ['unit'], 'PCS')).trim().toUpperCase() || 'PCS',
+      min_level: toNumber(pickValue(row, ['minlevel', 'min_level', 'minimum level', 'min level']), 0),
+      notes: String(pickValue(row, ['notes', 'note', 'remarks'])).trim(),
+    };
+
+    const existingItem = byName.get(itemName.toLowerCase());
+    const path = existingItem ? `/api/v1/inventory/others/${existingItem.id}/` : '/api/v1/inventory/others/';
+    const method = existingItem ? 'PATCH' : 'POST';
+    const { response, payload: result } = await client.request(path, {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      failures.push(`Row ${index + 2}: ${errorMessageFromPayload(result, `Failed to save item ${itemName}`)}`);
+      continue;
+    }
+    if (existingItem) { updatedCount += 1; } else { createdCount += 1; byName.set(itemName.toLowerCase(), result?.data || {}); }
+  }
+
+  return { createdCount, updatedCount, skippedCount, failures, label: 'Others inventory' };
 }
 
 const UPLOAD_HANDLERS = {
@@ -1101,6 +1368,9 @@ const UPLOAD_HANDLERS = {
   kyc: uploadKyc,
   customers: uploadCustomers,
   designers: uploadDesigners,
+  tools: uploadTools,
+  machines: uploadMachines,
+  others: uploadOthers,
 };
 
 export async function POST(request) {
@@ -1133,7 +1403,9 @@ export async function POST(request) {
       result.createdCount,
       result.updatedCount,
       result.skippedCount,
-      result.failures
+      result.failures,
+      result.imagesFound  || 0,
+      result.imagesUploaded || 0,
     );
 
     return NextResponse.json({
@@ -1142,6 +1414,8 @@ export async function POST(request) {
       createdCount: result.createdCount,
       updatedCount: result.updatedCount,
       skippedCount: result.skippedCount,
+      imagesFound:    result.imagesFound    || 0,
+      imagesUploaded: result.imagesUploaded || 0,
       failures: result.failures,
     }, { status: result.failures.length > 0 && result.createdCount === 0 && result.updatedCount === 0 ? 400 : 200 });
   } catch (error) {

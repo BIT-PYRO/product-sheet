@@ -401,7 +401,11 @@ export default function StoneInventoryPage() {
     if (!referenceId) { setStatusMsg('Please enter a reference ID.'); return; }
     if (!price) { setStatusMsg('Please enter a price.'); return; }
     const stone = stones.find((s) => s.id === stoneIdNum);
-    setStones((prev) => prev.map((s) => s.id === stoneIdNum ? { ...s, qty: Number(s.qty || 0) + quantityNum } : s));
+    if (receiveForm.usage === 'used') {
+      setStones((prev) => prev.map((s) => s.id === stoneIdNum ? { ...s, used_qty: Number(s.used_qty || 0) + quantityNum } : s));
+    } else {
+      setStones((prev) => prev.map((s) => s.id === stoneIdNum ? { ...s, qty: Number(s.qty || 0) + quantityNum } : s));
+    }
     setReceiveOpen(false);
     setStatusMsg(`Received ${quantityNum} of ${stone?.species || 'Stone #' + stoneIdNum} from ${employeeVendorName}.`);
   }
@@ -719,6 +723,7 @@ export default function StoneInventoryPage() {
     { key: 'width', label: 'Width' },
     { key: 'height', label: 'Height' },
     { key: 'qty', label: 'Qty' },
+    { key: 'used_qty', label: 'Used Qty' },
     { key: 'weight_cts', label: 'Weight (cts)' },
     { key: 'averageWeightStock', label: 'Avg Weight of Stock' },
     { key: 'dos', label: "Do's" },

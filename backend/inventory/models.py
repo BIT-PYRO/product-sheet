@@ -88,6 +88,7 @@ class StoneItem(AuditModel):
 	width = models.CharField(max_length=60, blank=True, default='')
 	height = models.CharField(max_length=60, blank=True, default='')
 	qty = models.DecimalField(max_digits=12, decimal_places=3, default=0)
+	used_qty = models.DecimalField(max_digits=12, decimal_places=3, default=0)
 	weight_cts = models.DecimalField(max_digits=12, decimal_places=4, default=0)
 
 	class Meta:
@@ -128,6 +129,7 @@ class ToolItem(AuditModel):
 	particulars = models.CharField(max_length=255, blank=True, default='')
 	department = models.CharField(max_length=120, blank=True, default='')
 	quantity = models.DecimalField(max_digits=12, decimal_places=3, default=0)
+	used_qty = models.DecimalField(max_digits=12, decimal_places=3, default=0)
 	min_level = models.DecimalField(max_digits=12, decimal_places=3, default=0)
 	unit = models.CharField(max_length=60, blank=True, default='')
 	location = models.CharField(max_length=255, blank=True, default='')
@@ -143,6 +145,7 @@ class OtherItem(AuditModel):
 	item_name = models.CharField(max_length=255)
 	category = models.CharField(max_length=60, blank=True, default='')
 	quantity = models.DecimalField(max_digits=12, decimal_places=3, default=0)
+	used_qty = models.DecimalField(max_digits=12, decimal_places=3, default=0)
 	unit = models.CharField(max_length=60, blank=True, default='PCS')
 	min_level = models.DecimalField(max_digits=12, decimal_places=3, default=0)
 	notes = models.TextField(blank=True, default='')
@@ -228,6 +231,7 @@ class StockTransaction(AuditModel):
 	amount = models.DecimalField(max_digits=16, decimal_places=2, default=0)
 	received_from = models.CharField(max_length=255, blank=True, default='')
 	issued_to = models.CharField(max_length=255, blank=True, default='')
+	usage = models.CharField(max_length=10, blank=True, default='new')  # 'new' or 'used'
 	activity_status = models.CharField(max_length=60, blank=True, default='')
 	remark = models.CharField(max_length=255, blank=True, default='')
 	tool = models.ForeignKey('ToolItem', on_delete=models.SET_NULL, null=True, blank=True, related_name='stock_transactions')
@@ -273,6 +277,7 @@ class StoneTransaction(AuditModel):
 	amount = models.DecimalField(max_digits=16, decimal_places=2, default=0)
 	received_from = models.CharField(max_length=255, blank=True, default='')
 	issued_to = models.CharField(max_length=255, blank=True, default='')
+	usage = models.CharField(max_length=10, blank=True, default='new')  # 'new' or 'used'
 	remark = models.CharField(max_length=255, blank=True, default='')
 	activity_status = models.CharField(max_length=60, blank=True, default='')
 	stone = models.ForeignKey('StoneItem', on_delete=models.SET_NULL, null=True, blank=True, related_name='stone_transactions')
@@ -303,6 +308,7 @@ class FindingInventoryItem(AuditModel):
 	total_measurements = models.CharField(max_length=120, blank=True, default='')
 	design_material = models.CharField(max_length=120, blank=True, default='')
 	min_level = models.DecimalField(max_digits=12, decimal_places=3, default=0)
+	used_qty = models.DecimalField(max_digits=12, decimal_places=3, default=0)
 	notes = models.TextField(blank=True, default='')
 
 	class Meta:
@@ -338,6 +344,7 @@ class FindingInventoryTransaction(AuditModel):
 	amount = models.DecimalField(max_digits=16, decimal_places=2, default=0)
 	received_from = models.CharField(max_length=255, blank=True, default='')
 	issued_to = models.CharField(max_length=255, blank=True, default='')
+	usage = models.CharField(max_length=10, blank=True, default='new')  # 'new' or 'used'
 	remark = models.CharField(max_length=255, blank=True, default='')
 	activity_status = models.CharField(max_length=60, blank=True, default='')
 

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, Pencil, Printer, RefreshCw, Trash2, X } from 'lucide-react';
+import BulkUploadButton from '@/components/bulk-upload-button';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
 import { useSheetPermissions } from '@/hooks/use-sheet-permissions';
 import {
@@ -603,6 +604,7 @@ export default function MachinesInventoryPage() {
             >
               Issue Machine
             </button>
+            <BulkUploadButton sheetType="machines" onComplete={loadRows} className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8" />
             <button
               type="button"
               onClick={() => setRequestsPanelOpen((prev) => !prev)}

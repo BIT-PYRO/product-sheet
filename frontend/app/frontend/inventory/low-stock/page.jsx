@@ -82,8 +82,7 @@ export default function LowStockPage() {
   const [filterLogSource, setFilterLogSource] = useState('all');
   const [filterLogDateFrom, setFilterLogDateFrom] = useState('');
   const [filterLogDateTo, setFilterLogDateTo]     = useState('');
-  // Items fulfilled this session — kept visible with a "Fulfilled" badge
-  const [fulfilledItems, setFulfilledItems] = useState([]);
+
 
   // ── Load fulfill log from localStorage ───────────────────────────────────
   useEffect(() => {
@@ -297,14 +296,8 @@ export default function LowStockPage() {
 
   // ── filtered view ─────────────────────────────────────────────────────────
   const filteredItems = useMemo(() => {
-    const active = filterSource === 'all' ? items : items.filter((i) => i._source === filterSource);
-    // Append fulfilled items that are no longer in the active list
-    const activeKeys = new Set(active.map((i) => `${i._source}-${i.id}`));
-    const fulfilledExtra = fulfilledItems.filter(
-      (i) => (filterSource === 'all' || i._source === filterSource) && !activeKeys.has(`${i._source}-${i.id}`)
-    );
-    return [...active, ...fulfilledExtra];
-  }, [items, filterSource, fulfilledItems]);
+    return filterSource === 'all' ? items : items.filter((i) => i._source === filterSource);
+  }, [items, filterSource]);
 
   // ── filtered log ──────────────────────────────────────────────────────────
   const filteredLog = useMemo(() => {
@@ -450,12 +443,10 @@ export default function LowStockPage() {
       writeLS(FULFILL_LOG_KEY, log);
       setFulfillLog(log);
 
-      // Mark as fulfilled in session (stays visible with badge even after refetch)
-      setFulfilledItems((prev) => [...prev.filter((x) => !(x._source === source && x.id === fulfillItem.id)), { ...fulfillItem, _fulfilled: true, _fulfilledQty: qty }]);
-
       setFulfillOpen(false);
       setFulfillItem(null);
       await fetchAll();
+      setTab('log');
       setStatus(`Fulfilled ${qty} units of "${fulfillItem._name}" successfully.`);
     } catch (err) {
       setStatus(err.message || 'Fulfill failed. Please try again.');
@@ -588,11 +579,10 @@ export default function LowStockPage() {
                       const ml  = Number(item._minLevel ?? item.min_level ?? 0);
                       const needed = item._needed ?? (ml > 0 ? Math.max(0, ml - item._qty) : 0);
                       const isZero = item._qty === 0;
-                      const isFulfilled = !!item._fulfilled;
                       return (
                         <tr
                           key={`${item._source}-${item.id}-${idx}`}
-                          className={`border-b border-soft-border/60 last:border-b-0 ${isFulfilled ? 'bg-emerald-50/40' : isZero ? 'bg-red-50/50' : 'bg-amber-50/30'}`}
+                          className={`border-b border-soft-border/60 last:border-b-0 ${isZero ? 'bg-red-50/50' : 'bg-amber-50/30'}`}
                         >
                           <td className="px-4 py-3">
                             <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${src?.color ?? 'bg-gray-100 text-gray-700'}`}>
@@ -612,34 +602,26 @@ export default function LowStockPage() {
                             )}
                           </td>
                           <td className="px-4 py-3 text-right">
-                            <span className={`font-bold ${isFulfilled ? 'text-emerald-600' : isZero ? 'text-red-600' : 'text-amber-600'}`}>
-                              {isFulfilled ? (item._qty + (item._fulfilledQty ?? 0)) : item._qty}
+                            <span className={`font-bold ${isZero ? 'text-red-600' : 'text-amber-600'}`}>
+                              {item._qty}
                             </span>
                           </td>
                           <td className="px-4 py-3 text-right text-cool-gray">{ml > 0 ? ml : '—'}</td>
                           <td className="px-4 py-3 text-right">
-                            {isFulfilled ? (
-                              <span className="text-emerald-600 text-xs font-medium">—</span>
-                            ) : needed > 0 ? (
+                            {needed > 0 ? (
                               <span className="font-semibold text-red-600">{needed}</span>
                             ) : (
                               <span className="text-cool-gray">—</span>
                             )}
                           </td>
                           <td className="px-4 py-3 text-center">
-                            {isFulfilled ? (
-                              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">
-                                ✓ Fulfilled
-                              </span>
-                            ) : (
-                              <button
-                                onClick={() => openFulfill(item)}
-                                className="inline-flex items-center gap-1.5 rounded-lg bg-trust-blue px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 transition"
-                              >
-                                <PackagePlus className="h-3.5 w-3.5" />
-                                Fulfill
-                              </button>
-                            )}
+                            <button
+                              onClick={() => openFulfill(item)}
+                              className="inline-flex items-center gap-1.5 rounded-lg bg-trust-blue px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 transition"
+                            >
+                              <PackagePlus className="h-3.5 w-3.5" />
+                              Fulfill
+                            </button>
                           </td>
                         </tr>
                       );
