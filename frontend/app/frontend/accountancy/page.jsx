@@ -4,6 +4,8 @@ import { useState } from 'react';
 import AccountingJournalForm from '@/components/accounting-journal-form';
 import AccountingLedgerSummary from '@/components/accounting-ledger-summary';
 import AccountingTrialBalance from '@/components/accounting-trial-balance';
+import AccountingProfitLoss from '@/components/accounting-profit-loss';
+import AccountingBalanceSheet from '@/components/accounting-balance-sheet';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
 import DateTimeStamp from '@/components/date-time-stamp';
 
@@ -11,6 +13,8 @@ const TABS = [
   { key: 'journal', label: 'Journal Entry' },
   { key: 'ledger', label: 'Ledger Summary' },
   { key: 'trial-balance', label: 'Trial Balance' },
+  { key: 'profit-loss', label: 'Profit & Loss' },
+  { key: 'balance-sheet', label: 'Balance Sheet' },
 ];
 
 export default function AccountancyPage() {
@@ -60,6 +64,8 @@ export default function AccountancyPage() {
         {activeTab === 'journal' && <AccountingJournalForm />}
         {activeTab === 'ledger' && <AccountingLedgerSummary />}
         {activeTab === 'trial-balance' && <AccountingTrialBalance />}
+        {activeTab === 'profit-loss' && <AccountingProfitLoss />}
+        {activeTab === 'balance-sheet' && <AccountingBalanceSheet />}
       </div>
     </main>
   );
