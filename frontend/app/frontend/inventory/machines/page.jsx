@@ -79,6 +79,9 @@ export default function MachinesInventoryPage() {
   const [issueForm, setIssueForm] = useState({ machineId: '', quantity: '', issuedTo: '', issuedBy: '', reason: '' });
   const [workforceMembers, setWorkforceMembers] = useState([]);
   const [enrollWorkforceOpen, setEnrollWorkforceOpen] = useState(false);
+  const [currentUserName, setCurrentUserName] = useState('');
+  const [currentUserEmail, setCurrentUserEmail] = useState('');
+  const [currentUsernameRaw, setCurrentUsernameRaw] = useState('');
 
   const loadRows = useCallback(async () => {
     setLoading(true);
@@ -115,16 +118,30 @@ export default function MachinesInventoryPage() {
   useEffect(() => {
     fetch('/api/workforce?page_size=200')
       .then((r) => r.json())
-      .then((d) => setWorkforceMembers(Array.isArray(d?.results) ? d.results : Array.isArray(d) ? d : []))
+      .then((d) => setWorkforceMembers(Array.isArray(d?.data?.results) ? d.data.results : Array.isArray(d?.data) ? d.data : Array.isArray(d?.results) ? d.results : Array.isArray(d) ? d : []))
       .catch(() => {});
   }, []);
 
   const refreshWorkforce = () => {
     fetch('/api/workforce?page_size=200')
       .then((r) => r.json())
-      .then((d) => setWorkforceMembers(Array.isArray(d?.results) ? d.results : Array.isArray(d) ? d : []))
+      .then((d) => setWorkforceMembers(Array.isArray(d?.data?.results) ? d.data.results : Array.isArray(d?.data) ? d.data : Array.isArray(d?.results) ? d.results : Array.isArray(d) ? d : []))
       .catch(() => {});
   };
+
+  useEffect(() => {
+    fetch('/api/auth/session', { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((d) => {
+        const u = d?.user;
+        if (!u) return;
+        const fullName = `${u.first_name || ''} ${u.last_name || ''}`.trim() || u.username || '';
+        setCurrentUserName(fullName);
+        setCurrentUserEmail(u.email || '');
+        setCurrentUsernameRaw(u.username || '');
+      })
+      .catch(() => {});
+  }, []);
 
   const updateRow = (id, key, nextValue) => {
     if (!editingRowIds.has(id)) return;
@@ -282,7 +299,14 @@ export default function MachinesInventoryPage() {
   }
 
   function openIssuePopup() {
-    setIssueForm({ machineId: selectedRows.length > 0 ? String(selectedRows[0].id) : '', quantity: '', issuedTo: '', issuedBy: '', reason: '' });
+    const lEmail = currentUserEmail.toLowerCase();
+    const lName = currentUserName.toLowerCase();
+    const lUser = currentUsernameRaw.toLowerCase();
+    const matchedMember = workforceMembers.find((w) => lEmail && w.email && w.email.toLowerCase() === lEmail)
+      || workforceMembers.find((w) => lName && w.full_name && w.full_name.toLowerCase() === lName)
+      || workforceMembers.find((w) => lUser && w.full_name && w.full_name.toLowerCase().startsWith(lUser));
+    const issuedBy = matchedMember?.full_name || currentUserName;
+    setIssueForm({ machineId: selectedRows.length > 0 ? String(selectedRows[0].id) : '', quantity: '', issuedTo: '', issuedBy, reason: '' });
     setIssueOpen(true);
   }
 
@@ -851,7 +875,6 @@ export default function MachinesInventoryPage() {
                     <option key={m.id} value={m.full_name}>{m.full_name}</option>
                   ))}
                 </select>
-                <button type="button" onClick={() => setEnrollWorkforceOpen(true)} className="text-xs text-trust-blue hover:underline mt-0.5 text-left">+ Quick Enrol Workforce</button>
               </div>
               <div className="flex flex-col gap-1">
                 <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Issued By</label>
@@ -865,8 +888,10 @@ export default function MachinesInventoryPage() {
                     <option key={m.id} value={m.full_name}>{m.full_name}</option>
                   ))}
                 </select>
-                <button type="button" onClick={() => setEnrollWorkforceOpen(true)} className="text-xs text-trust-blue hover:underline mt-0.5 text-left">+ Quick Enrol Workforce</button>
               </div>
+            </div>
+            <div>
+              <button type="button" onClick={() => setEnrollWorkforceOpen(true)} className="text-xs text-trust-blue hover:underline text-left">+ Enroll Workforce</button>
             </div>
             <div className="flex flex-col gap-1">
               <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Reason of Issue</label>
