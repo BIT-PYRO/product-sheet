@@ -176,7 +176,7 @@ export default function StockLogPage() {
   // ── Edit helpers ─────────────────────────────────────────────────────────
   const FIELD_MAP = { date: 'txn_date', inventoryType: 'inventory_type', receivedIssued: 'txn_type', stockName: 'item_name', qtyUnit: 'qty_unit', weightUnit: 'weight_unit', receivedFrom: 'received_from', issuedTo: 'issued_to', activityStatus: 'activity_status' };
   const rowVal = (row, key) => { const apiKey = FIELD_MAP[key] || key; return row[apiKey] !== undefined ? row[apiKey] : (row[key] ?? ''); };
-  const getF = (row, key) => editBuffer[row.id]?.[key] !== undefined ? editBuffer[row.id][key] : rowVal(row, key);
+  const getF = (row, key) => { const v = editBuffer[row.id]?.[key] !== undefined ? editBuffer[row.id][key] : rowVal(row, key); return v ?? ''; };
   const setF = (id, key, val) => {
     if (!editingIds.has(id)) return;
     setEditBuffer((prev) => {

@@ -5,10 +5,6 @@ import Link from 'next/link';
 import { AlertTriangle } from 'lucide-react';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
 
-const TOOLS_KEY    = 'inventory_tools_v1';
-const MACHINES_KEY = 'inventory_machines_v1';
-const LS_THRESHOLD = 5;
-
 const INVENTORY_BUTTONS = [
   { href: '/inventory/product-inventory', title: 'Product inventory', subtitle: 'Track and manage final product stock' },
   { href: '/inventory/stone-inventory', title: 'Stone inventory', subtitle: 'View and update stone stock balances' },
@@ -22,16 +18,22 @@ const INVENTORY_BUTTONS = [
 ];
 
 export default function InventoryPage() {
-  const [lowCount, setLowCount] = useState(null);
+  const [pendingCount, setPendingCount] = useState(null);
 
   useEffect(() => {
-    function readLS(key) {
-      try { const d = localStorage.getItem(key); return d ? JSON.parse(d) : []; } catch { return []; }
+    async function fetchPending() {
+      try {
+        const res = await fetch('/api/issue-requests?status=pending&page_size=500');
+        if (!res.ok) return;
+        const data = await res.json();
+        const rows = data?.data?.results ?? data?.data ?? data?.results ?? [];
+        setPendingCount(rows.length);
+      } catch { /* non-fatal */ }
     }
-    const tools    = readLS(TOOLS_KEY).filter((r) => Number(r.quantity ?? 0) <= LS_THRESHOLD);
-    const machines = readLS(MACHINES_KEY).filter((r) => Number(r.quantity ?? 0) <= LS_THRESHOLD);
-    setLowCount(tools.length + machines.length);
+    fetchPending();
   }, []);
+
+  const hasAlert = pendingCount > 0;
 
   return (
     <main className="min-h-screen bg-cloud-gray">
@@ -62,23 +64,27 @@ export default function InventoryPage() {
             </Link>
           ))}
 
-          {/* Low Stock – dynamic highlight */}
+          {/* Low Stock – shows pending issue request count */}
           <Link
             href="/inventory/low-stock"
             className={`block text-left rounded-xl p-6 hover:shadow-md transition ${
-              lowCount
+              hasAlert
                 ? 'border-2 border-amber-400 bg-amber-50 hover:border-amber-500'
                 : 'border border-soft-border bg-white hover:border-trust-blue'
             }`}
           >
             <div className="flex items-center gap-2 mb-1">
-              {lowCount ? <AlertTriangle className="h-5 w-5 text-amber-500" /> : null}
-              <h2 className={`text-lg font-semibold ${lowCount ? 'text-amber-800' : 'text-midnight-ink'}`}>Low Stock</h2>
-              {lowCount ? (
-                <span className="ml-auto text-xs font-bold bg-amber-400 text-white rounded-full px-2 py-0.5">{lowCount}</span>
-              ) : null}
+              {hasAlert && <AlertTriangle className="h-5 w-5 text-amber-500 shrink-0" />}
+              <h2 className={`text-lg font-semibold ${hasAlert ? 'text-amber-800' : 'text-midnight-ink'}`}>Low Stock</h2>
+              {pendingCount !== null && pendingCount > 0 && (
+                <span className="ml-auto text-xs font-bold bg-amber-400 text-white rounded-full px-2 py-0.5 shrink-0">
+                  {pendingCount} pending
+                </span>
+              )}
             </div>
-            <p className={`text-sm ${lowCount ? 'text-amber-700' : 'text-cool-gray'}`}>View low-stock alerts across all inventories and fulfill orders</p>
+            <p className={`text-sm ${hasAlert ? 'text-amber-700' : 'text-cool-gray'}`}>
+              View low-stock alerts across all inventories and fulfill orders
+            </p>
           </Link>
         </section>
       </div>

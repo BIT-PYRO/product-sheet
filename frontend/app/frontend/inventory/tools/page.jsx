@@ -24,6 +24,7 @@ const TOOLS_COLUMNS = [
   { id: 'particulars', label: 'Particulars' },
   { id: 'department', label: 'Department' },
   { id: 'quantity', label: 'Quantity' },
+  { id: 'min_level', label: 'Min Level' },
   { id: 'unit', label: 'Unit' },
   { id: 'location', label: 'Location' },
   { id: 'action', label: 'Action' },
@@ -58,6 +59,7 @@ export default function ToolsInventoryPage() {
   const [receiveForm, setReceiveForm] = useState({ toolId: '', quantity: '', employeeVendorName: '', referenceId: '', price: '', usage: 'new' });
   const [requestsPanelOpen, setRequestsPanelOpen] = useState(false);
   const [requestDetailsOpen, setRequestDetailsOpen] = useState(false);
+  const [reviewError, setReviewError] = useState('');
   const [activeRequestId, setActiveRequestId] = useState(null);
   const [issueRequests, setIssueRequests] = useState([]);
   const [issueRequestsLoading, setIssueRequestsLoading] = useState(false); // eslint-disable-line no-unused-vars
@@ -135,7 +137,7 @@ export default function ToolsInventoryPage() {
   };
 
   const openAddToolDialog = () => {
-    setAddToolForm({ toolName: '', particulars: '', department: '', quantity: '', unit: 'PCS', location: '' });
+    setAddToolForm({ toolName: '', particulars: '', department: '', quantity: '', min_level: '', unit: 'PCS', location: '' });
     setIsAddToolOpen(true);
   };
 
@@ -145,7 +147,7 @@ export default function ToolsInventoryPage() {
       const res = await fetch('/api/tools', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tool_name: addToolForm.toolName, particulars: addToolForm.particulars, department: addToolForm.department, quantity: addToolForm.quantity || 0, unit: addToolForm.unit, location: addToolForm.location }),
+        body: JSON.stringify({ tool_name: addToolForm.toolName, particulars: addToolForm.particulars, department: addToolForm.department, quantity: addToolForm.quantity || 0, min_level: addToolForm.min_level || 0, unit: addToolForm.unit, location: addToolForm.location }),
       });
       if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e?.message || 'Failed to create tool'); }
       setIsAddToolOpen(false);
@@ -164,9 +166,26 @@ export default function ToolsInventoryPage() {
     });
   }, [rows, searchTerm, filterDepartment, filterUnit]);
 
+  const [workforceDepts, setWorkforceDepts] = useState([]);
+
+  useEffect(() => {
+    fetch('/api/workforce/meta', { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((d) => { if (d?.success && Array.isArray(d?.data?.departments)) setWorkforceDepts(d.data.departments); })
+      .catch(() => {});
+  }, []);
+
+  const addDepartmentToBackend = async (name) => {
+    await fetch('/api/workforce/departments', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) });
+    setWorkforceDepts((prev) => [...new Set([...prev, name])]);
+  };
+
   const departmentOptions = useMemo(
-    () => Array.from(new Set(rows.map((row) => String(row.department || '').trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b)),
-    [rows]
+    () => {
+      const fromRows = rows.map((row) => String(row.department || '').trim()).filter(Boolean);
+      return Array.from(new Set([...workforceDepts, ...fromRows])).sort((a, b) => a.localeCompare(b));
+    },
+    [rows, workforceDepts]
   );
 
   const unitOptions = useMemo(
@@ -217,7 +236,7 @@ export default function ToolsInventoryPage() {
     const ids = new Set(selectedRows.map((row) => row.id));
     const buffer = {};
     selectedRows.forEach((row) => {
-      buffer[row.id] = { tool_name: row.tool_name ?? '', particulars: row.particulars ?? '', department: row.department ?? '', quantity: row.quantity ?? '', unit: row.unit ?? '', location: row.location ?? '' };
+      buffer[row.id] = { tool_name: row.tool_name ?? '', particulars: row.particulars ?? '', department: row.department ?? '', quantity: row.quantity ?? '', min_level: row.min_level ?? '', unit: row.unit ?? '', location: row.location ?? '' };
     });
     setEditingRowIds(ids);
     setEditBuffer(buffer);
@@ -361,28 +380,25 @@ export default function ToolsInventoryPage() {
 
   async function reviewIssueRequest(nextStatus) {
     if (!activeRequest) return;
+    setReviewError('');
     try {
       const res = await fetch(`/api/issue-requests/${activeRequest.id}/review`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: nextStatus }),
       });
-      if (!res.ok) throw new Error(`Error ${res.status}`);
-      if (nextStatus === 'approved') {
-        const row = rows.find((r) => r.id === activeRequest.item_id);
-        if (row) {
-          const newQty = Math.max(0, Number(row.quantity || 0) - Number(activeRequest.quantity || 0));
-          await fetch(`/api/tools/${row.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ quantity: newQty }) });
-          await fetch('/api/stock-transactions', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ txn_date: new Date().toISOString().slice(0, 10), inventory_type: 'tools', txn_type: 'issued', item_name: activeRequest.item_name, qty: activeRequest.quantity, qty_unit: row?.unit || 'PCS', issued_to: activeRequest.issued_to, remark: activeRequest.reason, tool: row.id }),
-          });
-          await loadRows();
-        }
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const msg = data?.message || `Error ${res.status}`;
+        setReviewError(msg);
+        return;
       }
+      // Backend already deducted tool quantity and created stock transaction for 'approved' tools requests.
+      setReviewError('');
+      await loadRows();
       setRequestDetailsOpen(false);
       await loadIssueRequests();
       setStatus(`Request ${nextStatus}.`);
-    } catch (err) { setStatus(err.message || 'Review failed'); }
+    } catch (err) { setReviewError(err.message || 'Review failed'); }
   }
 
   function relativeTime(iso) {
@@ -634,6 +650,16 @@ export default function ToolsInventoryPage() {
                         type="number"
                         value={getRowValue(row, 'quantity')}
                         onChange={(e) => updateRow(row.id, 'quantity', e.target.value)}
+                        placeholder="0"
+                        readOnly={!editingRowIds.has(row.id)}
+                        className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue read-only:bg-gray-50 read-only:text-cool-gray"
+                      />
+                    </td>}
+                    {visibleColumns.has('min_level') && <td className="px-4 py-2.5">
+                      <input
+                        type="number"
+                        value={getRowValue(row, 'min_level')}
+                        onChange={(e) => updateRow(row.id, 'min_level', e.target.value)}
                         placeholder="0"
                         readOnly={!editingRowIds.has(row.id)}
                         className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue read-only:bg-gray-50 read-only:text-cool-gray"
@@ -989,7 +1015,7 @@ export default function ToolsInventoryPage() {
                   selectedValue={addToolForm.department}
                   onSelectValue={(value) => setAddToolForm((prev) => ({ ...prev, department: value }))}
                   options={departmentOptions}
-                  storageKey="inventory:tools:department"
+                  onAddOption={addDepartmentToBackend}
                 />
               </div>
             </div>
@@ -1006,6 +1032,17 @@ export default function ToolsInventoryPage() {
                 />
               </div>
               <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Min Level</label>
+                <input
+                  type="number"
+                  min={0}
+                  value={addToolForm.min_level}
+                  onChange={(e) => setAddToolForm((prev) => ({ ...prev, min_level: e.target.value }))}
+                  placeholder="0"
+                  className="w-full rounded-md border border-soft-border px-3 py-1.5 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                />
+              </div>
+              <div className="flex flex-col gap-1">
                 <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Unit</label>
                 <input
                   type="text"
@@ -1014,7 +1051,7 @@ export default function ToolsInventoryPage() {
                   className="w-full rounded-md border border-soft-border px-3 py-1.5 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
                 />
               </div>
-              <div className="flex flex-col gap-1 sm:col-span-1">
+              <div className="flex flex-col gap-1 sm:col-span-3">
                 <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Location</label>
                 <input
                   type="text"
@@ -1077,7 +1114,7 @@ export default function ToolsInventoryPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={requestDetailsOpen} onOpenChange={setRequestDetailsOpen}>
+      <Dialog open={requestDetailsOpen} onOpenChange={(open) => { setRequestDetailsOpen(open); if (!open) setReviewError(''); }}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="text-lg font-semibold text-midnight-ink">Issue Request Details</DialogTitle>
@@ -1094,6 +1131,11 @@ export default function ToolsInventoryPage() {
             </div>
           ) : (
             <p className="text-sm text-cool-gray">Request not found.</p>
+          )}
+          {reviewError && (
+            <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
+              {reviewError}
+            </div>
           )}
           <div className="mt-5 flex justify-end gap-3">
             <Button variant="outline" onClick={() => setRequestDetailsOpen(false)}>Close</Button>

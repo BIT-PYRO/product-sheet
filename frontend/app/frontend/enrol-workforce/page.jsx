@@ -531,6 +531,12 @@ export function EnrolWorkforceForm({ onEnroll, onClose, open = true, draftData =
       setSubmitStatus({ success: true, message: `${fullName} ${editingId ? 'updated' : 'enrolled'} successfully.` });
       formScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
 
+      // If a custom department was entered, persist it so it shows across all inventory pages
+      const finalDept = String(form.department === 'Other' ? (form.departmentOther || '') : (form.department || '')).trim();
+      if (finalDept && form.department === 'Other') {
+        fetch('/api/workforce/departments', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: finalDept }) }).catch(() => {});
+      }
+
       // Notify other components (e.g. Master Workforce Sheet) to refresh
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('workforce-updated'));

@@ -3,6 +3,7 @@ from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
+from django.db import transaction as db_transaction
 from django.utils import timezone
 
 from common.mixins import StandardizedSuccessResponseMixin
@@ -292,6 +293,77 @@ class IssueRequestViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 		new_status = str(request.data.get('status', '')).lower()
 		if new_status not in ('approved', 'rejected'):
 			return Response({'success': False, 'message': 'status must be "approved" or "rejected".'}, status=status.HTTP_400_BAD_REQUEST)
+
+		# ── Tools ────────────────────────────────────────────────────────────
+		if new_status == 'approved' and obj.inventory_type == 'tools' and obj.item_id:
+			with db_transaction.atomic():
+				try:
+					tool = ToolItem.objects.select_for_update().get(id=obj.item_id)
+				except ToolItem.DoesNotExist:
+					return Response({'success': False, 'message': 'Tool not found.'}, status=status.HTTP_404_NOT_FOUND)
+				requested_qty = obj.quantity or 0
+				if tool.quantity < requested_qty:
+					return Response({'success': False, 'message': f'Insufficient stock. Available: {float(tool.quantity)}, Requested: {float(requested_qty)}.', 'available': float(tool.quantity), 'requested': float(requested_qty)}, status=status.HTTP_400_BAD_REQUEST)
+				tool.quantity = tool.quantity - requested_qty
+				tool.save(update_fields=['quantity'])
+				StockTransaction.objects.create(txn_date=timezone.now().date(), inventory_type='tools', txn_type='issued', item_name=obj.item_name or '', qty=requested_qty, qty_unit=tool.unit or 'PCS', issued_to=obj.issued_to or '', remark=obj.reason or '', tool=tool)
+
+		# ── Others ───────────────────────────────────────────────────────────
+		elif new_status == 'approved' and obj.inventory_type == 'others' and obj.item_id:
+			with db_transaction.atomic():
+				try:
+					other = OtherItem.objects.select_for_update().get(id=obj.item_id)
+				except OtherItem.DoesNotExist:
+					return Response({'success': False, 'message': 'Item not found.'}, status=status.HTTP_404_NOT_FOUND)
+				requested_qty = obj.quantity or 0
+				if other.quantity < requested_qty:
+					return Response({'success': False, 'message': f'Insufficient stock. Available: {float(other.quantity)}, Requested: {float(requested_qty)}.', 'available': float(other.quantity), 'requested': float(requested_qty)}, status=status.HTTP_400_BAD_REQUEST)
+				other.quantity = other.quantity - requested_qty
+				other.save(update_fields=['quantity'])
+				StockTransaction.objects.create(txn_date=timezone.now().date(), inventory_type='others', txn_type='issued', item_name=obj.item_name or '', qty=requested_qty, qty_unit=other.unit or 'PCS', issued_to=obj.issued_to or '', remark=obj.reason or '', other_item=other)
+
+		# ── Machines ─────────────────────────────────────────────────────────
+		elif new_status == 'approved' and obj.inventory_type == 'machines' and obj.item_id:
+			with db_transaction.atomic():
+				try:
+					machine = MachineItem.objects.select_for_update().get(id=obj.item_id)
+				except MachineItem.DoesNotExist:
+					return Response({'success': False, 'message': 'Machine not found.'}, status=status.HTTP_404_NOT_FOUND)
+				requested_qty = obj.quantity or 0
+				if machine.running_qty < requested_qty:
+					return Response({'success': False, 'message': f'Insufficient running stock. Available: {float(machine.running_qty)}, Requested: {float(requested_qty)}.', 'available': float(machine.running_qty), 'requested': float(requested_qty)}, status=status.HTTP_400_BAD_REQUEST)
+				machine.running_qty = machine.running_qty - requested_qty
+				machine.save(update_fields=['running_qty'])
+				StockTransaction.objects.create(txn_date=timezone.now().date(), inventory_type='machines', txn_type='issued', item_name=obj.item_name or '', qty=requested_qty, issued_to=obj.issued_to or '', remark=obj.reason or '', machine=machine)
+
+		# ── Stone ─────────────────────────────────────────────────────────────
+		elif new_status == 'approved' and obj.inventory_type == 'stone' and obj.item_id:
+			with db_transaction.atomic():
+				try:
+					stone = StoneItem.objects.select_for_update().get(id=obj.item_id)
+				except StoneItem.DoesNotExist:
+					return Response({'success': False, 'message': 'Stone not found.'}, status=status.HTTP_404_NOT_FOUND)
+				requested_qty = obj.quantity or 0
+				if stone.qty < requested_qty:
+					return Response({'success': False, 'message': f'Insufficient stock. Available: {float(stone.qty)}, Requested: {float(requested_qty)}.', 'available': float(stone.qty), 'requested': float(requested_qty)}, status=status.HTTP_400_BAD_REQUEST)
+				stone.qty = stone.qty - requested_qty
+				stone.save(update_fields=['qty'])
+				StoneTransaction.objects.create(txn_date=timezone.now().date(), txn_type='issued', stone_name=obj.item_name or '', variety=stone.variety or '', stone_type=stone.stone_type or '', qty=requested_qty, issued_to=obj.issued_to or '', remark=obj.reason or '', stone=stone)
+
+		# ── Finding ───────────────────────────────────────────────────────────
+		elif new_status == 'approved' and obj.inventory_type == 'finding' and obj.item_id:
+			with db_transaction.atomic():
+				try:
+					finding = FindingInventoryItem.objects.select_for_update().get(id=obj.item_id)
+				except FindingInventoryItem.DoesNotExist:
+					return Response({'success': False, 'message': 'Finding not found.'}, status=status.HTTP_404_NOT_FOUND)
+				requested_qty = obj.quantity or 0
+				if finding.quantity < requested_qty:
+					return Response({'success': False, 'message': f'Insufficient stock. Available: {float(finding.quantity)}, Requested: {float(requested_qty)}.', 'available': float(finding.quantity), 'requested': float(requested_qty)}, status=status.HTTP_400_BAD_REQUEST)
+				finding.quantity = finding.quantity - requested_qty
+				finding.save(update_fields=['quantity'])
+				FindingInventoryTransaction.objects.create(txn_date=timezone.now().date(), txn_type='issued', finding=finding, finding_code=finding.finding_code or '', qty=requested_qty, issued_to=obj.issued_to or '', remark=obj.reason or '')
+
 		obj.status = new_status
 		obj.reviewed_at = timezone.now()
 		if request.data.get('remark'):

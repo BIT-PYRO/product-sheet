@@ -99,6 +99,7 @@ export default function FindingInventoryPage() {
   const [requestDetailsOpen, setRequestDetailsOpen] = useState(false);
   const [activeRequestId, setActiveRequestId] = useState(null);
   const [issueRequests, setIssueRequests] = useState([]);
+  const [reviewError, setReviewError] = useState('');
   // issueRequestsReady removed — now using API
   const [issueForm, setIssueForm] = useState({ findingId: '', quantity: '', issuedTo: '', issuedBy: '', reason: '' });
   const [workforceMembers, setWorkforceMembers] = useState([]);
@@ -409,28 +410,23 @@ export default function FindingInventoryPage() {
 
   async function reviewIssueRequest(nextStatus) {
     if (!activeRequest) return;
+    setReviewError('');
     try {
       const res = await fetch(`/api/issue-requests/${activeRequest.id}/review`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: nextStatus }),
       });
-      if (!res.ok) throw new Error(`Error ${res.status}`);
-      if (nextStatus === 'approved') {
-        const finding = findings.find((f) => f.id === activeRequest.item_id);
-        if (finding) {
-          const newQty = Math.max(0, Number(finding.quantity || 0) - Number(activeRequest.quantity || 0));
-          await fetch(`/api/finding-inventory/${finding.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ quantity: newQty }) });
-          await fetch('/api/finding-transactions', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ txn_date: new Date().toISOString().slice(0, 10), txn_type: 'issued', finding: finding.id, finding_code: finding.finding_code || '', qty: activeRequest.quantity, issued_to: activeRequest.issued_to, remark: activeRequest.reason }),
-          });
-          await fetchFindings();
-        }
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setReviewError(data?.message || `Error ${res.status}`);
+        return;
       }
+      setReviewError('');
+      await fetchFindings();
       setRequestDetailsOpen(false);
       await fetchIssueRequests();
       setStatusMsg(`Request ${nextStatus}.`);
-    } catch (err) { setStatusMsg(err.message || 'Review failed'); }
+    } catch (err) { setReviewError(err.message || 'Review failed'); }
   }
 
   function relativeTime(iso) {
@@ -1166,7 +1162,7 @@ export default function FindingInventoryPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={requestDetailsOpen} onOpenChange={setRequestDetailsOpen}>
+      <Dialog open={requestDetailsOpen} onOpenChange={(open) => { setRequestDetailsOpen(open); if (!open) setReviewError(''); }}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="text-lg font-semibold text-midnight-ink">Issue Request Details</DialogTitle>
@@ -1186,11 +1182,17 @@ export default function FindingInventoryPage() {
             <p className="text-sm text-cool-gray">Request not found.</p>
           )}
 
+          {reviewError && (
+            <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
+              {reviewError}
+            </div>
+          )}
+
           <div className="mt-5 flex justify-end gap-3">
             <Button variant="outline" onClick={() => setRequestDetailsOpen(false)}>Close</Button>
             {activeRequest?.status === 'pending' && (
               <>
-                <Button variant="destructive" onClick={() => reviewIssueRequest('declined')}>Decline</Button>
+                <Button variant="destructive" onClick={() => reviewIssueRequest('rejected')}>Decline</Button>
                 <Button onClick={() => reviewIssueRequest('approved')}>Approve</Button>
               </>
             )}

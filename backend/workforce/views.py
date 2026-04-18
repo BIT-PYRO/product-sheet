@@ -73,3 +73,13 @@ class WorkforceMemberViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 				'role_dept_pairs': [{'role': r, 'department': d} for r, d in perm_pairs],
 			},
 		})
+
+	@extend_schema(summary='Add a custom department', tags=['Workforce'])
+	@action(detail=False, methods=['post'], url_path='departments')
+	def add_department(self, request):
+		from accounts.models import RoleDefaultPermissions
+		name = str(request.data.get('name', '')).strip()
+		if not name:
+			return Response({'success': False, 'message': 'Department name is required.'}, status=400)
+		_, created = RoleDefaultPermissions.objects.get_or_create(role='', department=name)
+		return Response({'success': True, 'message': 'Department saved.', 'data': {'name': name, 'created': created}})

@@ -82,6 +82,8 @@ export default function LowStockPage() {
   const [filterLogSource, setFilterLogSource] = useState('all');
   const [filterLogDateFrom, setFilterLogDateFrom] = useState('');
   const [filterLogDateTo, setFilterLogDateTo]     = useState('');
+  // Items fulfilled this session — kept visible with a "Fulfilled" badge
+  const [fulfilledItems, setFulfilledItems] = useState([]);
 
   // ── Load fulfill log from localStorage ───────────────────────────────────
   useEffect(() => {
@@ -100,11 +102,42 @@ export default function LowStockPage() {
       if (res.ok) {
         const data = await res.json();
         const rows = data?.data?.results ?? data?.results ?? data?.data ?? [];
+
+        // Also fetch pending tool issue requests to detect demand-based low stock
+        let pendingRequests = [];
+        try {
+          const rRes = await fetch('/api/issue-requests?inventory_type=tools&status=pending&page_size=500');
+          if (rRes.ok) {
+            const rData = await rRes.json();
+            pendingRequests = rData?.data?.results ?? rData?.data ?? rData?.results ?? [];
+          }
+        } catch { /* non-fatal */ }
+
+        // Build map: tool id → max pending requested qty
+        const pendingQtyMap = {};
+        for (const req of pendingRequests) {
+          const tid = req.item_id;
+          if (tid) pendingQtyMap[tid] = Math.max(pendingQtyMap[tid] ?? 0, Number(req.quantity ?? 0));
+        }
+
         for (const r of rows) {
           const q = Number(r.quantity ?? 0);
           const ml = Number(r.min_level ?? 0);
-          if (q <= (ml > 0 ? ml : API_LOW_THRESHOLD)) {
-            all.push({ ...r, _source: 'tools', _qty: q, _minLevel: ml, _name: r.tool_name || `Tool #${r.id}` });
+          const pendingQty = pendingQtyMap[r.id] ?? 0;
+          // Low if quantity ≤ min_level threshold OR there's a pending request exceeding available stock
+          const isBelowThreshold = q <= (ml > 0 ? ml : API_LOW_THRESHOLD);
+          const hasDemandDeficit = pendingQty > q;
+          if (isBelowThreshold || hasDemandDeficit) {
+            const needed = hasDemandDeficit ? Math.max(pendingQty - q, ml > 0 ? Math.max(0, ml - q) : 0) : (ml > 0 ? Math.max(0, ml - q) : 0);
+            all.push({
+              ...r,
+              _source: 'tools',
+              _qty: q,
+              _minLevel: ml > 0 ? ml : (hasDemandDeficit ? pendingQty : API_LOW_THRESHOLD),
+              _name: r.tool_name || `Tool #${r.id}`,
+              _pendingQty: pendingQty > 0 ? pendingQty : undefined,
+              _needed: needed,
+            });
           }
         }
       }
@@ -132,11 +165,39 @@ export default function LowStockPage() {
       if (res.ok) {
         const data = await res.json();
         const rows = data?.data?.results ?? data?.results ?? data?.data ?? [];
+
+        let pendingRequests = [];
+        try {
+          const rRes = await fetch('/api/issue-requests?inventory_type=others&status=pending&page_size=500');
+          if (rRes.ok) {
+            const rData = await rRes.json();
+            pendingRequests = rData?.data?.results ?? rData?.data ?? rData?.results ?? [];
+          }
+        } catch { /* non-fatal */ }
+
+        const pendingQtyMap = {};
+        for (const req of pendingRequests) {
+          const tid = req.item_id;
+          if (tid) pendingQtyMap[tid] = Math.max(pendingQtyMap[tid] ?? 0, Number(req.quantity ?? 0));
+        }
+
         for (const r of rows) {
           const q = Number(r.quantity ?? 0);
           const ml = Number(r.min_level ?? 0);
-          if (q <= (ml > 0 ? ml : API_LOW_THRESHOLD)) {
-            all.push({ ...r, _source: 'others', _qty: q, _minLevel: ml, _name: r.item_name || r.name || `#${r.id}` });
+          const pendingQty = pendingQtyMap[r.id] ?? 0;
+          const isBelowThreshold = q <= (ml > 0 ? ml : API_LOW_THRESHOLD);
+          const hasDemandDeficit = pendingQty > q;
+          if (isBelowThreshold || hasDemandDeficit) {
+            const needed = hasDemandDeficit ? Math.max(pendingQty - q, ml > 0 ? Math.max(0, ml - q) : 0) : (ml > 0 ? Math.max(0, ml - q) : 0);
+            all.push({
+              ...r,
+              _source: 'others',
+              _qty: q,
+              _minLevel: ml > 0 ? ml : (hasDemandDeficit ? pendingQty : API_LOW_THRESHOLD),
+              _name: r.item_name || r.name || `#${r.id}`,
+              _pendingQty: pendingQty > 0 ? pendingQty : undefined,
+              _needed: needed,
+            });
           }
         }
       }
@@ -148,10 +209,37 @@ export default function LowStockPage() {
       if (res.ok) {
         const data = await res.json();
         const rows = data?.data?.results ?? data?.results ?? data?.data ?? (Array.isArray(data) ? data : []);
+
+        let pendingRequests = [];
+        try {
+          const rRes = await fetch('/api/issue-requests?inventory_type=stone&status=pending&page_size=500');
+          if (rRes.ok) {
+            const rData = await rRes.json();
+            pendingRequests = rData?.data?.results ?? rData?.data ?? rData?.results ?? [];
+          }
+        } catch { /* non-fatal */ }
+
+        const pendingQtyMap = {};
+        for (const req of pendingRequests) {
+          const tid = req.item_id;
+          if (tid) pendingQtyMap[tid] = Math.max(pendingQtyMap[tid] ?? 0, Number(req.quantity ?? 0));
+        }
+
         for (const r of rows) {
           const q = Number(r.qty ?? r.quantity ?? 0);
-          if (q <= API_LOW_THRESHOLD) {
-            all.push({ ...r, _source: 'stone', _qty: q, _name: [r.variety, r.species, r.stone_type].filter(Boolean).join(' – ') || `Stone #${r.id}` });
+          const pendingQty = pendingQtyMap[r.id] ?? 0;
+          const isBelowThreshold = q <= API_LOW_THRESHOLD;
+          const hasDemandDeficit = pendingQty > q;
+          if (isBelowThreshold || hasDemandDeficit) {
+            const needed = hasDemandDeficit ? Math.max(pendingQty - q, 0) : 0;
+            all.push({
+              ...r,
+              _source: 'stone',
+              _qty: q,
+              _name: [r.variety, r.species, r.stone_type].filter(Boolean).join(' – ') || `Stone #${r.id}`,
+              _pendingQty: pendingQty > 0 ? pendingQty : undefined,
+              _needed: needed,
+            });
           }
         }
       }
@@ -163,10 +251,38 @@ export default function LowStockPage() {
       if (res.ok) {
         const data = await res.json();
         const rows = data?.data?.results ?? data?.results ?? data?.data ?? (Array.isArray(data) ? data : []);
+
+        let pendingRequests = [];
+        try {
+          const rRes = await fetch('/api/issue-requests?inventory_type=finding&status=pending&page_size=500');
+          if (rRes.ok) {
+            const rData = await rRes.json();
+            pendingRequests = rData?.data?.results ?? rData?.data ?? rData?.results ?? [];
+          }
+        } catch { /* non-fatal */ }
+
+        const pendingQtyMap = {};
+        for (const req of pendingRequests) {
+          const tid = req.item_id;
+          if (tid) pendingQtyMap[tid] = Math.max(pendingQtyMap[tid] ?? 0, Number(req.quantity ?? 0));
+        }
+
         for (const r of rows) {
           const q = Number(r.quantity ?? 0);
-          if (q <= API_LOW_THRESHOLD) {
-            all.push({ ...r, _source: 'finding', _qty: q, _name: r.finding_code || `Finding #${r.id}` });
+          const ml = Number(r.min_level ?? 0);
+          const pendingQty = pendingQtyMap[r.id] ?? 0;
+          const isBelowThreshold = q <= (ml > 0 ? ml : API_LOW_THRESHOLD);
+          const hasDemandDeficit = pendingQty > q;
+          if (isBelowThreshold || hasDemandDeficit) {
+            const needed = hasDemandDeficit ? Math.max(pendingQty - q, ml > 0 ? Math.max(0, ml - q) : 0) : (ml > 0 ? Math.max(0, ml - q) : 0);
+            all.push({
+              ...r,
+              _source: 'finding',
+              _qty: q,
+              _name: r.finding_code || `Finding #${r.id}`,
+              _pendingQty: pendingQty > 0 ? pendingQty : undefined,
+              _needed: needed,
+            });
           }
         }
       }
@@ -181,9 +297,14 @@ export default function LowStockPage() {
 
   // ── filtered view ─────────────────────────────────────────────────────────
   const filteredItems = useMemo(() => {
-    if (filterSource === 'all') return items;
-    return items.filter((i) => i._source === filterSource);
-  }, [items, filterSource]);
+    const active = filterSource === 'all' ? items : items.filter((i) => i._source === filterSource);
+    // Append fulfilled items that are no longer in the active list
+    const activeKeys = new Set(active.map((i) => `${i._source}-${i.id}`));
+    const fulfilledExtra = fulfilledItems.filter(
+      (i) => (filterSource === 'all' || i._source === filterSource) && !activeKeys.has(`${i._source}-${i.id}`)
+    );
+    return [...active, ...fulfilledExtra];
+  }, [items, filterSource, fulfilledItems]);
 
   // ── filtered log ──────────────────────────────────────────────────────────
   const filteredLog = useMemo(() => {
@@ -329,6 +450,9 @@ export default function LowStockPage() {
       writeLS(FULFILL_LOG_KEY, log);
       setFulfillLog(log);
 
+      // Mark as fulfilled in session (stays visible with badge even after refetch)
+      setFulfilledItems((prev) => [...prev.filter((x) => !(x._source === source && x.id === fulfillItem.id)), { ...fulfillItem, _fulfilled: true, _fulfilledQty: qty }]);
+
       setFulfillOpen(false);
       setFulfillItem(null);
       await fetchAll();
@@ -454,6 +578,7 @@ export default function LowStockPage() {
                       <th className="px-4 py-3 text-left font-semibold text-midnight-ink">Details</th>
                       <th className="px-4 py-3 text-right font-semibold text-midnight-ink">Current Stock</th>
                       <th className="px-4 py-3 text-right font-semibold text-midnight-ink">Min Level</th>
+                      <th className="px-4 py-3 text-right font-semibold text-midnight-ink">Needed</th>
                       <th className="px-4 py-3 text-center font-semibold text-midnight-ink">Action</th>
                     </tr>
                   </thead>
@@ -461,11 +586,13 @@ export default function LowStockPage() {
                     {filteredItems.map((item, idx) => {
                       const src = srcConfig[item._source];
                       const ml  = Number(item._minLevel ?? item.min_level ?? 0);
+                      const needed = item._needed ?? (ml > 0 ? Math.max(0, ml - item._qty) : 0);
                       const isZero = item._qty === 0;
+                      const isFulfilled = !!item._fulfilled;
                       return (
                         <tr
                           key={`${item._source}-${item.id}-${idx}`}
-                          className={`border-b border-soft-border/60 last:border-b-0 ${isZero ? 'bg-red-50/50' : 'bg-amber-50/30'}`}
+                          className={`border-b border-soft-border/60 last:border-b-0 ${isFulfilled ? 'bg-emerald-50/40' : isZero ? 'bg-red-50/50' : 'bg-amber-50/30'}`}
                         >
                           <td className="px-4 py-3">
                             <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${src?.color ?? 'bg-gray-100 text-gray-700'}`}>
@@ -477,22 +604,42 @@ export default function LowStockPage() {
                             {item.department && <span className="mr-2">Dept: {item.department}</span>}
                             {item.unit && <span className="mr-2">Unit: {item.unit}</span>}
                             {item.category && <span className="mr-2">Cat: {item.category}</span>}
-                            {item.location && <span>Loc: {item.location}</span>}
+                            {item.location && <span className="mr-2">Loc: {item.location}</span>}
+                            {item._pendingQty > 0 && (
+                              <span className="inline-flex items-center gap-0.5 rounded-full bg-amber-100 px-1.5 py-0.5 text-amber-700 font-medium">
+                                Pending req: {item._pendingQty}
+                              </span>
+                            )}
                           </td>
                           <td className="px-4 py-3 text-right">
-                            <span className={`font-bold ${isZero ? 'text-red-600' : 'text-amber-600'}`}>
-                              {item._qty}
+                            <span className={`font-bold ${isFulfilled ? 'text-emerald-600' : isZero ? 'text-red-600' : 'text-amber-600'}`}>
+                              {isFulfilled ? (item._qty + (item._fulfilledQty ?? 0)) : item._qty}
                             </span>
                           </td>
                           <td className="px-4 py-3 text-right text-cool-gray">{ml > 0 ? ml : '—'}</td>
+                          <td className="px-4 py-3 text-right">
+                            {isFulfilled ? (
+                              <span className="text-emerald-600 text-xs font-medium">—</span>
+                            ) : needed > 0 ? (
+                              <span className="font-semibold text-red-600">{needed}</span>
+                            ) : (
+                              <span className="text-cool-gray">—</span>
+                            )}
+                          </td>
                           <td className="px-4 py-3 text-center">
-                            <button
-                              onClick={() => openFulfill(item)}
-                              className="inline-flex items-center gap-1.5 rounded-lg bg-trust-blue px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 transition"
-                            >
-                              <PackagePlus className="h-3.5 w-3.5" />
-                              Fulfill
-                            </button>
+                            {isFulfilled ? (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">
+                                ✓ Fulfilled
+                              </span>
+                            ) : (
+                              <button
+                                onClick={() => openFulfill(item)}
+                                className="inline-flex items-center gap-1.5 rounded-lg bg-trust-blue px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 transition"
+                              >
+                                <PackagePlus className="h-3.5 w-3.5" />
+                                Fulfill
+                              </button>
+                            )}
                           </td>
                         </tr>
                       );

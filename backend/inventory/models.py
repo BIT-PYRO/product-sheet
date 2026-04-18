@@ -128,6 +128,7 @@ class ToolItem(AuditModel):
 	particulars = models.CharField(max_length=255, blank=True, default='')
 	department = models.CharField(max_length=120, blank=True, default='')
 	quantity = models.DecimalField(max_digits=12, decimal_places=3, default=0)
+	min_level = models.DecimalField(max_digits=12, decimal_places=3, default=0)
 	unit = models.CharField(max_length=60, blank=True, default='')
 	location = models.CharField(max_length=255, blank=True, default='')
 
@@ -395,6 +396,7 @@ class IssueRequest(AuditModel):
 		('others', 'Others'),
 		('stone', 'Stone'),
 		('finding', 'Finding'),
+		('product', 'Product'),
 	]
 	STATUS_CHOICES = [
 		('pending', 'Pending'),

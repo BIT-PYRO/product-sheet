@@ -75,6 +75,7 @@ export default function MachinesInventoryPage() {
   const [requestDetailsOpen, setRequestDetailsOpen] = useState(false);
   const [activeRequestId, setActiveRequestId] = useState(null);
   const [issueRequests, setIssueRequests] = useState([]);
+  const [reviewError, setReviewError] = useState('');
   // issueRequestsReady removed — now using API
   const [issueForm, setIssueForm] = useState({ machineId: '', quantity: '', issuedTo: '', issuedBy: '', reason: '' });
   const [workforceMembers, setWorkforceMembers] = useState([]);
@@ -168,9 +169,26 @@ export default function MachinesInventoryPage() {
     });
   }, [rows, searchTerm, filterDepartment, filterState]);
 
+  const [workforceDepts, setWorkforceDepts] = useState([]);
+
+  useEffect(() => {
+    fetch('/api/workforce/meta', { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((d) => { if (d?.success && Array.isArray(d?.data?.departments)) setWorkforceDepts(d.data.departments); })
+      .catch(() => {});
+  }, []);
+
+  const addDepartmentToBackend = async (name) => {
+    await fetch('/api/workforce/departments', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) });
+    setWorkforceDepts((prev) => [...new Set([...prev, name])]);
+  };
+
   const departmentOptions = useMemo(
-    () => Array.from(new Set(rows.map((row) => String(row.department || '').trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b)),
-    [rows]
+    () => {
+      const fromRows = rows.map((row) => String(row.department || '').trim()).filter(Boolean);
+      return Array.from(new Set([...workforceDepts, ...fromRows])).sort((a, b) => a.localeCompare(b));
+    },
+    [rows, workforceDepts]
   );
 
   const allSelected = filteredRows.length > 0 && filteredRows.every((row) => selectedIds.has(row.id));
@@ -336,25 +354,23 @@ export default function MachinesInventoryPage() {
 
   async function reviewIssueRequest(nextStatus) {
     if (!activeRequest) return;
+    setReviewError('');
     try {
       const res = await fetch(`/api/issue-requests/${activeRequest.id}/review`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: nextStatus }),
       });
-      if (!res.ok) throw new Error(`Error ${res.status}`);
-      if (nextStatus === 'approved') {
-        const row = rows.find((r) => r.id === activeRequest.item_id);
-        if (row) {
-          await fetch('/api/stock-transactions', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ txn_date: new Date().toISOString().slice(0, 10), inventory_type: 'machines', txn_type: 'issued', item_name: activeRequest.item_name, qty: activeRequest.quantity, issued_to: activeRequest.issued_to, remark: activeRequest.reason, machine: row.id }),
-          });
-        }
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setReviewError(data?.message || `Error ${res.status}`);
+        return;
       }
+      setReviewError('');
+      await loadRows();
       setRequestDetailsOpen(false);
       await loadIssueRequests();
       setStatus(`Request ${nextStatus}.`);
-    } catch (err) { setStatus(err.message || 'Review failed'); }
+    } catch (err) { setReviewError(err.message || 'Review failed'); }
   }
 
   function relativeTime(iso) {
@@ -945,7 +961,7 @@ export default function MachinesInventoryPage() {
                   selectedValue={newMachine.department}
                   onSelectValue={(value) => setNewMachine((prev) => ({ ...prev, department: value }))}
                   options={departmentOptions}
-                  storageKey="inventory:machines:department"
+                  onAddOption={addDepartmentToBackend}
                 />
               </div>
             </div>
@@ -1095,7 +1111,7 @@ export default function MachinesInventoryPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={requestDetailsOpen} onOpenChange={setRequestDetailsOpen}>
+      <Dialog open={requestDetailsOpen} onOpenChange={(open) => { setRequestDetailsOpen(open); if (!open) setReviewError(''); }}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="text-lg font-semibold text-midnight-ink">Issue Request Details</DialogTitle>
@@ -1110,6 +1126,11 @@ export default function MachinesInventoryPage() {
             </div>
           ) : (
             <p className="text-sm text-cool-gray">Request not found.</p>
+          )}
+          {reviewError && (
+            <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
+              {reviewError}
+            </div>
           )}
           <div className="mt-5 flex justify-end gap-3">
             <Button variant="outline" onClick={() => setRequestDetailsOpen(false)}>Close</Button>

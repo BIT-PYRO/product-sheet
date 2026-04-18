@@ -17,7 +17,7 @@ import DateTimeStamp from '@/components/date-time-stamp';
 import MultiselectFilterPopover from '@/components/multiselect-filter-popover';
 import { EnrolWorkforceForm } from '@/app/frontend/enrol-workforce/page';
 
-const ISSUE_REQUESTS_KEY = 'stone_issue_requests_v1';
+// ISSUE_REQUESTS_KEY removed — now using API
 const STONE_MANAGE_COLUMNS = [
   { id: 'stone_type', label: 'Type' },
   { id: 'species', label: 'Species' },
@@ -155,7 +155,7 @@ export default function StoneInventoryPage() {
   const [requestDetailsOpen, setRequestDetailsOpen] = useState(false);
   const [activeRequestId, setActiveRequestId] = useState(null);
   const [issueRequests, setIssueRequests] = useState([]);
-  const [issueRequestsReady, setIssueRequestsReady] = useState(false);
+  const [reviewError, setReviewError] = useState('');
   const [issueForm, setIssueForm] = useState({
     stoneId: '',
     quantity: '',
@@ -228,23 +228,17 @@ export default function StoneInventoryPage() {
       .catch(() => {});
   }, []);
 
-  useEffect(() => {
+  const loadIssueRequests = useCallback(async () => {
     try {
-      const stored = localStorage.getItem(ISSUE_REQUESTS_KEY);
-      if (!stored) return;
-      const parsed = JSON.parse(stored);
-      if (Array.isArray(parsed)) setIssueRequests(parsed);
-    } catch {
-      // Ignore malformed local data and keep UI usable.
-    } finally {
-      setIssueRequestsReady(true);
-    }
+      const res = await fetch('/api/issue-requests?inventory_type=stone&page_size=200');
+      if (!res.ok) return;
+      const data = await res.json();
+      const results = data?.data?.results ?? data?.data ?? data?.results ?? [];
+      setIssueRequests(Array.isArray(results) ? results : []);
+    } catch {}
   }, []);
 
-  useEffect(() => {
-    if (!issueRequestsReady) return;
-    localStorage.setItem(ISSUE_REQUESTS_KEY, JSON.stringify(issueRequests));
-  }, [issueRequests, issueRequestsReady]);
+  useEffect(() => { loadIssueRequests(); }, [loadIssueRequests]);
 
   // â”€â”€ row selection â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
@@ -353,7 +347,7 @@ export default function StoneInventoryPage() {
   );
 
   const sortedIssueRequests = useMemo(
-    () => [...issueRequests].sort((a, b) => new Date(b.requestedAt) - new Date(a.requestedAt)),
+    () => [...issueRequests].sort((a, b) => new Date(b.requested_at || b.requestedAt) - new Date(a.requested_at || a.requestedAt)),
     [issueRequests]
   );
 
@@ -412,7 +406,7 @@ export default function StoneInventoryPage() {
     setStatusMsg(`Received ${quantityNum} of ${stone?.species || 'Stone #' + stoneIdNum} from ${employeeVendorName}.`);
   }
 
-  function createIssueRequest() {
+  async function createIssueRequest() {
     const stoneIdNum = Number(issueForm.stoneId);
     const quantityNum = Number(issueForm.quantity);
     const issuedTo = issueForm.issuedTo.trim();
@@ -441,27 +435,25 @@ export default function StoneInventoryPage() {
     }
 
     const stone = stones.find((s) => s.id === stoneIdNum);
-    const request = {
-      id: (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`,
-      stoneId: stoneIdNum,
-      stoneName: stoneName(stone),
-      quantity: quantityNum,
-      issuedTo,
-      issuedBy,
-      reason,
-      cut: issueForm.cut.trim(),
-      shape: issueForm.shape.trim(),
-      length: issueForm.length.trim(),
-      width: issueForm.width.trim(),
-      height: issueForm.height.trim(),
-      status: 'pending',
-      requestedAt: new Date().toISOString(),
-      reviewedAt: null,
-    };
-
-    setIssueRequests((prev) => [request, ...prev]);
-    setIssueJobOpen(false);
-    setStatusMsg('Issue request created.');
+    try {
+      const res = await fetch('/api/issue-requests', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          inventory_type: 'stone',
+          item_id: stoneIdNum,
+          item_name: stoneName(stone),
+          quantity: quantityNum,
+          issued_to: issuedTo,
+          issued_by: issuedBy,
+          reason,
+        }),
+      });
+      if (!res.ok) { const d = await res.json().catch(() => ({})); setStatusMsg(d?.message || `Error ${res.status}`); return; }
+      await loadIssueRequests();
+      setIssueJobOpen(false);
+      setStatusMsg('Issue request created.');
+    } catch (err) { setStatusMsg(err.message || 'Failed to create request'); }
   }
 
   function openRequestDetails(requestId) {
@@ -469,17 +461,22 @@ export default function StoneInventoryPage() {
     setRequestDetailsOpen(true);
   }
 
-  function reviewIssueRequest(nextStatus) {
+  async function reviewIssueRequest(nextStatus) {
     if (!activeRequest) return;
-    setIssueRequests((prev) =>
-      prev.map((r) =>
-        r.id === activeRequest.id
-          ? { ...r, status: nextStatus, reviewedAt: new Date().toISOString() }
-          : r
-      )
-    );
-    setRequestDetailsOpen(false);
-    setStatusMsg(`Request ${nextStatus}.`);
+    setReviewError('');
+    try {
+      const res = await fetch(`/api/issue-requests/${activeRequest.id}/review`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: nextStatus }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { setReviewError(data?.message || `Error ${res.status}`); return; }
+      setReviewError('');
+      await loadStones();
+      setRequestDetailsOpen(false);
+      await loadIssueRequests();
+      setStatusMsg(`Request ${nextStatus}.`);
+    } catch (err) { setReviewError(err.message || 'Review failed'); }
   }
 
   function relativeTime(iso) {
@@ -1630,7 +1627,7 @@ export default function StoneInventoryPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={requestDetailsOpen} onOpenChange={setRequestDetailsOpen}>
+      <Dialog open={requestDetailsOpen} onOpenChange={(open) => { setRequestDetailsOpen(open); if (!open) setReviewError(''); }}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="text-lg font-semibold text-midnight-ink">Issue Request Details</DialogTitle>
@@ -1638,22 +1635,15 @@ export default function StoneInventoryPage() {
 
           {activeRequest ? (
             <div className="mt-2 grid grid-cols-1 gap-3">
-              <Field label="Name of Stone" value={activeRequest.nameOfStone || activeRequest.variety || ''} disabled />
+              <Field label="Name of Stone" value={activeRequest.item_name || activeRequest.stoneName || ''} disabled />
               <Field label="Quantity" value={String(activeRequest.quantity)} disabled />
-              <Field label="Issued To" value={activeRequest.issuedTo} disabled />
-              <Field label="Issued By" value={activeRequest.issuedBy || '-'} disabled />
+              <Field label="Issued To" value={activeRequest.issued_to || activeRequest.issuedTo || '-'} disabled />
+              <Field label="Issued By" value={activeRequest.issued_by || activeRequest.issuedBy || '-'} disabled />
               <Field label="Reason of Issue" value={activeRequest.reason || '-'} disabled />
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
-                <Field label="Cut" value={activeRequest.cut || '-'} disabled />
-                <Field label="Shape" value={activeRequest.shape || '-'} disabled />
-                <Field label="Length" value={activeRequest.length || '-'} disabled />
-                <Field label="Width" value={activeRequest.width || '-'} disabled />
-                <Field label="Height" value={activeRequest.height || '-'} disabled />
-              </div>
               <Field label="Status" value={activeRequest.status.toUpperCase()} disabled />
               <Field
                 label="Requested At"
-                value={new Date(activeRequest.requestedAt).toLocaleString()}
+                value={new Date(activeRequest.requested_at || activeRequest.requestedAt).toLocaleString()}
                 disabled
               />
             </div>
@@ -1661,11 +1651,17 @@ export default function StoneInventoryPage() {
             <p className="text-sm text-cool-gray">Request not found.</p>
           )}
 
+          {reviewError && (
+            <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
+              {reviewError}
+            </div>
+          )}
+
           <div className="mt-5 flex justify-end gap-3">
             <Button variant="outline" onClick={() => setRequestDetailsOpen(false)}>Close</Button>
             {activeRequest?.status === 'pending' && (
               <>
-                <Button variant="destructive" onClick={() => reviewIssueRequest('declined')}>Decline</Button>
+                <Button variant="destructive" onClick={() => reviewIssueRequest('rejected')}>Decline</Button>
                 <Button onClick={() => reviewIssueRequest('approved')}>Approve</Button>
               </>
             )}

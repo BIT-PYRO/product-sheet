@@ -29,10 +29,12 @@ export default function CreatableFilterPopover({
   options = [],
   className = '',
   storageKey = '',
+  onAddOption = null,
 }) {
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [draftValue, setDraftValue] = useState('');
   const [savedOptions, setSavedOptions] = useState([]);
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     if (!storageKey) return;
@@ -57,9 +59,14 @@ export default function CreatableFilterPopover({
     }
   };
 
-  const addOption = () => {
+  const addOption = async () => {
     const next = String(draftValue || '').trim();
     if (!next) return;
+    if (onAddOption) {
+      setIsSaving(true);
+      try { await onAddOption(next); } catch { /* ignore */ }
+      setIsSaving(false);
+    }
     const merged = dedupe([...savedOptions, next]);
     setSavedOptions(merged);
     persistOptions(merged);
@@ -154,10 +161,10 @@ export default function CreatableFilterPopover({
                   e.preventDefault();
                   addOption();
                 }}
-                disabled={!draftValue.trim()}
+                disabled={!draftValue.trim() || isSaving}
                 className="text-xs text-trust-blue hover:underline disabled:opacity-40"
               >
-                Save
+                {isSaving ? 'Saving…' : 'Save'}
               </button>
             </div>
           </div>

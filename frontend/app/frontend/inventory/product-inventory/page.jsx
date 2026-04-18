@@ -21,7 +21,7 @@ import MultiselectFilterPopover from '@/components/multiselect-filter-popover';
 import { EnrolWorkforceForm } from '@/app/frontend/enrol-workforce/page';
 
 const UNIT_OPTIONS = ['PCS', 'GM', 'KG', 'CT'];
-const ISSUE_REQUESTS_KEY = 'product_issue_requests_v1';
+// ISSUE_REQUESTS_KEY removed — now using API
 const PRODUCT_COLUMNS = [
   { id: 'image', label: 'Image' },
   { id: 'masterSku', label: 'Master SKU' },
@@ -80,7 +80,7 @@ export default function ProductInventoryPage() {
   // Issue Requests
   const [requestsPanelOpen, setRequestsPanelOpen] = useState(false);
   const [issueRequests, setIssueRequests] = useState([]);
-  const [issueRequestsReady, setIssueRequestsReady] = useState(false);
+  const [reviewError, setReviewError] = useState('');
   const [activeRequestId, setActiveRequestId] = useState(null);
   const [requestDetailsOpen, setRequestDetailsOpen] = useState(false);
 
@@ -113,29 +113,21 @@ export default function ProductInventoryPage() {
       .catch(() => {});
   };
 
-  // Load issue requests from localStorage
-  useEffect(() => {
+  const loadIssueRequests = useCallback(async () => {
     try {
-      const stored = localStorage.getItem(ISSUE_REQUESTS_KEY);
-      if (!stored) return;
-      const parsed = JSON.parse(stored);
-      if (Array.isArray(parsed)) setIssueRequests(parsed);
-    } catch {
-      // ignore
-    } finally {
-      setIssueRequestsReady(true);
-    }
+      const res = await fetch('/api/issue-requests?inventory_type=product&page_size=200');
+      if (!res.ok) return;
+      const data = await res.json();
+      const results = data?.data?.results ?? data?.data ?? data?.results ?? [];
+      setIssueRequests(Array.isArray(results) ? results : []);
+    } catch {}
   }, []);
 
-  // Save issue requests to localStorage
-  useEffect(() => {
-    if (!issueRequestsReady) return;
-    localStorage.setItem(ISSUE_REQUESTS_KEY, JSON.stringify(issueRequests));
-  }, [issueRequests, issueRequestsReady]);
+  useEffect(() => { loadIssueRequests(); }, [loadIssueRequests]);
 
   // Computed request values
   const pendingIssueRequests = useMemo(() => issueRequests.filter((r) => r.status === 'pending'), [issueRequests]);
-  const sortedIssueRequests = useMemo(() => [...issueRequests].sort((a, b) => new Date(b.requestedAt) - new Date(a.requestedAt)), [issueRequests]);
+  const sortedIssueRequests = useMemo(() => [...issueRequests].sort((a, b) => new Date(b.requested_at || b.requestedAt) - new Date(a.requested_at || a.requestedAt)), [issueRequests]);
   const activeRequest = useMemo(() => issueRequests.find((r) => r.id === activeRequestId) || null, [issueRequests, activeRequestId]);
 
   const backendBase = typeof window !== 'undefined' && window.location.hostname === 'localhost'
@@ -368,7 +360,7 @@ export default function ProductInventoryPage() {
     setIssueOpen(true);
   };
 
-  const createIssueRequest = () => {
+  const createIssueRequest = async () => {
     const productId = issueForm.productId;
     const quantityNum = Number(issueForm.quantity);
     const issuedTo = issueForm.issuedTo.trim();
@@ -380,22 +372,26 @@ export default function ProductInventoryPage() {
     if (!issuedBy) { alert('Please enter who issued the product.'); return; }
     if (!reason) { alert('Please enter a reason for issue.'); return; }
     const row = data.find((r) => r.productId === productId);
-    const request = {
-      id: (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`,
-      productId,
-      productName: row?.masterSku || row?.designerSku || `Product #${productId}`,
-      quantity: quantityNum,
-      issuedTo,
-      issuedBy,
-      reason,
-      status: 'pending',
-      requestedAt: new Date().toISOString(),
-      reviewedAt: null,
-    };
-    setIssueRequests((prev) => [request, ...prev]);
-    setIssueOpen(false);
-    setSaveStatus({ success: true, message: `Issue request created for ${quantityNum} of ${request.productName} to ${issuedTo}.` });
-    setTimeout(() => setSaveStatus(null), 3000);
+    try {
+      const res = await fetch('/api/issue-requests', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          inventory_type: 'product',
+          item_id: Number(productId),
+          item_name: row?.masterSku || row?.designerSku || `Product #${productId}`,
+          quantity: quantityNum,
+          issued_to: issuedTo,
+          issued_by: issuedBy,
+          reason,
+        }),
+      });
+      if (!res.ok) { const d = await res.json().catch(() => ({})); alert(d?.message || `Error ${res.status}`); return; }
+      await loadIssueRequests();
+      setIssueOpen(false);
+      setSaveStatus({ success: true, message: `Issue request created for ${quantityNum} of ${row?.masterSku || 'product'} to ${issuedTo}.` });
+      setTimeout(() => setSaveStatus(null), 3000);
+    } catch (err) { alert(err.message || 'Failed to create request'); }
   };
 
   // Request helpers
@@ -416,11 +412,25 @@ export default function ProductInventoryPage() {
   }
 
   function reviewIssueRequest(nextStatus) {
+    // kept as stub; async version used in dialog
+  }
+
+  async function reviewIssueRequestAsync(nextStatus) {
     if (!activeRequest) return;
-    setIssueRequests((prev) => prev.map((r) => r.id === activeRequest.id ? { ...r, status: nextStatus, reviewedAt: new Date().toISOString() } : r));
-    setRequestDetailsOpen(false);
-    setSaveStatus({ success: true, message: `Request ${nextStatus}.` });
-    setTimeout(() => setSaveStatus(null), 3000);
+    setReviewError('');
+    try {
+      const res = await fetch(`/api/issue-requests/${activeRequest.id}/review`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: nextStatus }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { setReviewError(data?.message || `Error ${res.status}`); return; }
+      setReviewError('');
+      setRequestDetailsOpen(false);
+      await loadIssueRequests();
+      setSaveStatus({ success: true, message: `Request ${nextStatus}.` });
+      setTimeout(() => setSaveStatus(null), 3000);
+    } catch (err) { setReviewError(err.message || 'Review failed'); }
   }
 
   // Edit
@@ -941,30 +951,35 @@ export default function ProductInventoryPage() {
       </Dialog>
 
       {/* Request Details Dialog */}
-      <Dialog open={requestDetailsOpen} onOpenChange={setRequestDetailsOpen}>
+      <Dialog open={requestDetailsOpen} onOpenChange={(open) => { setRequestDetailsOpen(open); if (!open) setReviewError(''); }}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="text-lg font-semibold text-midnight-ink">Issue Request Details</DialogTitle>
           </DialogHeader>
           {activeRequest ? (
             <div className="mt-2 grid grid-cols-1 gap-3 text-sm">
-              <div><span className="font-medium text-cool-gray">Product:</span> {activeRequest.productName}</div>
+              <div><span className="font-medium text-cool-gray">Product:</span> {activeRequest.item_name || activeRequest.productName}</div>
               <div><span className="font-medium text-cool-gray">Quantity:</span> {activeRequest.quantity}</div>
-              <div><span className="font-medium text-cool-gray">Issued To:</span> {activeRequest.issuedTo}</div>
-              <div><span className="font-medium text-cool-gray">Issued By:</span> {activeRequest.issuedBy || '-'}</div>
+              <div><span className="font-medium text-cool-gray">Issued To:</span> {activeRequest.issued_to || activeRequest.issuedTo}</div>
+              <div><span className="font-medium text-cool-gray">Issued By:</span> {activeRequest.issued_by || activeRequest.issuedBy || '-'}</div>
               <div><span className="font-medium text-cool-gray">Reason:</span> {activeRequest.reason || '-'}</div>
               <div><span className="font-medium text-cool-gray">Status:</span> {activeRequest.status.toUpperCase()}</div>
-              <div><span className="font-medium text-cool-gray">Requested At:</span> {new Date(activeRequest.requestedAt).toLocaleString()}</div>
+              <div><span className="font-medium text-cool-gray">Requested At:</span> {new Date(activeRequest.requested_at || activeRequest.requestedAt).toLocaleString()}</div>
             </div>
           ) : (
             <p className="text-sm text-cool-gray">Request not found.</p>
+          )}
+          {reviewError && (
+            <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
+              {reviewError}
+            </div>
           )}
           <div className="mt-5 flex justify-end gap-3">
             <Button variant="outline" onClick={() => setRequestDetailsOpen(false)}>Close</Button>
             {activeRequest?.status === 'pending' && (
               <>
-                <Button variant="destructive" onClick={() => reviewIssueRequest('declined')}>Decline</Button>
-                <Button onClick={() => reviewIssueRequest('approved')}>Approve</Button>
+                <Button variant="destructive" onClick={() => reviewIssueRequestAsync('rejected')}>Decline</Button>
+                <Button onClick={() => reviewIssueRequestAsync('approved')}>Approve</Button>
               </>
             )}
           </div>
@@ -1001,21 +1016,23 @@ export default function ProductInventoryPage() {
                 ) : (
                   <div className="divide-y divide-soft-border">
                     {sortedIssueRequests.map((req, idx) => {
-                      const statusClass = req.status === 'approved' ? 'bg-emerald-100 text-emerald-800' : req.status === 'declined' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-800';
+                      const statusClass = req.status === 'approved' ? 'bg-emerald-100 text-emerald-800' : req.status === 'rejected' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-800';
+                      const displayName = req.item_name || req.productName || 'Product';
+                      const displayTo = req.issued_to || req.issuedTo || '-';
                       return (
                         <button key={req.id ?? idx} onClick={() => openRequestDetails(req.id)} className="w-full rounded-xl px-4 py-3 text-left transition hover:bg-[#F9FAFB]">
                           <div className="flex items-start gap-3">
                             <div className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-full bg-[#EEF2FF] text-xs font-semibold text-trust-blue">
-                              {String(req.productName || 'P').charAt(0).toUpperCase()}
+                              {String(displayName).charAt(0).toUpperCase()}
                             </div>
                             <div className="min-w-0 flex-1">
                               <p className="truncate text-sm text-midnight-ink">
-                                <span className="font-semibold">{req.issuedTo}</span> requested <span className="font-semibold">{req.quantity}</span> of {req.productName}
+                                <span className="font-semibold">{displayTo}</span> requested <span className="font-semibold">{req.quantity}</span> of {displayName}
                               </p>
                               <p className="mt-0.5 truncate text-xs text-cool-gray">Reason: {req.reason || '-'}</p>
                               <div className="mt-1 flex items-center gap-2">
                                 <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${statusClass}`}>{req.status}</span>
-                                <span className="text-[11px] text-cool-gray">{relativeTime(req.requestedAt)}</span>
+                                <span className="text-[11px] text-cool-gray">{relativeTime(req.requested_at || req.requestedAt)}</span>
                               </div>
                             </div>
                           </div>

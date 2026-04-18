@@ -19,7 +19,7 @@ import { EnrolWorkforceForm } from '@/app/frontend/enrol-workforce/page';
 
 const UNITS = ['PCS', 'BOX', 'PACKET', 'BOTTLE', 'KG', 'GM', 'LITER'];
 const CATEGORIES = ['Pantry', 'Stationery', 'Housekeeping', 'Packaging', 'Utilities', 'Other'];
-const ISSUE_REQUESTS_KEY = 'others_issue_requests_v1';
+// ISSUE_REQUESTS_KEY removed — now using API
 const OTHERS_COLUMNS = [
   { id: 'sno', label: '#' },
   { id: 'item_name', label: 'Item Name' },
@@ -61,7 +61,7 @@ export default function OthersInventoryPage() {
   const [currentUsernameRaw, setCurrentUsernameRaw] = useState('');
   const [requestsPanelOpen, setRequestsPanelOpen] = useState(false);
   const [issueRequests, setIssueRequests] = useState([]);
-  const [issueRequestsReady, setIssueRequestsReady] = useState(false);
+  const [reviewError, setReviewError] = useState('');
   const [activeRequestId, setActiveRequestId] = useState(null);
   const [requestDetailsOpen, setRequestDetailsOpen] = useState(false);
   const [addItemForm, setAddItemForm] = useState({
@@ -128,26 +128,20 @@ export default function OthersInventoryPage() {
       .catch(() => {});
   }, []);
 
-  useEffect(() => {
+  const loadIssueRequests = useCallback(async () => {
     try {
-      const stored = localStorage.getItem(ISSUE_REQUESTS_KEY);
-      if (!stored) return;
-      const parsed = JSON.parse(stored);
-      if (Array.isArray(parsed)) setIssueRequests(parsed);
-    } catch {
-      // ignore
-    } finally {
-      setIssueRequestsReady(true);
-    }
+      const res = await fetch('/api/issue-requests?inventory_type=others&page_size=200');
+      if (!res.ok) return;
+      const data = await res.json();
+      const results = data?.data?.results ?? data?.data ?? data?.results ?? [];
+      setIssueRequests(Array.isArray(results) ? results : []);
+    } catch {}
   }, []);
 
-  useEffect(() => {
-    if (!issueRequestsReady) return;
-    localStorage.setItem(ISSUE_REQUESTS_KEY, JSON.stringify(issueRequests));
-  }, [issueRequests, issueRequestsReady]);
+  useEffect(() => { loadIssueRequests(); }, [loadIssueRequests]);
 
   const pendingIssueRequests = useMemo(() => issueRequests.filter((r) => r.status === 'pending'), [issueRequests]);
-  const sortedIssueRequests = useMemo(() => [...issueRequests].sort((a, b) => new Date(b.requestedAt) - new Date(a.requestedAt)), [issueRequests]);
+  const sortedIssueRequests = useMemo(() => [...issueRequests].sort((a, b) => new Date(b.requested_at || b.requestedAt) - new Date(a.requested_at || a.requestedAt)), [issueRequests]);
   const activeRequest = useMemo(() => issueRequests.find((r) => r.id === activeRequestId) || null, [issueRequests, activeRequestId]);
 
   function relativeTime(iso) {
@@ -166,11 +160,22 @@ export default function OthersInventoryPage() {
     setRequestDetailsOpen(true);
   }
 
-  function reviewIssueRequest(nextStatus) {
+  async function reviewIssueRequestAsync(nextStatus) {
     if (!activeRequest) return;
-    setIssueRequests((prev) => prev.map((r) => r.id === activeRequest.id ? { ...r, status: nextStatus, reviewedAt: new Date().toISOString() } : r));
-    setRequestDetailsOpen(false);
-    showStatus(`Request ${nextStatus}.`);
+    setReviewError('');
+    try {
+      const res = await fetch(`/api/issue-requests/${activeRequest.id}/review`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: nextStatus }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { setReviewError(data?.message || `Error ${res.status}`); return; }
+      setReviewError('');
+      await fetchItems();
+      setRequestDetailsOpen(false);
+      await loadIssueRequests();
+      showStatus(`Request ${nextStatus}.`);
+    } catch (err) { setReviewError(err.message || 'Review failed'); }
   }
 
   const getField = (row, key) => edits[row.id]?.[key] !== undefined ? edits[row.id][key] : (row[key] ?? '');
@@ -226,7 +231,7 @@ export default function OthersInventoryPage() {
     setIssueOpen(true);
   };
 
-  const createIssueRequest = () => {
+  const createIssueRequest = async () => {
     const itemIdNum = Number(issueForm.itemId);
     const quantityNum = Number(issueForm.quantity);
     const issuedTo = issueForm.issuedTo.trim();
@@ -238,21 +243,25 @@ export default function OthersInventoryPage() {
     if (!issuedBy) { showStatus('Please enter who issued the item.', 'error'); return; }
     if (!reason) { showStatus('Please enter a reason for issue.', 'error'); return; }
     const row = rows.find((r) => r.id === itemIdNum);
-    const request = {
-      id: (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`,
-      itemId: itemIdNum,
-      itemName: row?.item_name || `Item #${itemIdNum}`,
-      quantity: quantityNum,
-      issuedTo,
-      issuedBy,
-      reason,
-      status: 'pending',
-      requestedAt: new Date().toISOString(),
-      reviewedAt: null,
-    };
-    setIssueRequests((prev) => [request, ...prev]);
-    setIssueOpen(false);
-    showStatus(`Issue request created for ${quantityNum} of ${request.itemName} to ${issuedTo}.`);
+    try {
+      const res = await fetch('/api/issue-requests', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          inventory_type: 'others',
+          item_id: itemIdNum,
+          item_name: row?.item_name || `Item #${itemIdNum}`,
+          quantity: quantityNum,
+          issued_to: issuedTo,
+          issued_by: issuedBy,
+          reason,
+        }),
+      });
+      if (!res.ok) { const d = await res.json().catch(() => ({})); showStatus(d?.message || `Error ${res.status}`, 'error'); return; }
+      await loadIssueRequests();
+      setIssueOpen(false);
+      showStatus(`Issue request created for ${quantityNum} of ${row?.item_name || 'item'} to ${issuedTo}.`);
+    } catch (err) { showStatus(err.message || 'Failed to create request', 'error'); }
   };
 
   const createReceiveRequest = () => {
@@ -1058,30 +1067,35 @@ export default function OthersInventoryPage() {
         </>
       )}
 
-      <Dialog open={requestDetailsOpen} onOpenChange={setRequestDetailsOpen}>
+      <Dialog open={requestDetailsOpen} onOpenChange={(open) => { setRequestDetailsOpen(open); if (!open) setReviewError(''); }}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="text-lg font-semibold text-midnight-ink">Issue Request Details</DialogTitle>
           </DialogHeader>
           {activeRequest ? (
             <div className="mt-2 grid grid-cols-1 gap-3 text-sm">
-              <div><span className="font-medium text-cool-gray">Item:</span> {activeRequest.itemName}</div>
+              <div><span className="font-medium text-cool-gray">Item:</span> {activeRequest.item_name || activeRequest.itemName}</div>
               <div><span className="font-medium text-cool-gray">Quantity:</span> {activeRequest.quantity}</div>
-              <div><span className="font-medium text-cool-gray">Issued To:</span> {activeRequest.issuedTo}</div>
-              <div><span className="font-medium text-cool-gray">Issued By:</span> {activeRequest.issuedBy || '-'}</div>
+              <div><span className="font-medium text-cool-gray">Issued To:</span> {activeRequest.issued_to || activeRequest.issuedTo}</div>
+              <div><span className="font-medium text-cool-gray">Issued By:</span> {activeRequest.issued_by || activeRequest.issuedBy || '-'}</div>
               <div><span className="font-medium text-cool-gray">Reason:</span> {activeRequest.reason || '-'}</div>
               <div><span className="font-medium text-cool-gray">Status:</span> {activeRequest.status.toUpperCase()}</div>
-              <div><span className="font-medium text-cool-gray">Requested At:</span> {new Date(activeRequest.requestedAt).toLocaleString()}</div>
+              <div><span className="font-medium text-cool-gray">Requested At:</span> {new Date(activeRequest.requested_at || activeRequest.requestedAt).toLocaleString()}</div>
             </div>
           ) : (
             <p className="text-sm text-cool-gray">Request not found.</p>
+          )}
+          {reviewError && (
+            <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
+              {reviewError}
+            </div>
           )}
           <div className="mt-5 flex justify-end gap-3">
             <Button variant="outline" onClick={() => setRequestDetailsOpen(false)}>Close</Button>
             {activeRequest?.status === 'pending' && (
               <>
-                <Button variant="destructive" onClick={() => reviewIssueRequest('declined')}>Decline</Button>
-                <Button onClick={() => reviewIssueRequest('approved')}>Approve</Button>
+                <Button variant="destructive" onClick={() => reviewIssueRequestAsync('rejected')}>Decline</Button>
+                <Button onClick={() => reviewIssueRequestAsync('approved')}>Approve</Button>
               </>
             )}
           </div>
