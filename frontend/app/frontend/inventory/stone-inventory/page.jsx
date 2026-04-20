@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, Pencil, Plus, Printer, RefreshCw, Trash2, X } from 'lucide-react';
+import SortPopover from '@/components/sort-popover';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
 import LastUpdatedFooter from '@/components/last-updated-footer';
 import { useSheetPermissions } from '@/hooks/use-sheet-permissions';
@@ -131,6 +132,9 @@ export default function StoneInventoryPage() {
   const [filterType, setFilterType] = useState([]);
   const [filterSpecies, setFilterSpecies] = useState([]);
   const [filterShape, setFilterShape] = useState([]);
+  const [sortField, setSortField] = useState('');
+  const [sortDir, setSortDir] = useState('asc');
+  const handleSort = (field) => { setSortField((prev) => { if (prev === field) { setSortDir((d) => d === 'asc' ? 'desc' : 'asc'); return prev; } setSortDir('asc'); return field; }); };
   const [isManageColumnsOpen, setIsManageColumnsOpen] = useState(false);
   const [selectedColumnsForAction, setSelectedColumnsForAction] = useState(new Set());
   const [visibleColumns, setVisibleColumns] = useState(new Set(STONE_MANAGE_COLUMNS.map((column) => column.id)));
@@ -249,12 +253,18 @@ export default function StoneInventoryPage() {
 
   const filteredStones = useMemo(() => {
     const search = searchTerm.trim().toLowerCase();
-    return stones.filter((stone) => {
+    const base = stones.filter((stone) => {
       const matchesSearch = !search || [stone.stone_type, stone.species, stone.variety, stone.color].some((v) => String(v || '').toLowerCase().includes(search));
       const matchesType = filterType.length === 0 || filterType.some((type) => String(stone.stone_type || '').toLowerCase().includes(String(type || '').toLowerCase()));
       const matchesSpecies = filterSpecies.length === 0 || filterSpecies.some((species) => String(stone.species || '').toLowerCase().includes(String(species || '').toLowerCase()));
       const matchesShape = filterShape.length === 0 || filterShape.some((shape) => String(stone.shape || '').toLowerCase().includes(String(shape || '').toLowerCase()));
       return matchesSearch && matchesType && matchesSpecies && matchesShape;
+    });
+    if (!sortField) return base;
+    return [...base].sort((a, b) => {
+      const av = a[sortField] ?? ''; const bv = b[sortField] ?? '';
+      const cmp = (typeof av === 'number' && typeof bv === 'number') ? av - bv : String(av).localeCompare(String(bv));
+      return sortDir === 'asc' ? cmp : -cmp;
     });
   }, [
     stones,
@@ -262,6 +272,8 @@ export default function StoneInventoryPage() {
     filterType,
     filterSpecies,
     filterShape,
+    sortField,
+    sortDir,
   ]);
 
   const typeOptions = useMemo(() => Array.from(new Set(stones.map((stone) => String(stone.stone_type || '').trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b)), [stones]);
@@ -796,6 +808,20 @@ export default function StoneInventoryPage() {
             <Printer size={14} className="mr-1.5" />
             Print
           </Button>
+          <SortPopover
+            columns={[
+              { id: 'stone_type', label: 'Stone Type' },
+              { id: 'species', label: 'Species' },
+              { id: 'variety', label: 'Variety' },
+              { id: 'color', label: 'Color' },
+              { id: 'qty', label: 'Qty' },
+              { id: 'weight_cts', label: 'Weight (cts)' },
+            ]}
+            sortField={sortField}
+            sortDir={sortDir}
+            onSort={handleSort}
+            onClear={() => { setSortField(''); setSortDir('asc'); }}
+          />
           <Button onClick={() => setIsManageColumnsOpen(true)} variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8">
             Manage Columns
           </Button>

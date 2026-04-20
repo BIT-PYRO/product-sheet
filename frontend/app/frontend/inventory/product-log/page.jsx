@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, Pencil, Plus, Printer, Trash2 } from 'lucide-react';
+import SortPopover from '@/components/sort-popover';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
 import GlobalSearchBar from '@/components/global-search-bar';
 import DateTimeStamp from '@/components/date-time-stamp';
@@ -211,12 +212,16 @@ export default function ProductFindingLogPage() {
   const [isManageColumnsOpen, setIsManageColumnsOpen] = useState(false);
   const [selColsForAction, setSelColsForAction]       = useState(new Set());
   const [addOpen, setAddOpen] = useState(false);
+  const [sortField, setSortField] = useState('');
+  const [sortDir, setSortDir] = useState('asc');
+  const handleSort = (field) => { setSortField((prev) => { if (prev === field) { setSortDir((d) => d === 'asc' ? 'desc' : 'asc'); return prev; } setSortDir('asc'); return field; }); };
 
   const switchTab = (tab) => {
     if (tab === activeTab) return;
     setActiveTab(tab);
     setSelectedIds(new Set()); setEditingIds(new Set()); setEditBuffer({});
     setAddOpen(false); setStatus('');
+    setSortField(''); setSortDir('asc');
   };
 
   const showStatus = (msg, type = 'success') => {
@@ -232,7 +237,7 @@ export default function ProductFindingLogPage() {
       : activeTab === 'finding'
         ? ['findingCode','dieNumber','size','mechanism','remark','receivedFrom','issuedTo']
         : ['die_code','master_sku','designer_sku','location','remark','received_from','issued_to'];
-    return rows.filter((r) => {
+    const base = rows.filter((r) => {
       if (s && !searchFields.some((k) => String(r[k] || '').toLowerCase().includes(s))) return false;
       const recFrom = r.receivedFrom || r.received_from || '';
       const issTo   = r.issuedTo || r.issued_to || '';
@@ -248,7 +253,13 @@ export default function ProductFindingLogPage() {
       if (filters.dateTo   && rowDate > filters.dateTo)   return false;
       return true;
     });
-  }, [rows, filters, activeTab]);
+    if (!sortField) return base;
+    return [...base].sort((a, b) => {
+      const av = a[sortField] ?? ''; const bv = b[sortField] ?? '';
+      const cmp = (typeof av === 'number' && typeof bv === 'number') ? av - bv : String(av).localeCompare(String(bv));
+      return sortDir === 'asc' ? cmp : -cmp;
+    });
+  }, [rows, filters, activeTab, sortField, sortDir]);
 
   // ── Add entry ─────────────────────────────────────────────────────────────
   const handleAdd = async () => {
@@ -476,6 +487,31 @@ export default function ProductFindingLogPage() {
               className="inline-flex items-center gap-2 rounded-full border border-midnight-ink bg-white px-4 h-8 text-sm font-medium text-midnight-ink">
               <Printer className="h-4 w-4" /> Print
             </button>
+            <SortPopover
+              columns={
+                activeTab === 'product' ? [
+                  { id: 'date', label: 'Date' },
+                  { id: 'masterSku', label: 'Master SKU' },
+                  { id: 'designerSku', label: 'Designer SKU' },
+                  { id: 'value', label: 'Qty' },
+                  { id: 'amount', label: 'Amount' },
+                ] : activeTab === 'finding' ? [
+                  { id: 'date', label: 'Date' },
+                  { id: 'findingCode', label: 'Finding Code' },
+                  { id: 'qty', label: 'Qty' },
+                  { id: 'amount', label: 'Amount' },
+                ] : [
+                  { id: 'txn_date', label: 'Date' },
+                  { id: 'die_code', label: 'Die Code' },
+                  { id: 'qty', label: 'Qty' },
+                  { id: 'amount', label: 'Amount' },
+                ]
+              }
+              sortField={sortField}
+              sortDir={sortDir}
+              onSort={handleSort}
+              onClear={() => { setSortField(''); setSortDir('asc'); }}
+            />
             <button type="button" onClick={() => { setSelColsForAction(new Set()); setIsManageColumnsOpen(true); }}
               className="inline-flex items-center gap-2 rounded-full border border-midnight-ink bg-white px-4 h-8 text-sm font-medium text-midnight-ink">
               Manage Columns

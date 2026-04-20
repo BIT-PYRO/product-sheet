@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, Pencil, Plus, Printer, RefreshCw, Trash2, X } from 'lucide-react';
+import SortPopover from '@/components/sort-popover';
 import BulkUploadButton from '@/components/bulk-upload-button';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
 import LastUpdatedFooter from '@/components/last-updated-footer';
@@ -44,6 +45,9 @@ export default function ToolsInventoryPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterDepartment, setFilterDepartment] = useState([]);
   const [filterUnit, setFilterUnit] = useState([]);
+  const [sortField, setSortField] = useState('');
+  const [sortDir, setSortDir] = useState('asc');
+  const handleSort = (field) => { setSortField((prev) => { if (prev === field) { setSortDir((d) => d === 'asc' ? 'desc' : 'asc'); return prev; } setSortDir('asc'); return field; }); };
   const [isAddToolOpen, setIsAddToolOpen] = useState(false);
   const [addToolForm, setAddToolForm] = useState({
     toolName: '',
@@ -165,13 +169,19 @@ export default function ToolsInventoryPage() {
 
   const filteredRows = useMemo(() => {
     const search = searchTerm.trim().toLowerCase();
-    return rows.filter((row) => {
+    const base = rows.filter((row) => {
       const matchesSearch = !search || [row.tool_name || row.toolName, row.particulars, row.department, row.location].some((v) => String(v || '').toLowerCase().includes(search));
       const matchesDepartment = !filterDepartment || filterDepartment.length === 0 || filterDepartment.some(dept => String(row.department || '').toLowerCase().includes(String(dept).toLowerCase()));
       const matchesUnit = !filterUnit || filterUnit.length === 0 || filterUnit.some(unit => String(row.unit || '').toLowerCase().includes(String(unit).toLowerCase()));
       return matchesSearch && matchesDepartment && matchesUnit;
     });
-  }, [rows, searchTerm, filterDepartment, filterUnit]);
+    if (!sortField) return base;
+    return [...base].sort((a, b) => {
+      const av = a[sortField] ?? ''; const bv = b[sortField] ?? '';
+      const cmp = (typeof av === 'number' && typeof bv === 'number') ? av - bv : String(av).localeCompare(String(bv));
+      return sortDir === 'asc' ? cmp : -cmp;
+    });
+  }, [rows, searchTerm, filterDepartment, filterUnit, sortField, sortDir]);
 
   const [workforceDepts, setWorkforceDepts] = useState([]);
 
@@ -508,6 +518,20 @@ export default function ToolsInventoryPage() {
             <Printer className="w-3.5 h-3.5 mr-1.5" />
             Print
           </Button>
+          <SortPopover
+            columns={[
+              { id: 'tool_name', label: 'Tool Name' },
+              { id: 'department', label: 'Department' },
+              { id: 'quantity', label: 'Quantity' },
+              { id: 'used_qty', label: 'Used Qty' },
+              { id: 'min_level', label: 'Min Level' },
+              { id: 'location', label: 'Location' },
+            ]}
+            sortField={sortField}
+            sortDir={sortDir}
+            onSort={handleSort}
+            onClear={() => { setSortField(''); setSortDir('asc'); }}
+          />
           <Button onClick={() => setIsManageColumnsOpen(true)} variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8">
             Manage Columns
           </Button>

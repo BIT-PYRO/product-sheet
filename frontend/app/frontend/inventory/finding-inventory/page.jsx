@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, Pencil, Plus, Printer, RefreshCw, Search, X } from 'lucide-react';
+import SortPopover from '@/components/sort-popover';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
 import LastUpdatedFooter from '@/components/last-updated-footer';
 import { useSheetPermissions } from '@/hooks/use-sheet-permissions';
@@ -79,6 +80,9 @@ export default function FindingInventoryPage() {
   const [filterMaterial, setFilterMaterial] = useState([]);
   const [filterStage, setFilterStage] = useState([]);
   const [filterMechanism, setFilterMechanism] = useState([]);
+  const [sortField, setSortField] = useState('');
+  const [sortDir, setSortDir] = useState('asc');
+  const handleSort = (field) => { setSortField((prev) => { if (prev === field) { setSortDir((d) => d === 'asc' ? 'desc' : 'asc'); return prev; } setSortDir('asc'); return field; }); };
 
   // Add New Finding dialog
   const [addOpen, setAddOpen] = useState(false);
@@ -187,7 +191,7 @@ export default function FindingInventoryPage() {
     const materialFilters = Array.isArray(filterMaterial) ? filterMaterial : [];
     const stageFilters = Array.isArray(filterStage) ? filterStage : [];
     const mechanismFilters = Array.isArray(filterMechanism) ? filterMechanism : [];
-    return findings.filter((f) => {
+    const base = findings.filter((f) => {
       const matchSearch =
         !search ||
         (f.finding_code || '').toLowerCase().includes(search.toLowerCase()) ||
@@ -203,12 +207,20 @@ export default function FindingInventoryPage() {
         mechanismFilters.some((value) => String(f.mechanism || '').toLowerCase().includes(String(value || '').toLowerCase()));
       return matchSearch && matchMaterial && matchStage && matchMechanism;
     });
+    if (!sortField) return base;
+    return [...base].sort((a, b) => {
+      const av = a[sortField] ?? ''; const bv = b[sortField] ?? '';
+      const cmp = (typeof av === 'number' && typeof bv === 'number') ? av - bv : String(av).localeCompare(String(bv));
+      return sortDir === 'asc' ? cmp : -cmp;
+    });
   }, [
     findings,
     search,
     filterMaterial,
     filterStage,
     filterMechanism,
+    sortField,
+    sortDir,
   ]);
 
   const mechanismOptions = useMemo(
@@ -623,6 +635,21 @@ export default function FindingInventoryPage() {
             <Printer className="w-3.5 h-3.5 mr-1.5" />
             Print
           </Button>
+          <SortPopover
+            columns={[
+              { id: 'finding_code', label: 'Finding Code' },
+              { id: 'die_number', label: 'Die No.' },
+              { id: 'material', label: 'Material' },
+              { id: 'finding_stage', label: 'Stage' },
+              { id: 'mechanism', label: 'Mechanism' },
+              { id: 'quantity', label: 'Quantity' },
+              { id: 'weight', label: 'Weight' },
+            ]}
+            sortField={sortField}
+            sortDir={sortDir}
+            onSort={handleSort}
+            onClear={() => { setSortField(''); setSortDir('asc'); }}
+          />
           <Button onClick={() => setIsManageColumnsOpen(true)} variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8">
             Manage Columns
           </Button>

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, Pencil, Plus, Printer, RefreshCw, Trash2, X } from 'lucide-react';
+import SortPopover from '@/components/sort-popover';
 import BulkUploadButton from '@/components/bulk-upload-button';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
 import LastUpdatedFooter from '@/components/last-updated-footer';
@@ -47,6 +48,9 @@ export default function OthersInventoryPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState([]);
   const [filterUnit, setFilterUnit] = useState([]);
+  const [sortField, setSortField] = useState('');
+  const [sortDir, setSortDir] = useState('asc');
+  const handleSort = (field) => { setSortField((prev) => { if (prev === field) { setSortDir((d) => d === 'asc' ? 'desc' : 'asc'); return prev; } setSortDir('asc'); return field; }); };
   const [customCategoryFilter, setCustomCategoryFilter] = useState('');
   const [customUnitFilter, setCustomUnitFilter] = useState('');
   const [isManageColumnsOpen, setIsManageColumnsOpen] = useState(false);
@@ -319,13 +323,19 @@ export default function OthersInventoryPage() {
     const search = searchTerm.trim().toLowerCase();
     const effectiveCategory = filterCategory && filterCategory.length > 0 ? filterCategory : [];
     const effectiveUnit = filterUnit && filterUnit.length > 0 ? filterUnit : [];
-    return rows.filter(row => {
+    const base = rows.filter(row => {
       const matchesSearch = !search || [row.item_name, row.category].some(v => String(v || '').toLowerCase().includes(search));
       const matchesCategory = effectiveCategory.length === 0 || effectiveCategory.some(f => String(row.category || '').toLowerCase().includes(f.toLowerCase()));
       const matchesUnit = effectiveUnit.length === 0 || effectiveUnit.some(f => String(row.unit || '').toLowerCase().includes(f.toLowerCase()));
       return matchesSearch && matchesCategory && matchesUnit;
     });
-  }, [rows, searchTerm, filterCategory, filterUnit]);
+    if (!sortField) return base;
+    return [...base].sort((a, b) => {
+      const av = a[sortField] ?? ''; const bv = b[sortField] ?? '';
+      const cmp = (typeof av === 'number' && typeof bv === 'number') ? av - bv : String(av).localeCompare(String(bv));
+      return sortDir === 'asc' ? cmp : -cmp;
+    });
+  }, [rows, searchTerm, filterCategory, filterUnit, sortField, sortDir]);
 
   const unitOptions = useMemo(
     () => Array.from(new Set(rows.map((row) => String(row.unit || '').trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b)),
@@ -529,6 +539,20 @@ export default function OthersInventoryPage() {
           <Button onClick={handlePrintTable} variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8">
             <Printer className="w-3.5 h-3.5 mr-1.5" /> Print
           </Button>
+          <SortPopover
+            columns={[
+              { id: 'item_name', label: 'Item Name' },
+              { id: 'category', label: 'Category' },
+              { id: 'quantity', label: 'Quantity' },
+              { id: 'used_qty', label: 'Used Qty' },
+              { id: 'min_level', label: 'Min Level' },
+              { id: 'unit', label: 'Unit' },
+            ]}
+            sortField={sortField}
+            sortDir={sortDir}
+            onSort={handleSort}
+            onClear={() => { setSortField(''); setSortDir('asc'); }}
+          />
           <Button onClick={() => setIsManageColumnsOpen(true)} variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8">
             Manage Columns
           </Button>

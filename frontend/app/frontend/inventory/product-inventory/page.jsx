@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ArrowLeft, Search, Upload, Trash2, Pencil, Download, RefreshCw, Printer, X } from 'lucide-react';
+import SortPopover from '@/components/sort-popover';
 import {
   Dialog,
   DialogContent,
@@ -42,6 +43,9 @@ export default function ProductInventoryPage() {
   const [filterUnit, setFilterUnit] = useState([]);
   const [filterLocation, setFilterLocation] = useState([]);
   const [filterStockState, setFilterStockState] = useState([]);
+  const [sortField, setSortField] = useState('');
+  const [sortDir, setSortDir] = useState('asc');
+  const handleSort = (field) => { setSortField((prev) => { if (prev === field) { setSortDir((d) => d === 'asc' ? 'desc' : 'asc'); return prev; } setSortDir('asc'); return field; }); };
   const [selectedRows, setSelectedRows] = useState(new Set());
   const [editingRowIds, setEditingRowIds] = useState(new Set());
   const [editBuffer, setEditBuffer] = useState({});
@@ -245,7 +249,7 @@ export default function ProductInventoryPage() {
     const unitFilters = Array.isArray(filterUnit) ? filterUnit : [];
     const locationFilters = Array.isArray(filterLocation) ? filterLocation : [];
     const stockStateFilters = (Array.isArray(filterStockState) ? filterStockState : []).map((v) => String(v || '').toLowerCase());
-    return data.filter(row => {
+    const base = data.filter(row => {
       const searchMatch = !q ||
         row.masterSku.toLowerCase().includes(q) ||
         row.designerSku.toLowerCase().includes(q) ||
@@ -283,12 +287,20 @@ export default function ProductInventoryPage() {
 
       return searchMatch && unitMatch && locationMatch && stockStateMatch;
     });
+    if (!sortField) return base;
+    return [...base].sort((a, b) => {
+      const av = a[sortField] ?? ''; const bv = b[sortField] ?? '';
+      const cmp = (typeof av === 'number' && typeof bv === 'number') ? av - bv : String(av).localeCompare(String(bv));
+      return sortDir === 'asc' ? cmp : -cmp;
+    });
   }, [
     data,
     searchTerm,
     filterUnit,
     filterLocation,
     filterStockState,
+    sortField,
+    sortDir,
   ]);
 
   const locationOptions = useMemo(() => {
@@ -1082,6 +1094,18 @@ export default function ProductInventoryPage() {
             <Printer className="w-3.5 h-3.5 mr-1.5" />
             Print
           </Button>
+
+          <SortPopover
+            columns={[
+              { id: 'masterSku', label: 'Master SKU' },
+              { id: 'designerSku', label: 'Designer SKU' },
+              { id: 'productName', label: 'Product Name' },
+            ]}
+            sortField={sortField}
+            sortDir={sortDir}
+            onSort={handleSort}
+            onClear={() => { setSortField(''); setSortDir('asc'); }}
+          />
 
           <Button onClick={() => setIsManageColumnsOpen(true)} variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8">
             Manage Columns

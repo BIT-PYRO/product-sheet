@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, RefreshCw, PackagePlus, History, AlertTriangle, Printer } from 'lucide-react';
+import SortPopover from '@/components/sort-popover';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
 import GlobalSearchBar from '@/components/global-search-bar';
 import DateTimeStamp from '@/components/date-time-stamp';
@@ -73,6 +74,10 @@ export default function LowStockPage() {
   const [loading, setLoading]   = useState(false);
   const [statusMsg, setStatus]  = useState('');
   const [tab, setTab]           = useState('low-stock'); // 'low-stock' | 'log'
+  const [sortField, setSortField] = useState('');
+  const [sortDir, setSortDir] = useState('asc');
+  const handleSort = (field) => { setSortField((prev) => { if (prev === field) { setSortDir((d) => d === 'asc' ? 'desc' : 'asc'); return prev; } setSortDir('asc'); return field; }); };
+  const switchTab = (id) => { setTab(id); setSortField(''); setSortDir('asc'); };
 
   const [fulfillOpen, setFulfillOpen]   = useState(false);
   const [fulfillItem, setFulfillItem]   = useState(null);
@@ -298,12 +303,18 @@ export default function LowStockPage() {
 
   // ── filtered view ─────────────────────────────────────────────────────────
   const filteredItems = useMemo(() => {
-    return filterSource === 'all' ? items : items.filter((i) => i._source === filterSource);
-  }, [items, filterSource]);
+    const base = filterSource === 'all' ? items : items.filter((i) => i._source === filterSource);
+    if (!sortField) return base;
+    return [...base].sort((a, b) => {
+      const av = a[sortField] ?? ''; const bv = b[sortField] ?? '';
+      const cmp = (typeof av === 'number' && typeof bv === 'number') ? av - bv : String(av).localeCompare(String(bv));
+      return sortDir === 'asc' ? cmp : -cmp;
+    });
+  }, [items, filterSource, sortField, sortDir]);
 
   // ── filtered log ──────────────────────────────────────────────────────────
   const filteredLog = useMemo(() => {
-    return fulfillLog.filter((e) => {
+    const base = fulfillLog.filter((e) => {
       if (filterLogSource !== 'all' && e.source !== filterLogSource) return false;
       if (filterLogDateFrom) {
         const entryDate = e.fulfilledAt.slice(0, 10);
@@ -315,7 +326,13 @@ export default function LowStockPage() {
       }
       return true;
     });
-  }, [fulfillLog, filterLogSource, filterLogDateFrom, filterLogDateTo]);
+    if (!sortField) return base;
+    return [...base].sort((a, b) => {
+      const av = a[sortField] ?? ''; const bv = b[sortField] ?? '';
+      const cmp = (typeof av === 'number' && typeof bv === 'number') ? av - bv : String(av).localeCompare(String(bv));
+      return sortDir === 'asc' ? cmp : -cmp;
+    });
+  }, [fulfillLog, filterLogSource, filterLogDateFrom, filterLogDateTo, sortField, sortDir]);
 
   // ── print helpers ─────────────────────────────────────────────────────────
   function printLowStock() {
@@ -503,6 +520,26 @@ export default function LowStockPage() {
               <Printer className="h-4 w-4" />
               Print
             </button>
+            <SortPopover
+              columns={
+                tab === 'log' ? [
+                  { id: 'fulfilledAt', label: 'Date' },
+                  { id: 'sourceName', label: 'Source' },
+                  { id: 'itemName', label: 'Item' },
+                  { id: 'quantity', label: 'Qty' },
+                  { id: 'totalPrice', label: 'Total Price' },
+                ] : [
+                  { id: '_name', label: 'Item Name' },
+                  { id: '_source', label: 'Type' },
+                  { id: '_qty', label: 'Qty' },
+                  { id: 'min_level', label: 'Min Level' },
+                ]
+              }
+              sortField={sortField}
+              sortDir={sortDir}
+              onSort={handleSort}
+              onClear={() => { setSortField(''); setSortDir('asc'); }}
+            />
         </div>
 
         {/* Tabs */}
@@ -513,7 +550,7 @@ export default function LowStockPage() {
           ].map((t) => (
             <button
               key={t.id}
-              onClick={() => setTab(t.id)}
+              onClick={() => switchTab(t.id)}
               className={`inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium border-b-2 transition -mb-px ${
                 tab === t.id
                   ? 'border-trust-blue text-trust-blue'

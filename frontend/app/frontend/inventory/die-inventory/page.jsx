@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, Pencil, Plus, Printer, RefreshCw, Trash2, Upload, X } from 'lucide-react';
+import SortPopover from '@/components/sort-popover';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
 import LastUpdatedFooter from '@/components/last-updated-footer';
 import { useSheetPermissions } from '@/hooks/use-sheet-permissions';
@@ -101,6 +102,9 @@ export default function DieInventoryPage() {
   const [filterWaxPiece, setFilterWaxPiece] = useState([]);
   const [filterWaxSetting, setFilterWaxSetting] = useState([]);
   const [filterCasting, setFilterCasting] = useState([]);
+  const [sortField, setSortField] = useState('');
+  const [sortDir, setSortDir] = useState('asc');
+  const handleSort = (field) => { setSortField((prev) => { if (prev === field) { setSortDir((d) => d === 'asc' ? 'desc' : 'asc'); return prev; } setSortDir('asc'); return field; }); };
 
   const [addOpen, setAddOpen] = useState(false);
   const [form, setForm] = useState(emptyDie());
@@ -216,7 +220,7 @@ export default function DieInventoryPage() {
   );
 
   const filtered = useMemo(() => {
-    return dies.filter((d) => {
+    const base = dies.filter((d) => {
       const matchSearch =
         !search ||
         (d.die_code || '').toLowerCase().includes(search.toLowerCase()) ||
@@ -241,7 +245,13 @@ export default function DieInventoryPage() {
 
       return matchSearch && matchLocation && matchWaxPiece && matchWax && matchCasting;
     });
-  }, [dies, search, filterLocation, filterWaxPiece, filterWaxSetting, filterCasting]);
+    if (!sortField) return base;
+    return [...base].sort((a, b) => {
+      const av = a[sortField] ?? ''; const bv = b[sortField] ?? '';
+      const cmp = (typeof av === 'number' && typeof bv === 'number') ? av - bv : String(av).localeCompare(String(bv));
+      return sortDir === 'asc' ? cmp : -cmp;
+    });
+  }, [dies, search, filterLocation, filterWaxPiece, filterWaxSetting, filterCasting, sortField, sortDir]);
 
   const allSelected = filtered.length > 0 && filtered.every((d) => selectedIds.has(d.id));
   const someSelected = filtered.some((d) => selectedIds.has(d.id)) && !allSelected;
@@ -702,6 +712,20 @@ export default function DieInventoryPage() {
             <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${syncing ? 'animate-spin' : ''}`} />
             {syncing ? 'Syncing…' : 'Sync from Sheets'}
           </Button>
+          <SortPopover
+            columns={[
+              { id: 'die_code', label: 'Die Code' },
+              { id: 'quantity', label: 'Quantity' },
+              { id: 'wax_piece_qty', label: 'Wax Piece Qty' },
+              { id: 'wax_setting_qty', label: 'Wax Setting Qty' },
+              { id: 'casting_qty', label: 'Casting Qty' },
+              { id: 'location', label: 'Location' },
+            ]}
+            sortField={sortField}
+            sortDir={sortDir}
+            onSort={handleSort}
+            onClear={() => { setSortField(''); setSortDir('asc'); }}
+          />
         </div>
 
         {/* Inline edit action bar */}

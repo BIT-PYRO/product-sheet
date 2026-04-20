@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, Pencil, Plus, Printer, Trash2, X } from 'lucide-react';
+import SortPopover from '@/components/sort-popover';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
 import GlobalSearchBar from '@/components/global-search-bar';
 import DateTimeStamp from '@/components/date-time-stamp';
@@ -99,6 +100,9 @@ export default function StockLogPage() {
   const [fRI,           setFRI]           = useState('');
   const [fDateFrom,     setFDateFrom]     = useState('');
   const [fDateTo,       setFDateTo]       = useState('');
+  const [sortField, setSortField] = useState('');
+  const [sortDir, setSortDir] = useState('asc');
+  const handleSort = (field) => { setSortField((prev) => { if (prev === field) { setSortDir((d) => d === 'asc' ? 'desc' : 'asc'); return prev; } setSortDir('asc'); return field; }); };
 
   const showStatus = (msg, type = 'success') => {
     setStatus(msg); setStatusType(type);
@@ -115,7 +119,7 @@ export default function StockLogPage() {
   // ── Filtered rows ────────────────────────────────────────────────────────
   const filteredRows = useMemo(() => {
     const s = fSearch.trim().toLowerCase();
-    return rows.filter((r) => {
+    const base = rows.filter((r) => {
       const itemName = r.item_name || r.stockName || '';
       const receivedFrom = r.received_from || r.receivedFrom || '';
       const issuedTo = r.issued_to || r.issuedTo || '';
@@ -135,7 +139,13 @@ export default function StockLogPage() {
       if (fDateTo   && txnDate > fDateTo)   return false;
       return true;
     });
-  }, [rows, fSearch, fReceivedFrom, fIssuedTo, fType, fStatus, fRI, fDateFrom, fDateTo]);
+    if (!sortField) return base;
+    return [...base].sort((a, b) => {
+      const av = a[sortField] ?? ''; const bv = b[sortField] ?? '';
+      const cmp = (typeof av === 'number' && typeof bv === 'number') ? av - bv : String(av).localeCompare(String(bv));
+      return sortDir === 'asc' ? cmp : -cmp;
+    });
+  }, [rows, fSearch, fReceivedFrom, fIssuedTo, fType, fStatus, fRI, fDateFrom, fDateTo, sortField, sortDir]);
 
   const clearFilters = () => {
     setFSearch(''); setFReceivedFrom(''); setFIssuedTo('');
@@ -339,6 +349,21 @@ export default function StockLogPage() {
               className="inline-flex items-center gap-2 rounded-full border border-midnight-ink bg-white px-4 h-8 text-sm font-medium text-midnight-ink">
               <Printer className="h-4 w-4" /> Print
             </button>
+            <SortPopover
+              columns={[
+                { id: 'txn_date', label: 'Date' },
+                { id: 'inventory_type', label: 'Type' },
+                { id: 'item_name', label: 'Item Name' },
+                { id: 'qty', label: 'Qty' },
+                { id: 'amount', label: 'Amount' },
+                { id: 'received_from', label: 'Received From' },
+                { id: 'issued_to', label: 'Issued To' },
+              ]}
+              sortField={sortField}
+              sortDir={sortDir}
+              onSort={handleSort}
+              onClear={() => { setSortField(''); setSortDir('asc'); }}
+            />
             <button type="button" onClick={() => setIsManageColumnsOpen(true)}
               className="inline-flex items-center gap-2 rounded-full border border-midnight-ink bg-white px-4 h-8 text-sm font-medium text-midnight-ink">
               Manage Columns

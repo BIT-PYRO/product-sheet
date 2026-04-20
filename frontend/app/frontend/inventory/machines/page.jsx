@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, Pencil, Printer, RefreshCw, Trash2, X } from 'lucide-react';
+import SortPopover from '@/components/sort-popover';
 import BulkUploadButton from '@/components/bulk-upload-button';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
 import LastUpdatedFooter from '@/components/last-updated-footer';
@@ -62,6 +63,9 @@ export default function MachinesInventoryPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterDepartment, setFilterDepartment] = useState([]);
   const [filterState, setFilterState] = useState([]);
+  const [sortField, setSortField] = useState('');
+  const [sortDir, setSortDir] = useState('asc');
+  const handleSort = (field) => { setSortField((prev) => { if (prev === field) { setSortDir((d) => d === 'asc' ? 'desc' : 'asc'); return prev; } setSortDir('asc'); return field; }); };
   const [customDepartmentFilter, setCustomDepartmentFilter] = useState('');
   const [customStateFilter, setCustomStateFilter] = useState('');
   const [isManageColumnsOpen, setIsManageColumnsOpen] = useState(false);
@@ -162,7 +166,7 @@ export default function MachinesInventoryPage() {
     const search = searchTerm.trim().toLowerCase();
     const effectiveDepartmentFilter = (filterDepartment && filterDepartment.length > 0) ? filterDepartment : [];
     const effectiveStateFilter = (filterState && filterState.length > 0) ? filterState : [];
-    return rows.filter((row) => {
+    const base = rows.filter((row) => {
       const machineName = row.machine_name || row.machineName || '';
       const matchesSearch = !search || [machineName, row.particulars, row.department].some((v) => String(v || '').toLowerCase().includes(search));
       const matchesDepartment = effectiveDepartmentFilter.length === 0 || effectiveDepartmentFilter.some(f => String(row.department || '').toLowerCase().includes(f.toLowerCase()));
@@ -175,7 +179,13 @@ export default function MachinesInventoryPage() {
       });
       return matchesSearch && matchesDepartment && matchesState;
     });
-  }, [rows, searchTerm, filterDepartment, filterState]);
+    if (!sortField) return base;
+    return [...base].sort((a, b) => {
+      const av = a[sortField] ?? ''; const bv = b[sortField] ?? '';
+      const cmp = (typeof av === 'number' && typeof bv === 'number') ? av - bv : String(av).localeCompare(String(bv));
+      return sortDir === 'asc' ? cmp : -cmp;
+    });
+  }, [rows, searchTerm, filterDepartment, filterState, sortField, sortDir]);
 
   const [workforceDepts, setWorkforceDepts] = useState([]);
 
@@ -549,6 +559,20 @@ export default function MachinesInventoryPage() {
               <Printer className="h-4 w-4" />
               Print
             </button>
+            <SortPopover
+              columns={[
+                { id: 'machine_name', label: 'Machine Name' },
+                { id: 'department', label: 'Department' },
+                { id: 'running_qty', label: 'Running Qty' },
+                { id: 'idle_qty', label: 'Idle Qty' },
+                { id: 'breakdown_qty', label: 'Breakdown Qty' },
+                { id: 'maintenance_qty', label: 'Maintenance Qty' },
+              ]}
+              sortField={sortField}
+              sortDir={sortDir}
+              onSort={handleSort}
+              onClear={() => { setSortField(''); setSortDir('asc'); }}
+            />
             <button
               type="button"
               onClick={() => setIsManageColumnsOpen(true)}
