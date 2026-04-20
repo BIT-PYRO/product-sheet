@@ -105,6 +105,8 @@ export default function DieInventoryPage() {
   const [addOpen, setAddOpen] = useState(false);
   const [form, setForm] = useState(emptyDie());
   const [saving, setSaving] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [syncMsg, setSyncMsg] = useState('');
   const [editingDieId, setEditingDieId] = useState(null);
 
   const [selectedIds, setSelectedIds] = useState(new Set());
@@ -568,6 +570,23 @@ export default function DieInventoryPage() {
     return `${Math.floor(hr / 24)}d`;
   }
 
+  async function handleSyncFromSheets() {
+    setSyncing(true);
+    setSyncMsg('');
+    try {
+      const res = await fetch('/api/die-inventory/sync-from-sheets', { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.message || `Error ${res.status}`);
+      setSyncMsg(data.message || 'Sync complete.');
+      fetchDies();
+    } catch (err) {
+      setSyncMsg(err.message || 'Sync failed.');
+    } finally {
+      setSyncing(false);
+      setTimeout(() => setSyncMsg(''), 5000);
+    }
+  }
+
   const ff = (key) => (val) => setForm((prev) => ({ ...prev, [key]: val }));
   const hasActiveFilters = search || filterLocation.length || filterWaxPiece.length || filterWaxSetting.length || filterCasting.length;
 
@@ -673,6 +692,16 @@ export default function DieInventoryPage() {
             <Upload className="w-3.5 h-3.5 mr-1.5" />
             Bulk Upload
           </Button>
+          <Button
+            onClick={handleSyncFromSheets}
+            disabled={syncing}
+            variant="outline"
+            className="border-deep-blue text-deep-blue hover:bg-deep-blue/10 rounded-full px-4 text-sm h-8"
+            title="Rebuild designer_skus and master_skus from Designer Sheet and Product Sheet data"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${syncing ? 'animate-spin' : ''}`} />
+            {syncing ? 'Syncing…' : 'Sync from Sheets'}
+          </Button>
         </div>
 
         {/* Inline edit action bar */}
@@ -745,6 +774,13 @@ export default function DieInventoryPage() {
             </button>
           </div>
         </section>
+
+        {/* Sync status */}
+        {syncMsg && (
+          <div className="mb-2 rounded-lg border border-trust-blue/30 bg-trust-blue/10 px-4 py-2 text-sm text-trust-blue">
+            {syncMsg}
+          </div>
+        )}
 
         {/* Error */}
         {fetchError && (

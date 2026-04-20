@@ -448,6 +448,17 @@ class DieInventoryItemViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 
 		return Response({'success': True, 'message': msg, 'created': created, 'updated': updated, 'errors': errors}, status=status.HTTP_201_CREATED)
 
+	@extend_schema(summary='Sync designer_skus and master_skus from Designer Sheet and Product Sheet', tags=['Die Inventory'])
+	@action(detail=False, methods=['post'], url_path='sync-from-sheets')
+	def sync_from_sheets(self, request):
+		from inventory.services.die_sync import sync_all_dies_from_sheets
+		result = sync_all_dies_from_sheets()
+		return Response({
+			'success': True,
+			'message': f"Sync complete. {result['created']} die(s) created, {result['updated']} updated.",
+			'data': result,
+		})
+
 
 # ── Die Transaction ────────────────────────────────────────────────────────────
 
