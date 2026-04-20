@@ -1251,7 +1251,7 @@ export default function ProductInventoryPage() {
           <div className="overflow-auto max-h-[calc(100vh-220px)]">
             <table className="w-full border-separate border-spacing-0 text-sm">
               <thead className="sticky top-0 z-20 bg-[#dbeafe]">
-                <tr className="text-midnight-ink font-bold border-b-2 border-soft-border">
+                <tr className="text-midnight-ink font-normal border-b-2 border-soft-border">
                   <th className="border border-soft-border p-2 w-8 sticky left-0 bg-[#dbeafe] z-30 shadow-[2px_0_4px_-1px_rgba(0,0,0,0.08)]">
                     <Checkbox
                       checked={allPageSelected}
@@ -1260,15 +1260,15 @@ export default function ProductInventoryPage() {
                       disabled={filteredData.length === 0 || editingRowIds.size > 0}
                     />
                   </th>
-                  {visibleColumns.has('image') && <th className="border border-soft-border p-2 min-w-[80px] bg-[#dbeafe]">IMAGE</th>}
-                  {visibleColumns.has('masterSku') && <th className="border border-soft-border p-2 min-w-[120px] bg-[#dbeafe]">MASTER SKU</th>}
-                  {visibleColumns.has('designerSku') && <th className="border border-soft-border p-2 min-w-[120px] bg-[#dbeafe]">DESIGNER SKU</th>}
-                  {visibleColumns.has('finalSku') && <th className="border border-soft-border p-2 min-w-[140px] bg-[#dbeafe]">FINAL STOCK SKU</th>}
-                  {visibleColumns.has('value') && <th className="border border-soft-border p-2 min-w-[90px] bg-[#dbeafe]">VALUE</th>}
-                  {visibleColumns.has('unit') && <th className="border border-soft-border p-2 min-w-[70px] bg-[#dbeafe]">UNIT</th>}
-                  {visibleColumns.has('location') && <th className="border border-soft-border p-2 min-w-[120px] bg-[#dbeafe]">LOCATION</th>}
-                  {visibleColumns.has('wip') && <th className="border border-soft-border p-2 min-w-[80px] bg-[#dbeafe]">WIP</th>}
-                  {visibleColumns.has('totalInDemand') && <th className="border border-soft-border p-2 min-w-[110px] bg-[#dbeafe]">TOTAL IN DEMAND</th>}
+                  {visibleColumns.has('image') && <th className="border border-soft-border p-2 min-w-[80px] bg-[#dbeafe] text-center font-normal text-midnight-ink">IMAGE</th>}
+                  {visibleColumns.has('masterSku') && <th className="border border-soft-border p-2 min-w-[120px] bg-[#dbeafe] text-center font-normal text-midnight-ink">MASTER SKU</th>}
+                  {visibleColumns.has('designerSku') && <th className="border border-soft-border p-2 min-w-[120px] bg-[#dbeafe] text-center font-normal text-midnight-ink">DESIGNER SKU</th>}
+                  {visibleColumns.has('finalSku') && <th className="border border-soft-border p-2 min-w-[140px] bg-[#dbeafe] text-center font-normal text-midnight-ink">FINAL STOCK SKU</th>}
+                  {visibleColumns.has('value') && <th className="border border-soft-border p-2 min-w-[90px] bg-[#dbeafe] text-center font-normal text-midnight-ink">VALUE</th>}
+                  {visibleColumns.has('unit') && <th className="border border-soft-border p-2 min-w-[70px] bg-[#dbeafe] text-center font-normal text-midnight-ink">UNIT</th>}
+                  {visibleColumns.has('location') && <th className="border border-soft-border p-2 min-w-[120px] bg-[#dbeafe] text-center font-normal text-midnight-ink">LOCATION</th>}
+                  {visibleColumns.has('wip') && <th className="border border-soft-border p-2 min-w-[80px] bg-[#dbeafe] text-center font-normal text-midnight-ink">WIP</th>}
+                  {visibleColumns.has('totalInDemand') && <th className="border border-soft-border p-2 min-w-[110px] bg-[#dbeafe] text-center font-normal text-midnight-ink">TOTAL IN DEMAND</th>}
                 </tr>
               </thead>
               <tbody>
