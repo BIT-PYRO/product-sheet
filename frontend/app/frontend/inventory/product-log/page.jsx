@@ -104,8 +104,12 @@ const DIE_LOG_COLUMNS = [
   { id: 'designer_sku',  label: 'Designer SKU' },
   { id: 'location',      label: 'Location' },
   { id: 'qty',           label: 'Quantity' },
-  { id: 'wax_setting',   label: 'Wax Setting' },
-  { id: 'casting',       label: 'Casting' },
+  { id: 'wax_piece_qty',       label: 'Wax Piece Qty' },
+  { id: 'wax_piece_location',  label: 'Wax Piece Location' },
+  { id: 'wax_setting_qty',     label: 'Wax Setting Qty' },
+  { id: 'wax_setting_location',label: 'Wax Setting Location' },
+  { id: 'casting_qty',         label: 'Casting Qty' },
+  { id: 'casting_location',    label: 'Casting Location' },
   { id: 'price',         label: 'Price (₹)' },
   { id: 'amount',        label: 'Amount (₹)' },
   { id: 'received_from', label: 'Received From' },
@@ -118,7 +122,7 @@ const DIE_LOG_COLUMNS = [
 const dieLogEmpty = () => ({
   date: new Date().toISOString().slice(0, 10),
   txn_type: '', die_code: '', master_sku: '', designer_sku: '',
-  location: '', qty: '', wax_setting: '', casting: '',
+  location: '', qty: '', wax_piece_qty: '', wax_piece_location: '', wax_setting_qty: '', wax_setting_location: '', casting_qty: '', casting_location: '',
   price: '', amount: '', received_from: '', issued_to: '', remark: '', activity_status: '',
 });
 
@@ -290,7 +294,9 @@ export default function ProductFindingLogPage() {
         txn_date: dAddForm.date, txn_type: (dAddForm.txn_type || '').toLowerCase(),
         die_code: dAddForm.die_code, master_sku: dAddForm.master_sku, designer_sku: dAddForm.designer_sku,
         location: dAddForm.location, qty: dAddForm.qty || 0,
-        wax_setting: dAddForm.wax_setting, casting: dAddForm.casting,
+        wax_piece_qty: dAddForm.wax_piece_qty || 0, wax_piece_location: dAddForm.wax_piece_location,
+        wax_setting_qty: dAddForm.wax_setting_qty, wax_setting_location: dAddForm.wax_setting_location,
+        casting_qty: dAddForm.casting_qty, casting_location: dAddForm.casting_location,
         price: dAddForm.price || 0, amount: calcAmount(dAddForm.qty, dAddForm.price) || dAddForm.amount || 0,
         received_from: dAddForm.received_from, issued_to: dAddForm.issued_to, remark: dAddForm.remark,
         activity_status: dAddForm.activity_status,
@@ -458,13 +464,14 @@ export default function ProductFindingLogPage() {
       </div>
 
       <div className="w-full px-3 md:px-4 pt-16 pb-16">
-        {/* Back + actions */}
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        {/* Back */}
+        <div className="mb-4 flex justify-end">
           <Link href="/inventory"
             className="inline-flex items-center gap-2 rounded-full border border-midnight-ink bg-white px-4 h-8 text-sm font-medium text-midnight-ink hover:border-trust-blue transition">
             <ArrowLeft className="h-4 w-4" /> Back
           </Link>
-          <div className="flex flex-wrap items-center gap-2">
+        </div>
+        <div className="mb-4 flex flex-wrap gap-2 md:gap-3 justify-end items-center">
             <button type="button" onClick={handlePrint}
               className="inline-flex items-center gap-2 rounded-full border border-midnight-ink bg-white px-4 h-8 text-sm font-medium text-midnight-ink">
               <Printer className="h-4 w-4" /> Print
@@ -493,7 +500,6 @@ export default function ProductFindingLogPage() {
               className="inline-flex items-center gap-2 rounded-full bg-trust-blue px-4 h-8 text-sm font-semibold text-white">
               Save
             </button>
-          </div>
         </div>
 
         {/* Tab pills */}
@@ -681,9 +687,13 @@ export default function ProductFindingLogPage() {
                       {activeTab === 'die' && visibleColumns.has('master_sku')    && <td className="border border-soft-border px-3 py-1.5 min-w-[120px]"><input type="text"   value={row.master_sku || '—'}    readOnly className={inputCls(false)} /></td>}
                       {activeTab === 'die' && visibleColumns.has('designer_sku')  && <td className="border border-soft-border px-3 py-1.5 min-w-[120px]"><input type="text"   value={row.designer_sku || '—'}  readOnly className={inputCls(false)} /></td>}
                       {activeTab === 'die' && visibleColumns.has('location')      && <td className="border border-soft-border px-3 py-1.5 min-w-[110px]"><input type="text"   value={row.location || '—'}      readOnly className={inputCls(false)} /></td>}
-                      {activeTab === 'die' && visibleColumns.has('qty')           && <td className="border border-soft-border px-3 py-1.5 min-w-[80px]"><input  type="number" value={row.qty || 0}              readOnly className={inputCls(false)} /></td>}
-                      {activeTab === 'die' && visibleColumns.has('wax_setting')   && <td className="border border-soft-border px-3 py-1.5 min-w-[110px]"><input type="text"   value={row.wax_setting || '—'}   readOnly className={inputCls(false)} /></td>}
-                      {activeTab === 'die' && visibleColumns.has('casting')       && <td className="border border-soft-border px-3 py-1.5 min-w-[100px]"><input type="text"   value={row.casting || '—'}       readOnly className={inputCls(false)} /></td>}
+                      {activeTab === 'die' && visibleColumns.has('qty')                && <td className="border border-soft-border px-3 py-1.5 min-w-[80px]"><input  type="number" value={row.qty || 0}                   readOnly className={inputCls(false)} /></td>}
+                      {activeTab === 'die' && visibleColumns.has('wax_piece_qty')       && <td className="border border-soft-border px-3 py-1.5 min-w-[110px]"><input type="number" value={row.wax_piece_qty || '—'}    readOnly className={inputCls(false)} /></td>}
+                      {activeTab === 'die' && visibleColumns.has('wax_piece_location')  && <td className="border border-soft-border px-3 py-1.5 min-w-[130px]"><input type="text"   value={row.wax_piece_location || '—'}  readOnly className={inputCls(false)} /></td>}
+                      {activeTab === 'die' && visibleColumns.has('wax_setting_qty')     && <td className="border border-soft-border px-3 py-1.5 min-w-[110px]"><input type="text"   value={row.wax_setting_qty || '—'}     readOnly className={inputCls(false)} /></td>}
+                      {activeTab === 'die' && visibleColumns.has('wax_setting_location') && <td className="border border-soft-border px-3 py-1.5 min-w-[130px]"><input type="text"   value={row.wax_setting_location || '—'} readOnly className={inputCls(false)} /></td>}
+                      {activeTab === 'die' && visibleColumns.has('casting_qty')          && <td className="border border-soft-border px-3 py-1.5 min-w-[100px]"><input type="text"   value={row.casting_qty || '—'}          readOnly className={inputCls(false)} /></td>}
+                      {activeTab === 'die' && visibleColumns.has('casting_location')     && <td className="border border-soft-border px-3 py-1.5 min-w-[130px]"><input type="text"   value={row.casting_location || '—'}     readOnly className={inputCls(false)} /></td>}
 
                       {/* Shared trailing */}
                       {visibleColumns.has('price') && activeTab !== 'die'          && <td className="border border-soft-border px-3 py-1.5 min-w-[90px]"><input type="number" value={getF(row,'price')} onChange={(e) => setEF(row.id,'price',e.target.value)} readOnly={!isEditing} placeholder="0.00" step="0.01" className={inputCls(isEditing)} /></td>}
@@ -913,13 +923,34 @@ export default function ProductFindingLogPage() {
                   className="h-9 rounded-lg border border-soft-border px-3 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue" />
               </div>
               <div className="flex flex-col gap-1">
-                <label className="text-xs font-semibold text-cool-gray uppercase tracking-wide">Wax Setting</label>
-                <input type="text" value={dAddForm.wax_setting} onChange={(e) => setDAddForm((p) => ({ ...p, wax_setting: e.target.value }))}
+                <label className="text-xs font-semibold text-cool-gray uppercase tracking-wide">Wax Piece Qty</label>
+                <input type="number" value={dAddForm.wax_piece_qty} onChange={(e) => setDAddForm((p) => ({ ...p, wax_piece_qty: e.target.value }))}
+                  placeholder="0" min={0}
                   className="h-9 rounded-lg border border-soft-border px-3 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue" />
               </div>
               <div className="flex flex-col gap-1">
-                <label className="text-xs font-semibold text-cool-gray uppercase tracking-wide">Casting</label>
-                <input type="text" value={dAddForm.casting} onChange={(e) => setDAddForm((p) => ({ ...p, casting: e.target.value }))}
+                <label className="text-xs font-semibold text-cool-gray uppercase tracking-wide">Wax Piece Location</label>
+                <input type="text" value={dAddForm.wax_piece_location} onChange={(e) => setDAddForm((p) => ({ ...p, wax_piece_location: e.target.value }))}
+                  className="h-9 rounded-lg border border-soft-border px-3 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue" />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-semibold text-cool-gray uppercase tracking-wide">Wax Setting Qty</label>
+                <input type="text" value={dAddForm.wax_setting_qty} onChange={(e) => setDAddForm((p) => ({ ...p, wax_setting_qty: e.target.value }))}
+                  className="h-9 rounded-lg border border-soft-border px-3 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue" />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-semibold text-cool-gray uppercase tracking-wide">Wax Setting Location</label>
+                <input type="text" value={dAddForm.wax_setting_location} onChange={(e) => setDAddForm((p) => ({ ...p, wax_setting_location: e.target.value }))}
+                  className="h-9 rounded-lg border border-soft-border px-3 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue" />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-semibold text-cool-gray uppercase tracking-wide">Casting Qty</label>
+                <input type="text" value={dAddForm.casting_qty} onChange={(e) => setDAddForm((p) => ({ ...p, casting_qty: e.target.value }))}
+                  className="h-9 rounded-lg border border-soft-border px-3 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue" />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-semibold text-cool-gray uppercase tracking-wide">Casting Location</label>
+                <input type="text" value={dAddForm.casting_location} onChange={(e) => setDAddForm((p) => ({ ...p, casting_location: e.target.value }))}
                   className="h-9 rounded-lg border border-soft-border px-3 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue" />
               </div>
               <div className="flex flex-col gap-1">

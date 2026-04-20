@@ -522,7 +522,7 @@ export default function MachinesInventoryPage() {
       </div>
 
       <div className="w-full px-3 md:px-4 pt-16 pb-16">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div className="mb-4 flex justify-end">
           <Link
             href="/inventory"
             className="inline-flex items-center gap-2 rounded-lg border border-soft-border bg-white px-3 py-2 text-sm font-medium text-midnight-ink hover:border-trust-blue transition"
@@ -530,8 +530,8 @@ export default function MachinesInventoryPage() {
             <ArrowLeft className="h-4 w-4" />
             Back
           </Link>
-
-          <div className="flex flex-wrap items-center gap-2">
+        </div>
+        <div className="mb-4 flex flex-wrap gap-2 md:gap-3 justify-end items-center">
             <button
               type="button"
               onClick={loadRows}
@@ -625,7 +625,6 @@ export default function MachinesInventoryPage() {
                 </span>
               )}
             </button>
-          </div>
         </div>
 
         {editingRowIds.size > 0 && (

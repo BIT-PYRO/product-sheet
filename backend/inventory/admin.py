@@ -98,7 +98,7 @@ class IssueRequestAdmin(admin.ModelAdmin):
 
 @admin.register(DieInventoryItem)
 class DieInventoryItemAdmin(admin.ModelAdmin):
-    list_display = ("id", "die_code", "location", "quantity", "wax_setting", "casting")
+    list_display = ("id", "die_code", "location", "quantity", "wax_piece_qty", "wax_setting_qty", "casting_qty")
     search_fields = ("die_code", "location", "notes")
 
 

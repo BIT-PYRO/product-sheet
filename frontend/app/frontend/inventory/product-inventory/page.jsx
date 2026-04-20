@@ -1070,55 +1070,8 @@ export default function ProductInventoryPage() {
           </div>
         </div>
 
-        {/* Filters */}
-        <section className="border border-soft-border rounded-lg mb-4 bg-[#dbeafe] p-3">
-          <div className="flex flex-wrap gap-2 items-center">
-            <input
-              type="text"
-              placeholder="Search"
-              value={searchTerm}
-              onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
-              className="h-8 text-sm w-36 bg-white rounded-md border border-trust-blue/40 px-3"
-            />
-            <MultiselectFilterPopover
-              label="Unit"
-              selectedValues={filterUnit}
-              onSelectValues={(value) => { setFilterUnit(value); setCurrentPage(1); }}
-              options={UNIT_OPTIONS}
-              storageKey="inventory:product:unit"
-            />
-            <MultiselectFilterPopover
-              label="Location"
-              selectedValues={filterLocation}
-              onSelectValues={(value) => { setFilterLocation(value); setCurrentPage(1); }}
-              options={locationOptions}
-              storageKey="inventory:product:location"
-            />
-            <MultiselectFilterPopover
-              label="Stock State"
-              selectedValues={filterStockState}
-              onSelectValues={(value) => { setFilterStockState(value); setCurrentPage(1); }}
-              options={['In Stock', 'Out of Stock', 'WIP']}
-              storageKey="inventory:product:stock-state"
-            />
-            <button
-              type="button"
-              onClick={() => {
-                setSearchTerm('');
-                setFilterUnit([]);
-                setFilterLocation([]);
-                setFilterStockState([]);
-                setCurrentPage(1);
-              }}
-              className="h-8 px-3 text-sm border rounded bg-trust-blue text-white border-trust-blue font-medium"
-            >
-              Clear
-            </button>
-          </div>
-        </section>
-
         {/* Action Buttons */}
-        <div className="flex flex-wrap gap-2 md:gap-4 justify-end mb-4 items-center">
+        <div className="mb-4 flex flex-wrap gap-2 md:gap-3 justify-end items-center">
 
           <Button onClick={loadData} variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8" disabled={isLoading}>
             <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${isLoading ? 'animate-spin' : ''}`} />
@@ -1203,6 +1156,53 @@ export default function ProductInventoryPage() {
             Delete
           </Button>
         </div>
+
+        {/* Filters */}
+        <section className="border border-soft-border rounded-lg mb-4 bg-[#dbeafe] p-3">
+          <div className="flex flex-wrap gap-2 items-center">
+            <input
+              type="text"
+              placeholder="Search"
+              value={searchTerm}
+              onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
+              className="h-8 text-sm w-36 bg-white rounded-md border border-trust-blue/40 px-3"
+            />
+            <MultiselectFilterPopover
+              label="Unit"
+              selectedValues={filterUnit}
+              onSelectValues={(value) => { setFilterUnit(value); setCurrentPage(1); }}
+              options={UNIT_OPTIONS}
+              storageKey="inventory:product:unit"
+            />
+            <MultiselectFilterPopover
+              label="Location"
+              selectedValues={filterLocation}
+              onSelectValues={(value) => { setFilterLocation(value); setCurrentPage(1); }}
+              options={locationOptions}
+              storageKey="inventory:product:location"
+            />
+            <MultiselectFilterPopover
+              label="Stock State"
+              selectedValues={filterStockState}
+              onSelectValues={(value) => { setFilterStockState(value); setCurrentPage(1); }}
+              options={['In Stock', 'Out of Stock', 'WIP']}
+              storageKey="inventory:product:stock-state"
+            />
+            <button
+              type="button"
+              onClick={() => {
+                setSearchTerm('');
+                setFilterUnit([]);
+                setFilterLocation([]);
+                setFilterStockState([]);
+                setCurrentPage(1);
+              }}
+              className="h-8 px-3 text-sm border rounded bg-trust-blue text-white border-trust-blue font-medium"
+            >
+              Clear
+            </button>
+          </div>
+        </section>
 
         {/* Status messages */}
         {bulkUploadStatus && (

@@ -9,6 +9,7 @@ import { useSheetPermissions } from '@/hooks/use-sheet-permissions';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
@@ -25,8 +26,12 @@ const DIE_COLUMNS = [
   { id: 'designer_skus', label: 'Designer SKU' },
   { id: 'location', label: 'Location' },
   { id: 'quantity', label: 'Quantity' },
-  { id: 'wax_setting', label: 'Wax Setting' },
-  { id: 'casting', label: 'Casting' },
+  { id: 'wax_piece_qty', label: 'Wax Piece Qty' },
+  { id: 'wax_piece_location', label: 'Wax Piece Location' },
+  { id: 'wax_setting_qty', label: 'Wax Setting Qty' },
+  { id: 'wax_setting_location', label: 'Wax Setting Location' },
+  { id: 'casting_qty', label: 'Casting Qty' },
+  { id: 'casting_location', label: 'Casting Location' },
   { id: 'notes', label: 'Notes' },
 ];
 
@@ -38,8 +43,12 @@ function emptyDie() {
     designer_skus: '',
     location: '',
     quantity: '',
-    wax_setting: '',
-    casting: '',
+    wax_piece_qty: '',
+    wax_piece_location: '',
+    wax_setting_qty: '',
+    wax_setting_location: '',
+    casting_qty: '',
+    casting_location: '',
     notes: '',
     min_level: '',
   };
@@ -89,6 +98,7 @@ export default function DieInventoryPage() {
 
   const [search, setSearch] = useState('');
   const [filterLocation, setFilterLocation] = useState([]);
+  const [filterWaxPiece, setFilterWaxPiece] = useState([]);
   const [filterWaxSetting, setFilterWaxSetting] = useState([]);
   const [filterCasting, setFilterCasting] = useState([]);
 
@@ -190,12 +200,16 @@ export default function DieInventoryPage() {
     () => Array.from(new Set(dies.map((d) => String(d.location || '').trim()).filter(Boolean))).sort(),
     [dies]
   );
+  const waxPieceOptions = useMemo(
+    () => Array.from(new Set(dies.map((d) => String(d.wax_piece_qty || '').trim()).filter(Boolean))).sort(),
+    [dies]
+  );
   const waxSettingOptions = useMemo(
-    () => Array.from(new Set(dies.map((d) => String(d.wax_setting || '').trim()).filter(Boolean))).sort(),
+    () => Array.from(new Set(dies.map((d) => String(d.wax_setting_qty || '').trim()).filter(Boolean))).sort(),
     [dies]
   );
   const castingOptions = useMemo(
-    () => Array.from(new Set(dies.map((d) => String(d.casting || '').trim()).filter(Boolean))).sort(),
+    () => Array.from(new Set(dies.map((d) => String(d.casting_qty || '').trim()).filter(Boolean))).sort(),
     [dies]
   );
 
@@ -204,7 +218,6 @@ export default function DieInventoryPage() {
       const matchSearch =
         !search ||
         (d.die_code || '').toLowerCase().includes(search.toLowerCase()) ||
-        (d.location || '').toLowerCase().includes(search.toLowerCase()) ||
         skuList(d.master_skus).some((s) => s.toLowerCase().includes(search.toLowerCase())) ||
         skuList(d.designer_skus).some((s) => s.toLowerCase().includes(search.toLowerCase()));
 
@@ -212,17 +225,21 @@ export default function DieInventoryPage() {
         filterLocation.length === 0 ||
         filterLocation.some((v) => String(d.location || '').toLowerCase().includes(v.toLowerCase()));
 
+      const matchWaxPiece =
+        filterWaxPiece.length === 0 ||
+        filterWaxPiece.some((v) => String(d.wax_piece_qty || '').toLowerCase().includes(v.toLowerCase()));
+
       const matchWax =
         filterWaxSetting.length === 0 ||
-        filterWaxSetting.some((v) => String(d.wax_setting || '').toLowerCase().includes(v.toLowerCase()));
+        filterWaxSetting.some((v) => String(d.wax_setting_qty || '').toLowerCase().includes(v.toLowerCase()));
 
       const matchCasting =
         filterCasting.length === 0 ||
-        filterCasting.some((v) => String(d.casting || '').toLowerCase().includes(v.toLowerCase()));
+        filterCasting.some((v) => String(d.casting_qty || '').toLowerCase().includes(v.toLowerCase()));
 
-      return matchSearch && matchLocation && matchWax && matchCasting;
+      return matchSearch && matchLocation && matchWaxPiece && matchWax && matchCasting;
     });
-  }, [dies, search, filterLocation, filterWaxSetting, filterCasting]);
+  }, [dies, search, filterLocation, filterWaxPiece, filterWaxSetting, filterCasting]);
 
   const allSelected = filtered.length > 0 && filtered.every((d) => selectedIds.has(d.id));
   const someSelected = filtered.some((d) => selectedIds.has(d.id)) && !allSelected;
@@ -294,8 +311,12 @@ export default function DieInventoryPage() {
       designer_skus: Array.isArray(d.designer_skus) ? d.designer_skus.join(', ') : d.designer_skus || '',
       location: d.location || '',
       quantity: d.quantity ?? '',
-      wax_setting: d.wax_setting || '',
-      casting: d.casting || '',
+      wax_piece_qty: d.wax_piece_qty ?? '',
+      wax_piece_location: d.wax_piece_location || '',
+      wax_setting_qty: d.wax_setting_qty || '',
+      wax_setting_location: d.wax_setting_location || '',
+      casting_qty: d.casting_qty || '',
+      casting_location: d.casting_location || '',
       notes: d.notes || '',
       min_level: d.min_level ?? '',
     });
@@ -548,7 +569,7 @@ export default function DieInventoryPage() {
   }
 
   const ff = (key) => (val) => setForm((prev) => ({ ...prev, [key]: val }));
-  const hasActiveFilters = search || filterLocation.length || filterWaxSetting.length || filterCasting.length;
+  const hasActiveFilters = search || filterLocation.length || filterWaxPiece.length || filterWaxSetting.length || filterCasting.length;
 
   // ── Render ───────────────────────────────────────────────────────────────────
 
@@ -647,7 +668,7 @@ export default function DieInventoryPage() {
           <Button
             onClick={() => { setBulkFile(null); setBulkUploadOpen(true); }}
             variant="outline"
-            className="border-emerald-500 text-emerald-600 hover:bg-emerald-50 rounded-full px-4 text-sm h-8"
+            className="border-midnight-ink text-midnight-ink hover:bg-midnight-ink/10 rounded-full px-4 text-sm h-8"
           >
             <Upload className="w-3.5 h-3.5 mr-1.5" />
             Bulk Upload
@@ -684,7 +705,7 @@ export default function DieInventoryPage() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search die code / SKU"
-                className="h-8 text-sm w-48 bg-white rounded-md border border-trust-blue/40 px-3"
+                className="h-8 text-sm w-56 bg-white rounded-md border border-trust-blue/40 px-3"
               />
             </div>
             <MultiselectFilterPopover
@@ -693,6 +714,13 @@ export default function DieInventoryPage() {
               onSelectValues={setFilterLocation}
               options={locationOptions}
               storageKey="inventory:die:location"
+            />
+            <MultiselectFilterPopover
+              label="Wax Piece"
+              selectedValues={filterWaxPiece}
+              onSelectValues={setFilterWaxPiece}
+              options={waxPieceOptions}
+              storageKey="inventory:die:wax_piece"
             />
             <MultiselectFilterPopover
               label="Wax Setting"
@@ -710,7 +738,7 @@ export default function DieInventoryPage() {
             />
             <button
               type="button"
-              onClick={() => { setSearch(''); setFilterLocation([]); setFilterWaxSetting([]); setFilterCasting([]); }}
+              onClick={() => { setSearch(''); setFilterLocation([]); setFilterWaxPiece([]); setFilterWaxSetting([]); setFilterCasting([]); }}
               className="h-8 px-3 text-sm border rounded bg-trust-blue text-white border-trust-blue font-medium"
             >
               Clear
@@ -741,16 +769,20 @@ export default function DieInventoryPage() {
                       className="h-4 w-4 cursor-pointer rounded border-soft-border accent-trust-blue"
                     />
                   </th>
-                  {visibleColumns.has('sno') && <th className="border border-soft-border px-3 py-2.5 text-left text-xs font-normal text-black w-10">#</th>}
-                  {visibleColumns.has('image') && <th className="border border-soft-border px-3 py-2.5 text-left text-xs font-normal text-black">Image</th>}
-                  {visibleColumns.has('die_code') && <th className="border border-soft-border px-3 py-2.5 text-left text-xs font-normal text-black">Die Code</th>}
-                  {visibleColumns.has('master_skus') && <th className="border border-soft-border px-3 py-2.5 text-left text-xs font-normal text-black">Master SKU</th>}
-                  {visibleColumns.has('designer_skus') && <th className="border border-soft-border px-3 py-2.5 text-left text-xs font-normal text-black">Designer SKU</th>}
-                  {visibleColumns.has('location') && <th className="border border-soft-border px-3 py-2.5 text-left text-xs font-normal text-black">Location</th>}
-                  {visibleColumns.has('quantity') && <th className="border border-soft-border px-3 py-2.5 text-right text-xs font-normal text-black">Quantity</th>}
-                  {visibleColumns.has('wax_setting') && <th className="border border-soft-border px-3 py-2.5 text-left text-xs font-normal text-black">Wax Setting</th>}
-                  {visibleColumns.has('casting') && <th className="border border-soft-border px-3 py-2.5 text-left text-xs font-normal text-black">Casting</th>}
-                  {visibleColumns.has('notes') && <th className="border border-soft-border px-3 py-2.5 text-left text-xs font-normal text-black">Notes</th>}
+                  {visibleColumns.has('sno') && <th className="border border-soft-border px-3 py-2.5 text-center text-xs font-normal text-black w-10">#</th>}
+                  {visibleColumns.has('image') && <th className="border border-soft-border px-3 py-2.5 text-center text-xs font-normal text-black">Image</th>}
+                  {visibleColumns.has('die_code') && <th className="border border-soft-border px-3 py-2.5 text-center text-xs font-normal text-black">Die Code</th>}
+                  {visibleColumns.has('master_skus') && <th className="border border-soft-border px-3 py-2.5 text-center text-xs font-normal text-black">Master SKU</th>}
+                  {visibleColumns.has('designer_skus') && <th className="border border-soft-border px-3 py-2.5 text-center text-xs font-normal text-black">Designer SKU</th>}
+                  {visibleColumns.has('location') && <th className="border border-soft-border px-3 py-2.5 text-center text-xs font-normal text-black">Location</th>}
+                  {visibleColumns.has('quantity') && <th className="border border-soft-border px-3 py-2.5 text-center text-xs font-normal text-black">Quantity</th>}
+                  {visibleColumns.has('wax_piece_qty') && <th className="border border-soft-border px-3 py-2.5 text-center text-xs font-normal text-black">Wax Piece Qty</th>}
+                  {visibleColumns.has('wax_piece_location') && <th className="border border-soft-border px-3 py-2.5 text-center text-xs font-normal text-black">Wax Piece Location</th>}
+                  {visibleColumns.has('wax_setting_qty') && <th className="border border-soft-border px-3 py-2.5 text-center text-xs font-normal text-black">Wax Setting Qty</th>}
+                  {visibleColumns.has('wax_setting_location') && <th className="border border-soft-border px-3 py-2.5 text-center text-xs font-normal text-black">Wax Setting Location</th>}
+                  {visibleColumns.has('casting_qty') && <th className="border border-soft-border px-3 py-2.5 text-center text-xs font-normal text-black">Casting Qty</th>}
+                  {visibleColumns.has('casting_location') && <th className="border border-soft-border px-3 py-2.5 text-center text-xs font-normal text-black">Casting Location</th>}
+                  {visibleColumns.has('notes') && <th className="border border-soft-border px-3 py-2.5 text-center text-xs font-normal text-black">Notes</th>}
                 </tr>
               </thead>
               <tbody>
@@ -866,22 +898,58 @@ export default function DieInventoryPage() {
                                 <td className="border border-soft-border px-3 py-2 text-right font-medium text-midnight-ink" rowSpan={subRowCount}>{d.quantity ?? '—'}</td>
                               )
                             )}
-                            {visibleColumns.has('wax_setting') && (
+                            {visibleColumns.has('wax_piece_qty') && (
                               isEditing ? (
                                 <td className="border border-soft-border px-3 py-2" rowSpan={subRowCount}>
-                                  <input type="text" value={editBuffer[d.id]?.wax_setting ?? ''} onChange={(e) => updateEditBuffer(d.id, 'wax_setting', e.target.value)} className="h-8 w-full rounded border border-soft-border px-2 text-sm" />
+                                  <input type="number" value={editBuffer[d.id]?.wax_piece_qty ?? ''} onChange={(e) => updateEditBuffer(d.id, 'wax_piece_qty', e.target.value)} className="h-8 w-full rounded border border-soft-border px-2 text-sm text-right" />
                                 </td>
                               ) : (
-                                <td className="border border-soft-border px-3 py-2 text-midnight-ink" rowSpan={subRowCount}>{d.wax_setting || '—'}</td>
+                                <td className="border border-soft-border px-3 py-2 text-right text-midnight-ink" rowSpan={subRowCount}>{d.wax_piece_qty ?? '—'}</td>
                               )
                             )}
-                            {visibleColumns.has('casting') && (
+                            {visibleColumns.has('wax_piece_location') && (
                               isEditing ? (
                                 <td className="border border-soft-border px-3 py-2" rowSpan={subRowCount}>
-                                  <input type="text" value={editBuffer[d.id]?.casting ?? ''} onChange={(e) => updateEditBuffer(d.id, 'casting', e.target.value)} className="h-8 w-full rounded border border-soft-border px-2 text-sm" />
+                                  <input type="text" value={editBuffer[d.id]?.wax_piece_location ?? ''} onChange={(e) => updateEditBuffer(d.id, 'wax_piece_location', e.target.value)} className="h-8 w-full rounded border border-soft-border px-2 text-sm" />
                                 </td>
                               ) : (
-                                <td className="border border-soft-border px-3 py-2 text-midnight-ink" rowSpan={subRowCount}>{d.casting || '—'}</td>
+                                <td className="border border-soft-border px-3 py-2 text-midnight-ink" rowSpan={subRowCount}>{d.wax_piece_location || '—'}</td>
+                              )
+                            )}
+                            {visibleColumns.has('wax_setting_qty') && (
+                              isEditing ? (
+                                <td className="border border-soft-border px-3 py-2" rowSpan={subRowCount}>
+                                  <input type="text" value={editBuffer[d.id]?.wax_setting_qty ?? ''} onChange={(e) => updateEditBuffer(d.id, 'wax_setting_qty', e.target.value)} className="h-8 w-full rounded border border-soft-border px-2 text-sm" />
+                                </td>
+                              ) : (
+                                <td className="border border-soft-border px-3 py-2 text-midnight-ink" rowSpan={subRowCount}>{d.wax_setting_qty || '—'}</td>
+                              )
+                            )}
+                            {visibleColumns.has('wax_setting_location') && (
+                              isEditing ? (
+                                <td className="border border-soft-border px-3 py-2" rowSpan={subRowCount}>
+                                  <input type="text" value={editBuffer[d.id]?.wax_setting_location ?? ''} onChange={(e) => updateEditBuffer(d.id, 'wax_setting_location', e.target.value)} className="h-8 w-full rounded border border-soft-border px-2 text-sm" />
+                                </td>
+                              ) : (
+                                <td className="border border-soft-border px-3 py-2 text-midnight-ink" rowSpan={subRowCount}>{d.wax_setting_location || '—'}</td>
+                              )
+                            )}
+                            {visibleColumns.has('casting_qty') && (
+                              isEditing ? (
+                                <td className="border border-soft-border px-3 py-2" rowSpan={subRowCount}>
+                                  <input type="text" value={editBuffer[d.id]?.casting_qty ?? ''} onChange={(e) => updateEditBuffer(d.id, 'casting_qty', e.target.value)} className="h-8 w-full rounded border border-soft-border px-2 text-sm" />
+                                </td>
+                              ) : (
+                                <td className="border border-soft-border px-3 py-2 text-midnight-ink" rowSpan={subRowCount}>{d.casting_qty || '—'}</td>
+                              )
+                            )}
+                            {visibleColumns.has('casting_location') && (
+                              isEditing ? (
+                                <td className="border border-soft-border px-3 py-2" rowSpan={subRowCount}>
+                                  <input type="text" value={editBuffer[d.id]?.casting_location ?? ''} onChange={(e) => updateEditBuffer(d.id, 'casting_location', e.target.value)} className="h-8 w-full rounded border border-soft-border px-2 text-sm" />
+                                </td>
+                              ) : (
+                                <td className="border border-soft-border px-3 py-2 text-midnight-ink" rowSpan={subRowCount}>{d.casting_location || '—'}</td>
                               )
                             )}
                             {visibleColumns.has('notes') && (
@@ -979,6 +1047,7 @@ export default function DieInventoryPage() {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Issue Request Details</DialogTitle>
+            <DialogDescription className="sr-only">Review and approve or reject a die issue request.</DialogDescription>
           </DialogHeader>
           {activeRequest && (
             <div className="space-y-3 text-sm">
@@ -1011,6 +1080,7 @@ export default function DieInventoryPage() {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Issue Die</DialogTitle>
+            <DialogDescription className="sr-only">Issue a die to a person or department.</DialogDescription>
           </DialogHeader>
           <div className="grid grid-cols-1 gap-3">
             <div className="flex flex-col gap-1">
@@ -1055,14 +1125,19 @@ export default function DieInventoryPage() {
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingDieId !== null ? 'Edit Die' : 'Add Die'}</DialogTitle>
+            <DialogDescription className="sr-only">{editingDieId !== null ? 'Edit the details of an existing die.' : 'Add a new die to inventory.'}</DialogDescription>
           </DialogHeader>
           <div className="grid grid-cols-2 gap-3">
             <Field label="Die Code *" value={form.die_code} onChange={ff('die_code')} />
             <Field label="Location" value={form.location} onChange={ff('location')} />
             <Field label="Quantity" type="number" value={form.quantity} onChange={ff('quantity')} />
             <Field label="Min Level" type="number" value={form.min_level} onChange={ff('min_level')} />
-            <Field label="Wax Setting" value={form.wax_setting} onChange={ff('wax_setting')} />
-            <Field label="Casting" value={form.casting} onChange={ff('casting')} />
+            <Field label="Wax Piece Qty" type="number" value={form.wax_piece_qty} onChange={ff('wax_piece_qty')} />
+            <Field label="Wax Piece Location" value={form.wax_piece_location} onChange={ff('wax_piece_location')} />
+            <Field label="Wax Setting Qty" value={form.wax_setting_qty} onChange={ff('wax_setting_qty')} />
+            <Field label="Wax Setting Location" value={form.wax_setting_location} onChange={ff('wax_setting_location')} />
+            <Field label="Casting Qty" value={form.casting_qty} onChange={ff('casting_qty')} />
+            <Field label="Casting Location" value={form.casting_location} onChange={ff('casting_location')} />
             <div className="col-span-2">
               <Field label="Master SKUs (comma-separated)" value={form.master_skus} onChange={ff('master_skus')} />
             </div>
@@ -1140,6 +1215,7 @@ export default function DieInventoryPage() {
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle>Bulk Upload Dies</DialogTitle>
+            <DialogDescription className="sr-only">Upload an Excel file to add multiple dies at once.</DialogDescription>
           </DialogHeader>
           <p className="text-xs text-cool-gray mb-2">
             Upload an Excel file (.xlsx) with columns: die_code, location, quantity, wax_setting, casting, notes, master_skus, designer_skus
@@ -1164,6 +1240,7 @@ export default function DieInventoryPage() {
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle>Manage Columns</DialogTitle>
+            <DialogDescription className="sr-only">Show or hide columns in the die inventory table.</DialogDescription>
           </DialogHeader>
           <div className="space-y-2 max-h-72 overflow-y-auto">
             {DIE_COLUMNS.map((col) => (

@@ -252,7 +252,10 @@ class DieInventoryItemSerializer(serializers.ModelSerializer):
         model = DieInventoryItem
         fields = [
             'id', 'die_code', 'image', 'master_skus', 'designer_skus',
-            'location', 'quantity', 'wax_setting', 'casting',
+            'location', 'quantity',
+            'wax_piece_qty', 'wax_piece_location',
+            'wax_setting_qty', 'wax_setting_location',
+            'casting_qty', 'casting_location',
             'notes', 'used_qty', 'min_level',
             'created_at', 'updated_at',
         ]
@@ -265,7 +268,10 @@ class DieTransactionSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'txn_date', 'die', 'die_code', 'txn_type', 'inventory_type',
             'master_sku', 'designer_sku', 'location', 'qty',
-            'wax_setting', 'casting', 'price', 'amount',
+            'wax_piece_qty', 'wax_piece_location',
+            'wax_setting_qty', 'wax_setting_location',
+            'casting_qty', 'casting_location',
+            'price', 'amount',
             'received_from', 'issued_to', 'remark', 'activity_status',
             'created_at', 'updated_at',
         ]
