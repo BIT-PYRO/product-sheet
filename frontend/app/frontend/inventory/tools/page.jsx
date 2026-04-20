@@ -483,7 +483,7 @@ export default function ToolsInventoryPage() {
         </div>
       </div>
 
-      <div className="w-full px-4 md:px-6 pt-20 pb-8">
+      <div className="w-full px-3 md:px-4 pt-16 pb-16">
         <div className="mb-4 flex justify-end">
           <Link
             href="/inventory"
@@ -583,10 +583,10 @@ export default function ToolsInventoryPage() {
 
         <section className="rounded-xl border border-soft-border bg-white shadow-sm">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[1120px] text-sm">
+            <table className="w-full min-w-[1120px] border-collapse text-sm">
               <thead>
-                <tr className="border-b border-soft-border bg-[#dbeafe]">
-                  <th className="px-3 py-3">
+                <tr className="bg-[#dbeafe]">
+                  <th className="border border-soft-border px-3 py-3">
                     <input
                       type="checkbox"
                       checked={allSelected}
@@ -596,15 +596,15 @@ export default function ToolsInventoryPage() {
                       className="h-4 w-4 cursor-pointer rounded border-soft-border accent-trust-blue"
                     />
                   </th>
-                  {visibleColumns.has('sno') && <th className="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray w-16">S. No.</th>}
-                  {visibleColumns.has('toolName') && <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray">Tool name</th>}
-                  {visibleColumns.has('particulars') && <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray">Particulars</th>}
-                  {visibleColumns.has('department') && <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray">Department</th>}
-                  {visibleColumns.has('quantity') && <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray">Quantity</th>}
-                  {visibleColumns.has('used_qty') && <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray">Used Qty</th>}
-                  {visibleColumns.has('unit') && <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray">Unit</th>}
-                  {visibleColumns.has('location') && <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray">Location</th>}
-                  {visibleColumns.has('action') && <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray w-24">Action</th>}
+                  {visibleColumns.has('sno') && <th className="border border-soft-border px-3 py-3 text-left text-xs font-normal text-black w-20">S. No.</th>}
+                  {visibleColumns.has('toolName') && <th className="border border-soft-border px-4 py-3 text-left text-xs font-normal text-black">Tool name</th>}
+                  {visibleColumns.has('particulars') && <th className="border border-soft-border px-4 py-3 text-left text-xs font-normal text-black">Particulars</th>}
+                  {visibleColumns.has('department') && <th className="border border-soft-border px-4 py-3 text-left text-xs font-normal text-black">Department</th>}
+                  {visibleColumns.has('quantity') && <th className="border border-soft-border px-4 py-3 text-left text-xs font-normal text-black">Quantity</th>}
+                  {visibleColumns.has('used_qty') && <th className="border border-soft-border px-4 py-3 text-left text-xs font-normal text-black">Used Qty</th>}
+                  {visibleColumns.has('unit') && <th className="border border-soft-border px-4 py-3 text-left text-xs font-normal text-black">Unit</th>}
+                  {visibleColumns.has('location') && <th className="border border-soft-border px-4 py-3 text-left text-xs font-normal text-black">Location</th>}
+                  {visibleColumns.has('action') && <th className="border border-soft-border px-4 py-3 text-left text-xs font-normal text-black w-24">Action</th>}
                 </tr>
               </thead>
               <tbody>
@@ -615,8 +615,8 @@ export default function ToolsInventoryPage() {
                     </td>
                   </tr>
                 ) : filteredRows.map((row) => (
-                  <tr key={row.id} className="border-b border-soft-border last:border-0 transition hover:bg-[#F8F9FA]">
-                    <td className="px-3 py-2.5">
+                  <tr key={row.id} className="transition hover:bg-[#F8F9FA]">
+                    <td className="border border-soft-border px-3 py-2.5">
                       <input
                         type="checkbox"
                         checked={selectedIds.has(row.id)}
@@ -625,88 +625,88 @@ export default function ToolsInventoryPage() {
                         className="h-4 w-4 cursor-pointer rounded border-soft-border accent-trust-blue"
                       />
                     </td>
-                    {visibleColumns.has('sno') && <td className="px-3 py-2.5 text-midnight-ink">{row.id}</td>}
-                    {visibleColumns.has('toolName') && <td className="px-4 py-2.5">
+                    {visibleColumns.has('sno') && <td className="border border-soft-border px-3 py-2.5 text-midnight-ink">{row.id}</td>}
+                    {visibleColumns.has('toolName') && <td className="border border-soft-border px-4 py-2.5">
                       <input
                         type="text"
                         value={getRowValue(row, 'tool_name')}
                         onChange={(e) => updateRow(row.id, 'tool_name', e.target.value)}
                         placeholder="Enter tool name"
                         readOnly={!editingRowIds.has(row.id)}
-                        className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue read-only:bg-gray-50 read-only:text-cool-gray"
+                        className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue read-only:border-transparent read-only:bg-transparent read-only:text-midnight-ink read-only:cursor-default"
                       />
                     </td>}
-                    {visibleColumns.has('particulars') && <td className="px-4 py-2.5">
+                    {visibleColumns.has('particulars') && <td className="border border-soft-border px-4 py-2.5">
                       <input
                         type="text"
                         value={getRowValue(row, 'particulars')}
                         onChange={(e) => updateRow(row.id, 'particulars', e.target.value)}
                         placeholder="Enter particulars"
                         readOnly={!editingRowIds.has(row.id)}
-                        className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue read-only:bg-gray-50 read-only:text-cool-gray"
+                        className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue read-only:border-transparent read-only:bg-transparent read-only:text-midnight-ink read-only:cursor-default"
                       />
                     </td>}
-                    {visibleColumns.has('department') && <td className="px-4 py-2.5">
+                    {visibleColumns.has('department') && <td className="border border-soft-border px-4 py-2.5">
                       <input
                         type="text"
                         value={getRowValue(row, 'department')}
                         onChange={(e) => updateRow(row.id, 'department', e.target.value)}
                         placeholder="Enter department"
                         readOnly={!editingRowIds.has(row.id)}
-                        className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue read-only:bg-gray-50 read-only:text-cool-gray"
+                        className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue read-only:border-transparent read-only:bg-transparent read-only:text-midnight-ink read-only:cursor-default"
                       />
                     </td>}
-                    {visibleColumns.has('quantity') && <td className="px-4 py-2.5">
+                    {visibleColumns.has('quantity') && <td className="border border-soft-border px-4 py-2.5">
                       <input
                         type="number"
                         value={getRowValue(row, 'quantity')}
                         onChange={(e) => updateRow(row.id, 'quantity', e.target.value)}
                         placeholder="0"
                         readOnly={!editingRowIds.has(row.id)}
-                        className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue read-only:bg-gray-50 read-only:text-cool-gray"
+                        className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue read-only:border-transparent read-only:bg-transparent read-only:text-midnight-ink read-only:cursor-default"
                       />
                     </td>}
-                    {visibleColumns.has('used_qty') && <td className="px-4 py-2.5">
+                    {visibleColumns.has('used_qty') && <td className="border border-soft-border px-4 py-2.5">
                       <input
                         type="number"
                         value={getRowValue(row, 'used_qty')}
                         onChange={(e) => updateRow(row.id, 'used_qty', e.target.value)}
                         placeholder="0"
                         readOnly={!editingRowIds.has(row.id)}
-                        className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue read-only:bg-gray-50 read-only:text-cool-gray"
+                        className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue read-only:border-transparent read-only:bg-transparent read-only:text-midnight-ink read-only:cursor-default"
                       />
                     </td>}
-                    {visibleColumns.has('min_level') && <td className="px-4 py-2.5">
+                    {visibleColumns.has('min_level') && <td className="border border-soft-border px-4 py-2.5">
                       <input
                         type="number"
                         value={getRowValue(row, 'min_level')}
                         onChange={(e) => updateRow(row.id, 'min_level', e.target.value)}
                         placeholder="0"
                         readOnly={!editingRowIds.has(row.id)}
-                        className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue read-only:bg-gray-50 read-only:text-cool-gray"
+                        className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue read-only:border-transparent read-only:bg-transparent read-only:text-midnight-ink read-only:cursor-default"
                       />
                     </td>}
-                    {visibleColumns.has('unit') && <td className="px-4 py-2.5">
+                    {visibleColumns.has('unit') && <td className="border border-soft-border px-4 py-2.5">
                       <input
                         type="text"
                         value={getRowValue(row, 'unit')}
                         onChange={(e) => updateRow(row.id, 'unit', e.target.value)}
                         placeholder="PCS"
                         readOnly={!editingRowIds.has(row.id)}
-                        className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue read-only:bg-gray-50 read-only:text-cool-gray"
+                        className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue read-only:border-transparent read-only:bg-transparent read-only:text-midnight-ink read-only:cursor-default"
                       />
                     </td>}
-                    {visibleColumns.has('location') && <td className="px-4 py-2.5">
+                    {visibleColumns.has('location') && <td className="border border-soft-border px-4 py-2.5">
                       <input
                         type="text"
                         value={getRowValue(row, 'location')}
                         onChange={(e) => updateRow(row.id, 'location', e.target.value)}
                         placeholder="Store room A"
                         readOnly={!editingRowIds.has(row.id)}
-                        className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue read-only:bg-gray-50 read-only:text-cool-gray"
+                        className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue read-only:border-transparent read-only:bg-transparent read-only:text-midnight-ink read-only:cursor-default"
                       />
                     </td>}
-                    {visibleColumns.has('action') && <td className="px-4 py-2.5">
+                    {visibleColumns.has('action') && <td className="border border-soft-border px-4 py-2.5">
                       <button
                         type="button"
                         onClick={() => deleteRow(row.id)}
@@ -851,7 +851,7 @@ export default function ToolsInventoryPage() {
                   const _stock = Number(_row?.quantity ?? 0);
                   const _qty = Number(issueForm.quantity);
                   if (_stock > 0 && _qty > _stock) {
-                    return <p className="text-xs text-red-600 font-medium mt-0.5">⚠ Exceeds stock by {_qty - _stock}</p>;
+                    return <p className="text-xs text-red-600 font-medium mt-0.5">? Exceeds stock by {_qty - _stock}</p>;
                   }
                   return null;
                 })()}
@@ -1186,3 +1186,4 @@ export default function ToolsInventoryPage() {
     </main>
   );
 }
+

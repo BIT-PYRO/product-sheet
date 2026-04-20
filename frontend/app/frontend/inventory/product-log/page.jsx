@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, Pencil, Plus, Printer, Trash2 } from 'lucide-react';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
+import GlobalSearchBar from '@/components/global-search-bar';
+import DateTimeStamp from '@/components/date-time-stamp';
 import {
   Dialog,
   DialogContent,
@@ -378,13 +380,17 @@ export default function ProductFindingLogPage() {
     <main className="min-h-screen bg-cloud-gray">
       {/* Header */}
       <div className="transition-[left,width] duration-300 ease-in-out fixed top-0 left-0 right-0 z-[60] bg-white/95 py-2 border-b border-soft-border shadow-sm backdrop-blur px-3 md:px-4">
-        <div className="flex items-center gap-3">
-          <MasterNavigationDrawer inHeader />
-          <h1 className="text-xl font-bold tracking-tight text-midnight-ink">PRODUCT & FINDING LOG</h1>
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 shrink-0">
+            <MasterNavigationDrawer inHeader />
+            <h1 className="text-xl font-bold tracking-tight text-midnight-ink">PRODUCT & FINDING LOG</h1>
+          </div>
+          <GlobalSearchBar />
+          <DateTimeStamp />
         </div>
       </div>
 
-      <div className="w-full px-4 md:px-6 pt-20 pb-8">
+      <div className="w-full px-3 md:px-4 pt-16 pb-16">
         {/* Back + actions */}
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <Link href="/inventory"
@@ -503,7 +509,7 @@ export default function ProductFindingLogPage() {
             <table className="w-full border-collapse text-sm" style={{ minWidth: '2000px' }}>
               <thead>
                 <tr className="bg-[#dbeafe] border-b border-soft-border">
-                  <th className="px-3 py-2 text-left text-xs font-bold uppercase tracking-wide text-cool-gray w-10">
+                  <th className="border border-soft-border px-3 py-2 text-left text-xs font-normal text-black w-10">
                     <input type="checkbox" checked={allSelected}
                       ref={(el) => { if (el) el.indeterminate = someSelected; }}
                       onChange={(e) => toggleSelectAll(e.target.checked)}
@@ -511,7 +517,7 @@ export default function ProductFindingLogPage() {
                       className="h-4 w-4 cursor-pointer rounded border-soft-border accent-trust-blue" />
                   </th>
                   {COLUMNS.filter((c) => visibleColumns.has(c.id)).map((col) => (
-                    <th key={col.id} className="px-3 py-2 text-left text-xs font-bold uppercase tracking-wide text-cool-gray whitespace-nowrap">
+                    <th key={col.id} className="border border-soft-border px-3 py-2 text-left text-xs font-normal text-black whitespace-nowrap">
                       {col.label}
                     </th>
                   ))}
@@ -534,22 +540,22 @@ export default function ProductFindingLogPage() {
                       className={`border-b border-soft-border/70 last:border-b-0 ${
                         isEditing ? 'bg-blue-50/40' : isReceived ? 'bg-emerald-50/30' : isIssued ? 'bg-amber-50/30' : ''
                       }`}>
-                      <td className="px-3 py-1.5">
+                      <td className="border border-soft-border px-3 py-1.5">
                         <input type="checkbox" checked={selectedIds.has(row.id)} onChange={() => toggleRow(row.id)}
                           disabled={editingIds.size > 0}
                           className="h-4 w-4 cursor-pointer rounded border-soft-border accent-trust-blue" />
                       </td>
 
                       {/* Shared columns */}
-                      {visibleColumns.has('sno')            && <td className="px-3 py-1.5 text-cool-gray text-xs">{idx + 1}</td>}
-                      {visibleColumns.has('date')           && <td className="px-3 py-1.5 min-w-[120px]"><input type="date" value={getF(row,'date')} onChange={(e) => setEF(row.id,'date',e.target.value)} readOnly={!isEditing} className={inputCls(isEditing)} /></td>}
-                      {visibleColumns.has('receivedIssued') && <td className="px-3 py-1.5 min-w-[110px]">
+                      {visibleColumns.has('sno')            && <td className="border border-soft-border px-3 py-1.5 text-cool-gray text-xs">{idx + 1}</td>}
+                      {visibleColumns.has('date')           && <td className="border border-soft-border px-3 py-1.5 min-w-[120px]"><input type="date" value={getF(row,'date')} onChange={(e) => setEF(row.id,'date',e.target.value)} readOnly={!isEditing} className={inputCls(isEditing)} /></td>}
+                      {visibleColumns.has('receivedIssued') && <td className="border border-soft-border px-3 py-1.5 min-w-[110px]">
                         <select value={getF(row,'receivedIssued')} onChange={(e) => setEF(row.id,'receivedIssued',e.target.value)} disabled={!isEditing} className={selectCls(isEditing)}>
                           <option value="">—</option>
                           {RECEIVED_ISSUED_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
                         </select>
                       </td>}
-                      {visibleColumns.has('inventoryType')  && <td className="px-3 py-1.5 min-w-[130px]">
+                      {visibleColumns.has('inventoryType')  && <td className="border border-soft-border px-3 py-1.5 min-w-[130px]">
                         <select value={getF(row,'inventoryType')} onChange={(e) => setEF(row.id,'inventoryType',e.target.value)} disabled={!isEditing} className={selectCls(isEditing)}>
                           <option value="">—</option>
                           {INVENTORY_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
@@ -557,61 +563,61 @@ export default function ProductFindingLogPage() {
                       </td>}
 
                       {/* Product-only */}
-                      {activeTab === 'product' && visibleColumns.has('masterSku')     && <td className="px-3 py-1.5 min-w-[130px]"><input type="text"   value={getF(row,'masterSku')}     onChange={(e) => setEF(row.id,'masterSku',e.target.value)}     readOnly={!isEditing} placeholder="Master SKU"   className={inputCls(isEditing)} /></td>}
-                      {activeTab === 'product' && visibleColumns.has('designerSku')   && <td className="px-3 py-1.5 min-w-[130px]"><input type="text"   value={getF(row,'designerSku')}   onChange={(e) => setEF(row.id,'designerSku',e.target.value)}   readOnly={!isEditing} placeholder="Designer SKU" className={inputCls(isEditing)} /></td>}
-                      {activeTab === 'product' && visibleColumns.has('finalSku')      && <td className="px-3 py-1.5 min-w-[140px]"><input type="text"   value={getF(row,'finalSku')}      onChange={(e) => setEF(row.id,'finalSku',e.target.value)}      readOnly={!isEditing} placeholder="Final SKU"    className={inputCls(isEditing)} /></td>}
-                      {activeTab === 'product' && visibleColumns.has('metal')         && <td className="px-3 py-1.5 min-w-[110px]">
+                      {activeTab === 'product' && visibleColumns.has('masterSku')     && <td className="border border-soft-border px-3 py-1.5 min-w-[130px]"><input type="text"   value={getF(row,'masterSku')}     onChange={(e) => setEF(row.id,'masterSku',e.target.value)}     readOnly={!isEditing} placeholder="Master SKU"   className={inputCls(isEditing)} /></td>}
+                      {activeTab === 'product' && visibleColumns.has('designerSku')   && <td className="border border-soft-border px-3 py-1.5 min-w-[130px]"><input type="text"   value={getF(row,'designerSku')}   onChange={(e) => setEF(row.id,'designerSku',e.target.value)}   readOnly={!isEditing} placeholder="Designer SKU" className={inputCls(isEditing)} /></td>}
+                      {activeTab === 'product' && visibleColumns.has('finalSku')      && <td className="border border-soft-border px-3 py-1.5 min-w-[140px]"><input type="text"   value={getF(row,'finalSku')}      onChange={(e) => setEF(row.id,'finalSku',e.target.value)}      readOnly={!isEditing} placeholder="Final SKU"    className={inputCls(isEditing)} /></td>}
+                      {activeTab === 'product' && visibleColumns.has('metal')         && <td className="border border-soft-border px-3 py-1.5 min-w-[110px]">
                         <select value={getF(row,'metal')} onChange={(e) => setEF(row.id,'metal',e.target.value)} disabled={!isEditing} className={selectCls(isEditing)}>
                           <option value="">—</option>{P_METAL_OPTIONS.map((m) => <option key={m} value={m}>{m}</option>)}
                         </select>
                       </td>}
-                      {activeTab === 'product' && visibleColumns.has('value')         && <td className="px-3 py-1.5 min-w-[90px]"><input  type="number" value={getF(row,'value')}         onChange={(e) => setEF(row.id,'value',e.target.value)}         readOnly={!isEditing} placeholder="0"         className={inputCls(isEditing)} /></td>}
-                      {activeTab === 'product' && visibleColumns.has('unit')          && <td className="px-3 py-1.5 min-w-[90px]">
+                      {activeTab === 'product' && visibleColumns.has('value')         && <td className="border border-soft-border px-3 py-1.5 min-w-[90px]"><input  type="number" value={getF(row,'value')}         onChange={(e) => setEF(row.id,'value',e.target.value)}         readOnly={!isEditing} placeholder="0"         className={inputCls(isEditing)} /></td>}
+                      {activeTab === 'product' && visibleColumns.has('unit')          && <td className="border border-soft-border px-3 py-1.5 min-w-[90px]">
                         <select value={getF(row,'unit')} onChange={(e) => setEF(row.id,'unit',e.target.value)} disabled={!isEditing} className={selectCls(isEditing)}>
                           {P_UNIT_OPTIONS.map((u) => <option key={u} value={u}>{u}</option>)}
                         </select>
                       </td>}
-                      {activeTab === 'product' && visibleColumns.has('location')      && <td className="px-3 py-1.5 min-w-[120px]"><input type="text"   value={getF(row,'location')}      onChange={(e) => setEF(row.id,'location',e.target.value)}      readOnly={!isEditing} placeholder="Location"    className={inputCls(isEditing)} /></td>}
-                      {activeTab === 'product' && visibleColumns.has('wip')           && <td className="px-3 py-1.5 min-w-[80px]"><input  type="number" value={getF(row,'wip')}           onChange={(e) => setEF(row.id,'wip',e.target.value)}           readOnly={!isEditing} placeholder="0"         className={inputCls(isEditing)} /></td>}
-                      {activeTab === 'product' && visibleColumns.has('totalInDemand') && <td className="px-3 py-1.5 min-w-[120px]"><input type="number" value={getF(row,'totalInDemand')} onChange={(e) => setEF(row.id,'totalInDemand',e.target.value)} readOnly={!isEditing} placeholder="0"         className={inputCls(isEditing)} /></td>}
+                      {activeTab === 'product' && visibleColumns.has('location')      && <td className="border border-soft-border px-3 py-1.5 min-w-[120px]"><input type="text"   value={getF(row,'location')}      onChange={(e) => setEF(row.id,'location',e.target.value)}      readOnly={!isEditing} placeholder="Location"    className={inputCls(isEditing)} /></td>}
+                      {activeTab === 'product' && visibleColumns.has('wip')           && <td className="border border-soft-border px-3 py-1.5 min-w-[80px]"><input  type="number" value={getF(row,'wip')}           onChange={(e) => setEF(row.id,'wip',e.target.value)}           readOnly={!isEditing} placeholder="0"         className={inputCls(isEditing)} /></td>}
+                      {activeTab === 'product' && visibleColumns.has('totalInDemand') && <td className="border border-soft-border px-3 py-1.5 min-w-[120px]"><input type="number" value={getF(row,'totalInDemand')} onChange={(e) => setEF(row.id,'totalInDemand',e.target.value)} readOnly={!isEditing} placeholder="0"         className={inputCls(isEditing)} /></td>}
 
                       {/* Finding-only */}
-                      {activeTab === 'finding' && visibleColumns.has('findingCode')   && <td className="px-3 py-1.5 min-w-[130px]"><input type="text"   value={getF(row,'findingCode')}   onChange={(e) => setEF(row.id,'findingCode',e.target.value)}   readOnly={!isEditing} placeholder="Finding Code" className={inputCls(isEditing)} /></td>}
-                      {activeTab === 'finding' && visibleColumns.has('dieNumber')     && <td className="px-3 py-1.5 min-w-[100px]"><input type="text"   value={getF(row,'dieNumber')}     onChange={(e) => setEF(row.id,'dieNumber',e.target.value)}     readOnly={!isEditing} placeholder="Die No."      className={inputCls(isEditing)} /></td>}
-                      {activeTab === 'finding' && visibleColumns.has('size')          && <td className="px-3 py-1.5 min-w-[90px]"><input  type="text"   value={getF(row,'size')}          onChange={(e) => setEF(row.id,'size',e.target.value)}          readOnly={!isEditing} placeholder="Size"        className={inputCls(isEditing)} /></td>}
-                      {activeTab === 'finding' && visibleColumns.has('metal')         && <td className="px-3 py-1.5 min-w-[110px]">
+                      {activeTab === 'finding' && visibleColumns.has('findingCode')   && <td className="border border-soft-border px-3 py-1.5 min-w-[130px]"><input type="text"   value={getF(row,'findingCode')}   onChange={(e) => setEF(row.id,'findingCode',e.target.value)}   readOnly={!isEditing} placeholder="Finding Code" className={inputCls(isEditing)} /></td>}
+                      {activeTab === 'finding' && visibleColumns.has('dieNumber')     && <td className="border border-soft-border px-3 py-1.5 min-w-[100px]"><input type="text"   value={getF(row,'dieNumber')}     onChange={(e) => setEF(row.id,'dieNumber',e.target.value)}     readOnly={!isEditing} placeholder="Die No."      className={inputCls(isEditing)} /></td>}
+                      {activeTab === 'finding' && visibleColumns.has('size')          && <td className="border border-soft-border px-3 py-1.5 min-w-[90px]"><input  type="text"   value={getF(row,'size')}          onChange={(e) => setEF(row.id,'size',e.target.value)}          readOnly={!isEditing} placeholder="Size"        className={inputCls(isEditing)} /></td>}
+                      {activeTab === 'finding' && visibleColumns.has('metal')         && <td className="border border-soft-border px-3 py-1.5 min-w-[110px]">
                         <select value={getF(row,'metal')} onChange={(e) => setEF(row.id,'metal',e.target.value)} disabled={!isEditing} className={selectCls(isEditing)}>
                           <option value="">—</option>{F_METAL_OPTIONS.map((m) => <option key={m} value={m}>{m}</option>)}
                         </select>
                       </td>}
-                      {activeTab === 'finding' && visibleColumns.has('stage')         && <td className="px-3 py-1.5 min-w-[120px]">
+                      {activeTab === 'finding' && visibleColumns.has('stage')         && <td className="border border-soft-border px-3 py-1.5 min-w-[120px]">
                         <select value={getF(row,'stage')} onChange={(e) => setEF(row.id,'stage',e.target.value)} disabled={!isEditing} className={selectCls(isEditing)}>
                           <option value="">—</option>{F_STAGE_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
                         </select>
                       </td>}
-                      {activeTab === 'finding' && visibleColumns.has('mechanism')     && <td className="px-3 py-1.5 min-w-[120px]"><input type="text"   value={getF(row,'mechanism')}     onChange={(e) => setEF(row.id,'mechanism',e.target.value)}     readOnly={!isEditing} placeholder="Mechanism"    className={inputCls(isEditing)} /></td>}
-                      {activeTab === 'finding' && visibleColumns.has('qty')           && <td className="px-3 py-1.5 min-w-[80px]"><input  type="number" value={getF(row,'qty')}           onChange={(e) => setEF(row.id,'qty',e.target.value)}           readOnly={!isEditing} placeholder="0"           className={inputCls(isEditing)} /></td>}
-                      {activeTab === 'finding' && visibleColumns.has('weight')        && <td className="px-3 py-1.5 min-w-[90px]"><input  type="number" value={getF(row,'weight')}        onChange={(e) => setEF(row.id,'weight',e.target.value)}        readOnly={!isEditing} placeholder="0.00" step="0.01" className={inputCls(isEditing)} /></td>}
-                      {activeTab === 'finding' && visibleColumns.has('deadWeight')    && <td className="px-3 py-1.5 min-w-[100px]"><input type="number" value={getF(row,'deadWeight')}    onChange={(e) => setEF(row.id,'deadWeight',e.target.value)}    readOnly={!isEditing} placeholder="0.00" step="0.01" className={inputCls(isEditing)} /></td>}
-                      {activeTab === 'finding' && visibleColumns.has('moldQtyPerDie') && <td className="px-3 py-1.5 min-w-[110px]"><input type="number" value={getF(row,'moldQtyPerDie')} onChange={(e) => setEF(row.id,'moldQtyPerDie',e.target.value)} readOnly={!isEditing} placeholder="0"           className={inputCls(isEditing)} /></td>}
+                      {activeTab === 'finding' && visibleColumns.has('mechanism')     && <td className="border border-soft-border px-3 py-1.5 min-w-[120px]"><input type="text"   value={getF(row,'mechanism')}     onChange={(e) => setEF(row.id,'mechanism',e.target.value)}     readOnly={!isEditing} placeholder="Mechanism"    className={inputCls(isEditing)} /></td>}
+                      {activeTab === 'finding' && visibleColumns.has('qty')           && <td className="border border-soft-border px-3 py-1.5 min-w-[80px]"><input  type="number" value={getF(row,'qty')}           onChange={(e) => setEF(row.id,'qty',e.target.value)}           readOnly={!isEditing} placeholder="0"           className={inputCls(isEditing)} /></td>}
+                      {activeTab === 'finding' && visibleColumns.has('weight')        && <td className="border border-soft-border px-3 py-1.5 min-w-[90px]"><input  type="number" value={getF(row,'weight')}        onChange={(e) => setEF(row.id,'weight',e.target.value)}        readOnly={!isEditing} placeholder="0.00" step="0.01" className={inputCls(isEditing)} /></td>}
+                      {activeTab === 'finding' && visibleColumns.has('deadWeight')    && <td className="border border-soft-border px-3 py-1.5 min-w-[100px]"><input type="number" value={getF(row,'deadWeight')}    onChange={(e) => setEF(row.id,'deadWeight',e.target.value)}    readOnly={!isEditing} placeholder="0.00" step="0.01" className={inputCls(isEditing)} /></td>}
+                      {activeTab === 'finding' && visibleColumns.has('moldQtyPerDie') && <td className="border border-soft-border px-3 py-1.5 min-w-[110px]"><input type="number" value={getF(row,'moldQtyPerDie')} onChange={(e) => setEF(row.id,'moldQtyPerDie',e.target.value)} readOnly={!isEditing} placeholder="0"           className={inputCls(isEditing)} /></td>}
 
                       {/* Shared trailing */}
-                      {visibleColumns.has('price')          && <td className="px-3 py-1.5 min-w-[90px]"><input type="number" value={getF(row,'price')} onChange={(e) => setEF(row.id,'price',e.target.value)} readOnly={!isEditing} placeholder="0.00" step="0.01" className={inputCls(isEditing)} /></td>}
-                      {visibleColumns.has('amount')         && <td className="px-3 py-1.5 min-w-[110px]">
+                      {visibleColumns.has('price')          && <td className="border border-soft-border px-3 py-1.5 min-w-[90px]"><input type="number" value={getF(row,'price')} onChange={(e) => setEF(row.id,'price',e.target.value)} readOnly={!isEditing} placeholder="0.00" step="0.01" className={inputCls(isEditing)} /></td>}
+                      {visibleColumns.has('amount')         && <td className="border border-soft-border px-3 py-1.5 min-w-[110px]">
                         <span className="inline-block text-sm font-semibold text-trust-blue">
                           {getF(row,'amount') ? `₹${Number(getF(row,'amount')).toLocaleString('en-IN')}` : '—'}
                         </span>
                       </td>}
-                      {visibleColumns.has('receivedFrom')   && <td className="px-3 py-1.5 min-w-[140px]"><input type="text"   value={getF(row,'receivedFrom')}  onChange={(e) => setEF(row.id,'receivedFrom',e.target.value)}  readOnly={!isEditing} placeholder="Vendor"      className={inputCls(isEditing)} /></td>}
-                      {visibleColumns.has('issuedTo')       && <td className="px-3 py-1.5 min-w-[140px]"><input type="text"   value={getF(row,'issuedTo')}      onChange={(e) => setEF(row.id,'issuedTo',e.target.value)}      readOnly={!isEditing} placeholder="Person/dept" className={inputCls(isEditing)} /></td>}
-                      {visibleColumns.has('remark')         && <td className="px-3 py-1.5 min-w-[160px]"><input type="text"   value={getF(row,'remark')}        onChange={(e) => setEF(row.id,'remark',e.target.value)}        readOnly={!isEditing} placeholder="Remark"      className={inputCls(isEditing)} /></td>}
-                      {visibleColumns.has('activityStatus') && <td className="px-3 py-1.5 min-w-[140px]">
+                      {visibleColumns.has('receivedFrom')   && <td className="border border-soft-border px-3 py-1.5 min-w-[140px]"><input type="text"   value={getF(row,'receivedFrom')}  onChange={(e) => setEF(row.id,'receivedFrom',e.target.value)}  readOnly={!isEditing} placeholder="Vendor"      className={inputCls(isEditing)} /></td>}
+                      {visibleColumns.has('issuedTo')       && <td className="border border-soft-border px-3 py-1.5 min-w-[140px]"><input type="text"   value={getF(row,'issuedTo')}      onChange={(e) => setEF(row.id,'issuedTo',e.target.value)}      readOnly={!isEditing} placeholder="Person/dept" className={inputCls(isEditing)} /></td>}
+                      {visibleColumns.has('remark')         && <td className="border border-soft-border px-3 py-1.5 min-w-[160px]"><input type="text"   value={getF(row,'remark')}        onChange={(e) => setEF(row.id,'remark',e.target.value)}        readOnly={!isEditing} placeholder="Remark"      className={inputCls(isEditing)} /></td>}
+                      {visibleColumns.has('activityStatus') && <td className="border border-soft-border px-3 py-1.5 min-w-[140px]">
                         <select value={getF(row,'activityStatus')} onChange={(e) => setEF(row.id,'activityStatus',e.target.value)} disabled={!isEditing} className={selectCls(isEditing)}>
                           <option value="">—</option>
                           {ACTIVITY_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
                         </select>
                       </td>}
-                      {visibleColumns.has('action')         && <td className="px-3 py-1.5">
+                      {visibleColumns.has('action')         && <td className="border border-soft-border px-3 py-1.5">
                         <button type="button" onClick={() => deleteRow(row.id)}
                           className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-rose-200 text-rose-600 hover:bg-rose-50 transition">
                           <Trash2 className="h-4 w-4" />

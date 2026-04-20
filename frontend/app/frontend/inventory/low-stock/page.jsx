@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, RefreshCw, PackagePlus, History, AlertTriangle, Printer } from 'lucide-react';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
+import GlobalSearchBar from '@/components/global-search-bar';
+import DateTimeStamp from '@/components/date-time-stamp';
 import {
   Dialog,
   DialogContent,
@@ -462,18 +464,19 @@ export default function LowStockPage() {
       {/* Header */}
       <div className="transition-[left,width] duration-300 ease-in-out fixed top-0 left-0 right-0 z-[60] bg-white/95 py-2 border-b border-soft-border shadow-sm backdrop-blur px-3 md:px-4">
         <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 shrink-0">
             <MasterNavigationDrawer inHeader />
             <h1 className="text-xl font-bold tracking-tight text-midnight-ink flex items-center gap-2">
               <AlertTriangle className="h-5 w-5 text-amber-500" />
               LOW STOCK
             </h1>
           </div>
-          <div />
+          <GlobalSearchBar />
+          <DateTimeStamp />
         </div>
       </div>
 
-      <div className="w-full px-4 md:px-6 pt-20 pb-8">
+      <div className="w-full px-3 md:px-4 pt-16 pb-16">
         {/* Back + actions */}
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <Link
@@ -561,16 +564,16 @@ export default function LowStockPage() {
               </div>
             ) : (
               <div className="overflow-x-auto rounded-xl border border-soft-border bg-white">
-                <table className="w-full text-sm">
+                <table className="w-full border-collapse text-sm">
                   <thead>
                     <tr className="border-b border-soft-border bg-[#F8F9FA]">
-                      <th className="px-4 py-3 text-left font-semibold text-midnight-ink">Source</th>
-                      <th className="px-4 py-3 text-left font-semibold text-midnight-ink">Item</th>
-                      <th className="px-4 py-3 text-left font-semibold text-midnight-ink">Details</th>
-                      <th className="px-4 py-3 text-right font-semibold text-midnight-ink">Current Stock</th>
-                      <th className="px-4 py-3 text-right font-semibold text-midnight-ink">Min Level</th>
-                      <th className="px-4 py-3 text-right font-semibold text-midnight-ink">Needed</th>
-                      <th className="px-4 py-3 text-center font-semibold text-midnight-ink">Action</th>
+                      <th className="border border-soft-border px-4 py-3 text-left font-normal text-black">Source</th>
+                      <th className="border border-soft-border px-4 py-3 text-left font-normal text-black">Item</th>
+                      <th className="border border-soft-border px-4 py-3 text-left font-normal text-black">Details</th>
+                      <th className="border border-soft-border px-4 py-3 text-right font-normal text-black">Current Stock</th>
+                      <th className="border border-soft-border px-4 py-3 text-right font-normal text-black">Min Level</th>
+                      <th className="border border-soft-border px-4 py-3 text-right font-normal text-black">Needed</th>
+                      <th className="border border-soft-border px-4 py-3 text-center font-normal text-black">Action</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -584,13 +587,13 @@ export default function LowStockPage() {
                           key={`${item._source}-${item.id}-${idx}`}
                           className={`border-b border-soft-border/60 last:border-b-0 ${isZero ? 'bg-red-50/50' : 'bg-amber-50/30'}`}
                         >
-                          <td className="px-4 py-3">
+                          <td className="border border-soft-border px-4 py-3">
                             <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${src?.color ?? 'bg-gray-100 text-gray-700'}`}>
                               {src?.label ?? item._source}
                             </span>
                           </td>
-                          <td className="px-4 py-3 font-medium text-midnight-ink max-w-[180px] truncate">{item._name}</td>
-                          <td className="px-4 py-3 text-cool-gray text-xs">
+                          <td className="border border-soft-border px-4 py-3 font-medium text-midnight-ink max-w-[180px] truncate">{item._name}</td>
+                          <td className="border border-soft-border px-4 py-3 text-cool-gray text-xs">
                             {item.department && <span className="mr-2">Dept: {item.department}</span>}
                             {item.unit && <span className="mr-2">Unit: {item.unit}</span>}
                             {item.category && <span className="mr-2">Cat: {item.category}</span>}
@@ -601,20 +604,20 @@ export default function LowStockPage() {
                               </span>
                             )}
                           </td>
-                          <td className="px-4 py-3 text-right">
+                          <td className="border border-soft-border px-4 py-3 text-right">
                             <span className={`font-bold ${isZero ? 'text-red-600' : 'text-amber-600'}`}>
                               {item._qty}
                             </span>
                           </td>
-                          <td className="px-4 py-3 text-right text-cool-gray">{ml > 0 ? ml : '—'}</td>
-                          <td className="px-4 py-3 text-right">
+                          <td className="border border-soft-border px-4 py-3 text-right text-cool-gray">{ml > 0 ? ml : '—'}</td>
+                          <td className="border border-soft-border px-4 py-3 text-right">
                             {needed > 0 ? (
                               <span className="font-semibold text-red-600">{needed}</span>
                             ) : (
                               <span className="text-cool-gray">—</span>
                             )}
                           </td>
-                          <td className="px-4 py-3 text-center">
+                          <td className="border border-soft-border px-4 py-3 text-center">
                             <button
                               onClick={() => openFulfill(item)}
                               className="inline-flex items-center gap-1.5 rounded-lg bg-trust-blue px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 transition"
@@ -689,18 +692,18 @@ export default function LowStockPage() {
               </div>
             ) : (
               <div className="overflow-x-auto rounded-xl border border-soft-border bg-white">
-                <table className="w-full text-sm">
+                <table className="w-full border-collapse text-sm">
                   <thead>
                     <tr className="border-b border-soft-border bg-[#F8F9FA]">
-                      <th className="px-4 py-3 text-left font-semibold text-midnight-ink">Date</th>
-                      <th className="px-4 py-3 text-left font-semibold text-midnight-ink">Source</th>
-                      <th className="px-4 py-3 text-left font-semibold text-midnight-ink">Item</th>
-                      <th className="px-4 py-3 text-left font-semibold text-midnight-ink">Vendor / Employee</th>
-                      <th className="px-4 py-3 text-right font-semibold text-midnight-ink">Qty</th>
-                      <th className="px-4 py-3 text-right font-semibold text-midnight-ink">Price / Unit</th>
-                      <th className="px-4 py-3 text-right font-semibold text-midnight-ink">Total</th>
-                      <th className="px-4 py-3 text-left font-semibold text-midnight-ink">Ref ID</th>
-                      <th className="px-4 py-3 text-left font-semibold text-midnight-ink">Note</th>
+                      <th className="border border-soft-border px-4 py-3 text-left font-normal text-black">Date</th>
+                      <th className="border border-soft-border px-4 py-3 text-left font-normal text-black">Source</th>
+                      <th className="border border-soft-border px-4 py-3 text-left font-normal text-black">Item</th>
+                      <th className="border border-soft-border px-4 py-3 text-left font-normal text-black">Vendor / Employee</th>
+                      <th className="border border-soft-border px-4 py-3 text-right font-normal text-black">Qty</th>
+                      <th className="border border-soft-border px-4 py-3 text-right font-normal text-black">Price / Unit</th>
+                      <th className="border border-soft-border px-4 py-3 text-right font-normal text-black">Total</th>
+                      <th className="border border-soft-border px-4 py-3 text-left font-normal text-black">Ref ID</th>
+                      <th className="border border-soft-border px-4 py-3 text-left font-normal text-black">Note</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -708,22 +711,22 @@ export default function LowStockPage() {
                       const src = srcConfig[entry.source];
                       return (
                         <tr key={entry.id} className="border-b border-soft-border/60 last:border-b-0 hover:bg-[#F9FAFB]">
-                          <td className="px-4 py-3 text-cool-gray whitespace-nowrap">
+                          <td className="border border-soft-border px-4 py-3 text-cool-gray whitespace-nowrap">
                             {new Date(entry.fulfilledAt).toLocaleDateString()}{' '}
                             <span className="text-xs opacity-70">{new Date(entry.fulfilledAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                           </td>
-                          <td className="px-4 py-3">
+                          <td className="border border-soft-border px-4 py-3">
                             <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${src?.color ?? 'bg-gray-100 text-gray-700'}`}>
                               {entry.sourceName}
                             </span>
                           </td>
-                          <td className="px-4 py-3 font-medium text-midnight-ink max-w-[160px] truncate">{entry.itemName}</td>
-                          <td className="px-4 py-3 text-midnight-ink">{entry.vendorEmployee}</td>
-                          <td className="px-4 py-3 text-right font-semibold text-midnight-ink">{entry.quantity}</td>
-                          <td className="px-4 py-3 text-right text-midnight-ink">₹{Number(entry.pricePerUnit).toLocaleString('en-IN')}</td>
-                          <td className="px-4 py-3 text-right font-semibold text-trust-blue">₹{Number(entry.totalPrice).toLocaleString('en-IN')}</td>
-                          <td className="px-4 py-3 text-cool-gray">{entry.referenceId || '—'}</td>
-                          <td className="px-4 py-3 text-cool-gray max-w-[160px] truncate">{entry.note || '—'}</td>
+                          <td className="border border-soft-border px-4 py-3 font-medium text-midnight-ink max-w-[160px] truncate">{entry.itemName}</td>
+                          <td className="border border-soft-border px-4 py-3 text-midnight-ink">{entry.vendorEmployee}</td>
+                          <td className="border border-soft-border px-4 py-3 text-right font-normal text-black">{entry.quantity}</td>
+                          <td className="border border-soft-border px-4 py-3 text-right text-midnight-ink">₹{Number(entry.pricePerUnit).toLocaleString('en-IN')}</td>
+                          <td className="border border-soft-border px-4 py-3 text-right font-semibold text-trust-blue">₹{Number(entry.totalPrice).toLocaleString('en-IN')}</td>
+                          <td className="border border-soft-border px-4 py-3 text-cool-gray">{entry.referenceId || '—'}</td>
+                          <td className="border border-soft-border px-4 py-3 text-cool-gray max-w-[160px] truncate">{entry.note || '—'}</td>
                         </tr>
                       );
                     })}

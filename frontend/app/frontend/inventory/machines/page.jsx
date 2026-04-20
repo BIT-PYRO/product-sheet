@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { ArrowLeft, Pencil, Printer, RefreshCw, Trash2, X } from 'lucide-react';
 import BulkUploadButton from '@/components/bulk-upload-button';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
+import GlobalSearchBar from '@/components/global-search-bar';
+import DateTimeStamp from '@/components/date-time-stamp';
 import { useSheetPermissions } from '@/hooks/use-sheet-permissions';
 import {
   Dialog,
@@ -505,15 +507,16 @@ export default function MachinesInventoryPage() {
     <main className="min-h-screen bg-cloud-gray">
       <div className="transition-[left,width] duration-300 ease-in-out fixed top-0 left-0 right-0 z-[60] bg-white/95 py-2 border-b border-soft-border shadow-sm backdrop-blur px-3 md:px-4">
         <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 shrink-0">
             <MasterNavigationDrawer inHeader />
             <h1 className="text-xl font-bold tracking-tight text-midnight-ink">MACHINES INVENTORY</h1>
           </div>
-          <div />
+          <GlobalSearchBar />
+          <DateTimeStamp />
         </div>
       </div>
 
-      <div className="w-full px-4 md:px-6 pt-20 pb-8">
+      <div className="w-full px-3 md:px-4 pt-16 pb-16">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <Link
             href="/inventory"
@@ -672,10 +675,10 @@ export default function MachinesInventoryPage() {
 
         <section className="rounded-xl border border-soft-border bg-white shadow-sm">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[2000px] text-sm">
+            <table className="w-full min-w-[2000px] border-collapse text-sm">
               <thead>
                 <tr className="border-b border-soft-border bg-[#dbeafe]">
-                  <th rowSpan={2} className="px-3 py-3">
+                  <th rowSpan={2} className="border border-soft-border px-3 py-3">
                     <input
                       type="checkbox"
                       checked={allSelected}
@@ -685,43 +688,43 @@ export default function MachinesInventoryPage() {
                       className="h-4 w-4 cursor-pointer rounded border-soft-border accent-trust-blue"
                     />
                   </th>
-                  {visibleColumns.has('sno') && <th rowSpan={2} className="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray w-16">S. No.</th>}
-                  {visibleColumns.has('machineName') && <th rowSpan={2} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray min-w-[170px]">Machine Name</th>}
-                  {visibleColumns.has('particulars') && <th rowSpan={2} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray min-w-[170px]">Particulars</th>}
-                  {visibleColumns.has('department') && <th rowSpan={2} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray min-w-[170px]">Department</th>}
-                  {runningVisibleCount > 0 && <th colSpan={runningVisibleCount} className="bg-emerald-50 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-success">Running</th>}
-                  {idleVisibleCount > 0 && <th colSpan={idleVisibleCount} className="bg-yellow-100 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-yellow-800">Idle</th>}
-                  {breakdownVisibleCount > 0 && <th colSpan={breakdownVisibleCount} className="bg-red-50 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-danger">Breakdown</th>}
-                  {maintenanceVisibleCount > 0 && <th colSpan={maintenanceVisibleCount} className="bg-orange-200 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-orange-900">Under Maintenance</th>}
-                  {visibleColumns.has('minRequiredStock') && <th rowSpan={2} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray min-w-[210px]">Minimum Required in Stock</th>}
-                  {visibleColumns.has('action') && <th rowSpan={2} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray w-24">Action</th>}
+                  {visibleColumns.has('sno') && <th rowSpan={2} className="border border-soft-border px-3 py-3 text-left text-xs font-normal text-black w-16">S. No.</th>}
+                  {visibleColumns.has('machineName') && <th rowSpan={2} className="border border-soft-border px-4 py-3 text-left text-xs font-normal text-black min-w-[170px]">Machine Name</th>}
+                  {visibleColumns.has('particulars') && <th rowSpan={2} className="border border-soft-border px-4 py-3 text-left text-xs font-normal text-black min-w-[170px]">Particulars</th>}
+                  {visibleColumns.has('department') && <th rowSpan={2} className="border border-soft-border px-4 py-3 text-left text-xs font-normal text-black min-w-[170px]">Department</th>}
+                  {runningVisibleCount > 0 && <th colSpan={runningVisibleCount} className="border border-soft-border bg-emerald-50 px-4 py-3 text-left text-xs font-normal text-black">Running</th>}
+                  {idleVisibleCount > 0 && <th colSpan={idleVisibleCount} className="border border-soft-border bg-yellow-100 px-4 py-3 text-left text-xs font-normal text-black">Idle</th>}
+                  {breakdownVisibleCount > 0 && <th colSpan={breakdownVisibleCount} className="border border-soft-border bg-red-50 px-4 py-3 text-left text-xs font-normal text-black">Breakdown</th>}
+                  {maintenanceVisibleCount > 0 && <th colSpan={maintenanceVisibleCount} className="border border-soft-border bg-orange-200 px-4 py-3 text-left text-xs font-normal text-black">Under Maintenance</th>}
+                  {visibleColumns.has('minRequiredStock') && <th rowSpan={2} className="border border-soft-border px-4 py-3 text-left text-xs font-normal text-black min-w-[210px]">Minimum Required in Stock</th>}
+                  {visibleColumns.has('action') && <th rowSpan={2} className="border border-soft-border px-4 py-3 text-left text-xs font-normal text-black w-24">Action</th>}
                 </tr>
                 {hasSubHeaders && (
                   <tr className="border-b border-soft-border bg-[#F8F9FA]">
-                    {visibleColumns.has('runningQty') && <th className="bg-emerald-50 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray min-w-[90px]">Qty</th>}
-                    {visibleColumns.has('runningLocation') && <th className="bg-emerald-50 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray min-w-[140px]">Location</th>}
+                    {visibleColumns.has('runningQty') && <th className="border border-soft-border bg-emerald-50 px-4 py-3 text-left text-xs font-normal text-black min-w-[90px]">Qty</th>}
+                    {visibleColumns.has('runningLocation') && <th className="border border-soft-border bg-emerald-50 px-4 py-3 text-left text-xs font-normal text-black min-w-[140px]">Location</th>}
 
-                    {visibleColumns.has('idleQty') && <th className="bg-yellow-100 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray min-w-[90px]">Qty</th>}
-                    {visibleColumns.has('idleLocation') && <th className="bg-yellow-100 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray min-w-[140px]">Location</th>}
+                    {visibleColumns.has('idleQty') && <th className="border border-soft-border bg-yellow-100 px-4 py-3 text-left text-xs font-normal text-black min-w-[90px]">Qty</th>}
+                    {visibleColumns.has('idleLocation') && <th className="border border-soft-border bg-yellow-100 px-4 py-3 text-left text-xs font-normal text-black min-w-[140px]">Location</th>}
 
-                    {visibleColumns.has('breakdownQty') && <th className="bg-red-50 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray min-w-[90px]">Qty</th>}
-                    {visibleColumns.has('breakdownLocation') && <th className="bg-red-50 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray min-w-[140px]">Location</th>}
+                    {visibleColumns.has('breakdownQty') && <th className="border border-soft-border bg-red-50 px-4 py-3 text-left text-xs font-normal text-black min-w-[90px]">Qty</th>}
+                    {visibleColumns.has('breakdownLocation') && <th className="border border-soft-border bg-red-50 px-4 py-3 text-left text-xs font-normal text-black min-w-[140px]">Location</th>}
 
-                    {visibleColumns.has('maintenanceQty') && <th className="bg-orange-200 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray min-w-[90px]">Qty</th>}
-                    {visibleColumns.has('maintenanceLocation') && <th className="bg-orange-200 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray min-w-[140px]">Location</th>}
+                    {visibleColumns.has('maintenanceQty') && <th className="border border-soft-border bg-orange-200 px-4 py-3 text-left text-xs font-normal text-black min-w-[90px]">Qty</th>}
+                    {visibleColumns.has('maintenanceLocation') && <th className="border border-soft-border bg-orange-200 px-4 py-3 text-left text-xs font-normal text-black min-w-[140px]">Location</th>}
                   </tr>
                 )}
               </thead>
               <tbody>
                 {filteredRows.length === 0 ? (
                   <tr>
-                    <td colSpan={visibleTableColumnCount} className="px-4 py-6 text-center text-sm text-cool-gray">
+                    <td colSpan={visibleTableColumnCount} className="border border-soft-border px-4 py-6 text-center text-sm text-cool-gray">
                       No machines found. Add one using the options above.
                     </td>
                   </tr>
                 ) : filteredRows.map((row) => (
                   <tr key={row.id} className="border-b border-soft-border last:border-0 transition hover:bg-[#F8F9FA]">
-                    <td className="px-3 py-2.5">
+                    <td className="border border-soft-border px-3 py-2.5">
                       <input
                         type="checkbox"
                         checked={selectedIds.has(row.id)}
@@ -730,50 +733,50 @@ export default function MachinesInventoryPage() {
                         className="h-4 w-4 cursor-pointer rounded border-soft-border accent-trust-blue"
                       />
                     </td>
-                    {visibleColumns.has('sno') && <td className="px-3 py-2.5 text-midnight-ink">{row.id}</td>}
-                    {visibleColumns.has('machineName') && <td className="px-4 py-2.5">
+                    {visibleColumns.has('sno') && <td className="border border-soft-border px-3 py-2.5 text-midnight-ink">{row.id}</td>}
+                    {visibleColumns.has('machineName') && <td className="border border-soft-border px-4 py-2.5">
                       <input type="text" value={getRowValue(row, 'machineName')} onChange={(e) => updateRow(row.id, 'machineName', e.target.value)} placeholder="Enter machine name" readOnly={!editingRowIds.has(row.id)} className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue read-only:bg-gray-50 read-only:text-cool-gray" />
                     </td>}
-                    {visibleColumns.has('particulars') && <td className="px-4 py-2.5">
+                    {visibleColumns.has('particulars') && <td className="border border-soft-border px-4 py-2.5">
                       <input type="text" value={getRowValue(row, 'particulars')} onChange={(e) => updateRow(row.id, 'particulars', e.target.value)} placeholder="Enter particulars" readOnly={!editingRowIds.has(row.id)} className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue read-only:bg-gray-50 read-only:text-cool-gray" />
                     </td>}
-                    {visibleColumns.has('department') && <td className="px-4 py-2.5">
+                    {visibleColumns.has('department') && <td className="border border-soft-border px-4 py-2.5">
                       <input type="text" value={getRowValue(row, 'department')} onChange={(e) => updateRow(row.id, 'department', e.target.value)} placeholder="Enter department" readOnly={!editingRowIds.has(row.id)} className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue read-only:bg-gray-50 read-only:text-cool-gray" />
                     </td>}
 
-                    {visibleColumns.has('runningQty') && <td className="bg-emerald-50/40 px-4 py-2.5">
+                    {visibleColumns.has('runningQty') && <td className="border border-soft-border bg-emerald-50/40 px-4 py-2.5">
                       <input type="number" value={getRowValue(row, 'runningQty')} onChange={(e) => updateRow(row.id, 'runningQty', e.target.value)} placeholder="0" readOnly={!editingRowIds.has(row.id)} className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue read-only:bg-gray-50 read-only:text-cool-gray" />
                     </td>}
-                    {visibleColumns.has('runningLocation') && <td className="bg-emerald-50/40 px-4 py-2.5">
+                    {visibleColumns.has('runningLocation') && <td className="border border-soft-border bg-emerald-50/40 px-4 py-2.5">
                       <input type="text" value={getRowValue(row, 'runningLocation')} onChange={(e) => updateRow(row.id, 'runningLocation', e.target.value)} placeholder="Line 1" readOnly={!editingRowIds.has(row.id)} className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue read-only:bg-gray-50 read-only:text-cool-gray" />
                     </td>}
 
-                    {visibleColumns.has('idleQty') && <td className="bg-yellow-100/70 px-4 py-2.5">
+                    {visibleColumns.has('idleQty') && <td className="border border-soft-border bg-yellow-100/70 px-4 py-2.5">
                       <input type="number" value={getRowValue(row, 'idleQty')} onChange={(e) => updateRow(row.id, 'idleQty', e.target.value)} placeholder="0" readOnly={!editingRowIds.has(row.id)} className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue read-only:bg-gray-50 read-only:text-cool-gray" />
                     </td>}
-                    {visibleColumns.has('idleLocation') && <td className="bg-yellow-100/70 px-4 py-2.5">
+                    {visibleColumns.has('idleLocation') && <td className="border border-soft-border bg-yellow-100/70 px-4 py-2.5">
                       <input type="text" value={getRowValue(row, 'idleLocation')} onChange={(e) => updateRow(row.id, 'idleLocation', e.target.value)} placeholder="Warehouse" readOnly={!editingRowIds.has(row.id)} className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue read-only:bg-gray-50 read-only:text-cool-gray" />
                     </td>}
 
-                    {visibleColumns.has('breakdownQty') && <td className="bg-red-50/60 px-4 py-2.5">
+                    {visibleColumns.has('breakdownQty') && <td className="border border-soft-border bg-red-50/60 px-4 py-2.5">
                       <input type="number" value={getRowValue(row, 'breakdownQty')} onChange={(e) => updateRow(row.id, 'breakdownQty', e.target.value)} placeholder="0" readOnly={!editingRowIds.has(row.id)} className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue read-only:bg-gray-50 read-only:text-cool-gray" />
                     </td>}
-                    {visibleColumns.has('breakdownLocation') && <td className="bg-red-50/60 px-4 py-2.5">
+                    {visibleColumns.has('breakdownLocation') && <td className="border border-soft-border bg-red-50/60 px-4 py-2.5">
                       <input type="text" value={getRowValue(row, 'breakdownLocation')} onChange={(e) => updateRow(row.id, 'breakdownLocation', e.target.value)} placeholder="Repair bay" readOnly={!editingRowIds.has(row.id)} className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue read-only:bg-gray-50 read-only:text-cool-gray" />
                     </td>}
 
-                    {visibleColumns.has('maintenanceQty') && <td className="bg-orange-200/60 px-4 py-2.5">
+                    {visibleColumns.has('maintenanceQty') && <td className="border border-soft-border bg-orange-200/60 px-4 py-2.5">
                       <input type="number" value={getRowValue(row, 'maintenanceQty')} onChange={(e) => updateRow(row.id, 'maintenanceQty', e.target.value)} placeholder="0" readOnly={!editingRowIds.has(row.id)} className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue read-only:bg-gray-50 read-only:text-cool-gray" />
                     </td>}
-                    {visibleColumns.has('maintenanceLocation') && <td className="bg-orange-200/60 px-4 py-2.5">
+                    {visibleColumns.has('maintenanceLocation') && <td className="border border-soft-border bg-orange-200/60 px-4 py-2.5">
                       <input type="text" value={getRowValue(row, 'maintenanceLocation')} onChange={(e) => updateRow(row.id, 'maintenanceLocation', e.target.value)} placeholder="Service center" readOnly={!editingRowIds.has(row.id)} className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue read-only:bg-gray-50 read-only:text-cool-gray" />
                     </td>}
 
-                    {visibleColumns.has('minRequiredStock') && <td className="px-4 py-2.5">
+                    {visibleColumns.has('minRequiredStock') && <td className="border border-soft-border px-4 py-2.5">
                       <input type="number" value={getRowValue(row, 'minRequiredStock')} onChange={(e) => updateRow(row.id, 'minRequiredStock', e.target.value)} placeholder="0" readOnly={!editingRowIds.has(row.id)} className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue read-only:bg-gray-50 read-only:text-cool-gray" />
                     </td>}
 
-                    {visibleColumns.has('action') && <td className="px-4 py-2.5">
+                    {visibleColumns.has('action') && <td className="border border-soft-border px-4 py-2.5">
                       <button type="button" onClick={() => deleteRow(row.id)} className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-rose-200 text-rose-600 hover:bg-rose-50 transition" aria-label={`Delete row ${row.id}`}>
                         <Trash2 className="h-4 w-4" />
                       </button>

@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
@@ -770,7 +770,7 @@ export default function StoneInventoryPage() {
         </div>
       </div>
 
-      <div className="w-full px-4 md:px-6 pt-20 pb-8">
+      <div className="w-full px-3 md:px-4 pt-16 pb-16">
         {/* toolbar */}
         <div className="mb-4 flex justify-end">
           <Link
@@ -886,10 +886,10 @@ export default function StoneInventoryPage() {
 
         {/* â”€â”€ main table â”€â”€ */}
         <div className="overflow-x-auto rounded-xl border border-soft-border bg-white shadow-sm">
-          <table className="min-w-full text-sm">
+          <table className="min-w-full border-collapse text-sm">
             <thead>
               <tr className="border-b border-soft-border bg-[#dbeafe]">
-                <th className="px-3 py-3">
+                <th className="border border-soft-border px-3 py-3">
                   <input
                     type="checkbox"
                     checked={allSelected}
@@ -901,12 +901,12 @@ export default function StoneInventoryPage() {
                 {COLS.filter((c) => visibleColumns.has(c.key)).map((c) => (
                   <th
                     key={c.key}
-                    className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray"
+                    className="border border-soft-border whitespace-nowrap px-4 py-3 text-left text-xs font-normal text-black"
                   >
                     {c.label}
                   </th>
                 ))}
-                {visibleColumns.has('actions') && <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cool-gray">
+                {visibleColumns.has('actions') && <th className="border border-soft-border px-4 py-3 text-left text-xs font-normal text-black">
                   Actions
                 </th>}
               </tr>
@@ -914,14 +914,14 @@ export default function StoneInventoryPage() {
             <tbody>
               {loading && (
                 <tr>
-                  <td colSpan={visibleTableColumnCount} className="px-4 py-6 text-center text-cool-gray">
+                  <td colSpan={visibleTableColumnCount} className="border border-soft-border px-4 py-6 text-center text-cool-gray">
                     Loading...
                   </td>
                 </tr>
               )}
               {!loading && filteredStones.length === 0 && (
                 <tr>
-                  <td colSpan={visibleTableColumnCount} className="px-4 py-6 text-center text-cool-gray">
+                  <td colSpan={visibleTableColumnCount} className="border border-soft-border px-4 py-6 text-center text-cool-gray">
                     No stones found. Add one using the button above.
                   </td>
                 </tr>
@@ -936,7 +936,7 @@ export default function StoneInventoryPage() {
                         isSelected ? 'bg-blue-50' : 'hover:bg-[#F8F9FA]'
                       }`}
                     >
-                      <td className="px-3 py-2.5">
+                      <td className="border border-soft-border px-3 py-2.5">
                         <input
                           type="checkbox"
                           checked={isSelected}
@@ -945,11 +945,11 @@ export default function StoneInventoryPage() {
                         />
                       </td>
                       {COLS.filter((c) => visibleColumns.has(c.key)).map((c) => (
-                        <td key={c.key} className="whitespace-nowrap px-4 py-2.5 text-midnight-ink">
+                        <td key={c.key} className="border border-soft-border whitespace-nowrap px-4 py-2.5 text-midnight-ink">
                           {c.render ? c.render(stone[c.key]) : (stone[c.key] ?? 'â€”')}
                         </td>
                       ))}
-                      {visibleColumns.has('actions') && <td className="px-4 py-2.5">
+                      {visibleColumns.has('actions') && <td className="border border-soft-border px-4 py-2.5">
                         <button
                           onClick={() => setDeleteId(stone.id)}
                           className="text-red-500 hover:text-red-700 transition"
@@ -1172,7 +1172,7 @@ export default function StoneInventoryPage() {
                 <tr className="bg-[#EEF2F7]">
                   <th
                     colSpan={LOCKED_KEYS.length}
-                    className="border border-soft-border px-3 py-1.5 text-center text-[11px] font-semibold text-cool-gray uppercase tracking-wide"
+                    className="border border-soft-border px-3 py-1.5 text-center text-[11px] font-normal text-black"
                   >
                     Pre-filled (locked)
                   </th>
@@ -1182,31 +1182,31 @@ export default function StoneInventoryPage() {
                   >
                     Editable
                   </th>
-                  <th className="border border-soft-border px-3 py-1.5 text-center text-[11px] font-semibold text-cool-gray uppercase tracking-wide">
+                  <th className="border border-soft-border px-3 py-1.5 text-center text-[11px] font-normal text-black">
                     Qty
                   </th>
-                  <th className="border border-soft-border px-3 py-1.5 text-center text-[11px] font-semibold text-cool-gray uppercase tracking-wide">
+                  <th className="border border-soft-border px-3 py-1.5 text-center text-[11px] font-normal text-black">
                     Weight (cts)
                   </th>
                   {canAmount && (
                     <th
                       colSpan={2}
-                      className="border border-soft-border px-3 py-1.5 text-center text-[11px] font-semibold text-cool-gray uppercase tracking-wide"
+                      className="border border-soft-border px-3 py-1.5 text-center text-[11px] font-normal text-black"
                     >
                       Price by (check one)
                     </th>
                   )}
                   {canAmount && (
-                    <th className="border border-soft-border px-3 py-1.5 text-center text-[11px] font-semibold text-cool-gray uppercase tracking-wide">
+                    <th className="border border-soft-border px-3 py-1.5 text-center text-[11px] font-normal text-black">
                       Price
                     </th>
                   )}
                   {canAmount && (
-                    <th className="border border-soft-border px-3 py-1.5 text-center text-[11px] font-semibold text-[#0d7a3e] uppercase tracking-wide bg-green-50">
+                    <th className="border border-soft-border px-3 py-1.5 text-center text-[11px] font-normal text-black bg-green-50">
                       Amount
                     </th>
                   )}
-                  <th className="border border-soft-border px-3 py-1.5 text-center text-[11px] font-semibold text-cool-gray uppercase tracking-wide">
+                  <th className="border border-soft-border px-3 py-1.5 text-center text-[11px] font-normal text-black">
                     Remark
                   </th>
                 </tr>
@@ -1215,7 +1215,7 @@ export default function StoneInventoryPage() {
                   {LOCKED_KEYS.map((c) => (
                     <th
                       key={c.key}
-                      className={`border border-soft-border px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-cool-gray ${c.minW}`}
+                      className={`border border-soft-border px-3 py-2 text-left text-[11px] font-normal text-black ${c.minW}`}
                     >
                       {c.label}
                     </th>
@@ -1228,24 +1228,24 @@ export default function StoneInventoryPage() {
                       {c.label}
                     </th>
                   ))}
-                  <th className="border border-soft-border px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-cool-gray min-w-[90px]">
+                  <th className="border border-soft-border px-3 py-2 text-left text-[11px] font-normal text-black min-w-[90px]">
                     Qty
                   </th>
-                  <th className="border border-soft-border px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-cool-gray min-w-[100px]">
+                  <th className="border border-soft-border px-3 py-2 text-left text-[11px] font-normal text-black min-w-[100px]">
                     Weight (cts)
                   </th>
                   {canAmount && (
-                    <th className="border border-soft-border px-3 py-2 text-center text-[11px] font-semibold uppercase tracking-wide text-cool-gray min-w-[50px]">
+                    <th className="border border-soft-border px-3 py-2 text-center text-[11px] font-normal text-black min-w-[50px]">
                       Pcs
                     </th>
                   )}
                   {canAmount && (
-                    <th className="border border-soft-border px-3 py-2 text-center text-[11px] font-semibold uppercase tracking-wide text-cool-gray min-w-[60px]">
+                    <th className="border border-soft-border px-3 py-2 text-center text-[11px] font-normal text-black min-w-[60px]">
                       Weight
                     </th>
                   )}
                   {canAmount && (
-                    <th className="border border-soft-border px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-cool-gray min-w-[90px]">
+                    <th className="border border-soft-border px-3 py-2 text-left text-[11px] font-normal text-black min-w-[90px]">
                       Price
                     </th>
                   )}
@@ -1254,7 +1254,7 @@ export default function StoneInventoryPage() {
                       Amount
                     </th>
                   )}
-                  <th className="border border-soft-border px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-cool-gray min-w-[120px]">
+                  <th className="border border-soft-border px-3 py-2 text-left text-[11px] font-normal text-black min-w-[120px]">
                     Remark
                   </th>
                 </tr>

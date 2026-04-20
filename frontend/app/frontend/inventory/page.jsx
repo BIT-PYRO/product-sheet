@@ -1,9 +1,11 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { AlertTriangle } from 'lucide-react';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
+import GlobalSearchBar from '@/components/global-search-bar';
+import DateTimeStamp from '@/components/date-time-stamp';
 
 const INVENTORY_BUTTONS = [
   { href: '/inventory/product-inventory', title: 'Product inventory', subtitle: 'Track and manage final product stock' },
@@ -39,15 +41,16 @@ export default function InventoryPage() {
     <main className="min-h-screen bg-cloud-gray">
       <div className="transition-[left,width] duration-300 ease-in-out fixed top-0 left-0 right-0 z-[60] bg-white/95 py-2 border-b border-soft-border shadow-sm backdrop-blur px-3 md:px-4">
         <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 shrink-0">
             <MasterNavigationDrawer inHeader />
             <h1 className="text-xl font-bold tracking-tight text-midnight-ink">INVENTORY</h1>
           </div>
-          <div />
+          <GlobalSearchBar />
+          <DateTimeStamp />
         </div>
       </div>
 
-      <div className="w-full px-4 md:px-6 pt-20 pb-8">
+      <div className="w-full px-3 md:px-4 pt-16 pb-16">
         <div className="mb-6">
           <p className="text-base text-cool-gray">Select an inventory section</p>
         </div>

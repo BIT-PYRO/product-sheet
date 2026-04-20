@@ -503,7 +503,7 @@ export default function OthersInventoryPage() {
         </div>
       </div>
 
-      <div className="w-full px-4 md:px-6 pt-20 pb-8">
+      <div className="w-full px-3 md:px-4 pt-16 pb-16">
         {status && (
           <div className={`fixed top-16 right-4 z-50 rounded-lg border px-4 py-2 text-sm shadow-md ${statusType === 'error' ? 'border-rose-200 bg-rose-50 text-rose-700' : 'border-emerald-200 bg-emerald-50 text-emerald-700'}`}>
             {status}
@@ -606,7 +606,7 @@ export default function OthersInventoryPage() {
               <table className="w-full min-w-[1040px] border-collapse text-sm">
                 <thead>
                   <tr className="bg-[#dbeafe] border-b border-soft-border">
-                    <th className="px-3 py-2 text-left text-xs font-bold uppercase tracking-wide text-cool-gray w-12">
+                    <th className="border border-soft-border px-3 py-2 text-left text-xs font-normal text-black w-12">
                       <input
                         type="checkbox"
                         checked={allSelected}
@@ -616,15 +616,15 @@ export default function OthersInventoryPage() {
                         className="h-4 w-4 cursor-pointer rounded border-soft-border accent-trust-blue"
                       />
                     </th>
-                    {visibleColumns.has('sno') && <th className="px-3 py-2 text-left text-xs font-bold uppercase tracking-wide text-cool-gray w-14">#</th>}
-                    {visibleColumns.has('item_name') && <th className="px-3 py-2 text-left text-xs font-bold uppercase tracking-wide text-cool-gray">Item Name</th>}
-                    {visibleColumns.has('category') && <th className="px-3 py-2 text-left text-xs font-bold uppercase tracking-wide text-cool-gray">Category</th>}
-                    {visibleColumns.has('quantity') && <th className="px-3 py-2 text-left text-xs font-bold uppercase tracking-wide text-cool-gray">Quantity</th>}
-                    {visibleColumns.has('used_qty') && <th className="px-3 py-2 text-left text-xs font-bold uppercase tracking-wide text-cool-gray">Used Qty</th>}
-                    {visibleColumns.has('unit') && <th className="px-3 py-2 text-left text-xs font-bold uppercase tracking-wide text-cool-gray">Unit</th>}
-                    {visibleColumns.has('min_level') && <th className="px-3 py-2 text-left text-xs font-bold uppercase tracking-wide text-cool-gray">Min Level</th>}
-                    {visibleColumns.has('notes') && <th className="px-3 py-2 text-left text-xs font-bold uppercase tracking-wide text-cool-gray">Notes</th>}
-                    {visibleColumns.has('action') && <th className="px-3 py-2 text-left text-xs font-bold uppercase tracking-wide text-cool-gray w-20">Action</th>}
+                    {visibleColumns.has('sno') && <th className="border border-soft-border px-3 py-2 text-left text-xs font-normal text-black w-14">#</th>}
+                    {visibleColumns.has('item_name') && <th className="border border-soft-border px-3 py-2 text-left text-xs font-normal text-black">Item Name</th>}
+                    {visibleColumns.has('category') && <th className="border border-soft-border px-3 py-2 text-left text-xs font-normal text-black">Category</th>}
+                    {visibleColumns.has('quantity') && <th className="border border-soft-border px-3 py-2 text-left text-xs font-normal text-black">Quantity</th>}
+                    {visibleColumns.has('used_qty') && <th className="border border-soft-border px-3 py-2 text-left text-xs font-normal text-black">Used Qty</th>}
+                    {visibleColumns.has('unit') && <th className="border border-soft-border px-3 py-2 text-left text-xs font-normal text-black">Unit</th>}
+                    {visibleColumns.has('min_level') && <th className="border border-soft-border px-3 py-2 text-left text-xs font-normal text-black">Min Level</th>}
+                    {visibleColumns.has('notes') && <th className="border border-soft-border px-3 py-2 text-left text-xs font-normal text-black">Notes</th>}
+                    {visibleColumns.has('action') && <th className="border border-soft-border px-3 py-2 text-left text-xs font-normal text-black w-20">Action</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -634,7 +634,7 @@ export default function OthersInventoryPage() {
                     const isLow = min > 0 && qty <= min;
                     return (
                       <tr key={row.id} className={`border-b border-soft-border/70 last:border-b-0 ${isLow ? 'bg-amber-50/50' : ''}`}>
-                        <td className="px-3 py-2">
+                        <td className="border border-soft-border px-3 py-2">
                           <input
                             type="checkbox"
                             checked={selectedIds.has(row.id)}
@@ -643,24 +643,24 @@ export default function OthersInventoryPage() {
                             className="h-4 w-4 cursor-pointer rounded border-soft-border accent-trust-blue"
                           />
                         </td>
-                        {visibleColumns.has('sno') && <td className="px-3 py-2 text-midnight-ink">{index + 1}</td>}
-                        {visibleColumns.has('item_name') && <td className="px-3 py-2"><input type="text" value={getField(row, 'item_name')} onChange={(e) => setField(row.id, 'item_name', e.target.value)} readOnly={!editingRowIds.has(row.id)} placeholder="Coffee powder" className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue read-only:bg-gray-50 read-only:text-cool-gray" /></td>}
-                        {visibleColumns.has('category') && <td className="px-3 py-2">
+                        {visibleColumns.has('sno') && <td className="border border-soft-border px-3 py-2 text-midnight-ink">{index + 1}</td>}
+                        {visibleColumns.has('item_name') && <td className="border border-soft-border px-3 py-2"><input type="text" value={getField(row, 'item_name')} onChange={(e) => setField(row.id, 'item_name', e.target.value)} readOnly={!editingRowIds.has(row.id)} placeholder="Coffee powder" className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue read-only:bg-gray-50 read-only:text-cool-gray" /></td>}
+                        {visibleColumns.has('category') && <td className="border border-soft-border px-3 py-2">
                           <select value={getField(row, 'category')} onChange={(e) => setField(row.id, 'category', e.target.value)} disabled={!editingRowIds.has(row.id)} className="h-9 w-full rounded-lg border border-soft-border bg-white px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue disabled:bg-gray-50 disabled:text-cool-gray">
                             <option value="">Select category</option>
                             {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
                           </select>
                         </td>}
-                        {visibleColumns.has('quantity') && <td className="px-3 py-2"><input type="number" value={getField(row, 'quantity')} onChange={(e) => setField(row.id, 'quantity', e.target.value)} readOnly={!editingRowIds.has(row.id)} placeholder="0" className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue read-only:bg-gray-50 read-only:text-cool-gray" /></td>}
-                        {visibleColumns.has('used_qty') && <td className="px-3 py-2"><input type="number" value={getField(row, 'used_qty')} onChange={(e) => setField(row.id, 'used_qty', e.target.value)} readOnly={!editingRowIds.has(row.id)} placeholder="0" className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue read-only:bg-gray-50 read-only:text-cool-gray" /></td>}
-                        {visibleColumns.has('unit') && <td className="px-3 py-2">
+                        {visibleColumns.has('quantity') && <td className="border border-soft-border px-3 py-2"><input type="number" value={getField(row, 'quantity')} onChange={(e) => setField(row.id, 'quantity', e.target.value)} readOnly={!editingRowIds.has(row.id)} placeholder="0" className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue read-only:bg-gray-50 read-only:text-cool-gray" /></td>}
+                        {visibleColumns.has('used_qty') && <td className="border border-soft-border px-3 py-2"><input type="number" value={getField(row, 'used_qty')} onChange={(e) => setField(row.id, 'used_qty', e.target.value)} readOnly={!editingRowIds.has(row.id)} placeholder="0" className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue read-only:bg-gray-50 read-only:text-cool-gray" /></td>}
+                        {visibleColumns.has('unit') && <td className="border border-soft-border px-3 py-2">
                           <select value={getField(row, 'unit')} onChange={(e) => setField(row.id, 'unit', e.target.value)} disabled={!editingRowIds.has(row.id)} className="h-9 w-full rounded-lg border border-soft-border bg-white px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue disabled:bg-gray-50 disabled:text-cool-gray">
                             {UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
                           </select>
                         </td>}
-                        {visibleColumns.has('min_level') && <td className="px-3 py-2"><input type="number" value={getField(row, 'min_level')} onChange={(e) => setField(row.id, 'min_level', e.target.value)} readOnly={!editingRowIds.has(row.id)} placeholder="10" className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue read-only:bg-gray-50 read-only:text-cool-gray" /></td>}
-                        {visibleColumns.has('notes') && <td className="px-3 py-2"><input type="text" value={getField(row, 'notes')} onChange={(e) => setField(row.id, 'notes', e.target.value)} readOnly={!editingRowIds.has(row.id)} placeholder="Any note" className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue read-only:bg-gray-50 read-only:text-cool-gray" /></td>}
-                        {visibleColumns.has('action') && <td className="px-3 py-2">
+                        {visibleColumns.has('min_level') && <td className="border border-soft-border px-3 py-2"><input type="number" value={getField(row, 'min_level')} onChange={(e) => setField(row.id, 'min_level', e.target.value)} readOnly={!editingRowIds.has(row.id)} placeholder="10" className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue read-only:bg-gray-50 read-only:text-cool-gray" /></td>}
+                        {visibleColumns.has('notes') && <td className="border border-soft-border px-3 py-2"><input type="text" value={getField(row, 'notes')} onChange={(e) => setField(row.id, 'notes', e.target.value)} readOnly={!editingRowIds.has(row.id)} placeholder="Any note" className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue read-only:bg-gray-50 read-only:text-cool-gray" /></td>}
+                        {visibleColumns.has('action') && <td className="border border-soft-border px-3 py-2">
                           <button type="button" onClick={() => deleteRow(row.id)} className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-rose-200 text-rose-600 hover:bg-rose-50 transition" aria-label="Delete">
                             <Trash2 className="h-4 w-4" />
                           </button>
@@ -670,24 +670,24 @@ export default function OthersInventoryPage() {
                   })}
                   {newRows.map((row, index) => (
                     <tr key={row._localId} className="border-b border-soft-border/70 last:border-b-0 bg-sky-50/40">
-                      <td className="px-3 py-2" />
-                      {visibleColumns.has('sno') && <td className="px-3 py-2 text-midnight-ink">{rows.length + index + 1}</td>}
-                      {visibleColumns.has('item_name') && <td className="px-3 py-2"><input type="text" value={row.item_name} onChange={(e) => setNewField(row._localId, 'item_name', e.target.value)} placeholder="Coffee powder" className="h-9 w-full rounded-lg border border-trust-blue/40 px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue" /></td>}
-                      {visibleColumns.has('category') && <td className="px-3 py-2">
+                      <td className="border border-soft-border px-3 py-2" />
+                      {visibleColumns.has('sno') && <td className="border border-soft-border px-3 py-2 text-midnight-ink">{rows.length + index + 1}</td>}
+                      {visibleColumns.has('item_name') && <td className="border border-soft-border px-3 py-2"><input type="text" value={row.item_name} onChange={(e) => setNewField(row._localId, 'item_name', e.target.value)} placeholder="Coffee powder" className="h-9 w-full rounded-lg border border-trust-blue/40 px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue" /></td>}
+                      {visibleColumns.has('category') && <td className="border border-soft-border px-3 py-2">
                         <select value={row.category} onChange={(e) => setNewField(row._localId, 'category', e.target.value)} className="h-9 w-full rounded-lg border border-trust-blue/40 bg-white px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue">
                           <option value="">Select category</option>
                           {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
                         </select>
                       </td>}
-                      {visibleColumns.has('quantity') && <td className="px-3 py-2"><input type="number" value={row.quantity} onChange={(e) => setNewField(row._localId, 'quantity', e.target.value)} placeholder="0" className="h-9 w-full rounded-lg border border-trust-blue/40 px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue" /></td>}
-                      {visibleColumns.has('unit') && <td className="px-3 py-2">
+                      {visibleColumns.has('quantity') && <td className="border border-soft-border px-3 py-2"><input type="number" value={row.quantity} onChange={(e) => setNewField(row._localId, 'quantity', e.target.value)} placeholder="0" className="h-9 w-full rounded-lg border border-trust-blue/40 px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue" /></td>}
+                      {visibleColumns.has('unit') && <td className="border border-soft-border px-3 py-2">
                         <select value={row.unit} onChange={(e) => setNewField(row._localId, 'unit', e.target.value)} className="h-9 w-full rounded-lg border border-trust-blue/40 bg-white px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue">
                           {UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
                         </select>
                       </td>}
-                      {visibleColumns.has('min_level') && <td className="px-3 py-2"><input type="number" value={row.min_level} onChange={(e) => setNewField(row._localId, 'min_level', e.target.value)} placeholder="10" className="h-9 w-full rounded-lg border border-trust-blue/40 px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue" /></td>}
-                      {visibleColumns.has('notes') && <td className="px-3 py-2"><input type="text" value={row.notes} onChange={(e) => setNewField(row._localId, 'notes', e.target.value)} placeholder="Any note" className="h-9 w-full rounded-lg border border-trust-blue/40 px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue" /></td>}
-                      {visibleColumns.has('action') && <td className="px-3 py-2">
+                      {visibleColumns.has('min_level') && <td className="border border-soft-border px-3 py-2"><input type="number" value={row.min_level} onChange={(e) => setNewField(row._localId, 'min_level', e.target.value)} placeholder="10" className="h-9 w-full rounded-lg border border-trust-blue/40 px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue" /></td>}
+                      {visibleColumns.has('notes') && <td className="border border-soft-border px-3 py-2"><input type="text" value={row.notes} onChange={(e) => setNewField(row._localId, 'notes', e.target.value)} placeholder="Any note" className="h-9 w-full rounded-lg border border-trust-blue/40 px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue" /></td>}
+                      {visibleColumns.has('action') && <td className="border border-soft-border px-3 py-2">
                         <button type="button" onClick={() => removeNewRow(row._localId)} className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-rose-200 text-rose-600 hover:bg-rose-50 transition" aria-label="Remove">
                           <Trash2 className="h-4 w-4" />
                         </button>
@@ -695,7 +695,7 @@ export default function OthersInventoryPage() {
                     </tr>
                   ))}
                   {filteredRows.length === 0 && newRows.length === 0 && (
-                    <tr><td colSpan={visibleTableColumnCount} className="px-4 py-10 text-center text-sm text-cool-gray">No items found. Add an item to get started.</td></tr>
+                    <tr><td colSpan={visibleTableColumnCount} className="border border-soft-border px-4 py-10 text-center text-sm text-cool-gray">No items found. Add an item to get started.</td></tr>
                   )}
                 </tbody>
               </table>

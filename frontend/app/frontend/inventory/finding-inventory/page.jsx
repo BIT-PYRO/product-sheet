@@ -589,7 +589,7 @@ export default function FindingInventoryPage() {
         </div>
       </div>
 
-      <div className="w-full px-4 md:px-6 pt-20 pb-8">
+      <div className="w-full px-3 md:px-4 pt-16 pb-16">
         {/* Status message */}
         {statusMsg && (
           <div className="fixed top-16 right-4 z-50 flex items-center justify-between gap-3 rounded-lg border border-soft-border bg-white px-4 py-2 text-sm text-midnight-ink shadow-md">
@@ -721,7 +721,7 @@ export default function FindingInventoryPage() {
             <table className="w-full min-w-[900px] border-collapse text-sm">
               <thead>
                 <tr className="bg-[#dbeafe] border-b border-soft-border">
-                  <th className="px-3 py-2.5 text-left">
+                  <th className="border border-soft-border px-3 py-2.5 text-left">
                     <input
                       type="checkbox"
                       checked={allSelected}
@@ -731,31 +731,31 @@ export default function FindingInventoryPage() {
                       className="h-4 w-4 cursor-pointer rounded border-soft-border accent-trust-blue"
                     />
                   </th>
-                  {visibleColumns.has('sno') && <th className="px-3 py-2.5 text-left text-xs font-bold uppercase tracking-wide text-cool-gray w-12">#</th>}
-                  {visibleColumns.has('finding_code') && <th className="px-3 py-2.5 text-left text-xs font-bold uppercase tracking-wide text-cool-gray">Finding Code</th>}
-                  {visibleColumns.has('die_number') && <th className="px-3 py-2.5 text-left text-xs font-bold uppercase tracking-wide text-cool-gray">Die No.</th>}
-                  {visibleColumns.has('size') && <th className="px-3 py-2.5 text-left text-xs font-bold uppercase tracking-wide text-cool-gray">Size</th>}
-                  {visibleColumns.has('material') && <th className="px-3 py-2.5 text-left text-xs font-bold uppercase tracking-wide text-cool-gray">Material</th>}
-                  {visibleColumns.has('finding_stage') && <th className="px-3 py-2.5 text-left text-xs font-bold uppercase tracking-wide text-cool-gray">Stage</th>}
-                  {visibleColumns.has('mechanism') && <th className="px-3 py-2.5 text-left text-xs font-bold uppercase tracking-wide text-cool-gray">Mechanism</th>}
-                  {visibleColumns.has('quantity') && <th className="px-3 py-2.5 text-right text-xs font-bold uppercase tracking-wide text-cool-gray">Quantity</th>}
-                  {visibleColumns.has('used_qty') && <th className="px-3 py-2.5 text-right text-xs font-bold uppercase tracking-wide text-cool-gray">Used Qty</th>}
-                  {visibleColumns.has('weight') && <th className="px-3 py-2.5 text-right text-xs font-bold uppercase tracking-wide text-cool-gray">Weight</th>}
-                  {visibleColumns.has('dead_weight') && <th className="px-3 py-2.5 text-right text-xs font-bold uppercase tracking-wide text-cool-gray">Dead Wt.</th>}
-                  {visibleColumns.has('mold_qty_per_die') && <th className="px-3 py-2.5 text-right text-xs font-bold uppercase tracking-wide text-cool-gray">Mold Qty/Die</th>}
+                  {visibleColumns.has('sno') && <th className="border border-soft-border px-3 py-2.5 text-left text-xs font-normal text-black w-12">#</th>}
+                  {visibleColumns.has('finding_code') && <th className="border border-soft-border px-3 py-2.5 text-left text-xs font-normal text-black">Finding Code</th>}
+                  {visibleColumns.has('die_number') && <th className="border border-soft-border px-3 py-2.5 text-left text-xs font-normal text-black">Die No.</th>}
+                  {visibleColumns.has('size') && <th className="border border-soft-border px-3 py-2.5 text-left text-xs font-normal text-black">Size</th>}
+                  {visibleColumns.has('material') && <th className="border border-soft-border px-3 py-2.5 text-left text-xs font-normal text-black">Material</th>}
+                  {visibleColumns.has('finding_stage') && <th className="border border-soft-border px-3 py-2.5 text-left text-xs font-normal text-black">Stage</th>}
+                  {visibleColumns.has('mechanism') && <th className="border border-soft-border px-3 py-2.5 text-left text-xs font-normal text-black">Mechanism</th>}
+                  {visibleColumns.has('quantity') && <th className="border border-soft-border px-3 py-2.5 text-right text-xs font-normal text-black">Quantity</th>}
+                  {visibleColumns.has('used_qty') && <th className="border border-soft-border px-3 py-2.5 text-right text-xs font-normal text-black">Used Qty</th>}
+                  {visibleColumns.has('weight') && <th className="border border-soft-border px-3 py-2.5 text-right text-xs font-normal text-black">Weight</th>}
+                  {visibleColumns.has('dead_weight') && <th className="border border-soft-border px-3 py-2.5 text-right text-xs font-normal text-black">Dead Wt.</th>}
+                  {visibleColumns.has('mold_qty_per_die') && <th className="border border-soft-border px-3 py-2.5 text-right text-xs font-normal text-black">Mold Qty/Die</th>}
                 </tr>
               </thead>
               <tbody>
                 {loading && (
                   <tr>
-                    <td colSpan={visibleTableColumnCount} className="px-4 py-10 text-center text-sm text-cool-gray">
+                    <td colSpan={visibleTableColumnCount} className="border border-soft-border px-4 py-10 text-center text-sm text-cool-gray">
                       Loading findings…
                     </td>
                   </tr>
                 )}
                 {!loading && filtered.length === 0 && (
                   <tr>
-                    <td colSpan={visibleTableColumnCount} className="px-4 py-10 text-center text-sm text-cool-gray">
+                    <td colSpan={visibleTableColumnCount} className="border border-soft-border px-4 py-10 text-center text-sm text-cool-gray">
                       {hasActiveFilters ? 'No findings match your filters.' : 'No findings found.'}
                     </td>
                   </tr>
@@ -768,7 +768,7 @@ export default function FindingInventoryPage() {
                       key={f.id}
                       className={`border-b border-soft-border/70 last:border-b-0 transition-colors ${isSelected ? 'bg-blue-50' : 'hover:bg-cloud-gray/50'}`}
                     >
-                      <td className="px-3 py-2.5">
+                      <td className="border border-soft-border px-3 py-2.5">
                         <input
                           type="checkbox"
                           checked={isSelected}
@@ -777,34 +777,34 @@ export default function FindingInventoryPage() {
                           className="h-4 w-4 cursor-pointer rounded border-soft-border accent-trust-blue"
                         />
                       </td>
-                      {visibleColumns.has('sno') && <td className="px-3 py-2.5 text-cool-gray">{index + 1}</td>}
+                      {visibleColumns.has('sno') && <td className="border border-soft-border px-3 py-2.5 text-cool-gray">{index + 1}</td>}
                       {editingRowIds.has(f.id) ? (
                         <>
-                          {visibleColumns.has('finding_code') && <td className="px-3 py-2.5"><input type="text" value={editBuffer[f.id]?.finding_code ?? ''} onChange={(e) => updateEditBuffer(f.id, 'finding_code', e.target.value)} className="h-8 w-full rounded border border-soft-border px-2 text-sm" /></td>}
-                          {visibleColumns.has('die_number') && <td className="px-3 py-2.5"><input type="text" value={editBuffer[f.id]?.die_number ?? ''} onChange={(e) => updateEditBuffer(f.id, 'die_number', e.target.value)} className="h-8 w-full rounded border border-soft-border px-2 text-sm" /></td>}
-                          {visibleColumns.has('size') && <td className="px-3 py-2.5"><input type="text" value={editBuffer[f.id]?.size ?? ''} onChange={(e) => updateEditBuffer(f.id, 'size', e.target.value)} className="h-8 w-full rounded border border-soft-border px-2 text-sm" /></td>}
-                          {visibleColumns.has('material') && <td className="px-3 py-2.5">
+                          {visibleColumns.has('finding_code') && <td className="border border-soft-border px-3 py-2.5"><input type="text" value={editBuffer[f.id]?.finding_code ?? ''} onChange={(e) => updateEditBuffer(f.id, 'finding_code', e.target.value)} className="h-8 w-full rounded border border-soft-border px-2 text-sm" /></td>}
+                          {visibleColumns.has('die_number') && <td className="border border-soft-border px-3 py-2.5"><input type="text" value={editBuffer[f.id]?.die_number ?? ''} onChange={(e) => updateEditBuffer(f.id, 'die_number', e.target.value)} className="h-8 w-full rounded border border-soft-border px-2 text-sm" /></td>}
+                          {visibleColumns.has('size') && <td className="border border-soft-border px-3 py-2.5"><input type="text" value={editBuffer[f.id]?.size ?? ''} onChange={(e) => updateEditBuffer(f.id, 'size', e.target.value)} className="h-8 w-full rounded border border-soft-border px-2 text-sm" /></td>}
+                          {visibleColumns.has('material') && <td className="border border-soft-border px-3 py-2.5">
                             <select value={editBuffer[f.id]?.material ?? ''} onChange={(e) => updateEditBuffer(f.id, 'material', e.target.value)} className="h-8 w-full rounded border border-soft-border bg-white px-2 text-sm">
                               <option value="">Select</option>
                               {MATERIAL_OPTIONS.map((m) => <option key={m} value={m}>{m}</option>)}
                             </select>
                           </td>}
-                          {visibleColumns.has('finding_stage') && <td className="px-3 py-2.5">
+                          {visibleColumns.has('finding_stage') && <td className="border border-soft-border px-3 py-2.5">
                             <select value={editBuffer[f.id]?.finding_stage ?? ''} onChange={(e) => updateEditBuffer(f.id, 'finding_stage', e.target.value)} className="h-8 w-full rounded border border-soft-border bg-white px-2 text-sm">
                               <option value="">Select</option>
                               {STAGE_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
                             </select>
                           </td>}
-                          {visibleColumns.has('mechanism') && <td className="px-3 py-2.5"><input type="text" value={editBuffer[f.id]?.mechanism ?? ''} onChange={(e) => updateEditBuffer(f.id, 'mechanism', e.target.value)} className="h-8 w-full rounded border border-soft-border px-2 text-sm" /></td>}
-                          {visibleColumns.has('quantity') && <td className="px-3 py-2.5"><input type="number" value={editBuffer[f.id]?.quantity ?? ''} onChange={(e) => updateEditBuffer(f.id, 'quantity', e.target.value)} className="h-8 w-full rounded border border-soft-border px-2 text-sm text-right" /></td>}
-                          {visibleColumns.has('used_qty') && <td className="px-3 py-2.5"><input type="number" value={editBuffer[f.id]?.used_qty ?? ''} onChange={(e) => updateEditBuffer(f.id, 'used_qty', e.target.value)} className="h-8 w-full rounded border border-soft-border px-2 text-sm text-right" /></td>}
-                          {visibleColumns.has('weight') && <td className="px-3 py-2.5"><input type="number" value={editBuffer[f.id]?.weight ?? ''} onChange={(e) => updateEditBuffer(f.id, 'weight', e.target.value)} className="h-8 w-full rounded border border-soft-border px-2 text-sm text-right" /></td>}
-                          {visibleColumns.has('dead_weight') && <td className="px-3 py-2.5"><input type="number" value={editBuffer[f.id]?.dead_weight ?? ''} onChange={(e) => updateEditBuffer(f.id, 'dead_weight', e.target.value)} className="h-8 w-full rounded border border-soft-border px-2 text-sm text-right" /></td>}
-                          {visibleColumns.has('mold_qty_per_die') && <td className="px-3 py-2.5"><input type="number" value={editBuffer[f.id]?.mold_qty_per_die ?? ''} onChange={(e) => updateEditBuffer(f.id, 'mold_qty_per_die', e.target.value)} className="h-8 w-full rounded border border-soft-border px-2 text-sm text-right" /></td>}
+                          {visibleColumns.has('mechanism') && <td className="border border-soft-border px-3 py-2.5"><input type="text" value={editBuffer[f.id]?.mechanism ?? ''} onChange={(e) => updateEditBuffer(f.id, 'mechanism', e.target.value)} className="h-8 w-full rounded border border-soft-border px-2 text-sm" /></td>}
+                          {visibleColumns.has('quantity') && <td className="border border-soft-border px-3 py-2.5"><input type="number" value={editBuffer[f.id]?.quantity ?? ''} onChange={(e) => updateEditBuffer(f.id, 'quantity', e.target.value)} className="h-8 w-full rounded border border-soft-border px-2 text-sm text-right" /></td>}
+                          {visibleColumns.has('used_qty') && <td className="border border-soft-border px-3 py-2.5"><input type="number" value={editBuffer[f.id]?.used_qty ?? ''} onChange={(e) => updateEditBuffer(f.id, 'used_qty', e.target.value)} className="h-8 w-full rounded border border-soft-border px-2 text-sm text-right" /></td>}
+                          {visibleColumns.has('weight') && <td className="border border-soft-border px-3 py-2.5"><input type="number" value={editBuffer[f.id]?.weight ?? ''} onChange={(e) => updateEditBuffer(f.id, 'weight', e.target.value)} className="h-8 w-full rounded border border-soft-border px-2 text-sm text-right" /></td>}
+                          {visibleColumns.has('dead_weight') && <td className="border border-soft-border px-3 py-2.5"><input type="number" value={editBuffer[f.id]?.dead_weight ?? ''} onChange={(e) => updateEditBuffer(f.id, 'dead_weight', e.target.value)} className="h-8 w-full rounded border border-soft-border px-2 text-sm text-right" /></td>}
+                          {visibleColumns.has('mold_qty_per_die') && <td className="border border-soft-border px-3 py-2.5"><input type="number" value={editBuffer[f.id]?.mold_qty_per_die ?? ''} onChange={(e) => updateEditBuffer(f.id, 'mold_qty_per_die', e.target.value)} className="h-8 w-full rounded border border-soft-border px-2 text-sm text-right" /></td>}
                         </>
                       ) : (
                         <>
-                          {visibleColumns.has('finding_code') && <td className="px-3 py-2.5 font-medium">
+                          {visibleColumns.has('finding_code') && <td className="border border-soft-border px-3 py-2.5 font-medium">
                             <Link
                               href={`/finding-entry?code=${encodeURIComponent(f.finding_code)}`}
                               className="text-trust-blue hover:underline"
@@ -812,32 +812,32 @@ export default function FindingInventoryPage() {
                               {f.finding_code || '—'}
                             </Link>
                           </td>}
-                          {visibleColumns.has('die_number') && <td className="px-3 py-2.5 text-midnight-ink">{f.die_number || '—'}</td>}
-                          {visibleColumns.has('size') && <td className="px-3 py-2.5 text-midnight-ink">{f.size || '—'}</td>}
-                          {visibleColumns.has('material') && <td className="px-3 py-2.5">
+                          {visibleColumns.has('die_number') && <td className="border border-soft-border px-3 py-2.5 text-midnight-ink">{f.die_number || '—'}</td>}
+                          {visibleColumns.has('size') && <td className="border border-soft-border px-3 py-2.5 text-midnight-ink">{f.size || '—'}</td>}
+                          {visibleColumns.has('material') && <td className="border border-soft-border px-3 py-2.5">
                             {f.material ? (
                               <span className="inline-block rounded-full bg-cloud-gray px-2.5 py-0.5 text-xs font-medium text-slate-text">
                                 {f.material}
                               </span>
                             ) : '—'}
                           </td>}
-                          {visibleColumns.has('finding_stage') && <td className="px-3 py-2.5">
+                          {visibleColumns.has('finding_stage') && <td className="border border-soft-border px-3 py-2.5">
                             {f.finding_stage ? (
                               <span className="inline-block rounded-full bg-sky-50 px-2.5 py-0.5 text-xs font-medium text-sky-700">
                                 {f.finding_stage}
                               </span>
                             ) : '—'}
                           </td>}
-                          {visibleColumns.has('mechanism') && <td className="px-3 py-2.5 text-midnight-ink">{f.mechanism || '—'}</td>}
-                          {visibleColumns.has('quantity') && <td className="px-3 py-2.5 text-right text-midnight-ink font-medium">
+                          {visibleColumns.has('mechanism') && <td className="border border-soft-border px-3 py-2.5 text-midnight-ink">{f.mechanism || '—'}</td>}
+                          {visibleColumns.has('quantity') && <td className="border border-soft-border px-3 py-2.5 text-right text-midnight-ink font-medium">
                             {f.quantity || '—'}
                           </td>}
-                          {visibleColumns.has('used_qty') && <td className="px-3 py-2.5 text-right text-midnight-ink font-medium">
+                          {visibleColumns.has('used_qty') && <td className="border border-soft-border px-3 py-2.5 text-right text-midnight-ink font-medium">
                             {f.used_qty || '—'}
                           </td>}
-                          {visibleColumns.has('weight') && <td className="px-3 py-2.5 text-right text-midnight-ink">{f.weight || '—'}</td>}
-                          {visibleColumns.has('dead_weight') && <td className="px-3 py-2.5 text-right text-midnight-ink">{f.dead_weight || '—'}</td>}
-                          {visibleColumns.has('mold_qty_per_die') && <td className="px-3 py-2.5 text-right text-midnight-ink">{f.mold_qty_per_die || '—'}</td>}
+                          {visibleColumns.has('weight') && <td className="border border-soft-border px-3 py-2.5 text-right text-midnight-ink">{f.weight || '—'}</td>}
+                          {visibleColumns.has('dead_weight') && <td className="border border-soft-border px-3 py-2.5 text-right text-midnight-ink">{f.dead_weight || '—'}</td>}
+                          {visibleColumns.has('mold_qty_per_die') && <td className="border border-soft-border px-3 py-2.5 text-right text-midnight-ink">{f.mold_qty_per_die || '—'}</td>}
                         </>
                       )}
                     </tr>

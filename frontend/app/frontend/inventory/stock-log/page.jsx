@@ -1,9 +1,11 @@
-'use client';
+﻿'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, Pencil, Plus, Printer, Trash2, X } from 'lucide-react';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
+import GlobalSearchBar from '@/components/global-search-bar';
+import DateTimeStamp from '@/components/date-time-stamp';
 import {
   Dialog,
   DialogContent,
@@ -299,28 +301,29 @@ export default function StockLogPage() {
 
   // ── Input class helpers ──────────────────────────────────────────────────
   const inputCls = (editing) =>
-    `h-9 w-full rounded-lg border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue ${
-      editing ? 'border-trust-blue/60 bg-white' : 'border-soft-border read-only:bg-gray-50 read-only:text-cool-gray'
-    }`;
+    editing
+      ? 'h-9 w-full rounded-lg border border-trust-blue/60 bg-white px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue'
+      : 'w-full bg-transparent border-0 outline-none px-0 text-sm text-midnight-ink cursor-default';
   const selectCls = (editing) =>
-    `h-9 w-full rounded-lg border bg-white px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue ${
-      editing ? 'border-trust-blue/60' : 'border-soft-border disabled:bg-gray-50 disabled:text-cool-gray'
-    }`;
+    editing
+      ? 'h-9 w-full rounded-lg border border-trust-blue/60 bg-white px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue'
+      : 'w-full bg-transparent border-0 outline-none px-0 text-sm text-midnight-ink cursor-default appearance-none';
 
   return (
     <main className="min-h-screen bg-cloud-gray">
       {/* Header */}
       <div className="transition-[left,width] duration-300 ease-in-out fixed top-0 left-0 right-0 z-[60] bg-white/95 py-2 border-b border-soft-border shadow-sm backdrop-blur px-3 md:px-4">
         <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 shrink-0">
             <MasterNavigationDrawer inHeader />
             <h1 className="text-xl font-bold tracking-tight text-midnight-ink">STOCK LOG</h1>
           </div>
-          <div />
+          <GlobalSearchBar />
+          <DateTimeStamp />
         </div>
       </div>
 
-      <div className="w-full px-4 md:px-6 pt-20 pb-8">
+      <div className="w-full px-3 md:px-4 pt-16 pb-16">
         {/* Back (left) + action buttons (right) */}
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <Link
@@ -455,8 +458,8 @@ export default function StockLogPage() {
           <div className="overflow-x-auto">
             <table className="w-full border-collapse text-sm" style={{ minWidth: '1600px' }}>
               <thead>
-                <tr className="bg-[#dbeafe] border-b border-soft-border">
-                  <th className="px-3 py-2 text-left text-xs font-bold uppercase tracking-wide text-cool-gray w-10">
+                <tr className="bg-[#dbeafe]">
+                  <th className="border border-soft-border px-3 py-2 text-left text-xs font-normal text-black w-10">
                     <input
                       type="checkbox"
                       checked={allSelected}
@@ -466,23 +469,23 @@ export default function StockLogPage() {
                       className="h-4 w-4 cursor-pointer rounded border-soft-border accent-trust-blue"
                     />
                   </th>
-                  {visibleColumns.has('sno')            && <th className="px-3 py-2 text-left text-xs font-bold uppercase tracking-wide text-cool-gray w-12">#</th>}
-                  {visibleColumns.has('date')           && <th className="px-3 py-2 text-left text-xs font-bold uppercase tracking-wide text-cool-gray">Date</th>}
-                  {visibleColumns.has('inventoryType')  && <th className="px-3 py-2 text-left text-xs font-bold uppercase tracking-wide text-cool-gray">Inventory Type</th>}
-                  {visibleColumns.has('receivedIssued') && <th className="px-3 py-2 text-left text-xs font-bold uppercase tracking-wide text-cool-gray">Rcvd / Issued</th>}
-                  {visibleColumns.has('stockName')      && <th className="px-3 py-2 text-left text-xs font-bold uppercase tracking-wide text-cool-gray">Stock Name</th>}
-                  {visibleColumns.has('particulars')    && <th className="px-3 py-2 text-left text-xs font-bold uppercase tracking-wide text-cool-gray">Particulars</th>}
-                  {visibleColumns.has('qty')            && <th className="px-3 py-2 text-left text-xs font-bold uppercase tracking-wide text-cool-gray">Qty</th>}
-                  {visibleColumns.has('qtyUnit')        && <th className="px-3 py-2 text-left text-xs font-bold uppercase tracking-wide text-cool-gray">Units</th>}
-                  {visibleColumns.has('weight')         && <th className="px-3 py-2 text-left text-xs font-bold uppercase tracking-wide text-cool-gray">Weight</th>}
-                  {visibleColumns.has('weightUnit')     && <th className="px-3 py-2 text-left text-xs font-bold uppercase tracking-wide text-cool-gray">Units</th>}
-                  {visibleColumns.has('location')       && <th className="px-3 py-2 text-left text-xs font-bold uppercase tracking-wide text-cool-gray">Location</th>}
-                  {visibleColumns.has('price')          && <th className="px-3 py-2 text-left text-xs font-bold uppercase tracking-wide text-cool-gray">Price</th>}
-                  {visibleColumns.has('amount')         && <th className="px-3 py-2 text-left text-xs font-bold uppercase tracking-wide text-cool-gray">Amount</th>}
-                  {visibleColumns.has('receivedFrom')   && <th className="px-3 py-2 text-left text-xs font-bold uppercase tracking-wide text-cool-gray">Received From</th>}
-                  {visibleColumns.has('issuedTo')       && <th className="px-3 py-2 text-left text-xs font-bold uppercase tracking-wide text-cool-gray">Issued To</th>}
-                  {visibleColumns.has('activityStatus') && <th className="px-3 py-2 text-left text-xs font-bold uppercase tracking-wide text-cool-gray">Status</th>}
-                  {visibleColumns.has('action')         && <th className="px-3 py-2 text-left text-xs font-bold uppercase tracking-wide text-cool-gray w-16">Action</th>}
+                  {visibleColumns.has('sno')            && <th className="border border-soft-border px-3 py-2 text-left text-xs font-normal text-black w-12">#</th>}
+                  {visibleColumns.has('date')           && <th className="border border-soft-border px-3 py-2 text-left text-xs font-normal text-black">Date</th>}
+                  {visibleColumns.has('inventoryType')  && <th className="border border-soft-border px-3 py-2 text-left text-xs font-normal text-black">Inventory Type</th>}
+                  {visibleColumns.has('receivedIssued') && <th className="border border-soft-border px-3 py-2 text-left text-xs font-normal text-black">Rcvd / Issued</th>}
+                  {visibleColumns.has('stockName')      && <th className="border border-soft-border px-3 py-2 text-left text-xs font-normal text-black">Stock Name</th>}
+                  {visibleColumns.has('particulars')    && <th className="border border-soft-border px-3 py-2 text-left text-xs font-normal text-black">Particulars</th>}
+                  {visibleColumns.has('qty')            && <th className="border border-soft-border px-3 py-2 text-left text-xs font-normal text-black">Qty</th>}
+                  {visibleColumns.has('qtyUnit')        && <th className="border border-soft-border px-3 py-2 text-left text-xs font-normal text-black">Units</th>}
+                  {visibleColumns.has('weight')         && <th className="border border-soft-border px-3 py-2 text-left text-xs font-normal text-black">Weight</th>}
+                  {visibleColumns.has('weightUnit')     && <th className="border border-soft-border px-3 py-2 text-left text-xs font-normal text-black">Units</th>}
+                  {visibleColumns.has('location')       && <th className="border border-soft-border px-3 py-2 text-left text-xs font-normal text-black">Location</th>}
+                  {visibleColumns.has('price')          && <th className="border border-soft-border px-3 py-2 text-left text-xs font-normal text-black">Price</th>}
+                  {visibleColumns.has('amount')         && <th className="border border-soft-border px-3 py-2 text-left text-xs font-normal text-black">Amount</th>}
+                  {visibleColumns.has('receivedFrom')   && <th className="border border-soft-border px-3 py-2 text-left text-xs font-normal text-black">Received From</th>}
+                  {visibleColumns.has('issuedTo')       && <th className="border border-soft-border px-3 py-2 text-left text-xs font-normal text-black">Issued To</th>}
+                  {visibleColumns.has('activityStatus') && <th className="border border-soft-border px-3 py-2 text-left text-xs font-normal text-black">Status</th>}
+                  {visibleColumns.has('action')         && <th className="border border-soft-border px-3 py-2 text-left text-xs font-normal text-black w-16">Action</th>}
                 </tr>
               </thead>
               <tbody>
@@ -500,11 +503,9 @@ export default function StockLogPage() {
                     return (
                       <tr
                         key={row.id}
-                        className={`border-b border-soft-border/70 last:border-b-0 ${
-                          isEditing ? 'bg-blue-50/40' : isReceived ? 'bg-emerald-50/30' : isIssued ? 'bg-amber-50/30' : ''
-                        }`}
+                        className={isEditing ? 'bg-blue-50/40' : isReceived ? 'bg-emerald-50/30' : isIssued ? 'bg-amber-50/30' : ''}
                       >
-                        <td className="px-3 py-1.5">
+                        <td className="border border-soft-border px-3 py-2">
                           <input
                             type="checkbox"
                             checked={selectedIds.has(row.id)}
@@ -513,50 +514,37 @@ export default function StockLogPage() {
                             className="h-4 w-4 cursor-pointer rounded border-soft-border accent-trust-blue"
                           />
                         </td>
-                        {visibleColumns.has('sno')            && <td className="px-3 py-1.5 text-cool-gray text-xs">{idx + 1}</td>}
-                        {visibleColumns.has('date')           && <td className="px-3 py-1.5 min-w-[120px]"><input type="date" value={getF(row,'date')} onChange={(e) => setF(row.id,'date',e.target.value)} readOnly={!isEditing} className={inputCls(isEditing)} /></td>}
-                        {visibleColumns.has('inventoryType')  && <td className="px-3 py-1.5 min-w-[120px]">
-                          <select value={getF(row,'inventoryType')} onChange={(e) => setF(row.id,'inventoryType',e.target.value)} disabled={!isEditing} className={selectCls(isEditing)}>
-                            <option value="">—</option>
-                            {INVENTORY_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-                          </select>
+                        {visibleColumns.has('sno')            && <td className="border border-soft-border px-3 py-2 text-cool-gray text-xs">{idx + 1}</td>}
+                        {visibleColumns.has('date')           && <td className="border border-soft-border px-3 py-2 min-w-[120px]"><input type="date" value={getF(row,'date')} onChange={(e) => setF(row.id,'date',e.target.value)} readOnly={!isEditing} className={inputCls(isEditing)} /></td>}
+                        {visibleColumns.has('inventoryType')  && <td className="border border-soft-border px-3 py-2 min-w-[120px]">
+                          {isEditing ? <select value={getF(row,'inventoryType')} onChange={(e) => setF(row.id,'inventoryType',e.target.value)} className={selectCls(true)}><option value="">—</option>{INVENTORY_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}</select> : <span className="text-sm text-midnight-ink">{getF(row,'inventoryType') || '—'}</span>}
                         </td>}
-                        {visibleColumns.has('receivedIssued') && <td className="px-3 py-1.5 min-w-[110px]">
-                          <select value={getF(row,'receivedIssued')} onChange={(e) => setF(row.id,'receivedIssued',e.target.value)} disabled={!isEditing} className={selectCls(isEditing)}>
-                            <option value="">—</option>
-                            {RECEIVED_ISSUED_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
-                          </select>
+                        {visibleColumns.has('receivedIssued') && <td className="border border-soft-border px-3 py-2 min-w-[110px]">
+                          {isEditing ? <select value={getF(row,'receivedIssued')} onChange={(e) => setF(row.id,'receivedIssued',e.target.value)} className={selectCls(true)}><option value="">—</option>{RECEIVED_ISSUED_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}</select> : <span className="text-sm text-midnight-ink">{getF(row,'receivedIssued') || '—'}</span>}
                         </td>}
-                        {visibleColumns.has('stockName')      && <td className="px-3 py-1.5 min-w-[140px]"><input type="text" value={getF(row,'stockName')} onChange={(e) => setF(row.id,'stockName',e.target.value)} readOnly={!isEditing} placeholder="Stock name" className={inputCls(isEditing)} /></td>}
-                        {visibleColumns.has('particulars')    && <td className="px-3 py-1.5 min-w-[140px]"><input type="text" value={getF(row,'particulars')} onChange={(e) => setF(row.id,'particulars',e.target.value)} readOnly={!isEditing} placeholder="Particulars" className={inputCls(isEditing)} /></td>}
-                        {visibleColumns.has('qty')            && <td className="px-3 py-1.5 min-w-[80px]"><input type="number" value={getF(row,'qty')} onChange={(e) => setF(row.id,'qty',e.target.value)} readOnly={!isEditing} placeholder="0" className={inputCls(isEditing)} /></td>}
-                        {visibleColumns.has('qtyUnit')        && <td className="px-3 py-1.5 min-w-[90px]">
-                          <select value={getF(row,'qtyUnit')} onChange={(e) => setF(row.id,'qtyUnit',e.target.value)} disabled={!isEditing} className={selectCls(isEditing)}>
-                            {QTY_UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
-                          </select>
+                        {visibleColumns.has('stockName')      && <td className="border border-soft-border px-3 py-2 min-w-[140px]"><input type="text" value={getF(row,'stockName')} onChange={(e) => setF(row.id,'stockName',e.target.value)} readOnly={!isEditing} placeholder="Stock name" className={inputCls(isEditing)} /></td>}
+                        {visibleColumns.has('particulars')    && <td className="border border-soft-border px-3 py-2 min-w-[140px]"><input type="text" value={getF(row,'particulars')} onChange={(e) => setF(row.id,'particulars',e.target.value)} readOnly={!isEditing} placeholder="Particulars" className={inputCls(isEditing)} /></td>}
+                        {visibleColumns.has('qty')            && <td className="border border-soft-border px-3 py-2 min-w-[80px]"><input type="number" value={getF(row,'qty')} onChange={(e) => setF(row.id,'qty',e.target.value)} readOnly={!isEditing} placeholder="0" className={inputCls(isEditing)} /></td>}
+                        {visibleColumns.has('qtyUnit')        && <td className="border border-soft-border px-3 py-2 min-w-[90px]">
+                          {isEditing ? <select value={getF(row,'qtyUnit')} onChange={(e) => setF(row.id,'qtyUnit',e.target.value)} className={selectCls(true)}>{QTY_UNITS.map((u) => <option key={u} value={u}>{u}</option>)}</select> : <span className="text-sm text-midnight-ink">{getF(row,'qtyUnit') || '—'}</span>}
                         </td>}
-                        {visibleColumns.has('weight')         && <td className="px-3 py-1.5 min-w-[80px]"><input type="number" value={getF(row,'weight')} onChange={(e) => setF(row.id,'weight',e.target.value)} readOnly={!isEditing} placeholder="0" className={inputCls(isEditing)} /></td>}
-                        {visibleColumns.has('weightUnit')     && <td className="px-3 py-1.5 min-w-[90px]">
-                          <select value={getF(row,'weightUnit')} onChange={(e) => setF(row.id,'weightUnit',e.target.value)} disabled={!isEditing} className={selectCls(isEditing)}>
-                            {WEIGHT_UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
-                          </select>
+                        {visibleColumns.has('weight')         && <td className="border border-soft-border px-3 py-2 min-w-[80px]"><input type="number" value={getF(row,'weight')} onChange={(e) => setF(row.id,'weight',e.target.value)} readOnly={!isEditing} placeholder="0" className={inputCls(isEditing)} /></td>}
+                        {visibleColumns.has('weightUnit')     && <td className="border border-soft-border px-3 py-2 min-w-[90px]">
+                          {isEditing ? <select value={getF(row,'weightUnit')} onChange={(e) => setF(row.id,'weightUnit',e.target.value)} className={selectCls(true)}>{WEIGHT_UNITS.map((u) => <option key={u} value={u}>{u}</option>)}</select> : <span className="text-sm text-midnight-ink">{getF(row,'weightUnit') || '—'}</span>}
                         </td>}
-                        {visibleColumns.has('location')       && <td className="px-3 py-1.5 min-w-[120px]"><input type="text" value={getF(row,'location')} onChange={(e) => setF(row.id,'location',e.target.value)} readOnly={!isEditing} placeholder="Location" className={inputCls(isEditing)} /></td>}
-                        {visibleColumns.has('price')          && <td className="px-3 py-1.5 min-w-[90px]"><input type="number" value={getF(row,'price')} onChange={(e) => setF(row.id,'price',e.target.value)} readOnly={!isEditing} placeholder="0.00" step="0.01" className={inputCls(isEditing)} /></td>}
-                        {visibleColumns.has('amount')         && <td className="px-3 py-1.5 min-w-[100px]">
-                          <span className="inline-block text-sm font-semibold text-trust-blue">
+                        {visibleColumns.has('location')       && <td className="border border-soft-border px-3 py-2 min-w-[120px]"><input type="text" value={getF(row,'location')} onChange={(e) => setF(row.id,'location',e.target.value)} readOnly={!isEditing} placeholder="Location" className={inputCls(isEditing)} /></td>}
+                        {visibleColumns.has('price')          && <td className="border border-soft-border px-3 py-2 min-w-[90px]"><input type="number" value={getF(row,'price')} onChange={(e) => setF(row.id,'price',e.target.value)} readOnly={!isEditing} placeholder="0.00" step="0.01" className={inputCls(isEditing)} /></td>}
+                        {visibleColumns.has('amount')         && <td className="border border-soft-border px-3 py-2 min-w-[100px]">
+                          <span className="text-sm font-semibold text-trust-blue">
                             {getF(row,'amount') ? `₹${Number(getF(row,'amount')).toLocaleString('en-IN')}` : '—'}
                           </span>
                         </td>}
-                        {visibleColumns.has('receivedFrom')   && <td className="px-3 py-1.5 min-w-[140px]"><input type="text" value={getF(row,'receivedFrom')} onChange={(e) => setF(row.id,'receivedFrom',e.target.value)} readOnly={!isEditing} placeholder="Vendor" className={inputCls(isEditing)} /></td>}
-                        {visibleColumns.has('issuedTo')       && <td className="px-3 py-1.5 min-w-[140px]"><input type="text" value={getF(row,'issuedTo')} onChange={(e) => setF(row.id,'issuedTo',e.target.value)} readOnly={!isEditing} placeholder="Person/dept" className={inputCls(isEditing)} /></td>}
-                        {visibleColumns.has('activityStatus') && <td className="px-3 py-1.5 min-w-[150px]">
-                          <select value={getF(row,'activityStatus')} onChange={(e) => setF(row.id,'activityStatus',e.target.value)} disabled={!isEditing} className={selectCls(isEditing)}>
-                            <option value="">—</option>
-                            {ACTIVITY_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
-                          </select>
+                        {visibleColumns.has('receivedFrom')   && <td className="border border-soft-border px-3 py-2 min-w-[140px]"><input type="text" value={getF(row,'receivedFrom')} onChange={(e) => setF(row.id,'receivedFrom',e.target.value)} readOnly={!isEditing} placeholder="Vendor" className={inputCls(isEditing)} /></td>}
+                        {visibleColumns.has('issuedTo')       && <td className="border border-soft-border px-3 py-2 min-w-[140px]"><input type="text" value={getF(row,'issuedTo')} onChange={(e) => setF(row.id,'issuedTo',e.target.value)} readOnly={!isEditing} placeholder="Person/dept" className={inputCls(isEditing)} /></td>}
+                        {visibleColumns.has('activityStatus') && <td className="border border-soft-border px-3 py-2 min-w-[150px]">
+                          {isEditing ? <select value={getF(row,'activityStatus')} onChange={(e) => setF(row.id,'activityStatus',e.target.value)} className={selectCls(true)}><option value="">—</option>{ACTIVITY_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}</select> : <span className="text-sm text-midnight-ink">{getF(row,'activityStatus') || '—'}</span>}
                         </td>}
-                        {visibleColumns.has('action')         && <td className="px-3 py-1.5">
+                        {visibleColumns.has('action')         && <td className="border border-soft-border px-3 py-2">
                           <button type="button" onClick={() => deleteRow(row.id)}
                             className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-rose-200 text-rose-600 hover:bg-rose-50 transition" aria-label="Delete">
                             <Trash2 className="h-4 w-4" />
