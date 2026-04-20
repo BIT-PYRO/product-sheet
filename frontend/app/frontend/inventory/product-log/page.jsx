@@ -94,6 +94,34 @@ const calcAmount = (qty, price) => {
   return (q > 0 && p > 0) ? String((q * p).toFixed(2)) : '';
 };
 
+// ── Die Log constants ──────────────────────────────────────────────────────
+const DIE_LOG_COLUMNS = [
+  { id: 'sno',           label: '#' },
+  { id: 'date',          label: 'Date' },
+  { id: 'receivedIssued',label: 'Rcvd/Issued' },
+  { id: 'die_code',      label: 'Die Code' },
+  { id: 'master_sku',    label: 'Master SKU' },
+  { id: 'designer_sku',  label: 'Designer SKU' },
+  { id: 'location',      label: 'Location' },
+  { id: 'qty',           label: 'Quantity' },
+  { id: 'wax_setting',   label: 'Wax Setting' },
+  { id: 'casting',       label: 'Casting' },
+  { id: 'price',         label: 'Price (₹)' },
+  { id: 'amount',        label: 'Amount (₹)' },
+  { id: 'received_from', label: 'Received From' },
+  { id: 'issued_to',     label: 'Issued To' },
+  { id: 'remark',        label: 'Remark' },
+  { id: 'activity_status',label: 'Status' },
+  { id: 'action',        label: 'Action' },
+];
+
+const dieLogEmpty = () => ({
+  date: new Date().toISOString().slice(0, 10),
+  txn_type: '', die_code: '', master_sku: '', designer_sku: '',
+  location: '', qty: '', wax_setting: '', casting: '',
+  price: '', amount: '', received_from: '', issued_to: '', remark: '', activity_status: '',
+});
+
 // ── Component ──────────────────────────────────────────────────────────────
 export default function ProductFindingLogPage() {
   const [activeTab, setActiveTab] = useState('product');
@@ -101,10 +129,12 @@ export default function ProductFindingLogPage() {
   // ── Per-tab rows ──────────────────────────────────────────────────────────
   const [pRows, setPRows] = useState([]);
   const [fRows, setFRows] = useState([]);
+  const [dRows, setDRows] = useState([]);
   const [loadingP, setLoadingP] = useState(true);
   const [loadingF, setLoadingF] = useState(true);
+  const [loadingD, setLoadingD] = useState(true);
 
-  const rows    = activeTab === 'product' ? pRows : fRows;
+  const rows    = activeTab === 'product' ? pRows : activeTab === 'finding' ? fRows : dRows;
 
   const fetchProductRows = useCallback(async () => {
     setLoadingP(true);
@@ -126,30 +156,43 @@ export default function ProductFindingLogPage() {
     } catch { /* non-fatal */ } finally { setLoadingF(false); }
   }, []);
 
-  useEffect(() => { fetchProductRows(); fetchFindingRows(); }, [fetchProductRows, fetchFindingRows]);
+  const fetchDieRows = useCallback(async () => {
+    setLoadingD(true);
+    try {
+      const res = await fetch('/api/die-transactions?page_size=500');
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      setDRows(Array.isArray(data?.data?.results ?? data?.results ?? data?.data) ? (data?.data?.results ?? data?.results ?? data?.data) : []);
+    } catch { /* non-fatal */ } finally { setLoadingD(false); }
+  }, []);
 
-  const fetchRows = activeTab === 'product' ? fetchProductRows : fetchFindingRows;
+  useEffect(() => { fetchProductRows(); fetchFindingRows(); fetchDieRows(); }, [fetchProductRows, fetchFindingRows, fetchDieRows]);
+
+  const fetchRows = activeTab === 'product' ? fetchProductRows : activeTab === 'finding' ? fetchFindingRows : fetchDieRows;
 
   // ── Per-tab visible columns ───────────────────────────────────────────────
   const [pVisibleCols, setPVisibleCols] = useState(() => new Set(PRODUCT_COLUMNS.map((c) => c.id)));
   const [fVisibleCols, setFVisibleCols] = useState(() => new Set(FINDING_COLUMNS.map((c) => c.id)));
-  const visibleColumns    = activeTab === 'product' ? pVisibleCols : fVisibleCols;
-  const setVisibleColumns = activeTab === 'product' ? setPVisibleCols : setFVisibleCols;
+  const [dVisibleCols, setDVisibleCols] = useState(() => new Set(DIE_LOG_COLUMNS.map((c) => c.id)));
+  const visibleColumns    = activeTab === 'product' ? pVisibleCols : activeTab === 'finding' ? fVisibleCols : dVisibleCols;
+  const setVisibleColumns = activeTab === 'product' ? setPVisibleCols : activeTab === 'finding' ? setFVisibleCols : setDVisibleCols;
 
-  const COLUMNS = activeTab === 'product' ? PRODUCT_COLUMNS : FINDING_COLUMNS;
+  const COLUMNS = activeTab === 'product' ? PRODUCT_COLUMNS : activeTab === 'finding' ? FINDING_COLUMNS : DIE_LOG_COLUMNS;
 
   // ── Per-tab add form ──────────────────────────────────────────────────────
   const [pAddForm, setPAddForm] = useState(productEmpty);
   const [fAddForm, setFAddForm] = useState(findingEmpty);
-  const addForm    = activeTab === 'product' ? pAddForm : fAddForm;
-  const setAddForm = activeTab === 'product' ? setPAddForm : setFAddForm;
+  const [dAddForm, setDAddForm] = useState(dieLogEmpty);
+  const addForm    = activeTab === 'product' ? pAddForm : activeTab === 'finding' ? fAddForm : dAddForm;
+  const setAddForm = activeTab === 'product' ? setPAddForm : activeTab === 'finding' ? setFAddForm : setDAddForm;
 
   // ── Per-tab filters ───────────────────────────────────────────────────────
   const emptyFilters = () => ({ search: '', receivedFrom: '', issuedTo: '', metal: '', invType: '', status: '', ri: '', dateFrom: '', dateTo: '' });
   const [pFilters, setPFilters] = useState(emptyFilters);
   const [fFilters, setFFilters] = useState(emptyFilters);
-  const filters    = activeTab === 'product' ? pFilters : fFilters;
-  const setFilters = activeTab === 'product' ? setPFilters : setFFilters;
+  const [dFilters, setDFilters] = useState(emptyFilters);
+  const filters    = activeTab === 'product' ? pFilters : activeTab === 'finding' ? fFilters : dFilters;
+  const setFilters = activeTab === 'product' ? setPFilters : activeTab === 'finding' ? setFFilters : setDFilters;
 
   const setF_ = (key, val) => setFilters((prev) => ({ ...prev, [key]: val }));
   const clearFilters = () => setFilters(emptyFilters());
@@ -182,17 +225,23 @@ export default function ProductFindingLogPage() {
     const s = filters.search.trim().toLowerCase();
     const searchFields = activeTab === 'product'
       ? ['masterSku','designerSku','finalSku','location','remark','receivedFrom','issuedTo']
-      : ['findingCode','dieNumber','size','mechanism','remark','receivedFrom','issuedTo'];
+      : activeTab === 'finding'
+        ? ['findingCode','dieNumber','size','mechanism','remark','receivedFrom','issuedTo']
+        : ['die_code','master_sku','designer_sku','location','remark','received_from','issued_to'];
     return rows.filter((r) => {
       if (s && !searchFields.some((k) => String(r[k] || '').toLowerCase().includes(s))) return false;
-      if (filters.receivedFrom && !String(r.receivedFrom||'').toLowerCase().includes(filters.receivedFrom.toLowerCase())) return false;
-      if (filters.issuedTo     && !String(r.issuedTo||'').toLowerCase().includes(filters.issuedTo.toLowerCase())) return false;
+      const recFrom = r.receivedFrom || r.received_from || '';
+      const issTo   = r.issuedTo || r.issued_to || '';
+      if (filters.receivedFrom && !String(recFrom).toLowerCase().includes(filters.receivedFrom.toLowerCase())) return false;
+      if (filters.issuedTo     && !String(issTo).toLowerCase().includes(filters.issuedTo.toLowerCase())) return false;
       if (filters.metal        && r.metal          !== filters.metal)   return false;
       if (filters.invType      && r.inventoryType  !== filters.invType) return false;
-      if (filters.status       && r.activityStatus !== filters.status)  return false;
-      if (filters.ri           && r.receivedIssued !== filters.ri)      return false;
-      if (filters.dateFrom     && r.date < filters.dateFrom) return false;
-      if (filters.dateTo       && r.date > filters.dateTo)   return false;
+      if (filters.status       && (r.activityStatus || r.activity_status) !== filters.status) return false;
+      const ri = r.receivedIssued || (r.txn_type === 'received' ? 'Received' : r.txn_type === 'issued' ? 'Issued' : '');
+      if (filters.ri && ri !== filters.ri) return false;
+      const rowDate = r.date || r.txn_date || '';
+      if (filters.dateFrom && rowDate < filters.dateFrom) return false;
+      if (filters.dateTo   && rowDate > filters.dateTo)   return false;
       return true;
     });
   }, [rows, filters, activeTab]);
@@ -218,7 +267,7 @@ export default function ProductFindingLogPage() {
         setAddOpen(false); setPAddForm(productEmpty());
         await fetchProductRows(); showStatus('Entry added.');
       } catch (err) { showStatus(err.message || 'Add failed', 'error'); }
-    } else {
+    } else if (activeTab === 'finding') {
       if (!fAddForm.findingCode?.trim()) { showStatus('Finding Code is required.', 'error'); return; }
       const payload = {
         txn_date: fAddForm.date, txn_type: (fAddForm.receivedIssued || '').toLowerCase(),
@@ -234,6 +283,23 @@ export default function ProductFindingLogPage() {
         if (!res.ok) throw new Error(`Error ${res.status}`);
         setAddOpen(false); setFAddForm(findingEmpty());
         await fetchFindingRows(); showStatus('Entry added.');
+      } catch (err) { showStatus(err.message || 'Add failed', 'error'); }
+    } else {
+      if (!dAddForm.die_code?.trim()) { showStatus('Die Code is required.', 'error'); return; }
+      const payload = {
+        txn_date: dAddForm.date, txn_type: (dAddForm.txn_type || '').toLowerCase(),
+        die_code: dAddForm.die_code, master_sku: dAddForm.master_sku, designer_sku: dAddForm.designer_sku,
+        location: dAddForm.location, qty: dAddForm.qty || 0,
+        wax_setting: dAddForm.wax_setting, casting: dAddForm.casting,
+        price: dAddForm.price || 0, amount: calcAmount(dAddForm.qty, dAddForm.price) || dAddForm.amount || 0,
+        received_from: dAddForm.received_from, issued_to: dAddForm.issued_to, remark: dAddForm.remark,
+        activity_status: dAddForm.activity_status,
+      };
+      try {
+        const res = await fetch('/api/die-transactions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        if (!res.ok) throw new Error(`Error ${res.status}`);
+        setAddOpen(false); setDAddForm(dieLogEmpty());
+        await fetchDieRows(); showStatus('Entry added.');
       } catch (err) { showStatus(err.message || 'Add failed', 'error'); }
     }
   };
@@ -306,12 +372,13 @@ export default function ProductFindingLogPage() {
 
   // ── Delete ────────────────────────────────────────────────────────────────
   const deleteRow = async (id) => {
-    const endpoint = activeTab === 'product' ? 'product-transactions' : 'finding-transactions';
+    const endpoint = activeTab === 'product' ? 'product-transactions' : activeTab === 'finding' ? 'finding-transactions' : 'die-transactions';
     try {
       const res = await fetch(`/api/${endpoint}/${id}`, { method: 'DELETE' });
       if (!res.ok && res.status !== 204) throw new Error(`Error ${res.status}`);
       if (activeTab === 'product') setPRows((p) => p.filter((r) => r.id !== id));
-      else setFRows((p) => p.filter((r) => r.id !== id));
+      else if (activeTab === 'finding') setFRows((p) => p.filter((r) => r.id !== id));
+      else setDRows((p) => p.filter((r) => r.id !== id));
       setSelectedIds((p) => { const n = new Set(p); n.delete(id); return n; });
       showStatus('Entry deleted.');
     } catch (err) { showStatus(err.message || 'Delete failed', 'error'); }
@@ -319,7 +386,7 @@ export default function ProductFindingLogPage() {
   const deleteSelected = async () => {
     if (!selectedIds.size) return;
     const count = selectedIds.size;
-    const endpoint = activeTab === 'product' ? 'product-transactions' : 'finding-transactions';
+    const endpoint = activeTab === 'product' ? 'product-transactions' : activeTab === 'finding' ? 'finding-transactions' : 'die-transactions';
     try {
       for (const id of Array.from(selectedIds)) { await fetch(`/api/${endpoint}/${id}`, { method: 'DELETE' }); }
       await fetchRows(); setSelectedIds(new Set()); showStatus(`${count} entries deleted.`);
@@ -383,7 +450,7 @@ export default function ProductFindingLogPage() {
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 shrink-0">
             <MasterNavigationDrawer inHeader />
-            <h1 className="text-xl font-bold tracking-tight text-midnight-ink">PRODUCT & FINDING LOG</h1>
+            <h1 className="text-xl font-bold tracking-tight text-midnight-ink">JEWEL LOGS</h1>
           </div>
           <GlobalSearchBar />
           <DateTimeStamp />
@@ -417,7 +484,7 @@ export default function ProductFindingLogPage() {
               </button>
             )}
             <button type="button"
-              onClick={() => { setAddForm(activeTab === 'product' ? productEmpty() : findingEmpty()); setAddOpen(true); }}
+              onClick={() => { setAddForm(activeTab === 'product' ? productEmpty() : activeTab === 'finding' ? findingEmpty() : dieLogEmpty()); setAddOpen(true); }}
               className="inline-flex items-center gap-2 rounded-full border border-trust-blue bg-white px-4 h-8 text-sm font-medium text-trust-blue">
               <Plus className="h-4 w-4" /> Add Entry
             </button>
@@ -446,6 +513,14 @@ export default function ProductFindingLogPage() {
                 : 'bg-white text-midnight-ink border-midnight-ink hover:border-trust-blue'
             }`}>
             Finding Log
+          </button>
+          <button type="button" onClick={() => switchTab('die')}
+            className={`rounded-full px-5 h-9 text-sm font-semibold transition border ${
+              activeTab === 'die'
+                ? 'bg-trust-blue text-white border-trust-blue'
+                : 'bg-white text-midnight-ink border-midnight-ink hover:border-trust-blue'
+            }`}>
+            Die Log
           </button>
         </div>
 
@@ -601,22 +676,35 @@ export default function ProductFindingLogPage() {
                       {activeTab === 'finding' && visibleColumns.has('deadWeight')    && <td className="border border-soft-border px-3 py-1.5 min-w-[100px]"><input type="number" value={getF(row,'deadWeight')}    onChange={(e) => setEF(row.id,'deadWeight',e.target.value)}    readOnly={!isEditing} placeholder="0.00" step="0.01" className={inputCls(isEditing)} /></td>}
                       {activeTab === 'finding' && visibleColumns.has('moldQtyPerDie') && <td className="border border-soft-border px-3 py-1.5 min-w-[110px]"><input type="number" value={getF(row,'moldQtyPerDie')} onChange={(e) => setEF(row.id,'moldQtyPerDie',e.target.value)} readOnly={!isEditing} placeholder="0"           className={inputCls(isEditing)} /></td>}
 
+                      {/* Die-only */}
+                      {activeTab === 'die' && visibleColumns.has('die_code')      && <td className="border border-soft-border px-3 py-1.5 min-w-[120px]"><input type="text"   value={row.die_code || '—'}      readOnly className={inputCls(false)} /></td>}
+                      {activeTab === 'die' && visibleColumns.has('master_sku')    && <td className="border border-soft-border px-3 py-1.5 min-w-[120px]"><input type="text"   value={row.master_sku || '—'}    readOnly className={inputCls(false)} /></td>}
+                      {activeTab === 'die' && visibleColumns.has('designer_sku')  && <td className="border border-soft-border px-3 py-1.5 min-w-[120px]"><input type="text"   value={row.designer_sku || '—'}  readOnly className={inputCls(false)} /></td>}
+                      {activeTab === 'die' && visibleColumns.has('location')      && <td className="border border-soft-border px-3 py-1.5 min-w-[110px]"><input type="text"   value={row.location || '—'}      readOnly className={inputCls(false)} /></td>}
+                      {activeTab === 'die' && visibleColumns.has('qty')           && <td className="border border-soft-border px-3 py-1.5 min-w-[80px]"><input  type="number" value={row.qty || 0}              readOnly className={inputCls(false)} /></td>}
+                      {activeTab === 'die' && visibleColumns.has('wax_setting')   && <td className="border border-soft-border px-3 py-1.5 min-w-[110px]"><input type="text"   value={row.wax_setting || '—'}   readOnly className={inputCls(false)} /></td>}
+                      {activeTab === 'die' && visibleColumns.has('casting')       && <td className="border border-soft-border px-3 py-1.5 min-w-[100px]"><input type="text"   value={row.casting || '—'}       readOnly className={inputCls(false)} /></td>}
+
                       {/* Shared trailing */}
-                      {visibleColumns.has('price')          && <td className="border border-soft-border px-3 py-1.5 min-w-[90px]"><input type="number" value={getF(row,'price')} onChange={(e) => setEF(row.id,'price',e.target.value)} readOnly={!isEditing} placeholder="0.00" step="0.01" className={inputCls(isEditing)} /></td>}
+                      {visibleColumns.has('price') && activeTab !== 'die'          && <td className="border border-soft-border px-3 py-1.5 min-w-[90px]"><input type="number" value={getF(row,'price')} onChange={(e) => setEF(row.id,'price',e.target.value)} readOnly={!isEditing} placeholder="0.00" step="0.01" className={inputCls(isEditing)} /></td>}
+                      {visibleColumns.has('price') && activeTab === 'die'          && <td className="border border-soft-border px-3 py-1.5 min-w-[90px]"><input type="number" value={row.price || 0} readOnly className={inputCls(false)} /></td>}
                       {visibleColumns.has('amount')         && <td className="border border-soft-border px-3 py-1.5 min-w-[110px]">
                         <span className="inline-block text-sm font-semibold text-trust-blue">
-                          {getF(row,'amount') ? `₹${Number(getF(row,'amount')).toLocaleString('en-IN')}` : '—'}
+                          {(getF(row,'amount') || row.amount) ? `₹${Number(getF(row,'amount') || row.amount).toLocaleString('en-IN')}` : '—'}
                         </span>
                       </td>}
-                      {visibleColumns.has('receivedFrom')   && <td className="border border-soft-border px-3 py-1.5 min-w-[140px]"><input type="text"   value={getF(row,'receivedFrom')}  onChange={(e) => setEF(row.id,'receivedFrom',e.target.value)}  readOnly={!isEditing} placeholder="Vendor"      className={inputCls(isEditing)} /></td>}
-                      {visibleColumns.has('issuedTo')       && <td className="border border-soft-border px-3 py-1.5 min-w-[140px]"><input type="text"   value={getF(row,'issuedTo')}      onChange={(e) => setEF(row.id,'issuedTo',e.target.value)}      readOnly={!isEditing} placeholder="Person/dept" className={inputCls(isEditing)} /></td>}
-                      {visibleColumns.has('remark')         && <td className="border border-soft-border px-3 py-1.5 min-w-[160px]"><input type="text"   value={getF(row,'remark')}        onChange={(e) => setEF(row.id,'remark',e.target.value)}        readOnly={!isEditing} placeholder="Remark"      className={inputCls(isEditing)} /></td>}
-                      {visibleColumns.has('activityStatus') && <td className="border border-soft-border px-3 py-1.5 min-w-[140px]">
+                      {visibleColumns.has('receivedFrom') && activeTab !== 'die'   && <td className="border border-soft-border px-3 py-1.5 min-w-[140px]"><input type="text"   value={getF(row,'receivedFrom')}  onChange={(e) => setEF(row.id,'receivedFrom',e.target.value)}  readOnly={!isEditing} placeholder="Vendor"      className={inputCls(isEditing)} /></td>}
+                      {visibleColumns.has('received_from') && activeTab === 'die'  && <td className="border border-soft-border px-3 py-1.5 min-w-[140px]"><input type="text"   value={row.received_from || '—'}  readOnly className={inputCls(false)} /></td>}
+                      {visibleColumns.has('issuedTo') && activeTab !== 'die'       && <td className="border border-soft-border px-3 py-1.5 min-w-[140px]"><input type="text"   value={getF(row,'issuedTo')}      onChange={(e) => setEF(row.id,'issuedTo',e.target.value)}      readOnly={!isEditing} placeholder="Person/dept" className={inputCls(isEditing)} /></td>}
+                      {visibleColumns.has('issued_to') && activeTab === 'die'      && <td className="border border-soft-border px-3 py-1.5 min-w-[140px]"><input type="text"   value={row.issued_to || '—'}      readOnly className={inputCls(false)} /></td>}
+                      {visibleColumns.has('remark')         && <td className="border border-soft-border px-3 py-1.5 min-w-[160px]"><input type="text"   value={activeTab === 'die' ? (row.remark || '—') : getF(row,'remark')} onChange={(e) => activeTab !== 'die' && setEF(row.id,'remark',e.target.value)} readOnly={!isEditing || activeTab === 'die'} placeholder="Remark" className={inputCls(isEditing && activeTab !== 'die')} /></td>}
+                      {visibleColumns.has('activityStatus') && activeTab !== 'die' && <td className="border border-soft-border px-3 py-1.5 min-w-[140px]">
                         <select value={getF(row,'activityStatus')} onChange={(e) => setEF(row.id,'activityStatus',e.target.value)} disabled={!isEditing} className={selectCls(isEditing)}>
                           <option value="">—</option>
                           {ACTIVITY_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
                         </select>
                       </td>}
+                      {visibleColumns.has('activity_status') && activeTab === 'die' && <td className="border border-soft-border px-3 py-1.5 min-w-[140px]"><input type="text" value={row.activity_status || '—'} readOnly className={inputCls(false)} /></td>}
                       {visibleColumns.has('action')         && <td className="border border-soft-border px-3 py-1.5">
                         <button type="button" onClick={() => deleteRow(row.id)}
                           className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-rose-200 text-rose-600 hover:bg-rose-50 transition">
@@ -638,7 +726,7 @@ export default function ProductFindingLogPage() {
           <DialogHeader>
             <DialogTitle className="text-lg font-semibold text-midnight-ink flex items-center gap-2">
               <Plus className="h-5 w-5 text-trust-blue" />
-              Add {activeTab === 'product' ? 'Product' : 'Finding'} Log Entry
+              Add {activeTab === 'product' ? 'Product' : activeTab === 'finding' ? 'Finding' : 'Die'} Log Entry
             </DialogTitle>
           </DialogHeader>
           <div className="grid grid-cols-2 gap-4 mt-2">
@@ -786,47 +874,123 @@ export default function ProductFindingLogPage() {
               </div>
             </>}
 
+            {/* Die Log fields */}
+            {activeTab === 'die' && <>
+              <div className="flex flex-col gap-1 col-span-2">
+                <label className="text-xs font-semibold text-cool-gray uppercase tracking-wide">Die Code <span className="text-red-500">*</span></label>
+                <input type="text" value={dAddForm.die_code} onChange={(e) => setDAddForm((p) => ({ ...p, die_code: e.target.value }))}
+                  placeholder="e.g. DIE-001"
+                  className="h-9 rounded-lg border border-soft-border px-3 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue" />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-semibold text-cool-gray uppercase tracking-wide">Txn Type</label>
+                <select value={dAddForm.txn_type} onChange={(e) => setDAddForm((p) => ({ ...p, txn_type: e.target.value }))}
+                  className="h-9 rounded-lg border border-soft-border bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue">
+                  <option value="">Select</option>
+                  <option value="received">Received</option>
+                  <option value="issued">Issued</option>
+                </select>
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-semibold text-cool-gray uppercase tracking-wide">Master SKU</label>
+                <input type="text" value={dAddForm.master_sku} onChange={(e) => setDAddForm((p) => ({ ...p, master_sku: e.target.value }))}
+                  className="h-9 rounded-lg border border-soft-border px-3 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue" />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-semibold text-cool-gray uppercase tracking-wide">Designer SKU</label>
+                <input type="text" value={dAddForm.designer_sku} onChange={(e) => setDAddForm((p) => ({ ...p, designer_sku: e.target.value }))}
+                  className="h-9 rounded-lg border border-soft-border px-3 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue" />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-semibold text-cool-gray uppercase tracking-wide">Quantity</label>
+                <input type="number" value={dAddForm.qty} onChange={(e) => setDAddForm((p) => ({ ...p, qty: e.target.value }))}
+                  placeholder="0" min={0}
+                  className="h-9 rounded-lg border border-soft-border px-3 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue" />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-semibold text-cool-gray uppercase tracking-wide">Location</label>
+                <input type="text" value={dAddForm.location} onChange={(e) => setDAddForm((p) => ({ ...p, location: e.target.value }))}
+                  className="h-9 rounded-lg border border-soft-border px-3 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue" />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-semibold text-cool-gray uppercase tracking-wide">Wax Setting</label>
+                <input type="text" value={dAddForm.wax_setting} onChange={(e) => setDAddForm((p) => ({ ...p, wax_setting: e.target.value }))}
+                  className="h-9 rounded-lg border border-soft-border px-3 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue" />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-semibold text-cool-gray uppercase tracking-wide">Casting</label>
+                <input type="text" value={dAddForm.casting} onChange={(e) => setDAddForm((p) => ({ ...p, casting: e.target.value }))}
+                  className="h-9 rounded-lg border border-soft-border px-3 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue" />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-semibold text-cool-gray uppercase tracking-wide">Received From</label>
+                <input type="text" value={dAddForm.received_from} onChange={(e) => setDAddForm((p) => ({ ...p, received_from: e.target.value }))}
+                  className="h-9 rounded-lg border border-soft-border px-3 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue" />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-semibold text-cool-gray uppercase tracking-wide">Issued To</label>
+                <input type="text" value={dAddForm.issued_to} onChange={(e) => setDAddForm((p) => ({ ...p, issued_to: e.target.value }))}
+                  className="h-9 rounded-lg border border-soft-border px-3 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue" />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-semibold text-cool-gray uppercase tracking-wide">Price (₹)</label>
+                <input type="number" value={dAddForm.price} onChange={(e) => setDAddForm((p) => ({ ...p, price: e.target.value }))}
+                  placeholder="0.00" min={0} step="0.01"
+                  className="h-9 rounded-lg border border-soft-border px-3 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue" />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-semibold text-cool-gray uppercase tracking-wide">Activity Status</label>
+                <input type="text" value={dAddForm.activity_status} onChange={(e) => setDAddForm((p) => ({ ...p, activity_status: e.target.value }))}
+                  className="h-9 rounded-lg border border-soft-border px-3 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue" />
+              </div>
+              <div className="col-span-2 flex flex-col gap-1">
+                <label className="text-xs font-semibold text-cool-gray uppercase tracking-wide">Remark</label>
+                <input type="text" value={dAddForm.remark} onChange={(e) => setDAddForm((p) => ({ ...p, remark: e.target.value }))}
+                  className="h-9 rounded-lg border border-soft-border px-3 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue" />
+              </div>
+            </>}
+
             {/* Shared bottom fields */}
-            <div className="flex flex-col gap-1">
+            {activeTab !== 'die' && <div className="flex flex-col gap-1">
               <label className="text-xs font-semibold text-cool-gray uppercase tracking-wide">Price per Unit (₹)</label>
               <input type="number" value={addForm.price} onChange={(e) => setAddForm((p) => ({ ...p, price: e.target.value }))}
                 placeholder="0.00" min={0} step="0.01"
                 className="h-9 rounded-lg border border-soft-border px-3 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue" />
-            </div>
-            <div className="flex flex-col gap-1">
+            </div>}
+            {activeTab !== 'die' && <div className="flex flex-col gap-1">
               <label className="text-xs font-semibold text-cool-gray uppercase tracking-wide">Activity Status</label>
               <select value={addForm.activityStatus} onChange={(e) => setAddForm((p) => ({ ...p, activityStatus: e.target.value }))}
                 className="h-9 rounded-lg border border-soft-border bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue">
                 <option value="">Select status</option>
                 {ACTIVITY_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
               </select>
-            </div>
-            <div className={`col-span-2 rounded-lg border px-4 py-3 flex items-center justify-between ${addFormAmount ? 'border-trust-blue/30 bg-blue-50' : 'border-soft-border bg-[#F8F9FA]'}`}>
+            </div>}
+            {activeTab !== 'die' && <div className={`col-span-2 rounded-lg border px-4 py-3 flex items-center justify-between ${addFormAmount ? 'border-trust-blue/30 bg-blue-50' : 'border-soft-border bg-[#F8F9FA]'}`}>
               <span className="text-sm text-cool-gray font-medium">
                 Total Amount — Price × {activeTab === 'product' ? 'Value/Qty' : 'Quantity'} (auto)
               </span>
               <span className={`text-xl font-bold ${addFormAmount ? 'text-trust-blue' : 'text-cool-gray/50'}`}>
                 {addFormAmount ? `₹${Number(addFormAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '—'}
               </span>
-            </div>
-            <div className="flex flex-col gap-1">
+            </div>}
+            {activeTab !== 'die' && <div className="flex flex-col gap-1">
               <label className="text-xs font-semibold text-cool-gray uppercase tracking-wide">Received From</label>
               <input type="text" value={addForm.receivedFrom} onChange={(e) => setAddForm((p) => ({ ...p, receivedFrom: e.target.value }))}
                 placeholder="Vendor / supplier"
                 className="h-9 rounded-lg border border-soft-border px-3 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue" />
-            </div>
-            <div className="flex flex-col gap-1">
+            </div>}
+            {activeTab !== 'die' && <div className="flex flex-col gap-1">
               <label className="text-xs font-semibold text-cool-gray uppercase tracking-wide">Issued To</label>
               <input type="text" value={addForm.issuedTo} onChange={(e) => setAddForm((p) => ({ ...p, issuedTo: e.target.value }))}
                 placeholder="Person / department"
                 className="h-9 rounded-lg border border-soft-border px-3 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue" />
-            </div>
-            <div className="flex flex-col gap-1 col-span-2">
+            </div>}
+            {activeTab !== 'die' && <div className="flex flex-col gap-1 col-span-2">
               <label className="text-xs font-semibold text-cool-gray uppercase tracking-wide">Remark</label>
               <input type="text" value={addForm.remark} onChange={(e) => setAddForm((p) => ({ ...p, remark: e.target.value }))}
                 placeholder="Any additional notes"
                 className="h-9 rounded-lg border border-soft-border px-3 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue" />
-            </div>
+            </div>}
           </div>
 
           {status && statusType === 'error' && <p className="text-xs text-red-600 mt-1">{status}</p>}
@@ -842,7 +1006,7 @@ export default function ProductFindingLogPage() {
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle className="text-base font-semibold text-midnight-ink">
-              Manage Columns — {activeTab === 'product' ? 'Product' : 'Finding'} Log
+              Manage Columns — {activeTab === 'product' ? 'Product' : activeTab === 'finding' ? 'Finding' : 'Die'} Log
             </DialogTitle>
           </DialogHeader>
           <div className="mt-2 space-y-2 max-h-72 overflow-y-auto">

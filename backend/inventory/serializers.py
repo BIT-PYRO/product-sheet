@@ -7,6 +7,7 @@ from .models import (
     StockTransaction, StoneTransaction,
     FindingInventoryItem, FindingInventoryTransaction,
     ProductInventoryTransaction, IssueRequest,
+    DieInventoryItem, DieTransaction,
 )
 
 
@@ -242,3 +243,30 @@ class IssueRequestSerializer(serializers.ModelSerializer):
             'created_at', 'updated_at',
         ]
         read_only_fields = ['requested_at', 'created_at', 'updated_at']
+
+
+# ── Die Inventory ─────────────────────────────────────────────────────────────
+
+class DieInventoryItemSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DieInventoryItem
+        fields = [
+            'id', 'die_code', 'image', 'master_skus', 'designer_skus',
+            'location', 'quantity', 'wax_setting', 'casting',
+            'notes', 'used_qty', 'min_level',
+            'created_at', 'updated_at',
+        ]
+        read_only_fields = ['created_at', 'updated_at']
+
+
+class DieTransactionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DieTransaction
+        fields = [
+            'id', 'txn_date', 'die', 'die_code', 'txn_type', 'inventory_type',
+            'master_sku', 'designer_sku', 'location', 'qty',
+            'wax_setting', 'casting', 'price', 'amount',
+            'received_from', 'issued_to', 'remark', 'activity_status',
+            'created_at', 'updated_at',
+        ]
+        read_only_fields = ['created_at', 'updated_at']

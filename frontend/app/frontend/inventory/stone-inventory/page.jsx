@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, Pencil, Plus, Printer, RefreshCw, Trash2, X } from 'lucide-react';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
+import LastUpdatedFooter from '@/components/last-updated-footer';
 import { useSheetPermissions } from '@/hooks/use-sheet-permissions';
 import {
   Dialog,
@@ -177,6 +178,9 @@ export default function StoneInventoryPage() {
   const [currentUserName, setCurrentUserName] = useState('');
   const [currentUserEmail, setCurrentUserEmail] = useState('');
   const [currentUsernameRaw, setCurrentUsernameRaw] = useState('');
+  const [rowsPerPage, setRowsPerPage] = useState(25);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [lastUpdated, setLastUpdated] = useState(null);
 
   // â”€â”€ load â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
@@ -189,6 +193,7 @@ export default function StoneInventoryPage() {
       const data = await res.json();
       const items = Array.isArray(data) ? data : (data.results ?? data.data ?? []);
       setStones(items);
+      setLastUpdated(new Date());
     } catch (err) {
       setStatusMsg(`Failed to load stones: ${err.message}`);
     } finally {
@@ -1687,6 +1692,31 @@ export default function StoneInventoryPage() {
           onClose={() => setEnrollWorkforceOpen(false)}
         />
       )}
+      {/* Fixed Footer */}
+      {(() => {
+        const _tp = Math.max(1, Math.ceil(filteredStones.length / rowsPerPage));
+        const _sp = Math.min(currentPage, _tp);
+        return (
+          <div className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-soft-border shadow-lg px-4 py-2 flex flex-wrap items-center justify-between gap-3 text-sm text-cool-gray">
+            <div className="flex items-center gap-2">
+              <span>Rows per page:</span>
+              <select value={rowsPerPage} onChange={(e) => { setRowsPerPage(Number(e.target.value)); setCurrentPage(1); }} className="border border-soft-border rounded px-2 py-1 text-sm text-midnight-ink bg-white">
+                {[25, 50, 75, 100].map(n => <option key={n} value={n}>{n}</option>)}
+              </select>
+            </div>
+            <div className="flex items-center gap-3">
+              <span>{filteredStones.length === 0 ? '0' : `${(_sp - 1) * rowsPerPage + 1}-${Math.min(_sp * rowsPerPage, filteredStones.length)}`} of {filteredStones.length}</span>
+              <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={_sp <= 1} className="px-2 py-1 border border-soft-border rounded disabled:opacity-40 hover:bg-cloud-gray">&lsaquo;</button>
+              <span>{_sp} / {_tp}</span>
+              <button onClick={() => setCurrentPage(p => Math.min(_tp, p + 1))} disabled={_sp >= _tp} className="px-2 py-1 border border-soft-border rounded disabled:opacity-40 hover:bg-cloud-gray">&rsaquo;</button>
+            </div>
+            <div className="flex gap-4">
+              <span>Selected: {selectedIds.size}</span>
+            </div>
+            <LastUpdatedFooter timestamp={lastUpdated} username={currentUserName} compact />
+          </div>
+        );
+      })()}
     </main>
   );
 }

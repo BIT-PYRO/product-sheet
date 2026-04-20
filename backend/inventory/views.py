@@ -14,6 +14,7 @@ from .models import (
     StockTransaction, StoneTransaction,
     FindingInventoryItem, FindingInventoryTransaction,
     ProductInventoryTransaction, IssueRequest,
+    DieInventoryItem, DieTransaction,
 )
 from .serializers import (
     InventoryTransactionSerializer, PicklistGroupSerializer,
@@ -22,6 +23,7 @@ from .serializers import (
     StockTransactionSerializer, StoneTransactionSerializer,
     FindingInventoryItemSerializer, FindingInventoryTransactionSerializer,
     ProductInventoryTransactionSerializer, IssueRequestSerializer,
+    DieInventoryItemSerializer, DieTransactionSerializer,
 )
 
 
@@ -364,9 +366,101 @@ class IssueRequestViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 				finding.save(update_fields=['quantity'])
 				FindingInventoryTransaction.objects.create(txn_date=timezone.now().date(), txn_type='issued', finding=finding, finding_code=finding.finding_code or '', qty=requested_qty, issued_to=obj.issued_to or '', remark=obj.reason or '')
 
+		# ── Die ───────────────────────────────────────────────────────────────
+		elif new_status == 'approved' and obj.inventory_type == 'die' and obj.item_id:
+			with db_transaction.atomic():
+				try:
+					die = DieInventoryItem.objects.select_for_update().get(id=obj.item_id)
+				except DieInventoryItem.DoesNotExist:
+					return Response({'success': False, 'message': 'Die not found.'}, status=status.HTTP_404_NOT_FOUND)
+				requested_qty = obj.quantity or 0
+				if die.quantity < requested_qty:
+					return Response({'success': False, 'message': f'Insufficient stock. Available: {float(die.quantity)}, Requested: {float(requested_qty)}.', 'available': float(die.quantity), 'requested': float(requested_qty)}, status=status.HTTP_400_BAD_REQUEST)
+				die.quantity = die.quantity - requested_qty
+				die.save(update_fields=['quantity'])
+				DieTransaction.objects.create(txn_date=timezone.now().date(), txn_type='issued', die=die, die_code=die.die_code or '', qty=requested_qty, issued_to=obj.issued_to or '', remark=obj.reason or '')
+
 		obj.status = new_status
 		obj.reviewed_at = timezone.now()
 		if request.data.get('remark'):
 			obj.remark = str(request.data['remark'])[:255]
 		obj.save(update_fields=['status', 'reviewed_at', 'remark'])
 		return Response({'success': True, 'message': f'Request {new_status}.', 'data': IssueRequestSerializer(obj).data})
+
+
+# ── Die Inventory Item ────────────────────────────────────────────────────────
+
+@extend_schema_view(
+	list=extend_schema(summary='List die inventory items', tags=['Die Inventory']),
+	retrieve=extend_schema(summary='Get die inventory item', tags=['Die Inventory']),
+	create=extend_schema(summary='Create die inventory item', tags=['Die Inventory']),
+	update=extend_schema(summary='Update die inventory item', tags=['Die Inventory']),
+	partial_update=extend_schema(summary='Partially update die inventory item', tags=['Die Inventory']),
+	destroy=extend_schema(summary='Delete die inventory item', tags=['Die Inventory']),
+)
+class DieInventoryItemViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
+	queryset = DieInventoryItem.objects.all().order_by('-created_at')
+	serializer_class = DieInventoryItemSerializer
+	search_fields = ['die_code', 'location', 'notes']
+
+	@extend_schema(summary='Bulk upload die inventory items', tags=['Die Inventory'])
+	@action(detail=False, methods=['post'], url_path='bulk-upload')
+	def bulk_upload(self, request):
+		items = request.data if isinstance(request.data, list) else request.data.get('items', [])
+		if not isinstance(items, list) or len(items) == 0:
+			return Response({'success': False, 'message': 'No items provided.'}, status=status.HTTP_400_BAD_REQUEST)
+
+		created = updated = 0
+		errors = []
+
+		for idx, item in enumerate(items):
+			die_code = str(item.get('die_code', '')).strip()
+			if not die_code:
+				errors.append(f'Row {idx + 1}: die_code is required.')
+				continue
+
+			defaults = {
+				'location': str(item.get('location', '')).strip(),
+				'quantity': item.get('quantity', 0),
+				'wax_setting': str(item.get('wax_setting', '')).strip(),
+				'casting': str(item.get('casting', '')).strip(),
+				'notes': str(item.get('notes', '')).strip(),
+			}
+			master_skus = item.get('master_skus', [])
+			if isinstance(master_skus, str):
+				master_skus = [s.strip() for s in master_skus.split(',') if s.strip()]
+			designer_skus = item.get('designer_skus', [])
+			if isinstance(designer_skus, str):
+				designer_skus = [s.strip() for s in designer_skus.split(',') if s.strip()]
+
+			obj, was_created = DieInventoryItem.objects.update_or_create(
+				die_code=die_code,
+				defaults={**defaults, 'master_skus': master_skus, 'designer_skus': designer_skus},
+			)
+			if was_created:
+				created += 1
+			else:
+				updated += 1
+
+		msg = f'{created} created, {updated} updated.'
+		if errors:
+			msg += f' {len(errors)} error(s): ' + '; '.join(errors[:5])
+
+		return Response({'success': True, 'message': msg, 'created': created, 'updated': updated, 'errors': errors}, status=status.HTTP_201_CREATED)
+
+
+# ── Die Transaction ────────────────────────────────────────────────────────────
+
+@extend_schema_view(
+	list=extend_schema(summary='List die transactions', tags=['Die Log']),
+	retrieve=extend_schema(summary='Get die transaction', tags=['Die Log']),
+	create=extend_schema(summary='Create die transaction', tags=['Die Log']),
+	update=extend_schema(summary='Update die transaction', tags=['Die Log']),
+	partial_update=extend_schema(summary='Partially update die transaction', tags=['Die Log']),
+	destroy=extend_schema(summary='Delete die transaction', tags=['Die Log']),
+)
+class DieTransactionViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
+	queryset = DieTransaction.objects.select_related('die').all().order_by('-txn_date', '-created_at')
+	serializer_class = DieTransactionSerializer
+	filterset_fields = ['txn_type', 'die']
+	search_fields = ['die_code', 'master_sku', 'designer_sku', 'issued_to', 'received_from', 'remark']

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { ArrowLeft, Pencil, Printer, RefreshCw, Trash2, X } from 'lucide-react';
 import BulkUploadButton from '@/components/bulk-upload-button';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
+import LastUpdatedFooter from '@/components/last-updated-footer';
 import GlobalSearchBar from '@/components/global-search-bar';
 import DateTimeStamp from '@/components/date-time-stamp';
 import { useSheetPermissions } from '@/hooks/use-sheet-permissions';
@@ -86,6 +87,9 @@ export default function MachinesInventoryPage() {
   const [currentUserName, setCurrentUserName] = useState('');
   const [currentUserEmail, setCurrentUserEmail] = useState('');
   const [currentUsernameRaw, setCurrentUsernameRaw] = useState('');
+  const [rowsPerPage, setRowsPerPage] = useState(25);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [lastUpdated, setLastUpdated] = useState(null);
 
   const loadRows = useCallback(async () => {
     setLoading(true);
@@ -95,6 +99,7 @@ export default function MachinesInventoryPage() {
       const data = await res.json();
       const results = data?.data?.results ?? data?.results ?? data?.data ?? [];
       setRows(Array.isArray(results) ? results : []);
+      setLastUpdated(new Date());
       setSelectedIds(new Set());
       setEditBuffer({});
       setEditingRowIds(new Set());
@@ -688,7 +693,7 @@ export default function MachinesInventoryPage() {
                       className="h-4 w-4 cursor-pointer rounded border-soft-border accent-trust-blue"
                     />
                   </th>
-                  {visibleColumns.has('sno') && <th rowSpan={2} className="border border-soft-border px-3 py-3 text-left text-xs font-normal text-black w-16">S. No.</th>}
+                  {visibleColumns.has('sno') && <th rowSpan={2} className="border border-soft-border px-3 py-3 text-left text-xs font-normal text-black w-20">S. No.</th>}
                   {visibleColumns.has('machineName') && <th rowSpan={2} className="border border-soft-border px-4 py-3 text-left text-xs font-normal text-black min-w-[170px]">Machine Name</th>}
                   {visibleColumns.has('particulars') && <th rowSpan={2} className="border border-soft-border px-4 py-3 text-left text-xs font-normal text-black min-w-[170px]">Particulars</th>}
                   {visibleColumns.has('department') && <th rowSpan={2} className="border border-soft-border px-4 py-3 text-left text-xs font-normal text-black min-w-[170px]">Department</th>}
@@ -1207,6 +1212,32 @@ export default function MachinesInventoryPage() {
           onClose={() => setEnrollWorkforceOpen(false)}
         />
       )}
+      {/* Fixed Footer */}
+      {(() => {
+        const _tp = Math.max(1, Math.ceil(filteredRows.length / rowsPerPage));
+        const _sp = Math.min(currentPage, _tp);
+        return (
+          <div className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-soft-border shadow-lg px-4 py-2 flex flex-wrap items-center justify-between gap-3 text-sm text-cool-gray">
+            <div className="flex items-center gap-2">
+              <span>Rows per page:</span>
+              <select value={rowsPerPage} onChange={(e) => { setRowsPerPage(Number(e.target.value)); setCurrentPage(1); }} className="border border-soft-border rounded px-2 py-1 text-sm text-midnight-ink bg-white">
+                {[25, 50, 75, 100].map(n => <option key={n} value={n}>{n}</option>)}
+              </select>
+            </div>
+            <div className="flex items-center gap-3">
+              <span>{filteredRows.length === 0 ? '0' : `${(_sp - 1) * rowsPerPage + 1}-${Math.min(_sp * rowsPerPage, filteredRows.length)}`} of {filteredRows.length}</span>
+              <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={_sp <= 1} className="px-2 py-1 border border-soft-border rounded disabled:opacity-40 hover:bg-cloud-gray">&lsaquo;</button>
+              <span>{_sp} / {_tp}</span>
+              <button onClick={() => setCurrentPage(p => Math.min(_tp, p + 1))} disabled={_sp >= _tp} className="px-2 py-1 border border-soft-border rounded disabled:opacity-40 hover:bg-cloud-gray">&rsaquo;</button>
+            </div>
+            <div className="flex gap-4">
+              <span>Selected: {selectedIds.size}</span>
+              {editingRowIds.size > 0 && <span className="text-trust-blue font-semibold">Editing {editingRowIds.size} item(s)</span>}
+            </div>
+            <LastUpdatedFooter timestamp={lastUpdated} username={currentUserName} compact />
+          </div>
+        );
+      })()}
     </main>
   );
 }

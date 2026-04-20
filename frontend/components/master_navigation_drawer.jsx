@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { createPortal } from 'react-dom';
-import { House, LayoutDashboard, X, ChevronDown } from 'lucide-react';
+import { House, LayoutDashboard, X, ChevronDown, ChevronRight } from 'lucide-react';
 
 const NAV_GROUPS = [
   {
@@ -39,11 +39,133 @@ const NAV_GROUPS = [
     label: 'Others',
     items: [
       { href: '/managers-dashboard', permKey: 'managers-dashboard', label: 'Managers Dashboard' },
-      { href: '/orders', permKey: 'orders', label: 'Orders' },
-      { href: '/drafts', permKey: 'drafts', label: 'Drafts' },
+      {
+        href: '/orders',
+        permKey: 'orders',
+        label: 'Orders',
+        subItems: [
+          { href: '/orders', label: 'Create Order' },
+          { href: '/orders', label: 'Order Sheet' },
+          { href: '/orders', label: 'Order Progress Sheet' },
+        ],
+      },
+      {
+        href: '/inventory',
+        permKey: 'inventory',
+        label: 'Inventory',
+        subItems: [
+          { href: '/inventory/product-inventory', label: 'Product Inventory' },
+          { href: '/inventory/stone-inventory',   label: 'Stone Inventory' },
+          { href: '/inventory/finding-inventory', label: 'Finding Inventory' },
+          { href: '/inventory/die-inventory',     label: 'Die Inventory' },
+          { href: '/inventory/others',            label: 'Others' },
+          { href: '/inventory/tools',             label: 'Tools' },
+          { href: '/inventory/machines',          label: 'Machines' },
+          { href: '/inventory/stock-log',         label: 'Stock Log' },
+          { href: '/inventory/stone-log',         label: 'Stone Log' },
+          { href: '/inventory/product-log',       label: 'Jewel Logs' },
+          { href: '/inventory/low-stock',         label: 'Low Stock' },
+        ],
+      },
+      {
+        href: '/drafts',
+        permKey: 'drafts',
+        label: 'Drafts',
+        subItems: [
+          { href: '/drafts', label: 'Create Job' },
+          { href: '/drafts', label: 'Create Order' },
+          { href: '/drafts', label: 'Enroll Workforce' },
+          { href: '/drafts', label: 'Quick Enroll' },
+          { href: '/drafts', label: 'KYC Form' },
+        ],
+      },
+      {
+        href: '/accountancy',
+        permKey: 'accountancy',
+        label: 'Accountancy',
+        subItems: [
+          { href: '/accountancy', label: 'Journal Entry' },
+          { href: '/accountancy', label: 'Ledger Summary' },
+          { href: '/accountancy', label: 'Trial Balance' },
+          { href: '/accountancy', label: 'Profit & Loss' },
+          { href: '/accountancy', label: 'Balance Sheet' },
+        ],
+      },
     ],
   },
 ];
+
+function NavItem({ item, canAccess, onClose }) {
+  const [hovered, setHovered] = useState(false);
+  const accessible = canAccess(item.permKey);
+
+  if (item.subItems) {
+    return (
+      <div
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+        className="flex flex-col"
+      >
+        {accessible ? (
+          <Link
+            href={item.href}
+            onClick={onClose}
+            className="px-4 py-2.5 text-sm font-medium rounded transition-colors flex items-center justify-between bg-trust-blue/5 border border-trust-blue/40 text-deep-blue hover:bg-trust-blue/20 hover:border-trust-blue"
+          >
+            <span>{item.label}</span>
+            <ChevronRight className={`h-3.5 w-3.5 shrink-0 transition-transform duration-150 ${hovered ? 'rotate-90' : ''}`} />
+          </Link>
+        ) : (
+          <div
+            title="You don't have access to this module. Contact your admin."
+            className="px-4 py-2.5 text-sm font-medium rounded flex items-center justify-between bg-gray-50 border border-gray-200 text-gray-400 cursor-not-allowed select-none opacity-60"
+          >
+            <span>{item.label}</span>
+            <ChevronRight className="h-3.5 w-3.5 shrink-0" />
+          </div>
+        )}
+        <div
+          className={`overflow-hidden transition-all duration-200 ${
+            hovered ? 'max-h-[500px] opacity-100 mt-1' : 'max-h-0 opacity-0'
+          }`}
+        >
+          <div className="pl-4 flex flex-col gap-1">
+            {item.subItems.map((sub) => (
+              <Link
+                key={sub.href + sub.label}
+                href={sub.href}
+                onClick={onClose}
+                className="px-3 py-1.5 text-xs font-medium rounded transition-colors block bg-cloud-gray/60 border border-soft-border text-midnight-ink hover:bg-trust-blue/10 hover:border-trust-blue/40"
+              >
+                {sub.label}
+              </Link>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!accessible) {
+    return (
+      <div
+        title="You don't have access to this module. Contact your admin."
+        className="px-4 py-2.5 text-sm font-medium rounded block text-center bg-gray-50 border border-gray-200 text-gray-400 cursor-not-allowed select-none opacity-60"
+      >
+        {item.label}
+      </div>
+    );
+  }
+  return (
+    <Link
+      href={item.href}
+      onClick={onClose}
+      className="px-4 py-2.5 text-sm font-medium rounded transition-colors block text-center bg-trust-blue/5 border border-trust-blue/40 text-deep-blue hover:bg-trust-blue/20 hover:border-trust-blue"
+    >
+      {item.label}
+    </Link>
+  );
+}
 
 function NavGroup({ group, canAccess, onClose }) {
   const [isExpanded, setIsExpanded] = useState(false);
@@ -67,34 +189,13 @@ function NavGroup({ group, canAccess, onClose }) {
 
       <div
         className={`overflow-hidden transition-all duration-200 ${
-          isExpanded ? 'max-h-[500px] opacity-100 mt-1' : 'max-h-0 opacity-0'
+          isExpanded ? 'max-h-[1200px] opacity-100 mt-1' : 'max-h-0 opacity-0'
         }`}
       >
         <div className="pl-3 flex flex-col gap-1.5">
-          {group.items.map((item) => {
-            const accessible = canAccess(item.permKey);
-            if (!accessible) {
-              return (
-                <div
-                  key={item.href}
-                  title="You don't have access to this module. Contact your admin."
-                  className="px-4 py-2.5 text-sm font-medium rounded block text-center bg-gray-50 border border-gray-200 text-gray-400 cursor-not-allowed select-none opacity-60"
-                >
-                  {item.label}
-                </div>
-              );
-            }
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={onClose}
-                className="px-4 py-2.5 text-sm font-medium rounded transition-colors block text-center bg-trust-blue/5 border border-trust-blue/40 text-deep-blue hover:bg-trust-blue/20 hover:border-trust-blue"
-              >
-                {item.label}
-              </Link>
-            );
-          })}
+          {group.items.map((item) => (
+            <NavItem key={item.href + item.label} item={item} canAccess={canAccess} onClose={onClose} />
+          ))}
         </div>
       </div>
     </div>

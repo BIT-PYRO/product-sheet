@@ -16,7 +16,8 @@ const INVENTORY_BUTTONS = [
   { href: '/inventory/machines',   title: 'Machines',   subtitle: 'Track machine stock and condition-wise availability' },
   { href: '/inventory/stock-log', title: 'Stock Log', subtitle: 'Tools, machinery & others received/issued movement log' },
   { href: '/inventory/stone-log', title: 'Stone Log', subtitle: 'Stone inventory received/issued movement log' },
-  { href: '/inventory/product-log', title: 'Product & Finding Log', subtitle: 'Product and finding inventory received/issued movement log' },
+  { href: '/inventory/die-inventory', title: 'Die inventory', subtitle: 'Track and manage dies used in jewellery manufacturing' },
+  { href: '/inventory/product-log', title: 'Jewel Logs', subtitle: 'Product, finding and die inventory received/issued movement log' },
 ];
 
 export default function InventoryPage() {

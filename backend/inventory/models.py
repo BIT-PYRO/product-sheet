@@ -404,6 +404,7 @@ class IssueRequest(AuditModel):
 		('stone', 'Stone'),
 		('finding', 'Finding'),
 		('product', 'Product'),
+		('die', 'Die'),
 	]
 	STATUS_CHOICES = [
 		('pending', 'Pending'),
@@ -429,3 +430,62 @@ class IssueRequest(AuditModel):
 
 	def __str__(self):
 		return f'{self.inventory_type} | {self.item_name} | {self.quantity} | {self.status}'
+
+
+# ── Die Inventory Item ───────────────────────────────────────────────────────
+
+class DieInventoryItem(AuditModel):
+	"""Master record for a die used in jewellery manufacturing."""
+
+	die_code = models.CharField(max_length=120, unique=True)
+	image = models.TextField(blank=True, default='')          # URL or base64
+	master_skus = models.JSONField(default=list, blank=True)  # list of master SKU strings
+	designer_skus = models.JSONField(default=list, blank=True)  # list of designer SKU strings
+	location = models.CharField(max_length=255, blank=True, default='')
+	quantity = models.DecimalField(max_digits=12, decimal_places=3, default=0)
+	wax_setting = models.CharField(max_length=60, blank=True, default='')
+	casting = models.CharField(max_length=60, blank=True, default='')
+	notes = models.TextField(blank=True, default='')
+	used_qty = models.DecimalField(max_digits=12, decimal_places=3, default=0)
+	min_level = models.DecimalField(max_digits=12, decimal_places=3, default=0)
+
+	class Meta:
+		ordering = ('-created_at',)
+
+	def __str__(self):
+		return self.die_code
+
+
+# ── Die Inventory Transaction (movement log) ─────────────────────────────────
+
+class DieTransaction(AuditModel):
+	"""Received / Issued movement log for Die inventory."""
+
+	TXN_CHOICES = [
+		('received', 'Received'),
+		('issued', 'Issued'),
+	]
+
+	txn_date = models.DateField()
+	die = models.ForeignKey('DieInventoryItem', on_delete=models.SET_NULL, null=True, blank=True, related_name='transactions')
+	die_code = models.CharField(max_length=120, blank=True, default='')
+	txn_type = models.CharField(max_length=10, choices=TXN_CHOICES)
+	inventory_type = models.CharField(max_length=60, blank=True, default='')
+	master_sku = models.CharField(max_length=120, blank=True, default='')
+	designer_sku = models.CharField(max_length=120, blank=True, default='')
+	location = models.CharField(max_length=255, blank=True, default='')
+	qty = models.DecimalField(max_digits=12, decimal_places=3, default=0)
+	wax_setting = models.CharField(max_length=60, blank=True, default='')
+	casting = models.CharField(max_length=60, blank=True, default='')
+	price = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+	amount = models.DecimalField(max_digits=16, decimal_places=2, default=0)
+	received_from = models.CharField(max_length=255, blank=True, default='')
+	issued_to = models.CharField(max_length=255, blank=True, default='')
+	remark = models.CharField(max_length=255, blank=True, default='')
+	activity_status = models.CharField(max_length=60, blank=True, default='')
+
+	class Meta:
+		ordering = ('-txn_date', '-created_at')
+
+	def __str__(self):
+		return f'{self.txn_type} | {self.die_code} | {self.qty}'

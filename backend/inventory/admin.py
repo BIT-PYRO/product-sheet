@@ -5,6 +5,7 @@ from inventory.models import (
     StockTransaction, StoneTransaction,
     FindingInventoryItem, FindingInventoryTransaction,
     ProductInventoryTransaction, IssueRequest,
+    DieInventoryItem, DieTransaction,
 )
 
 
@@ -93,3 +94,17 @@ class IssueRequestAdmin(admin.ModelAdmin):
     list_filter = ("inventory_type", "status")
     search_fields = ("item_name", "issued_to", "issued_by", "reason", "reference_id")
     date_hierarchy = "requested_at"
+
+
+@admin.register(DieInventoryItem)
+class DieInventoryItemAdmin(admin.ModelAdmin):
+    list_display = ("id", "die_code", "location", "quantity", "wax_setting", "casting")
+    search_fields = ("die_code", "location", "notes")
+
+
+@admin.register(DieTransaction)
+class DieTransactionAdmin(admin.ModelAdmin):
+    list_display = ("id", "txn_date", "txn_type", "die_code", "qty", "issued_to", "received_from")
+    list_filter = ("txn_type",)
+    search_fields = ("die_code", "master_sku", "designer_sku", "issued_to", "received_from", "remark")
+    date_hierarchy = "txn_date"
