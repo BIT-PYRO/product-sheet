@@ -6,6 +6,7 @@ import AccountingLedgerSummary from '@/components/accounting-ledger-summary';
 import AccountingTrialBalance from '@/components/accounting-trial-balance';
 import AccountingProfitLoss from '@/components/accounting-profit-loss';
 import AccountingBalanceSheet from '@/components/accounting-balance-sheet';
+import AccountingFinance from '@/components/accounting-finance';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
 import DateTimeStamp from '@/components/date-time-stamp';
 
@@ -15,6 +16,7 @@ const TABS = [
   { key: 'trial-balance', label: 'Trial Balance' },
   { key: 'profit-loss', label: 'Profit & Loss' },
   { key: 'balance-sheet', label: 'Balance Sheet' },
+  { key: 'finance', label: '💰 Finance' },
 ];
 
 export default function AccountancyPage() {
@@ -39,11 +41,11 @@ export default function AccountancyPage() {
 
         {/* Sub-header */}
         <div className="mb-6 pt-4">
-          <p className="text-sm text-cool-gray">Manage journal entries and view ledger summaries.</p>
+          <p className="text-sm text-cool-gray">Manage journal entries, expenses, and view ledger summaries.</p>
         </div>
 
         {/* Tab bar */}
-        <div className="flex gap-1 mb-6 border-b border-soft-border">
+        <div className="flex gap-1 mb-6 border-b border-soft-border flex-wrap">
           {TABS.map((tab) => (
             <button
               key={tab.key}
@@ -66,6 +68,7 @@ export default function AccountancyPage() {
         {activeTab === 'trial-balance' && <AccountingTrialBalance />}
         {activeTab === 'profit-loss' && <AccountingProfitLoss />}
         {activeTab === 'balance-sheet' && <AccountingBalanceSheet />}
+        {activeTab === 'finance' && <AccountingFinance />}
       </div>
     </main>
   );

@@ -36,6 +36,14 @@ class JournalItem(models.Model):
     debit = models.DecimalField(max_digits=14, decimal_places=2, default=0)
     credit = models.DecimalField(max_digits=14, decimal_places=2, default=0)
 
+    # Detailed fields from the comprehensive form
+    department = models.CharField(max_length=100, blank=True, null=True)
+    payment_method = models.CharField(max_length=50, blank=True, null=True)
+    vendor_payee = models.CharField(max_length=150, blank=True, null=True)
+    bill_date = models.DateField(blank=True, null=True)
+    ref_id = models.CharField(max_length=100, blank=True, null=True)
+    notes = models.CharField(max_length=255, blank=True, null=True)
+
     class Meta:
         constraints = [
             models.CheckConstraint(
@@ -56,6 +64,16 @@ class JournalItem(models.Model):
         return f'Item #{self.pk} entry={self.entry_id} ledger={self.ledger_id}'
 
 
+class JournalItemAttachment(models.Model):
+    journal_item = models.ForeignKey(JournalItem, on_delete=models.CASCADE, related_name='attachments')
+    file = models.FileField(upload_to='journal_receipts/%Y/%m/')
+    name = models.CharField(max_length=255)
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f'Attachment {self.name} for item {self.journal_item_id}'
+
+
 class Account(models.Model):
     class AccountType(models.TextChoices):
         BANK = 'bank', 'Bank'
@@ -71,3 +89,46 @@ class Account(models.Model):
 
     def __str__(self):
         return f'{self.name} ({self.type})'
+
+    def get_or_create_ledger(self):
+        ledger, created = Ledger.objects.get_or_create(
+            name=f'{self.name} Account',
+            defaults={'type': Ledger.LedgerType.ASSET}
+        )
+        return ledger
+
+
+class Expense(models.Model):
+    amount = models.DecimalField(max_digits=14, decimal_places=2)
+    category = models.ForeignKey(Ledger, on_delete=models.PROTECT, related_name='expenses')
+    account = models.ForeignKey(Account, on_delete=models.PROTECT, related_name='expenses')
+    date = models.DateField()
+    description = models.TextField()
+    receipt = models.FileField(upload_to='expenses/%Y/%m/', blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    journal_entry = models.OneToOneField(JournalEntry, on_delete=models.CASCADE, null=True, blank=True, related_name='expense')
+
+    class Meta:
+        ordering = ['-date', '-created_at']
+
+    def __str__(self):
+        return f'Expense #{self.pk} - {self.amount} on {self.date}'
+
+
+class Income(models.Model):
+    amount = models.DecimalField(max_digits=14, decimal_places=2)
+    category = models.ForeignKey(Ledger, on_delete=models.PROTECT, related_name='incomes')
+    account = models.ForeignKey(Account, on_delete=models.PROTECT, related_name='incomes')
+    date = models.DateField()
+    description = models.TextField()
+    receipt = models.FileField(upload_to='incomes/%Y/%m/', blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    journal_entry = models.OneToOneField(
+        JournalEntry, on_delete=models.CASCADE, null=True, blank=True, related_name='income'
+    )
+
+    class Meta:
+        ordering = ['-date', '-created_at']
+
+    def __str__(self):
+        return f'Income #{self.pk} - {self.amount} on {self.date}'
