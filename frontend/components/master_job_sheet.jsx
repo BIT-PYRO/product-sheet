@@ -35,6 +35,7 @@ import { NeededVouchersModal } from '@/components/needed-vouchers-modal';
 import { ReceiveJobModal } from '@/components/receive-job-modal';
 import DateTimeStamp from '@/components/date-time-stamp';
 import BulkUploadButton from '@/components/bulk-upload-button';
+import DeletionHistoryDrawer from '@/components/deletion-history-drawer';
 import { useSheetPermissions } from '@/hooks/use-sheet-permissions';
 
 export default function MasterJobSheet() {
@@ -1288,6 +1289,7 @@ export default function MasterJobSheet() {
           <EnrolWorkforceForm />
         </DialogContent>
       </Dialog>
+      <DeletionHistoryDrawer appLabel="jobs" modelName="job" />
     </div>
   );
 }

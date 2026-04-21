@@ -18,6 +18,7 @@ import DateTimeStamp from '@/components/date-time-stamp';
 import { EnrollCustomerForm } from '@/components/enroll-customer';
 import BulkUploadButton from '@/components/bulk-upload-button';
 import LastUpdatedFooter from '@/components/last-updated-footer';
+import DeletionHistoryDrawer from '@/components/deletion-history-drawer';
 import { useSheetPermissions } from '@/hooks/use-sheet-permissions';
 import {
 	DropdownMenu,
@@ -511,6 +512,7 @@ export default function MasterCustomerSheet() {
 					<span>Visible Rows: {sortedCustomers.length || emptyRowsData.length}</span>
 				</div>
 				<LastUpdatedFooter timestamp={lastUpdated} username={currentUsername} compact />
+				<DeletionHistoryDrawer appLabel="customers" modelName="customer" />
 			</div>
 
 			<Dialog open={isManageColumnsOpen} onOpenChange={setIsManageColumnsOpen}>

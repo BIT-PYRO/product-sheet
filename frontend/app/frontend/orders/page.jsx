@@ -7,6 +7,7 @@ import { CreateOrderForm } from '@/app/frontend/orders/create-job/page';
 import { OrderSheetView } from '@/app/frontend/orders/job-sheet/page';
 import { OrderProgressSheetView } from '@/app/frontend/orders/progress-sheet/page';
 import { useSheetPermissions } from '@/hooks/use-sheet-permissions';
+import DeletionHistoryDrawer from '@/components/deletion-history-drawer';
 
 export default function OrdersPage() {
   const { canView, canCreate, loading: permsLoading } = useSheetPermissions('orders');
@@ -140,6 +141,7 @@ export default function OrdersPage() {
           </section>
         )}
       </div>
+      <DeletionHistoryDrawer appLabel="orders" modelName="order" />
     </main>
   );
 }

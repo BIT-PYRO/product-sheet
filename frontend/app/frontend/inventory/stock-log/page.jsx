@@ -7,6 +7,7 @@ import SortPopover from '@/components/sort-popover';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
 import GlobalSearchBar from '@/components/global-search-bar';
 import DateTimeStamp from '@/components/date-time-stamp';
+import DeletionHistoryDrawer from '@/components/deletion-history-drawer';
 import {
   Dialog,
   DialogContent,
@@ -766,6 +767,7 @@ export default function StockLogPage() {
           </div>
         </DialogContent>
       </Dialog>
+      <DeletionHistoryDrawer appLabel="inventory" modelName="stocktransaction" />
     </main>
   );
 }

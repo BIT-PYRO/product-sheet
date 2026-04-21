@@ -9,6 +9,7 @@ import { QuickEnrollModal } from '@/components/quick-enroll-modal'
 import { EnrolWorkforceForm } from '@/app/frontend/enrol-workforce/page'
 import { CompanyKYCForm } from '@/components/company-kyc-form'
 import { useSheetPermissions } from '@/hooks/use-sheet-permissions'
+import DeletionHistoryDrawer from '@/components/deletion-history-drawer'
 
 const DRAFTS_STORAGE_KEY = 'form_drafts'
 const CREATE_ORDER_ENTITY_TYPE = 'create_order'
@@ -364,6 +365,7 @@ export default function DraftsPage() {
         )}
       </div>
       )}
+      <DeletionHistoryDrawer appLabel="drafts" modelName="draft" />
     </main>
   )
 }

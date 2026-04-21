@@ -6,6 +6,7 @@ import { ArrowLeft, Pencil, Plus, Printer, RefreshCw, Trash2, Upload, X } from '
 import SortPopover from '@/components/sort-popover';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
 import LastUpdatedFooter from '@/components/last-updated-footer';
+import DeletionHistoryDrawer from '@/components/deletion-history-drawer';
 import { useSheetPermissions } from '@/hooks/use-sheet-permissions';
 import {
   Dialog,
@@ -1347,6 +1348,7 @@ export default function DieInventoryPage() {
               {editingRowIds.size > 0 && <span className="text-trust-blue font-semibold">Editing {editingRowIds.size} item(s)</span>}
             </div>
             <LastUpdatedFooter timestamp={lastUpdated} username={currentUserName} compact />
+            <DeletionHistoryDrawer appLabel="inventory" modelName="dieinventoryitem" />
           </div>
         );
       })()}

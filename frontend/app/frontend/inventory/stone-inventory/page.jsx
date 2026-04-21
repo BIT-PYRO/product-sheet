@@ -6,6 +6,7 @@ import { ArrowLeft, Pencil, Plus, Printer, RefreshCw, Trash2, X } from 'lucide-r
 import SortPopover from '@/components/sort-popover';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
 import LastUpdatedFooter from '@/components/last-updated-footer';
+import DeletionHistoryDrawer from '@/components/deletion-history-drawer';
 import { useSheetPermissions } from '@/hooks/use-sheet-permissions';
 import {
   Dialog,
@@ -1740,6 +1741,7 @@ export default function StoneInventoryPage() {
               <span>Selected: {selectedIds.size}</span>
             </div>
             <LastUpdatedFooter timestamp={lastUpdated} username={currentUserName} compact />
+            <DeletionHistoryDrawer appLabel="inventory" modelName="stoneitem" />
           </div>
         );
       })()}

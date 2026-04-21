@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/dialog';
 import DateTimeStamp from '@/components/date-time-stamp';
 import LastUpdatedFooter from '@/components/last-updated-footer';
+import DeletionHistoryDrawer from '@/components/deletion-history-drawer';
 import { CreateJobModal } from '@/components/create-job-modal';
 import { PendingVouchersModal } from '@/components/pending-vouchers-modal';
 import { SuggestedVouchersModal } from '@/components/suggested-vouchers-modal';
@@ -2198,6 +2199,7 @@ export default function MasterInventorySheet() {
           <span>Selected: {selectedRows.size}</span>
         </div>
         <LastUpdatedFooter timestamp={lastUpdated} username={currentUsername} compact />
+        <DeletionHistoryDrawer appLabel="inventory" modelName="inventorytransaction" />
       </div>
 
       <CreateJobModal

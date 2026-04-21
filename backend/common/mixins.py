@@ -1,3 +1,6 @@
+import json
+
+from django.core import serializers as django_serializers
 from rest_framework.response import Response
 
 
@@ -10,6 +13,33 @@ class StandardizedSuccessResponseMixin:
         "partial_update": "Record updated successfully.",
         "destroy": "Record deleted successfully.",
     }
+
+    def perform_destroy(self, instance):
+        """Log the deletion before removing the record."""
+        self._record_deletion(instance)
+        super().perform_destroy(instance)
+
+    def _record_deletion(self, instance):
+        from common.models import DeletionLog
+        try:
+            request = getattr(self, 'request', None)
+            user = None
+            if request is not None:
+                u = getattr(request, 'user', None)
+                if u is not None and u.is_authenticated:
+                    user = u
+            raw = json.loads(django_serializers.serialize('json', [instance]))
+            fields = raw[0].get('fields', {}) if raw else {}
+            DeletionLog.objects.create(
+                deleted_by=user,
+                app_label=instance._meta.app_label,
+                model_name=instance._meta.model_name,
+                object_id=str(instance.pk),
+                object_repr=str(instance)[:500],
+                serialized_data=fields,
+            )
+        except Exception:
+            pass  # Never block a deletion
 
     def finalize_response(self, request, response, *args, **kwargs):
         response = super().finalize_response(request, response, *args, **kwargs)
