@@ -16,7 +16,7 @@ const TABS = [
   { key: 'trial-balance', label: 'Trial Balance' },
   { key: 'profit-loss', label: 'Profit & Loss' },
   { key: 'balance-sheet', label: 'Balance Sheet' },
-  { key: 'finance', label: '💰 Finance' },
+  { key: 'finance', label: 'Finance' },
 ];
 
 export default function AccountancyPage() {
