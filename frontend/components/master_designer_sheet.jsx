@@ -118,17 +118,17 @@ function mapRow(row) {
     enamel: row.enamel || '',
     mechanism: row.mechanism || '',
     designer_notes: row.designer_notes || '',
-    findings_code: findings.map(f => f.code || '').join(' / '),
-    findings_quantity: findings.map(f => f.quantity || '').join(' / '),
+    findings_code: findings.map(f => f.code || '').join(', '),
+    findings_quantity: findings.map(f => f.quantity || '').join(', '),
     _stone_entries: Array.isArray(row.stone_entries) ? row.stone_entries : [],
     _findings_entries: Array.isArray(row.findings_entries) ? row.findings_entries : [],
     _plating_entries: Array.isArray(row.plating_entries) ? row.plating_entries : [],
     _tracking_rows: Array.isArray(row.tracking_rows) ? row.tracking_rows : [],
-    // Flat display fields for tracking rows (joined with ' / ' when multiple)
+    // Flat display fields for tracking rows (joined with ', ' when multiple)
     ...(() => {
       const tRows = (Array.isArray(row.tracking_rows) ? row.tracking_rows : []).filter((r) =>
         ['tdm','stl','motiveCode','motiveSku','dieCode','moldDieQty'].some((k) => String(r[k] || '').trim()));
-      const join = (key) => tRows.map((r) => r[key] || '').filter(Boolean).join(' / ');
+      const join = (key) => tRows.map((r) => r[key] || '').filter(Boolean).join(', ');
       return {
         track_tdm: join('tdm'), track_stl: join('stl'),
         track_motive_code: join('motiveCode'), track_motive_sku: join('motiveSku'),
@@ -140,14 +140,14 @@ function mapRow(row) {
     ...(() => {
       const sRows = (Array.isArray(row.stone_entries) ? row.stone_entries : []).filter((s) =>
         Object.values(s).some((v) => String(v || '').trim()));
-      const join = (key) => sRows.map((s) => s[key] || '').filter(Boolean).join(' / ');
+      const join = (key) => sRows.map((s) => s[key] || '').filter(Boolean).join(', ');
       return { stone_type: join('type'), stone_species: join('species'), stone_variety: join('variety'), stone_color: join('color'), stone_cut: join('cut'), stone_shape: join('shape'), stone_length: join('length'), stone_width: join('width'), stone_height: join('height'), stone_qty: join('qty') };
     })(),
     // Flat display fields for plating entries
     ...(() => {
       const pRows = (Array.isArray(row.plating_entries) ? row.plating_entries : []).filter((p) =>
         Object.values(p).some((v) => String(v || '').trim()));
-      return { plating_type: pRows.map((p) => p.type || '').filter(Boolean).join(' / '), plating_color: pRows.map((p) => p.color || '').filter(Boolean).join(' / ') };
+      return { plating_type: pRows.map((p) => p.type || '').filter(Boolean).join(', '), plating_color: pRows.map((p) => p.color || '').filter(Boolean).join(', ') };
     })(),
   };
 }
