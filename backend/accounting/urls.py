@@ -1,10 +1,21 @@
 from django.urls import path
 
-from .views import BalanceSheetView, JournalCreateView, LedgerListView, LedgerSummaryView, ProfitLossView, TrialBalanceView
+from .views import (
+    BalanceSheetView, JournalCreateView, LedgerListView, LedgerSummaryView,
+    ProfitLossView, TrialBalanceView, AccountListView,
+    ExpenseListView, ExpenseCreateView,
+    IncomeListView, IncomeCreateView, FinanceDashboardView,
+)
 
 
 urlpatterns = [
     path('ledgers/', LedgerListView.as_view(), name='accounting-ledgers'),
+    path('accounts/', AccountListView.as_view(), name='accounting-accounts'),
+    path('expenses/', ExpenseListView.as_view(), name='accounting-expenses'),
+    path('expenses/create/', ExpenseCreateView.as_view(), name='accounting-expense-create'),
+    path('income/', IncomeListView.as_view(), name='accounting-income'),
+    path('income/create/', IncomeCreateView.as_view(), name='accounting-income-create'),
+    path('finance-dashboard/', FinanceDashboardView.as_view(), name='accounting-finance-dashboard'),
     path('journal/create/', JournalCreateView.as_view(), name='accounting-journal-create'),
     path('ledger-summary/', LedgerSummaryView.as_view(), name='accounting-ledger-summary'),
     path('trial-balance/', TrialBalanceView.as_view(), name='accounting-trial-balance'),

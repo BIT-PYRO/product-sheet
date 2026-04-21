@@ -4,7 +4,7 @@ export async function POST(request) {
   const contentType = request.headers.get('content-type') || '';
   
   if (contentType.includes('multipart/form-data')) {
-    return proxyAuthenticatedRequest(request, '/api/accounting/journal/create/', {
+    return proxyAuthenticatedRequest(request, '/api/accounting/expenses/create/', {
       method: 'POST',
       headers: {
         'Content-Type': contentType,
@@ -16,7 +16,7 @@ export async function POST(request) {
   
   // Fallback for JSON
   const body = await request.text();
-  return proxyAuthenticatedRequest(request, '/api/accounting/journal/create/', {
+  return proxyAuthenticatedRequest(request, '/api/accounting/expenses/create/', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

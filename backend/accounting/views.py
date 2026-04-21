@@ -6,8 +6,8 @@ from rest_framework.views import APIView
 
 from common.api import api_success
 
-from .models import JournalItem, Ledger
-from .serializers import JournalEntryCreateSerializer, JournalEntrySerializer, LedgerSerializer
+from .models import JournalItem, Ledger, Account, Expense, Income, JournalEntry
+from .serializers import JournalEntryCreateSerializer, JournalEntrySerializer, LedgerSerializer, ExpenseSerializer, IncomeSerializer
 
 
 class LedgerListView(APIView):
@@ -18,11 +18,253 @@ class LedgerListView(APIView):
         return api_success(serializer.data, message='Ledgers fetched successfully.')
 
 
+class AccountListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        accounts = Account.objects.all()
+        data = [{'id': a.pk, 'name': a.name, 'type': a.type} for a in accounts]
+        return api_success(data, message='Accounts fetched successfully.')
+
+
+class ExpenseListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        qs = Expense.objects.all().select_related('category', 'account')
+        # Optional date range filters
+        date_from = request.query_params.get('date_from')
+        date_to = request.query_params.get('date_to')
+        if date_from:
+            qs = qs.filter(date__gte=date_from)
+        if date_to:
+            qs = qs.filter(date__lte=date_to)
+        data = ExpenseSerializer(qs, many=True).data
+        return api_success(data, message='Expenses fetched successfully.')
+
+
+class IncomeListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        qs = Income.objects.all().select_related('category', 'account')
+        date_from = request.query_params.get('date_from')
+        date_to = request.query_params.get('date_to')
+        if date_from:
+            qs = qs.filter(date__gte=date_from)
+        if date_to:
+            qs = qs.filter(date__lte=date_to)
+        data = IncomeSerializer(qs, many=True).data
+        return api_success(data, message='Income fetched successfully.')
+
+
+class IncomeCreateView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        from django.db import transaction
+
+        amount = float(request.data.get('amount', 0))
+        category_id = request.data.get('category')
+        account_id = request.data.get('account')
+        date = request.data.get('date')
+        description = request.data.get('description')
+        receipt = request.FILES.get('receipt')
+
+        if amount <= 0:
+            return Response({'success': False, 'message': 'Amount must be positive'}, status=400)
+        if not category_id or not account_id or not date:
+            return Response({'success': False, 'message': 'Missing required fields'}, status=400)
+
+        try:
+            if isinstance(category_id, str) and not str(category_id).isdigit():
+                category, _ = Ledger.objects.get_or_create(name=category_id, defaults={'type': Ledger.LedgerType.INCOME})
+            else:
+                category = Ledger.objects.get(pk=category_id)
+
+            if category.type != Ledger.LedgerType.INCOME:
+                return Response({'success': False, 'message': 'Category must be an income ledger'}, status=400)
+
+            if isinstance(account_id, str) and not str(account_id).isdigit():
+                account, _ = Account.objects.get_or_create(name=account_id, defaults={'type': Account.AccountType.BANK})
+            else:
+                account = Account.objects.get(pk=account_id)
+        except (Ledger.DoesNotExist, Account.DoesNotExist):
+            return Response({'success': False, 'message': 'Invalid category or account'}, status=400)
+
+        try:
+            with transaction.atomic():
+                account_ledger = account.get_or_create_ledger()
+
+                journal_entry = JournalEntry.objects.create(
+                    date=date,
+                    description=f'Income: {description}'
+                )
+                # Credit Income ledger
+                JournalItem.objects.create(
+                    entry=journal_entry, ledger=category, debit=0, credit=amount, notes=description
+                )
+                # Debit the payment account (asset)
+                JournalItem.objects.create(
+                    entry=journal_entry, ledger=account_ledger, debit=amount, credit=0, notes=description
+                )
+
+                income = Income.objects.create(
+                    amount=amount, category=category, account=account,
+                    date=date, description=description, receipt=receipt,
+                    journal_entry=journal_entry
+                )
+
+            return api_success({'income_id': income.pk}, message='Income recorded successfully.', status_code=201)
+        except Exception as e:
+            return Response({'success': False, 'message': str(e)}, status=400)
+
+
+class FinanceDashboardView(APIView):
+    """Returns aggregated totals for income and expense, optionally filtered by date range."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        date_from = request.query_params.get('date_from')
+        date_to = request.query_params.get('date_to')
+
+        expense_qs = Expense.objects.all()
+        income_qs = Income.objects.all()
+
+        if date_from:
+            expense_qs = expense_qs.filter(date__gte=date_from)
+            income_qs = income_qs.filter(date__gte=date_from)
+        if date_to:
+            expense_qs = expense_qs.filter(date__lte=date_to)
+            income_qs = income_qs.filter(date__lte=date_to)
+
+        from django.db.models import Sum
+        total_expense = float(expense_qs.aggregate(t=Sum('amount'))['t'] or 0)
+        total_income = float(income_qs.aggregate(t=Sum('amount'))['t'] or 0)
+        net = round(total_income - total_expense, 2)
+
+        return api_success({
+            'total_income': round(total_income, 2),
+            'total_expense': round(total_expense, 2),
+            'net': net,
+        }, message='Finance dashboard fetched.')
+
+
+class ExpenseListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        expenses = Expense.objects.all().select_related('category', 'account')
+        data = ExpenseSerializer(expenses, many=True).data
+        return api_success(data, message='Expenses fetched successfully.')
+
+
+class ExpenseCreateView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        from django.db import transaction
+        
+        amount = float(request.data.get('amount', 0))
+        category_id = request.data.get('category')
+        account_id = request.data.get('account')
+        date = request.data.get('date')
+        description = request.data.get('description')
+        receipt = request.FILES.get('receipt')
+
+        if amount <= 0:
+            return Response({'success': False, 'message': 'Amount must be positive'}, status=400)
+        if not category_id or not account_id or not date:
+            return Response({'success': False, 'message': 'Missing required fields'}, status=400)
+
+        try:
+            if isinstance(category_id, str) and not str(category_id).isdigit():
+                category, _ = Ledger.objects.get_or_create(name=category_id, defaults={'type': Ledger.LedgerType.EXPENSE})
+            else:
+                category = Ledger.objects.get(pk=category_id)
+
+            if category.type != Ledger.LedgerType.EXPENSE:
+                return Response({'success': False, 'message': 'Category must be an expense ledger'}, status=400)
+            
+            if isinstance(account_id, str) and not str(account_id).isdigit():
+                account, _ = Account.objects.get_or_create(name=account_id, defaults={'type': Account.AccountType.BANK})
+            else:
+                account = Account.objects.get(pk=account_id)
+        except (Ledger.DoesNotExist, Account.DoesNotExist):
+            return Response({'success': False, 'message': 'Invalid category or account'}, status=400)
+
+        try:
+            with transaction.atomic():
+                account_ledger = account.get_or_create_ledger()
+
+                journal_entry = JournalEntry.objects.create(
+                    date=date,
+                    description=f"Expense: {description}"
+                )
+
+                # Debit Expense
+                JournalItem.objects.create(
+                    entry=journal_entry,
+                    ledger=category,
+                    debit=amount,
+                    credit=0,
+                    notes=description
+                )
+                
+                # Credit Payment Account
+                JournalItem.objects.create(
+                    entry=journal_entry,
+                    ledger=account_ledger,
+                    debit=0,
+                    credit=amount,
+                    notes=description
+                )
+
+                expense = Expense.objects.create(
+                    amount=amount,
+                    category=category,
+                    account=account,
+                    date=date,
+                    description=description,
+                    receipt=receipt,
+                    journal_entry=journal_entry
+                )
+
+            return api_success({'expense_id': expense.pk}, message='Expense created successfully.', status_code=201)
+        except Exception as e:
+            return Response({'success': False, 'message': str(e)}, status=400)
+
+
 class JournalCreateView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        serializer = JournalEntryCreateSerializer(data=request.data)
+        import json
+        from .models import JournalItemAttachment
+        
+        # request.data is a QueryDict for multipart/form-data.
+        # Assigning a list to a QueryDict key corrupts it, so we extract to a normal dict.
+        data = {}
+        for key, value in request.data.items():
+            data[key] = value
+            
+        items_str = data.get('items')
+        if isinstance(items_str, str):
+            try:
+                parsed_items = json.loads(items_str)
+                # Pre-process ledgers to create them if they don't exist
+                for item in parsed_items:
+                    ledger_val = item.get('ledger')
+                    if isinstance(ledger_val, str) and not str(ledger_val).isdigit():
+                        debit = float(item.get('debit', 0) or 0)
+                        l_type = Ledger.LedgerType.EXPENSE if debit > 0 else Ledger.LedgerType.ASSET
+                        ledger_obj, _ = Ledger.objects.get_or_create(name=ledger_val, defaults={'type': l_type})
+                        item['ledger'] = ledger_obj.id
+                data['items'] = parsed_items
+            except json.JSONDecodeError:
+                return Response({'success': False, 'message': 'Invalid items JSON'}, status=400)
+
+        serializer = JournalEntryCreateSerializer(data=data, context={'request': request})
         if not serializer.is_valid():
             return Response(
                 {
@@ -34,9 +276,50 @@ class JournalCreateView(APIView):
             )
 
         entry = serializer.save()
-        data = JournalEntrySerializer(entry).data
+        
+        # After saving, the items are created. But how to link attachments?
+        # The frontend sends `items` as a list where some are 'debit' and some are 'credit'.
+        # We need to find the created JournalItem for each item in the data.
+        # Since we bulk_create or create them in order, we can fetch them.
+        created_items = list(entry.items.all().order_by('id')) # Assuming they were created in order
+        
+        # But wait, in the serializer we pop 'type'. The frontend passes type='debit' or 'credit'.
+        # The serializer created them in the exact order of `data['items']`.
+        # So created_items[i] corresponds to data['items'][i].
+        # Frontend sends files as `debit_0_attachment_0`, `credit_1_attachment_0`, etc.
+        # Where 0, 1 are indices IN THE DEBIT OR CREDIT LIST in the frontend!
+        # Ah! The frontend maintains two separate lists: debitLines and creditLines.
+        # And it concatenates them: [...buildLineData(debitLines, 'debit'), ...buildLineData(creditLines, 'credit')]
+        # So we can just reconstruct that to figure out which item is which.
+        
+        debit_idx = 0
+        credit_idx = 0
+        
+        for i, item_data in enumerate(data.get('items', [])):
+            item_type = item_data.get('type')
+            j_item = created_items[i]
+            
+            if item_type == 'debit':
+                frontend_idx = debit_idx
+                debit_idx += 1
+            else:
+                frontend_idx = credit_idx
+                credit_idx += 1
+                
+            # Now look for files matching `{item_type}_{frontend_idx}_attachment_*`
+            # e.g., debit_0_attachment_0
+            file_keys = [k for k in request.FILES.keys() if k.startswith(f'{item_type}_{frontend_idx}_attachment_')]
+            for key in file_keys:
+                uploaded_file = request.FILES[key]
+                JournalItemAttachment.objects.create(
+                    journal_item=j_item,
+                    file=uploaded_file,
+                    name=uploaded_file.name
+                )
+
+        result_data = JournalEntrySerializer(entry).data
         return api_success(
-            {**data, 'entry_id': entry.pk},
+            {**result_data, 'entry_id': entry.pk},
             message='Journal entry created.',
             status_code=201,
         )
