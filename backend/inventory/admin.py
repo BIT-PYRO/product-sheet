@@ -11,7 +11,7 @@ from inventory.models import (
 
 @admin.register(ToolItem)
 class ToolItemAdmin(admin.ModelAdmin):
-    list_display = ("id", "tool_name", "particulars", "department", "quantity", "unit", "location")
+    list_display = ("id", "tool_name", "particulars", "department", "new_qty", "new_unit", "new_location", "used_qty", "in_use_qty", "min_required_stock")
     search_fields = ("tool_name", "department")
 
 
