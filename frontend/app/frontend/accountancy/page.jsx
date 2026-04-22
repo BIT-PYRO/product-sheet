@@ -6,6 +6,7 @@ import AccountingLedgerSummary from '@/components/accounting-ledger-summary';
 import AccountingTrialBalance from '@/components/accounting-trial-balance';
 import AccountingProfitLoss from '@/components/accounting-profit-loss';
 import AccountingBalanceSheet from '@/components/accounting-balance-sheet';
+import AccountingPendingExpenses from '@/components/accounting-pending-expenses';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
 import DateTimeStamp from '@/components/date-time-stamp';
 
@@ -15,6 +16,7 @@ const TABS = [
   { key: 'trial-balance', label: 'Trial Balance' },
   { key: 'profit-loss', label: 'Profit & Loss' },
   { key: 'balance-sheet', label: 'Balance Sheet' },
+  { key: 'pending-expenses', label: 'Pending Expenses' },
 ];
 
 export default function AccountancyPage() {
@@ -66,6 +68,7 @@ export default function AccountancyPage() {
         {activeTab === 'trial-balance' && <AccountingTrialBalance />}
         {activeTab === 'profit-loss' && <AccountingProfitLoss />}
         {activeTab === 'balance-sheet' && <AccountingBalanceSheet />}
+        {activeTab === 'pending-expenses' && <AccountingPendingExpenses />}
       </div>
     </main>
   );

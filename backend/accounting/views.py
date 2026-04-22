@@ -1,13 +1,26 @@
+import logging
+from datetime import date
+
+from django.db import transaction
 from django.db.models import Sum
 
+from rest_framework import status as http_status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from common.api import api_success
 
-from .models import JournalItem, Ledger
-from .serializers import JournalEntryCreateSerializer, JournalEntrySerializer, LedgerSerializer
+from .models import JournalEntry, JournalItem, Ledger, PendingExpense
+from .serializers import (
+    ApproveExpenseSerializer,
+    JournalEntryCreateSerializer,
+    JournalEntrySerializer,
+    LedgerSerializer,
+    PendingExpenseSerializer,
+)
+
+logger = logging.getLogger(__name__)
 
 
 class LedgerListView(APIView):
@@ -293,4 +306,214 @@ class BalanceSheetView(APIView):
                 'is_balanced': is_balanced,
             },
             message='Balance sheet fetched successfully.',
+        )
+
+
+# ═══════════════════════════════════════════════════════════════════
+# PENDING EXPENSE SYSTEM
+# ═══════════════════════════════════════════════════════════════════
+
+# ── Mock external API data ──────────────────────────────────────────
+# Replace EXTERNAL_API_URL with the real URL once the other team
+# provides it. Keep MOCK_EXPENSES as a fallback / test dataset.
+EXTERNAL_API_URL = None   # e.g. 'https://expense-app.example.com/api/expenses/'
+MOCK_EXPENSES = [
+    {'id': 'EXP001', 'employee': 'Rahul Sharma', 'amount': 1500, 'category': 'Travel', 'description': 'Client meeting travel'},
+    {'id': 'EXP002', 'employee': 'Priya Verma', 'amount': 3200, 'category': 'Marketing', 'description': 'Digital ads campaign'},
+    {'id': 'EXP003', 'employee': 'Amit Singh', 'amount': 800,  'category': 'Meals',     'description': 'Team lunch'},
+    {'id': 'EXP004', 'employee': 'Neha Gupta', 'amount': 5000, 'category': 'Salary',    'description': 'Freelancer payment'},
+    {'id': 'EXP005', 'employee': 'Rohit Das',  'amount': 1200, 'category': 'Rent',      'description': 'Office supplies'},
+]
+
+
+def _fetch_external_expenses():
+    """
+    Fetch raw expense dicts from the external system.
+    Swap EXTERNAL_API_URL once the other team shares it.
+    """
+    if EXTERNAL_API_URL:
+        import urllib.request, json as _json
+        with urllib.request.urlopen(EXTERNAL_API_URL, timeout=10) as resp:
+            return _json.loads(resp.read())
+    # Fallback: use mock data for development / testing
+    return MOCK_EXPENSES
+
+
+class PendingExpenseListView(APIView):
+    """
+    GET /api/accounting/pending-expenses/
+    Query params: status (optional), e.g. ?status=pending
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        qs = PendingExpense.objects.select_related('category').all()
+
+        status_filter = request.query_params.get('status')
+        if status_filter:
+            qs = qs.filter(status=status_filter)
+
+        serializer = PendingExpenseSerializer(qs, many=True)
+        return api_success(serializer.data, message='Pending expenses fetched.')
+
+
+class PendingExpenseSyncView(APIView):
+    """
+    POST /api/accounting/pending-expenses/sync/
+    Pulls expenses from the external system and upserts them as pending.
+    Source_id deduplication prevents double-imports.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        try:
+            raw_expenses = _fetch_external_expenses()
+        except Exception as exc:
+            logger.error('Failed to fetch external expenses: %s', exc)
+            return Response(
+                {'success': False, 'message': f'External API error: {exc}'},
+                status=http_status.HTTP_502_BAD_GATEWAY,
+            )
+
+        created_count = 0
+        skipped_count = 0
+
+        for item in raw_expenses:
+            source_id = str(item.get('id', ''))
+            if not source_id:
+                continue
+
+            # Try to resolve category string → Ledger (best-effort)
+            category_str = item.get('category', '')
+            category = Ledger.objects.filter(
+                name__iexact=category_str, type='expense'
+            ).first()
+
+            _, created = PendingExpense.objects.get_or_create(
+                source_id=source_id,
+                defaults={
+                    'employee_name': item.get('employee', 'Unknown'),
+                    'amount': item.get('amount', 0),
+                    'category': category,
+                    'description': item.get('description', ''),
+                    'source': item.get('source', 'external_app'),
+                    'status': PendingExpense.Status.PENDING,
+                },
+            )
+            if created:
+                created_count += 1
+            else:
+                skipped_count += 1
+
+        return api_success(
+            {'created': created_count, 'skipped': skipped_count},
+            message=f'Sync complete. {created_count} new, {skipped_count} already existed.',
+        )
+
+
+class PendingExpenseApproveView(APIView):
+    """
+    POST /api/accounting/pending-expenses/{id}/approve/
+    Body: { "payment_ledger": <ledger_id> }
+    Creates a double-entry journal and marks the expense approved.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        try:
+            expense = PendingExpense.objects.select_related('category').get(pk=pk)
+        except PendingExpense.DoesNotExist:
+            return Response(
+                {'success': False, 'message': 'Expense not found.'},
+                status=http_status.HTTP_404_NOT_FOUND,
+            )
+
+        if expense.status != PendingExpense.Status.PENDING:
+            return Response(
+                {'success': False, 'message': f'Expense is already {expense.status}.'},
+                status=http_status.HTTP_400_BAD_REQUEST,
+            )
+
+        if not expense.category:
+            return Response(
+                {'success': False, 'message': 'Expense has no category ledger. Assign one before approving.'},
+                status=http_status.HTTP_400_BAD_REQUEST,
+            )
+
+        serializer = ApproveExpenseSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(
+                {'success': False, 'message': 'Invalid input.', 'errors': serializer.errors},
+                status=http_status.HTTP_400_BAD_REQUEST,
+            )
+
+        payment_ledger = serializer.validated_data['payment_ledger']
+
+        with transaction.atomic():
+            # Create journal entry
+            entry = JournalEntry.objects.create(
+                date=date.today(),
+                description=f'Expense by {expense.employee_name}: {expense.description or expense.category.name}',
+            )
+            # Debit the expense ledger (cost incurred)
+            JournalItem.objects.create(
+                entry=entry,
+                ledger=expense.category,
+                debit=expense.amount,
+                credit=0,
+            )
+            # Credit the payment ledger (cash / bank / wallet going out)
+            JournalItem.objects.create(
+                entry=entry,
+                ledger=payment_ledger,
+                debit=0,
+                credit=expense.amount,
+            )
+            # Mark approved
+            expense.status = PendingExpense.Status.APPROVED
+            expense.journal_entry = entry
+            expense.save(update_fields=['status', 'journal_entry', 'updated_at'])
+
+        logger.info(
+            'Expense #%s approved → JournalEntry #%s (₹%s)',
+            expense.pk, entry.pk, expense.amount,
+        )
+        return api_success(
+            {'expense_id': expense.pk, 'journal_entry_id': entry.pk},
+            message='Expense approved and journal entry created.',
+        )
+
+
+class PendingExpenseRejectView(APIView):
+    """
+    POST /api/accounting/pending-expenses/{id}/reject/
+    Marks the expense as rejected. No journal entry is created.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        try:
+            expense = PendingExpense.objects.get(pk=pk)
+        except PendingExpense.DoesNotExist:
+            return Response(
+                {'success': False, 'message': 'Expense not found.'},
+                status=http_status.HTTP_404_NOT_FOUND,
+            )
+
+        if expense.status != PendingExpense.Status.PENDING:
+            return Response(
+                {'success': False, 'message': f'Expense is already {expense.status}.'},
+                status=http_status.HTTP_400_BAD_REQUEST,
+            )
+
+        expense.status = PendingExpense.Status.REJECTED
+        expense.save(update_fields=['status', 'updated_at'])
+
+        return api_success(
+            {'expense_id': expense.pk},
+            message='Expense rejected.',
         )
