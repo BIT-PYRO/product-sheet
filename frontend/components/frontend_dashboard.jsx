@@ -1694,6 +1694,24 @@ function ProductSheetContent() {
       try {
         const productData = buildProductData()
         await saveProductData(productData)
+        // Ensure any new material / category / collection value is persisted to
+        // the lookup table so it appears in every dropdown across the app.
+        const ensureLookup = async (value, currentList, apiPath) => {
+          const trimmed = (value || '').trim();
+          if (!trimmed) return;
+          if (currentList.some((o) => o.toLowerCase() === trimmed.toLowerCase())) return;
+          await fetch(apiPath, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: trimmed }),
+          }).catch(() => {});
+        };
+        await ensureLookup(dropdown1, materialsList,   '/frontend/api/materials');
+        await ensureLookup(dropdown2, categoriesList,  '/frontend/api/categories');
+        await ensureLookup(dropdown3, collectionsList, '/frontend/api/collections');
+        fetchMaterials();
+        fetchCategories();
+        fetchCollections();
       } catch (error) {
         setSaveStatus({ success: false, message: `Error: ${error.message}` });
       } finally {

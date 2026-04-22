@@ -930,6 +930,16 @@ export default function MasterProductSheet() {
 
   return (
     <div className="relative min-h-screen bg-cloud-gray flex flex-col text-midnight-ink overflow-x-hidden">
+      {/* Datalists for edit-mode autocomplete (material / category / collection) */}
+      <datalist id="mps-material-opts">
+        {materialOptions.map((o) => <option key={o} value={o} />)}
+      </datalist>
+      <datalist id="mps-category-opts">
+        {categoryOptions.map((o) => <option key={o} value={o} />)}
+      </datalist>
+      <datalist id="mps-collection-opts">
+        {collectionOptions.map((o) => <option key={o} value={o} />)}
+      </datalist>
       {/* Add Collection Dialog */}
       <Dialog open={isAddCollectionOpen} onOpenChange={setIsAddCollectionOpen}>
         <DialogContent className="max-w-sm">
@@ -1627,6 +1637,12 @@ export default function MasterProductSheet() {
                           ) : canEdit && !column.readOnly ? (
                             <Input
                               type="text"
+                              list={
+                                column.id === 'material'   ? 'mps-material-opts' :
+                                column.id === 'category'   ? 'mps-category-opts' :
+                                column.id === 'collection' ? 'mps-collection-opts' :
+                                undefined
+                              }
                               value={row[column.id]}
                               onChange={(e) => handleCellChange(row.id, column.id, e.target.value)}
                               onKeyDown={column.id === 'masterSku' ? (e) => {
