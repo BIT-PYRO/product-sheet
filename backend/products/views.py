@@ -222,9 +222,15 @@ class ProductViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 		if not image_file:
 			return Response({'success': False, 'message': 'No image file provided.'}, status=400)
 
-		allowed_types = {'image/jpeg', 'image/png', 'image/webp', 'image/gif'}
+		allowed_types = {
+			'image/jpeg', 'image/png', 'image/gif', 'image/webp',
+			'image/bmp', 'image/tiff', 'image/avif',
+			'image/heic', 'image/heif', 'image/x-heic', 'image/x-heif',
+			'image/ico', 'image/x-icon', 'image/vnd.microsoft.icon',
+			'image/svg+xml',
+		}
 		if image_file.content_type not in allowed_types:
-			return Response({'success': False, 'message': 'Unsupported image type. Use JPEG, PNG, WebP, or GIF.'}, status=400)
+			return Response({'success': False, 'message': 'Unsupported image type.'}, status=400)
 
 		try:
 			image_url = upload_image_file(image_file, folder=f'products/{product.pk}')
