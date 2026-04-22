@@ -25,6 +25,23 @@ import Link from 'next/link'
 const PRODUCT_SHEET_SYNC_KEY = 'product_sheet_updated_at'
 const PRODUCT_SHEET_SYNC_EVENT = 'product_sheet_sync'
 
+/**
+ * Parses a die/finding row that may have a legacy combined value like
+ * "bhang bhosda[5][chehere pr]" and splits it into { value, quantity, location }.
+ * If the row already has quantity or location populated, returns it unchanged.
+ */
+function parseDieLegacyValue(row) {
+  if (String(row?.quantity || '').trim() || String(row?.location || '').trim()) return row
+  const value = String(row?.value || '').trim()
+  // Match: code[qty][location]
+  const m3 = value.match(/^(.+?)\[([^\]]+)\]\[([^\]]*)\]$/)
+  if (m3) return { ...row, value: m3[1].trim(), quantity: m3[2].trim(), location: m3[3].trim() }
+  // Match: code[qty]
+  const m2 = value.match(/^(.+?)\[([^\]]+)\]$/)
+  if (m2) return { ...row, value: m2[1].trim(), quantity: m2[2].trim() }
+  return row
+}
+
 function ProductSheetContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -571,10 +588,19 @@ function ProductSheetContent() {
         setListingName(product.name || '')
         setMaterial(product.material || '')
         setDropdown1(product.material || '')
+        if (product.material && !materialsList.includes(product.material)) {
+          setMaterialsList((prev) => prev.includes(product.material) ? prev : [...prev, product.material])
+        }
         setWeightValue(product.weight || '')
         setWeightUnit(product.weightUnit || product.weight_unit || 'cts')
         setDropdown2(product.category || '')
+        if (product.category && !categoriesList.includes(product.category)) {
+          setCategoriesList((prev) => prev.includes(product.category) ? prev : [...prev, product.category])
+        }
         setDropdown3(product.collection || '')
+        if (product.collection && !collectionsList.includes(product.collection)) {
+          setCollectionsList((prev) => prev.includes(product.collection) ? prev : [...prev, product.collection])
+        }
         setSettingType(product.setting_type || '')
         setEnamelType(product.enamel_type || '')
         setShopifyStatus(product.is_active ? 'active' : 'inactive')
@@ -585,8 +611,8 @@ function ProductSheetContent() {
         const dieRows = Array.isArray(product.die_numbers) ? product.die_numbers : []
         const findingRows = Array.isArray(product.findings) ? product.findings : []
         const combined = [
-          ...dieRows.map((d, i) => ({ id: i + 1, type: 'die_number', value: d.value || '', quantity: d.quantity || '', location: d.location || '' })),
-          ...findingRows.map((f, i) => ({ id: dieRows.length + i + 1, type: 'findings', value: f.value || '', quantity: f.quantity || '', location: f.location || '' })),
+          ...dieRows.map((d, i) => { const p = parseDieLegacyValue(d); return { id: i + 1, type: 'die_number', value: p.value || '', quantity: p.quantity || '', location: p.location || '' }; }),
+          ...findingRows.map((f, i) => { const p = parseDieLegacyValue(f); return { id: dieRows.length + i + 1, type: 'findings', value: p.value || '', quantity: p.quantity || '', location: p.location || '' }; }),
         ]
         while (combined.length < 5) combined.push({ id: combined.length + 1, type: 'die_number', value: '', quantity: '', location: '' })
         setManufacturing((prev) => ({ ...prev, dieNumbers: combined, notes: product.notes || '' }))
@@ -1711,10 +1737,19 @@ function ProductSheetContent() {
     setListingName(product.name || '')
     setMaterial(product.material || '')
     setDropdown1(product.material || '')
+    if (product.material && !materialsList.includes(product.material)) {
+      setMaterialsList((prev) => prev.includes(product.material) ? prev : [...prev, product.material])
+    }
     setWeightValue(product.weight || '')
     setWeightUnit(product.weightUnit || product.weight_unit || 'cts')
     setDropdown2(product.category || '')
+    if (product.category && !categoriesList.includes(product.category)) {
+      setCategoriesList((prev) => prev.includes(product.category) ? prev : [...prev, product.category])
+    }
     setDropdown3(product.collection || '')
+    if (product.collection && !collectionsList.includes(product.collection)) {
+      setCollectionsList((prev) => prev.includes(product.collection) ? prev : [...prev, product.collection])
+    }
     setSettingType(product.setting_type || '')
     setEnamelType(product.enamel_type || '')
     setShopifyStatus(product.is_active ? 'active' : 'inactive')
@@ -1733,8 +1768,8 @@ function ProductSheetContent() {
     const dieRows = Array.isArray(product.die_numbers) ? product.die_numbers : []
     const findingRows = Array.isArray(product.findings) ? product.findings : []
     const combined = [
-      ...dieRows.map((d, i) => ({ id: i + 1, type: 'die_number', value: d.value || '', quantity: d.quantity || '', location: d.location || '' })),
-      ...findingRows.map((f, i) => ({ id: dieRows.length + i + 1, type: 'findings', value: f.value || '', quantity: f.quantity || '', location: f.location || '' })),
+      ...dieRows.map((d, i) => { const p = parseDieLegacyValue(d); return { id: i + 1, type: 'die_number', value: p.value || '', quantity: p.quantity || '', location: p.location || '' }; }),
+      ...findingRows.map((f, i) => { const p = parseDieLegacyValue(f); return { id: dieRows.length + i + 1, type: 'findings', value: p.value || '', quantity: p.quantity || '', location: p.location || '' }; }),
     ]
     // Pad to at least 5 rows
     while (combined.length < 5) {
@@ -2275,8 +2310,17 @@ function ProductSheetContent() {
                   </div>
                 </div>
 
-                <div className="bg-white border-2 border-soft-border rounded-xl shadow-sm h-[8.75rem] flex flex-col overflow-y-auto">
-                  <div className="flex flex-col">
+                <div className="bg-white border-2 border-soft-border rounded-xl shadow-sm flex flex-col overflow-hidden" style={{height:'8.75rem'}}>
+                  {/* Column headers */}
+                  <div className="flex items-stretch divide-x-2 divide-soft-border bg-trust-blue/10 border-b-2 border-soft-border flex-shrink-0">
+                    <div className="w-32 flex-shrink-0 px-2 py-0.5 text-xs font-bold text-midnight-ink uppercase tracking-wide">Type</div>
+                    <div className="flex-1 px-2 py-0.5 text-xs font-bold text-midnight-ink uppercase tracking-wide">Die Code</div>
+                    <div className="w-24 flex-shrink-0 px-2 py-0.5 text-xs font-bold text-midnight-ink uppercase tracking-wide">Location</div>
+                    <div className="w-16 flex-shrink-0 px-2 py-0.5 text-xs font-bold text-midnight-ink uppercase tracking-wide">Qty</div>
+                    <div className="w-8 flex-shrink-0"></div>
+                  </div>
+                  {/* Data rows */}
+                  <div className="flex flex-col overflow-y-auto flex-1">
                     {manufacturing.dieNumbers.map((row, index) => (
                       <div key={row.id} className={`flex items-stretch divide-x-2 divide-soft-border ${index > 0 ? 'border-t border-soft-border' : ''}`}>
                         <div className="w-32 flex-shrink-0 px-2 py-1 font-semibold text-sm flex items-center">
@@ -2285,14 +2329,16 @@ function ProductSheetContent() {
                             <option value="findings">FINDINGS</option>
                           </select>
                         </div>
-                        <div className="flex-1 px-2 py-1 flex items-center gap-1">
-                          <input type="text" value={row.value} onChange={(e) => updateDieNumber(row.id, 'value', e.target.value)} className="flex-1 bg-transparent outline-none text-sm"/>
-                          <input type="text" placeholder="LOCATION" value={row.location} onChange={(e) => updateDieNumber(row.id, 'location', e.target.value)} className="w-24 bg-transparent outline-none text-sm placeholder-cool-gray text-right"/>
+                        <div className="flex-1 px-2 py-1 flex items-center">
+                          <input type="text" value={row.value} onChange={(e) => updateDieNumber(row.id, 'value', e.target.value)} className="w-full bg-transparent outline-none text-sm"/>
+                        </div>
+                        <div className="w-24 flex-shrink-0 px-2 py-1 flex items-center">
+                          <input type="text" placeholder="—" value={row.location} onChange={(e) => updateDieNumber(row.id, 'location', e.target.value)} className="w-full bg-transparent outline-none text-sm placeholder-cool-gray"/>
                         </div>
                         <div className="w-16 flex-shrink-0 px-2 py-1 flex items-center">
-                          <input type="text" placeholder="QTY" value={row.quantity} onChange={(e) => updateDieNumber(row.id, 'quantity', e.target.value)} className="w-full bg-transparent outline-none text-sm placeholder-cool-gray"/>
+                          <input type="text" placeholder="—" value={row.quantity} onChange={(e) => updateDieNumber(row.id, 'quantity', e.target.value)} className="w-full bg-transparent outline-none text-sm placeholder-cool-gray"/>
                         </div>
-                        <button type="button" onClick={() => deleteDieNumber(row.id)} className="px-2 py-1 text-danger hover:text-danger-dark transition-colors flex-shrink-0 flex items-center">
+                        <button type="button" onClick={() => deleteDieNumber(row.id)} className="w-8 flex-shrink-0 px-2 py-1 text-danger hover:text-danger-dark transition-colors flex items-center justify-center">
                           <Trash2 className="h-3 w-3" />
                         </button>
                       </div>
@@ -3445,8 +3491,17 @@ function ProductSheetContent() {
                           </div>
                         </div>
 
-                        <div className="bg-white border-2 border-soft-border h-[8.75rem] flex flex-col overflow-y-auto">
-                          <div className="flex flex-col">
+                        <div className="bg-white border-2 border-soft-border flex flex-col overflow-hidden" style={{height:'8.75rem'}}>
+                          {/* Column headers */}
+                          <div className="flex items-stretch divide-x-2 divide-soft-border bg-trust-blue/10 border-b-2 border-soft-border flex-shrink-0">
+                            <div className="w-32 flex-shrink-0 px-2 py-0.5 text-xs font-bold text-midnight-ink uppercase tracking-wide">Type</div>
+                            <div className="flex-1 px-2 py-0.5 text-xs font-bold text-midnight-ink uppercase tracking-wide">Die Code</div>
+                            <div className="w-24 flex-shrink-0 px-2 py-0.5 text-xs font-bold text-midnight-ink uppercase tracking-wide">Location</div>
+                            <div className="w-16 flex-shrink-0 px-2 py-0.5 text-xs font-bold text-midnight-ink uppercase tracking-wide">Qty</div>
+                            <div className="w-8 flex-shrink-0"></div>
+                          </div>
+                          {/* Data rows */}
+                          <div className="flex flex-col overflow-y-auto flex-1">
                             {manufacturing.dieNumbers.map((row, index) => (
                               <div key={row.id} className={`flex items-stretch divide-x-2 divide-soft-border ${index > 0 ? 'border-t border-soft-border' : ''}`}>
                                 <div className="w-32 flex-shrink-0 px-2 py-1 font-semibold text-sm flex items-center">
@@ -3455,14 +3510,16 @@ function ProductSheetContent() {
                                     <option value="findings">FINDINGS</option>
                                   </select>
                                 </div>
-                                <div className="flex-1 px-2 py-1 flex items-center gap-1">
-                                  <input type="text" value={row.value} onChange={(e) => updateDieNumber(row.id, 'value', e.target.value)} className="flex-1 bg-transparent outline-none text-sm"/>
-                                  <input type="text" placeholder="LOCATION" value={row.location} onChange={(e) => updateDieNumber(row.id, 'location', e.target.value)} className="w-24 bg-transparent outline-none text-sm placeholder-cool-gray text-right"/>
+                                <div className="flex-1 px-2 py-1 flex items-center">
+                                  <input type="text" value={row.value} onChange={(e) => updateDieNumber(row.id, 'value', e.target.value)} className="w-full bg-transparent outline-none text-sm"/>
+                                </div>
+                                <div className="w-24 flex-shrink-0 px-2 py-1 flex items-center">
+                                  <input type="text" placeholder="—" value={row.location} onChange={(e) => updateDieNumber(row.id, 'location', e.target.value)} className="w-full bg-transparent outline-none text-sm placeholder-cool-gray"/>
                                 </div>
                                 <div className="w-16 flex-shrink-0 px-2 py-1 flex items-center">
-                                  <input type="text" placeholder="QTY" value={row.quantity} onChange={(e) => updateDieNumber(row.id, 'quantity', e.target.value)} className="w-full bg-transparent outline-none text-sm placeholder-cool-gray"/>
+                                  <input type="text" placeholder="—" value={row.quantity} onChange={(e) => updateDieNumber(row.id, 'quantity', e.target.value)} className="w-full bg-transparent outline-none text-sm placeholder-cool-gray"/>
                                 </div>
-                                <button type="button" onClick={() => deleteDieNumber(row.id)} className="px-2 py-1 text-danger hover:text-danger-dark transition-colors flex-shrink-0 flex items-center">
+                                <button type="button" onClick={() => deleteDieNumber(row.id)} className="w-8 flex-shrink-0 px-2 py-1 text-danger hover:text-danger-dark transition-colors flex items-center justify-center">
                                   <Trash2 className="h-3 w-3" />
                                 </button>
                               </div>

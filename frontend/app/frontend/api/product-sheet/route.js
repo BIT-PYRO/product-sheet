@@ -97,6 +97,20 @@ function normalizeDieFindings(dieNumbers = []) {
   return { die_numbers, findings };
 }
 
+/**
+ * Normalizes a stored die/finding item that may have a legacy combined value like
+ * "bhang bhosda[5][chehere pr]" by splitting it into { value, quantity, location }.
+ */
+function parseDieLegacyValue(item) {
+  if (String(item?.quantity || '').trim() || String(item?.location || '').trim()) return item;
+  const value = String(item?.value || '').trim();
+  const m3 = value.match(/^(.+?)\[([^\]]+)\]\[([^\]]*)\]$/);
+  if (m3) return { ...item, value: m3[1].trim(), quantity: m3[2].trim(), location: m3[3].trim() };
+  const m2 = value.match(/^(.+?)\[([^\]]+)\]$/);
+  if (m2) return { ...item, value: m2[1].trim(), quantity: m2[2].trim() };
+  return item;
+}
+
 function mapIncomingToProductPayload(data) {
   const listingName = String(data?.listingName || '').trim();
   const masterSku = String(data?.sku || '').trim();
@@ -165,12 +179,12 @@ function mapProductSummaryRows(products = [], inventorySummaryRows = []) {
       activeChannels: product?.active_channels || '',
       shopifyStatus: product?.is_active ? 'active' : 'inactive',
       dieNumberFindings: [
-        ...(Array.isArray(product?.die_numbers) ? product.die_numbers.map((item) => ({ ...item, type: 'die_number' })) : []),
-        ...(Array.isArray(product?.findings) ? product.findings.map((item) => ({ ...item, type: 'findings' })) : []),
+        ...(Array.isArray(product?.die_numbers) ? product.die_numbers.map((item) => parseDieLegacyValue({ ...item, type: 'die_number' })) : []),
+        ...(Array.isArray(product?.findings) ? product.findings.map((item) => parseDieLegacyValue({ ...item, type: 'findings' })) : []),
       ],
       dieNumbers: [
-        ...(Array.isArray(product?.die_numbers) ? product.die_numbers.map((item, i) => ({ id: i + 1, type: 'die_number', ...item })) : []),
-        ...(Array.isArray(product?.findings) ? product.findings.map((item, i) => ({ id: (product?.die_numbers?.length || 0) + i + 1, type: 'findings', ...item })) : []),
+        ...(Array.isArray(product?.die_numbers) ? product.die_numbers.map((item, i) => parseDieLegacyValue({ id: i + 1, type: 'die_number', ...item })) : []),
+        ...(Array.isArray(product?.findings) ? product.findings.map((item, i) => parseDieLegacyValue({ id: (product?.die_numbers?.length || 0) + i + 1, type: 'findings', ...item })) : []),
       ],
       masterSku: sku,
       color: product?.color || '',

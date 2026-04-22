@@ -715,6 +715,34 @@ export default function MasterProductSheet() {
       }
     }
 
+    // Auto-create any new category / material / collection values so they
+    // appear in the respective filter dropdowns without a manual "+ Add" step.
+    const successfulRows = editedRows.filter(
+      (row) => !errors.some((e) => e.includes(row.sku || String(row.id)))
+    );
+    const ensureOption = async (value, currentList, apiPath) => {
+      const trimmed = (value || '').trim();
+      if (!trimmed) return;
+      const normalised = trimmed.toLowerCase();
+      if (currentList.some((o) => o.toLowerCase() === normalised)) return;
+      await fetch(apiPath, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: trimmed }),
+      }).catch(() => {});
+    };
+    for (const row of successfulRows) {
+      await ensureOption(row.category,   categoryOptions,   '/api/categories');
+      await ensureOption(row.material,   materialOptions,   '/api/materials');
+      await ensureOption(row.collection, collectionOptions, '/api/collections');
+    }
+    // Refresh option lists to reflect any newly created entries
+    if (successfulRows.length > 0) {
+      fetchCategories();
+      fetchMaterials();
+      fetchCollections();
+    }
+
     setData(updatedData);
     setIsSavingEdit(false);
     setEditingRowIds(new Set());

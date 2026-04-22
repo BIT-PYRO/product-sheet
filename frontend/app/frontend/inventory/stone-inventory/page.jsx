@@ -58,6 +58,7 @@ function emptyStone() {
     length: '',
     width: '',
     height: '',
+    min_level: '',
   };
 }
 
@@ -1058,6 +1059,7 @@ export default function StoneInventoryPage() {
             <Field label="Variety" value={stoneForm.variety} onChange={stoneField('variety')} />
             <Field label="Color" value={stoneForm.color} onChange={stoneField('color')} />
             <Field label="Quality" value={stoneForm.quality} onChange={stoneField('quality')} />
+            <Field label="Min Level" value={stoneForm.min_level} onChange={stoneField('min_level')} type="number" />
 
             {/* Wax Setting toggle */}
             <div className="flex flex-col gap-1">
