@@ -24,14 +24,18 @@ class StandardizedSuccessResponseMixin:
         try:
             request = getattr(self, 'request', None)
             user = None
+            deleted_by_name = ''
             if request is not None:
                 u = getattr(request, 'user', None)
                 if u is not None and u.is_authenticated:
                     user = u
+                    full = f'{u.first_name} {u.last_name}'.strip()
+                    deleted_by_name = full or u.username or ''
             raw = json.loads(django_serializers.serialize('json', [instance]))
             fields = raw[0].get('fields', {}) if raw else {}
             DeletionLog.objects.create(
                 deleted_by=user,
+                deleted_by_name=deleted_by_name,
                 app_label=instance._meta.app_label,
                 model_name=instance._meta.model_name,
                 object_id=str(instance.pk),

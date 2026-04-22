@@ -188,7 +188,7 @@ export default function DeletionHistoryDrawer({ appLabel, modelName, title }) {
                             </span>
                             <span>
                               <span className="font-medium">By:</span>{' '}
-                              {log.deleted_by_username || 'Unknown'}
+                              {log.deleted_by_username || log.deleted_by_name || 'Unknown'}
                             </span>
                             <span>
                               <span className="font-medium">At:</span>{' '}
