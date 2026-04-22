@@ -135,6 +135,9 @@ export default function LowStockPage() {
           const hasDemandDeficit = pendingQty > q;
           if (isBelowThreshold || hasDemandDeficit) {
             const needed = hasDemandDeficit ? Math.max(pendingQty - q, ml > 0 ? Math.max(0, ml - q) : 0) : (ml > 0 ? Math.max(0, ml - q) : 0);
+            const reasons = [];
+            if (isBelowThreshold) reasons.push('below_min');
+            if (hasDemandDeficit) reasons.push('demand_exceeds_stock');
             all.push({
               ...r,
               _source: 'tools',
@@ -143,6 +146,7 @@ export default function LowStockPage() {
               _name: r.tool_name || `Tool #${r.id}`,
               _pendingQty: pendingQty > 0 ? pendingQty : undefined,
               _needed: needed,
+              _reasons: reasons,
             });
           }
         }
@@ -155,11 +159,32 @@ export default function LowStockPage() {
       if (res.ok) {
         const data = await res.json();
         const rows = data?.data?.results ?? data?.results ?? data?.data ?? [];
+        // Also fetch pending machine issue requests to detect demand-based low stock
+        let pendingRequests = [];
+        try {
+          const rRes = await fetch('/api/issue-requests?inventory_type=machines&status=pending&page_size=500');
+          if (rRes.ok) {
+            const rData = await rRes.json();
+            pendingRequests = rData?.data?.results ?? rData?.data ?? rData?.results ?? [];
+          }
+        } catch { /* non-fatal */ }
+        const pendingQtyMap = {};
+        for (const req of pendingRequests) {
+          const tid = req.item_id;
+          if (tid) pendingQtyMap[tid] = Math.max(pendingQtyMap[tid] ?? 0, Number(req.quantity ?? 0));
+        }
         for (const r of rows) {
           const q = Number(r.running_qty ?? 0) + Number(r.idle_qty ?? 0) + Number(r.breakdown_qty ?? 0) + Number(r.maintenance_qty ?? 0);
           const ml = Number(r.min_required_stock ?? 0);
-          if (q <= (ml > 0 ? ml : API_LOW_THRESHOLD)) {
-            all.push({ ...r, _source: 'machines', _qty: q, _minLevel: ml, _name: r.machine_name || `Machine #${r.id}` });
+          const pendingQty = pendingQtyMap[r.id] ?? 0;
+          const isBelowThreshold = q <= (ml > 0 ? ml : API_LOW_THRESHOLD);
+          const hasDemandDeficit = pendingQty > q;
+          if (isBelowThreshold || hasDemandDeficit) {
+            const needed = hasDemandDeficit ? Math.max(pendingQty - q, ml > 0 ? Math.max(0, ml - q) : 0) : (ml > 0 ? Math.max(0, ml - q) : 0);
+            const reasons = [];
+            if (isBelowThreshold) reasons.push('below_min');
+            if (hasDemandDeficit) reasons.push('demand_exceeds_stock');
+            all.push({ ...r, _source: 'machines', _qty: q, _minLevel: ml > 0 ? ml : (hasDemandDeficit ? pendingQty : API_LOW_THRESHOLD), _name: r.machine_name || `Machine #${r.id}`, _pendingQty: pendingQty > 0 ? pendingQty : undefined, _needed: needed, _reasons: reasons });
           }
         }
       }
@@ -195,6 +220,9 @@ export default function LowStockPage() {
           const hasDemandDeficit = pendingQty > q;
           if (isBelowThreshold || hasDemandDeficit) {
             const needed = hasDemandDeficit ? Math.max(pendingQty - q, ml > 0 ? Math.max(0, ml - q) : 0) : (ml > 0 ? Math.max(0, ml - q) : 0);
+            const reasons = [];
+            if (isBelowThreshold) reasons.push('below_min');
+            if (hasDemandDeficit) reasons.push('demand_exceeds_stock');
             all.push({
               ...r,
               _source: 'others',
@@ -203,6 +231,7 @@ export default function LowStockPage() {
               _name: r.item_name || r.name || `#${r.id}`,
               _pendingQty: pendingQty > 0 ? pendingQty : undefined,
               _needed: needed,
+              _reasons: reasons,
             });
           }
         }
@@ -233,18 +262,24 @@ export default function LowStockPage() {
 
         for (const r of rows) {
           const q = Number(r.qty ?? r.quantity ?? 0);
+          const ml = Number(r.min_level ?? 0);
           const pendingQty = pendingQtyMap[r.id] ?? 0;
-          const isBelowThreshold = q <= API_LOW_THRESHOLD;
+          const isBelowThreshold = ml > 0 ? q <= ml : q <= API_LOW_THRESHOLD;
           const hasDemandDeficit = pendingQty > q;
           if (isBelowThreshold || hasDemandDeficit) {
-            const needed = hasDemandDeficit ? Math.max(pendingQty - q, 0) : 0;
+            const needed = hasDemandDeficit ? Math.max(pendingQty - q, ml > 0 ? Math.max(0, ml - q) : 0) : (ml > 0 ? Math.max(0, ml - q) : 0);
+            const reasons = [];
+            if (isBelowThreshold) reasons.push('below_min');
+            if (hasDemandDeficit) reasons.push('demand_exceeds_stock');
             all.push({
               ...r,
               _source: 'stone',
               _qty: q,
+              _minLevel: ml > 0 ? ml : (hasDemandDeficit ? pendingQty : API_LOW_THRESHOLD),
               _name: [r.variety, r.species, r.stone_type].filter(Boolean).join(' – ') || `Stone #${r.id}`,
               _pendingQty: pendingQty > 0 ? pendingQty : undefined,
               _needed: needed,
+              _reasons: reasons,
             });
           }
         }
@@ -281,6 +316,9 @@ export default function LowStockPage() {
           const hasDemandDeficit = pendingQty > q;
           if (isBelowThreshold || hasDemandDeficit) {
             const needed = hasDemandDeficit ? Math.max(pendingQty - q, ml > 0 ? Math.max(0, ml - q) : 0) : (ml > 0 ? Math.max(0, ml - q) : 0);
+            const reasons = [];
+            if (isBelowThreshold) reasons.push('below_min');
+            if (hasDemandDeficit) reasons.push('demand_exceeds_stock');
             all.push({
               ...r,
               _source: 'finding',
@@ -288,6 +326,7 @@ export default function LowStockPage() {
               _name: r.finding_code || `Finding #${r.id}`,
               _pendingQty: pendingQty > 0 ? pendingQty : undefined,
               _needed: needed,
+              _reasons: reasons,
             });
           }
         }
@@ -607,6 +646,7 @@ export default function LowStockPage() {
                       <th className="border border-soft-border px-4 py-3 text-left font-normal text-black">Source</th>
                       <th className="border border-soft-border px-4 py-3 text-left font-normal text-black">Item</th>
                       <th className="border border-soft-border px-4 py-3 text-left font-normal text-black">Details</th>
+                      <th className="border border-soft-border px-4 py-3 text-left font-normal text-black">Reason</th>
                       <th className="border border-soft-border px-4 py-3 text-right font-normal text-black">Current Stock</th>
                       <th className="border border-soft-border px-4 py-3 text-right font-normal text-black">Min Level</th>
                       <th className="border border-soft-border px-4 py-3 text-right font-normal text-black">Needed</th>
@@ -635,11 +675,20 @@ export default function LowStockPage() {
                             {item.unit && <span className="mr-2">Unit: {item.unit}</span>}
                             {item.category && <span className="mr-2">Cat: {item.category}</span>}
                             {item.location && <span className="mr-2">Loc: {item.location}</span>}
-                            {item._pendingQty > 0 && (
-                              <span className="inline-flex items-center gap-0.5 rounded-full bg-amber-100 px-1.5 py-0.5 text-amber-700 font-medium">
-                                Pending req: {item._pendingQty}
-                              </span>
-                            )}
+                          </td>
+                          <td className="border border-soft-border px-4 py-3">
+                            <div className="flex flex-col gap-1">
+                              {(item._reasons || []).includes('below_min') && (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 whitespace-nowrap">
+                                  ⚠ Below min level
+                                </span>
+                              )}
+                              {(item._reasons || []).includes('demand_exceeds_stock') && (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-800 whitespace-nowrap">
+                                  ↑ Pending {item._pendingQty} &gt; stock
+                                </span>
+                              )}
+                            </div>
                           </td>
                           <td className="border border-soft-border px-4 py-3 text-right">
                             <span className={`font-bold ${isZero ? 'text-red-600' : 'text-amber-600'}`}>

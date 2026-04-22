@@ -32,7 +32,9 @@ import { EnrolWorkforceForm } from '@/app/frontend/enrol-workforce/page';
 import DateTimeStamp from '@/components/date-time-stamp';
 import BulkUploadButton from '@/components/bulk-upload-button';
 import LastUpdatedFooter from '@/components/last-updated-footer';
+import DeletionHistoryDrawer from '@/components/deletion-history-drawer';
 import { useSheetPermissions } from '@/hooks/use-sheet-permissions';
+import { useColumnPreferences } from '@/hooks/use-column-preferences';
 
 export default function MasterWorkforceSheet() {
   const { canView, canEdit, canCreate, canExport, loading: permsLoading } = useSheetPermissions('master-workforce-sheet');
@@ -103,9 +105,9 @@ export default function MasterWorkforceSheet() {
     }])
   );
 
-  const [visibleColumns, setVisibleColumns] = useState(new Set([
+  const { visibleColumns, setVisibleColumns, saveView: saveColumnView, saveViewStatus } = useColumnPreferences('master-workforce-sheet', [
     'fullName', 'department', 'category', 'designation', 'workingStyle', 'status', 'phone', 'email', 'currentLocation',
-  ]));
+  ]);
   
   // Toggle column selection in the manage columns dialog
   const toggleColumnSelection = (columnId) => {
@@ -564,6 +566,13 @@ export default function MasterWorkforceSheet() {
               className="text-success border-green-300 hover:bg-success/10"
             >
               Show
+            </Button>
+            <Button
+              onClick={saveColumnView}
+              variant="outline"
+              className="ml-auto border-midnight-ink text-midnight-ink hover:bg-midnight-ink/10"
+            >
+              {saveViewStatus === 'saved' ? 'Saved ✓' : 'Save View'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1167,6 +1176,7 @@ export default function MasterWorkforceSheet() {
           {editingRowIds.size > 0 && <span className="text-trust-blue font-semibold">Editing {editingRowIds.size} row(s)</span>}
         </div>
         <LastUpdatedFooter timestamp={lastUpdated} username={currentUsername} compact />
+        <DeletionHistoryDrawer appLabel="workforce" modelName="workforcemember" />
       </div>
 
       {/* Quick Enroll Modal */}

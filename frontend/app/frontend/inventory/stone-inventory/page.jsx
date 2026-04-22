@@ -6,7 +6,9 @@ import { ArrowLeft, Pencil, Plus, Printer, RefreshCw, Trash2, X } from 'lucide-r
 import SortPopover from '@/components/sort-popover';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
 import LastUpdatedFooter from '@/components/last-updated-footer';
+import DeletionHistoryDrawer from '@/components/deletion-history-drawer';
 import { useSheetPermissions } from '@/hooks/use-sheet-permissions';
+import { useColumnPreferences } from '@/hooks/use-column-preferences';
 import {
   Dialog,
   DialogContent,
@@ -57,6 +59,7 @@ function emptyStone() {
     length: '',
     width: '',
     height: '',
+    min_level: '',
   };
 }
 
@@ -137,7 +140,7 @@ export default function StoneInventoryPage() {
   const handleSort = (field) => { setSortField((prev) => { if (prev === field) { setSortDir((d) => d === 'asc' ? 'desc' : 'asc'); return prev; } setSortDir('asc'); return field; }); };
   const [isManageColumnsOpen, setIsManageColumnsOpen] = useState(false);
   const [selectedColumnsForAction, setSelectedColumnsForAction] = useState(new Set());
-  const [visibleColumns, setVisibleColumns] = useState(new Set(STONE_MANAGE_COLUMNS.map((column) => column.id)));
+  const { visibleColumns, setVisibleColumns, saveView: saveColumnView, saveViewStatus } = useColumnPreferences('inv-stone', STONE_MANAGE_COLUMNS.map((column) => column.id));
 
   // Add New Stone dialog
   const [addStoneOpen, setAddStoneOpen] = useState(false);
@@ -1057,6 +1060,7 @@ export default function StoneInventoryPage() {
             <Field label="Variety" value={stoneForm.variety} onChange={stoneField('variety')} />
             <Field label="Color" value={stoneForm.color} onChange={stoneField('color')} />
             <Field label="Quality" value={stoneForm.quality} onChange={stoneField('quality')} />
+            <Field label="Min Level" value={stoneForm.min_level} onChange={stoneField('min_level')} type="number" />
 
             {/* Wax Setting toggle */}
             <div className="flex flex-col gap-1">
@@ -1740,6 +1744,7 @@ export default function StoneInventoryPage() {
               <span>Selected: {selectedIds.size}</span>
             </div>
             <LastUpdatedFooter timestamp={lastUpdated} username={currentUserName} compact />
+            <DeletionHistoryDrawer appLabel="inventory" modelName="stoneitem" />
           </div>
         );
       })()}

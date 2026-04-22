@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Account, JournalEntry, JournalItem, Ledger, PendingExpense
+from .models import Account, JournalEntry, JournalItem, Ledger, Outstanding, PendingExpense
 
 
 @admin.register(Ledger)
@@ -35,3 +35,11 @@ class PendingExpenseAdmin(admin.ModelAdmin):
     list_filter = ('status', 'source')
     search_fields = ('employee_name', 'source_id', 'description')
     readonly_fields = ('source_id', 'source', 'journal_entry', 'created_at', 'updated_at')
+
+
+@admin.register(Outstanding)
+class OutstandingAdmin(admin.ModelAdmin):
+    list_display = ('id', 'type', 'party_name', 'amount', 'status', 'due_date', 'created_at')
+    list_filter = ('type', 'status')
+    search_fields = ('party_name', 'description')
+    date_hierarchy = 'created_at'

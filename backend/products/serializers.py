@@ -96,6 +96,44 @@ class ProductSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError('Master SKU cannot be blank.')
         return sku
 
+    def _process_images(self, validated_data, instance=None):
+        """Upload any base64 data URIs in the images list to Cloudinary.
+        Raw base64 is never stored in the database."""
+        from common.image_upload import upload_image_base64
+
+        images = validated_data.get('images')
+        if not isinstance(images, list):
+            return validated_data
+
+        sku = (
+            validated_data.get('master_sku')
+            or (instance.master_sku if instance else '')
+            or 'unknown'
+        )
+        safe_sku = sku.replace('/', '-').replace(' ', '-').strip('-') or 'unknown'
+        folder = f'products/{safe_sku}'
+
+        processed = []
+        for idx, img in enumerate(images):
+            if isinstance(img, str) and img.startswith('data:image/'):
+                url = upload_image_base64(img, folder=folder, public_id=f'image_{idx + 1}')
+                if url and not url.startswith('data:image/'):
+                    processed.append(url)
+                # upload failed or unsupported MIME — skip; never store raw base64
+            elif isinstance(img, str) and img:
+                processed.append(img)  # already a URL
+
+        validated_data['images'] = processed
+        return validated_data
+
+    def create(self, validated_data):
+        validated_data = self._process_images(validated_data)
+        return super().create(validated_data)
+
+    def update(self, instance, validated_data):
+        validated_data = self._process_images(validated_data, instance)
+        return super().update(instance, validated_data)
+
     class Meta:
         model = Product
         fields = '__all__'

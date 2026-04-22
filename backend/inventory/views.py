@@ -95,7 +95,7 @@ class StoneStockEntryViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 class ToolItemViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 	queryset = ToolItem.objects.all()
 	serializer_class = ToolItemSerializer
-	search_fields = ['tool_name', 'department', 'location']
+	search_fields = ['tool_name', 'department', 'new_location', 'particulars']
 
 
 @extend_schema_view(
@@ -304,11 +304,11 @@ class IssueRequestViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 				except ToolItem.DoesNotExist:
 					return Response({'success': False, 'message': 'Tool not found.'}, status=status.HTTP_404_NOT_FOUND)
 				requested_qty = obj.quantity or 0
-				if tool.quantity < requested_qty:
-					return Response({'success': False, 'message': f'Insufficient stock. Available: {float(tool.quantity)}, Requested: {float(requested_qty)}.', 'available': float(tool.quantity), 'requested': float(requested_qty)}, status=status.HTTP_400_BAD_REQUEST)
-				tool.quantity = tool.quantity - requested_qty
-				tool.save(update_fields=['quantity'])
-				StockTransaction.objects.create(txn_date=timezone.now().date(), inventory_type='tools', txn_type='issued', item_name=obj.item_name or '', qty=requested_qty, qty_unit=tool.unit or 'PCS', issued_to=obj.issued_to or '', remark=obj.reason or '', tool=tool)
+				if tool.new_qty < requested_qty:
+					return Response({'success': False, 'message': f'Insufficient stock. Available: {float(tool.new_qty)}, Requested: {float(requested_qty)}.', 'available': float(tool.new_qty), 'requested': float(requested_qty)}, status=status.HTTP_400_BAD_REQUEST)
+				tool.new_qty = tool.new_qty - requested_qty
+				tool.save(update_fields=['new_qty'])
+				StockTransaction.objects.create(txn_date=timezone.now().date(), inventory_type='tools', txn_type='issued', item_name=obj.item_name or '', qty=requested_qty, qty_unit=tool.new_unit or 'PCS', issued_to=obj.issued_to or '', remark=obj.reason or '', tool=tool)
 
 		# ── Others ───────────────────────────────────────────────────────────
 		elif new_status == 'approved' and obj.inventory_type == 'others' and obj.item_id:

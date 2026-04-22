@@ -270,9 +270,15 @@ function extractXlsxImages(rawBuffer) {
         const mediaData = _zipReadEntry(buf, entries, `xl/media/${mediaFile}`);
         if (!mediaData) continue;
         const ext  = mediaFile.split('.').pop().toLowerCase();
-        const mime = ext === 'jpg' || ext === 'jpeg' ? 'jpeg' : ext === 'png' ? 'png' : ext;
+        const EXT_TO_MIME = {
+          jpg: 'jpeg', jpeg: 'jpeg', png: 'png', gif: 'gif', webp: 'webp',
+          bmp: 'bmp', tiff: 'tiff', tif: 'tiff', avif: 'avif',
+          heic: 'heic', heif: 'heif', ico: 'ico', svg: 'svg+xml',
+        };
+        const mime = EXT_TO_MIME[ext];
+        if (!mime) continue; // skip non-image formats (emf, wmf, etc.)
         const key  = `${row},${col}`;
-        if (!result.has(key)) result.set(key, `data:image/${mime};base64,${mediaData.toString('base64')}`);
+        if (!result.has(key)) result.set(key, `data:image/${mime};base64,${mediaData.toString('base64')}`)
       }
     }
     return result;
@@ -964,9 +970,10 @@ function buildDesignerStoneEntries(row) {
   // Return empty if no stone field has any value
   if (!type && !species && !variety && !color && !cut && !shape && !length && !width && !height && !qty) return [];
 
-  // Split "/" delimited values into separate stone entries.
-  // e.g. shape="HEART / ROUND", qty="2 / 2" → 2 entries (one per "/" segment)
-  const splitVal = (val) => val ? val.split('/').map(v => v.trim()) : [''];
+  // Split comma-delimited values into separate stone entries.
+  // e.g. shape="HEART,ROUND", qty="2,2" → 2 entries (one per comma segment).
+  // "/" within a value is treated as part of the value (e.g. "3MM/6MM" is a single size).
+  const splitVal = (val) => val ? val.split(',').map(v => v.trim()) : [''];
 
   const typeArr    = splitVal(type);
   const speciesArr = splitVal(species);
@@ -1009,8 +1016,20 @@ function buildDesignerPlatingEntries(row) {
   // Two-row grouped header: "Plating Info" + "Plating Type" → "platinginfoplatingtype"
   const type  = String(pickValue(row, ['platinginfoplatingtype',  'platingtype',  'plating_type',  'plattype'])).trim();
   const color = String(pickValue(row, ['platinginfoplatingcolor', 'platingcolor', 'plating_color', 'platcolor', 'platcolour', 'platinginfoplatingcolour'])).trim();
-  if (type || color) return [{ type, color }];
-  return [];
+  if (!type && !color) return [];
+
+  // Split comma-delimited values into separate plating entries.
+  // "/" within a value is treated as part of the value.
+  const splitVal = (val) => val ? val.split(',').map(v => v.trim()) : [''];
+  const typeArr  = splitVal(type);
+  const colorArr = splitVal(color);
+  const maxLen = Math.max(typeArr.length, colorArr.length);
+  const at = (arr, i) => (i < arr.length ? arr[i] : arr[arr.length - 1]) || '';
+
+  return Array.from({ length: maxLen }, (_, i) => ({
+    type:  at(typeArr, i),
+    color: at(colorArr, i),
+  }));
 }
 
 function buildDesignerTrackingRows(row) {
@@ -1030,10 +1049,40 @@ function buildDesignerTrackingRows(row) {
   const width   = String(pickValue(row, ['trackinginfowidth',       'trackwidth',  'trackingrowwidth'])).trim();
   const height  = String(pickValue(row, ['trackinginfoheight',      'trackheight', 'trackingrowheight'])).trim();
 
-  if (tdm || stl || mCode || mSku || dieCode) {
-    return [{ id: 1, tdm, stl, motiveCode: mCode, motiveSku: mSku, dieCode, moldDieQty: moldQty, length, width, height }];
-  }
-  return [];
+  if (!tdm && !stl && !mCode && !mSku && !dieCode) return [];
+
+  // Split comma-delimited values into separate tracking rows.
+  // "/" within a value is treated as part of the value (e.g. "SD-AM072/10" is a single code).
+  const splitVal = (val) => val ? val.split(',').map(v => v.trim()) : [''];
+
+  const tdmArr     = splitVal(tdm);
+  const stlArr     = splitVal(stl);
+  const mCodeArr   = splitVal(mCode);
+  const mSkuArr    = splitVal(mSku);
+  const dieCodeArr = splitVal(dieCode);
+  const moldQtyArr = splitVal(moldQty);
+  const lengthArr  = splitVal(length);
+  const widthArr   = splitVal(width);
+  const heightArr  = splitVal(height);
+
+  const maxLen = Math.max(
+    tdmArr.length, stlArr.length, mCodeArr.length, mSkuArr.length,
+    dieCodeArr.length, moldQtyArr.length, lengthArr.length, widthArr.length, heightArr.length
+  );
+  const at = (arr, i) => (i < arr.length ? arr[i] : arr[arr.length - 1]) || '';
+
+  return Array.from({ length: maxLen }, (_, i) => ({
+    id:         i + 1,
+    tdm:        at(tdmArr, i),
+    stl:        at(stlArr, i),
+    motiveCode: at(mCodeArr, i),
+    motiveSku:  at(mSkuArr, i),
+    dieCode:    at(dieCodeArr, i),
+    moldDieQty: at(moldQtyArr, i),
+    length:     at(lengthArr, i),
+    width:      at(widthArr, i),
+    height:     at(heightArr, i),
+  }));
 }
 
 function buildDesignerFindingsEntries(row) {
@@ -1044,8 +1093,20 @@ function buildDesignerFindingsEntries(row) {
   // Two-row grouped header: "Findings" + "Code" → "findingscode", "Findings" + "Quantity" → "findingsquantity"
   const code     = String(pickValue(row, ['findingscode',     'findings_code',     'findingsref', 'partcode'])).trim();
   const quantity = String(pickValue(row, ['findingsquantity', 'findingsqty',        'findings_quantity', 'partqty'])).trim();
-  if (code) return [{ code, quantity }];
-  return [];
+  if (!code) return [];
+
+  // Split comma-delimited values into separate findings entries.
+  // "/" within a value is treated as part of the value.
+  const splitVal = (val) => val ? val.split(',').map(v => v.trim()) : [''];
+  const codeArr     = splitVal(code);
+  const quantityArr = splitVal(quantity);
+  const maxLen = Math.max(codeArr.length, quantityArr.length);
+  const at = (arr, i) => (i < arr.length ? arr[i] : arr[arr.length - 1]) || '';
+
+  return Array.from({ length: maxLen }, (_, i) => ({
+    code:     at(codeArr, i),
+    quantity: at(quantityArr, i),
+  })).filter(e => e.code);
 }
 
 async function uploadDesigners(client, rows) {
@@ -1246,11 +1307,19 @@ async function uploadTools(client, rows) {
       tool_name: toolName,
       particulars: String(pickValue(row, ['particulars', 'particular', 'description'])).trim(),
       department: String(pickValue(row, ['department', 'dept'])).trim(),
-      quantity: toNumber(pickValue(row, ['quantity', 'qty']), 0),
-      used_qty: toNumber(pickValue(row, ['usedqty', 'used_qty', 'used qty']), 0),
-      min_level: toNumber(pickValue(row, ['minlevel', 'min_level', 'minimum level', 'min level']), 0),
-      unit: String(pickValue(row, ['unit'], 'PCS')).trim().toUpperCase() || 'PCS',
-      location: String(pickValue(row, ['location'])).trim(),
+      // New stock
+      new_qty: toNumber(pickValue(row, ['new_qty', 'new qty', 'newqty', 'quantity', 'qty']), 0),
+      new_unit: String(pickValue(row, ['new_unit', 'new unit', 'newunit', 'unit'], 'PCS')).trim().toUpperCase() || 'PCS',
+      new_location: String(pickValue(row, ['new_location', 'new location', 'newlocation', 'location'])).trim(),
+      // Used stock
+      used_qty: toNumber(pickValue(row, ['used_qty', 'used qty', 'usedqty']), 0),
+      used_unit: String(pickValue(row, ['used_unit', 'used unit', 'usedunit'], 'PCS')).trim().toUpperCase() || 'PCS',
+      used_location: String(pickValue(row, ['used_location', 'used location', 'usedlocation'])).trim(),
+      // In Use
+      in_use_qty: toNumber(pickValue(row, ['in_use_qty', 'in use qty', 'inuseqty']), 0),
+      in_use_unit: String(pickValue(row, ['in_use_unit', 'in use unit', 'inuseunit'], 'PCS')).trim().toUpperCase() || 'PCS',
+      // Minimum stock
+      min_required_stock: toNumber(pickValue(row, ['min_required_stock', 'min required stock', 'minrequiredstock', 'min_level', 'min level', 'minlevel', 'minimum level']), 0),
     };
 
     const existingItem = byName.get(toolName.toLowerCase());

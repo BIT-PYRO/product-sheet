@@ -6,7 +6,9 @@ import { ArrowLeft, Pencil, Plus, Printer, RefreshCw, Trash2, Upload, X } from '
 import SortPopover from '@/components/sort-popover';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
 import LastUpdatedFooter from '@/components/last-updated-footer';
+import DeletionHistoryDrawer from '@/components/deletion-history-drawer';
 import { useSheetPermissions } from '@/hooks/use-sheet-permissions';
+import { useColumnPreferences } from '@/hooks/use-column-preferences';
 import {
   Dialog,
   DialogContent,
@@ -120,7 +122,7 @@ export default function DieInventoryPage() {
 
   const [isManageColumnsOpen, setIsManageColumnsOpen] = useState(false);
   const [selectedColumnsForAction, setSelectedColumnsForAction] = useState(new Set());
-  const [visibleColumns, setVisibleColumns] = useState(new Set(DIE_COLUMNS.map((c) => c.id)));
+  const { visibleColumns, setVisibleColumns, saveView: saveColumnView, saveViewStatus } = useColumnPreferences('inv-die', DIE_COLUMNS.map((c) => c.id));
 
   const [issueOpen, setIssueOpen] = useState(false);
   const [issueForm, setIssueForm] = useState({ dieId: '', quantity: '', issuedTo: '', issuedBy: '', reason: '' });
@@ -1321,6 +1323,7 @@ export default function DieInventoryPage() {
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="outline" onClick={handleHideColumns} disabled={selectedColumnsForAction.size === 0} className="h-8 text-sm">Hide Selected</Button>
             <Button variant="outline" onClick={handleShowColumns} disabled={selectedColumnsForAction.size === 0} className="h-8 text-sm">Show Selected</Button>
+            <Button variant="outline" onClick={saveColumnView} className="ml-auto h-8 text-sm border-midnight-ink text-midnight-ink hover:bg-midnight-ink/10">{saveViewStatus === 'saved' ? 'Saved ✓' : 'Save View'}</Button>
           </div>
         </DialogContent>
       </Dialog>
@@ -1347,6 +1350,7 @@ export default function DieInventoryPage() {
               {editingRowIds.size > 0 && <span className="text-trust-blue font-semibold">Editing {editingRowIds.size} item(s)</span>}
             </div>
             <LastUpdatedFooter timestamp={lastUpdated} username={currentUserName} compact />
+            <DeletionHistoryDrawer appLabel="inventory" modelName="dieinventoryitem" />
           </div>
         );
       })()}

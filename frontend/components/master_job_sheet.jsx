@@ -35,7 +35,9 @@ import { NeededVouchersModal } from '@/components/needed-vouchers-modal';
 import { ReceiveJobModal } from '@/components/receive-job-modal';
 import DateTimeStamp from '@/components/date-time-stamp';
 import BulkUploadButton from '@/components/bulk-upload-button';
+import DeletionHistoryDrawer from '@/components/deletion-history-drawer';
 import { useSheetPermissions } from '@/hooks/use-sheet-permissions';
+import { useColumnPreferences } from '@/hooks/use-column-preferences';
 
 export default function MasterJobSheet() {
   const { canView, canEdit, canCreate, canExport, loading: permsLoading } = useSheetPermissions('master-job-sheet');
@@ -106,7 +108,7 @@ export default function MasterJobSheet() {
     files: { minWidth: 'min-w-[120px]', headerBg: 'bg-[#dbeafe]' },
   };
   
-  const [visibleColumns, setVisibleColumns] = useState(new Set(columns.map(col => col.id)));
+  const { visibleColumns, setVisibleColumns, saveView: saveColumnView, saveViewStatus } = useColumnPreferences('master-job-sheet', columns.map(col => col.id));
   
   // Toggle column selection in the manage columns dialog
   const toggleColumnSelection = (columnId) => {
@@ -492,6 +494,13 @@ export default function MasterJobSheet() {
               className="text-success border-green-300 hover:bg-success/10"
             >
               Show
+            </Button>
+            <Button
+              onClick={saveColumnView}
+              variant="outline"
+              className="ml-auto border-midnight-ink text-midnight-ink hover:bg-midnight-ink/10"
+            >
+              {saveViewStatus === 'saved' ? 'Saved ✓' : 'Save View'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1288,6 +1297,7 @@ export default function MasterJobSheet() {
           <EnrolWorkforceForm />
         </DialogContent>
       </Dialog>
+      <DeletionHistoryDrawer appLabel="jobs" modelName="job" />
     </div>
   );
 }

@@ -90,6 +90,7 @@ export async function proxyAuthenticatedRequest(request, backendPath, options = 
       headers,
       body: options.body,
       cache: 'no-store',
+      ...(options.duplex ? { duplex: options.duplex } : {}),
     });
   };
 

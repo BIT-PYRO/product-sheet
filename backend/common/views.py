@@ -1,9 +1,16 @@
 from celery.result import AsyncResult
+from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import OpenApiExample, extend_schema
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.filters import OrderingFilter
+from rest_framework.mixins import ListModelMixin
+from rest_framework.permissions import IsAdminUser, IsAuthenticated
+from rest_framework.viewsets import GenericViewSet
 from rest_framework.views import APIView
 
 from common.api import api_success
+from common.mixins import StandardizedSuccessResponseMixin
+from common.models import DeletionLog
+from common.serializers import DeletionLogSerializer
 from common.tasks import generate_operations_summary_task, ping_task
 
 
@@ -96,3 +103,15 @@ class TaskStatusView(APIView):
 			'result': result.result if result.successful() else None,
 		}
 		return api_success(payload, message='Task status fetched successfully.')
+
+
+@extend_schema(tags=['Deletion Log'])
+class DeletionLogViewSet(StandardizedSuccessResponseMixin, ListModelMixin, GenericViewSet):
+	"""Read-only endpoint — returns deletion logs, optionally filtered by app_label / model_name."""
+	permission_classes = [IsAdminUser]
+	serializer_class = DeletionLogSerializer
+	queryset = DeletionLog.objects.select_related('deleted_by').all()
+	filter_backends = [DjangoFilterBackend, OrderingFilter]
+	filterset_fields = ['app_label', 'model_name']
+	ordering_fields = ['deleted_at']
+	ordering = ['-deleted_at']

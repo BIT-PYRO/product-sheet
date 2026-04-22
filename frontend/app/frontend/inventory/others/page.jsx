@@ -7,7 +7,9 @@ import SortPopover from '@/components/sort-popover';
 import BulkUploadButton from '@/components/bulk-upload-button';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
 import LastUpdatedFooter from '@/components/last-updated-footer';
+import DeletionHistoryDrawer from '@/components/deletion-history-drawer';
 import { Button } from '@/components/ui/button';
+import { useColumnPreferences } from '@/hooks/use-column-preferences';
 import GlobalSearchBar from '@/components/global-search-bar';
 import DateTimeStamp from '@/components/date-time-stamp';
 import {
@@ -55,7 +57,7 @@ export default function OthersInventoryPage() {
   const [customUnitFilter, setCustomUnitFilter] = useState('');
   const [isManageColumnsOpen, setIsManageColumnsOpen] = useState(false);
   const [selectedColumnsForAction, setSelectedColumnsForAction] = useState(new Set());
-  const [visibleColumns, setVisibleColumns] = useState(new Set(OTHERS_COLUMNS.map((column) => column.id)));
+  const { visibleColumns, setVisibleColumns, saveView: saveColumnView, saveViewStatus } = useColumnPreferences('inv-others', OTHERS_COLUMNS.map((column) => column.id));
   const [isAddItemOpen, setIsAddItemOpen] = useState(false);
   const [receiveOpen, setReceiveOpen] = useState(false);
   const [receiveForm, setReceiveForm] = useState({ itemId: '', quantity: '', employeeVendorName: '', referenceId: '', price: '', usage: 'new' });
@@ -859,6 +861,7 @@ export default function OthersInventoryPage() {
           <div className="mt-2 flex justify-end gap-2">
             <button type="button" onClick={handleHideColumns} disabled={selectedColumnsForAction.size === 0} className="rounded-md border border-danger/40 px-3 py-2 text-sm font-medium text-danger hover:bg-danger/10 disabled:opacity-50">Hide</button>
             <button type="button" onClick={handleShowColumns} disabled={selectedColumnsForAction.size === 0} className="rounded-md border border-green-300 px-3 py-2 text-sm font-medium text-success hover:bg-success/10 disabled:opacity-50">Show</button>
+            <button type="button" onClick={saveColumnView} className="ml-auto rounded-md border border-midnight-ink px-3 py-2 text-sm font-medium text-midnight-ink hover:bg-midnight-ink/10">{saveViewStatus === 'saved' ? 'Saved ✓' : 'Save View'}</button>
           </div>
         </DialogContent>
       </Dialog>
@@ -1164,6 +1167,7 @@ export default function OthersInventoryPage() {
               {editingRowIds.size > 0 && <span className="text-trust-blue font-semibold">Editing {editingRowIds.size} item(s)</span>}
             </div>
             <LastUpdatedFooter timestamp={lastUpdated} username={currentUserName} compact />
+            <DeletionHistoryDrawer appLabel="inventory" modelName="otheritem" />
           </div>
         );
       })()}

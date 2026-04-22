@@ -24,7 +24,9 @@ import GlobalSearchBar from '@/components/global-search-bar';
 import DateTimeStamp from '@/components/date-time-stamp';
 import BulkUploadButton from '@/components/bulk-upload-button';
 import LastUpdatedFooter from '@/components/last-updated-footer';
+import DeletionHistoryDrawer from '@/components/deletion-history-drawer';
 import { useSheetPermissions } from '@/hooks/use-sheet-permissions';
+import { useColumnPreferences } from '@/hooks/use-column-preferences';
 
 // â”€â”€ Column definitions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Each entry: { id, label, group?, groupLabel?, width }
@@ -118,17 +120,17 @@ function mapRow(row) {
     enamel: row.enamel || '',
     mechanism: row.mechanism || '',
     designer_notes: row.designer_notes || '',
-    findings_code: findings.map(f => f.code || '').join(' / '),
-    findings_quantity: findings.map(f => f.quantity || '').join(' / '),
+    findings_code: findings.map(f => f.code || '').join(', '),
+    findings_quantity: findings.map(f => f.quantity || '').join(', '),
     _stone_entries: Array.isArray(row.stone_entries) ? row.stone_entries : [],
     _findings_entries: Array.isArray(row.findings_entries) ? row.findings_entries : [],
     _plating_entries: Array.isArray(row.plating_entries) ? row.plating_entries : [],
     _tracking_rows: Array.isArray(row.tracking_rows) ? row.tracking_rows : [],
-    // Flat display fields for tracking rows (joined with ' / ' when multiple)
+    // Flat display fields for tracking rows (joined with ', ' when multiple)
     ...(() => {
       const tRows = (Array.isArray(row.tracking_rows) ? row.tracking_rows : []).filter((r) =>
         ['tdm','stl','motiveCode','motiveSku','dieCode','moldDieQty'].some((k) => String(r[k] || '').trim()));
-      const join = (key) => tRows.map((r) => r[key] || '').filter(Boolean).join(' / ');
+      const join = (key) => tRows.map((r) => r[key] || '').filter(Boolean).join(', ');
       return {
         track_tdm: join('tdm'), track_stl: join('stl'),
         track_motive_code: join('motiveCode'), track_motive_sku: join('motiveSku'),
@@ -140,14 +142,14 @@ function mapRow(row) {
     ...(() => {
       const sRows = (Array.isArray(row.stone_entries) ? row.stone_entries : []).filter((s) =>
         Object.values(s).some((v) => String(v || '').trim()));
-      const join = (key) => sRows.map((s) => s[key] || '').filter(Boolean).join(' / ');
+      const join = (key) => sRows.map((s) => s[key] || '').filter(Boolean).join(', ');
       return { stone_type: join('type'), stone_species: join('species'), stone_variety: join('variety'), stone_color: join('color'), stone_cut: join('cut'), stone_shape: join('shape'), stone_length: join('length'), stone_width: join('width'), stone_height: join('height'), stone_qty: join('qty') };
     })(),
     // Flat display fields for plating entries
     ...(() => {
       const pRows = (Array.isArray(row.plating_entries) ? row.plating_entries : []).filter((p) =>
         Object.values(p).some((v) => String(v || '').trim()));
-      return { plating_type: pRows.map((p) => p.type || '').filter(Boolean).join(' / '), plating_color: pRows.map((p) => p.color || '').filter(Boolean).join(' / ') };
+      return { plating_type: pRows.map((p) => p.type || '').filter(Boolean).join(', '), plating_color: pRows.map((p) => p.color || '').filter(Boolean).join(', ') };
     })(),
   };
 }
@@ -201,9 +203,7 @@ export default function MasterDesignerSheet() {
   const [data, setData] = useState([]);
   const [sortOrder, setSortOrder] = useState('default');
 
-  const [visibleColumns, setVisibleColumns] = useState(
-    new Set(COLUMNS.map((c) => c.id))
-  );
+  const { visibleColumns, setVisibleColumns, saveView: saveColumnView, saveViewStatus } = useColumnPreferences('master-designer-sheet', COLUMNS.map((c) => c.id));
 
   const toggleColumnSelection = (columnId) => {
     const next = new Set(selectedColumnsForAction);
@@ -565,6 +565,7 @@ export default function MasterDesignerSheet() {
           <DialogFooter className="flex gap-2">
             <Button onClick={handleHideColumns} disabled={selectedColumnsForAction.size === 0} variant="outline" className="text-danger border-danger/40 hover:bg-danger/10">Hide</Button>
             <Button onClick={handleShowColumns} disabled={selectedColumnsForAction.size === 0} variant="outline" className="text-success border-green-300 hover:bg-success/10">Show</Button>
+            <Button onClick={saveColumnView} variant="outline" className="ml-auto border-midnight-ink text-midnight-ink hover:bg-midnight-ink/10">{saveViewStatus === 'saved' ? 'Saved ✓' : 'Save View'}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -784,6 +785,7 @@ export default function MasterDesignerSheet() {
           {editingRowIds.size > 0 && <span className="text-trust-blue font-semibold">Editing {editingRowIds.size} row(s)</span>}
         </div>
         <LastUpdatedFooter timestamp={lastUpdated} username={currentUsername} compact />
+        <DeletionHistoryDrawer appLabel="designers" modelName="designersheet" />
       </div>
     </div>
   );

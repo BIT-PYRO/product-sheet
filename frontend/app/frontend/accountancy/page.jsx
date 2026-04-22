@@ -7,8 +7,10 @@ import AccountingTrialBalance from '@/components/accounting-trial-balance';
 import AccountingProfitLoss from '@/components/accounting-profit-loss';
 import AccountingBalanceSheet from '@/components/accounting-balance-sheet';
 import AccountingPendingExpenses from '@/components/accounting-pending-expenses';
+import AccountingFinance from '@/components/accounting-finance';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
 import DateTimeStamp from '@/components/date-time-stamp';
+import DeletionHistoryDrawer from '@/components/deletion-history-drawer';
 
 const TABS = [
   { key: 'journal', label: 'Journal Entry' },
@@ -17,6 +19,7 @@ const TABS = [
   { key: 'profit-loss', label: 'Profit & Loss' },
   { key: 'balance-sheet', label: 'Balance Sheet' },
   { key: 'pending-expenses', label: 'Pending Expenses' },
+  { key: 'finance', label: 'Finance' },
 ];
 
 export default function AccountancyPage() {
@@ -41,11 +44,11 @@ export default function AccountancyPage() {
 
         {/* Sub-header */}
         <div className="mb-6 pt-4">
-          <p className="text-sm text-cool-gray">Manage journal entries and view ledger summaries.</p>
+          <p className="text-sm text-cool-gray">Manage journal entries, expenses, and view ledger summaries.</p>
         </div>
 
         {/* Tab bar */}
-        <div className="flex gap-1 mb-6 border-b border-soft-border">
+        <div className="flex gap-1 mb-6 border-b border-soft-border flex-wrap">
           {TABS.map((tab) => (
             <button
               key={tab.key}
@@ -69,7 +72,9 @@ export default function AccountancyPage() {
         {activeTab === 'profit-loss' && <AccountingProfitLoss />}
         {activeTab === 'balance-sheet' && <AccountingBalanceSheet />}
         {activeTab === 'pending-expenses' && <AccountingPendingExpenses />}
+        {activeTab === 'finance' && <AccountingFinance />}
       </div>
+      <DeletionHistoryDrawer appLabel="accounting" modelName="journalentry" />
     </main>
   );
 }
