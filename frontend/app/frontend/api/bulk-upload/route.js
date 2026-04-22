@@ -1307,11 +1307,19 @@ async function uploadTools(client, rows) {
       tool_name: toolName,
       particulars: String(pickValue(row, ['particulars', 'particular', 'description'])).trim(),
       department: String(pickValue(row, ['department', 'dept'])).trim(),
-      quantity: toNumber(pickValue(row, ['quantity', 'qty']), 0),
-      used_qty: toNumber(pickValue(row, ['usedqty', 'used_qty', 'used qty']), 0),
-      min_level: toNumber(pickValue(row, ['minlevel', 'min_level', 'minimum level', 'min level']), 0),
-      unit: String(pickValue(row, ['unit'], 'PCS')).trim().toUpperCase() || 'PCS',
-      location: String(pickValue(row, ['location'])).trim(),
+      // New stock
+      new_qty: toNumber(pickValue(row, ['new_qty', 'new qty', 'newqty', 'quantity', 'qty']), 0),
+      new_unit: String(pickValue(row, ['new_unit', 'new unit', 'newunit', 'unit'], 'PCS')).trim().toUpperCase() || 'PCS',
+      new_location: String(pickValue(row, ['new_location', 'new location', 'newlocation', 'location'])).trim(),
+      // Used stock
+      used_qty: toNumber(pickValue(row, ['used_qty', 'used qty', 'usedqty']), 0),
+      used_unit: String(pickValue(row, ['used_unit', 'used unit', 'usedunit'], 'PCS')).trim().toUpperCase() || 'PCS',
+      used_location: String(pickValue(row, ['used_location', 'used location', 'usedlocation'])).trim(),
+      // In Use
+      in_use_qty: toNumber(pickValue(row, ['in_use_qty', 'in use qty', 'inuseqty']), 0),
+      in_use_unit: String(pickValue(row, ['in_use_unit', 'in use unit', 'inuseunit'], 'PCS')).trim().toUpperCase() || 'PCS',
+      // Minimum stock
+      min_required_stock: toNumber(pickValue(row, ['min_required_stock', 'min required stock', 'minrequiredstock', 'min_level', 'min level', 'minlevel', 'minimum level']), 0),
     };
 
     const existingItem = byName.get(toolName.toLowerCase());

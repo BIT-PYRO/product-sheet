@@ -95,7 +95,7 @@ class StoneStockEntryViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 class ToolItemViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 	queryset = ToolItem.objects.all()
 	serializer_class = ToolItemSerializer
-	search_fields = ['tool_name', 'department', 'location']
+	search_fields = ['tool_name', 'department', 'new_location', 'particulars']
 
 
 @extend_schema_view(
