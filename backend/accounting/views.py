@@ -26,6 +26,15 @@ class AccountListView(APIView):
         data = [{'id': a.pk, 'name': a.name, 'type': a.type} for a in accounts]
         return api_success(data, message='Accounts fetched successfully.')
 
+    def post(self, request):
+        name = (request.data.get('name') or '').strip()
+        acc_type = (request.data.get('type') or 'bank').strip()
+        if not name:
+            return Response({'success': False, 'message': 'Account name is required.'}, status=400)
+        account, created = Account.objects.get_or_create(name=name, defaults={'type': acc_type})
+        return api_success({'id': account.pk, 'name': account.name, 'type': account.type},
+                          message=f'Account {"created" if created else "already exists"}.', status_code=201 if created else 200)
+
 
 class ExpenseListView(APIView):
     permission_classes = [IsAuthenticated]
@@ -143,10 +152,27 @@ class FinanceDashboardView(APIView):
         total_income = float(income_qs.aggregate(t=Sum('amount'))['t'] or 0)
         net = round(total_income - total_expense, 2)
 
+        # Account-wise breakdown: all accounts that have any income or expense
+        account_breakdown = []
+        all_accounts = Account.objects.all()
+        for acc in all_accounts:
+            inc_total = float(income_qs.filter(account=acc).aggregate(t=Sum('amount'))['t'] or 0)
+            exp_total = float(expense_qs.filter(account=acc).aggregate(t=Sum('amount'))['t'] or 0)
+            if inc_total > 0 or exp_total > 0:
+                account_breakdown.append({
+                    'account_id': acc.pk,
+                    'account_name': acc.name,
+                    'account_type': acc.type,
+                    'income_total': round(inc_total, 2),
+                    'expense_total': round(exp_total, 2),
+                    'net': round(inc_total - exp_total, 2),
+                })
+
         return api_success({
             'total_income': round(total_income, 2),
             'total_expense': round(total_expense, 2),
             'net': net,
+            'account_breakdown': account_breakdown,
         }, message='Finance dashboard fetched.')
 
 
@@ -577,3 +603,242 @@ class BalanceSheetView(APIView):
             },
             message='Balance sheet fetched successfully.',
         )
+
+class OutstandingListView(APIView):
+    """
+    GET  /api/accounting/outstandings/?type=receivable|payable&status=pending|paid
+    POST /api/accounting/outstandings/  -- create receivable or payable with auto journal
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        from .models import Outstanding
+        qs = Outstanding.objects.all()
+        t = request.query_params.get('type')
+        s = request.query_params.get('status')
+        if t:
+            qs = qs.filter(type=t)
+        if s:
+            qs = qs.filter(status=s)
+        from .serializers import OutstandingSerializer
+        return api_success(OutstandingSerializer(qs, many=True).data, message='Outstandings fetched.')
+
+    def post(self, request):
+        from django.db import transaction
+        from .models import Outstanding
+
+        data = request.data
+        o_type = data.get('type')
+        party_name = data.get('party_name', '').strip()
+        amount = float(data.get('amount', 0))
+        description = data.get('description', '')
+        due_date = data.get('due_date') or None
+        date = data.get('date')
+
+        if o_type not in ('receivable', 'payable'):
+            return Response({'success': False, 'message': 'type must be receivable or payable'}, status=400)
+        if not party_name:
+            return Response({'success': False, 'message': 'party_name is required'}, status=400)
+        if amount <= 0:
+            return Response({'success': False, 'message': 'amount must be positive'}, status=400)
+        if not date:
+            return Response({'success': False, 'message': 'date is required'}, status=400)
+
+        try:
+            with transaction.atomic():
+                if o_type == 'receivable':
+                    # Accounts Receivable (Dr)  /  Sales (Cr)
+                    ar_ledger, _ = Ledger.objects.get_or_create(
+                        name='Accounts Receivable', defaults={'type': Ledger.LedgerType.ASSET}
+                    )
+                    sales_ledger, _ = Ledger.objects.get_or_create(
+                        name='Sales', defaults={'type': Ledger.LedgerType.INCOME}
+                    )
+                    journal = JournalEntry.objects.create(
+                        date=date,
+                        description=f'Receivable: {party_name} - {description}'
+                    )
+                    JournalItem.objects.create(entry=journal, ledger=ar_ledger, debit=amount, credit=0, notes=description, vendor_payee=party_name)
+                    JournalItem.objects.create(entry=journal, ledger=sales_ledger, debit=0, credit=amount, notes=description, vendor_payee=party_name)
+                else:
+                    # Expense (Dr)  /  Accounts Payable (Cr)
+                    expense_ledger, _ = Ledger.objects.get_or_create(
+                        name='General Expense', defaults={'type': Ledger.LedgerType.EXPENSE}
+                    )
+                    ap_ledger, _ = Ledger.objects.get_or_create(
+                        name='Accounts Payable', defaults={'type': Ledger.LedgerType.LIABILITY}
+                    )
+                    journal = JournalEntry.objects.create(
+                        date=date,
+                        description=f'Payable: {party_name} - {description}'
+                    )
+                    JournalItem.objects.create(entry=journal, ledger=expense_ledger, debit=amount, credit=0, notes=description, vendor_payee=party_name)
+                    JournalItem.objects.create(entry=journal, ledger=ap_ledger, debit=0, credit=amount, notes=description, vendor_payee=party_name)
+
+                outstanding = Outstanding.objects.create(
+                    type=o_type,
+                    party_name=party_name,
+                    amount=amount,
+                    linked_journal=journal,
+                    status=Outstanding.Status.PENDING,
+                    description=description,
+                    due_date=due_date,
+                )
+            from .serializers import OutstandingSerializer
+            return api_success(OutstandingSerializer(outstanding).data, message=f'{o_type.capitalize()} created successfully.', status_code=201)
+        except Exception as e:
+            return Response({'success': False, 'message': str(e)}, status=400)
+
+
+class OutstandingSettleView(APIView):
+    """
+    POST /api/accounting/outstandings/<id>/settle/
+    Body: { payment_account_id: <int> }
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        from django.db import transaction
+        from .models import Outstanding
+
+        try:
+            outstanding = Outstanding.objects.get(pk=pk)
+        except Outstanding.DoesNotExist:
+            return Response({'success': False, 'message': 'Outstanding not found'}, status=404)
+
+        if outstanding.status == Outstanding.Status.PAID:
+            return Response({'success': False, 'message': 'Already settled. Cannot settle twice.'}, status=400)
+
+        payment_account_id = request.data.get('payment_account_id')
+        if not payment_account_id:
+            return Response({'success': False, 'message': 'payment_account_id is required'}, status=400)
+
+        try:
+            payment_account = Account.objects.get(pk=payment_account_id)
+        except Account.DoesNotExist:
+            return Response({'success': False, 'message': 'Payment account not found'}, status=404)
+
+        amount = float(outstanding.amount)
+
+        try:
+            with transaction.atomic():
+                bank_ledger = payment_account.get_or_create_ledger()
+
+                if outstanding.type == Outstanding.OutstandingType.RECEIVABLE:
+                    ar_ledger, _ = Ledger.objects.get_or_create(
+                        name='Accounts Receivable', defaults={'type': Ledger.LedgerType.ASSET}
+                    )
+                    journal = JournalEntry.objects.create(
+                        date=request.data.get('date') or __import__('datetime').date.today().isoformat(),
+                        description=f'Settlement of receivable from {outstanding.party_name}'
+                    )
+                    JournalItem.objects.create(entry=journal, ledger=bank_ledger, debit=amount, credit=0, vendor_payee=outstanding.party_name)
+                    JournalItem.objects.create(entry=journal, ledger=ar_ledger, debit=0, credit=amount, vendor_payee=outstanding.party_name)
+                else:
+                    ap_ledger, _ = Ledger.objects.get_or_create(
+                        name='Accounts Payable', defaults={'type': Ledger.LedgerType.LIABILITY}
+                    )
+                    journal = JournalEntry.objects.create(
+                        date=request.data.get('date') or __import__('datetime').date.today().isoformat(),
+                        description=f'Settlement of payable to {outstanding.party_name}'
+                    )
+                    JournalItem.objects.create(entry=journal, ledger=ap_ledger, debit=amount, credit=0, vendor_payee=outstanding.party_name)
+                    JournalItem.objects.create(entry=journal, ledger=bank_ledger, debit=0, credit=amount, vendor_payee=outstanding.party_name)
+
+                outstanding.status = Outstanding.Status.PAID
+                outstanding.settlement_journal = journal
+                outstanding.settlement_account = payment_account
+                outstanding.save(update_fields=['status', 'settlement_journal', 'settlement_account', 'updated_at'])
+
+            from .serializers import OutstandingSerializer
+            return api_success(OutstandingSerializer(outstanding).data, message='Settled successfully.')
+        except Exception as e:
+            return Response({'success': False, 'message': str(e)}, status=400)
+
+
+class OutstandingDashboardView(APIView):
+    """GET /api/accounting/outstandings/dashboard/ - summary, account breakdown, settlement logs"""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        from django.db.models import Sum, Count
+        from .models import Outstanding
+
+        def agg(type_, status):
+            qs = Outstanding.objects.filter(type=type_, status=status)
+            return {
+                'count': qs.count(),
+                'total': float(qs.aggregate(t=Sum('amount'))['t'] or 0),
+            }
+
+        # Account-wise breakdown: how many bills paid/received per account
+        account_breakdown = []
+        settled = Outstanding.objects.filter(status='paid', settlement_account__isnull=False)
+        account_ids = settled.values_list('settlement_account', flat=True).distinct()
+        for acc_id in account_ids:
+            acc = Account.objects.filter(pk=acc_id).first()
+            if not acc:
+                continue
+            acc_settled = settled.filter(settlement_account=acc)
+            rec = acc_settled.filter(type='receivable')
+            pay = acc_settled.filter(type='payable')
+            account_breakdown.append({
+                'account_id': acc.id,
+                'account_name': acc.name,
+                'account_type': acc.type,
+                'received_count': rec.count(),
+                'received_total': float(rec.aggregate(t=Sum('amount'))['t'] or 0),
+                'paid_count': pay.count(),
+                'paid_total': float(pay.aggregate(t=Sum('amount'))['t'] or 0),
+            })
+
+        # Recent settlement logs (last 20)
+        from .serializers import OutstandingSerializer
+        recent_settlements = Outstanding.objects.filter(status='paid').order_by('-updated_at')[:20]
+
+        return api_success({
+            'receivable_pending': agg('receivable', 'pending'),
+            'receivable_paid': agg('receivable', 'paid'),
+            'payable_pending': agg('payable', 'pending'),
+            'payable_paid': agg('payable', 'paid'),
+            'account_breakdown': account_breakdown,
+            'recent_settlements': OutstandingSerializer(recent_settlements, many=True).data,
+        }, message='Outstanding dashboard fetched.')
+
+
+class OutstandingReceiptView(APIView):
+    """
+    POST /api/accounting/outstandings/<id>/receipts/  - upload receipts
+    GET  /api/accounting/outstandings/<id>/receipts/  - list receipts
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        from .models import Outstanding, OutstandingReceipt
+        from .serializers import OutstandingReceiptSerializer
+        try:
+            outstanding = Outstanding.objects.get(pk=pk)
+        except Outstanding.DoesNotExist:
+            return Response({'success': False, 'message': 'Not found'}, status=404)
+        receipts = OutstandingReceipt.objects.filter(outstanding=outstanding).order_by('-uploaded_at')
+        return api_success(OutstandingReceiptSerializer(receipts, many=True).data)
+
+    def post(self, request, pk):
+        from .models import Outstanding, OutstandingReceipt
+        from .serializers import OutstandingReceiptSerializer
+        try:
+            outstanding = Outstanding.objects.get(pk=pk)
+        except Outstanding.DoesNotExist:
+            return Response({'success': False, 'message': 'Not found'}, status=404)
+
+        files = request.FILES.getlist('receipts')
+        if not files:
+            files = request.FILES.getlist('receipt')
+        if not files:
+            return Response({'success': False, 'message': 'No files provided'}, status=400)
+
+        created = []
+        for f in files:
+            r = OutstandingReceipt.objects.create(outstanding=outstanding, file=f, filename=f.name)
+            created.append(r)
+        return api_success(OutstandingReceiptSerializer(created, many=True).data, message=f'{len(created)} receipt(s) uploaded.')

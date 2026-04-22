@@ -3,7 +3,7 @@ from decimal import Decimal
 from django.db import transaction
 from rest_framework import serializers
 
-from .models import JournalEntry, JournalItem, Ledger
+from .models import JournalEntry, JournalItem, Ledger, Outstanding
 
 
 class LedgerSerializer(serializers.ModelSerializer):
@@ -125,3 +125,25 @@ class IncomeSerializer(serializers.ModelSerializer):
         from .models import Income
         model = Income
         fields = ('id', 'amount', 'category', 'category_name', 'account', 'account_name', 'date', 'description', 'receipt', 'created_at')
+
+
+class OutstandingReceiptSerializer(serializers.ModelSerializer):
+    class Meta:
+        from .models import OutstandingReceipt
+        model = OutstandingReceipt
+        fields = ('id', 'file', 'filename', 'uploaded_at')
+
+
+class OutstandingSerializer(serializers.ModelSerializer):
+    linked_journal_id = serializers.IntegerField(source='linked_journal.id', read_only=True, allow_null=True)
+    settlement_journal_id = serializers.IntegerField(source='settlement_journal.id', read_only=True, allow_null=True)
+    settlement_account_name = serializers.CharField(source='settlement_account.name', read_only=True, allow_null=True, default=None)
+    receipts = OutstandingReceiptSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Outstanding
+        fields = (
+            'id', 'type', 'party_name', 'amount', 'status', 'description',
+            'due_date', 'linked_journal_id', 'settlement_journal_id',
+            'settlement_account_name', 'receipts', 'created_at', 'updated_at'
+        )

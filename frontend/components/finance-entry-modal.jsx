@@ -54,7 +54,7 @@ export default function FinanceEntryModal({ type, ledgers, accounts, onClose, on
   const [account, setAccount] = useState('');
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [description, setDescription] = useState('');
-  const [receipt, setReceipt] = useState(null);
+  const [receipts, setReceipts] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const fileRef = useRef(null);
@@ -91,7 +91,7 @@ export default function FinanceEntryModal({ type, ledgers, accounts, onClose, on
       fd.append('amount', parsed); fd.append('category', category);
       fd.append('account', account); fd.append('date', date);
       fd.append('description', description);
-      if (receipt) fd.append('receipt', receipt);
+      receipts.forEach(f => fd.append('receipt', f));
       const res = await fetch(apiUrl, { method: 'POST', body: fd });
       const result = await res.json().catch(() => null);
       if (!res.ok || !result?.success) { setError(result?.message || 'Failed. Please try again.'); setSubmitting(false); return; }
@@ -164,11 +164,21 @@ export default function FinanceEntryModal({ type, ledgers, accounts, onClose, on
               <input type="date" value={date} onChange={e => setDate(e.target.value)} style={S.input} />
             </div>
             <div>
-              <label style={S.label}>Receipt (optional)</label>
-              <div onClick={() => fileRef.current?.click()} style={{ ...S.input, cursor: 'pointer', color: receipt ? '#374151' : '#9ca3af', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {receipt ? `${receipt.name}` : 'Click to upload…'}
+              <label style={S.label}>Receipts (optional)</label>
+              <div onClick={() => fileRef.current?.click()} style={{ ...S.input, cursor: 'pointer', color: '#9ca3af', textAlign: 'center', border: '1px dashed #d1d5db', padding: 9 }}>
+                Click to add...
               </div>
-              <input ref={fileRef} type="file" accept="image/*,.pdf" onChange={e => setReceipt(e.target.files?.[0] || null)} style={{ display: 'none' }} />
+              <input ref={fileRef} type="file" accept="image/*,.pdf" multiple onChange={e => setReceipts(r => [...r, ...Array.from(e.target.files)])} style={{ display: 'none' }} />
+              {receipts.length > 0 && (
+                <div style={{ marginTop: 6, display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                  {receipts.map((f, i) => (
+                    <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 3, padding: '2px 7px', background: '#f3f4f6', borderRadius: 5, fontSize: 11, color: '#374151' }}>
+                      {f.name}
+                      <button type="button" onClick={() => setReceipts(r => r.filter((_, idx) => idx !== i))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', fontSize: 13, padding: 0, lineHeight: 1 }}>x</button>
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
