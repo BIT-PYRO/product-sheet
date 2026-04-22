@@ -385,14 +385,38 @@ function ProductDetailContent() {
               <EditableCard label="SETTING TYPE" field="settingType" editData={editData} isEditing={isEditing} onChange={handleFieldChange} />
               <EditableCard label="ENAMEL TYPE" field="enamelType" editData={editData} isEditing={isEditing} onChange={handleFieldChange} />
               <EditableCard label="ACTIVE CHANNELS" field="activeChannels" editData={editData} isEditing={isEditing} onChange={handleFieldChange} />
-              <InfoCard
-                label="DIE NUMBER/FINDINGS"
-                value={
-                  Array.isArray(product.dieNumberFindings) && product.dieNumberFindings.length > 0
-                    ? product.dieNumberFindings.map((item) => item?.value || '').filter(Boolean).join(', ')
-                    : undefined
-                }
-              />
+              {/* Die Number / Findings – structured table */}
+              <div className="rounded-lg border border-soft-border bg-white overflow-hidden">
+                <div className="px-3 py-1.5 bg-trust-blue/10 text-xs font-bold text-midnight-ink uppercase tracking-wide border-b border-soft-border">
+                  DIE NUMBER / FINDINGS
+                </div>
+                {Array.isArray(product.dieNumberFindings) && product.dieNumberFindings.filter((item) => item?.value).length > 0 ? (
+                  <table className="w-full text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-cloud-gray">
+                        <th className="border border-soft-border px-2 py-1 font-semibold text-left">Type</th>
+                        <th className="border border-soft-border px-2 py-1 font-semibold text-left">Die Code</th>
+                        <th className="border border-soft-border px-2 py-1 font-semibold text-left">Location</th>
+                        <th className="border border-soft-border px-2 py-1 font-semibold text-left">Qty</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {product.dieNumberFindings.filter((item) => item?.value).map((item, idx) => (
+                        <tr key={idx} className="hover:bg-cloud-gray/40">
+                          <td className="border border-soft-border px-2 py-1 whitespace-nowrap font-medium">
+                            {item.type === 'findings' ? 'FINDINGS' : 'DIE NO.'}
+                          </td>
+                          <td className="border border-soft-border px-2 py-1">{item.value || '—'}</td>
+                          <td className="border border-soft-border px-2 py-1">{item.location || '—'}</td>
+                          <td className="border border-soft-border px-2 py-1">{item.quantity || '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                ) : (
+                  <div className="px-3 py-2 text-sm text-cool-gray">—</div>
+                )}
+              </div>
               <EditableCard label="MASTER SKU" field="masterSku" editData={editData} isEditing={isEditing} onChange={handleFieldChange} />
             </div>
 

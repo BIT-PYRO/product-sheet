@@ -32,6 +32,7 @@ import { EnrolWorkforceForm } from '@/app/frontend/enrol-workforce/page';
 import DateTimeStamp from '@/components/date-time-stamp';
 import BulkUploadButton from '@/components/bulk-upload-button';
 import LastUpdatedFooter from '@/components/last-updated-footer';
+import DeletionHistoryDrawer from '@/components/deletion-history-drawer';
 import { useSheetPermissions } from '@/hooks/use-sheet-permissions';
 
 export default function MasterWorkforceSheet() {
@@ -1167,6 +1168,7 @@ export default function MasterWorkforceSheet() {
           {editingRowIds.size > 0 && <span className="text-trust-blue font-semibold">Editing {editingRowIds.size} row(s)</span>}
         </div>
         <LastUpdatedFooter timestamp={lastUpdated} username={currentUsername} compact />
+        <DeletionHistoryDrawer appLabel="workforce" modelName="workforcemember" />
       </div>
 
       {/* Quick Enroll Modal */}

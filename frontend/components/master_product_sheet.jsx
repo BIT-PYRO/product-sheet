@@ -31,6 +31,7 @@ import DateTimeStamp from '@/components/date-time-stamp';
 import GlobalSearchBar from '@/components/global-search-bar';
 import BulkUploadButton from '@/components/bulk-upload-button';
 import LastUpdatedFooter from '@/components/last-updated-footer';
+import DeletionHistoryDrawer from '@/components/deletion-history-drawer';
 import { useSheetPermissions } from '@/hooks/use-sheet-permissions';
 
 const FILTER_FIELDS_PS = [
@@ -714,6 +715,34 @@ export default function MasterProductSheet() {
       }
     }
 
+    // Auto-create any new category / material / collection values so they
+    // appear in the respective filter dropdowns without a manual "+ Add" step.
+    const successfulRows = editedRows.filter(
+      (row) => !errors.some((e) => e.includes(row.sku || String(row.id)))
+    );
+    const ensureOption = async (value, currentList, apiPath) => {
+      const trimmed = (value || '').trim();
+      if (!trimmed) return;
+      const normalised = trimmed.toLowerCase();
+      if (currentList.some((o) => o.toLowerCase() === normalised)) return;
+      await fetch(apiPath, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: trimmed }),
+      }).catch(() => {});
+    };
+    for (const row of successfulRows) {
+      await ensureOption(row.category,   categoryOptions,   '/api/categories');
+      await ensureOption(row.material,   materialOptions,   '/api/materials');
+      await ensureOption(row.collection, collectionOptions, '/api/collections');
+    }
+    // Refresh option lists to reflect any newly created entries
+    if (successfulRows.length > 0) {
+      fetchCategories();
+      fetchMaterials();
+      fetchCollections();
+    }
+
     setData(updatedData);
     setIsSavingEdit(false);
     setEditingRowIds(new Set());
@@ -901,6 +930,16 @@ export default function MasterProductSheet() {
 
   return (
     <div className="relative min-h-screen bg-cloud-gray flex flex-col text-midnight-ink overflow-x-hidden">
+      {/* Datalists for edit-mode autocomplete (material / category / collection) */}
+      <datalist id="mps-material-opts">
+        {materialOptions.map((o) => <option key={o} value={o} />)}
+      </datalist>
+      <datalist id="mps-category-opts">
+        {categoryOptions.map((o) => <option key={o} value={o} />)}
+      </datalist>
+      <datalist id="mps-collection-opts">
+        {collectionOptions.map((o) => <option key={o} value={o} />)}
+      </datalist>
       {/* Add Collection Dialog */}
       <Dialog open={isAddCollectionOpen} onOpenChange={setIsAddCollectionOpen}>
         <DialogContent className="max-w-sm">
@@ -1598,6 +1637,12 @@ export default function MasterProductSheet() {
                           ) : canEdit && !column.readOnly ? (
                             <Input
                               type="text"
+                              list={
+                                column.id === 'material'   ? 'mps-material-opts' :
+                                column.id === 'category'   ? 'mps-category-opts' :
+                                column.id === 'collection' ? 'mps-collection-opts' :
+                                undefined
+                              }
                               value={row[column.id]}
                               onChange={(e) => handleCellChange(row.id, column.id, e.target.value)}
                               onKeyDown={column.id === 'masterSku' ? (e) => {
@@ -1711,6 +1756,7 @@ export default function MasterProductSheet() {
           {editingRowIds.size > 0 && <span className="text-trust-blue font-semibold">Editing {editingRowIds.size} row(s)</span>}
         </div>
         <LastUpdatedFooter timestamp={lastUpdated} username={currentUsername} compact />
+        <DeletionHistoryDrawer appLabel="products" modelName="product" />
       </div>
     </div>
   );

@@ -90,6 +90,7 @@ class StoneItem(AuditModel):
 	qty = models.DecimalField(max_digits=12, decimal_places=3, default=0)
 	used_qty = models.DecimalField(max_digits=12, decimal_places=3, default=0)
 	weight_cts = models.DecimalField(max_digits=12, decimal_places=4, default=0)
+	min_level = models.DecimalField(max_digits=12, decimal_places=3, default=0)
 
 	class Meta:
 		ordering = ('-created_at',)

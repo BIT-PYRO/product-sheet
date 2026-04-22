@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Search, Plus, Pencil, Trash2, X, Save } from 'lucide-react';
 import { EnrolWorkforceForm } from '@/app/frontend/enrol-workforce/page';
+import DeletionHistoryDrawer from '@/components/deletion-history-drawer';
 
 /* ─── helpers ─────────────────────────────────────────── */
 function initials(name) {
@@ -631,6 +632,7 @@ export default function ManageMembersPage() {
           )}
         </div>
       </div>
+      <DeletionHistoryDrawer appLabel="accounts" modelName="user" />
     </main>
   );
 }

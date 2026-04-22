@@ -117,7 +117,7 @@ class StoneItemSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'stone_type', 'species', 'variety', 'color', 'quality',
             'wax_setting', 'cut', 'dos', 'donts', 'shape', 'length', 'width', 'height',
-            'qty', 'used_qty', 'weight_cts', 'averageWeightStock', 'created_at', 'updated_at',
+            'qty', 'used_qty', 'weight_cts', 'min_level', 'averageWeightStock', 'created_at', 'updated_at',
         ]
 
 

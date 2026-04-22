@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import MasterNavigationDrawer from '@/components/master_navigation_drawer'
 import GlobalSearchBar from '@/components/global-search-bar'
 import DateTimeStamp from '@/components/date-time-stamp'
+import DeletionHistoryDrawer from '@/components/deletion-history-drawer'
 import Link from 'next/link'
 
 const STATUS_COLORS = {
@@ -244,6 +245,7 @@ export default function JobsDashboard() {
           </div>
         ) : null}
       </div>
+      <DeletionHistoryDrawer appLabel="jobs" modelName="job" />
     </div>
   )
 }

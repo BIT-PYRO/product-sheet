@@ -9,6 +9,7 @@ import AccountingBalanceSheet from '@/components/accounting-balance-sheet';
 import AccountingFinance from '@/components/accounting-finance';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
 import DateTimeStamp from '@/components/date-time-stamp';
+import DeletionHistoryDrawer from '@/components/deletion-history-drawer';
 
 const TABS = [
   { key: 'journal', label: 'Journal Entry' },
@@ -70,6 +71,7 @@ export default function AccountancyPage() {
         {activeTab === 'balance-sheet' && <AccountingBalanceSheet />}
         {activeTab === 'finance' && <AccountingFinance />}
       </div>
+      <DeletionHistoryDrawer appLabel="accounting" modelName="journalentry" />
     </main>
   );
 }

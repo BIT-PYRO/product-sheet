@@ -23,6 +23,7 @@ import {
 import DateTimeStamp from '@/components/date-time-stamp';
 import BulkUploadButton from '@/components/bulk-upload-button';
 import LastUpdatedFooter from '@/components/last-updated-footer';
+import DeletionHistoryDrawer from '@/components/deletion-history-drawer';
 import { useSheetPermissions } from '@/hooks/use-sheet-permissions';
 
 const KYC_COLUMNS = [
@@ -534,6 +535,7 @@ export default function MasterKYCSheet() {
           <span>Selected: {selectedRows.size}</span>
         </div>
         <LastUpdatedFooter timestamp={lastUpdated} username={currentUsername} compact />
+        <DeletionHistoryDrawer appLabel="kyc" modelName="kycrecord" />
       </div>
 
       {/* Manage Columns Dialog */}

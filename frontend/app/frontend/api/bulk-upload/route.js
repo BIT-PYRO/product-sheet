@@ -270,9 +270,15 @@ function extractXlsxImages(rawBuffer) {
         const mediaData = _zipReadEntry(buf, entries, `xl/media/${mediaFile}`);
         if (!mediaData) continue;
         const ext  = mediaFile.split('.').pop().toLowerCase();
-        const mime = ext === 'jpg' || ext === 'jpeg' ? 'jpeg' : ext === 'png' ? 'png' : ext;
+        const EXT_TO_MIME = {
+          jpg: 'jpeg', jpeg: 'jpeg', png: 'png', gif: 'gif', webp: 'webp',
+          bmp: 'bmp', tiff: 'tiff', tif: 'tiff', avif: 'avif',
+          heic: 'heic', heif: 'heif', ico: 'ico', svg: 'svg+xml',
+        };
+        const mime = EXT_TO_MIME[ext];
+        if (!mime) continue; // skip non-image formats (emf, wmf, etc.)
         const key  = `${row},${col}`;
-        if (!result.has(key)) result.set(key, `data:image/${mime};base64,${mediaData.toString('base64')}`);
+        if (!result.has(key)) result.set(key, `data:image/${mime};base64,${mediaData.toString('base64')}`)
       }
     }
     return result;

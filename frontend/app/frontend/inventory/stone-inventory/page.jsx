@@ -6,6 +6,7 @@ import { ArrowLeft, Pencil, Plus, Printer, RefreshCw, Trash2, X } from 'lucide-r
 import SortPopover from '@/components/sort-popover';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
 import LastUpdatedFooter from '@/components/last-updated-footer';
+import DeletionHistoryDrawer from '@/components/deletion-history-drawer';
 import { useSheetPermissions } from '@/hooks/use-sheet-permissions';
 import {
   Dialog,
@@ -57,6 +58,7 @@ function emptyStone() {
     length: '',
     width: '',
     height: '',
+    min_level: '',
   };
 }
 
@@ -1057,6 +1059,7 @@ export default function StoneInventoryPage() {
             <Field label="Variety" value={stoneForm.variety} onChange={stoneField('variety')} />
             <Field label="Color" value={stoneForm.color} onChange={stoneField('color')} />
             <Field label="Quality" value={stoneForm.quality} onChange={stoneField('quality')} />
+            <Field label="Min Level" value={stoneForm.min_level} onChange={stoneField('min_level')} type="number" />
 
             {/* Wax Setting toggle */}
             <div className="flex flex-col gap-1">
@@ -1740,6 +1743,7 @@ export default function StoneInventoryPage() {
               <span>Selected: {selectedIds.size}</span>
             </div>
             <LastUpdatedFooter timestamp={lastUpdated} username={currentUserName} compact />
+            <DeletionHistoryDrawer appLabel="inventory" modelName="stoneitem" />
           </div>
         );
       })()}
