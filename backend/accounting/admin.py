@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Account, JournalEntry, JournalItem, Ledger
+from .models import Account, JournalEntry, JournalItem, Ledger, Outstanding
 
 
 @admin.register(Ledger)
@@ -27,3 +27,11 @@ class AccountAdmin(admin.ModelAdmin):
     list_display = ('id', 'name', 'type', 'balance')
     search_fields = ('name',)
     list_filter = ('type',)
+
+
+@admin.register(Outstanding)
+class OutstandingAdmin(admin.ModelAdmin):
+    list_display = ('id', 'type', 'party_name', 'amount', 'status', 'due_date', 'created_at')
+    list_filter = ('type', 'status')
+    search_fields = ('party_name', 'description')
+    date_hierarchy = 'created_at'

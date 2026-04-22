@@ -132,3 +132,47 @@ class Income(models.Model):
 
     def __str__(self):
         return f'Income #{self.pk} - {self.amount} on {self.date}'
+
+
+class Outstanding(models.Model):
+    class OutstandingType(models.TextChoices):
+        RECEIVABLE = 'receivable', 'Receivable'
+        PAYABLE = 'payable', 'Payable'
+
+    class Status(models.TextChoices):
+        PENDING = 'pending', 'Pending'
+        PAID = 'paid', 'Paid'
+
+    type = models.CharField(max_length=20, choices=OutstandingType.choices)
+    party_name = models.CharField(max_length=200)
+    amount = models.DecimalField(max_digits=14, decimal_places=2)
+    linked_journal = models.ForeignKey(
+        JournalEntry, on_delete=models.PROTECT, related_name='outstandings', null=True, blank=True
+    )
+    settlement_journal = models.ForeignKey(
+        JournalEntry, on_delete=models.PROTECT, related_name='settlements', null=True, blank=True
+    )
+    settlement_account = models.ForeignKey(
+        Account, on_delete=models.SET_NULL, null=True, blank=True, related_name='settled_outstandings'
+    )
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
+    description = models.TextField(blank=True, null=True)
+    due_date = models.DateField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'{self.type.capitalize()} #{self.pk} - {self.party_name} ({self.amount})'
+
+
+class OutstandingReceipt(models.Model):
+    outstanding = models.ForeignKey(Outstanding, on_delete=models.CASCADE, related_name='receipts')
+    file = models.FileField(upload_to='receipts/outstandings/')
+    filename = models.CharField(max_length=255, blank=True)
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f'Receipt for {self.outstanding} - {self.filename}'
