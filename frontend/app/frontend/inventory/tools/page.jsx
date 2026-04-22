@@ -9,6 +9,7 @@ import MasterNavigationDrawer from '@/components/master_navigation_drawer';
 import LastUpdatedFooter from '@/components/last-updated-footer';
 import DeletionHistoryDrawer from '@/components/deletion-history-drawer';
 import { useSheetPermissions } from '@/hooks/use-sheet-permissions';
+import { useColumnPreferences } from '@/hooks/use-column-preferences';
 import {
   Dialog,
   DialogContent,
@@ -60,7 +61,7 @@ export default function ToolsInventoryPage() {
   });
   const [isManageColumnsOpen, setIsManageColumnsOpen] = useState(false);
   const [selectedColumnsForAction, setSelectedColumnsForAction] = useState(new Set());
-  const [visibleColumns, setVisibleColumns] = useState(new Set(TOOLS_COLUMNS.map((column) => column.id)));
+  const { visibleColumns, setVisibleColumns, saveView: saveColumnView, saveViewStatus } = useColumnPreferences('inv-tools', TOOLS_COLUMNS.map((column) => column.id));
 
   const [issueOpen, setIssueOpen] = useState(false);
   const [receiveOpen, setReceiveOpen] = useState(false);
@@ -632,6 +633,7 @@ export default function ToolsInventoryPage() {
                   {visibleColumns.has('department') && <th className="border border-soft-border px-4 py-3 text-left text-xs font-normal text-black">Department</th>}
                   {visibleColumns.has('quantity') && <th className="border border-soft-border px-4 py-3 text-left text-xs font-normal text-black">Quantity</th>}
                   {visibleColumns.has('used_qty') && <th className="border border-soft-border px-4 py-3 text-left text-xs font-normal text-black">Used Qty</th>}
+                  {visibleColumns.has('min_level') && <th className="border border-soft-border px-4 py-3 text-left text-xs font-normal text-black">Min Level</th>}
                   {visibleColumns.has('unit') && <th className="border border-soft-border px-4 py-3 text-left text-xs font-normal text-black">Unit</th>}
                   {visibleColumns.has('location') && <th className="border border-soft-border px-4 py-3 text-left text-xs font-normal text-black">Location</th>}
                   {visibleColumns.has('action') && <th className="border border-soft-border px-4 py-3 text-left text-xs font-normal text-black w-24">Action</th>}
@@ -1161,6 +1163,7 @@ export default function ToolsInventoryPage() {
           <div className="mt-2 flex justify-end gap-2">
             <Button onClick={handleHideColumns} disabled={selectedColumnsForAction.size === 0} variant="outline" className="text-danger border-danger/40 hover:bg-danger/10">Hide</Button>
             <Button onClick={handleShowColumns} disabled={selectedColumnsForAction.size === 0} variant="outline" className="text-success border-green-300 hover:bg-success/10">Show</Button>
+            <Button onClick={saveColumnView} variant="outline" className="ml-auto border-midnight-ink text-midnight-ink hover:bg-midnight-ink/10">{saveViewStatus === 'saved' ? 'Saved ✓' : 'Save View'}</Button>
           </div>
         </DialogContent>
       </Dialog>

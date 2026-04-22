@@ -33,6 +33,7 @@ import BulkUploadButton from '@/components/bulk-upload-button';
 import LastUpdatedFooter from '@/components/last-updated-footer';
 import DeletionHistoryDrawer from '@/components/deletion-history-drawer';
 import { useSheetPermissions } from '@/hooks/use-sheet-permissions';
+import { useColumnPreferences } from '@/hooks/use-column-preferences';
 
 const FILTER_FIELDS_PS = [
   { key: 'material', label: 'Material' },
@@ -137,7 +138,7 @@ export default function MasterProductSheet() {
   };
   
   // Set default visible columns to prevent horizontal scrolling
-  const [visibleColumns, setVisibleColumns] = useState(new Set([
+  const { visibleColumns, setVisibleColumns, saveView: saveColumnView, saveViewStatus } = useColumnPreferences('master-product-sheet', [
     'images',
     'sku',
     'listingName',
@@ -147,7 +148,7 @@ export default function MasterProductSheet() {
     'enamelType',
     'shopifyStatus',
     'activeChannels',
-  ]));
+  ]);
   
   // Toggle column selection in the manage columns dialog
   const toggleColumnSelection = (columnId) => {
@@ -1069,6 +1070,13 @@ export default function MasterProductSheet() {
               className="text-success border-green-300 hover:bg-success/10"
             >
               Show
+            </Button>
+            <Button
+              onClick={saveColumnView}
+              variant="outline"
+              className="ml-auto border-midnight-ink text-midnight-ink hover:bg-midnight-ink/10"
+            >
+              {saveViewStatus === 'saved' ? 'Saved ✓' : 'Save View'}
             </Button>
           </DialogFooter>
         </DialogContent>

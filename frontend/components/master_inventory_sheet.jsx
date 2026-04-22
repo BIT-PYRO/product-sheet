@@ -28,6 +28,7 @@ import { PendingVouchersModal } from '@/components/pending-vouchers-modal';
 import { SuggestedVouchersModal } from '@/components/suggested-vouchers-modal';
 import { NeededVouchersModal } from '@/components/needed-vouchers-modal';
 import { useSheetPermissions } from '@/hooks/use-sheet-permissions';
+import { useColumnPreferences } from '@/hooks/use-column-preferences';
 
 // Stage keys in liveStock object mapped to their display labels (for alert messages)
 const LIVE_STOCK_STAGE_LABELS = [
@@ -462,9 +463,7 @@ export default function MasterInventorySheet() {
     });
     return initial;
   });
-  const [visibleColumns, setVisibleColumns] = useState(
-    new Set(INVENTORY_COLUMNS.map((column) => column.key))
-  );
+  const { visibleColumns, setVisibleColumns, saveView: saveColumnView, saveViewStatus } = useColumnPreferences('master-inventory-sheet', INVENTORY_COLUMNS.map((column) => column.key));
   const [inventoryColumns, setInventoryColumns] = useState(INVENTORY_COLUMNS);
   const [selectedColumnsForAction, setSelectedColumnsForAction] = useState(new Set());
   const [isEditMode, setIsEditMode] = useState(false);
@@ -1604,6 +1603,13 @@ export default function MasterInventorySheet() {
               className="text-success border-green-300 hover:bg-success/10"
             >
               Show
+            </Button>
+            <Button
+              onClick={saveColumnView}
+              variant="outline"
+              className="ml-auto border-midnight-ink text-midnight-ink hover:bg-midnight-ink/10"
+            >
+              {saveViewStatus === 'saved' ? 'Saved ✓' : 'Save View'}
             </Button>
           </DialogFooter>
         </DialogContent>

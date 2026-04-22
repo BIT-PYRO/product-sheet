@@ -37,6 +37,7 @@ import { GenericJobModal } from '@/components/generic-job-modal';
 import DateTimeStamp from '@/components/date-time-stamp';
 import LastUpdatedFooter from '@/components/last-updated-footer';
 import { useSheetPermissions } from '@/hooks/use-sheet-permissions';
+import { useColumnPreferences } from '@/hooks/use-column-preferences';
 
 export default function ManagersDashboard() {
   const { canView, canEdit, canCreate, canExport, loading: permsLoading } = useSheetPermissions('managers-dashboard');
@@ -116,7 +117,7 @@ export default function ManagersDashboard() {
     'final-stock': 'Final Stock',
   };
 
-  const [visibleColumns, setVisibleColumns] = useState(new Set(processColumns));
+  const { visibleColumns, setVisibleColumns, saveView: saveColumnView, saveViewStatus } = useColumnPreferences('managers-jobcard', processColumns);
 
   // Toggle column selection in the manage columns dialog
   const toggleColumnSelection = (columnName) => {
@@ -888,6 +889,13 @@ export default function ManagersDashboard() {
               className="text-success border-success/40 hover:bg-success/10"
             >
               Show
+            </Button>
+            <Button
+              onClick={saveColumnView}
+              variant="outline"
+              className="ml-auto border-midnight-ink text-midnight-ink hover:bg-midnight-ink/10"
+            >
+              {saveViewStatus === 'saved' ? 'Saved ✓' : 'Save View'}
             </Button>
           </DialogFooter>
         </DialogContent>
