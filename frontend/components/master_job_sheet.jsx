@@ -506,7 +506,7 @@ export default function MasterJobSheet() {
         </DialogContent>
       </Dialog>
 
-      {/* Print Voucher Dialog */
+      {/* Print Voucher Dialog */}
       <Dialog open={isPrintVoucherOpen} onOpenChange={setIsPrintVoucherOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader className="border-b pb-4">
