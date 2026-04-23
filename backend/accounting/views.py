@@ -74,32 +74,29 @@ class IncomeCreateView(APIView):
         from django.db import transaction
 
         amount = float(request.data.get('amount', 0))
-        category_id = request.data.get('category')
         account_id = request.data.get('account')
         date = request.data.get('date')
-        description = request.data.get('description')
+        description = request.data.get('description', '')
+        department = (request.data.get('department') or '').strip()
         receipt = request.FILES.get('receipt')
 
         if amount <= 0:
             return Response({'success': False, 'message': 'Amount must be positive'}, status=400)
-        if not category_id or not account_id or not date:
+        if not account_id or not date:
             return Response({'success': False, 'message': 'Missing required fields'}, status=400)
+        if not department:
+            return Response({'success': False, 'message': 'Department is required'}, status=400)
 
         try:
-            if isinstance(category_id, str) and not str(category_id).isdigit():
-                category, _ = Ledger.objects.get_or_create(name=category_id, defaults={'type': Ledger.LedgerType.INCOME})
-            else:
-                category = Ledger.objects.get(pk=category_id)
-
-            if category.type != Ledger.LedgerType.INCOME:
-                return Response({'success': False, 'message': 'Category must be an income ledger'}, status=400)
-
             if isinstance(account_id, str) and not str(account_id).isdigit():
                 account, _ = Account.objects.get_or_create(name=account_id, defaults={'type': Account.AccountType.BANK})
             else:
                 account = Account.objects.get(pk=account_id)
-        except (Ledger.DoesNotExist, Account.DoesNotExist):
-            return Response({'success': False, 'message': 'Invalid category or account'}, status=400)
+        except Account.DoesNotExist:
+            return Response({'success': False, 'message': 'Invalid account'}, status=400)
+
+        ledger_name = f'{department} Income'
+        category, _ = Ledger.objects.get_or_create(name=ledger_name, defaults={'type': Ledger.LedgerType.INCOME})
 
         try:
             with transaction.atomic():
@@ -109,19 +106,19 @@ class IncomeCreateView(APIView):
                     date=date,
                     description=f'Income: {description}'
                 )
-                # Credit Income ledger
                 JournalItem.objects.create(
-                    entry=journal_entry, ledger=category, debit=0, credit=amount, notes=description
+                    entry=journal_entry, ledger=category, debit=0, credit=amount,
+                    notes=description, department=department
                 )
-                # Debit the payment account (asset)
                 JournalItem.objects.create(
-                    entry=journal_entry, ledger=account_ledger, debit=amount, credit=0, notes=description
+                    entry=journal_entry, ledger=account_ledger, debit=amount, credit=0,
+                    notes=description, department=department
                 )
 
                 income = Income.objects.create(
                     amount=amount, category=category, account=account,
-                    date=date, description=description, receipt=receipt,
-                    journal_entry=journal_entry
+                    date=date, description=description, department=department,
+                    receipt=receipt, journal_entry=journal_entry
                 )
 
             return api_success({'income_id': income.pk}, message='Income recorded successfully.', status_code=201)
@@ -190,34 +187,31 @@ class ExpenseCreateView(APIView):
 
     def post(self, request):
         from django.db import transaction
-        
+
         amount = float(request.data.get('amount', 0))
-        category_id = request.data.get('category')
         account_id = request.data.get('account')
         date = request.data.get('date')
-        description = request.data.get('description')
+        description = request.data.get('description', '')
+        department = (request.data.get('department') or '').strip()
         receipt = request.FILES.get('receipt')
 
         if amount <= 0:
             return Response({'success': False, 'message': 'Amount must be positive'}, status=400)
-        if not category_id or not account_id or not date:
+        if not account_id or not date:
             return Response({'success': False, 'message': 'Missing required fields'}, status=400)
+        if not department:
+            return Response({'success': False, 'message': 'Department is required'}, status=400)
 
         try:
-            if isinstance(category_id, str) and not str(category_id).isdigit():
-                category, _ = Ledger.objects.get_or_create(name=category_id, defaults={'type': Ledger.LedgerType.EXPENSE})
-            else:
-                category = Ledger.objects.get(pk=category_id)
-
-            if category.type != Ledger.LedgerType.EXPENSE:
-                return Response({'success': False, 'message': 'Category must be an expense ledger'}, status=400)
-            
             if isinstance(account_id, str) and not str(account_id).isdigit():
                 account, _ = Account.objects.get_or_create(name=account_id, defaults={'type': Account.AccountType.BANK})
             else:
                 account = Account.objects.get(pk=account_id)
-        except (Ledger.DoesNotExist, Account.DoesNotExist):
-            return Response({'success': False, 'message': 'Invalid category or account'}, status=400)
+        except Account.DoesNotExist:
+            return Response({'success': False, 'message': 'Invalid account'}, status=400)
+
+        ledger_name = f'{department} Expense'
+        category, _ = Ledger.objects.get_or_create(name=ledger_name, defaults={'type': Ledger.LedgerType.EXPENSE})
 
         try:
             with transaction.atomic():
@@ -225,35 +219,21 @@ class ExpenseCreateView(APIView):
 
                 journal_entry = JournalEntry.objects.create(
                     date=date,
-                    description=f"Expense: {description}"
+                    description=f'Expense: {description}'
                 )
-
-                # Debit Expense
                 JournalItem.objects.create(
-                    entry=journal_entry,
-                    ledger=category,
-                    debit=amount,
-                    credit=0,
-                    notes=description
+                    entry=journal_entry, ledger=category, debit=amount, credit=0,
+                    notes=description, department=department
                 )
-                
-                # Credit Payment Account
                 JournalItem.objects.create(
-                    entry=journal_entry,
-                    ledger=account_ledger,
-                    debit=0,
-                    credit=amount,
-                    notes=description
+                    entry=journal_entry, ledger=account_ledger, debit=0, credit=amount,
+                    notes=description, department=department
                 )
 
                 expense = Expense.objects.create(
-                    amount=amount,
-                    category=category,
-                    account=account,
-                    date=date,
-                    description=description,
-                    receipt=receipt,
-                    journal_entry=journal_entry
+                    amount=amount, category=category, account=account,
+                    date=date, description=description, department=department,
+                    receipt=receipt, journal_entry=journal_entry
                 )
 
             return api_success({'expense_id': expense.pk}, message='Expense created successfully.', status_code=201)
@@ -644,6 +624,10 @@ class OutstandingListView(APIView):
         if not date:
             return Response({'success': False, 'message': 'date is required'}, status=400)
 
+        department = (data.get('department') or '').strip()
+        if not department:
+            return Response({'success': False, 'message': 'Department is required'}, status=400)
+
         try:
             with transaction.atomic():
                 if o_type == 'receivable':
@@ -658,8 +642,8 @@ class OutstandingListView(APIView):
                         date=date,
                         description=f'Receivable: {party_name} - {description}'
                     )
-                    JournalItem.objects.create(entry=journal, ledger=ar_ledger, debit=amount, credit=0, notes=description, vendor_payee=party_name)
-                    JournalItem.objects.create(entry=journal, ledger=sales_ledger, debit=0, credit=amount, notes=description, vendor_payee=party_name)
+                    JournalItem.objects.create(entry=journal, ledger=ar_ledger, debit=amount, credit=0, notes=description, vendor_payee=party_name, department=department)
+                    JournalItem.objects.create(entry=journal, ledger=sales_ledger, debit=0, credit=amount, notes=description, vendor_payee=party_name, department=department)
                 else:
                     # Expense (Dr)  /  Accounts Payable (Cr)
                     expense_ledger, _ = Ledger.objects.get_or_create(
@@ -672,8 +656,8 @@ class OutstandingListView(APIView):
                         date=date,
                         description=f'Payable: {party_name} - {description}'
                     )
-                    JournalItem.objects.create(entry=journal, ledger=expense_ledger, debit=amount, credit=0, notes=description, vendor_payee=party_name)
-                    JournalItem.objects.create(entry=journal, ledger=ap_ledger, debit=0, credit=amount, notes=description, vendor_payee=party_name)
+                    JournalItem.objects.create(entry=journal, ledger=expense_ledger, debit=amount, credit=0, notes=description, vendor_payee=party_name, department=department)
+                    JournalItem.objects.create(entry=journal, ledger=ap_ledger, debit=0, credit=amount, notes=description, vendor_payee=party_name, department=department)
 
                 outstanding = Outstanding.objects.create(
                     type=o_type,
@@ -682,6 +666,7 @@ class OutstandingListView(APIView):
                     linked_journal=journal,
                     status=Outstanding.Status.PENDING,
                     description=description,
+                    department=department,
                     due_date=due_date,
                 )
             from .serializers import OutstandingSerializer

@@ -104,6 +104,7 @@ class Expense(models.Model):
     account = models.ForeignKey(Account, on_delete=models.PROTECT, related_name='expenses')
     date = models.DateField()
     description = models.TextField()
+    department = models.CharField(max_length=100, blank=True, null=True)
     receipt = models.FileField(upload_to='expenses/%Y/%m/', blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     journal_entry = models.OneToOneField(JournalEntry, on_delete=models.CASCADE, null=True, blank=True, related_name='expense')
@@ -121,6 +122,7 @@ class Income(models.Model):
     account = models.ForeignKey(Account, on_delete=models.PROTECT, related_name='incomes')
     date = models.DateField()
     description = models.TextField()
+    department = models.CharField(max_length=100, blank=True, null=True)
     receipt = models.FileField(upload_to='incomes/%Y/%m/', blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     journal_entry = models.OneToOneField(
@@ -157,6 +159,7 @@ class Outstanding(models.Model):
     )
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
     description = models.TextField(blank=True, null=True)
+    department = models.CharField(max_length=100, blank=True, null=True)
     due_date = models.DateField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

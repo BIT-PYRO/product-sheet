@@ -4,14 +4,57 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 const fmt = n => `₹${Number(n).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
 const today = () => new Date().toISOString().slice(0, 10);
 
+const DEFAULT_DEPARTMENTS = [
+  'Marketing', 'Customer Relation Management', 'Operations', 'Design',
+  'Logistics', 'Purchase', 'Sales / Business Development', 'Finance',
+  'Information Technology', 'Human Resource', 'Production', 'Services',
+  'House Keeping', 'Other',
+];
+
 const S = {
   input: { width: '100%', padding: '9px 12px', border: '1px solid #e5e7eb', borderRadius: 6, fontSize: 14, color: '#111827', background: '#fff', outline: 'none', boxSizing: 'border-box' },
   label: { display: 'block', fontSize: 11, fontWeight: 700, color: '#9ca3af', marginBottom: 5, textTransform: 'uppercase', letterSpacing: 0.6 },
 };
 
+function AddableSelect({ value, onChange, options, placeholder, disabled }) {
+  const [custom, setCustom] = useState([]);
+  const [adding, setAdding] = useState(false);
+  const [draft, setDraft] = useState('');
+  const ref = useRef(null);
+  const norm = useMemo(() => options.map(o => typeof o === 'string' ? { value: o, label: o } : o), [options]);
+  const all = [...norm, ...custom];
+  const SENTINEL = '__add__';
+  const handle = e => {
+    if (e.target.value === SENTINEL) { setAdding(true); setDraft(''); setTimeout(() => ref.current?.focus(), 50); return; }
+    onChange(e.target.value);
+  };
+  const confirm = () => {
+    const t = draft.trim(); if (!t) { setAdding(false); return; }
+    if (!all.find(o => o.label.toLowerCase() === t.toLowerCase())) setCustom(p => [...p, { value: t, label: t }]);
+    onChange(t); setAdding(false); setDraft('');
+  };
+  if (adding) return (
+    <div style={{ display: 'flex', gap: 4 }}>
+      <input ref={ref} value={draft} onChange={e => setDraft(e.target.value)}
+        onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); confirm(); } if (e.key === 'Escape') setAdding(false); }}
+        placeholder="Type & press Enter…" style={{ ...S.input, flex: 1, borderColor: '#2563eb' }} autoFocus />
+      <button type="button" onClick={confirm} style={{ padding: '0 10px', background: '#2563eb', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 700 }}>✓</button>
+      <button type="button" onClick={() => setAdding(false)} style={{ padding: '0 8px', background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 6, cursor: 'pointer', color: '#6b7280' }}>✕</button>
+    </div>
+  );
+  return (
+    <select value={value} onChange={handle} style={S.input} disabled={disabled}>
+      <option value="">{placeholder || '— Select —'}</option>
+      {all.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+      <option value={SENTINEL} style={{ color: '#2563eb', fontWeight: 600 }}>+ Add new…</option>
+    </select>
+  );
+}
+
 function printRows(rows, title) {
   const cols = [
     { key: 'party_name', label: 'Party' }, { key: 'amount', label: 'Amount' },
+    { key: 'department', label: 'Department' },
     { key: 'status', label: 'Status' }, { key: 'due_date', label: 'Due Date' },
     { key: 'description', label: 'Description' },
   ];
@@ -33,8 +76,8 @@ function printRows(rows, title) {
 }
 
 function exportCSV(rows, filename) {
-  const cols = ['party_name', 'amount', 'status', 'due_date', 'description'];
-  const header = 'Party,Amount,Status,Due Date,Description';
+  const cols = ['party_name', 'amount', 'department', 'status', 'due_date', 'description'];
+  const header = 'Party,Amount,Department,Status,Due Date,Description';
   const body = rows.map(r => cols.map(k => `"${(k === 'amount' ? Number(r[k]).toFixed(2) : (r[k] ?? '')).toString().replace(/"/g, '""')}"`).join(',')).join('\n');
   const blob = new Blob([header + '\n' + body], { type: 'text/csv' });
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = filename; a.click();
@@ -140,7 +183,7 @@ function AddPartyModal({ onClose, onAdded }) {
   );
 }
 function CreateModal({ type, accounts, workforce, onClose, onSuccess, onAddParty }) {
-  const [form, setForm] = useState({ party_name: '', amount: '', description: '', due_date: '', date: today() });
+  const [form, setForm] = useState({ party_name: '', amount: '', description: '', due_date: '', date: today(), department: '' });
   const [receipts, setReceipts] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -157,6 +200,7 @@ function CreateModal({ type, accounts, workforce, onClose, onSuccess, onAddParty
     const amt = parseFloat(form.amount);
     if (!amt || amt <= 0) return setError('Enter a valid positive amount.');
     if (!form.date) return setError('Date is required.');
+    if (!form.department) return setError('Department is required.');
     setSubmitting(true); setError('');
     try {
       const res = await fetch('/api/accounting/outstandings/', {
@@ -208,6 +252,10 @@ function CreateModal({ type, accounts, workforce, onClose, onSuccess, onAddParty
               <label style={S.label}>Date *</label>
               <input type="date" style={S.input} value={form.date} onChange={set('date')} />
             </div>
+          </div>
+          <div style={{ marginBottom: 16 }}>
+            <label style={S.label}>Department *</label>
+            <AddableSelect value={form.department} onChange={v => setForm(f => ({ ...f, department: v }))} options={DEFAULT_DEPARTMENTS} placeholder="— Select Department —" disabled={submitting} />
           </div>
           <div style={{ marginBottom: 16 }}>
             <label style={S.label}>Due Date (optional)</label>
@@ -380,8 +428,8 @@ function OutstandingTable({ rows, loading, onSettle, selected, setSelected }) {
             <th style={{ padding: '10px 14px', width: 36 }}>
               <input type="checkbox" checked={rows.length > 0 && selected.size === rows.length} onChange={toggleAll} style={{ cursor: 'pointer' }} />
             </th>
-            {['Party', 'Amount', 'Due Date', 'Description', 'Status', 'Action'].map(h => (
-              <th key={h} style={{ padding: '10px 14px', fontSize: 11, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 0.5, textAlign: h === 'Amount' ? 'right' : 'left', borderBottom: '1px solid #e5e7eb' }}>{h}</th>
+            {['Party', 'Amount', 'Department', 'Due Date', 'Description', 'Status', 'Action'].map(h => (
+              <th key={h} style={{ padding: '10px 14px', fontSize: 11, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'left', borderBottom: '1px solid #e5e7eb' }}>{h}</th>
             ))}
           </tr>
         </thead>
@@ -396,7 +444,14 @@ function OutstandingTable({ rows, loading, onSettle, selected, setSelected }) {
                 <input type="checkbox" checked={selected.has(i)} onChange={() => toggleRow(i)} onClick={e => e.stopPropagation()} style={{ cursor: 'pointer' }} />
               </td>
               <td style={{ padding: '11px 14px', fontWeight: 600, color: '#111827', fontSize: 13 }}>{row.party_name}</td>
-              <td style={{ padding: '11px 14px', textAlign: 'right', fontWeight: 700, color: row.type === 'receivable' ? '#2563eb' : '#dc2626', fontSize: 13 }}>{fmt(row.amount)}</td>
+              <td style={{ padding: '11px 14px', textAlign: 'left', fontWeight: 700, color: row.type === 'receivable' ? '#2563eb' : '#dc2626', fontSize: 13 }}>{fmt(row.amount)}</td>
+              <td style={{ padding: '11px 14px', fontSize: 12, color: '#374151', fontWeight: 600 }}>
+                {row.department ? (
+                  <span style={{ display: 'inline-block', padding: '2px 8px', background: '#f3f4f6', borderRadius: 20, fontSize: 11 }}>
+                    {row.department}
+                  </span>
+                ) : '—'}
+              </td>
               <td style={{ padding: '11px 14px', fontSize: 12, color: '#6b7280' }}>{row.due_date || '—'}</td>
               <td style={{ padding: '11px 14px', fontSize: 12, color: '#6b7280', maxWidth: 200 }}><span style={{ overflow: 'hidden', display: 'block', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.description || '—'}</span></td>
               <td style={{ padding: '11px 14px' }}><Badge status={row.status} /></td>
@@ -429,6 +484,10 @@ export default function AccountingPayablesReceivables({ embedded = false }) {
   const [showAddParty, setShowAddParty] = useState(false); // 'receivable' | 'payable' | {settle: item}
   const [selected, setSelected] = useState(new Set());
 
+  // Inline filters
+  const [search, setSearch] = useState('');
+  const [deptFilter, setDeptFilter] = useState('');
+
   const type = tab === 'receivables' ? 'receivable' : 'payable';
   const accentColor = tab === 'receivables' ? '#2563eb' : '#dc2626';
 
@@ -450,14 +509,26 @@ export default function AccountingPayablesReceivables({ embedded = false }) {
 
   useEffect(() => { loadAll(); }, [loadAll]);
 
-  const filtered = useMemo(() =>
-    statusFilter === 'all' ? rows : rows.filter(r => r.status === statusFilter),
-    [rows, statusFilter]
-  );
+  const filtered = useMemo(() => {
+    let r = statusFilter === 'all' ? rows : rows.filter(x => x.status === statusFilter);
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      r = r.filter(x => (x.party_name || '').toLowerCase().includes(q) || (x.description || '').toLowerCase().includes(q));
+    }
+    if (deptFilter) {
+      r = r.filter(x => (x.department || '') === deptFilter);
+    }
+    return r;
+  }, [rows, statusFilter, search, deptFilter]);
+
+  const availableDepts = useMemo(() => {
+    const base = statusFilter === 'all' ? rows : rows.filter(x => x.status === statusFilter);
+    return [...new Set(base.map(r => r.department).filter(Boolean))].sort();
+  }, [rows, statusFilter]);
 
   const target = selected.size > 0 ? filtered.filter((_, i) => selected.has(i)) : filtered;
-  const pendingTotal = rows.filter(r => r.status === 'pending').reduce((s, r) => s + Number(r.amount), 0);
-  const paidTotal = rows.filter(r => r.status === 'paid').reduce((s, r) => s + Number(r.amount), 0);
+  const pendingTotal = filtered.filter(r => r.status === 'pending').reduce((s, r) => s + Number(r.amount), 0);
+  const paidTotal = filtered.filter(r => r.status === 'paid').reduce((s, r) => s + Number(r.amount), 0);
 
   const btn = { padding: '7px 14px', background: '#fff', border: '1px solid #e5e7eb', borderRadius: 7, fontSize: 13, fontWeight: 600, cursor: 'pointer', color: '#374151' };
   const tabBtn = k => ({
@@ -522,6 +593,40 @@ export default function AccountingPayablesReceivables({ embedded = false }) {
         <span><strong style={{ color: '#111827' }}>{filtered.length}</strong> records</span>
         <span>Pending: <strong style={{ color: accentColor }}>{fmt(pendingTotal)}</strong></span>
         <span>Settled: <strong style={{ color: '#16a34a' }}>{fmt(paidTotal)}</strong></span>
+      </div>
+
+      {/* Filter Bar */}
+      <div style={{ display: 'flex', gap: 6, marginBottom: 14, alignItems: 'center', flexWrap: 'wrap', padding: '8px 12px', background: '#f8fafc', borderRadius: 10, border: '1px solid #e2e8f0' }}>
+        <input
+          type="text"
+          placeholder="Search party or description…"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          style={{ flex: '1 1 140px', minWidth: 120, padding: '6px 10px', border: 'none', borderRadius: 6, fontSize: 12, background: '#fff', color: '#111827', outline: 'none', boxShadow: '0 1px 2px rgba(0,0,0,0.06)' }}
+        />
+
+        <div style={{ width: 1, height: 20, background: '#e2e8f0', flexShrink: 0 }} />
+
+        <select
+          value={deptFilter}
+          onChange={e => setDeptFilter(e.target.value)}
+          style={{ padding: '6px 8px', border: 'none', borderRadius: 6, fontSize: 12, background: deptFilter ? (tab === 'receivables' ? '#eff6ff' : '#fef2f2') : '#fff', color: deptFilter ? (tab === 'receivables' ? '#2563eb' : '#dc2626') : '#6b7280', cursor: 'pointer', outline: 'none', fontWeight: deptFilter ? 600 : 400, boxShadow: '0 1px 2px rgba(0,0,0,0.06)' }}
+        >
+          <option value="">Department</option>
+          {availableDepts.map(d => <option key={d} value={d}>{d}</option>)}
+        </select>
+
+        {(search || deptFilter) && (
+          <>
+            <div style={{ width: 1, height: 20, background: '#e2e8f0', flexShrink: 0 }} />
+            <button
+              onClick={() => { setSearch(''); setDeptFilter(''); }}
+              style={{ padding: '4px 8px', background: 'none', border: 'none', fontSize: 11, fontWeight: 600, color: '#9ca3af', cursor: 'pointer', letterSpacing: 0.2 }}
+            >
+              Clear
+            </button>
+          </>
+        )}
       </div>
 
       {/* Table */}

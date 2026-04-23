@@ -45,7 +45,7 @@ function exportCSV(rows, columns, filename) {
 
 const COLS = [
   { key: 'date', label: 'Date' },
-  { key: 'category_name', label: 'Category' },
+  { key: 'department', label: 'Department' },
   { key: 'account_name', label: 'Account' },
   { key: 'description', label: 'Description' },
   { key: 'amount', label: 'Amount', right: true },
@@ -135,9 +135,9 @@ function SelectableTable({ rows, columns, loading, emptyMsg, onPrint, onExport, 
                   <td key={c.key} style={{ padding: '11px 14px', fontSize: 13, textAlign: c.right ? 'right' : 'left' }}>
                     {c.key === 'amount' ? (
                       <span style={{ fontWeight: 700, color: accentColor }}>{fmt(row[c.key])}</span>
-                    ) : c.key === 'category_name' ? (
+                    ) : c.key === 'department' ? (
                       <span style={{ display: 'inline-block', padding: '2px 8px', background: '#f3f4f6', color: '#374151', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>
-                        {row[c.key]}
+                        {row[c.key] || '—'}
                       </span>
                     ) : (
                       <span style={{ color: c.key === 'date' ? '#111827' : '#6b7280' }}>{row[c.key]}</span>
@@ -197,7 +197,7 @@ function MiniList({ rows, loading, accentColor, emptyText }) {
     <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '11px 16px', borderBottom: i < Math.min(4, rows.length - 1) ? `1px solid ${C.slateBg}` : 'none' }}>
       <div style={{ overflow: 'hidden', flex: 1 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ display: 'inline-block', padding: '2px 8px', background: C.slateBg, color: C.muted, borderRadius: 20, fontSize: 11, fontWeight: 600 }}>{r.category_name}</span>
+          <span style={{ display: 'inline-block', padding: '2px 8px', background: C.slateBg, color: C.muted, borderRadius: 20, fontSize: 11, fontWeight: 600 }}>{r.department || '—'}</span>
           <span style={{ fontSize: 11, color: C.muted }}>{r.date}</span>
         </div>
         <p style={{ margin: '3px 0 0', fontSize: 12, color: C.muted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.account_name}{r.description ? ` — ${r.description}` : ''}</p>
@@ -215,6 +215,16 @@ export default function AccountingFinance() {
   const [modal, setModal] = useState(null);
   const [modalKey, setModalKey] = useState(0);
   const openModal = (type) => { setModal(type); setModalKey(k => k + 1); };
+
+  // Income inline filters
+  const [incomeSearch, setIncomeSearch] = useState('');
+  const [incomeDeptFilter, setIncomeDeptFilter] = useState('');
+  const [incomeAccountFilter, setIncomeAccountFilter] = useState('');
+
+  // Expense inline filters
+  const [expenseSearch, setExpenseSearch] = useState('');
+  const [expenseDeptFilter, setExpenseDeptFilter] = useState('');
+  const [expenseAccountFilter, setExpenseAccountFilter] = useState('');
 
   const [dashboard, setDashboard] = useState({ total_income: 0, total_expense: 0, net: 0 });
   const [incomeRows, setIncomeRows] = useState([]);
@@ -271,7 +281,50 @@ export default function AccountingFinance() {
   });
 
   const net = dashboard.net;
-  const incomeTot = incomeRows.reduce((s, r) => s + Number(r.amount), 0);
+
+  // Derived income list after inline filters
+  const filteredIncomeRows = useMemo(() => {
+    let rows = incomeRows;
+    if (incomeSearch.trim()) {
+      const q = incomeSearch.toLowerCase();
+      rows = rows.filter(r =>
+        (r.account_name || '').toLowerCase().includes(q) ||
+        (r.description || '').toLowerCase().includes(q) ||
+        (r.department || '').toLowerCase().includes(q)
+      );
+    }
+    if (incomeDeptFilter) rows = rows.filter(r => (r.department || '') === incomeDeptFilter);
+    if (incomeAccountFilter) rows = rows.filter(r => (r.account_name || '') === incomeAccountFilter);
+    return rows;
+  }, [incomeRows, incomeSearch, incomeDeptFilter, incomeAccountFilter]);
+
+  // Unique department / account values for dropdowns
+  const incomeDepts = useMemo(() => [...new Set(incomeRows.map(r => r.department).filter(Boolean))].sort(), [incomeRows]);
+  const incomeAccounts = useMemo(() => [...new Set(incomeRows.map(r => r.account_name).filter(Boolean))].sort(), [incomeRows]);
+  const incomeFiltersActive = incomeSearch || incomeDeptFilter || incomeAccountFilter;
+
+  // Derived expense list after inline filters
+  const filteredExpenseRows = useMemo(() => {
+    let rows = expenseRows;
+    if (expenseSearch.trim()) {
+      const q = expenseSearch.toLowerCase();
+      rows = rows.filter(r =>
+        (r.account_name || '').toLowerCase().includes(q) ||
+        (r.description || '').toLowerCase().includes(q) ||
+        (r.department || '').toLowerCase().includes(q)
+      );
+    }
+    if (expenseDeptFilter) rows = rows.filter(r => (r.department || '') === expenseDeptFilter);
+    if (expenseAccountFilter) rows = rows.filter(r => (r.account_name || '') === expenseAccountFilter);
+    return rows;
+  }, [expenseRows, expenseSearch, expenseDeptFilter, expenseAccountFilter]);
+
+  // Unique department / account values for Expense dropdowns
+  const expenseDepts = useMemo(() => [...new Set(expenseRows.map(r => r.department).filter(Boolean))].sort(), [expenseRows]);
+  const expenseAccounts = useMemo(() => [...new Set(expenseRows.map(r => r.account_name).filter(Boolean))].sort(), [expenseRows]);
+  const expenseFiltersActive = expenseSearch || expenseDeptFilter || expenseAccountFilter;
+
+  const incomeTot = filteredIncomeRows.reduce((s, r) => s + Number(r.amount), 0);
   const expenseTot = expenseRows.reduce((s, r) => s + Number(r.amount), 0);
 
   return (
@@ -438,16 +491,69 @@ export default function AccountingFinance() {
           {/* INCOME */}
           {tab === 'income' && (
             <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              {/* Header row */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
                 <div>
                   <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#111827' }}>Income</h3>
-                  <p style={{ margin: '3px 0 0', fontSize: 12, color: '#9ca3af' }}>{incomeRows.length} entries · {fmt(incomeTot)}</p>
+                  <p style={{ margin: '3px 0 0', fontSize: 12, color: '#9ca3af' }}>
+                    {filteredIncomeRows.length}{filteredIncomeRows.length !== incomeRows.length ? ` of ${incomeRows.length}` : ''} entries · {fmt(incomeTot)}
+                    {incomeFiltersActive && <span style={{ marginLeft: 6, color: C.blue, fontWeight: 600 }}>· filtered</span>}
+                  </p>
                 </div>
                 <button onClick={() => openModal('income')} style={{ padding: '8px 16px', background: '#111827', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
                   + Add Income
                 </button>
               </div>
-              <SelectableTable rows={incomeRows} columns={COLS} loading={loadingIncome} emptyMsg="No income entries for this period."
+
+              {/* Inline filter bar */}
+              <div style={{ display: 'flex', gap: 6, marginBottom: 14, alignItems: 'center', flexWrap: 'wrap', padding: '8px 12px', background: C.slateBg, borderRadius: 10, border: `1px solid ${C.border}` }}>
+                {/* Search — clean ghost input */}
+                <input
+                  type="text"
+                  placeholder="Search…"
+                  value={incomeSearch}
+                  onChange={e => setIncomeSearch(e.target.value)}
+                  style={{ flex: '1 1 140px', minWidth: 120, padding: '6px 10px', border: 'none', borderRadius: 6, fontSize: 12, background: '#fff', color: C.text, outline: 'none', boxShadow: '0 1px 2px rgba(0,0,0,0.06)' }}
+                />
+
+                {/* Thin divider */}
+                <div style={{ width: 1, height: 20, background: C.border, flexShrink: 0 }} />
+
+                {/* Department filter */}
+                <select
+                  value={incomeDeptFilter}
+                  onChange={e => setIncomeDeptFilter(e.target.value)}
+                  style={{ padding: '6px 8px', border: 'none', borderRadius: 6, fontSize: 12, background: incomeDeptFilter ? C.blueBg : '#fff', color: incomeDeptFilter ? C.blue : C.muted, cursor: 'pointer', outline: 'none', fontWeight: incomeDeptFilter ? 600 : 400, boxShadow: '0 1px 2px rgba(0,0,0,0.06)' }}
+                >
+                  <option value="">Department</option>
+                  {incomeDepts.map(d => <option key={d} value={d}>{d}</option>)}
+                </select>
+
+                {/* Account filter */}
+                <select
+                  value={incomeAccountFilter}
+                  onChange={e => setIncomeAccountFilter(e.target.value)}
+                  style={{ padding: '6px 8px', border: 'none', borderRadius: 6, fontSize: 12, background: incomeAccountFilter ? C.blueBg : '#fff', color: incomeAccountFilter ? C.blue : C.muted, cursor: 'pointer', outline: 'none', fontWeight: incomeAccountFilter ? 600 : 400, boxShadow: '0 1px 2px rgba(0,0,0,0.06)' }}
+                >
+                  <option value="">Account</option>
+                  {incomeAccounts.map(a => <option key={a} value={a}>{a}</option>)}
+                </select>
+
+                {/* Clear — subtle text link */}
+                {incomeFiltersActive && (
+                  <>
+                    <div style={{ width: 1, height: 20, background: C.border, flexShrink: 0 }} />
+                    <button
+                      onClick={() => { setIncomeSearch(''); setIncomeDeptFilter(''); setIncomeAccountFilter(''); }}
+                      style={{ padding: '4px 8px', background: 'none', border: 'none', fontSize: 11, fontWeight: 600, color: C.muted, cursor: 'pointer', letterSpacing: 0.2 }}
+                    >
+                      Clear
+                    </button>
+                  </>
+                )}
+              </div>
+
+              <SelectableTable rows={filteredIncomeRows} columns={COLS} loading={loadingIncome} emptyMsg="No income entries match your filters."
                 accentColor="#16a34a"
                 onPrint={r => printRows(r, COLS, 'Income Statement')}
                 onExport={r => exportCSV(r, COLS, 'income.csv')}
@@ -461,13 +567,62 @@ export default function AccountingFinance() {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
                 <div>
                   <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#111827' }}>Expenses</h3>
-                  <p style={{ margin: '3px 0 0', fontSize: 12, color: '#9ca3af' }}>{expenseRows.length} entries · {fmt(expenseTot)}</p>
+                  <p style={{ margin: '3px 0 0', fontSize: 12, color: '#9ca3af' }}>{filteredExpenseRows.length} entries · {fmt(filteredExpenseRows.reduce((a, r) => a + Number(r.amount), 0))}</p>
                 </div>
                 <button onClick={() => openModal('expense')} style={{ padding: '8px 16px', background: '#fff', color: '#111827', border: '1px solid #e5e7eb', borderRadius: 8, fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
                   + Add Expense
                 </button>
               </div>
-              <SelectableTable rows={expenseRows} columns={COLS} loading={loadingExpense} emptyMsg="No expense entries for this period."
+
+              {/* Expense Filter Bar */}
+              <div style={{ display: 'flex', gap: 6, marginBottom: 14, alignItems: 'center', flexWrap: 'wrap', padding: '8px 12px', background: C.slateBg, borderRadius: 10, border: `1px solid ${C.border}` }}>
+                {/* Search Text */}
+                <input
+                  type="text"
+                  placeholder="Search…"
+                  value={expenseSearch}
+                  onChange={e => setExpenseSearch(e.target.value)}
+                  style={{ flex: '1 1 140px', minWidth: 120, padding: '6px 10px', border: 'none', borderRadius: 6, fontSize: 12, background: '#fff', color: C.text, outline: 'none', boxShadow: '0 1px 2px rgba(0,0,0,0.06)' }}
+                />
+
+                {/* Vertical Divider */}
+                <div style={{ width: 1, height: 20, background: C.border, flexShrink: 0 }} />
+
+                {/* Department Dropdown */}
+                <select
+                  value={expenseDeptFilter}
+                  onChange={e => setExpenseDeptFilter(e.target.value)}
+                  style={{ padding: '6px 8px', border: 'none', borderRadius: 6, fontSize: 12, background: expenseDeptFilter ? '#fef2f2' : '#fff', color: expenseDeptFilter ? '#dc2626' : C.muted, cursor: 'pointer', outline: 'none', fontWeight: expenseDeptFilter ? 600 : 400, boxShadow: '0 1px 2px rgba(0,0,0,0.06)' }}
+                >
+                  <option value="">Department</option>
+                  {expenseDepts.map(d => <option key={d} value={d}>{d}</option>)}
+                </select>
+
+                {/* Account Dropdown */}
+                <select
+                  value={expenseAccountFilter}
+                  onChange={e => setExpenseAccountFilter(e.target.value)}
+                  style={{ padding: '6px 8px', border: 'none', borderRadius: 6, fontSize: 12, background: expenseAccountFilter ? '#fef2f2' : '#fff', color: expenseAccountFilter ? '#dc2626' : C.muted, cursor: 'pointer', outline: 'none', fontWeight: expenseAccountFilter ? 600 : 400, boxShadow: '0 1px 2px rgba(0,0,0,0.06)' }}
+                >
+                  <option value="">Account</option>
+                  {expenseAccounts.map(a => <option key={a} value={a}>{a}</option>)}
+                </select>
+
+                {/* Clear Filters Link (only visible if active filters) */}
+                {expenseFiltersActive && (
+                  <>
+                    <div style={{ width: 1, height: 20, background: C.border, flexShrink: 0 }} />
+                    <button
+                      onClick={() => { setExpenseSearch(''); setExpenseDeptFilter(''); setExpenseAccountFilter(''); }}
+                      style={{ padding: '4px 8px', background: 'none', border: 'none', fontSize: 11, fontWeight: 600, color: C.muted, cursor: 'pointer', letterSpacing: 0.2 }}
+                    >
+                      Clear
+                    </button>
+                  </>
+                )}
+              </div>
+
+              <SelectableTable rows={filteredExpenseRows} columns={COLS} loading={loadingExpense} emptyMsg="No expense entries match your filters."
                 accentColor="#dc2626"
                 onPrint={r => printRows(r, COLS, 'Expense Report')}
                 onExport={r => exportCSV(r, COLS, 'expenses.csv')}

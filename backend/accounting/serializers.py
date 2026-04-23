@@ -114,7 +114,7 @@ class ExpenseSerializer(serializers.ModelSerializer):
     class Meta:
         from .models import Expense
         model = Expense
-        fields = ('id', 'amount', 'category', 'category_name', 'account', 'account_name', 'date', 'description', 'receipt', 'created_at')
+        fields = ('id', 'amount', 'category', 'category_name', 'account', 'account_name', 'date', 'description', 'department', 'receipt', 'created_at')
 
 
 class IncomeSerializer(serializers.ModelSerializer):
@@ -124,7 +124,7 @@ class IncomeSerializer(serializers.ModelSerializer):
     class Meta:
         from .models import Income
         model = Income
-        fields = ('id', 'amount', 'category', 'category_name', 'account', 'account_name', 'date', 'description', 'receipt', 'created_at')
+        fields = ('id', 'amount', 'category', 'category_name', 'account', 'account_name', 'date', 'description', 'department', 'receipt', 'created_at')
 
 
 class OutstandingReceiptSerializer(serializers.ModelSerializer):
@@ -143,7 +143,7 @@ class OutstandingSerializer(serializers.ModelSerializer):
     class Meta:
         model = Outstanding
         fields = (
-            'id', 'type', 'party_name', 'amount', 'status', 'description',
+            'id', 'type', 'party_name', 'amount', 'status', 'description', 'department',
             'due_date', 'linked_journal_id', 'settlement_journal_id',
             'settlement_account_name', 'receipts', 'created_at', 'updated_at'
         )

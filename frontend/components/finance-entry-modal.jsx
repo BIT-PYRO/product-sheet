@@ -1,6 +1,13 @@
 'use client';
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 
+const DEFAULT_DEPARTMENTS = [
+  'Marketing', 'Customer Relation Management', 'Operations', 'Design',
+  'Logistics', 'Purchase', 'Sales / Business Development', 'Finance',
+  'Information Technology', 'Human Resource', 'Production', 'Services',
+  'House Keeping', 'Other',
+];
+
 const S = {
   input: {
     width: '100%', padding: '9px 12px', border: '1px solid #e5e7eb',
@@ -50,8 +57,8 @@ function AddableSelect({ value, onChange, options, placeholder, disabled }) {
 
 export default function FinanceEntryModal({ type, ledgers, accounts, onClose, onSuccess }) {
   const [amount, setAmount] = useState('');
-  const [category, setCategory] = useState('');
   const [account, setAccount] = useState('');
+  const [department, setDepartment] = useState('');
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [description, setDescription] = useState('');
   const [receipts, setReceipts] = useState([]);
@@ -75,21 +82,23 @@ export default function FinanceEntryModal({ type, ledgers, accounts, onClose, on
 
   async function submit(e) {
     e.preventDefault();
-    setError(''); // Always clear first
+    setError('');
 
     const parsed = parseFloat(String(amount).trim());
     if (!amount || String(amount).trim() === '' || isNaN(parsed) || parsed <= 0) {
       setError('Please enter a valid positive amount.');
       return;
     }
-    if (!category) { setError('Please select a category.'); return; }
+    if (!department) { setError('Please select a department.'); return; }
     if (!account) { setError('Please select a payment account.'); return; }
     if (!description.trim()) { setError('Description is required.'); return; }
     setSubmitting(true);
     try {
       const fd = new FormData();
-      fd.append('amount', parsed); fd.append('category', category);
-      fd.append('account', account); fd.append('date', date);
+      fd.append('amount', parsed);
+      fd.append('account', account);
+      fd.append('department', department);
+      fd.append('date', date);
       fd.append('description', description);
       receipts.forEach(f => fd.append('receipt', f));
       const res = await fetch(apiUrl, { method: 'POST', body: fd });
@@ -145,16 +154,16 @@ export default function FinanceEntryModal({ type, ledgers, accounts, onClose, on
             </div>
           </div>
 
-          {/* Category + Account */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 18 }}>
-            <div>
-              <label style={S.label}>Category *</label>
-              <AddableSelect value={category} onChange={v => { setCategory(v); setError(''); }} options={ledgers} placeholder="— Select —" disabled={submitting} />
-            </div>
-            <div>
-              <label style={S.label}>Payment Account *</label>
-              <AddableSelect value={account} onChange={v => { setAccount(v); setError(''); }} options={accounts} placeholder="— Select —" disabled={submitting} />
-            </div>
+          {/* Department (mandatory) */}
+          <div style={{ marginBottom: 18 }}>
+            <label style={S.label}>Department *</label>
+            <AddableSelect value={department} onChange={v => { setDepartment(v); setError(''); }} options={DEFAULT_DEPARTMENTS} placeholder="— Select Department —" disabled={submitting} />
+          </div>
+
+          {/* Payment Account */}
+          <div style={{ marginBottom: 18 }}>
+            <label style={S.label}>Payment Account *</label>
+            <AddableSelect value={account} onChange={v => { setAccount(v); setError(''); }} options={accounts} placeholder="— Select Account —" disabled={submitting} />
           </div>
 
           {/* Date + Receipt */}
