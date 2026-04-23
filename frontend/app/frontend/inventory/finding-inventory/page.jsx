@@ -8,6 +8,7 @@ import MasterNavigationDrawer from '@/components/master_navigation_drawer';
 import LastUpdatedFooter from '@/components/last-updated-footer';
 import DeletionHistoryDrawer from '@/components/deletion-history-drawer';
 import { useSheetPermissions } from '@/hooks/use-sheet-permissions';
+import { useColumnPreferences } from '@/hooks/use-column-preferences';
 import {
   Dialog,
   DialogContent,
@@ -98,7 +99,7 @@ export default function FindingInventoryPage() {
   const [savingEdits, setSavingEdits] = useState(false);
   const [isManageColumnsOpen, setIsManageColumnsOpen] = useState(false);
   const [selectedColumnsForAction, setSelectedColumnsForAction] = useState(new Set());
-  const [visibleColumns, setVisibleColumns] = useState(new Set(FINDING_COLUMNS.map((column) => column.id)));
+  const { visibleColumns, setVisibleColumns, saveView: saveColumnView, saveViewStatus } = useColumnPreferences('inv-finding', FINDING_COLUMNS.map((column) => column.id));
 
   // Issue request workflow
   const [issueOpen, setIssueOpen] = useState(false);
@@ -1293,6 +1294,7 @@ export default function FindingInventoryPage() {
           <div className="mt-2 flex justify-end gap-2">
             <Button onClick={handleHideColumns} disabled={selectedColumnsForAction.size === 0} variant="outline" className="text-danger border-danger/40 hover:bg-danger/10">Hide</Button>
             <Button onClick={handleShowColumns} disabled={selectedColumnsForAction.size === 0} variant="outline" className="text-success border-green-300 hover:bg-success/10">Show</Button>
+            <Button onClick={saveColumnView} variant="outline" className="ml-auto border-midnight-ink text-midnight-ink hover:bg-midnight-ink/10">{saveViewStatus === 'saved' ? 'Saved ✓' : 'Save View'}</Button>
           </div>
         </DialogContent>
       </Dialog>

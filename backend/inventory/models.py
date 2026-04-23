@@ -129,11 +129,19 @@ class ToolItem(AuditModel):
 	tool_name = models.CharField(max_length=255)
 	particulars = models.CharField(max_length=255, blank=True, default='')
 	department = models.CharField(max_length=120, blank=True, default='')
-	quantity = models.DecimalField(max_digits=12, decimal_places=3, default=0)
+	# New stock
+	new_qty = models.DecimalField(max_digits=12, decimal_places=3, default=0)
+	new_unit = models.CharField(max_length=60, blank=True, default='')
+	new_location = models.CharField(max_length=255, blank=True, default='')
+	# Used stock
 	used_qty = models.DecimalField(max_digits=12, decimal_places=3, default=0)
-	min_level = models.DecimalField(max_digits=12, decimal_places=3, default=0)
-	unit = models.CharField(max_length=60, blank=True, default='')
-	location = models.CharField(max_length=255, blank=True, default='')
+	used_unit = models.CharField(max_length=60, blank=True, default='')
+	used_location = models.CharField(max_length=255, blank=True, default='')
+	# In Use
+	in_use_qty = models.DecimalField(max_digits=12, decimal_places=3, default=0)
+	in_use_unit = models.CharField(max_length=60, blank=True, default='')
+	# Minimum required in stock
+	min_required_stock = models.DecimalField(max_digits=12, decimal_places=3, default=0)
 
 	class Meta:
 		ordering = ('id',)

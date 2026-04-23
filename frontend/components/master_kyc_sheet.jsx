@@ -25,6 +25,7 @@ import BulkUploadButton from '@/components/bulk-upload-button';
 import LastUpdatedFooter from '@/components/last-updated-footer';
 import DeletionHistoryDrawer from '@/components/deletion-history-drawer';
 import { useSheetPermissions } from '@/hooks/use-sheet-permissions';
+import { useColumnPreferences } from '@/hooks/use-column-preferences';
 
 const KYC_COLUMNS = [
   { key: '__select__', label: '' },
@@ -100,9 +101,7 @@ export default function MasterKYCSheet() {
   const [selectedRows, setSelectedRows] = useState(new Set());
   const [sortField, setSortField] = useState('');
   const [sortDirection, setSortDirection] = useState('asc');
-  const [visibleColumns, setVisibleColumns] = useState(
-    new Set(KYC_COLUMNS.map((column) => column.key))
-  );
+  const { visibleColumns, setVisibleColumns, saveView: saveColumnView, saveViewStatus } = useColumnPreferences('master-kyc-sheet', KYC_COLUMNS.map((column) => column.key));
   const [selectedColumnsForAction, setSelectedColumnsForAction] = useState(new Set());
   const [emptyRowsData, setEmptyRowsData] = useState(
     Array.from({ length: 10 }).map(() => ({}))
@@ -597,6 +596,13 @@ export default function MasterKYCSheet() {
               className="text-success border-green-300 hover:bg-success/10"
             >
               Show
+            </Button>
+            <Button
+              onClick={saveColumnView}
+              variant="outline"
+              className="ml-auto border-midnight-ink text-midnight-ink hover:bg-midnight-ink/10"
+            >
+              {saveViewStatus === 'saved' ? 'Saved ✓' : 'Save View'}
             </Button>
           </DialogFooter>
         </DialogContent>

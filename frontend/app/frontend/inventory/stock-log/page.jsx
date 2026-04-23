@@ -15,6 +15,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { useColumnPreferences } from '@/hooks/use-column-preferences';
 
 // ── Constants ──────────────────────────────────────────────────────────────
 const INVENTORY_TYPES = ['Tools', 'Machines', 'Others'];
@@ -84,7 +85,7 @@ export default function StockLogPage() {
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [editingIds, setEditingIds]   = useState(new Set());
   const [editBuffer, setEditBuffer]   = useState({});
-  const [visibleColumns, setVisibleColumns] = useState(new Set(LOG_COLUMNS.map((c) => c.id)));
+  const { visibleColumns, setVisibleColumns, saveView: saveColumnView, saveViewStatus } = useColumnPreferences('inv-stock-log', LOG_COLUMNS.map((c) => c.id));
   const [isManageColumnsOpen, setIsManageColumnsOpen] = useState(false);
   const [selColsForAction, setSelColsForAction] = useState(new Set());
 
@@ -764,6 +765,7 @@ export default function StockLogPage() {
               selColsForAction.forEach((id) => next.add(id));
               setVisibleColumns(next); setSelColsForAction(new Set()); setIsManageColumnsOpen(false);
             }} className="bg-trust-blue text-white hover:bg-blue-700">Show Selected</Button>
+            <Button variant="outline" onClick={saveColumnView} className="ml-auto border-midnight-ink text-midnight-ink hover:bg-midnight-ink/10">{saveViewStatus === 'saved' ? 'Saved ✓' : 'Save View'}</Button>
           </div>
         </DialogContent>
       </Dialog>

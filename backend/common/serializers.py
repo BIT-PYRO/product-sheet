@@ -13,6 +13,7 @@ class DeletionLogSerializer(serializers.ModelSerializer):
             'deleted_at',
             'deleted_by',
             'deleted_by_username',
+            'deleted_by_name',
             'app_label',
             'model_name',
             'object_id',

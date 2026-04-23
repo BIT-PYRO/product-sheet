@@ -40,6 +40,8 @@ class DeletionLog(models.Model):
 		blank=True,
 		related_name='deletion_logs',
 	)
+	# Plain-text snapshot of the username at deletion time — survives user account removal.
+	deleted_by_name = models.CharField(max_length=200, blank=True, default='')
 	app_label = models.CharField(max_length=100)
 	model_name = models.CharField(max_length=100)
 	object_id = models.CharField(max_length=100)

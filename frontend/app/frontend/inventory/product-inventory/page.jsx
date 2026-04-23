@@ -21,6 +21,7 @@ import LastUpdatedFooter from '@/components/last-updated-footer';
 import DeletionHistoryDrawer from '@/components/deletion-history-drawer';
 import MultiselectFilterPopover from '@/components/multiselect-filter-popover';
 import { EnrolWorkforceForm } from '@/app/frontend/enrol-workforce/page';
+import { useColumnPreferences } from '@/hooks/use-column-preferences';
 
 const UNIT_OPTIONS = ['PCS', 'GM', 'KG', 'CT'];
 // ISSUE_REQUESTS_KEY removed — now using API
@@ -65,7 +66,7 @@ export default function ProductInventoryPage() {
   const [isBulkUploading, setIsBulkUploading] = useState(false);
   const [isManageColumnsOpen, setIsManageColumnsOpen] = useState(false);
   const [selectedColumnsForAction, setSelectedColumnsForAction] = useState(new Set());
-  const [visibleColumns, setVisibleColumns] = useState(new Set(PRODUCT_COLUMNS.map((column) => column.id)));
+  const { visibleColumns, setVisibleColumns, saveView: saveColumnView, saveViewStatus } = useColumnPreferences('inv-product', PRODUCT_COLUMNS.map((column) => column.id));
   const bulkFileRef = useRef(null);
 
   // Receive Product workflow
@@ -783,6 +784,13 @@ export default function ProductInventoryPage() {
               className="text-success border-green-300 hover:bg-success/10"
             >
               Show
+            </Button>
+            <Button
+              onClick={saveColumnView}
+              variant="outline"
+              className="ml-auto border-midnight-ink text-midnight-ink hover:bg-midnight-ink/10"
+            >
+              {saveViewStatus === 'saved' ? 'Saved ✓' : 'Save View'}
             </Button>
           </DialogFooter>
         </DialogContent>

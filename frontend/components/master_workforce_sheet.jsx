@@ -34,6 +34,7 @@ import BulkUploadButton from '@/components/bulk-upload-button';
 import LastUpdatedFooter from '@/components/last-updated-footer';
 import DeletionHistoryDrawer from '@/components/deletion-history-drawer';
 import { useSheetPermissions } from '@/hooks/use-sheet-permissions';
+import { useColumnPreferences } from '@/hooks/use-column-preferences';
 
 export default function MasterWorkforceSheet() {
   const { canView, canEdit, canCreate, canExport, loading: permsLoading } = useSheetPermissions('master-workforce-sheet');
@@ -104,9 +105,9 @@ export default function MasterWorkforceSheet() {
     }])
   );
 
-  const [visibleColumns, setVisibleColumns] = useState(new Set([
+  const { visibleColumns, setVisibleColumns, saveView: saveColumnView, saveViewStatus } = useColumnPreferences('master-workforce-sheet', [
     'fullName', 'department', 'category', 'designation', 'workingStyle', 'status', 'phone', 'email', 'currentLocation',
-  ]));
+  ]);
   
   // Toggle column selection in the manage columns dialog
   const toggleColumnSelection = (columnId) => {
@@ -565,6 +566,13 @@ export default function MasterWorkforceSheet() {
               className="text-success border-green-300 hover:bg-success/10"
             >
               Show
+            </Button>
+            <Button
+              onClick={saveColumnView}
+              variant="outline"
+              className="ml-auto border-midnight-ink text-midnight-ink hover:bg-midnight-ink/10"
+            >
+              {saveViewStatus === 'saved' ? 'Saved ✓' : 'Save View'}
             </Button>
           </DialogFooter>
         </DialogContent>

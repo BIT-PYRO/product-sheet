@@ -139,7 +139,14 @@ class StoneStockEntrySerializer(serializers.ModelSerializer):
 class ToolItemSerializer(serializers.ModelSerializer):
     class Meta:
         model = ToolItem
-        fields = ['id', 'tool_name', 'particulars', 'department', 'quantity', 'used_qty', 'min_level', 'unit', 'location', 'created_at', 'updated_at']
+        fields = [
+            'id', 'tool_name', 'particulars', 'department',
+            'new_qty', 'new_unit', 'new_location',
+            'used_qty', 'used_unit', 'used_location',
+            'in_use_qty', 'in_use_unit',
+            'min_required_stock',
+            'created_at', 'updated_at',
+        ]
 
 
 class OtherItemSerializer(serializers.ModelSerializer):

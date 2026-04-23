@@ -15,6 +15,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { useColumnPreferences } from '@/hooks/use-column-preferences';
 
 
 // ── Product constants ──────────────────────────────────────────────────────
@@ -177,11 +178,13 @@ export default function ProductFindingLogPage() {
   const fetchRows = activeTab === 'product' ? fetchProductRows : activeTab === 'finding' ? fetchFindingRows : fetchDieRows;
 
   // ── Per-tab visible columns ───────────────────────────────────────────────
-  const [pVisibleCols, setPVisibleCols] = useState(() => new Set(PRODUCT_COLUMNS.map((c) => c.id)));
-  const [fVisibleCols, setFVisibleCols] = useState(() => new Set(FINDING_COLUMNS.map((c) => c.id)));
-  const [dVisibleCols, setDVisibleCols] = useState(() => new Set(DIE_LOG_COLUMNS.map((c) => c.id)));
+  const { visibleColumns: pVisibleCols, setVisibleColumns: setPVisibleCols, saveView: savePView, saveViewStatus: pSaveStatus } = useColumnPreferences('inv-product-log-product', PRODUCT_COLUMNS.map((c) => c.id));
+  const { visibleColumns: fVisibleCols, setVisibleColumns: setFVisibleCols, saveView: saveFView, saveViewStatus: fSaveStatus } = useColumnPreferences('inv-product-log-finding', FINDING_COLUMNS.map((c) => c.id));
+  const { visibleColumns: dVisibleCols, setVisibleColumns: setDVisibleCols, saveView: saveDView, saveViewStatus: dSaveStatus } = useColumnPreferences('inv-product-log-die', DIE_LOG_COLUMNS.map((c) => c.id));
   const visibleColumns    = activeTab === 'product' ? pVisibleCols : activeTab === 'finding' ? fVisibleCols : dVisibleCols;
   const setVisibleColumns = activeTab === 'product' ? setPVisibleCols : activeTab === 'finding' ? setFVisibleCols : setDVisibleCols;
+  const saveColumnView    = activeTab === 'product' ? savePView : activeTab === 'finding' ? saveFView : saveDView;
+  const saveViewStatus    = activeTab === 'product' ? pSaveStatus : activeTab === 'finding' ? fSaveStatus : dSaveStatus;
 
   const COLUMNS = activeTab === 'product' ? PRODUCT_COLUMNS : activeTab === 'finding' ? FINDING_COLUMNS : DIE_LOG_COLUMNS;
 
@@ -1100,6 +1103,7 @@ export default function ProductFindingLogPage() {
               selColsForAction.forEach((id) => next.add(id));
               setVisibleColumns(next); setSelColsForAction(new Set()); setIsManageColumnsOpen(false);
             }} className="bg-trust-blue text-white hover:bg-blue-700">Show Selected</Button>
+            <Button variant="outline" onClick={saveColumnView} className="ml-auto border-midnight-ink text-midnight-ink hover:bg-midnight-ink/10">{saveViewStatus === 'saved' ? 'Saved ✓' : 'Save View'}</Button>
           </div>
         </DialogContent>
       </Dialog>

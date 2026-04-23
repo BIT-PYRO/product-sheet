@@ -23,6 +23,7 @@ from .serializers import RoleDefaultPermissionsSerializer, UserSerializer
 
 
 class LoginView(TokenObtainPairView):
+	permission_classes = [AllowAny]
 	@extend_schema(
 		summary='Login and receive JWT tokens',
 		tags=['Auth'],
@@ -51,6 +52,7 @@ class LoginView(TokenObtainPairView):
 
 
 class RefreshTokenView(TokenRefreshView):
+	permission_classes = [AllowAny]
 	@extend_schema(
 		summary='Refresh JWT access token',
 		tags=['Auth'],

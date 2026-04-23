@@ -26,6 +26,7 @@ import BulkUploadButton from '@/components/bulk-upload-button';
 import LastUpdatedFooter from '@/components/last-updated-footer';
 import DeletionHistoryDrawer from '@/components/deletion-history-drawer';
 import { useSheetPermissions } from '@/hooks/use-sheet-permissions';
+import { useColumnPreferences } from '@/hooks/use-column-preferences';
 
 // â”€â”€ Column definitions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Each entry: { id, label, group?, groupLabel?, width }
@@ -202,9 +203,7 @@ export default function MasterDesignerSheet() {
   const [data, setData] = useState([]);
   const [sortOrder, setSortOrder] = useState('default');
 
-  const [visibleColumns, setVisibleColumns] = useState(
-    new Set(COLUMNS.map((c) => c.id))
-  );
+  const { visibleColumns, setVisibleColumns, saveView: saveColumnView, saveViewStatus } = useColumnPreferences('master-designer-sheet', COLUMNS.map((c) => c.id));
 
   const toggleColumnSelection = (columnId) => {
     const next = new Set(selectedColumnsForAction);
@@ -566,6 +565,7 @@ export default function MasterDesignerSheet() {
           <DialogFooter className="flex gap-2">
             <Button onClick={handleHideColumns} disabled={selectedColumnsForAction.size === 0} variant="outline" className="text-danger border-danger/40 hover:bg-danger/10">Hide</Button>
             <Button onClick={handleShowColumns} disabled={selectedColumnsForAction.size === 0} variant="outline" className="text-success border-green-300 hover:bg-success/10">Show</Button>
+            <Button onClick={saveColumnView} variant="outline" className="ml-auto border-midnight-ink text-midnight-ink hover:bg-midnight-ink/10">{saveViewStatus === 'saved' ? 'Saved ✓' : 'Save View'}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

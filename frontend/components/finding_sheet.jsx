@@ -25,6 +25,7 @@ import BulkUploadButton from '@/components/bulk-upload-button';
 import LastUpdatedFooter from '@/components/last-updated-footer';
 import DeletionHistoryDrawer from '@/components/deletion-history-drawer';
 import { useSheetPermissions } from '@/hooks/use-sheet-permissions';
+import { useColumnPreferences } from '@/hooks/use-column-preferences';
 
 const FINDING_COLUMNS = [
   { id: 'findingCode', label: 'FINDING CODE' },
@@ -92,7 +93,7 @@ export default function FindingSheet() {
 
   const [isManageColumnsOpen, setIsManageColumnsOpen] = useState(false);
   const [selectedColumnsForAction, setSelectedColumnsForAction] = useState(new Set());
-  const [visibleColumns, setVisibleColumns] = useState(new Set(FINDING_COLUMNS.map((col) => col.id)));
+  const { visibleColumns, setVisibleColumns, saveView: saveColumnView, saveViewStatus } = useColumnPreferences('finding-sheet', FINDING_COLUMNS.map((col) => col.id));
 
   const [isPrintItemOpen, setIsPrintItemOpen] = useState(false);
   const [isPrintSheetOpen, setIsPrintSheetOpen] = useState(false);
@@ -478,6 +479,13 @@ export default function FindingSheet() {
               className="text-success border-green-300 hover:bg-success/10"
             >
               Show
+            </Button>
+            <Button
+              onClick={saveColumnView}
+              variant="outline"
+              className="ml-auto border-midnight-ink text-midnight-ink hover:bg-midnight-ink/10"
+            >
+              {saveViewStatus === 'saved' ? 'Saved ✓' : 'Save View'}
             </Button>
           </DialogFooter>
         </DialogContent>

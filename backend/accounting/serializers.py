@@ -3,7 +3,7 @@ from decimal import Decimal
 from django.db import transaction
 from rest_framework import serializers
 
-from .models import JournalEntry, JournalItem, Ledger, Outstanding
+from .models import JournalEntry, JournalItem, Ledger, Outstanding, PendingExpense
 
 
 class LedgerSerializer(serializers.ModelSerializer):
@@ -105,6 +105,26 @@ class JournalEntrySerializer(serializers.ModelSerializer):
     class Meta:
         model = JournalEntry
         fields = ('id', 'date', 'description', 'created_at', 'items')
+
+
+class PendingExpenseSerializer(serializers.ModelSerializer):
+    category_name = serializers.CharField(source='category.name', read_only=True, allow_null=True)
+    category_id = serializers.PrimaryKeyRelatedField(source='category', read_only=True, allow_null=True)
+
+    class Meta:
+        model = PendingExpense
+        fields = (
+            'id', 'employee_name', 'amount', 'category_id', 'category_name',
+            'description', 'source_id', 'source', 'status', 'created_at', 'updated_at',
+        )
+
+
+class ApproveExpenseSerializer(serializers.Serializer):
+    """Expects the Ledger (asset type) that will be credited (payment account)."""
+    payment_ledger = serializers.PrimaryKeyRelatedField(
+        queryset=Ledger.objects.filter(type__in=['asset', 'liability']),
+        help_text='ID of the asset/liability ledger to credit (e.g. Cash, Bank).',
+    )
 
 
 class ExpenseSerializer(serializers.ModelSerializer):
