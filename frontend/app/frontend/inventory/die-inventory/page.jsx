@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Pencil, Plus, Printer, RefreshCw, Trash2, Upload, X } from 'lucide-react';
+import { ArrowLeft, ChevronDown, Download, Pencil, Plus, Printer, RefreshCw, Trash2, Upload, X } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import SortPopover from '@/components/sort-popover';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
 import LastUpdatedFooter from '@/components/last-updated-footer';
@@ -258,6 +259,23 @@ export default function DieInventoryPage() {
   const allSelected = filtered.length > 0 && filtered.every((d) => selectedIds.has(d.id));
   const someSelected = filtered.some((d) => selectedIds.has(d.id)) && !allSelected;
   const visibleColCount = 1 + DIE_COLUMNS.filter((c) => visibleColumns.has(c.id)).length;
+
+  const [exportMenuOpen, setExportMenuOpen] = useState(false);
+  const EXPORT_HEADERS = ['id','die_code','master_skus','designer_skus','location','quantity','wax_piece_qty','wax_piece_location','wax_setting_qty','wax_setting_location','casting_qty','casting_location','notes'];
+  const buildExportRows = () => filtered.map((r) => EXPORT_HEADERS.map((h) => Array.isArray(r[h]) ? r[h].join(', ') : (r[h] ?? '')));
+  const exportToExcel = () => {
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([EXPORT_HEADERS, ...buildExportRows()]), 'Dies');
+    XLSX.writeFile(wb, 'die_inventory.xlsx');
+    setExportMenuOpen(false);
+  };
+  const exportToPDF = () => {
+    const win = window.open('', '_blank');
+    const rows = buildExportRows();
+    win.document.write(`<html><head><title>Die Inventory</title><style>body{font-family:sans-serif;font-size:11px;margin:16px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #ccc;padding:4px 6px;text-align:left}th{background:#ecfdf5}</style></head><body><h2>Die Inventory</h2><table><thead><tr>${EXPORT_HEADERS.map((h)=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${rows.map((r)=>`<tr>${r.map((c)=>`<td>${c}</td>`).join('')}</tr>`).join('')}</tbody></table><script>window.onload=function(){window.print();<\/script></body></html>`);
+    win.document.close();
+    setExportMenuOpen(false);
+  };
 
   const selectedDies = useMemo(() => dies.filter((d) => selectedIds.has(d.id)), [dies, selectedIds]);
 
@@ -704,6 +722,19 @@ export default function DieInventoryPage() {
             <Upload className="w-3.5 h-3.5 mr-1.5" />
             Bulk Upload
           </Button>
+          <div className="relative">
+            {exportMenuOpen && <div className="fixed inset-0 z-10" onClick={() => setExportMenuOpen(false)} />}
+            <Button onClick={() => setExportMenuOpen((p) => !p)} variant="outline"
+              className="relative z-20 border-emerald-500 text-emerald-600 hover:bg-emerald-50 rounded-full px-4 text-sm h-8 flex items-center gap-1.5">
+              <Download className="w-3.5 h-3.5" /> Export <ChevronDown className="w-3.5 h-3.5" />
+            </Button>
+            {exportMenuOpen && (
+              <div className="absolute right-0 top-9 z-30 w-52 rounded-lg bg-white shadow-lg border border-soft-border py-1">
+                <button type="button" onClick={exportToExcel} className="w-full px-4 py-2 text-sm text-midnight-ink hover:bg-cloud-gray text-left">Export as Excel (.xlsx)</button>
+                <button type="button" onClick={exportToPDF} className="w-full px-4 py-2 text-sm text-midnight-ink hover:bg-cloud-gray text-left">Export as PDF</button>
+              </div>
+            )}
+          </div>
           <Button
             onClick={handleSyncFromSheets}
             disabled={syncing}

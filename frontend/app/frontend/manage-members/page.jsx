@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Search, Plus, Pencil, Trash2, X, Save } from 'lucide-react';
+import { ArrowLeft, ChevronDown, Download, Search, Plus, Pencil, Trash2, X, Save } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import { EnrolWorkforceForm } from '@/app/frontend/enrol-workforce/page';
 import DeletionHistoryDrawer from '@/components/deletion-history-drawer';
 
@@ -454,6 +455,23 @@ export default function ManageMembersPage() {
     } catch { /* keep existing list */ }
   }
 
+  const [exportMenuOpen, setExportMenuOpen] = useState(false);
+  const EXPORT_HEADERS = ['id','full_name','email','designation','department'];
+  const buildExportRows = () => filtered.map((r) => EXPORT_HEADERS.map((h) => r[h] ?? ''));
+  const exportToExcel = () => {
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([EXPORT_HEADERS, ...buildExportRows()]), 'Members');
+    XLSX.writeFile(wb, 'manage_members.xlsx');
+    setExportMenuOpen(false);
+  };
+  const exportToPDF = () => {
+    const rows = buildExportRows();
+    const win = window.open('', '_blank');
+    win.document.write(`<html><head><title>Manage Members</title><style>body{font-family:sans-serif;font-size:11px;margin:16px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #ccc;padding:4px 6px;text-align:left}th{background:#dbeafe}</style></head><body><h2>Manage Members</h2><table><thead><tr>${EXPORT_HEADERS.map((h)=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${rows.map((r)=>`<tr>${r.map((c)=>`<td>${c}</td>`).join('')}</tr>`).join('')}</tbody></table><script>window.onload=function(){window.print();}<\/script></body></html>`);
+    win.document.close();
+    setExportMenuOpen(false);
+  };
+
   const filtered = allMembers.filter((m) => {
     const q = search.toLowerCase();
     return (
@@ -543,6 +561,22 @@ export default function ManageMembersPage() {
               Enroll Workforce
             </button>
           )}
+          <div className="relative">
+            {exportMenuOpen && <div className="fixed inset-0 z-10" onClick={() => setExportMenuOpen(false)} />}
+            <button
+              type="button"
+              onClick={() => setExportMenuOpen((p) => !p)}
+              className="relative z-20 flex items-center gap-1.5 border border-emerald-500 text-emerald-600 hover:bg-emerald-50 text-sm font-semibold px-4 py-2 rounded-lg transition"
+            >
+              <Download className="h-4 w-4" /> Export <ChevronDown className="h-4 w-4" />
+            </button>
+            {exportMenuOpen && (
+              <div className="absolute right-0 top-10 z-30 w-52 rounded-lg bg-white shadow-lg border border-soft-border py-1">
+                <button type="button" onClick={exportToExcel} className="w-full px-4 py-2 text-sm text-midnight-ink hover:bg-cloud-gray text-left">Export as Excel (.xlsx)</button>
+                <button type="button" onClick={exportToPDF} className="w-full px-4 py-2 text-sm text-midnight-ink hover:bg-cloud-gray text-left">Export as PDF</button>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Count */}

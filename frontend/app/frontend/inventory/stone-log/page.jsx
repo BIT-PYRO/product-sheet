@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Pencil, Plus, Printer, Trash2 } from 'lucide-react';
+import { ArrowLeft, ChevronDown, Download, Pencil, Plus, Printer, Trash2 } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import SortPopover from '@/components/sort-popover';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
 import GlobalSearchBar from '@/components/global-search-bar';
@@ -110,6 +111,23 @@ export default function StoneLogPage() {
   const { visibleColumns, setVisibleColumns, saveView: saveColumnView, saveViewStatus } = useColumnPreferences('inv-stone-log', LOG_COLUMNS.map((c) => c.id));
   const [isManageColumnsOpen, setIsManageColumnsOpen] = useState(false);
   const [selColsForAction, setSelColsForAction] = useState(new Set());
+  const [exportMenuOpen, setExportMenuOpen] = useState(false);
+
+  const EXPORT_HEADERS = ['id','date','receivedIssued','inventoryType','stoneName','variety','type','shape','color','species','quality','cut','length','width','height','qty','weight','weightUnit','location','price','amount','receivedFrom','issuedTo','remark','activityStatus'];
+  const buildExportRows = () => filteredRows.map((r) => EXPORT_HEADERS.map((h) => r[h] ?? ''));
+  const exportToExcel = () => {
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([EXPORT_HEADERS, ...buildExportRows()]), 'Stone Log');
+    XLSX.writeFile(wb, 'stone_log.xlsx');
+    setExportMenuOpen(false);
+  };
+  const exportToPDF = () => {
+    const win = window.open('', '_blank');
+    const rows = buildExportRows();
+    win.document.write(`<html><head><title>Stone Log</title><style>body{font-family:sans-serif;font-size:11px;margin:16px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #ccc;padding:4px 6px;text-align:left}th{background:#ecfdf5}</style></head><body><h2>Stone Log</h2><table><thead><tr>${EXPORT_HEADERS.map((h)=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${rows.map((r)=>`<tr>${r.map((c)=>`<td>${c}</td>`).join('')}</tr>`).join('')}</tbody></table><script>window.onload=function(){window.print();}<\/script></body></html>`);
+    win.document.close();
+    setExportMenuOpen(false);
+  };
 
   // Add dialog
   const [addOpen, setAddOpen] = useState(false);
@@ -389,6 +407,19 @@ export default function StoneLogPage() {
               className="inline-flex items-center gap-2 rounded-full border border-midnight-ink bg-white px-4 h-8 text-sm font-medium text-midnight-ink">
               <Printer className="h-4 w-4" /> Print
             </button>
+            <div className="relative">
+              {exportMenuOpen && <div className="fixed inset-0 z-10" onClick={() => setExportMenuOpen(false)} />}
+              <button type="button" onClick={() => setExportMenuOpen((p) => !p)}
+                className="relative z-20 inline-flex items-center gap-1.5 rounded-full border border-emerald-500 bg-white px-4 h-8 text-sm font-medium text-emerald-600 hover:bg-emerald-50">
+                <Download className="h-3.5 w-3.5" /> Export <ChevronDown className="h-3.5 w-3.5" />
+              </button>
+              {exportMenuOpen && (
+                <div className="absolute right-0 top-9 z-30 w-52 rounded-lg bg-white shadow-lg border border-soft-border py-1">
+                  <button type="button" onClick={exportToExcel} className="w-full px-4 py-2 text-sm text-midnight-ink hover:bg-cloud-gray text-left">Export as Excel (.xlsx)</button>
+                  <button type="button" onClick={exportToPDF} className="w-full px-4 py-2 text-sm text-midnight-ink hover:bg-cloud-gray text-left">Export as PDF</button>
+                </div>
+              )}
+            </div>
             <SortPopover
               columns={[
                 { id: 'date', label: 'Date' },

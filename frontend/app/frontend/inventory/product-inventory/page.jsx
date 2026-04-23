@@ -5,7 +5,8 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
-import { ArrowLeft, Search, Upload, Trash2, Pencil, Download, RefreshCw, Printer, X } from 'lucide-react';
+import { ArrowLeft, ChevronDown, Search, Upload, Trash2, Pencil, Download, RefreshCw, Printer, X } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import SortPopover from '@/components/sort-popover';
 import {
   Dialog,
@@ -66,6 +67,7 @@ export default function ProductInventoryPage() {
   const [isBulkUploading, setIsBulkUploading] = useState(false);
   const [isManageColumnsOpen, setIsManageColumnsOpen] = useState(false);
   const [selectedColumnsForAction, setSelectedColumnsForAction] = useState(new Set());
+  const [exportMenuOpen, setExportMenuOpen] = useState(false);
   const { visibleColumns, setVisibleColumns, saveView: saveColumnView, saveViewStatus } = useColumnPreferences('inv-product', PRODUCT_COLUMNS.map((column) => column.id));
   const bulkFileRef = useRef(null);
 
@@ -579,6 +581,40 @@ export default function ProductInventoryPage() {
       loadData();
       setTimeout(() => setDeleteStatus(null), 3000);
     }
+  };
+
+  // Export
+  const EXPORT_HEADERS = ['masterSku','designerSku','finalSku','metal','value','unit','location','wip','totalInDemand','price','amount'];
+  const buildExportRows = () => {
+    const rows = [];
+    filteredData.forEach((row) => {
+      if (row.subRows && row.subRows.length > 0) {
+        row.subRows.forEach((sub, idx) => {
+          rows.push(EXPORT_HEADERS.map((h) => {
+            if (h === 'masterSku') return idx === 0 ? (row.masterSku ?? '') : '';
+            if (h === 'designerSku') return idx === 0 ? (row.designerSku ?? '') : '';
+            if (h === 'wip') return idx === 0 ? (row.wip ?? '') : '';
+            return sub[h] ?? '';
+          }));
+        });
+      } else {
+        rows.push(EXPORT_HEADERS.map((h) => row[h] ?? ''));
+      }
+    });
+    return rows;
+  };
+  const exportToExcel = () => {
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([EXPORT_HEADERS, ...buildExportRows()]), 'Product Inventory');
+    XLSX.writeFile(wb, 'product_inventory.xlsx');
+    setExportMenuOpen(false);
+  };
+  const exportToPDF = () => {
+    const win = window.open('', '_blank');
+    const rows = buildExportRows();
+    win.document.write(`<html><head><title>Product Inventory</title><style>body{font-family:sans-serif;font-size:11px;margin:16px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #ccc;padding:4px 6px;text-align:left}th{background:#ecfdf5}</style></head><body><h2>Product Inventory</h2><table><thead><tr>${EXPORT_HEADERS.map((h)=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${rows.map((r)=>`<tr>${r.map((c)=>`<td>${c}</td>`).join('')}</tr>`).join('')}</tbody></table><script>window.onload=function(){window.print();}<\/script></body></html>`);
+    win.document.close();
+    setExportMenuOpen(false);
   };
 
   // Export CSV
@@ -1144,10 +1180,19 @@ export default function ProductInventoryPage() {
             </Button>
           </div>
 
-          <Button onClick={handleExport} variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8">
-            <Download className="w-3.5 h-3.5 mr-1.5" />
-            Export
-          </Button>
+          <div className="relative">
+            {exportMenuOpen && <div className="fixed inset-0 z-10" onClick={() => setExportMenuOpen(false)} />}
+            <Button onClick={() => setExportMenuOpen((p) => !p)} variant="outline"
+              className="relative z-20 border-emerald-500 text-emerald-600 hover:bg-emerald-50 rounded-full px-4 text-sm h-8 flex items-center gap-1.5">
+              <Download className="w-3.5 h-3.5" /> Export <ChevronDown className="w-3.5 h-3.5" />
+            </Button>
+            {exportMenuOpen && (
+              <div className="absolute right-0 top-9 z-30 w-52 rounded-lg bg-white shadow-lg border border-soft-border py-1">
+                <button type="button" onClick={exportToExcel} className="w-full px-4 py-2 text-sm text-midnight-ink hover:bg-cloud-gray text-left">Export as Excel (.xlsx)</button>
+                <button type="button" onClick={exportToPDF} className="w-full px-4 py-2 text-sm text-midnight-ink hover:bg-cloud-gray text-left">Export as PDF</button>
+              </div>
+            )}
+          </div>
 
           <Button
             onClick={openReceivePopup}

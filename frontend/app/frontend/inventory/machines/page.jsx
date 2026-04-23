@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Pencil, Printer, RefreshCw, Trash2, X } from 'lucide-react';
+import { ArrowLeft, ChevronDown, Download, Pencil, Printer, RefreshCw, Trash2, X } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import SortPopover from '@/components/sort-popover';
 import BulkUploadButton from '@/components/bulk-upload-button';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
@@ -96,6 +97,72 @@ export default function MachinesInventoryPage() {
   const [rowsPerPage, setRowsPerPage] = useState(25);
   const [currentPage, setCurrentPage] = useState(1);
   const [lastUpdated, setLastUpdated] = useState(null);
+  const [exportMenuOpen, setExportMenuOpen] = useState(false);
+
+  const EXPORT_HEADERS = [
+    'id',
+    'machine_name',
+    'particulars',
+    'department',
+    'running_qty',
+    'running_location',
+    'idle_qty',
+    'idle_location',
+    'breakdown_qty',
+    'breakdown_location',
+    'maintenance_qty',
+    'maintenance_location',
+    'min_required_stock',
+  ];
+
+  const buildExportRows = () => filteredRows.map((row) => ([
+    row.id,
+    row.machine_name ?? '',
+    row.particulars ?? '',
+    row.department ?? '',
+    row.running_qty ?? 0,
+    row.running_location ?? '',
+    row.idle_qty ?? 0,
+    row.idle_location ?? '',
+    row.breakdown_qty ?? 0,
+    row.breakdown_location ?? '',
+    row.maintenance_qty ?? 0,
+    row.maintenance_location ?? '',
+    row.min_required_stock ?? 0,
+  ]));
+
+  const exportToExcel = () => {
+    const data = [EXPORT_HEADERS, ...buildExportRows()];
+    const ws = XLSX.utils.aoa_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Machines Inventory');
+    XLSX.writeFile(wb, 'machines_inventory.xlsx');
+    setExportMenuOpen(false);
+  };
+
+  const exportToPDF = () => {
+    const rows = buildExportRows();
+    const tableRows = rows.map((r) =>
+      `<tr>${r.map((cell) => `<td>${cell}</td>`).join('')}</tr>`
+    ).join('');
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Machines Inventory</title>
+      <style>
+        body { font-family: Arial, sans-serif; font-size: 11px; margin: 16px; }
+        h2 { margin-bottom: 8px; }
+        table { border-collapse: collapse; width: 100%; }
+        th, td { border: 1px solid #ccc; padding: 4px 8px; text-align: left; }
+        th { background: #e3f2fd; font-weight: 600; }
+        @media print { body { margin: 0; } }
+      </style></head><body>
+      <h2>Machines Inventory</h2>
+      <table><thead><tr>${EXPORT_HEADERS.map((h) => `<th>${h}</th>`).join('')}</tr></thead>
+      <tbody>${tableRows}</tbody></table>
+      <script>window.onload=function(){window.print();}<\/script>
+      </body></html>`;
+    const w = window.open('', '_blank');
+    if (w) { w.document.write(html); w.document.close(); }
+    setExportMenuOpen(false);
+  };
 
   const loadRows = useCallback(async () => {
     setLoading(true);
@@ -639,6 +706,26 @@ export default function MachinesInventoryPage() {
               Issue Machine
             </button>
             <BulkUploadButton sheetType="machines" onComplete={loadRows} className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8" />
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setExportMenuOpen((v) => !v)}
+                className="inline-flex items-center gap-1 rounded-full border border-emerald-600 bg-white px-4 h-8 text-sm font-medium text-emerald-700 hover:bg-emerald-50"
+              >
+                <Download className="w-3.5 h-3.5" />
+                Export
+                <ChevronDown className="w-3.5 h-3.5" />
+              </button>
+              {exportMenuOpen && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setExportMenuOpen(false)} />
+                  <div className="absolute right-0 z-20 mt-1 w-44 rounded-lg border border-soft-border bg-white shadow-lg py-1">
+                    <button type="button" onClick={exportToExcel} className="w-full px-4 py-2 text-left text-sm hover:bg-[#F3F4F6]">Export as Excel (.xlsx)</button>
+                    <button type="button" onClick={exportToPDF} className="w-full px-4 py-2 text-left text-sm hover:bg-[#F3F4F6]">Export as PDF</button>
+                  </div>
+                </>
+              )}
+            </div>
             <button
               type="button"
               onClick={() => setRequestsPanelOpen((prev) => !prev)}
