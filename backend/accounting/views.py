@@ -1,13 +1,28 @@
+import logging
+from datetime import date
+
+from django.db import transaction
 from django.db.models import Sum
 
+from rest_framework import status as http_status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from common.api import api_success
 
-from .models import JournalItem, Ledger, Account, Expense, Income, JournalEntry
-from .serializers import JournalEntryCreateSerializer, JournalEntrySerializer, LedgerSerializer, ExpenseSerializer, IncomeSerializer
+from .models import Account, Expense, Income, JournalEntry, JournalItem, Ledger, PendingExpense
+from .serializers import (
+    ApproveExpenseSerializer,
+    ExpenseSerializer,
+    IncomeSerializer,
+    JournalEntryCreateSerializer,
+    JournalEntrySerializer,
+    LedgerSerializer,
+    PendingExpenseSerializer,
+)
+
+logger = logging.getLogger(__name__)
 
 
 class LedgerListView(APIView):
@@ -74,32 +89,29 @@ class IncomeCreateView(APIView):
         from django.db import transaction
 
         amount = float(request.data.get('amount', 0))
-        category_id = request.data.get('category')
         account_id = request.data.get('account')
         date = request.data.get('date')
-        description = request.data.get('description')
+        description = request.data.get('description', '')
+        department = (request.data.get('department') or '').strip()
         receipt = request.FILES.get('receipt')
 
         if amount <= 0:
             return Response({'success': False, 'message': 'Amount must be positive'}, status=400)
-        if not category_id or not account_id or not date:
+        if not account_id or not date:
             return Response({'success': False, 'message': 'Missing required fields'}, status=400)
+        if not department:
+            return Response({'success': False, 'message': 'Department is required'}, status=400)
 
         try:
-            if isinstance(category_id, str) and not str(category_id).isdigit():
-                category, _ = Ledger.objects.get_or_create(name=category_id, defaults={'type': Ledger.LedgerType.INCOME})
-            else:
-                category = Ledger.objects.get(pk=category_id)
-
-            if category.type != Ledger.LedgerType.INCOME:
-                return Response({'success': False, 'message': 'Category must be an income ledger'}, status=400)
-
             if isinstance(account_id, str) and not str(account_id).isdigit():
                 account, _ = Account.objects.get_or_create(name=account_id, defaults={'type': Account.AccountType.BANK})
             else:
                 account = Account.objects.get(pk=account_id)
-        except (Ledger.DoesNotExist, Account.DoesNotExist):
-            return Response({'success': False, 'message': 'Invalid category or account'}, status=400)
+        except Account.DoesNotExist:
+            return Response({'success': False, 'message': 'Invalid account'}, status=400)
+
+        ledger_name = f'{department} Income'
+        category, _ = Ledger.objects.get_or_create(name=ledger_name, defaults={'type': Ledger.LedgerType.INCOME})
 
         try:
             with transaction.atomic():
@@ -109,19 +121,19 @@ class IncomeCreateView(APIView):
                     date=date,
                     description=f'Income: {description}'
                 )
-                # Credit Income ledger
                 JournalItem.objects.create(
-                    entry=journal_entry, ledger=category, debit=0, credit=amount, notes=description
+                    entry=journal_entry, ledger=category, debit=0, credit=amount,
+                    notes=description, department=department
                 )
-                # Debit the payment account (asset)
                 JournalItem.objects.create(
-                    entry=journal_entry, ledger=account_ledger, debit=amount, credit=0, notes=description
+                    entry=journal_entry, ledger=account_ledger, debit=amount, credit=0,
+                    notes=description, department=department
                 )
 
                 income = Income.objects.create(
                     amount=amount, category=category, account=account,
-                    date=date, description=description, receipt=receipt,
-                    journal_entry=journal_entry
+                    date=date, description=description, department=department,
+                    receipt=receipt, journal_entry=journal_entry
                 )
 
             return api_success({'income_id': income.pk}, message='Income recorded successfully.', status_code=201)
@@ -190,34 +202,31 @@ class ExpenseCreateView(APIView):
 
     def post(self, request):
         from django.db import transaction
-        
+
         amount = float(request.data.get('amount', 0))
-        category_id = request.data.get('category')
         account_id = request.data.get('account')
         date = request.data.get('date')
-        description = request.data.get('description')
+        description = request.data.get('description', '')
+        department = (request.data.get('department') or '').strip()
         receipt = request.FILES.get('receipt')
 
         if amount <= 0:
             return Response({'success': False, 'message': 'Amount must be positive'}, status=400)
-        if not category_id or not account_id or not date:
+        if not account_id or not date:
             return Response({'success': False, 'message': 'Missing required fields'}, status=400)
+        if not department:
+            return Response({'success': False, 'message': 'Department is required'}, status=400)
 
         try:
-            if isinstance(category_id, str) and not str(category_id).isdigit():
-                category, _ = Ledger.objects.get_or_create(name=category_id, defaults={'type': Ledger.LedgerType.EXPENSE})
-            else:
-                category = Ledger.objects.get(pk=category_id)
-
-            if category.type != Ledger.LedgerType.EXPENSE:
-                return Response({'success': False, 'message': 'Category must be an expense ledger'}, status=400)
-            
             if isinstance(account_id, str) and not str(account_id).isdigit():
                 account, _ = Account.objects.get_or_create(name=account_id, defaults={'type': Account.AccountType.BANK})
             else:
                 account = Account.objects.get(pk=account_id)
-        except (Ledger.DoesNotExist, Account.DoesNotExist):
-            return Response({'success': False, 'message': 'Invalid category or account'}, status=400)
+        except Account.DoesNotExist:
+            return Response({'success': False, 'message': 'Invalid account'}, status=400)
+
+        ledger_name = f'{department} Expense'
+        category, _ = Ledger.objects.get_or_create(name=ledger_name, defaults={'type': Ledger.LedgerType.EXPENSE})
 
         try:
             with transaction.atomic():
@@ -225,35 +234,21 @@ class ExpenseCreateView(APIView):
 
                 journal_entry = JournalEntry.objects.create(
                     date=date,
-                    description=f"Expense: {description}"
+                    description=f'Expense: {description}'
                 )
-
-                # Debit Expense
                 JournalItem.objects.create(
-                    entry=journal_entry,
-                    ledger=category,
-                    debit=amount,
-                    credit=0,
-                    notes=description
+                    entry=journal_entry, ledger=category, debit=amount, credit=0,
+                    notes=description, department=department
                 )
-                
-                # Credit Payment Account
                 JournalItem.objects.create(
-                    entry=journal_entry,
-                    ledger=account_ledger,
-                    debit=0,
-                    credit=amount,
-                    notes=description
+                    entry=journal_entry, ledger=account_ledger, debit=0, credit=amount,
+                    notes=description, department=department
                 )
 
                 expense = Expense.objects.create(
-                    amount=amount,
-                    category=category,
-                    account=account,
-                    date=date,
-                    description=description,
-                    receipt=receipt,
-                    journal_entry=journal_entry
+                    amount=amount, category=category, account=account,
+                    date=date, description=description, department=department,
+                    receipt=receipt, journal_entry=journal_entry
                 )
 
             return api_success({'expense_id': expense.pk}, message='Expense created successfully.', status_code=201)
@@ -604,6 +599,222 @@ class BalanceSheetView(APIView):
             message='Balance sheet fetched successfully.',
         )
 
+
+
+# ═══════════════════════════════════════════════════════════════════
+# PENDING EXPENSE SYSTEM
+# ═══════════════════════════════════════════════════════════════════
+
+# ── Mock external API data ──────────────────────────────────────────
+# Replace EXTERNAL_API_URL with the real URL once the other team
+# provides it. Keep MOCK_EXPENSES as a fallback / test dataset.
+EXTERNAL_API_URL = None   # e.g. 'https://expense-app.example.com/api/expenses/'
+MOCK_EXPENSES = [
+    {'id': 'EXP001', 'employee': 'Rahul Sharma', 'amount': 1500, 'category': 'Travel', 'description': 'Client meeting travel'},
+    {'id': 'EXP002', 'employee': 'Priya Verma', 'amount': 3200, 'category': 'Marketing', 'description': 'Digital ads campaign'},
+    {'id': 'EXP003', 'employee': 'Amit Singh', 'amount': 800,  'category': 'Meals',     'description': 'Team lunch'},
+    {'id': 'EXP004', 'employee': 'Neha Gupta', 'amount': 5000, 'category': 'Salary',    'description': 'Freelancer payment'},
+    {'id': 'EXP005', 'employee': 'Rohit Das',  'amount': 1200, 'category': 'Rent',      'description': 'Office supplies'},
+]
+
+
+def _fetch_external_expenses():
+    """
+    Fetch raw expense dicts from the external system.
+    Swap EXTERNAL_API_URL once the other team shares it.
+    """
+    if EXTERNAL_API_URL:
+        import urllib.request, json as _json
+        with urllib.request.urlopen(EXTERNAL_API_URL, timeout=10) as resp:
+            return _json.loads(resp.read())
+    # Fallback: use mock data for development / testing
+    return MOCK_EXPENSES
+
+
+class PendingExpenseListView(APIView):
+    """
+    GET /api/accounting/pending-expenses/
+    Query params: status (optional), e.g. ?status=pending
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        qs = PendingExpense.objects.select_related('category').all()
+
+        status_filter = request.query_params.get('status')
+        if status_filter:
+            qs = qs.filter(status=status_filter)
+
+        serializer = PendingExpenseSerializer(qs, many=True)
+        return api_success(serializer.data, message='Pending expenses fetched.')
+
+
+class PendingExpenseSyncView(APIView):
+    """
+    POST /api/accounting/pending-expenses/sync/
+    Pulls expenses from the external system and upserts them as pending.
+    Source_id deduplication prevents double-imports.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        try:
+            raw_expenses = _fetch_external_expenses()
+        except Exception as exc:
+            logger.error('Failed to fetch external expenses: %s', exc)
+            return Response(
+                {'success': False, 'message': f'External API error: {exc}'},
+                status=http_status.HTTP_502_BAD_GATEWAY,
+            )
+
+        created_count = 0
+        skipped_count = 0
+
+        for item in raw_expenses:
+            source_id = str(item.get('id', ''))
+            if not source_id:
+                continue
+
+            # Try to resolve category string → Ledger (best-effort)
+            category_str = item.get('category', '')
+            category = Ledger.objects.filter(
+                name__iexact=category_str, type='expense'
+            ).first()
+
+            _, created = PendingExpense.objects.get_or_create(
+                source_id=source_id,
+                defaults={
+                    'employee_name': item.get('employee', 'Unknown'),
+                    'amount': item.get('amount', 0),
+                    'category': category,
+                    'description': item.get('description', ''),
+                    'source': item.get('source', 'external_app'),
+                    'status': PendingExpense.Status.PENDING,
+                },
+            )
+            if created:
+                created_count += 1
+            else:
+                skipped_count += 1
+
+        return api_success(
+            {'created': created_count, 'skipped': skipped_count},
+            message=f'Sync complete. {created_count} new, {skipped_count} already existed.',
+        )
+
+
+class PendingExpenseApproveView(APIView):
+    """
+    POST /api/accounting/pending-expenses/{id}/approve/
+    Body: { "payment_ledger": <ledger_id> }
+    Creates a double-entry journal and marks the expense approved.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        try:
+            expense = PendingExpense.objects.select_related('category').get(pk=pk)
+        except PendingExpense.DoesNotExist:
+            return Response(
+                {'success': False, 'message': 'Expense not found.'},
+                status=http_status.HTTP_404_NOT_FOUND,
+            )
+
+        if expense.status != PendingExpense.Status.PENDING:
+            return Response(
+                {'success': False, 'message': f'Expense is already {expense.status}.'},
+                status=http_status.HTTP_400_BAD_REQUEST,
+            )
+
+        if not expense.category:
+            return Response(
+                {'success': False, 'message': 'Expense has no category ledger. Assign one before approving.'},
+                status=http_status.HTTP_400_BAD_REQUEST,
+            )
+
+        serializer = ApproveExpenseSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(
+                {'success': False, 'message': 'Invalid input.', 'errors': serializer.errors},
+                status=http_status.HTTP_400_BAD_REQUEST,
+            )
+
+        payment_ledger = serializer.validated_data['payment_ledger']
+
+        with transaction.atomic():
+            # Create journal entry
+            entry = JournalEntry.objects.create(
+                date=date.today(),
+                description=f'Expense by {expense.employee_name}: {expense.description or expense.category.name}',
+            )
+            # Debit the expense ledger (cost incurred)
+            JournalItem.objects.create(
+                entry=entry,
+                ledger=expense.category,
+                debit=expense.amount,
+                credit=0,
+            )
+            # Credit the payment ledger (cash / bank / wallet going out)
+            JournalItem.objects.create(
+                entry=entry,
+                ledger=payment_ledger,
+                debit=0,
+                credit=expense.amount,
+            )
+            # Mark approved
+            expense.status = PendingExpense.Status.APPROVED
+            expense.journal_entry = entry
+            expense.save(update_fields=['status', 'journal_entry', 'updated_at'])
+
+        logger.info(
+            'Expense #%s approved → JournalEntry #%s (₹%s)',
+            expense.pk, entry.pk, expense.amount,
+        )
+        return api_success(
+            {'expense_id': expense.pk, 'journal_entry_id': entry.pk},
+            message='Expense approved and journal entry created.',
+        )
+
+
+class PendingExpenseRejectView(APIView):
+    """
+    POST /api/accounting/pending-expenses/{id}/reject/
+    Marks the expense as rejected. No journal entry is created.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        try:
+            expense = PendingExpense.objects.get(pk=pk)
+        except PendingExpense.DoesNotExist:
+            return Response(
+                {'success': False, 'message': 'Expense not found.'},
+                status=http_status.HTTP_404_NOT_FOUND,
+            )
+
+        if expense.status != PendingExpense.Status.PENDING:
+            return Response(
+                {'success': False, 'message': f'Expense is already {expense.status}.'},
+                status=http_status.HTTP_400_BAD_REQUEST,
+            )
+
+        expense.status = PendingExpense.Status.REJECTED
+        expense.save(update_fields=['status', 'updated_at'])
+
+        return api_success(
+            {'expense_id': expense.pk},
+            message='Expense rejected.',
+        )
+
+
+# ═══════════════════════════════════════════════════════════════════
+# OUTSTANDING / PAYABLES & RECEIVABLES SYSTEM
+# ═══════════════════════════════════════════════════════════════════
+
 class OutstandingListView(APIView):
     """
     GET  /api/accounting/outstandings/?type=receivable|payable&status=pending|paid
@@ -644,6 +855,10 @@ class OutstandingListView(APIView):
         if not date:
             return Response({'success': False, 'message': 'date is required'}, status=400)
 
+        department = (data.get('department') or '').strip()
+        if not department:
+            return Response({'success': False, 'message': 'Department is required'}, status=400)
+
         try:
             with transaction.atomic():
                 if o_type == 'receivable':
@@ -658,8 +873,8 @@ class OutstandingListView(APIView):
                         date=date,
                         description=f'Receivable: {party_name} - {description}'
                     )
-                    JournalItem.objects.create(entry=journal, ledger=ar_ledger, debit=amount, credit=0, notes=description, vendor_payee=party_name)
-                    JournalItem.objects.create(entry=journal, ledger=sales_ledger, debit=0, credit=amount, notes=description, vendor_payee=party_name)
+                    JournalItem.objects.create(entry=journal, ledger=ar_ledger, debit=amount, credit=0, notes=description, vendor_payee=party_name, department=department)
+                    JournalItem.objects.create(entry=journal, ledger=sales_ledger, debit=0, credit=amount, notes=description, vendor_payee=party_name, department=department)
                 else:
                     # Expense (Dr)  /  Accounts Payable (Cr)
                     expense_ledger, _ = Ledger.objects.get_or_create(
@@ -672,8 +887,8 @@ class OutstandingListView(APIView):
                         date=date,
                         description=f'Payable: {party_name} - {description}'
                     )
-                    JournalItem.objects.create(entry=journal, ledger=expense_ledger, debit=amount, credit=0, notes=description, vendor_payee=party_name)
-                    JournalItem.objects.create(entry=journal, ledger=ap_ledger, debit=0, credit=amount, notes=description, vendor_payee=party_name)
+                    JournalItem.objects.create(entry=journal, ledger=expense_ledger, debit=amount, credit=0, notes=description, vendor_payee=party_name, department=department)
+                    JournalItem.objects.create(entry=journal, ledger=ap_ledger, debit=0, credit=amount, notes=description, vendor_payee=party_name, department=department)
 
                 outstanding = Outstanding.objects.create(
                     type=o_type,
@@ -682,6 +897,7 @@ class OutstandingListView(APIView):
                     linked_journal=journal,
                     status=Outstanding.Status.PENDING,
                     description=description,
+                    department=department,
                     due_date=due_date,
                 )
             from .serializers import OutstandingSerializer

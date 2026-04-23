@@ -3,7 +3,7 @@ from decimal import Decimal
 from django.db import transaction
 from rest_framework import serializers
 
-from .models import JournalEntry, JournalItem, Ledger, Outstanding
+from .models import JournalEntry, JournalItem, Ledger, Outstanding, PendingExpense
 
 
 class LedgerSerializer(serializers.ModelSerializer):
@@ -107,6 +107,26 @@ class JournalEntrySerializer(serializers.ModelSerializer):
         fields = ('id', 'date', 'description', 'created_at', 'items')
 
 
+class PendingExpenseSerializer(serializers.ModelSerializer):
+    category_name = serializers.CharField(source='category.name', read_only=True, allow_null=True)
+    category_id = serializers.PrimaryKeyRelatedField(source='category', read_only=True, allow_null=True)
+
+    class Meta:
+        model = PendingExpense
+        fields = (
+            'id', 'employee_name', 'amount', 'category_id', 'category_name',
+            'description', 'source_id', 'source', 'status', 'created_at', 'updated_at',
+        )
+
+
+class ApproveExpenseSerializer(serializers.Serializer):
+    """Expects the Ledger (asset type) that will be credited (payment account)."""
+    payment_ledger = serializers.PrimaryKeyRelatedField(
+        queryset=Ledger.objects.filter(type__in=['asset', 'liability']),
+        help_text='ID of the asset/liability ledger to credit (e.g. Cash, Bank).',
+    )
+
+
 class ExpenseSerializer(serializers.ModelSerializer):
     category_name = serializers.CharField(source='category.name', read_only=True)
     account_name = serializers.CharField(source='account.name', read_only=True)
@@ -114,7 +134,7 @@ class ExpenseSerializer(serializers.ModelSerializer):
     class Meta:
         from .models import Expense
         model = Expense
-        fields = ('id', 'amount', 'category', 'category_name', 'account', 'account_name', 'date', 'description', 'receipt', 'created_at')
+        fields = ('id', 'amount', 'category', 'category_name', 'account', 'account_name', 'date', 'description', 'department', 'receipt', 'created_at')
 
 
 class IncomeSerializer(serializers.ModelSerializer):
@@ -124,7 +144,7 @@ class IncomeSerializer(serializers.ModelSerializer):
     class Meta:
         from .models import Income
         model = Income
-        fields = ('id', 'amount', 'category', 'category_name', 'account', 'account_name', 'date', 'description', 'receipt', 'created_at')
+        fields = ('id', 'amount', 'category', 'category_name', 'account', 'account_name', 'date', 'description', 'department', 'receipt', 'created_at')
 
 
 class OutstandingReceiptSerializer(serializers.ModelSerializer):
@@ -143,7 +163,7 @@ class OutstandingSerializer(serializers.ModelSerializer):
     class Meta:
         model = Outstanding
         fields = (
-            'id', 'type', 'party_name', 'amount', 'status', 'description',
+            'id', 'type', 'party_name', 'amount', 'status', 'description', 'department',
             'due_date', 'linked_journal_id', 'settlement_journal_id',
             'settlement_account_name', 'receipts', 'created_at', 'updated_at'
         )
