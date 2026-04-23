@@ -313,7 +313,7 @@ export default function MasterWorkforceSheet() {
     setExportMenuOpen(false);
   };
 
-  const handleExport = () => { = () => {
+  const handleQuickEnrollOpen2 = () => {
     setIsQuickEnrollOpen(true);
   };
 

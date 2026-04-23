@@ -285,7 +285,7 @@ export default function MasterJobSheet() {
     setExportMenuOpen(false);
   };
 
-  const handleExport = () => { = () => {
+  const handleCreateJob = () => {
     setIsCreateJobModalOpen(true);
   };
 
