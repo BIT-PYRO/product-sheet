@@ -4,7 +4,8 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Search, Eye, FileIcon, ChevronDown } from 'lucide-react';
+import { Search, Eye, FileIcon, ChevronDown, Download } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import {
   Select,
   SelectContent,
@@ -265,9 +266,23 @@ export default function MasterJobSheet() {
     setIsPrintSheetOpen(true);
   };
 
-  const handleExport = () => {
-    // Export functionality
-    console.log('Export data:', data);
+  const [exportMenuOpen, setExportMenuOpen] = useState(false);
+  const EXPORT_FIELDS = columns.map((c) => c.id);
+  const EXPORT_LABELS = columns.map((c) => c.label);
+  const exportToExcel = () => {
+    if (!canExport) return;
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([EXPORT_LABELS, ...sortedDisplayData.map((r) => EXPORT_FIELDS.map((f) => r[f] ?? ''))]), 'Jobs');
+    XLSX.writeFile(wb, 'master_job_sheet.xlsx');
+    setExportMenuOpen(false);
+  };
+  const exportToPDF = () => {
+    if (!canExport) return;
+    const rows = sortedDisplayData.map((r) => EXPORT_FIELDS.map((f) => r[f] ?? ''));
+    const win = window.open('', '_blank');
+    win.document.write(`<html><head><title>Master Job Sheet</title><style>body{font-family:sans-serif;font-size:11px;margin:16px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #ccc;padding:4px 6px;text-align:left}th{background:#dbeafe}</style></head><body><h2>Master Job Sheet</h2><table><thead><tr>${EXPORT_LABELS.map((l)=>`<th>${l}</th>`).join('')}</tr></thead><tbody>${rows.map((r)=>`<tr>${r.map((c)=>`<td>${c}</td>`).join('')}</tr>`).join('')}</tbody></table><script>window.onload=function(){window.print();}<\/script></body></html>`);
+    win.document.close();
+    setExportMenuOpen(false);
   };
 
   const handleCreateJob = () => {
@@ -895,15 +910,20 @@ export default function MasterJobSheet() {
           >
             Manage Columns
           </Button>
-          <Button 
-            onClick={handleExport}
-            variant="outline"
-            className="border-midnight-ink text-midnight-ink rounded-full px-4 h-8 text-sm"
-            disabled={!canExport}
-            title={!canExport ? 'You do not have permission to export' : undefined}
-          >
-            Export
-          </Button>
+          <div className="relative">
+            {exportMenuOpen && <div className="fixed inset-0 z-10" onClick={() => setExportMenuOpen(false)} />}
+            <Button onClick={() => setExportMenuOpen((p) => !p)} variant="outline"
+              className="relative z-20 border-emerald-500 text-emerald-600 hover:bg-emerald-50 rounded-full px-4 h-8 text-sm flex items-center gap-1.5"
+              disabled={!canExport} title={!canExport ? 'You do not have permission to export' : undefined}>
+              <Download className="w-3.5 h-3.5" /> Export <ChevronDown className="w-3.5 h-3.5" />
+            </Button>
+            {exportMenuOpen && canExport && (
+              <div className="absolute right-0 top-9 z-30 w-52 rounded-lg bg-white shadow-lg border border-soft-border py-1">
+                <button type="button" onClick={exportToExcel} className="w-full px-4 py-2 text-sm text-midnight-ink hover:bg-cloud-gray text-left">Export as Excel (.xlsx)</button>
+                <button type="button" onClick={exportToPDF} className="w-full px-4 py-2 text-sm text-midnight-ink hover:bg-cloud-gray text-left">Export as PDF</button>
+              </div>
+            )}
+          </div>
           
           {/* Print Dropdown */}
           {canExport && (

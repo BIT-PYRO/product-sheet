@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Pencil, Plus, Printer, RefreshCw, Trash2, X } from 'lucide-react';
+import { ArrowLeft, ChevronDown, Download, Pencil, Plus, Printer, RefreshCw, Trash2, X } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import SortPopover from '@/components/sort-popover';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
 import LastUpdatedFooter from '@/components/last-updated-footer';
@@ -140,6 +141,7 @@ export default function StoneInventoryPage() {
   const handleSort = (field) => { setSortField((prev) => { if (prev === field) { setSortDir((d) => d === 'asc' ? 'desc' : 'asc'); return prev; } setSortDir('asc'); return field; }); };
   const [isManageColumnsOpen, setIsManageColumnsOpen] = useState(false);
   const [selectedColumnsForAction, setSelectedColumnsForAction] = useState(new Set());
+  const [exportMenuOpen, setExportMenuOpen] = useState(false);
   const { visibleColumns, setVisibleColumns, saveView: saveColumnView, saveViewStatus } = useColumnPreferences('inv-stone', STONE_MANAGE_COLUMNS.map((column) => column.id));
 
   // Add New Stone dialog
@@ -286,6 +288,22 @@ export default function StoneInventoryPage() {
   const allSelected = filteredStones.length > 0 && filteredStones.every((stone) => selectedIds.has(stone.id));
   const someSelected = selectedIds.size > 0 && !allSelected;
   const visibleTableColumnCount = 1 + STONE_MANAGE_COLUMNS.filter((column) => visibleColumns.has(column.id)).length;
+
+  const EXPORT_HEADERS = ['id','stone_type','species','variety','color','quality','wax_setting','cut','shape','length','width','height','qty','weight_cts','dos','donts'];
+  const buildExportRows = () => filteredStones.map((r) => EXPORT_HEADERS.map((h) => r[h] ?? ''));
+  const exportToExcel = () => {
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([EXPORT_HEADERS, ...buildExportRows()]), 'Stones');
+    XLSX.writeFile(wb, 'stone_inventory.xlsx');
+    setExportMenuOpen(false);
+  };
+  const exportToPDF = () => {
+    const win = window.open('', '_blank');
+    const rows = buildExportRows();
+    win.document.write(`<html><head><title>Stone Inventory</title><style>body{font-family:sans-serif;font-size:11px;margin:16px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #ccc;padding:4px 6px;text-align:left}th{background:#ecfdf5}</style></head><body><h2>Stone Inventory</h2><table><thead><tr>${EXPORT_HEADERS.map((h)=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${rows.map((r)=>`<tr>${r.map((c)=>`<td>${c}</td>`).join('')}</tr>`).join('')}</tbody></table><script>window.onload=function(){window.print();}<\/script></body></html>`);
+    win.document.close();
+    setExportMenuOpen(false);
+  };
 
   function toggleSelectAll() {
     if (allSelected) {
@@ -811,6 +829,19 @@ export default function StoneInventoryPage() {
             <Printer size={14} className="mr-1.5" />
             Print
           </Button>
+          <div className="relative">
+            {exportMenuOpen && <div className="fixed inset-0 z-10" onClick={() => setExportMenuOpen(false)} />}
+            <Button onClick={() => setExportMenuOpen((p) => !p)} variant="outline"
+              className="relative z-20 border-emerald-500 text-emerald-600 hover:bg-emerald-50 rounded-full px-4 text-sm h-8 flex items-center gap-1.5">
+              <Download className="w-3.5 h-3.5" /> Export <ChevronDown className="w-3.5 h-3.5" />
+            </Button>
+            {exportMenuOpen && (
+              <div className="absolute right-0 top-9 z-30 w-52 rounded-lg bg-white shadow-lg border border-soft-border py-1">
+                <button type="button" onClick={exportToExcel} className="w-full px-4 py-2 text-sm text-midnight-ink hover:bg-cloud-gray text-left">Export as Excel (.xlsx)</button>
+                <button type="button" onClick={exportToPDF} className="w-full px-4 py-2 text-sm text-midnight-ink hover:bg-cloud-gray text-left">Export as PDF</button>
+              </div>
+            )}
+          </div>
           <SortPopover
             columns={[
               { id: 'stone_type', label: 'Stone Type' },

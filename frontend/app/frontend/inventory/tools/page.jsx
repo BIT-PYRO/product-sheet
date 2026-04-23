@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Pencil, Plus, Printer, RefreshCw, Trash2, X } from 'lucide-react';
+import { ArrowLeft, ChevronDown, Download, Pencil, Plus, Printer, RefreshCw, Trash2, X } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import SortPopover from '@/components/sort-popover';
 import BulkUploadButton from '@/components/bulk-upload-button';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
@@ -31,11 +32,11 @@ const TOOLS_COLUMNS = [
   { id: 'new_qty', label: 'New Qty' },
   { id: 'new_unit', label: 'New Unit' },
   { id: 'new_location', label: 'New Location' },
+  { id: 'in_use_qty', label: 'In Use Qty' },
+  { id: 'in_use_unit', label: 'In Use Unit' },
   { id: 'used_qty', label: 'Used Qty' },
   { id: 'used_unit', label: 'Used Unit' },
   { id: 'used_location', label: 'Used Location' },
-  { id: 'in_use_qty', label: 'In Use Qty' },
-  { id: 'in_use_unit', label: 'In Use Unit' },
   { id: 'min_required_stock', label: 'Min. in Stock' },
   { id: 'action', label: 'Action' },
 ];
@@ -91,6 +92,72 @@ export default function ToolsInventoryPage() {
   const [rowsPerPage, setRowsPerPage] = useState(25);
   const [currentPage, setCurrentPage] = useState(1);
   const [lastUpdated, setLastUpdated] = useState(null);
+  const [exportMenuOpen, setExportMenuOpen] = useState(false);
+
+  const EXPORT_HEADERS = [
+    'id',
+    'tool_name',
+    'particulars',
+    'department',
+    'new_qty',
+    'new_unit',
+    'new_location',
+    'in_use_qty',
+    'in_use_unit',
+    'used_qty',
+    'used_unit',
+    'used_location',
+    'min_required_stock',
+  ];
+
+  const buildExportRows = () => filteredRows.map((row) => ([
+    row.id,
+    row.tool_name ?? '',
+    row.particulars ?? '',
+    row.department ?? '',
+    row.new_qty ?? 0,
+    row.new_unit ?? '',
+    row.new_location ?? '',
+    row.in_use_qty ?? 0,
+    row.in_use_unit ?? '',
+    row.used_qty ?? 0,
+    row.used_unit ?? '',
+    row.used_location ?? '',
+    row.min_required_stock ?? 0,
+  ]));
+
+  const exportToExcel = () => {
+    const data = [EXPORT_HEADERS, ...buildExportRows()];
+    const ws = XLSX.utils.aoa_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Tools Inventory');
+    XLSX.writeFile(wb, 'tools_inventory.xlsx');
+    setExportMenuOpen(false);
+  };
+
+  const exportToPDF = () => {
+    const rows = buildExportRows();
+    const tableRows = rows.map((r) =>
+      `<tr>${r.map((cell) => `<td>${cell}</td>`).join('')}</tr>`
+    ).join('');
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Tools Inventory</title>
+      <style>
+        body { font-family: Arial, sans-serif; font-size: 11px; margin: 16px; }
+        h2 { margin-bottom: 8px; }
+        table { border-collapse: collapse; width: 100%; }
+        th, td { border: 1px solid #ccc; padding: 4px 8px; text-align: left; }
+        th { background: #e8f5e9; font-weight: 600; }
+        @media print { body { margin: 0; } }
+      </style></head><body>
+      <h2>Tools Inventory</h2>
+      <table><thead><tr>${EXPORT_HEADERS.map((h) => `<th>${h}</th>`).join('')}</tr></thead>
+      <tbody>${tableRows}</tbody></table>
+      <script>window.onload=function(){window.print();}<\/script>
+      </body></html>`;
+    const w = window.open('', '_blank');
+    if (w) { w.document.write(html); w.document.close(); }
+    setExportMenuOpen(false);
+  };
 
   const loadRows = useCallback(async () => {
     setLoading(true);
@@ -575,6 +642,26 @@ export default function ToolsInventoryPage() {
             Issue Tool
           </Button>
           <BulkUploadButton sheetType="tools" onComplete={loadRows} className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8" />
+          <div className="relative">
+            <Button
+              variant="outline"
+              onClick={() => setExportMenuOpen((v) => !v)}
+              className="border-emerald-600 text-emerald-700 hover:bg-emerald-50 rounded-full px-4 text-sm h-8 gap-1"
+            >
+              <Download className="w-3.5 h-3.5" />
+              Export
+              <ChevronDown className="w-3.5 h-3.5" />
+            </Button>
+            {exportMenuOpen && (
+              <>
+                <div className="fixed inset-0 z-10" onClick={() => setExportMenuOpen(false)} />
+                <div className="absolute right-0 z-20 mt-1 w-44 rounded-lg border border-soft-border bg-white shadow-lg py-1">
+                  <button type="button" onClick={exportToExcel} className="w-full px-4 py-2 text-left text-sm hover:bg-[#F3F4F6]">Export as Excel (.xlsx)</button>
+                  <button type="button" onClick={exportToPDF} className="w-full px-4 py-2 text-left text-sm hover:bg-[#F3F4F6]">Export as PDF</button>
+                </div>
+              </>
+            )}
+          </div>
           <Button onClick={() => setRequestsPanelOpen((prev) => !prev)} variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8">
             Requests
             {pendingIssueRequests.length > 0 && (
@@ -662,8 +749,8 @@ export default function ToolsInventoryPage() {
                         {visibleColumns.has('particulars') && <th rowSpan={hasSubHeaders ? 2 : 1} className="border border-soft-border px-4 py-3 text-left text-xs font-normal text-black">Particulars</th>}
                         {visibleColumns.has('department') && <th rowSpan={hasSubHeaders ? 2 : 1} className="border border-soft-border px-4 py-3 text-left text-xs font-normal text-black">Department</th>}
                         {newVisibleCount > 0 && <th colSpan={newVisibleCount} className="border border-soft-border bg-emerald-50 px-4 py-2 text-center text-xs font-semibold text-emerald-800">New</th>}
-                        {usedVisibleCount > 0 && <th colSpan={usedVisibleCount} className="border border-soft-border bg-amber-50 px-4 py-2 text-center text-xs font-semibold text-amber-800">Used</th>}
                         {inUseVisibleCount > 0 && <th colSpan={inUseVisibleCount} className="border border-soft-border bg-blue-50 px-4 py-2 text-center text-xs font-semibold text-blue-800">In Use</th>}
+                        {usedVisibleCount > 0 && <th colSpan={usedVisibleCount} className="border border-soft-border bg-amber-50 px-4 py-2 text-center text-xs font-semibold text-amber-800">Used</th>}
                         {visibleColumns.has('min_required_stock') && <th rowSpan={hasSubHeaders ? 2 : 1} className="border border-soft-border px-4 py-3 text-left text-xs font-normal text-black">Min. in Stock</th>}
                         {visibleColumns.has('action') && <th rowSpan={hasSubHeaders ? 2 : 1} className="border border-soft-border px-4 py-3 text-left text-xs font-normal text-black w-24">Action</th>}
                       </tr>
@@ -672,11 +759,11 @@ export default function ToolsInventoryPage() {
                           {visibleColumns.has('new_qty') && <th className="border border-soft-border bg-emerald-50 px-4 py-2 text-left text-xs font-normal text-black">Qty</th>}
                           {visibleColumns.has('new_unit') && <th className="border border-soft-border bg-emerald-50 px-4 py-2 text-left text-xs font-normal text-black">Unit</th>}
                           {visibleColumns.has('new_location') && <th className="border border-soft-border bg-emerald-50 px-4 py-2 text-left text-xs font-normal text-black">Location</th>}
+                          {visibleColumns.has('in_use_qty') && <th className="border border-soft-border bg-blue-50 px-4 py-2 text-left text-xs font-normal text-black">Qty</th>}
+                          {visibleColumns.has('in_use_unit') && <th className="border border-soft-border bg-blue-50 px-4 py-2 text-left text-xs font-normal text-black">Unit</th>}
                           {visibleColumns.has('used_qty') && <th className="border border-soft-border bg-amber-50 px-4 py-2 text-left text-xs font-normal text-black">Qty</th>}
                           {visibleColumns.has('used_unit') && <th className="border border-soft-border bg-amber-50 px-4 py-2 text-left text-xs font-normal text-black">Unit</th>}
                           {visibleColumns.has('used_location') && <th className="border border-soft-border bg-amber-50 px-4 py-2 text-left text-xs font-normal text-black">Location</th>}
-                          {visibleColumns.has('in_use_qty') && <th className="border border-soft-border bg-blue-50 px-4 py-2 text-left text-xs font-normal text-black">Qty</th>}
-                          {visibleColumns.has('in_use_unit') && <th className="border border-soft-border bg-blue-50 px-4 py-2 text-left text-xs font-normal text-black">Unit</th>}
                         </tr>
                       )}
                     </>
@@ -741,6 +828,12 @@ export default function ToolsInventoryPage() {
                     {visibleColumns.has('new_location') && <td className="border border-soft-border bg-emerald-50/30 px-4 py-2.5">
                       <input type="text" value={getRowValue(row, 'new_location')} onChange={(e) => updateRow(row.id, 'new_location', e.target.value)} placeholder="Location" readOnly={!editingRowIds.has(row.id)} className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue read-only:border-transparent read-only:bg-transparent read-only:text-midnight-ink read-only:cursor-default" />
                     </td>}
+                    {visibleColumns.has('in_use_qty') && <td className="border border-soft-border bg-blue-50/30 px-4 py-2.5">
+                      <input type="number" value={getRowValue(row, 'in_use_qty')} onChange={(e) => updateRow(row.id, 'in_use_qty', e.target.value)} placeholder="0" readOnly={!editingRowIds.has(row.id)} className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue read-only:border-transparent read-only:bg-transparent read-only:text-midnight-ink read-only:cursor-default" />
+                    </td>}
+                    {visibleColumns.has('in_use_unit') && <td className="border border-soft-border bg-blue-50/30 px-4 py-2.5">
+                      <input type="text" value={getRowValue(row, 'in_use_unit')} onChange={(e) => updateRow(row.id, 'in_use_unit', e.target.value)} placeholder="PCS" readOnly={!editingRowIds.has(row.id)} className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue read-only:border-transparent read-only:bg-transparent read-only:text-midnight-ink read-only:cursor-default" />
+                    </td>}
                     {visibleColumns.has('used_qty') && <td className="border border-soft-border bg-amber-50/30 px-4 py-2.5">
                       <input type="number" value={getRowValue(row, 'used_qty')} onChange={(e) => updateRow(row.id, 'used_qty', e.target.value)} placeholder="0" readOnly={!editingRowIds.has(row.id)} className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue read-only:border-transparent read-only:bg-transparent read-only:text-midnight-ink read-only:cursor-default" />
                     </td>}
@@ -749,12 +842,6 @@ export default function ToolsInventoryPage() {
                     </td>}
                     {visibleColumns.has('used_location') && <td className="border border-soft-border bg-amber-50/30 px-4 py-2.5">
                       <input type="text" value={getRowValue(row, 'used_location')} onChange={(e) => updateRow(row.id, 'used_location', e.target.value)} placeholder="Location" readOnly={!editingRowIds.has(row.id)} className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue read-only:border-transparent read-only:bg-transparent read-only:text-midnight-ink read-only:cursor-default" />
-                    </td>}
-                    {visibleColumns.has('in_use_qty') && <td className="border border-soft-border bg-blue-50/30 px-4 py-2.5">
-                      <input type="number" value={getRowValue(row, 'in_use_qty')} onChange={(e) => updateRow(row.id, 'in_use_qty', e.target.value)} placeholder="0" readOnly={!editingRowIds.has(row.id)} className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue read-only:border-transparent read-only:bg-transparent read-only:text-midnight-ink read-only:cursor-default" />
-                    </td>}
-                    {visibleColumns.has('in_use_unit') && <td className="border border-soft-border bg-blue-50/30 px-4 py-2.5">
-                      <input type="text" value={getRowValue(row, 'in_use_unit')} onChange={(e) => updateRow(row.id, 'in_use_unit', e.target.value)} placeholder="PCS" readOnly={!editingRowIds.has(row.id)} className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue read-only:border-transparent read-only:bg-transparent read-only:text-midnight-ink read-only:cursor-default" />
                     </td>}
                     {visibleColumns.has('min_required_stock') && <td className="border border-soft-border px-4 py-2.5">
                       <input type="number" value={getRowValue(row, 'min_required_stock')} onChange={(e) => updateRow(row.id, 'min_required_stock', e.target.value)} placeholder="0" readOnly={!editingRowIds.has(row.id)} className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue read-only:border-transparent read-only:bg-transparent read-only:text-midnight-ink read-only:cursor-default" />

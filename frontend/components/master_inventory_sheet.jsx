@@ -1,7 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronDown, Upload, FileText } from 'lucide-react';
+import { ChevronDown, Download, Upload, FileText } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
 import GlobalSearchBar from '@/components/global-search-bar';
 import { Button } from '@/components/ui/button';
@@ -1142,6 +1143,8 @@ export default function MasterInventorySheet() {
     setIsManageColumnsOpen(false);
   };
 
+  const [exportMenuOpen, setExportMenuOpen] = useState(false);
+
   const handleExport = () => {
     if (selectedRows.size === 0) {
       alert('Please select at least one row to export');
@@ -1172,6 +1175,57 @@ export default function MasterInventorySheet() {
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
+  };
+
+  // Build rows for a specific stockField view, using all sortedProducts
+  const buildExportSheet = (stockField) => {
+    const exportColumns = visibleColumnList.filter((col) => col.key !== '__select__');
+    const headers = exportColumns.map((col) => col.label);
+    const rows = sortedProducts.map((product) => {
+      const row = buildInventoryRow(product, stockField);
+      return exportColumns.map((col) => {
+        const v = row[col.key];
+        if (v && typeof v === 'object' && v.isComposite) return `${v.wip ?? ''} / ${v.current ?? ''}`;
+        return v ?? '';
+      });
+    });
+    return XLSX.utils.aoa_to_sheet([headers, ...rows]);
+  };
+
+  const exportToExcel = () => {
+    if (!canExport) return;
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, buildExportSheet('current'), 'Current Stock');
+    XLSX.utils.book_append_sheet(wb, buildExportSheet('wip'), 'WIP');
+    XLSX.utils.book_append_sheet(wb, buildExportSheet('min'), 'Min Needed');
+    XLSX.utils.book_append_sheet(wb, buildExportSheet('location'), 'Location');
+    XLSX.writeFile(wb, 'master_inventory_sheet.xlsx');
+    setExportMenuOpen(false);
+  };
+
+  const openInventoryPDF = (stockField, title) => {
+    const exportColumns = visibleColumnList.filter((col) => col.key !== '__select__');
+    const headers = exportColumns.map((col) => col.label);
+    const rows = sortedProducts.map((product) => {
+      const row = buildInventoryRow(product, stockField);
+      return exportColumns.map((col) => {
+        const v = row[col.key];
+        if (v && typeof v === 'object' && v.isComposite) return `${v.wip ?? ''} / ${v.current ?? ''}`;
+        return v ?? '';
+      });
+    });
+    const win = window.open('', '_blank');
+    win.document.write(`<html><head><title>${title}</title><style>body{font-family:sans-serif;font-size:11px;margin:16px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #ccc;padding:4px 6px;text-align:left}th{background:#dbeafe}</style></head><body><h2>${title}</h2><table><thead><tr>${headers.map((h)=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${rows.map((r)=>`<tr>${r.map((c)=>`<td>${c}</td>`).join('')}</tr>`).join('')}</tbody></table><script>window.onload=function(){window.print();}<\/script></body></html>`);
+    win.document.close();
+  };
+
+  const exportToPDF = () => {
+    if (!canExport) return;
+    openInventoryPDF('current', 'Current Stock');
+    openInventoryPDF('wip', 'WIP');
+    openInventoryPDF('min', 'Min Needed');
+    openInventoryPDF('location', 'Location');
+    setExportMenuOpen(false);
   };
 
   const handlePicklistUploadClick = () => {
@@ -1781,7 +1835,20 @@ export default function MasterInventorySheet() {
                 <DropdownMenuItem onClick={() => { setSortOrder('default'); setCurrentPage(1); }}>Default Order</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-            <Button variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8" onClick={handleExport} disabled={!canExport} title={!canExport ? 'You do not have permission to export' : undefined}>Export</Button>
+            <div className="relative">
+              {exportMenuOpen && <div className="fixed inset-0 z-10" onClick={() => setExportMenuOpen(false)} />}
+              <Button onClick={() => setExportMenuOpen((p) => !p)} variant="outline"
+                className="relative z-20 border-emerald-500 text-emerald-600 hover:bg-emerald-50 rounded-full px-4 text-sm h-8 flex items-center gap-1.5"
+                disabled={!canExport} title={!canExport ? 'You do not have permission to export' : undefined}>
+                <Download className="w-3.5 h-3.5" /> Export <ChevronDown className="w-3.5 h-3.5" />
+              </Button>
+              {exportMenuOpen && canExport && (
+                <div className="absolute right-0 top-9 z-30 w-56 rounded-lg bg-white shadow-lg border border-soft-border py-1">
+                  <button type="button" onClick={exportToExcel} className="w-full px-4 py-2 text-sm text-midnight-ink hover:bg-cloud-gray text-left">Export as Excel (.xlsx) — 4 sheets</button>
+                  <button type="button" onClick={exportToPDF} className="w-full px-4 py-2 text-sm text-midnight-ink hover:bg-cloud-gray text-left">Export as PDF — 4 files</button>
+                </div>
+              )}
+            </div>
             {canExport && <Button variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8" onClick={() => window.print()}>Print</Button>}
             <Button
               onClick={() => setIsPendingVouchersOpen(true)}
