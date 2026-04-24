@@ -9,6 +9,7 @@ import MasterNavigationDrawer from '@/components/master_navigation_drawer';
 import GlobalSearchBar from '@/components/global-search-bar';
 import DateTimeStamp from '@/components/date-time-stamp';
 import DeletionHistoryDrawer from '@/components/deletion-history-drawer';
+import { fmtNum } from '@/lib/utils';
 import {
   Dialog,
   DialogContent,
@@ -132,7 +133,7 @@ export default function StockLogPage() {
   // ── Derived: auto-calculate amount ─────────────────────────────────────
   const calcAmount = (qty, price) => {
     const q = Number(qty); const p = Number(price);
-    if (q > 0 && p > 0) return String((q * p).toFixed(2));
+    if (q > 0 && p > 0) return fmtNum(q * p);
     return '';
   };
 

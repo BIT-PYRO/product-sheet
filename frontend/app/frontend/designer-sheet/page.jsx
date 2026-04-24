@@ -3,6 +3,7 @@
 import React, { Suspense } from 'react'
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { fmtNum } from '@/lib/utils'
 import { Trash2, Download, Upload, Search, X, ExternalLink, ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
 import MasterNavigationDrawer from '@/components/master_navigation_drawer'
@@ -1325,7 +1326,7 @@ function DesignerSheetContent() {
                     const rowUnit = rowWeightUnits[alloy.name] || globalWeightUnit
                     const unitDef = WEIGHT_UNITS.find((u) => u.id === rowUnit)
                     const weightInG = cpx > 0 ? cpx * alloy.density / 8.5 : null
-                    const weightDisplay = weightInG != null ? unitDef.convert(weightInG).toFixed(3) : '—'
+                    const weightDisplay = weightInG != null ? fmtNum(unitDef.convert(weightInG)) : '—'
                     const isSelected = designer.designMaterial === alloy.name
                     return (
                       <tr

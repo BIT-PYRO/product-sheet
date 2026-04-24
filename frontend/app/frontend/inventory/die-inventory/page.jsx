@@ -18,6 +18,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { fmtNum } from '@/lib/utils';
 import GlobalSearchBar from '@/components/global-search-bar';
 import DateTimeStamp from '@/components/date-time-stamp';
 import MultiselectFilterPopover from '@/components/multiselect-filter-popover';
@@ -988,7 +989,7 @@ export default function DieInventoryPage() {
                                   <input type="number" value={editBuffer[d.id]?.quantity ?? ''} onChange={(e) => updateEditBuffer(d.id, 'quantity', e.target.value)} className="h-8 w-full rounded border border-soft-border px-2 text-sm text-right" />
                                 </td>
                               ) : (
-                                <td className="border border-soft-border px-3 py-2 text-right font-medium text-midnight-ink" rowSpan={subRowCount}>{d.quantity ?? '—'}</td>
+                                <td className="border border-soft-border px-3 py-2 text-right font-medium text-midnight-ink" rowSpan={subRowCount}>{fmtNum(d.quantity) ?? '—'}</td>
                               )
                             )}
                             {visibleColumns.has('wax_piece_qty') && (
@@ -997,7 +998,7 @@ export default function DieInventoryPage() {
                                   <input type="number" value={editBuffer[d.id]?.wax_piece_qty ?? ''} onChange={(e) => updateEditBuffer(d.id, 'wax_piece_qty', e.target.value)} className="h-8 w-full rounded border border-soft-border px-2 text-sm text-right" />
                                 </td>
                               ) : (
-                                <td className="border border-soft-border px-3 py-2 text-right text-midnight-ink" rowSpan={subRowCount}>{d.wax_piece_qty ?? '—'}</td>
+                                <td className="border border-soft-border px-3 py-2 text-right text-midnight-ink" rowSpan={subRowCount}>{fmtNum(d.wax_piece_qty) ?? '—'}</td>
                               )
                             )}
                             {visibleColumns.has('wax_piece_location') && (
@@ -1015,7 +1016,7 @@ export default function DieInventoryPage() {
                                   <input type="text" value={editBuffer[d.id]?.wax_setting_qty ?? ''} onChange={(e) => updateEditBuffer(d.id, 'wax_setting_qty', e.target.value)} className="h-8 w-full rounded border border-soft-border px-2 text-sm" />
                                 </td>
                               ) : (
-                                <td className="border border-soft-border px-3 py-2 text-midnight-ink" rowSpan={subRowCount}>{d.wax_setting_qty || '—'}</td>
+                                <td className="border border-soft-border px-3 py-2 text-midnight-ink" rowSpan={subRowCount}>{fmtNum(d.wax_setting_qty) || '—'}</td>
                               )
                             )}
                             {visibleColumns.has('wax_setting_location') && (
@@ -1033,7 +1034,7 @@ export default function DieInventoryPage() {
                                   <input type="text" value={editBuffer[d.id]?.casting_qty ?? ''} onChange={(e) => updateEditBuffer(d.id, 'casting_qty', e.target.value)} className="h-8 w-full rounded border border-soft-border px-2 text-sm" />
                                 </td>
                               ) : (
-                                <td className="border border-soft-border px-3 py-2 text-midnight-ink" rowSpan={subRowCount}>{d.casting_qty || '—'}</td>
+                                <td className="border border-soft-border px-3 py-2 text-midnight-ink" rowSpan={subRowCount}>{fmtNum(d.casting_qty) || '—'}</td>
                               )
                             )}
                             {visibleColumns.has('casting_location') && (

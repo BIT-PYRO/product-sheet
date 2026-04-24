@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { fmtNum } from '@/lib/utils';
 
 const STATUS_BADGE = {
   pending: 'bg-amber-100 text-amber-800',
@@ -548,7 +549,7 @@ export function OrderProgressSheetView({ embedded = false }) {
                           productProgress.map((row) => (
                             <tr key={row.sku} className="border-b border-soft-border last:border-b-0">
                               <td className="px-3 py-2 font-semibold text-midnight-ink">{row.sku}</td>
-                              <td className="px-3 py-2 text-midnight-ink">{row.quantity}</td>
+                              <td className="px-3 py-2 text-midnight-ink">{fmtNum(row.quantity) || '—'}</td>
                               <td className="px-3 py-2">
                                 <span className={`inline-flex rounded-full px-2 py-0.5 font-semibold ${row.className}`}>
                                   {row.label}

@@ -21,6 +21,7 @@ import GlobalSearchBar from '@/components/global-search-bar';
 import DateTimeStamp from '@/components/date-time-stamp';
 import MultiselectFilterPopover from '@/components/multiselect-filter-popover';
 import { EnrolWorkforceForm } from '@/app/frontend/enrol-workforce/page';
+import { fmtNum } from '@/lib/utils';
 
 // ISSUE_REQUESTS_KEY removed — now using API
 const STONE_MANAGE_COLUMNS = [
@@ -69,7 +70,7 @@ function calcAmount(price, qty, weight, priceBy) {
   const q = parseFloat(qty) || 0;
   const w = parseFloat(weight) || 0;
   const val = priceBy === 'weight' ? p * w : p * q;
-  return val > 0 ? val.toFixed(2) : '';
+  return val > 0 ? fmtNum(val) : '';
 }
 
 // â”€â”€â”€ tiny form-field â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -1011,7 +1012,7 @@ export default function StoneInventoryPage() {
                       </td>
                       {COLS.filter((c) => visibleColumns.has(c.key)).map((c) => (
                         <td key={c.key} className="border border-soft-border whitespace-nowrap px-4 py-2.5 text-midnight-ink">
-                          {c.render ? c.render(stone[c.key]) : (stone[c.key] ?? 'â€”')}
+                          {c.render ? c.render(stone[c.key]) : (fmtNum(stone[c.key]) || '—')}
                         </td>
                       ))}
                       {visibleColumns.has('actions') && <td className="border border-soft-border px-4 py-2.5">

@@ -9,6 +9,7 @@ import MasterNavigationDrawer from '@/components/master_navigation_drawer';
 import GlobalSearchBar from '@/components/global-search-bar';
 import DateTimeStamp from '@/components/date-time-stamp';
 import DeletionHistoryDrawer from '@/components/deletion-history-drawer';
+import { fmtNum } from '@/lib/utils';
 import {
   Dialog,
   DialogContent,
@@ -159,8 +160,8 @@ export default function StoneLogPage() {
     const p = Number(price);
     const w = Number(weight);
     const q = Number(qty);
-    if (p > 0 && w > 0) return String((p * w).toFixed(2));
-    if (p > 0 && q > 0) return String((p * q).toFixed(2));
+    if (p > 0 && w > 0) return fmtNum(p * w);
+    if (p > 0 && q > 0) return fmtNum(p * q);
     return '';
   };
 

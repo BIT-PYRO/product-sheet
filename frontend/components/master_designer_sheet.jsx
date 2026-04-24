@@ -1,12 +1,13 @@
-'use client';
+﻿'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Search, ChevronDown, Download } from 'lucide-react';
+import { Search, ChevronDown, Download, Filter, X } from 'lucide-react';
 import * as XLSX from 'xlsx';
+import { fmtNum } from '@/lib/utils';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -95,6 +96,113 @@ const TOTAL_COLS = new Set([
   'findings_quantity',
 ]);
 
+// Fields whose display value is a comma-joined string of multiple entries
+const COMMA_JOINED_FIELDS = new Set([
+  'track_tdm', 'track_stl', 'track_motive_code', 'track_motive_sku',
+  'track_die_code', 'track_mold_die_qty', 'track_length', 'track_width', 'track_height',
+  'stone_type', 'stone_species', 'stone_variety', 'stone_color', 'stone_cut',
+  'stone_shape', 'stone_length', 'stone_width', 'stone_height', 'stone_qty',
+  'plating_type', 'plating_color', 'findings_code', 'findings_quantity',
+]);
+
+// Filter group definitions
+const FILTER_GROUPS = [
+  {
+    label: 'Basic Info',
+    fields: [
+      { id: 'sku', label: 'Designer SKU' },
+      { id: 'design_stage', label: 'Design Stage' },
+    ],
+  },
+  {
+    label: 'Tracking Info',
+    fields: [
+      { id: 'track_tdm', label: '3DM' },
+      { id: 'track_stl', label: 'STL' },
+      { id: 'track_motive_code', label: 'Motive Code' },
+      { id: 'track_motive_sku', label: 'Motive SKU' },
+      { id: 'track_die_code', label: 'Die Code' },
+      { id: 'track_mold_die_qty', label: 'Mold/Die Qty' },
+      { id: 'track_length', label: 'Length' },
+      { id: 'track_width', label: 'Width' },
+      { id: 'track_height', label: 'Height' },
+    ],
+  },
+  {
+    label: 'Totals',
+    fields: [
+      { id: 'total_die_code', label: 'Total Die Code' },
+      { id: 'total_mold_qty_per_die', label: 'Total Mold Qty/Die' },
+      { id: 'total_cpx_dead_weight', label: 'Total CPX Dead Weight' },
+    ],
+  },
+  {
+    label: 'Total Design Measurements',
+    fields: [
+      { id: 'tdm_length', label: 'Length' },
+      { id: 'tdm_width', label: 'Width' },
+      { id: 'tdm_height', label: 'Height' },
+    ],
+  },
+  {
+    label: 'Design Properties',
+    fields: [
+      { id: 'design_material', label: 'Design Material' },
+      { id: 'setting_type', label: 'Setting Type' },
+      { id: 'enamel', label: 'Enamel' },
+    ],
+  },
+  {
+    label: 'Stone Information',
+    fields: [
+      { id: 'stone_type', label: 'Type' },
+      { id: 'stone_species', label: 'Species' },
+      { id: 'stone_variety', label: 'Variety' },
+      { id: 'stone_color', label: 'Color' },
+      { id: 'stone_cut', label: 'Cut' },
+      { id: 'stone_shape', label: 'Shape' },
+      { id: 'stone_length', label: 'Length' },
+      { id: 'stone_width', label: 'Width' },
+      { id: 'stone_height', label: 'Height' },
+      { id: 'stone_qty', label: 'Qty' },
+    ],
+  },
+  {
+    label: 'Other',
+    fields: [
+      { id: 'mechanism', label: 'Mechanism' },
+    ],
+  },
+  {
+    label: 'Findings',
+    fields: [
+      { id: 'findings_code', label: 'Code' },
+      { id: 'findings_quantity', label: 'Quantity' },
+    ],
+  },
+  {
+    label: 'Plating Info',
+    fields: [
+      { id: 'plating_type', label: 'Plating Type' },
+      { id: 'plating_color', label: 'Plating Color' },
+    ],
+  },
+];
+
+const ALL_FILTER_FIELDS = FILTER_GROUPS.flatMap((g) => g.fields.map((f) => f.id));
+
+// Returns true if a row's field value contains the given filter value
+function filterMatches(row, field, selectedValues) {
+  if (!selectedValues || selectedValues.size === 0) return true;
+  const val = String(row[field] || '').trim();
+  if (!val) return false;
+  if (COMMA_JOINED_FIELDS.has(field)) {
+    const parts = val.split(', ').map((v) => v.trim()).filter(Boolean);
+    return parts.some((p) => selectedValues.has(p));
+  }
+  return selectedValues.has(val);
+}
+
 // Map a backend row â†’ flat UI row
 function mapRow(row) {
   // Findings entries — join all entries for display
@@ -110,9 +218,9 @@ function mapRow(row) {
     technical_drawing: row.technical_drawing || row.designer_image_2 || '',
     other_photo: row.designer_image_3 || '',
     design_stage: row.design_stage || '',
-    total_die_code: row.total_die_code != null ? String(row.total_die_code) : '',
-    total_mold_qty_per_die: row.total_mold_qty_per_die != null ? String(row.total_mold_qty_per_die) : '',
-    total_cpx_dead_weight: row.total_cpx_dead_weight != null ? String(row.total_cpx_dead_weight) : '',
+    total_die_code: row.total_die_code != null ? fmtNum(row.total_die_code) : '',
+    total_mold_qty_per_die: row.total_mold_qty_per_die != null ? fmtNum(row.total_mold_qty_per_die) : '',
+    total_cpx_dead_weight: row.total_cpx_dead_weight != null ? fmtNum(row.total_cpx_dead_weight) : '',
     tdm_length: tdm.length || '',
     tdm_width: tdm.width || '',
     tdm_height: tdm.height || '',
@@ -437,6 +545,27 @@ export default function MasterDesignerSheet() {
     setEditingRowIds(new Set());
   };
 
+  const [filters, setFilters] = useState({});
+  const [filtersOpen, setFiltersOpen] = useState(false);
+
+  const uniqueValues = useMemo(() => {
+    const result = {};
+    ALL_FILTER_FIELDS.forEach((field) => {
+      const vals = new Set();
+      data.forEach((row) => {
+        const val = String(row[field] || '').trim();
+        if (!val) return;
+        if (COMMA_JOINED_FIELDS.has(field)) {
+          val.split(', ').forEach((v) => { if (v.trim()) vals.add(v.trim()); });
+        } else {
+          vals.add(val);
+        }
+      });
+      result[field] = [...vals].sort((a, b) => a.localeCompare(b));
+    });
+    return result;
+  }, [data]);
+
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
   const EXPORT_FIELDS = COLUMNS.map((c) => c.id);
   const EXPORT_LABELS = COLUMNS.map((c) => c.label);
@@ -462,13 +591,21 @@ export default function MasterDesignerSheet() {
   const archivedData = data.filter((r) => archivedRows.has(r.id));
   const isArchivedView = viewMode === 'archived';
   const rawDisplayed = isArchivedView ? archivedData : activeData;
+
+  const activeFilterEntries = Object.entries(filters).filter(([, v]) => v && v.size > 0);
+  const totalActiveFilters = activeFilterEntries.reduce((sum, [, s]) => sum + s.size, 0);
+
+  const filteredByFilters = activeFilterEntries.length === 0
+    ? rawDisplayed
+    : rawDisplayed.filter((row) => activeFilterEntries.every(([field, vals]) => filterMatches(row, field, vals)));
+
   const displayedData = searchTerm
-    ? rawDisplayed.filter((r) =>
+    ? filteredByFilters.filter((r) =>
         Object.values(r).some((v) =>
           String(v ?? '').toLowerCase().includes(searchTerm.toLowerCase())
         )
       )
-    : rawDisplayed;
+    : filteredByFilters;
 
   const sortedDisplayData = sortOrder === 'default' ? displayedData : [...displayedData].sort((a, b) => {
     if (sortOrder === 'newest') return (b.id || 0) - (a.id || 0);
@@ -510,7 +647,7 @@ export default function MasterDesignerSheet() {
         return acc + (isNaN(n) ? 0 : n);
       }, 0);
     }
-    colTotals[cid] = sum % 1 === 0 ? sum : sum.toFixed(2);
+    colTotals[cid] = fmtNum(sum);
   });
 
   // â”€â”€ Grouped header spans â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -629,6 +766,31 @@ export default function MasterDesignerSheet() {
               <DropdownMenuItem onClick={() => { setSortOrder('default'); setCurrentPage(1); }}>Default Order</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+          <button
+            type="button"
+            onClick={() => setFiltersOpen((p) => !p)}
+            className={`relative flex items-center gap-1.5 px-4 py-1.5 rounded-full border text-sm font-medium transition-colors h-8
+              ${filtersOpen || totalActiveFilters > 0
+                ? 'border-trust-blue bg-trust-blue/10 text-trust-blue'
+                : 'border-soft-border text-cool-gray hover:border-midnight-ink hover:text-midnight-ink'}`}
+          >
+            <Filter className="w-3.5 h-3.5" />
+            Filter
+            {totalActiveFilters > 0 && (
+              <span className="bg-trust-blue text-white rounded-full px-1.5 py-0.5 text-[10px] leading-none">
+                {totalActiveFilters}
+              </span>
+            )}
+          </button>
+          {totalActiveFilters > 0 && (
+            <button
+              type="button"
+              onClick={() => { setFilters({}); setCurrentPage(1); }}
+              className="flex items-center gap-1 px-3 py-1.5 rounded-full border border-red-300 text-red-500 hover:bg-red-50 text-xs h-8"
+            >
+              <X className="w-3 h-3" /> Clear Filters
+            </button>
+          )}
           {canCreate && <BulkUploadButton sheetType="designers" onComplete={() => window.location.reload()} />}
           {canEdit && <Button onClick={handleEditRow} variant="outline" className="border-trust-blue text-trust-blue hover:bg-trust-blue/10 rounded-full px-4 text-sm h-8" disabled={isArchivedView}>Edit Row</Button>}
           {canEdit && <Button onClick={handleDeleteSelectedRows} variant="outline" className="border-red-500 text-red-500 hover:bg-red-50 disabled:opacity-100 disabled:border-red-500 disabled:text-red-500 rounded-full px-4 text-sm h-8" disabled={selectedRows.size === 0 || editingRowIds.size > 0}>Delete Selected</Button>}
@@ -664,6 +826,48 @@ export default function MasterDesignerSheet() {
         </div>
 
         {/* â”€â”€ Table â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+
+        {/* Filter Panel */}
+        {filtersOpen && (
+          <div className="mb-4 border border-soft-border rounded-lg bg-white shadow-sm p-4">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-sm font-semibold text-midnight-ink">Filters</span>
+              {totalActiveFilters > 0 && (
+                <button
+                  type="button"
+                  onClick={() => { setFilters({}); setCurrentPage(1); }}
+                  className="text-xs text-red-500 hover:text-red-700 flex items-center gap-1"
+                >
+                  <X className="w-3 h-3" /> Clear all ({totalActiveFilters})
+                </button>
+              )}
+            </div>
+            <div className="flex flex-col gap-4">
+              {FILTER_GROUPS.map((group) => (
+                <div key={group.label}>
+                  <div className="text-[11px] font-semibold text-cool-gray uppercase tracking-wider mb-2">
+                    {group.label}
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {group.fields.map(({ id, label }) => (
+                      <FilterDropdown
+                        key={id}
+                        label={label}
+                        values={uniqueValues[id] || []}
+                        selected={filters[id] || new Set()}
+                        onChange={(val) => {
+                          setFilters((prev) => ({ ...prev, [id]: val }));
+                          setCurrentPage(1);
+                        }}
+                      />
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div className="border border-soft-border rounded-lg bg-white overflow-hidden">
           <div className="overflow-auto max-h-[calc(100vh-220px)]">
             <table className="w-full border-separate border-spacing-0 text-sm">
@@ -820,6 +1024,95 @@ export default function MasterDesignerSheet() {
         <LastUpdatedFooter timestamp={lastUpdated} username={currentUsername} compact />
         <DeletionHistoryDrawer appLabel="designers" modelName="designersheet" />
       </div>
+    </div>
+  );
+}
+
+// ── FilterDropdown ─────────────────────────────────────────────────────────
+function FilterDropdown({ label, values, selected, onChange }) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const isActive = selected && selected.size > 0;
+
+  const filteredValues = search
+    ? values.filter((v) => v.toLowerCase().includes(search.toLowerCase()))
+    : values;
+
+  const toggle = (val) => {
+    const next = new Set(selected);
+    next.has(val) ? next.delete(val) : next.add(val);
+    onChange(next);
+  };
+
+  return (
+    <div className="relative inline-block">
+      {open && <div className="fixed inset-0 z-10" onClick={() => { setOpen(false); setSearch(''); }} />}
+      <button
+        type="button"
+        onClick={() => setOpen((p) => !p)}
+        className={`relative z-20 flex items-center gap-1.5 px-3 py-1 rounded-full border text-xs font-medium transition-colors whitespace-nowrap
+          ${isActive
+            ? 'border-trust-blue bg-trust-blue/10 text-trust-blue'
+            : 'border-soft-border text-cool-gray hover:border-midnight-ink hover:text-midnight-ink'}`}
+      >
+        {label}
+        {isActive && (
+          <span className="bg-trust-blue text-white rounded-full px-1.5 py-0.5 text-[10px] leading-none">
+            {selected.size}
+          </span>
+        )}
+        <ChevronDown className="w-3 h-3 shrink-0" />
+      </button>
+      {open && (
+        <div className="absolute top-8 left-0 z-30 min-w-[180px] max-w-[260px] rounded-lg bg-white shadow-xl border border-soft-border py-1">
+          {values.length > 8 && (
+            <div className="px-2 pt-1 pb-1.5">
+              <input
+                type="text"
+                placeholder="Search…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                onClick={(e) => e.stopPropagation()}
+                className="w-full border border-soft-border rounded px-2 py-1 text-xs focus:outline-none focus:border-trust-blue"
+              />
+            </div>
+          )}
+          <div className="max-h-52 overflow-y-auto">
+            {filteredValues.length === 0 ? (
+              <div className="px-3 py-2 text-xs text-cool-gray">
+                {values.length === 0 ? 'No values in data' : 'No matches'}
+              </div>
+            ) : (
+              filteredValues.map((val) => (
+                <label
+                  key={val}
+                  className="flex items-center gap-2 px-3 py-1.5 hover:bg-cloud-gray cursor-pointer"
+                  onClick={(e) => { e.stopPropagation(); toggle(val); }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={selected?.has(val) || false}
+                    onChange={() => {}}
+                    className="cursor-pointer accent-trust-blue shrink-0"
+                  />
+                  <span className="text-xs text-midnight-ink truncate" title={val}>{val}</span>
+                </label>
+              ))
+            )}
+          </div>
+          {isActive && (
+            <div className="border-t border-soft-border px-3 py-1.5">
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); onChange(new Set()); }}
+                className="text-xs text-red-500 hover:text-red-700"
+              >
+                Clear
+              </button>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

@@ -8,6 +8,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { QuickEnrollModal } from '@/components/quick-enroll-modal'
+import { fmtNum } from '@/lib/utils'
 import {
   Select,
   SelectContent,
@@ -530,9 +531,9 @@ export function NeededVouchersModal({ open, onOpenChange, neededItems = [], onVo
                     <div key={unit} className="grid grid-cols-[1fr_1fr_0.8fr_60px_0.8fr_60px_28px] border-t border-border bg-red-50 items-center">
                       <div className="px-1.5 py-0.5 text-xs font-bold">{idx === 0 ? 'Total' : ''}</div>
                       <div className="px-1.5 py-0.5" />
-                      <div className="px-1.5 py-0.5 text-xs font-bold">{qtyByUnit[unit] ? qtyByUnit[unit].toFixed(2) : '-'}</div>
+                      <div className="px-1.5 py-0.5 text-xs font-bold">{qtyByUnit[unit] ? fmtNum(qtyByUnit[unit]) : '-'}</div>
                       <div className="px-1.5 py-0.5 text-xs font-semibold">{qtyByUnit[unit] ? unit : ''}</div>
-                      <div className="px-1.5 py-0.5 text-xs font-bold">{wtByUnit[unit] ? wtByUnit[unit].toFixed(2) : '-'}</div>
+                      <div className="px-1.5 py-0.5 text-xs font-bold">{wtByUnit[unit] ? fmtNum(wtByUnit[unit]) : '-'}</div>
                       <div className="px-1.5 py-0.5 text-xs font-semibold">{wtByUnit[unit] ? unit : ''}</div>
                       <div />
                     </div>

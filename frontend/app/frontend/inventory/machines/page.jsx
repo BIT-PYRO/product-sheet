@@ -6,6 +6,7 @@ import { ArrowLeft, ChevronDown, Download, Pencil, Printer, RefreshCw, Trash2, X
 import * as XLSX from 'xlsx';
 import SortPopover from '@/components/sort-popover';
 import BulkUploadButton from '@/components/bulk-upload-button';
+import { fmtNum } from '@/lib/utils';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
 import LastUpdatedFooter from '@/components/last-updated-footer';
 import DeletionHistoryDrawer from '@/components/deletion-history-drawer';
@@ -356,12 +357,14 @@ export default function MachinesInventoryPage() {
   // Maps camelCase UI keys to snake_case API keys
   const FIELD_MAP = { machineName: 'machine_name', minRequiredStock: 'min_required_stock', runningQty: 'running_qty', runningLocation: 'running_location', idleQty: 'idle_qty', idleLocation: 'idle_location', breakdownQty: 'breakdown_qty', breakdownLocation: 'breakdown_location', maintenanceQty: 'maintenance_qty', maintenanceLocation: 'maintenance_location' };
 
+  const MACHINE_NUMERIC_KEYS = ['runningQty', 'idleQty', 'breakdownQty', 'maintenanceQty', 'minRequiredStock', 'running_qty', 'idle_qty', 'breakdown_qty', 'maintenance_qty', 'min_required_stock'];
   function getRowValue(row, key) {
     const apiKey = FIELD_MAP[key] || key;
     if (editingRowIds.has(row.id) && editBuffer[row.id]) {
       return editBuffer[row.id][apiKey] ?? editBuffer[row.id][key] ?? '';
     }
-    return row[apiKey] ?? row[key] ?? '';
+    const v = row[apiKey] ?? row[key] ?? '';
+    return MACHINE_NUMERIC_KEYS.includes(key) ? fmtNum(v) : v;
   }
 
   function handlePrintTable() {
