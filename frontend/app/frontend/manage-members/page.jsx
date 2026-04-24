@@ -390,6 +390,7 @@ export default function ManageMembersPage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
   const [selectedMember, setSelectedMember]     = useState(null);
   const [deleteTarget, setDeleteTarget]         = useState(null);
   const [enrollOpen, setEnrollOpen]             = useState(false);
@@ -497,6 +498,9 @@ export default function ManageMembersPage() {
   };
 
   const filtered = allMembers.filter((m) => {
+    // status tab filter
+    if (statusFilter === 'active' && m.active === false) return false;
+    if (statusFilter === 'revoked' && m.active !== false) return false;
     const q = search.toLowerCase();
     return (
       !q ||
@@ -601,6 +605,37 @@ export default function ManageMembersPage() {
               </div>
             )}
           </div>
+        </div>
+
+        {/* Status filter tabs */}
+        <div className="flex items-center gap-1 mb-4">
+          {[['all', 'All'], ['active', 'Active'], ['revoked', 'Revoked']].map(([val, label]) => (
+            <button
+              key={val}
+              type="button"
+              onClick={() => setStatusFilter(val)}
+              className={`px-4 py-1.5 rounded-full text-sm font-semibold transition ${
+                statusFilter === val
+                  ? val === 'revoked'
+                    ? 'bg-red-500 text-white'
+                    : val === 'active'
+                    ? 'bg-emerald-500 text-white'
+                    : 'bg-trust-blue text-white'
+                  : 'bg-white border border-soft-border text-cool-gray hover:bg-cloud-gray'
+              }`}
+            >
+              {label}
+              <span className={`ml-1.5 text-xs ${
+                statusFilter === val ? 'opacity-80' : 'text-cool-gray'
+              }`}>
+                ({allMembers.filter(m =>
+                  val === 'all' ? true :
+                  val === 'active' ? m.active !== false :
+                  m.active === false
+                ).length})
+              </span>
+            </button>
+          ))}
         </div>
 
         {/* Count */}
