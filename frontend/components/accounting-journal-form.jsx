@@ -547,22 +547,11 @@ export default function AccountingJournalForm() {
 
   /* ── render ── */
   return (
-    <div style={{ maxWidth: 900, margin: '0 auto', fontFamily: 'Inter, system-ui, sans-serif' }}>
+    <div style={{ fontFamily: 'Inter, system-ui, sans-serif', padding: '0' }}>
 
       {/* ── Entry Header Card ── */}
       <div style={cardStyle}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
-          <div style={{
-            width: 36, height: 36, borderRadius: 10,
-            background: 'linear-gradient(135deg, #2563eb, #7c3aed)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 18,
-          }}>📒</div>
-          <div>
-            <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#111827' }}>New Journal Entry</h2>
-            <p style={{ margin: 0, fontSize: 12, color: '#6b7280' }}>Double-entry bookkeeping — debits must equal credits</p>
-          </div>
-        </div>
+        
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 16 }}>
           <div>
@@ -588,96 +577,87 @@ export default function AccountingJournalForm() {
         </div>
       </div>
 
-      {/* ── Debit Section ── */}
-      <SectionCard
-        title="Debit Entries"
-        subtitle="Accounts being debited (assets increase / liabilities decrease)"
-        color="#2563eb"
-        bg="linear-gradient(135deg, #eff6ff, #dbeafe)"
-        icon="▲"
-      >
-        {debitLines.map((line, i) => (
-          <SectionLine
-            key={line.id}
-            line={line}
-            index={i}
-            type="debit"
-            ledgers={ledgers}
-            loadingLedgers={loadingLedgers}
-            onChange={updateLine(setDebitLines)}
-            onRemove={removeLine(setDebitLines)}
-            canRemove={debitLines.length > 1}
-          />
-        ))}
-        <button type="button" onClick={addLine(setDebitLines)} style={addLineBtn('#2563eb')}>
-          + Add Debit Line
-        </button>
-        <div style={lineTotalStyle('#dbeafe', '#2563eb')}>
-          <span style={{ fontSize: 13, color: '#1e40af', fontWeight: 600 }}>Total Debit</span>
-          <span style={{ fontSize: 20, fontWeight: 800, color: '#1d4ed8' }}>₹{totalDebit.toFixed(2)}</span>
-        </div>
-      </SectionCard>
-
-      {/* ── Balance Indicator ── */}
+      {/* ── Balance Bar ── */}
       <BalanceBar totalDebit={totalDebit} totalCredit={totalCredit} isBalanced={isBalanced} difference={difference} />
 
-      {/* ── Credit Section ── */}
-      <SectionCard
-        title="Credit Entries"
-        subtitle="Accounts being credited (liabilities increase / assets decrease)"
-        color="#16a34a"
-        bg="linear-gradient(135deg, #f0fdf4, #dcfce7)"
-        icon="▼"
-      >
-        {creditLines.map((line, i) => (
-          <SectionLine
-            key={line.id}
-            line={line}
-            index={i}
-            type="credit"
-            ledgers={ledgers}
-            loadingLedgers={loadingLedgers}
-            onChange={updateLine(setCreditLines)}
-            onRemove={removeLine(setCreditLines)}
-            canRemove={creditLines.length > 1}
-          />
-        ))}
-        <button type="button" onClick={addLine(setCreditLines)} style={addLineBtn('#16a34a')}>
-          + Add Credit Line
-        </button>
-        <div style={lineTotalStyle('#dcfce7', '#16a34a')}>
-          <span style={{ fontSize: 13, color: '#166534', fontWeight: 600 }}>Total Credit</span>
-          <span style={{ fontSize: 20, fontWeight: 800, color: '#15803d' }}>₹{totalCredit.toFixed(2)}</span>
-        </div>
-      </SectionCard>
+      {/* ── Debit + Credit side by side ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, alignItems: 'start', marginBottom: 0 }}>
+
+        {/* Debit */}
+        <SectionCard
+          title="Debit Entries"
+          subtitle="Assets increase / liabilities decrease"
+          color="#2563eb"
+          bg="linear-gradient(135deg, #eff6ff, #dbeafe)"
+          icon="▲"
+        >
+          {debitLines.map((line, i) => (
+            <SectionLine
+              key={line.id}
+              line={line}
+              index={i}
+              type="debit"
+              ledgers={ledgers}
+              loadingLedgers={loadingLedgers}
+              onChange={updateLine(setDebitLines)}
+              onRemove={removeLine(setDebitLines)}
+              canRemove={debitLines.length > 1}
+            />
+          ))}
+          <button type="button" onClick={addLine(setDebitLines)} style={addLineBtn('#2563eb')}>
+            + Add Debit Line
+          </button>
+          <div style={lineTotalStyle('#dbeafe', '#2563eb')}>
+            <span style={{ fontSize: 13, color: '#1e40af', fontWeight: 600 }}>Total Debit</span>
+            <span style={{ fontSize: 20, fontWeight: 800, color: '#1d4ed8' }}>₹{totalDebit.toFixed(2)}</span>
+          </div>
+        </SectionCard>
+
+        {/* Credit */}
+        <SectionCard
+          title="Credit Entries"
+          subtitle="Liabilities increase / assets decrease"
+          color="#16a34a"
+          bg="linear-gradient(135deg, #f0fdf4, #dcfce7)"
+          icon="▼"
+        >
+          {creditLines.map((line, i) => (
+            <SectionLine
+              key={line.id}
+              line={line}
+              index={i}
+              type="credit"
+              ledgers={ledgers}
+              loadingLedgers={loadingLedgers}
+              onChange={updateLine(setCreditLines)}
+              onRemove={removeLine(setCreditLines)}
+              canRemove={creditLines.length > 1}
+            />
+          ))}
+          <button type="button" onClick={addLine(setCreditLines)} style={addLineBtn('#16a34a')}>
+            + Add Credit Line
+          </button>
+          <div style={lineTotalStyle('#dcfce7', '#16a34a')}>
+            <span style={{ fontSize: 13, color: '#166534', fontWeight: 600 }}>Total Credit</span>
+            <span style={{ fontSize: 20, fontWeight: 800, color: '#15803d' }}>₹{totalCredit.toFixed(2)}</span>
+          </div>
+        </SectionCard>
+
+      </div>
 
       {/* ── Submit Card ── */}
       <div style={{ ...cardStyle, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
         <div>
           {isBalanced ? (
-            <p style={{ margin: 0, color: '#16a34a', fontWeight: 600, fontSize: 14 }}>
-              ✓ Entry is balanced — ready to submit
-            </p>
+            <p style={{ margin: 0, color: '#16a34a', fontWeight: 600, fontSize: 14 }}>✓ Entry is balanced — ready to submit</p>
           ) : totalDebit + totalCredit > 0 ? (
-            <p style={{ margin: 0, color: '#dc2626', fontWeight: 600, fontSize: 14 }}>
-              ✗ Unbalanced — difference: ₹{difference.toFixed(2)}
-            </p>
+            <p style={{ margin: 0, color: '#dc2626', fontWeight: 600, fontSize: 14 }}>✗ Unbalanced — difference: ₹{difference.toFixed(2)}</p>
           ) : (
-            <p style={{ margin: 0, color: '#6b7280', fontSize: 14 }}>
-              Enter debit and credit amounts above.
-            </p>
+            <p style={{ margin: 0, color: '#6b7280', fontSize: 14 }}>Enter debit and credit amounts above.</p>
           )}
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
-          <button
-            type="button"
-            onClick={resetForm}
-            style={{
-              padding: '11px 22px', borderRadius: 10,
-              border: '1px solid #e5e7eb', background: '#f9fafb',
-              color: '#374151', fontSize: 14, fontWeight: 600, cursor: 'pointer',
-            }}
-          >
+          <button type="button" onClick={resetForm} style={{ padding: '11px 22px', borderRadius: 10, border: '1px solid #e5e7eb', background: '#f9fafb', color: '#374151', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
             Reset
           </button>
           <button
@@ -686,14 +666,11 @@ export default function AccountingJournalForm() {
             disabled={!isBalanced || submitting}
             style={{
               padding: '11px 28px', borderRadius: 10, border: 'none',
-              background: !isBalanced || submitting
-                ? '#9ca3af'
-                : 'linear-gradient(135deg, #2563eb, #7c3aed)',
+              background: !isBalanced || submitting ? '#9ca3af' : 'linear-gradient(135deg, #2563eb, #7c3aed)',
               color: '#fff', fontSize: 14, fontWeight: 700,
               cursor: !isBalanced || submitting ? 'not-allowed' : 'pointer',
               boxShadow: isBalanced && !submitting ? '0 4px 14px rgba(37,99,235,0.35)' : 'none',
-              transition: 'all 0.2s',
-              minWidth: 160,
+              transition: 'all 0.2s', minWidth: 160,
             }}
           >
             {submitting ? '⏳ Submitting…' : '✓ Submit Journal Entry'}

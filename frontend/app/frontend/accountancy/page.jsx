@@ -42,10 +42,7 @@ export default function AccountancyPage() {
       {/* Page body — padded below fixed header */}
       <div className="w-full pt-16 px-3 md:px-6 pb-10">
 
-        {/* Sub-header */}
-        <div className="mb-6 pt-4">
-          <p className="text-sm text-cool-gray">Manage journal entries, expenses, and view ledger summaries.</p>
-        </div>
+        
 
         {/* Tab bar */}
         <div className="flex gap-1 mb-6 border-b border-soft-border flex-wrap">

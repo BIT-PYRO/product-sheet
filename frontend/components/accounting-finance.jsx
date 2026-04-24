@@ -2,6 +2,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import FinanceEntryModal from './finance-entry-modal';
 import AccountingPayablesReceivables from './accounting-payables-receivables';
+import AccountingDepartmentDashboard from './accounting-department-dashboard';
 
 const fmt = n => `₹${Number(n).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
 const today = () => new Date().toISOString().slice(0, 10);
@@ -336,7 +337,7 @@ export default function AccountingFinance() {
           <p style={{ margin: '3px 0 0', fontSize: 12, color: C.muted }}>Track income and expenses — every entry creates a journal automatically.</p>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
-          {tab !== 'payables' && tab !== 'settlements' && (
+          {tab !== 'payables' && tab !== 'settlements' && tab !== 'dept' && (
             <>
               <button onClick={() => openModal('income')} style={{ padding: '8px 16px', background: C.green, color: '#fff', border: 'none', borderRadius: 8, fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
                 + Add Income
@@ -351,14 +352,14 @@ export default function AccountingFinance() {
 
       {/* Tabs */}
       <div style={{ borderBottom: `1px solid ${C.border}`, marginBottom: 22 }}>
-        {[['dashboard', 'Dashboard'], ['income', 'Income'], ['expense', 'Expenses'], ['payables', 'Payables & Receivables'], ['settlements', 'Settlements']].map(([k, l]) => (
+        {[['dashboard', 'Dashboard'], ['income', 'Income'], ['expense', 'Expenses'], ['payables', 'Payables & Receivables'], ['settlements', 'Settlements'], ['dept', 'Department Dashboard']].map(([k, l]) => (
           <button key={k} onClick={() => setTab(k)} style={tabBtn(tab === k)}>{l}</button>
         ))}
       </div>
 
       {/* Body */}
       <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start' }}>
-        {tab !== 'payables' && tab !== 'settlements' && <FilterBar filter={filter} setFilter={setFilter} customFrom={customFrom} setCustomFrom={setCustomFrom} customTo={customTo} setCustomTo={setCustomTo} />}
+        {tab !== 'payables' && tab !== 'settlements' && tab !== 'dept' && <FilterBar filter={filter} setFilter={setFilter} customFrom={customFrom} setCustomFrom={setCustomFrom} customTo={customTo} setCustomTo={setCustomTo} />}
 
         <div style={{ flex: 1, minWidth: 0 }}>
 
@@ -629,6 +630,9 @@ export default function AccountingFinance() {
               />
             </div>
           )}
+
+          {/* DEPARTMENT DASHBOARD */}
+          {tab === 'dept' && <AccountingDepartmentDashboard />}
 
           {/* PAYABLES & RECEIVABLES */}
           {tab === 'payables' && <AccountingPayablesReceivables embedded />}
