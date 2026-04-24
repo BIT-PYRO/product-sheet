@@ -196,7 +196,7 @@ export default function MasterWorkforceSheet() {
           category:           row.category || '',
           designation:        row.designation || '',
           workingStyle:       row.working_style || '',
-          status:             row.active ? 'Active' : 'Access Denied',
+          status:             row.active ? 'Active' : 'Revoked',
           gender:             row.gender || '',
           phone:              row.phone || '',
           whatsapp:           row.whatsapp || '',
@@ -846,7 +846,7 @@ export default function MasterWorkforceSheet() {
           </DropdownMenu>
           {canCreate && (
             <Button 
-              onClick={handleQuickEnroll}
+              onClick={handleQuickEnrollOpen2}
               className="bg-trust-blue hover:bg-trust-blue text-white rounded-full px-4 text-sm h-8"
             >
               Quick Enroll
@@ -1009,7 +1009,7 @@ export default function MasterWorkforceSheet() {
               <SelectContent>
                 <SelectItem value="all">All</SelectItem>
                 <SelectItem value="Active">Active</SelectItem>
-                <SelectItem value="Access Denied">Access Denied</SelectItem>
+                <SelectItem value="Revoked">Revoked</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -1116,9 +1116,9 @@ export default function MasterWorkforceSheet() {
                             />
                           ) : column.id === 'status' ? (
                             <div className="px-1 py-0.5">
-                              {row.status === 'Access Denied' ? (
+                              {row.status === 'Revoked' ? (
                                 <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-600">
-                                  Access Denied
+                                  Revoked
                                 </span>
                               ) : (
                                 <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700">

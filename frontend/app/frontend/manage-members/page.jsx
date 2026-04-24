@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, ChevronDown, Download, Search, Plus, Pencil, Trash2, X, Save } from 'lucide-react';
+import { ArrowLeft, ChevronDown, Download, Search, Plus, Pencil, RotateCcw, Trash2, X, Save } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { EnrolWorkforceForm } from '@/app/frontend/enrol-workforce/page';
 import DeletionHistoryDrawer from '@/components/deletion-history-drawer';
@@ -91,7 +91,7 @@ function mergePermissions(saved) {
 }
 
 /* ─── Delete Confirmation Modal ──────────────────────── */
-function DeleteConfirmModal({ member, onClose, onDeleted }) {
+function DeleteConfirmModal({ member, onClose, onRevoked }) {
   const [deleting, setDeleting] = useState(false);
   const [error, setError]       = useState('');
   const name = member.full_name || member.email || 'Unknown';
@@ -106,7 +106,7 @@ function DeleteConfirmModal({ member, onClose, onDeleted }) {
         body: JSON.stringify({ active: false }),
       });
       if (!res.ok) throw new Error();
-      onDeleted(member.id);
+      onRevoked(member.id);
       onClose();
     } catch {
       setError('Could not revoke access. Please try again.');
@@ -123,7 +123,7 @@ function DeleteConfirmModal({ member, onClose, onDeleted }) {
           Are you sure you want to revoke access for <span className="font-semibold text-midnight-ink">{name}</span>?
         </p>
         <p className="text-xs text-cool-gray mb-5">
-          Their info will be kept in Master Workforce Sheet with status <span className="font-semibold text-red-500">Access Denied</span>.
+          Their info will be kept in Master Workforce Sheet with status <span className="font-semibold text-red-500">Revoked</span>.
         </p>
         {error && <p className="text-xs text-red-500 mb-3">{error}</p>}
         <div className="flex justify-end gap-3">
@@ -430,19 +430,26 @@ export default function ManageMembersPage() {
 
   const canEdit = isSuperUser(sessionUser, myWorkforce) || !!myWorkforce?.permissions?.manage_members;
 
+  // Refresh list whenever EnrolWorkforceForm or another tab dispatches the event
+  useEffect(() => {
+    window.addEventListener('workforce-updated', refreshMembers);
+    return () => window.removeEventListener('workforce-updated', refreshMembers);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   function handlePermissionsSaved(memberId, newPerms) {
     setAllMembers((prev) =>
       prev.map((m) => (m.id === memberId ? { ...m, permissions: newPerms } : m))
     );
   }
 
-  function handleMemberDeleted(memberId) {
-    setAllMembers((prev) => prev.filter((m) => m.id !== memberId));
+  function handleMemberRevoked(memberId) {
+    setAllMembers((prev) =>
+      prev.map((m) => (m.id === memberId ? { ...m, active: false, permissions: {} } : m))
+    );
   }
 
-  async function handleEnrolled() {
-    setEnrollOpen(false);
-    // Refresh the member list after enrollment
+  async function refreshMembers() {
     try {
       const allRes = await fetch('/api/workforce?page_size=200', { cache: 'no-store' });
       const allResult = await allRes.json().catch(() => null);
@@ -453,6 +460,23 @@ export default function ManageMembersPage() {
         : [];
       setAllMembers(rawList);
     } catch { /* keep existing list */ }
+  }
+
+  async function handleRestoreAccess(memberId) {
+    try {
+      const res = await fetch(`/api/workforce/${memberId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ active: true }),
+      });
+      if (!res.ok) throw new Error();
+      await refreshMembers();
+    } catch { /* list will refresh on next poll */ }
+  }
+
+  async function handleEnrolled() {
+    setEnrollOpen(false);
+    await refreshMembers();
   }
 
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
@@ -500,7 +524,7 @@ export default function ManageMembersPage() {
         <DeleteConfirmModal
           member={deleteTarget}
           onClose={() => setDeleteTarget(null)}
-          onDeleted={handleMemberDeleted}
+          onRevoked={handleMemberRevoked}
         />
       )}
 
@@ -616,11 +640,19 @@ export default function ManageMembersPage() {
                 const color = avatarColor(name);
                 const isSelf = (m.email || '') === (sessionUser?.email || '');
                 return (
-                  <li key={m.id} className="flex items-center gap-4 px-5 py-3.5 hover:bg-cloud-gray transition">
+                  <li key={m.id} className={`flex items-center gap-4 px-5 py-3.5 hover:bg-cloud-gray transition ${m.active === false ? 'opacity-60' : ''}`}>
                     {/* Avatar */}
-                    <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold text-white shrink-0 ${color}`}>
-                      {initials(name)}
-                    </div>
+                    {m.profile_photo_url ? (
+                      <img
+                        src={m.profile_photo_url}
+                        alt={name}
+                        className="w-9 h-9 rounded-full object-cover shrink-0"
+                      />
+                    ) : (
+                      <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold text-white shrink-0 ${color}`}>
+                        {initials(name)}
+                      </div>
+                    )}
 
                     {/* Name / email / designation — click opens view/edit popup */}
                     <button
@@ -633,29 +665,41 @@ export default function ManageMembersPage() {
                         {m.user_is_superuser && <sup className="ml-1 text-[10px] font-bold text-red-500 tracking-wide">superuser</sup>}
                       </p>
                       <p className="text-xs text-cool-gray truncate">{m.email || '—'}</p>
-                      {(m.designation || m.department) && (
+                      {m.active === false ? (
+                        <p className="text-xs font-semibold text-red-500 mt-0.5">Revoked</p>
+                      ) : (m.designation || m.department) && (
                         <p className="text-xs font-medium text-trust-blue truncate mt-0.5">
                           {[m.designation, m.department].filter(Boolean).join(' · ')}
                         </p>
                       )}
                     </button>
 
-                    {/* Permissions icon — visible to everyone; trash only for superusers */}
+                    {/* Permissions / restore / revoke actions */}
                     <div className="flex items-center gap-2 shrink-0">
                       <button
-                        title={canEdit ? 'Edit Permissions' : 'View Permissions'}
-                        onClick={() => setSelectedMember(m)}
-                        className="p-1.5 rounded hover:bg-trust-blue/10 text-trust-blue transition"
+                        title={m.active === false ? 'Member is revoked' : (canEdit ? 'Edit Permissions' : 'View Permissions')}
+                        onClick={() => { if (m.active !== false) setSelectedMember(m); }}
+                        disabled={m.active === false}
+                        className={`p-1.5 rounded transition ${m.active === false ? 'text-cool-gray opacity-40 cursor-not-allowed' : 'hover:bg-trust-blue/10 text-trust-blue'}`}
                       >
                         <Pencil className="h-4 w-4" />
                       </button>
-                      {canEdit && (
+                      {canEdit && !m.user_is_superuser && m.active !== false && (
                         <button
                           title="Revoke Access"
                           onClick={() => setDeleteTarget(m)}
                           className="p-1.5 rounded hover:bg-red-50 text-cool-gray hover:text-red-500 transition"
                         >
                           <Trash2 className="h-4 w-4" />
+                        </button>
+                      )}
+                      {canEdit && m.active === false && (
+                        <button
+                          title="Restore Access"
+                          onClick={() => handleRestoreAccess(m.id)}
+                          className="p-1.5 rounded hover:bg-green-50 text-cool-gray hover:text-green-600 transition"
+                        >
+                          <RotateCcw className="h-4 w-4" />
                         </button>
                       )}
                     </div>
