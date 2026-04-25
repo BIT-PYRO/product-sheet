@@ -46,6 +46,7 @@ export default function HomePage() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const searchRef = useRef(null);
   const profileDropdownRef = useRef(null);
+  const userInfoRef = useRef(null);
 
   // Live data cache — fetched once on first search focus
   const [myPerms, setMyPerms] = useState(null); // null = not yet loaded
@@ -135,6 +136,33 @@ export default function HomePage() {
     router.push(href);
   }
 
+  async function fetchMyWorkforceProfile(u) {
+    try {
+      const email = (u?.email || '').toLowerCase();
+      const key = `profile_photo_${u?.username || u?.id}`;
+      const wfRes = await fetch(`/api/workforce-me?email=${encodeURIComponent(email)}`, { cache: 'no-store' });
+      const wfData = await wfRes.json().catch(() => null);
+      const list = Array.isArray(wfData?.data) ? wfData.data
+        : Array.isArray(wfData?.data?.results) ? wfData.data.results
+        : Array.isArray(wfData?.results) ? wfData.results : [];
+      const match = list.find(m => (m.email || '').toLowerCase() === email);
+      if (match) {
+        if (match.full_name) setUsername(match.full_name);
+        if (match.profile_photo_url) {
+          setProfilePhoto(match.profile_photo_url);
+          localStorage.setItem(key, match.profile_photo_url);
+        }
+        const des = (match.designation || '').toLowerCase().trim();
+        const isSuperDesig = des === 'chairman' || des === 'ceo';
+        setMyPerms(isSuperDesig ? null : (match.permissions || {}));
+      } else {
+        setMyPerms(null);
+      }
+    } catch {
+      setMyPerms(null);
+    }
+  }
+
   useEffect(() => {
     const loadSession = async () => {
       try {
@@ -150,6 +178,7 @@ export default function HomePage() {
         const fullName = [u?.first_name, u?.last_name].filter(Boolean).join(' ');
         setUsername(fullName || u?.username || u?.id || 'User');
         setUserInfo(u);
+        userInfoRef.current = u;
         // Profile photo: start with localStorage for instant display
         const key = `profile_photo_${u?.username || u?.id}`;
         const saved = localStorage.getItem(key);
@@ -160,31 +189,7 @@ export default function HomePage() {
           setMyPerms(null); // null = show all
           setPermsReady(true);
         } else {
-          try {
-            const email = (u?.email || '').toLowerCase();
-            const wfRes = await fetch(`/api/workforce-me?email=${encodeURIComponent(email)}`, { cache: 'no-store' });
-            const wfData = await wfRes.json().catch(() => null);
-            const list = Array.isArray(wfData?.data) ? wfData.data
-              : Array.isArray(wfData?.data?.results) ? wfData.data.results
-              : Array.isArray(wfData?.results) ? wfData.results : [];
-            const match = list.find(m => (m.email || '').toLowerCase() === email);
-            if (match) {
-              // Use workforce full_name for the welcome greeting if available
-              if (match.full_name) setUsername(match.full_name);
-              // Prefer server-stored photo URL so all users see the same photo
-              if (match.profile_photo_url) {
-                setProfilePhoto(match.profile_photo_url);
-                localStorage.setItem(key, match.profile_photo_url);
-              }
-              const des = (match.designation || '').toLowerCase().trim();
-              const isSuperDesig = des === 'chairman' || des === 'ceo';
-              setMyPerms(isSuperDesig ? null : (match.permissions || {}));
-            } else {
-              setMyPerms(null); // no workforce record → show all
-            }
-          } catch {
-            setMyPerms(null); // error → show all (fail open)
-          }
+          await fetchMyWorkforceProfile(u);
           setPermsReady(true);
         }
       } catch {
@@ -202,6 +207,15 @@ export default function HomePage() {
     }
     window.addEventListener('profile_photo_updated', onPhotoUpdated);
     return () => window.removeEventListener('profile_photo_updated', onPhotoUpdated);
+  }, []);
+
+  // Re-fetch name and photo whenever a workforce record is saved
+  useEffect(() => {
+    function onWorkforceUpdated() {
+      if (userInfoRef.current) fetchMyWorkforceProfile(userInfoRef.current);
+    }
+    window.addEventListener('workforce-updated', onWorkforceUpdated);
+    return () => window.removeEventListener('workforce-updated', onWorkforceUpdated);
   }, []);
 
   // myPerms === null → admin/superuser/no record → full access
