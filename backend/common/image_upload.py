@@ -1,19 +1,22 @@
 """
-Centralised image upload helper.
+Centralised image/document upload helper.
 
-- When CLOUDINARY_URL env var is set (production), uploads to Cloudinary
-  and returns the secure HTTPS URL.
-- Otherwise, writes to MEDIA_ROOT on local disk (development).
+- When CLOUDINARY_URL env var is set, uploads to Cloudinary and returns the secure URL.
+- If Cloudinary upload fails (bad credentials, network, etc.) it falls back to writing
+  to MEDIA_ROOT on local disk so development always works.
+- Otherwise (no CLOUDINARY_URL), writes to MEDIA_ROOT on local disk.
 
 Functions
 ---------
 upload_image_file(image_file, folder, public_id=None)
-    Upload a Django file object (e.g. from request.FILES).
+    Upload a Django file object (e.g. from request.FILES). Returns url string.
 
 upload_image_base64(data_url, folder, public_id=None)
-    Upload an image encoded as a base64 data URI string.
-    If the value does not start with "data:image/", it is returned unchanged
-    (already a URL, nothing to do).
+    Upload an image encoded as a base64 data URI string. Returns url string.
+
+upload_document_base64(data_url, folder, public_id=None)
+    Upload ANY file type (image OR PDF) encoded as a base64 data URI.
+    Returns (url, error_message) tuple. url is '' on failure.
 """
 
 import base64
@@ -43,15 +46,15 @@ def _safe_folder(folder: str) -> str:
 def upload_image_file(image_file, folder: str, public_id: str = None) -> str:
     """
     Upload a Django file object and return its public URL.
-
-    Args:
-        image_file: Django InMemoryUploadedFile / TemporaryUploadedFile
-        folder:     Cloudinary folder, e.g. "designers/SD-AM120-ST"
-        public_id:  Optional Cloudinary public_id (filename without extension)
+    Falls back to local disk if Cloudinary fails. Returns '' on total failure.
     """
     cloudinary_url = os.environ.get('CLOUDINARY_URL', '')
     if cloudinary_url:
-        return _upload_to_cloudinary(image_file, folder, public_id)
+        url, err = _upload_to_cloudinary_safe(image_file, folder, public_id, resource_type='image')
+        if err:
+            logger.error('upload_image_file: Cloudinary error for folder=%r: %s. Falling back to local.', folder, err)
+            return _upload_to_local_file(image_file, folder, public_id)
+        return url
     return _upload_to_local_file(image_file, folder, public_id)
 
 
@@ -92,12 +95,13 @@ def upload_image_base64(data_url: str, folder: str, public_id: str = None) -> st
 
         cloudinary_url = os.environ.get('CLOUDINARY_URL', '')
         if cloudinary_url:
-            return _upload_to_cloudinary(
-                io.BytesIO(image_bytes),
-                folder,
-                public_id,
-                file_name=file_name,
+            url, err = _upload_to_cloudinary_safe(
+                io.BytesIO(image_bytes), folder, public_id, resource_type='image'
             )
+            if err:
+                logger.error('upload_image_base64: Cloudinary error for folder=%r: %s. Falling back to local.', folder, err)
+                return _upload_to_local_bytes(image_bytes, folder, file_name)
+            return url
         return _upload_to_local_bytes(image_bytes, folder, file_name)
 
     except Exception as exc:
@@ -105,28 +109,102 @@ def upload_image_base64(data_url: str, folder: str, public_id: str = None) -> st
             'upload_image_base64: upload failed for folder=%r public_id=%r: %s',
             folder, public_id, exc,
         )
-        # Return empty string – callers must not store raw base64 blobs in the DB.
-        # Existing Cloudinary/local URLs are unaffected because _process_images
-        # only calls this function when the incoming value starts with "data:image/".
         return ''
 
 
-# ── Internal helpers ──────────────────────────────────────────────────────────
+def upload_document_base64(data_url: str, folder: str, public_id: str = None) -> tuple:
+    """
+    Upload any base64 data URI (image OR PDF/DOC) and return (url, error_message).
+
+    - data:image/* → uploaded as image, falls back to local on Cloudinary failure
+    - data:application/pdf etc. → uploaded as raw, falls back to local on failure
+    - Already a URL (https://...) → returned unchanged with no error
+
+    Returns:
+        (url_string, None)   on success
+        ('', error_string)   on failure
+    """
+    if not data_url:
+        return '', 'No document data provided.'
+
+    if not data_url.startswith('data:'):
+        # Already a URL — nothing to upload
+        return data_url, None
+
+    # data:image/* — delegate to image handler
+    if data_url.startswith('data:image/'):
+        url = upload_image_base64(data_url, folder=folder, public_id=public_id)
+        if url:
+            return url, None
+        return '', 'Image upload failed. Ensure the file is a valid JPEG, PNG or WebP image.'
+
+    # Non-image (PDF, DOC, etc.)
+    try:
+        header, b64data = data_url.split(',', 1)
+        mime = header.split(';')[0].split(':')[1].lower()  # e.g. "application/pdf"
+        ext_map = {
+            'application/pdf': 'pdf',
+            'application/msword': 'doc',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
+        }
+        ext = ext_map.get(mime, 'bin')
+        file_name = f'{public_id or uuid.uuid4().hex}.{ext}'
+
+        try:
+            doc_bytes = base64.b64decode(b64data)
+        except Exception as decode_err:
+            return '', f'Could not decode document data: {decode_err}'
+
+        cloudinary_url_env = os.environ.get('CLOUDINARY_URL', '')
+        if cloudinary_url_env:
+            url, err = _upload_to_cloudinary_safe(
+                io.BytesIO(doc_bytes),
+                folder,
+                public_id or uuid.uuid4().hex,
+                resource_type='raw',
+            )
+            if err:
+                logger.error('upload_document_base64: Cloudinary error for folder=%r: %s. Falling back to local.', folder, err)
+                local_url = _upload_to_local_bytes(doc_bytes, folder, file_name)
+                return local_url, None
+            return url, None
+        else:
+            local_url = _upload_to_local_bytes(doc_bytes, folder, file_name)
+            return local_url, None
+
+    except Exception as exc:
+        logger.error(
+            'upload_document_base64: upload failed for folder=%r public_id=%r: %s',
+            folder, public_id, exc,
+        )
+        return '', str(exc)
+
+
+
+def _upload_to_cloudinary_safe(image_source, folder: str, public_id: str = None, resource_type: str = 'image') -> tuple:
+    """Upload to Cloudinary. Returns (url, error_message). Never raises."""
+    try:
+        import cloudinary
+        import cloudinary.uploader
+        kwargs = dict(
+            folder=_safe_folder(folder),
+            resource_type=resource_type,
+            overwrite=True,
+        )
+        if public_id:
+            kwargs['public_id'] = public_id
+        result = cloudinary.uploader.upload(image_source, **kwargs)
+        return result['secure_url'], None
+    except Exception as exc:
+        return '', str(exc)
+
 
 def _upload_to_cloudinary(image_source, folder: str, public_id: str = None, file_name: str = None) -> str:
-    import cloudinary
-    import cloudinary.uploader
-
-    kwargs = dict(
-        folder=_safe_folder(folder),
-        resource_type='image',
-        overwrite=True,
-    )
-    if public_id:
-        kwargs['public_id'] = public_id
-
-    result = cloudinary.uploader.upload(image_source, **kwargs)
-    return result['secure_url']
+    """Legacy wrapper kept for backward compat. Raises on failure."""
+    url, err = _upload_to_cloudinary_safe(image_source, folder, public_id, resource_type='image')
+    if err:
+        raise RuntimeError(f'Cloudinary upload failed: {err}')
+    return url
 
 
 def _upload_to_local_file(image_file, folder: str, public_id: str = None) -> str:

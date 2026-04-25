@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import {
   Camera, ArrowLeft, User, Phone, MapPin,
   Briefcase, Globe, FileText, Pencil, Check, X, Shield,
-  CreditCard, Building2,
+  CreditCard, Building2, FolderOpen,
 } from 'lucide-react';
 
 /* ─── constants ─────────────────────────────────────── */
@@ -24,7 +24,7 @@ const ROLE_DOT = {
 
 const DESIGNATION_ORDER = [
   'Chairman','CEO','Director','General Manager','Department Head','Project Manager',
-  'Manager','Supervisor','Associate','Developer','Intern','Labour','Worker',
+  'Manager','Supervisor','Associate','Developer','Intern','craftsMan','Worker',
   'Cook','Pantry Boy','Janitor','Messenger','Security','Electrician','Plumber',
   'CCTV','Carpenter','Ironsmith','Locksmith',
 ];
@@ -40,7 +40,7 @@ const DEPT_DATA = {
   'Finance':                      { categories: [], roles: ['Chairman','CEO','Director','Department Head','Manager','Associate','Intern'] },
   'Information Technology':       { categories: ['Shopify','Software'], roles: ['Chairman','CEO','Director','Department Head','General Manager','Project Manager','Developer','Associate','Intern'] },
   'Human Resource':               { categories: [], roles: ['Chairman','CEO','Director','Department Head','Manager','Associate','Intern'] },
-  'Production':                   { categories: ['3D Printing','Die Cutting','Master Making','Wax','Wax Setting','Casting','Filing','Polish','Enamel','Hand Setting','Plating','Quality Check'], roles: ['Chairman','CEO','Director','Department Head','General Manager','Manager','Supervisor','Labour'] },
+  'Production':                   { categories: ['3D Printing','Die Cutting','Master Making','Wax','Wax Setting','Casting','Filing','Polish','Enamel','Hand Setting','Plating','Quality Check'], roles: ['Chairman','CEO','Director','Department Head','General Manager','Manager','Supervisor','craftsMan'] },
   'Services':                     { categories: [], roles: ['Security','Electrician','Plumber','CCTV','Carpenter','Ironsmith','Locksmith'] },
   'House Keeping':                { categories: [], roles: ['Cook','Pantry Boy','Janitor','Messenger'] },
 };
@@ -214,12 +214,25 @@ export default function ProfilePage() {
   const [viewerMember, setViewerMember]     = useState(null); // the logged-in user's own workforce record
   const [loading, setLoading]               = useState(true);
   const [profilePhoto, setProfilePhoto]     = useState(null);
+  const [docUploading, setDocUploading]     = useState({ aadhaar: false, pan: false });
+  const autoCreateRef = useRef(false);
 
   const [isEditing, setIsEditing]       = useState(false);
   const [isEditingJob, setIsEditingJob] = useState(false); // separate edit mode for job details
   const [editData, setEditData]         = useState({});
   const [saving, setSaving]             = useState(false);
   const [saveMessage, setSaveMessage]   = useState('');
+  const [heroVisible, setHeroVisible]   = useState(true);
+  const heroRef = useRef(null);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => setHeroVisible(entry.isIntersecting),
+      { threshold: 0.1 }
+    );
+    if (heroRef.current) observer.observe(heroRef.current);
+    return () => observer.disconnect();
+  }, []);
 
   /* ── load ── */
   useEffect(() => {
@@ -240,22 +253,65 @@ export default function ProfilePage() {
                         : Array.isArray(allResult?.results) ? allResult.results : [];
 
         const email = u.email || '';
-        if (email) {
-          const match = rawList.find(m => (m.email || '').toLowerCase() === email.toLowerCase());
-          if (match) {
-            setWorkforceMember(match);
-            setViewerMember(match);   // viewer IS the profile owner on own profile
-            // Prefer the server-stored photo URL (visible to all), fall back to localStorage
-            if (match.profile_photo_url) {
-              setProfilePhoto(match.profile_photo_url);
-              localStorage.setItem(`profile_photo_${u.username}`, match.profile_photo_url);
-            } else {
-              const saved = localStorage.getItem(`profile_photo_${u.username}`);
-              if (saved) setProfilePhoto(saved);
-            }
+        let match = email ? rawList.find(m => (m.email || '').toLowerCase() === email.toLowerCase()) : null;
+        // Also try matching by username if no email match (e.g. superuser with no email in workforce)
+        if (!match && u.username) {
+          match = rawList.find(m => (m.username || '').toLowerCase() === u.username.toLowerCase());
+        }
+        if (match) {
+          setWorkforceMember(match);
+          setViewerMember(match);   // viewer IS the profile owner on own profile
+          // Prefer the server-stored photo URL (visible to all), fall back to localStorage
+          if (match.profile_photo_url) {
+            setProfilePhoto(match.profile_photo_url);
+            localStorage.setItem(`profile_photo_${u.username}`, match.profile_photo_url);
           } else {
             const saved = localStorage.getItem(`profile_photo_${u.username}`);
             if (saved) setProfilePhoto(saved);
+          }
+        } else {
+          const saved = localStorage.getItem(`profile_photo_${u.username}`);
+          if (saved) setProfilePhoto(saved);
+          // Auto-create workforce record for admin/superuser who has no record yet
+          const isAdmin = u.role === 'admin' || u.is_superuser === true;
+          if (isAdmin && (email || u.username) && !autoCreateRef.current) {
+            autoCreateRef.current = true;
+            try {
+              const fullName = [u.first_name, u.last_name].filter(Boolean).join(' ') || u.username;
+              const createRes = await fetch('/api/workforce', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  full_name: fullName,
+                  email: email || '',
+                  username: u.username || '',
+                  active: true,
+                  designation: 'Admin',
+                  department: 'Management',
+                }),
+              });
+              if (createRes.ok) {
+                const created = await createRes.json().catch(() => null);
+                const newRecord = created?.data || created;
+                if (newRecord?.id) {
+                  setWorkforceMember(newRecord);
+                  setViewerMember(newRecord);
+                  window.dispatchEvent(new CustomEvent('workforce-updated'));
+                }
+              } else if (createRes.status === 400) {
+                // Backend found duplicate — fetch by ID if returned
+                const errBody = await createRes.json().catch(() => null);
+                const existingId = errBody?.id || errBody?.detail?.id;
+                if (existingId) {
+                  const fetchRes = await fetch(`/api/workforce/${existingId}`, { cache: 'no-store' });
+                  if (fetchRes.ok) {
+                    const fetchResult = await fetchRes.json().catch(() => null);
+                    const rec = fetchResult?.data || fetchResult;
+                    if (rec?.id) { setWorkforceMember(rec); setViewerMember(rec); }
+                  }
+                }
+              }
+            } catch { /* ignore — will retry next load */ }
           }
         }
       } catch { router.replace('/login'); }
@@ -518,7 +574,7 @@ export default function ProfilePage() {
       </header>
 
       {/* ══ Full-width dark profile hero ══ */}
-      <div className="w-full bg-trust-blue border-b border-white/10 relative overflow-hidden">
+      <div ref={heroRef} className="w-full bg-trust-blue border-b border-white/10 relative overflow-hidden">
         <div className="relative w-full px-6 md:px-12 py-6 flex flex-col md:flex-row items-center md:items-end gap-5">
 
           {/* big avatar */}
@@ -582,15 +638,66 @@ export default function ProfilePage() {
 
       </div>
 
-      {/* ══ Body ══ */}
-      <div className="flex-1 w-full px-4 md:px-8 lg:px-12 py-6">
-
-        {/* save message */}
-        {saveMessage && (
-          <div className={`mb-4 rounded-lg px-4 py-3 text-sm font-medium max-w-3xl
-            ${saveMessage.includes('success') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
-            {saveMessage}
+      {/* ══ Sticky bottom edit bar — appears when hero scrolls out of view ══ */}
+      {wf && !heroVisible && (
+        <div className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-soft-border shadow-lg px-4 md:px-8 py-3 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-8 h-8 rounded-full overflow-hidden border-2 border-soft-border shrink-0">
+              {profilePhoto
+                ? <img src={profilePhoto} alt="" className="w-full h-full object-cover" />
+                : <div className="w-full h-full bg-trust-blue flex items-center justify-center text-white text-xs font-bold">{getInitials()}</div>
+              }
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-bold text-midnight-ink truncate">{getDisplayName()}</p>
+              {isEditing
+                ? <p className="text-xs text-amber-600 font-medium">Editing — unsaved changes</p>
+                : <p className="text-xs text-cool-gray">Your profile</p>
+              }
+            </div>
           </div>
+          <div className="flex items-center gap-2 shrink-0">
+            {!isEditing ? (
+              <button onClick={startEdit}
+                className="flex items-center gap-1.5 bg-trust-blue hover:bg-deep-blue text-white text-sm font-semibold px-4 py-2 rounded-lg transition shadow-sm">
+                <Pencil className="h-3.5 w-3.5" /> Edit Profile
+              </button>
+            ) : (
+              <>
+                <button onClick={cancelEdit}
+                  className="flex items-center gap-1.5 border border-soft-border text-midnight-ink hover:bg-cloud-gray text-sm font-semibold px-4 py-2 rounded-lg transition">
+                  <X className="h-3.5 w-3.5" /> Cancel
+                </button>
+                <button onClick={handleSave} disabled={saving}
+                  className="flex items-center gap-1.5 bg-trust-blue hover:bg-deep-blue text-white text-sm font-semibold px-4 py-2 rounded-lg transition shadow-sm disabled:opacity-60">
+                  <Check className="h-3.5 w-3.5" /> {saving ? 'Saving…' : 'Save Changes'}
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ══ Body ══ */}
+      <div className="flex-1 w-full px-4 md:px-8 lg:px-12 py-6 pb-20">
+
+        {/* save message — also as floating toast so it's visible when scrolled down */}
+        {saveMessage && (
+          <>
+            <div className={`mb-4 rounded-lg px-4 py-3 text-sm font-medium max-w-3xl
+              ${saveMessage.toLowerCase().includes('success') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
+              {saveMessage}
+            </div>
+            <div className={`fixed top-5 right-5 z-[100] flex items-center gap-2 px-4 py-3 rounded-xl shadow-xl text-sm font-semibold border
+              ${saveMessage.toLowerCase().includes('success') ? 'bg-green-600 text-white border-green-700' : 'bg-red-600 text-white border-red-700'}`}
+              onClick={() => setSaveMessage('')} style={{cursor:'pointer'}} title="Click to dismiss">
+              {saveMessage.toLowerCase().includes('success')
+                ? <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="3" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/></svg>
+                : <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+              }
+              {saveMessage}
+            </div>
+          </>
         )}
 
         {/* ─── PROFILE ─── */}
@@ -646,6 +753,18 @@ export default function ProfilePage() {
 
             {/* RIGHT main — detail sections */}
             <div className="lg:col-span-2 space-y-0">
+
+              {/* Inline edit status bar — no duplicate button, just status text */}
+              {wf && isEditing && (
+                <div className="flex items-center justify-between mb-4">
+                  <p className="text-xs text-amber-600 font-medium">Editing your profile — make your changes below.</p>
+                </div>
+              )}
+              {wf && !isEditing && (
+                <div className="mb-4">
+                  <p className="text-xs text-cool-gray">View and manage your personal information.</p>
+                </div>
+              )}
 
               <SectionCard icon={User} title="Personal Information">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4">
@@ -771,6 +890,94 @@ export default function ProfilePage() {
                     {wf?.notes || <span className="text-cool-gray italic font-normal">No notes.</span>}
                   </p>
                 )}
+              </SectionCard>
+
+              <SectionCard icon={FolderOpen} title="Identity Documents">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Aadhaar Card */}
+                  <div className="rounded-lg border border-soft-border p-4 bg-cloud-gray">
+                    <p className="text-xs font-bold text-cool-gray uppercase tracking-wide mb-2">Aadhaar Card</p>
+                    {wf?.aadhaar_url ? (
+                      <div className="flex items-center gap-2 mb-2">
+                        <Check className="h-4 w-4 text-green-500 shrink-0" />
+                        <a href={wf.aadhaar_url} target="_blank" rel="noopener noreferrer"
+                          className="text-sm text-trust-blue underline hover:text-deep-blue truncate">View Document</a>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-cool-gray italic mb-2">Not uploaded yet.</p>
+                    )}
+                    {isEditing && (
+                      <label className={`flex items-center gap-2 cursor-pointer text-xs font-semibold px-3 py-1.5 rounded-lg border transition ${docUploading.aadhaar ? 'opacity-50 pointer-events-none' : 'border-trust-blue text-trust-blue hover:bg-blue-50'}`}>
+                        <input type="file" className="hidden" accept="image/*,application/pdf" disabled={docUploading.aadhaar}
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0]; if (!file || !wf?.id) return;
+                            if (file.size > 10 * 1024 * 1024) { alert('File must be under 10 MB.'); return; }
+                            setDocUploading(p => ({ ...p, aadhaar: true }));
+                            try {
+                              const reader = new FileReader();
+                              reader.onload = async (ev) => {
+                                const res = await fetch(`/api/workforce/${wf.id}/upload-document`, {
+                                  method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({ photo_data: ev.target.result, doc_type: 'aadhaar' }),
+                                });
+                                const result = await res.json().catch(() => null);
+                                if (res.ok && (result?.data?.url || result?.data?.aadhaar_url)) {
+                                  const uploadedUrl = result.data.url || result.data.aadhaar_url;
+                                  setWorkforceMember(prev => ({ ...prev, aadhaar_url: uploadedUrl }));
+                                  setSaveMessage('Aadhaar uploaded successfully.');
+                                } else { setSaveMessage('Aadhaar upload failed. ' + (result?.message || 'Try again.')); }
+                                setDocUploading(p => ({ ...p, aadhaar: false }));
+                              };
+                              reader.readAsDataURL(file);
+                            } catch { setDocUploading(p => ({ ...p, aadhaar: false })); }
+                          }} />
+                        {docUploading.aadhaar ? 'Uploading…' : (wf?.aadhaar_url ? 'Replace Aadhaar' : 'Upload Aadhaar')}
+                      </label>
+                    )}
+                  </div>
+                  {/* PAN Card */}
+                  <div className="rounded-lg border border-soft-border p-4 bg-cloud-gray">
+                    <p className="text-xs font-bold text-cool-gray uppercase tracking-wide mb-2">PAN Card</p>
+                    {wf?.pan_url ? (
+                      <div className="flex items-center gap-2 mb-2">
+                        <Check className="h-4 w-4 text-green-500 shrink-0" />
+                        <a href={wf.pan_url} target="_blank" rel="noopener noreferrer"
+                          className="text-sm text-trust-blue underline hover:text-deep-blue truncate">View Document</a>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-cool-gray italic mb-2">Not uploaded yet.</p>
+                    )}
+                    {isEditing && (
+                      <label className={`flex items-center gap-2 cursor-pointer text-xs font-semibold px-3 py-1.5 rounded-lg border transition ${docUploading.pan ? 'opacity-50 pointer-events-none' : 'border-trust-blue text-trust-blue hover:bg-blue-50'}`}>
+                        <input type="file" className="hidden" accept="image/*,application/pdf" disabled={docUploading.pan}
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0]; if (!file || !wf?.id) return;
+                            if (file.size > 10 * 1024 * 1024) { alert('File must be under 10 MB.'); return; }
+                            setDocUploading(p => ({ ...p, pan: true }));
+                            try {
+                              const reader = new FileReader();
+                              reader.onload = async (ev) => {
+                                const res = await fetch(`/api/workforce/${wf.id}/upload-document`, {
+                                  method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({ photo_data: ev.target.result, doc_type: 'pan' }),
+                                });
+                                const result = await res.json().catch(() => null);
+                                if (res.ok && (result?.data?.url || result?.data?.pan_url)) {
+                                  const uploadedUrl = result.data.url || result.data.pan_url;
+                                  setWorkforceMember(prev => ({ ...prev, pan_url: uploadedUrl }));
+                                  setSaveMessage('PAN uploaded successfully.');
+                                } else { setSaveMessage('PAN upload failed. ' + (result?.message || 'Try again.')); }
+                                setDocUploading(p => ({ ...p, pan: false }));
+                              };
+                              reader.readAsDataURL(file);
+                            } catch { setDocUploading(p => ({ ...p, pan: false })); }
+                          }} />
+                        {docUploading.pan ? 'Uploading…' : (wf?.pan_url ? 'Replace PAN' : 'Upload PAN')}
+                      </label>
+                    )}
+                  </div>
+                </div>
+                {!isEditing && <p className="text-xs text-cool-gray mt-3">Click <strong>Edit Profile</strong> (top right) to upload your identity documents.</p>}
               </SectionCard>
             </div>
         </div>

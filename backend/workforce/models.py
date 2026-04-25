@@ -14,7 +14,7 @@ class WorkforceMember(AuditModel):
 	current_address = models.JSONField(default=dict, blank=True)
 	permanent_address = models.JSONField(default=dict, blank=True)
 	designation = models.CharField(max_length=150, blank=True)
-	category = models.CharField(max_length=100, blank=True)
+	category = models.TextField(blank=True)
 	working_style = models.CharField(max_length=50, blank=True)
 	gst_number = models.CharField(max_length=20, blank=True)
 	account_name = models.CharField(max_length=200, blank=True)
@@ -27,7 +27,11 @@ class WorkforceMember(AuditModel):
 	notes = models.TextField(blank=True)
 	active = models.BooleanField(default=True)
 	permissions = models.JSONField(default=dict, blank=True)
-	profile_photo_url = models.URLField(max_length=500, blank=True)
+	profile_photo_url = models.URLField(max_length=1000, blank=True)
+	aadhaar_url = models.URLField(max_length=1000, blank=True)
+	pan_url = models.URLField(max_length=1000, blank=True)
+	barcode_number = models.CharField(max_length=50, blank=True, null=True, unique=True, db_index=True)
+	date_of_joining = models.DateField(null=True, blank=True)
 
 	# Stores the ID from the external software so webhook updates can be matched
 	external_id = models.CharField(max_length=255, blank=True, db_index=True)

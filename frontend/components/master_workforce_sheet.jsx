@@ -61,6 +61,7 @@ export default function MasterWorkforceSheet() {
 
   // Column definitions — mirrors all Enroll Workforce fields
   const columns = [
+    { id: 'profilePhoto',       label: 'Photo' },
     { id: 'fullName',           label: 'Full Name' },
     { id: 'department',         label: 'Department' },
     { id: 'category',           label: 'Category' },
@@ -92,6 +93,10 @@ export default function MasterWorkforceSheet() {
     { id: 'accountNumber',      label: 'Account Number' },
     { id: 'ifsc',               label: 'IFSC' },
     { id: 'notes',              label: 'Notes' },
+    { id: 'aadhaarDoc',         label: 'Aadhaar Doc' },
+    { id: 'panDoc',             label: 'PAN Doc' },
+    { id: 'barcodeNumber',      label: 'Barcode / ID' },
+    { id: 'dateOfJoining',      label: 'Date of Joining' },
   ];
 
   const ADDRESS_COLUMN_IDS = new Set([
@@ -106,8 +111,8 @@ export default function MasterWorkforceSheet() {
     }])
   );
 
-  const { visibleColumns, setVisibleColumns, saveView: saveColumnView, saveViewStatus } = useColumnPreferences('master-workforce-sheet', [
-    'fullName', 'department', 'category', 'designation', 'workingStyle', 'status', 'phone', 'email', 'currentLocation',
+  const { visibleColumns, setVisibleColumns, saveView: saveColumnView, saveViewStatus } = useColumnPreferences('master-workforce-sheet-v3', [
+    'profilePhoto', 'fullName', 'department', 'category', 'designation', 'workingStyle', 'status', 'phone', 'email', 'currentLocation', 'aadhaarDoc', 'panDoc', 'barcodeNumber', 'dateOfJoining',
   ]);
   
   // Toggle column selection in the manage columns dialog
@@ -222,6 +227,11 @@ export default function MasterWorkforceSheet() {
           accountNumber:      row.account_number || '',
           ifsc:               row.ifsc || '',
           notes:              row.notes || '',
+          profilePhoto:       row.profile_photo_url || '',
+          aadhaarDoc:         row.aadhaar_url || '',
+          panDoc:             row.pan_url || '',
+          barcodeNumber:      row.barcode_number || `WF-${String(row.id||'').padStart(4,'0')}`,
+          dateOfJoining:      row.date_of_joining || (row.created_at ? row.created_at.split('T')[0] : ''),
         }));
 
         setData(mappedRows);
@@ -231,24 +241,27 @@ export default function MasterWorkforceSheet() {
         const rowDepts = [...new Set(mappedRows.map(r => r.department).filter(Boolean))];
         const rowRoles = [...new Set(mappedRows.map(r => r.designation).filter(Boolean))];
 
+        // Case-insensitive dedup: keep first-seen canonical casing per lowercase key
+        const ciDedup = (arr) => {
+          const seen = new Map();
+          arr.forEach(v => { if (v) seen.set(v.toLowerCase(), seen.has(v.toLowerCase()) ? seen.get(v.toLowerCase()) : v); });
+          return [...seen.values()].sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
+        };
+
         if (metaResponse.ok) {
           const meta = await metaResponse.json().catch(() => null);
           if (meta?.success) {
             const metaDepts = meta.data?.departments || [];
             const metaRoles = meta.data?.designations || [];
-            const allDepts = [...new Set([...STATIC_DEPARTMENTS, ...metaDepts, ...rowDepts])].sort();
-            const allRoles = [...new Set([...metaRoles, ...rowRoles])].sort();
-            setDynamicDepartments(allDepts);
-            setDynamicRoles(allRoles);
+            setDynamicDepartments(ciDedup([...STATIC_DEPARTMENTS, ...metaDepts, ...rowDepts]));
+            setDynamicRoles(ciDedup([...metaRoles, ...rowRoles]));
           } else {
-            const allDepts = [...new Set([...STATIC_DEPARTMENTS, ...rowDepts])].sort();
-            setDynamicDepartments(allDepts);
-            setDynamicRoles(rowRoles.sort());
+            setDynamicDepartments(ciDedup([...STATIC_DEPARTMENTS, ...rowDepts]));
+            setDynamicRoles(ciDedup(rowRoles));
           }
         } else {
-          const allDepts = [...new Set([...STATIC_DEPARTMENTS, ...rowDepts])].sort();
-          setDynamicDepartments(allDepts);
-          setDynamicRoles(rowRoles.sort());
+          setDynamicDepartments(ciDedup([...STATIC_DEPARTMENTS, ...rowDepts]));
+          setDynamicRoles(ciDedup(rowRoles));
         }
       } catch {
         // keep table editable with local rows when backend fails
@@ -292,6 +305,18 @@ export default function MasterWorkforceSheet() {
 
   const handlePrintSheet = () => {
     setIsPrintSheetOpen(true);
+  };
+
+  const [isIdCardOpen, setIsIdCardOpen] = useState(false);
+  const [idCardData, setIdCardData] = useState([]);
+  const [docPreview, setDocPreview] = useState(null); // { url, title }
+
+  const handleGenerateIdCards = () => {
+    const ids = selectedRows.size > 0 ? Array.from(selectedRows) : paginatedData.map(r => r.id);
+    const members = data.filter(r => ids.includes(r.id));
+    if (!members.length) { alert('No members to generate ID cards for.'); return; }
+    setIdCardData(members);
+    setIsIdCardOpen(true);
   };
 
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
@@ -698,6 +723,118 @@ export default function MasterWorkforceSheet() {
         </DialogContent>
       </Dialog>
 
+      {/* Document Preview Modal */}
+      {docPreview && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4" onClick={() => setDocPreview(null)}>
+          <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-4 py-3 border-b border-soft-border">
+              <span className="text-sm font-bold text-midnight-ink">{docPreview.title}</span>
+              <div className="flex items-center gap-2">
+                <a href={docPreview.url} target="_blank" rel="noopener noreferrer" className="text-xs text-trust-blue underline px-2 py-1 rounded hover:bg-cloud-gray">Open in new tab</a>
+                <button onClick={() => setDocPreview(null)} className="p-1.5 rounded hover:bg-cloud-gray"><svg className="w-4 h-4 text-cool-gray" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button>
+              </div>
+            </div>
+            <div className="flex-1 overflow-auto flex items-center justify-center bg-gray-100 p-4">
+              {docPreview.url.match(/\.(pdf)$/i)
+                ? <iframe src={docPreview.url} className="w-full" style={{height:'70vh'}} title={docPreview.title} />
+                : <img src={docPreview.url} alt={docPreview.title} className="max-w-full max-h-[70vh] object-contain rounded shadow" />
+              }
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ID Card Dialog */}
+      <Dialog open={isIdCardOpen} onOpenChange={setIsIdCardOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader className="border-b pb-3">
+            <DialogTitle>ID Cards — {idCardData.length} Employee{idCardData.length !== 1 ? 's' : ''}</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-xs text-cool-gray mb-4">Print and cut along the borders. Each card is portrait format.</p>
+            <div className="flex flex-wrap gap-5 justify-start" id="id-cards-print-area">
+              {idCardData.map(emp => (
+                <div key={emp.id} className="border-2 border-gray-300 rounded-xl overflow-hidden bg-white shadow-md flex flex-col" style={{width:220, fontFamily:'sans-serif', minHeight:380}}>
+                  {/* Header band */}
+                  <div className="bg-[#1d4ed8] px-3 py-2 flex items-center justify-between">
+                    <span className="text-white text-[9px] font-bold tracking-widest uppercase">Employee ID Card</span>
+                    <span className="text-white/70 text-[9px] font-mono">{emp.barcodeNumber}</span>
+                  </div>
+                  {/* Photo centered */}
+                  <div className="flex justify-center pt-4 pb-2">
+                    <div className="w-20 h-20 rounded-lg overflow-hidden border-2 border-[#1d4ed8]/30 bg-gray-100 flex items-center justify-center shadow">
+                      {emp.profilePhoto
+                        ? <img src={emp.profilePhoto} alt={emp.fullName} className="w-full h-full object-cover" />
+                        : <span className="text-3xl font-bold text-gray-400">{(emp.fullName||'?').charAt(0).toUpperCase()}</span>
+                      }
+                    </div>
+                  </div>
+                  {/* Name + Role */}
+                  <div className="text-center px-3 pb-2">
+                    <div className="font-bold text-[13px] text-gray-900 leading-tight">{emp.fullName || '—'}</div>
+                    <div className="text-[11px] text-[#1d4ed8] font-semibold mt-0.5">{emp.designation || '—'}</div>
+                    <div className="text-[10px] text-gray-500">{emp.department || '—'}</div>
+                  </div>
+                  {/* Divider */}
+                  <div className="mx-3 border-t border-gray-200 mb-2" />
+                  {/* Info rows */}
+                  <div className="px-3 flex flex-col gap-1 flex-1">
+                    {emp.phone && (
+                      <div className="flex items-start gap-1.5 text-[10px] text-gray-600">
+                        <span className="font-semibold text-gray-500 w-[68px] shrink-0">Phone No.</span>
+                        <span className="font-medium">{emp.phone}</span>
+                      </div>
+                    )}
+                    {emp.dob && (
+                      <div className="flex items-start gap-1.5 text-[10px] text-gray-600">
+                        <span className="font-semibold text-gray-500 w-[68px] shrink-0">DOB</span>
+                        <span>{emp.dob}</span>
+                      </div>
+                    )}
+                    {emp.workingStyle && (
+                      <div className="flex items-start gap-1.5 text-[10px] text-gray-600">
+                        <span className="font-semibold text-gray-500 w-[68px] shrink-0">Work Style</span>
+                        <span>{emp.workingStyle}</span>
+                      </div>
+                    )}
+                    {emp.dateOfJoining && (
+                      <div className="flex items-start gap-1.5 text-[10px] text-gray-600">
+                        <span className="font-semibold text-gray-500 w-[68px] shrink-0">Joined</span>
+                        <span>{emp.dateOfJoining}</span>
+                      </div>
+                    )}
+                  </div>
+                  {/* Barcode strip */}
+                  <div className="px-3 pt-2 pb-1 mt-2">
+                    <div className="flex items-end justify-center gap-px mb-1" style={{height:30}}>
+                      {(emp.barcodeNumber||'').split('').map((ch,i) => {
+                        const code = ch.charCodeAt(0);
+                        return [
+                          <div key={`b${i}a`} className="bg-gray-900" style={{width:1+(code%3),height:26+(i%2)*4}} />,
+                          <div key={`b${i}b`} style={{width:1+(i%2),height:0}} />,
+                          <div key={`b${i}c`} className="bg-gray-900" style={{width:1,height:18+(code%8)}} />,
+                          <div key={`b${i}d`} style={{width:1,height:0}} />,
+                        ];
+                      })}
+                    </div>
+                    <div className="text-center font-mono text-[9px] text-gray-700 tracking-[0.2em] font-bold">{emp.barcodeNumber}</div>
+                  </div>
+                  {/* Footer */}
+                  <div className="bg-[#1d4ed8] px-3 py-1 flex items-center justify-between mt-1">
+                    <span className="text-white/70 text-[9px]">ID: {String(emp.id||'').padStart(4,'0')}</span>
+                    <span className="text-white/70 text-[9px]">Status: {emp.status || 'Active'}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+          <DialogFooter className="flex gap-2 pt-2 border-t">
+            <Button onClick={() => window.print()} className="bg-[#1d4ed8] hover:bg-[#1e40af] text-white">Print ID Cards</Button>
+            <Button onClick={() => setIsIdCardOpen(false)} variant="outline">Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Print Sheet Dialog */}
       <Dialog open={isPrintSheetOpen} onOpenChange={setIsPrintSheetOpen}>
         <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
@@ -830,6 +967,9 @@ export default function MasterWorkforceSheet() {
             />
           </div>
           {canCreate && <BulkUploadButton sheetType="workforce" onComplete={() => window.location.reload()} />}
+          <Button onClick={handleGenerateIdCards} variant="outline" className="border-indigo-500 text-indigo-600 hover:bg-indigo-50 rounded-full px-4 text-sm h-8">
+            {selectedRows.size > 0 ? `ID Cards (${selectedRows.size})` : 'Generate ID Cards'}
+          </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8">
@@ -1094,18 +1234,36 @@ export default function MasterWorkforceSheet() {
                       visibleColumns.has(column.id) && (
                         <td key={column.id} className={`border border-soft-border p-2 ${columnConfig[column.id].cellBg || ''}`} style={isEditing ? {backgroundColor: '#eff6ff'} : {}}>
                           {column.id === 'fullName' && !isEditing ? (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                if (row.hasBackendRecord) {
-                                  setEditingWorkforceId(row.id);
-                                  setIsEnrollWorkforceOpen(true);
-                                }
-                              }}
-                              className="w-full text-left px-1 py-1 text-sm text-trust-blue hover:underline font-medium whitespace-normal break-words leading-snug"
-                            >
-                              {row.fullName || '—'}
-                            </button>
+                            <div className="flex items-center justify-between gap-1 group">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (row.hasBackendRecord) {
+                                    setEditingWorkforceId(row.id);
+                                    setIsEnrollWorkforceOpen(true);
+                                  }
+                                }}
+                                className="flex-1 text-left px-1 py-1 text-sm text-trust-blue hover:underline font-medium whitespace-normal break-words leading-snug"
+                              >
+                                {row.fullName || '—'}
+                              </button>
+                              <button
+                                type="button"
+                                title="Generate ID Card"
+                                onClick={() => { setIdCardData([row]); setIsIdCardOpen(true); }}
+                                className="opacity-0 group-hover:opacity-100 shrink-0 p-1 rounded hover:bg-indigo-50 text-indigo-500 transition"
+                              >
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>
+                              </button>
+                            </div>
+                          ) : isEditing && column.id === 'dateOfJoining' ? (
+                            <Input
+                              type="date"
+                              value={row.dateOfJoining || ''}
+                              onChange={(e) => handleCellChange(row.id, 'dateOfJoining', e.target.value)}
+                              className="border-0 p-1 text-xs h-8"
+                              disabled={!canEdit}
+                            />
                           ) : isEditing ? (
                             <Input
                               type="text"
@@ -1114,6 +1272,31 @@ export default function MasterWorkforceSheet() {
                               className="border-0 p-1 text-sm h-8"
                               disabled={!canEdit}
                             />
+                          ) : column.id === 'profilePhoto' ? (
+                            <div className="px-1 py-0.5">
+                              {row.profilePhoto
+                                ? <img src={row.profilePhoto} alt={row.fullName} className="w-9 h-9 rounded object-cover border border-soft-border cursor-pointer hover:opacity-80" onClick={() => setDocPreview({ url: row.profilePhoto, title: row.fullName + ' — Photo' })} />
+                                : <span className="inline-flex w-9 h-9 rounded bg-cloud-gray items-center justify-center text-cool-gray text-xs font-bold border border-soft-border">{(row.fullName||'?').charAt(0).toUpperCase()}</span>
+                              }
+                            </div>
+                          ) : column.id === 'aadhaarDoc' ? (
+                            <div className="px-1 py-0.5">
+                              {row.aadhaarDoc
+                                ? <a href={row.aadhaarDoc} target="_blank" rel="noopener noreferrer" className="text-xs text-trust-blue underline hover:text-deep-blue flex items-center gap-1"><svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>View</a>
+                                : <span className="text-xs text-cool-gray">—</span>
+                              }
+                            </div>
+                          ) : column.id === 'panDoc' ? (
+                            <div className="px-1 py-0.5">
+                              {row.panDoc
+                                ? <a href={row.panDoc} target="_blank" rel="noopener noreferrer" className="text-xs text-trust-blue underline hover:text-deep-blue flex items-center gap-1"><svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>View</a>
+                                : <span className="text-xs text-cool-gray">—</span>
+                              }
+                            </div>
+                          ) : column.id === 'barcodeNumber' ? (
+                            <div className="px-1 py-0.5 font-mono text-xs">{row.barcodeNumber || '—'}</div>
+                          ) : column.id === 'dateOfJoining' ? (
+                            <div className="px-1 py-0.5 text-xs">{row.dateOfJoining || '—'}</div>
                           ) : column.id === 'status' ? (
                             <div className="px-1 py-0.5">
                               {row.status === 'Revoked' ? (

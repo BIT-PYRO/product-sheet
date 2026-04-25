@@ -169,6 +169,7 @@ function PermissionsModal({ member, canEdit, isSelf, onClose, onSaved }) {
     return mergePermissions(member.permissions);
   });
   const [isApproved, setIsApproved] = useState(member.user_is_approved ?? true);
+  const [barcodeNumber, setBarcodeNumber] = useState(member.barcode_number || '');
   const [saving, setSaving]         = useState(false);
   const [error, setError]           = useState('');
 
@@ -203,7 +204,7 @@ function PermissionsModal({ member, canEdit, isSelf, onClose, onSaved }) {
       const res = await fetch(`/api/workforce/${member.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ permissions: perms }),
+        body: JSON.stringify({ permissions: perms, ...(barcodeNumber.trim() ? { barcode_number: barcodeNumber.trim() } : {}) }),
       });
       if (!res.ok) {
         const errData = await res.json().catch(() => null);
@@ -308,6 +309,21 @@ function PermissionsModal({ member, canEdit, isSelf, onClose, onSaved }) {
               className="w-5 h-5 accent-trust-blue cursor-pointer disabled:cursor-not-allowed"
             />
           </div>
+
+          {/* Barcode / ID Number — only visible to editors */}
+          {effectiveCanEdit && (
+            <div className="rounded-xl border border-soft-border px-4 py-3 mt-3">
+              <p className="text-sm font-semibold text-midnight-ink mb-1">Barcode / Employee ID Number</p>
+              <p className="text-xs text-cool-gray mb-2">Unique ID used to generate this member's ID card and barcode. Leave blank to auto-assign.</p>
+              <input
+                type="text"
+                value={barcodeNumber}
+                onChange={e => setBarcodeNumber(e.target.value)}
+                placeholder={`e.g. WF-${String(member.id||'').padStart(4,'0')}`}
+                className="w-full border border-soft-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue bg-cloud-gray text-midnight-ink"
+              />
+            </div>
+          )}
 
           {/* Account approval — show when user is not yet approved */}
           {member.user_is_approved === false && (() => {
@@ -415,10 +431,12 @@ export default function ManageMembersPage() {
 
         // find current user's workforce record to get their designation
         const email = result.user?.email || '';
-        if (email) {
-          const match = rawList.find(m => (m.email || '').toLowerCase() === email.toLowerCase());
-          if (match) setMyWorkforce(match);
+        const username = result.user?.username || '';
+        let match = email ? rawList.find(m => (m.email || '').toLowerCase() === email.toLowerCase()) : null;
+        if (!match && username) {
+          match = rawList.find(m => (m.username || '').toLowerCase() === username.toLowerCase());
         }
+        if (match) setMyWorkforce(match);
       } catch {
         // Network/server error — show a retry prompt instead of redirecting away
         setLoadError('Could not connect to server. Please check your connection and try again.');

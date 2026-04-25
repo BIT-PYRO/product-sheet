@@ -155,3 +155,20 @@ input[type="number"] {
     min-height: 44px;
   }
 }
+
+/* ── Print: show only ID cards, hide everything else ── */
+@media print {
+  body * { visibility: hidden; }
+  #id-cards-print-area,
+  #id-cards-print-area * { visibility: visible; }
+  #id-cards-print-area {
+    position: fixed;
+    top: 0;
+    left: 0;
+    display: flex !important;
+    flex-wrap: wrap;
+    gap: 16px;
+    padding: 16px;
+    background: white;
+  }
+}
