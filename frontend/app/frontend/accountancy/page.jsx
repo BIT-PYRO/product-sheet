@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import AccountingJournalForm from '@/components/accounting-journal-form';
 import AccountingBankImport from '@/components/accounting-bank-import';
 import AccountingLedgerSummary from '@/components/accounting-ledger-summary';
@@ -26,6 +26,11 @@ const TABS = [
 export default function AccountancyPage() {
   const [activeTab, setActiveTab] = useState('journal');
   const [journalMode, setJournalMode] = useState('manual'); // 'manual' | 'import'
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   return (
     <main className="min-h-screen bg-cloud-gray">
@@ -47,11 +52,14 @@ export default function AccountancyPage() {
         
 
         {/* Tab bar */}
-        <div className="flex gap-1 mb-6 border-b border-soft-border flex-wrap">
+        {isMounted && (
+          <>
+            <div className="flex gap-1 mb-6 border-b border-soft-border flex-wrap">
           {TABS.map((tab) => (
             <button
               key={tab.key}
               type="button"
+              suppressHydrationWarning
               onClick={() => setActiveTab(tab.key)}
               className={`px-5 py-2.5 text-sm font-medium border-b-2 transition-colors ${
                 activeTab === tab.key
@@ -71,6 +79,7 @@ export default function AccountancyPage() {
             <div className="flex gap-1 bg-cloud-gray border border-soft-border rounded-lg p-1 w-fit">
               <button
                 type="button"
+                suppressHydrationWarning
                 onClick={() => setJournalMode('manual')}
                 className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
                   journalMode === 'manual'
@@ -82,6 +91,7 @@ export default function AccountancyPage() {
               </button>
               <button
                 type="button"
+                suppressHydrationWarning
                 onClick={() => setJournalMode('import')}
                 className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
                   journalMode === 'import'
@@ -101,6 +111,8 @@ export default function AccountancyPage() {
         {activeTab === 'balance-sheet' && <AccountingBalanceSheet />}
         {activeTab === 'pending-expenses' && <AccountingPendingExpenses />}
         {activeTab === 'finance' && <AccountingFinance />}
+          </>
+        )}
       </div>
       <DeletionHistoryDrawer appLabel="accounting" modelName="journalentry" />
     </main>

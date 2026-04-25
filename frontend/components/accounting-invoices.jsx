@@ -8,7 +8,7 @@ const C = {
   muted: '#64748b', border: '#e2e8f0', slateBg: '#f8fafc',
 };
 
-export default function AccountingInvoices() {
+export default function AccountingInvoices({ onRefresh, dateParams }) {
   const [sub, setSub] = useState('sales');
 
   const tabStyle = active => ({
@@ -26,13 +26,13 @@ export default function AccountingInvoices() {
   return (
     <div style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>
       {/* Sub-tab bar — same style as P&R */}
-      <div style={{ display: 'flex', gap: 0, borderBottom: `1px solid ${C.border}`, marginBottom: 22 }}>
+      <div className="no-print" style={{ display: 'flex', gap: 0, borderBottom: `1px solid ${C.border}`, marginBottom: 22 }}>
         <button style={tabStyle(sub === 'sales')}    onClick={() => setSub('sales')}>Sales Invoices</button>
         <button style={tabStyle(sub === 'purchase')} onClick={() => setSub('purchase')}>Purchase Bills</button>
       </div>
 
-      {sub === 'sales'    && <AccountingInvoicesSales />}
-      {sub === 'purchase' && <AccountingInvoicesPurchase />}
+      {sub === 'sales'    && <AccountingInvoicesSales onRefresh={onRefresh} dateParams={dateParams} />}
+      {sub === 'purchase' && <AccountingInvoicesPurchase onRefresh={onRefresh} dateParams={dateParams} />}
     </div>
   );
 }

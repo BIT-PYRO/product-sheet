@@ -36,7 +36,7 @@ export default function ExpensesListPage() {
     .reduce((sum, e) => sum + Number(e.amount), 0);
 
   return (
-    <div style={{ maxWidth: 1000, margin: '0 auto', fontFamily: 'Inter, system-ui, sans-serif', padding: '20px' }}>
+    <div style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
         <div>
           <h2 style={{ margin: 0, fontSize: 24, fontWeight: 700, color: '#111827' }}>Expenses Dashboard</h2>

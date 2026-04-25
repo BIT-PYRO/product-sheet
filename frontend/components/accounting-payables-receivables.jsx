@@ -51,36 +51,47 @@ function AddableSelect({ value, onChange, options, placeholder, disabled }) {
   );
 }
 
-function printRows(rows, title) {
-  const cols = [
-    { key: 'party_name', label: 'Party' }, { key: 'amount', label: 'Amount' },
-    { key: 'department', label: 'Department' },
-    { key: 'status', label: 'Status' }, { key: 'due_date', label: 'Due Date' },
-    { key: 'description', label: 'Description' },
-  ];
-  const html = `<html><head><title>${title}</title><style>
-    body{font-family:Inter,Arial,sans-serif;font-size:13px;padding:32px;color:#111827}
-    h2{margin:0 0 6px;font-size:18px}p.sub{color:#6b7280;font-size:12px;margin:0 0 20px}
-    table{border-collapse:collapse;width:100%}
-    th{background:#f9fafb;padding:8px 14px;text-align:left;font-size:11px;text-transform:uppercase;color:#6b7280;letter-spacing:.5px;border-bottom:1px solid #e5e7eb}
-    td{padding:10px 14px;border-bottom:1px solid #f3f4f6;font-size:13px}
-    .badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700}
-    .pending{background:#fef9c3;color:#854d0e}.paid{background:#dcfce7;color:#166534}
-  </style></head><body>
-    <h2>${title}</h2><p class="sub">Printed on ${new Date().toLocaleString('en-IN')}</p>
-    <table><thead><tr>${cols.map(c => `<th>${c.label}</th>`).join('')}</tr></thead>
-    <tbody>${rows.map(r => `<tr>${cols.map(c => `<td>${c.key === 'amount' ? fmt(r[c.key]) : c.key === 'status' ? `<span class="badge ${r[c.key]}">${r[c.key]}</span>` : (r[c.key] ?? '-')}</td>`).join('')}</tr>`).join('')}</tbody></table>
-    <script>window.onload=()=>window.print()</script>
-  </body></html>`;
-  const w = window.open('', '_blank'); w.document.write(html); w.document.close();
-}
-
 function exportCSV(rows, filename) {
-  const cols = ['party_name', 'amount', 'department', 'status', 'due_date', 'description'];
-  const header = 'Party,Amount,Department,Status,Due Date,Description';
-  const body = rows.map(r => cols.map(k => `"${(k === 'amount' ? Number(r[k]).toFixed(2) : (r[k] ?? '')).toString().replace(/"/g, '""')}"`).join(',')).join('\n');
+  const cols = ['S.No', 'party_name', 'amount', 'department', 'status', 'due_date', 'description'];
+  const header = 'S.No,Party,Amount,Department,Status,Due Date,Description';
+  const body = rows.map((r, i) => cols.map(k => `"${(k === 'S.No' ? (i + 1) : k === 'amount' ? Number(r[k]).toFixed(2) : (r[k] ?? '')).toString().replace(/"/g, '""')}"`).join(',')).join('\n');
   const blob = new Blob([header + '\n' + body], { type: 'text/csv' });
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = filename; a.click();
+}
+
+function MultiSelectDropdown({ label, options, selected, onChange, activeColor, activeBgColor }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef();
+  useEffect(() => {
+    const handleClick = e => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
+
+  const toggle = (opt) => {
+    if (selected.includes(opt)) onChange(selected.filter(x => x !== opt));
+    else onChange([...selected, opt]);
+  };
+
+  return (
+    <div ref={ref} style={{ position: 'relative' }}>
+      <button onClick={() => setOpen(!open)} style={{ padding: '6px 12px', border: 'none', borderRadius: 6, fontSize: 12, background: selected.length ? activeBgColor : '#fff', color: selected.length ? activeColor : '#6b7280', cursor: 'pointer', outline: 'none', fontWeight: selected.length ? 600 : 400, boxShadow: '0 1px 2px rgba(0,0,0,0.06)', display: 'flex', alignItems: 'center', gap: 6 }}>
+        {label} {selected.length > 0 && `(${selected.length})`}
+        <span style={{ fontSize: 10 }}>▼</span>
+      </button>
+      {open && (
+        <div style={{ position: 'absolute', top: '100%', left: 0, marginTop: 4, background: '#fff', border: `1px solid #e5e7eb`, borderRadius: 8, boxShadow: '0 10px 25px rgba(0,0,0,0.1)', zIndex: 100, minWidth: 180, maxHeight: 250, overflowY: 'auto', padding: 6 }}>
+          {options.length === 0 ? <div style={{ padding: '8px 12px', fontSize: 12, color: '#6b7280' }}>No options</div> : null}
+          {options.map(opt => (
+            <label key={opt} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', fontSize: 12, cursor: 'pointer', borderRadius: 4, transition: 'background 0.1s' }} onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+              <input type="checkbox" checked={selected.includes(opt)} onChange={() => toggle(opt)} style={{ cursor: 'pointer' }} />
+              <span style={{ color: '#111827' }}>{opt}</span>
+            </label>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function StatCard({ label, value, sub, color, bg }) {
@@ -93,103 +104,66 @@ function StatCard({ label, value, sub, color, bg }) {
   );
 }
 
-function Badge({ status }) {
+function Badge({ status, type }) {
+  const isPayable = type === 'payable';
   const styles = {
     pending: { background: '#fef9c3', color: '#854d0e', border: '1px solid #fde68a' },
-    paid: { background: '#dcfce7', color: '#166534', border: '1px solid #bbf7d0' },
+    paid: isPayable ? { background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca' } : { background: '#dcfce7', color: '#166534', border: '1px solid #bbf7d0' },
   };
   return <span style={{ display: 'inline-block', padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700, ...styles[status] }}>{status.toUpperCase()}</span>;
 }
 
 
 // -- Workforce Party Selector -------------------------------------
-function PartySelect({ value, onChange, workforce, onAddNew }) {
+function PartySelect({ value, onChange, workforce }) {
+  const [adding, setAdding] = useState(false);
+  const [draft, setDraft] = useState('');
   const [custom, setCustom] = useState([]);
-  const allOptions = [...workforce.map(w => w.full_name), ...custom];
+  const ref = useRef(null);
+
+  const all = [...workforce.map(w => w.full_name), ...custom];
   const SENTINEL = '__add_new__';
-  const handleChange = e => {
-    if (e.target.value === SENTINEL) { onAddNew(); return; }
+
+  const handle = e => {
+    if (e.target.value === SENTINEL) { setAdding(true); setDraft(''); setTimeout(() => ref.current?.focus(), 50); return; }
     onChange(e.target.value);
   };
+
+  const confirm = () => {
+    const t = draft.trim();
+    if (!t) { setAdding(false); return; }
+    if (!all.includes(t)) setCustom(p => [...p, t]);
+    onChange(t); setAdding(false); setDraft('');
+  };
+
+  if (adding) return (
+    <div style={{ display: 'flex', gap: 4 }}>
+      <input ref={ref} value={draft} onChange={e => setDraft(e.target.value)}
+        onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); confirm(); } if (e.key === 'Escape') setAdding(false); }}
+        placeholder="Type & press Enter…" style={{ ...S.input, flex: 1, borderColor: '#0284c7' }} autoFocus />
+      <button type="button" onClick={confirm} style={{ padding: '0 10px', background: '#0284c7', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 700 }}>✓</button>
+      <button type="button" onClick={() => setAdding(false)} style={{ padding: '0 8px', background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 6, cursor: 'pointer', color: '#6b7280' }}>✕</button>
+    </div>
+  );
+
   return (
-    <select value={value} onChange={handleChange} style={S.input}>
+    <select value={value} onChange={handle} style={S.input}>
       <option value="">— Select Party —</option>
-      {allOptions.map((name, i) => <option key={i} value={name}>{name}</option>)}
-      <option value={SENTINEL} style={{ color: '#2563eb', fontWeight: 700 }}>+ Add New Person-</option>
+      {all.map((name, i) => <option key={i} value={name}>{name}</option>)}
+      <option value={SENTINEL} style={{ color: '#0284c7', fontWeight: 700 }}>+ Add New Person…</option>
     </select>
   );
 }
 
-// -- Quick Add Party Modal ----------------------------------------
-function AddPartyModal({ onClose, onAdded }) {
-  const [form, setForm] = useState({ full_name: '', phone: '', designation: '', department: '' });
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState('');
-  const set = k => e => setForm(f => ({ ...f, [k]: e.target.value }));
 
-  async function submit(e) {
-    e.preventDefault();
-    if (!form.full_name.trim()) return setError('Full name is required.');
-    setSubmitting(true); setError('');
-    try {
-      const res = await fetch('/api/workforce/', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
-      });
-      const data = await res.json().catch(() => null);
-      if (!res.ok || !data?.success) { setError(data?.message || 'Failed to add.'); setSubmitting(false); return; }
-      onAdded(data.data?.full_name || form.full_name);
-    } catch { setError('Network error.'); setSubmitting(false); }
-  }
-
-  return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, backdropFilter: 'blur(3px)' }}>
-      <div style={{ background: '#fff', borderRadius: 14, width: '100%', maxWidth: 440, padding: '28px 32px', boxShadow: '0 24px 64px rgba(0,0,0,0.2)' }}>
-        <div style={{ marginBottom: 22 }}>
-          <span style={{ display: 'inline-block', padding: '3px 10px', background: '#f0f9ff', color: '#0284c7', borderRadius: 20, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', marginBottom: 8 }}>Workforce</span>
-          <h3 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: '#111827' }}>Add New Person</h3>
-          <p style={{ margin: '4px 0 0', fontSize: 13, color: '#9ca3af' }}>This person will be added to the Workforce sheet.</p>
-        </div>
-        {error && <div style={{ padding: '10px 14px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, color: '#dc2626', fontSize: 13, marginBottom: 16 }}>{error}</div>}
-        <form onSubmit={submit}>
-          <div style={{ marginBottom: 14 }}>
-            <label style={S.label}>Full Name *</label>
-            <input style={S.input} placeholder="e.g. Rajesh Kumar" value={form.full_name} onChange={set('full_name')} />
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
-            <div>
-              <label style={S.label}>Phone</label>
-              <input style={S.input} placeholder="Mobile number" value={form.phone} onChange={set('phone')} />
-            </div>
-            <div>
-              <label style={S.label}>Designation</label>
-              <input style={S.input} placeholder="e.g. Vendor" value={form.designation} onChange={set('designation')} />
-            </div>
-          </div>
-          <div style={{ marginBottom: 22 }}>
-            <label style={S.label}>Department</label>
-            <input style={S.input} placeholder="e.g. Procurement" value={form.department} onChange={set('department')} />
-          </div>
-          <div style={{ display: 'flex', gap: 10 }}>
-            <button type="button" onClick={onClose} style={{ flex: 1, padding: '11px 0', background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 8, fontWeight: 600, cursor: 'pointer', color: '#374151' }}>Cancel</button>
-            <button type="submit" disabled={submitting} style={{ flex: 2, padding: '11px 0', background: submitting ? '#9ca3af' : '#0284c7', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 700, cursor: submitting ? 'not-allowed' : 'pointer', fontSize: 15 }}>
-              {submitting ? 'Adding-' : 'Add Person'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-}
-function CreateModal({ type, accounts, workforce, onClose, onSuccess, onAddParty }) {
+function CreateModal({ type, accounts, workforce, onClose, onSuccess }) {
   const [form, setForm] = useState({ party_name: '', amount: '', description: '', due_date: '', date: today(), department: '' });
   const [receipts, setReceipts] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const fileRef = useRef(null);
   const isReceivable = type === 'receivable';
-  const accent = isReceivable ? '#2563eb' : '#dc2626';
+  const accent = '#2563eb';
 
   const set = k => e => setForm(f => ({ ...f, [k]: e.target.value }));
   const removeReceipt = i => setReceipts(r => r.filter((_, idx) => idx !== i));
@@ -197,7 +171,7 @@ function CreateModal({ type, accounts, workforce, onClose, onSuccess, onAddParty
   async function submit(e) {
     e.preventDefault();
     if (!form.party_name.trim()) return setError('Party name is required.');
-    const amt = parseFloat(form.amount);
+    const amt = parseFloat(String(form.amount).replace(/,/g, ''));
     if (!amt || amt <= 0) return setError('Enter a valid positive amount.');
     if (!form.date) return setError('Date is required.');
     if (!form.department) return setError('Department is required.');
@@ -226,10 +200,10 @@ function CreateModal({ type, accounts, workforce, onClose, onSuccess, onAddParty
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, backdropFilter: 'blur(2px)' }}>
-      <div style={{ background: '#fff', borderRadius: 14, width: '100%', maxWidth: 500, padding: '28px 32px', boxShadow: '0 24px 64px rgba(0,0,0,0.18)', maxHeight: '90vh', overflowY: 'auto' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 22 }}>
+      <div style={{ background: '#fff', borderRadius: 14, width: '100%', maxWidth: 500, padding: '24px 32px', boxShadow: '0 24px 64px rgba(0,0,0,0.18)', maxHeight: '96vh', overflowY: 'auto' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
           <div>
-            <span style={{ display: 'inline-block', padding: '3px 10px', background: isReceivable ? '#eff6ff' : '#fef2f2', color: accent, borderRadius: 20, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', marginBottom: 8 }}>
+            <span style={{ display: 'inline-block', padding: '3px 10px', background: '#eff6ff', color: accent, borderRadius: 20, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', marginBottom: 8 }}>
               {isReceivable ? 'New Receivable' : 'New Payable'}
             </span>
             <h3 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: '#111827' }}>
@@ -243,33 +217,43 @@ function CreateModal({ type, accounts, workforce, onClose, onSuccess, onAddParty
         {error && <div style={{ padding: '10px 14px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, color: '#dc2626', fontSize: 13, marginBottom: 18 }}>{error}</div>}
 
         <form onSubmit={submit}>
-          <div style={{ marginBottom: 16 }}>
+          <div style={{ marginBottom: 14 }}>
             <label style={S.label}>Party Name *</label>
-            <PartySelect value={form.party_name} onChange={v => setForm(f => ({...f, party_name: v}))} workforce={workforce} onAddNew={onAddParty} />
+            <PartySelect value={form.party_name} onChange={v => setForm(f => ({...f, party_name: v}))} workforce={workforce} />
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 16 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
             <div>
               <label style={S.label}>Amount (₹) *</label>
-              <input type="number" min="0.01" step="0.01" style={S.input} placeholder="0.00" value={form.amount} onChange={set('amount')} />
+              <input type="text" inputMode="decimal" style={S.input} placeholder="0.00" value={form.amount} onChange={e => {
+                let raw = e.target.value.replace(/[^0-9.]/g, '');
+                const parts = raw.split('.');
+                if (parts.length > 2) raw = parts[0] + '.' + parts.slice(1).join('');
+                let formatted = parts[0];
+                if (formatted.length > 3) {
+                  formatted = formatted.substring(0, formatted.length - 3).replace(/\B(?=(\d{2})+(?!\d))/g, ",") + "," + formatted.substring(formatted.length - 3);
+                }
+                if (parts.length > 1) formatted += '.' + parts[1];
+                setForm(f => ({ ...f, amount: formatted }));
+              }} />
             </div>
             <div>
               <label style={S.label}>Date *</label>
               <input type="date" style={S.input} value={form.date} onChange={set('date')} />
             </div>
           </div>
-          <div style={{ marginBottom: 16 }}>
+          <div style={{ marginBottom: 14 }}>
             <label style={S.label}>Department *</label>
             <AddableSelect value={form.department} onChange={v => setForm(f => ({ ...f, department: v }))} options={DEFAULT_DEPARTMENTS} placeholder="— Select Department —" disabled={submitting} />
           </div>
-          <div style={{ marginBottom: 16 }}>
+          <div style={{ marginBottom: 14 }}>
             <label style={S.label}>Due Date (optional)</label>
             <input type="date" style={S.input} value={form.due_date} onChange={set('due_date')} />
           </div>
-          <div style={{ marginBottom: 16 }}>
+          <div style={{ marginBottom: 14 }}>
             <label style={S.label}>Description</label>
             <textarea rows={2} style={{ ...S.input, resize: 'vertical' }} placeholder={isReceivable ? 'e.g. Invoice #123 for services' : 'e.g. Supplier bill for materials'} value={form.description} onChange={set('description')} />
           </div>
-          <div style={{ marginBottom: 24 }}>
+          <div style={{ marginBottom: 20 }}>
             <label style={S.label}>Receipts (optional)</label>
             <div onClick={() => fileRef.current?.click()} style={{ ...S.input, cursor: 'pointer', color: '#9ca3af', textAlign: 'center', border: '1px dashed #d1d5db', padding: 12 }}>
               Click to add receipts...
@@ -288,7 +272,7 @@ function CreateModal({ type, accounts, workforce, onClose, onSuccess, onAddParty
           </div>
           <div style={{ display: 'flex', gap: 10 }}>
             <button type="button" onClick={onClose} style={{ flex: 1, padding: '11px 0', background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 8, fontWeight: 600, cursor: 'pointer', color: '#374151' }}>Cancel</button>
-            <button type="submit" disabled={submitting} style={{ flex: 2, padding: '11px 0', background: submitting ? '#9ca3af' : accent, color: '#fff', border: 'none', borderRadius: 8, fontWeight: 700, cursor: submitting ? 'not-allowed' : 'pointer', fontSize: 15 }}>
+            <button type="submit" disabled={submitting} style={{ flex: 2, padding: '11px 0', background: submitting ? '#9ca3af' : '#2563eb', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 700, cursor: submitting ? 'not-allowed' : 'pointer', fontSize: 15 }}>
               {submitting ? 'Saving...' : `Save ${isReceivable ? 'Receivable' : 'Payable'}`}
             </button>
           </div>
@@ -429,30 +413,36 @@ function OutstandingTable({ rows, loading, onSettle, selected, setSelected }) {
   const toggleRow = i => { const s = new Set(selected); s.has(i) ? s.delete(i) : s.add(i); setSelected(s); };
 
   return (
-    <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 10, overflow: 'hidden' }}>
+    <div className="print-area" style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 10, overflow: 'hidden' }}>
       <table style={{ width: '100%', borderCollapse: 'collapse' }}>
         <thead>
           <tr style={{ background: '#f9fafb' }}>
-            <th style={{ padding: '10px 14px', width: 36 }}>
+            <th className="no-print" style={{ padding: '10px 14px', width: 36 }}>
               <input type="checkbox" checked={rows.length > 0 && selected.size === rows.length} onChange={toggleAll} style={{ cursor: 'pointer' }} />
             </th>
+            <th className="print-only" style={{ padding: '10px 14px', fontSize: 11, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'left', borderBottom: '1px solid #e5e7eb', display: 'none' }}>S.No</th>
             {['Party', 'Amount', 'Department', 'Due Date', 'Description', 'Status', 'Action'].map(h => (
-              <th key={h} style={{ padding: '10px 14px', fontSize: 11, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'left', borderBottom: '1px solid #e5e7eb' }}>{h}</th>
+              <th key={h} className={h === 'Action' ? 'no-print' : ''} style={{ padding: '10px 14px', fontSize: 11, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'left', borderBottom: '1px solid #e5e7eb' }}>{h}</th>
             ))}
           </tr>
         </thead>
         <tbody>
           {loading ? (
-            <tr><td colSpan={7} style={{ padding: 28, textAlign: 'center', color: '#9ca3af' }}>Loading…</td></tr>
+            <tr><td colSpan={8} style={{ padding: 28, textAlign: 'center', color: '#9ca3af' }}>Loading…</td></tr>
           ) : rows.length === 0 ? (
-            <tr><td colSpan={7} style={{ padding: 28, textAlign: 'center', color: '#9ca3af' }}>No records found.</td></tr>
-          ) : rows.map((row, i) => (
-            <tr key={row.id} onClick={() => toggleRow(i)} style={{ borderBottom: '1px solid #f3f4f6', background: selected.has(i) ? '#f0f9ff' : 'transparent', cursor: 'pointer' }}>
-              <td style={{ padding: '11px 14px' }}>
-                <input type="checkbox" checked={selected.has(i)} onChange={() => toggleRow(i)} onClick={e => e.stopPropagation()} style={{ cursor: 'pointer' }} />
+            <tr><td colSpan={8} style={{ padding: 28, textAlign: 'center', color: '#9ca3af' }}>No records found.</td></tr>
+          ) : rows.map((row, i) => {
+            const isSelected = selected.has(i);
+            const hideInPrintClass = selected.size > 0 && !isSelected ? 'hide-in-print' : '';
+
+            return (
+            <tr key={row.id} className={hideInPrintClass} onClick={() => toggleRow(i)} style={{ borderBottom: '1px solid #f3f4f6', background: isSelected ? '#f0f9ff' : 'transparent', cursor: 'pointer' }}>
+              <td className="no-print" style={{ padding: '11px 14px' }}>
+                <input type="checkbox" checked={isSelected} onChange={() => toggleRow(i)} onClick={e => e.stopPropagation()} style={{ cursor: 'pointer' }} />
               </td>
+              <td className="print-only" style={{ padding: '11px 14px', fontSize: 13, color: '#111827', display: 'none' }}>{i + 1}</td>
               <td style={{ padding: '11px 14px', fontWeight: 600, color: '#111827', fontSize: 13 }}>{row.party_name}</td>
-              <td style={{ padding: '11px 14px', textAlign: 'left', fontWeight: 700, color: row.type === 'receivable' ? '#2563eb' : '#dc2626', fontSize: 13 }}>{fmt(row.amount)}</td>
+              <td style={{ padding: '11px 14px', textAlign: 'left', fontWeight: 700, color: row.type === 'receivable' ? '#16a34a' : '#dc2626', fontSize: 13 }}>{fmt(row.amount)}</td>
               <td style={{ padding: '11px 14px', fontSize: 12, color: '#374151', fontWeight: 600 }}>
                 {row.department ? (
                   <span style={{ display: 'inline-block', padding: '2px 8px', background: '#f3f4f6', borderRadius: 20, fontSize: 11 }}>
@@ -462,25 +452,25 @@ function OutstandingTable({ rows, loading, onSettle, selected, setSelected }) {
               </td>
               <td style={{ padding: '11px 14px', fontSize: 12, color: '#6b7280' }}>{row.due_date || '—'}</td>
               <td style={{ padding: '11px 14px', fontSize: 12, color: '#6b7280', maxWidth: 200 }}><span style={{ overflow: 'hidden', display: 'block', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.description || '—'}</span></td>
-              <td style={{ padding: '11px 14px' }}><Badge status={row.status} /></td>
-              <td style={{ padding: '11px 14px' }} onClick={e => e.stopPropagation()}>
+              <td style={{ padding: '11px 14px' }}><Badge status={row.status} type={row.type} /></td>
+              <td className="no-print" style={{ padding: '11px 14px' }} onClick={e => e.stopPropagation()}>
                 {row.status === 'pending' ? (
                   <button onClick={() => onSettle(row)} style={{ padding: '5px 14px', background: '#16a34a', color: '#fff', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
                     Settle
                   </button>
                 ) : (
-                  <span style={{ fontSize: 12, color: '#16a34a', fontWeight: 700 }}>✓ {row.type === 'receivable' ? 'Received' : 'Paid'}</span>
+                  <span style={{ fontSize: 12, color: row.type === 'receivable' ? '#16a34a' : '#dc2626', fontWeight: 700 }}>✓ {row.type === 'receivable' ? 'Received' : 'Paid'}</span>
                 )}
               </td>
             </tr>
-          ))}
+          )})}
         </tbody>
       </table>
     </div>
   );
 }
 
-export default function AccountingPayablesReceivables({ embedded = false }) {
+export default function AccountingPayablesReceivables({ embedded = false, onRefresh }) {
   const [tab, setTab] = useState('receivables');
   const [statusFilter, setStatusFilter] = useState('all');
   const [rows, setRows] = useState([]);
@@ -494,10 +484,11 @@ export default function AccountingPayablesReceivables({ embedded = false }) {
 
   // Inline filters
   const [search, setSearch] = useState('');
-  const [deptFilter, setDeptFilter] = useState('');
+  const [deptFilter, setDeptFilter] = useState([]);
+  const [sortBy, setSortBy] = useState('date_desc');
 
   const type = tab === 'receivables' ? 'receivable' : 'payable';
-  const accentColor = tab === 'receivables' ? '#2563eb' : '#dc2626';
+  const accentColor = '#2563eb';
 
   const loadAll = useCallback(async () => {
     setLoading(true);
@@ -523,15 +514,22 @@ export default function AccountingPayablesReceivables({ embedded = false }) {
       const q = search.toLowerCase();
       r = r.filter(x => (x.party_name || '').toLowerCase().includes(q) || (x.description || '').toLowerCase().includes(q));
     }
-    if (deptFilter) {
-      r = r.filter(x => (x.department || '') === deptFilter);
+    if (deptFilter.length > 0) {
+      r = r.filter(x => deptFilter.includes(x.department || 'None'));
     }
+    r.sort((a, b) => {
+      if (sortBy === 'date_desc') return new Date(b.date) - new Date(a.date);
+      if (sortBy === 'date_asc') return new Date(a.date) - new Date(b.date);
+      if (sortBy === 'amount_high') return b.amount - a.amount;
+      if (sortBy === 'amount_low') return a.amount - b.amount;
+      return 0;
+    });
     return r;
-  }, [rows, statusFilter, search, deptFilter]);
+  }, [rows, statusFilter, search, deptFilter, sortBy]);
 
   const availableDepts = useMemo(() => {
     const base = statusFilter === 'all' ? rows : rows.filter(x => x.status === statusFilter);
-    return [...new Set(base.map(r => r.department).filter(Boolean))].sort();
+    return [...new Set(base.map(r => r.department || 'None'))].sort();
   }, [rows, statusFilter]);
 
   const target = selected.size > 0 ? filtered.filter((_, i) => selected.has(i)) : filtered;
@@ -541,23 +539,33 @@ export default function AccountingPayablesReceivables({ embedded = false }) {
   const btn = { padding: '7px 14px', background: '#fff', border: '1px solid #e5e7eb', borderRadius: 7, fontSize: 13, fontWeight: 600, cursor: 'pointer', color: '#374151' };
   const tabBtn = k => ({
     padding: '9px 18px', fontSize: 13, fontWeight: tab === k ? 700 : 500, cursor: 'pointer',
-    border: 'none', background: 'transparent', borderBottom: tab === k ? `2px solid ${tab === 'receivables' ? '#2563eb' : '#dc2626'}` : '2px solid transparent',
-    color: tab === k ? (tab === 'receivables' ? '#2563eb' : '#dc2626') : '#9ca3af', transition: 'all 0.15s',
+    border: 'none', background: 'transparent', borderBottom: tab === k ? `2px solid #2563eb` : '2px solid transparent',
+    color: tab === k ? '#2563eb' : '#9ca3af', transition: 'all 0.15s',
   });
 
   return (
     <div style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>
+      <style>{`
+        @media print { 
+          body * { visibility: hidden; }
+          .print-area, .print-area * { visibility: visible; }
+          .print-area { position: absolute; left: 0; top: 0; width: 100%; margin: 0; padding: 0; }
+          .no-print { display: none !important; }
+          .print-only { display: table-cell !important; }
+          .hide-in-print { display: none !important; }
+        }
+      `}</style>
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 22, flexWrap: 'wrap', gap: 12 }}>
+      <div className="no-print" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 22, flexWrap: 'wrap', gap: 12 }}>
         <div>
           <h2 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: '#111827', letterSpacing: -0.5 }}>Payables & Receivables</h2>
           <p style={{ margin: '4px 0 0', fontSize: 13, color: '#9ca3af' }}>Track outstanding amounts — every entry creates a journal automatically.</p>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
-          <button onClick={() => setModal('receivable')} style={{ padding: '9px 18px', background: '#2563eb', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
+          <button onClick={() => setModal('receivable')} style={{ padding: '8px 16px', background: '#fff', color: '#111827', border: '1px solid #e5e7eb', borderRadius: 8, fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
             + Receivable
           </button>
-          <button onClick={() => setModal('payable')} style={{ padding: '9px 18px', background: '#dc2626', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
+          <button onClick={() => setModal('payable')} style={{ padding: '8px 16px', background: '#fff', color: '#111827', border: '1px solid #e5e7eb', borderRadius: 8, fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
             + Payable
           </button>
         </div>
@@ -567,13 +575,13 @@ export default function AccountingPayablesReceivables({ embedded = false }) {
 
 
       {/* Tabs */}
-      <div style={{ borderBottom: '1px solid #e5e7eb', marginBottom: 20 }}>
+      <div className="no-print" style={{ borderBottom: '1px solid #e5e7eb', marginBottom: 20 }}>
         <button style={tabBtn('receivables')} onClick={() => { setTab('receivables'); setStatusFilter('all'); }}>Receivables</button>
         <button style={tabBtn('payables')} onClick={() => { setTab('payables'); setStatusFilter('all'); }}>Payables</button>
       </div>
 
       {/* Sub-summary */}
-      <div style={{ display: 'flex', gap: 12, marginBottom: 18, flexWrap: 'wrap' }}>
+      <div className="no-print" style={{ display: 'flex', gap: 12, marginBottom: 18, flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', gap: 4 }}>
           {['all', 'pending', 'paid'].map(s => (
             <button key={s} onClick={() => setStatusFilter(s)} style={{ padding: '5px 14px', borderRadius: 20, border: '1px solid', fontSize: 12, fontWeight: 600, cursor: 'pointer', borderColor: statusFilter === s ? accentColor : '#e5e7eb', background: statusFilter === s ? accentColor : '#fff', color: statusFilter === s ? '#fff' : '#6b7280' }}>
@@ -587,7 +595,7 @@ export default function AccountingPayablesReceivables({ embedded = false }) {
               {selected.size} selected
             </span>
           )}
-          <button onClick={() => printRows(target, tab === 'receivables' ? 'Receivables Report' : 'Payables Report')} style={btn}>
+          <button onClick={() => window.print()} style={btn}>
             Print{selected.size > 0 ? ` (${selected.size})` : ' All'}
           </button>
           <button onClick={() => exportCSV(target, tab === 'receivables' ? 'receivables.csv' : 'payables.csv')} style={btn}>
@@ -597,14 +605,27 @@ export default function AccountingPayablesReceivables({ embedded = false }) {
       </div>
 
       {/* Stats bar */}
-      <div style={{ display: 'flex', gap: 16, marginBottom: 16, fontSize: 13, color: '#6b7280' }}>
-        <span><strong style={{ color: '#111827' }}>{filtered.length}</strong> records</span>
-        <span>Pending: <strong style={{ color: accentColor }}>{fmt(pendingTotal)}</strong></span>
-        <span>Settled: <strong style={{ color: '#16a34a' }}>{fmt(paidTotal)}</strong></span>
+      <div className="no-print" style={{ display: 'flex', gap: 16, marginBottom: 16, fontSize: 13, color: '#6b7280', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: 16 }}>
+          <span><strong style={{ color: '#111827' }}>{filtered.length}</strong> records</span>
+          <span>Pending: <strong style={{ color: accentColor }}>{fmt(pendingTotal)}</strong></span>
+          <span>Settled: <strong style={{ color: type === 'payable' ? '#dc2626' : '#16a34a' }}>{fmt(paidTotal)}</strong></span>
+        </div>
+        <div style={{ display: 'flex', gap: 3, background: '#fff', borderRadius: 8, padding: 3, border: '1px solid #e2e8f0', boxShadow: '0 1px 2px rgba(0,0,0,0.06)' }}>
+          {[['date_desc', 'Newest'], ['date_asc', 'Oldest'], ['amount_high', 'Amount: High to Low'], ['amount_low', 'Amount: Low to High']].map(([k, l]) => (
+            <button key={k} onClick={() => setSortBy(k)} style={{
+              padding: '5px 12px', borderRadius: 7, fontSize: 12, fontWeight: sortBy === k ? 700 : 500,
+              border: 'none', cursor: 'pointer',
+              background: sortBy === k ? '#2563eb' : 'transparent',
+              color: sortBy === k ? '#fff' : '#6b7280',
+              transition: 'all 0.14s',
+            }}>{l}</button>
+          ))}
+        </div>
       </div>
 
       {/* Filter Bar */}
-      <div style={{ display: 'flex', gap: 6, marginBottom: 14, alignItems: 'center', flexWrap: 'wrap', padding: '8px 12px', background: '#f8fafc', borderRadius: 10, border: '1px solid #e2e8f0' }}>
+      <div className="no-print" style={{ display: 'flex', gap: 6, marginBottom: 14, alignItems: 'center', flexWrap: 'wrap', padding: '8px 12px', background: '#f8fafc', borderRadius: 10, border: '1px solid #e2e8f0' }}>
         <input
           type="text"
           placeholder="Search party or description…"
@@ -615,20 +636,20 @@ export default function AccountingPayablesReceivables({ embedded = false }) {
 
         <div style={{ width: 1, height: 20, background: '#e2e8f0', flexShrink: 0 }} />
 
-        <select
-          value={deptFilter}
-          onChange={e => setDeptFilter(e.target.value)}
-          style={{ padding: '6px 8px', border: 'none', borderRadius: 6, fontSize: 12, background: deptFilter ? (tab === 'receivables' ? '#eff6ff' : '#fef2f2') : '#fff', color: deptFilter ? (tab === 'receivables' ? '#2563eb' : '#dc2626') : '#6b7280', cursor: 'pointer', outline: 'none', fontWeight: deptFilter ? 600 : 400, boxShadow: '0 1px 2px rgba(0,0,0,0.06)' }}
-        >
-          <option value="">Department</option>
-          {availableDepts.map(d => <option key={d} value={d}>{d}</option>)}
-        </select>
+        <MultiSelectDropdown 
+          label="Department" 
+          options={availableDepts} 
+          selected={deptFilter} 
+          onChange={setDeptFilter} 
+          activeColor={tab === 'receivables' ? '#2563eb' : '#dc2626'} 
+          activeBgColor={tab === 'receivables' ? '#eff6ff' : '#fef2f2'} 
+        />
 
-        {(search || deptFilter) && (
+        {(search || deptFilter.length > 0) && (
           <>
             <div style={{ width: 1, height: 20, background: '#e2e8f0', flexShrink: 0 }} />
             <button
-              onClick={() => { setSearch(''); setDeptFilter(''); }}
+              onClick={() => { setSearch(''); setDeptFilter([]); }}
               style={{ padding: '4px 8px', background: 'none', border: 'none', fontSize: 11, fontWeight: 600, color: '#9ca3af', cursor: 'pointer', letterSpacing: 0.2 }}
             >
               Clear
@@ -652,18 +673,8 @@ export default function AccountingPayablesReceivables({ embedded = false }) {
           type={modal}
           accounts={accounts}
           workforce={workforce}
-          onAddParty={() => setShowAddParty(true)}
           onClose={() => setModal(null)}
-          onSuccess={() => { setModal(null); loadAll(); }}
-        />
-      )}
-      {showAddParty && (
-        <AddPartyModal
-          onClose={() => setShowAddParty(false)}
-          onAdded={name => {
-            setWorkforce(w => [...w, { full_name: name }]);
-            setShowAddParty(false);
-          }}
+          onSuccess={() => { setModal(null); loadAll(); if (onRefresh) onRefresh(); }}
         />
       )}
       {modal?.settle && (
@@ -671,7 +682,7 @@ export default function AccountingPayablesReceivables({ embedded = false }) {
           item={modal.settle}
           accounts={accounts}
           onClose={() => setModal(null)}
-          onSuccess={() => { setModal(null); loadAll(); }}
+          onSuccess={() => { setModal(null); loadAll(); if (onRefresh) onRefresh(); }}
         />
       )}
     </div>

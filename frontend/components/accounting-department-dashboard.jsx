@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 
 const fmt = n => `₹${Number(n).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
 
@@ -251,10 +251,10 @@ export default function AccountingDepartmentDashboard() {
   const [sortBy, setSortBy] = useState('expense');
   const [filterDepts, setFilterDepts] = useState(new Set()); // empty = show all
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  const dropdownRef = React.useRef(null);
+  const dropdownRef = useRef(null);
 
   // Close dropdown on outside click
-  React.useEffect(() => {
+  useEffect(() => {
     const handler = e => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
         setDropdownOpen(false);

@@ -200,14 +200,6 @@ class FinanceDashboardView(APIView):
         }, message='Finance dashboard fetched.')
 
 
-class ExpenseListView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request):
-        expenses = Expense.objects.all().select_related('category', 'account')
-        data = ExpenseSerializer(expenses, many=True).data
-        return api_success(data, message='Expenses fetched successfully.')
-
 
 class ExpenseCreateView(APIView):
     permission_classes = [IsAuthenticated]

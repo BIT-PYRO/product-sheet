@@ -22,6 +22,12 @@ function Calendar({
         month: 'space-y-4',
         caption: 'flex justify-center pt-1 relative items-center',
         caption_label: 'text-sm font-medium',
+        caption_dropdowns: 'flex justify-center gap-1 w-full',
+        dropdown: 'rdp-dropdown bg-transparent font-medium p-1 cursor-pointer focus:outline-none z-10',
+        dropdown_month: 'rdp-dropdown_month',
+        dropdown_year: 'rdp-dropdown_year',
+        dropdown_icon: 'hidden',
+        vhidden: 'sr-only',
         nav: 'space-x-1 flex items-center',
         nav_button: cn(
           buttonVariants({ variant: 'outline' }),
