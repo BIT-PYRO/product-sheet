@@ -3,6 +3,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import FinanceEntryModal from './finance-entry-modal';
 import AccountingPayablesReceivables from './accounting-payables-receivables';
 import AccountingDepartmentDashboard from './accounting-department-dashboard';
+import AccountingInvoices from './accounting-invoices';
 
 const fmt = n => `₹${Number(n).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
 const today = () => new Date().toISOString().slice(0, 10);
@@ -210,6 +211,8 @@ function MiniList({ rows, loading, accentColor, emptyText }) {
 
 export default function AccountingFinance() {
   const [tab, setTab] = useState('dashboard');
+  const [tabRefreshKey, setTabRefreshKey] = useState(0);
+  const switchTab = (k) => { setTab(k); setTabRefreshKey(n => n + 1); };
   const [filter, setFilter] = useState('thisMonth');
   const [customFrom, setCustomFrom] = useState('');
   const [customTo, setCustomTo] = useState('');
@@ -352,14 +355,14 @@ export default function AccountingFinance() {
 
       {/* Tabs */}
       <div style={{ borderBottom: `1px solid ${C.border}`, marginBottom: 22 }}>
-        {[['dashboard', 'Dashboard'], ['income', 'Income'], ['expense', 'Expenses'], ['payables', 'Payables & Receivables'], ['settlements', 'Settlements'], ['dept', 'Department Dashboard']].map(([k, l]) => (
-          <button key={k} onClick={() => setTab(k)} style={tabBtn(tab === k)}>{l}</button>
+        {[['dashboard', 'Dashboard'], ['income', 'Income'], ['expense', 'Expenses'], ['payables', 'Payables & Receivables'], ['settlements', 'Settlements'], ['dept', 'Department Dashboard'], ['invoices', 'Invoices']].map(([k, l]) => (
+          <button key={k} onClick={() => switchTab(k)} style={tabBtn(tab === k)}>{l}</button>
         ))}
       </div>
 
       {/* Body */}
       <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start' }}>
-        {tab !== 'payables' && tab !== 'settlements' && tab !== 'dept' && <FilterBar filter={filter} setFilter={setFilter} customFrom={customFrom} setCustomFrom={setCustomFrom} customTo={customTo} setCustomTo={setCustomTo} />}
+        {tab !== 'payables' && tab !== 'settlements' && tab !== 'dept' && tab !== 'invoices' && <FilterBar filter={filter} setFilter={setFilter} customFrom={customFrom} setCustomFrom={setCustomFrom} customTo={customTo} setCustomTo={setCustomTo} />}
 
         <div style={{ flex: 1, minWidth: 0 }}>
 
@@ -631,11 +634,14 @@ export default function AccountingFinance() {
             </div>
           )}
 
+          {/* PAYABLES & RECEIVABLES */}
+          {tab === 'payables' && <AccountingPayablesReceivables key={`pr-${tabRefreshKey}`} embedded />}
+
           {/* DEPARTMENT DASHBOARD */}
           {tab === 'dept' && <AccountingDepartmentDashboard />}
 
-          {/* PAYABLES & RECEIVABLES */}
-          {tab === 'payables' && <AccountingPayablesReceivables embedded />}
+          {/* INVOICES (Sales Invoices + Purchase Bills sub-tabs) */}
+          {tab === 'invoices' && <AccountingInvoices key={`inv-${tabRefreshKey}`} />}
 
           {/* SETTLEMENTS */}
           {tab === 'settlements' && (

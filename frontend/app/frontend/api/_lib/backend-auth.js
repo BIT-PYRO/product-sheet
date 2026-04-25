@@ -30,7 +30,7 @@ function applyAuthCookies(response, accessToken) {
       sameSite: 'lax',
       secure: process.env.NODE_ENV === 'production',
       path: '/',
-      maxAge: 60 * 60,
+      maxAge: 60 * 60 * 24, // 24h — JWT expires sooner but proxy auto-refreshes
     });
   }
 }
@@ -96,12 +96,15 @@ export async function proxyAuthenticatedRequest(request, backendPath, options = 
 
   try {
     let activeToken = accessToken;
+    let didRefresh = false;
     let backendResponse = await doBackendFetch(activeToken);
 
-    if (backendResponse.status === 401 && refreshToken) {
+    // Try token refresh on 401 OR 403 (DRF returns 403 when no credentials are sent)
+    if ((backendResponse.status === 401 || backendResponse.status === 403) && refreshToken) {
       const refreshedToken = await requestTokenRefresh(refreshToken);
       if (refreshedToken) {
         activeToken = refreshedToken;
+        didRefresh = true;
         backendResponse = await doBackendFetch(activeToken);
       }
     }
@@ -115,9 +118,11 @@ export async function proxyAuthenticatedRequest(request, backendPath, options = 
       ? new NextResponse(null, { status: backendResponse.status })
       : NextResponse.json(payload, { status: backendResponse.status });
 
-    if (backendResponse.status === 401) {
+    // Only clear cookies if BOTH access token and refresh failed (truly logged out)
+    if (backendResponse.status === 401 && !didRefresh) {
       clearAuthCookies(response);
-    } else if (activeToken && activeToken !== accessToken) {
+    } else if (didRefresh && activeToken) {
+      // Refresh succeeded — update the access cookie with a long maxAge
       applyAuthCookies(response, activeToken);
     }
 

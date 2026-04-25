@@ -209,6 +209,10 @@ function CreateModal({ type, accounts, workforce, onClose, onSuccess, onAddParty
         body: JSON.stringify({ type, ...form, amount: amt }),
       });
       const data = await res.json().catch(() => null);
+      if (res.status === 401 || res.status === 403) {
+        window.location.href = '/frontend/login';
+        return;
+      }
       if (!res.ok || !data?.success) { setError(data?.message || 'Failed.'); setSubmitting(false); return; }
       // Upload receipts if any
       if (receipts.length > 0 && data.data?.id) {
@@ -371,6 +375,10 @@ function SettleModal({ item, accounts, onClose, onSuccess }) {
         body: JSON.stringify({ payment_account_id: parseInt(accountId), date }),
       });
       const data = await res.json().catch(() => null);
+      if (res.status === 401 || res.status === 403) {
+        window.location.href = '/frontend/login';
+        return;
+      }
       if (!res.ok || !data?.success) { setError(data?.message || 'Failed.'); setSubmitting(false); return; }
       onSuccess();
     } catch { setError('Network error.'); setSubmitting(false); }

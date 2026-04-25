@@ -11,14 +11,19 @@ from rest_framework.views import APIView
 
 from common.api import api_success
 
-from .models import Account, Expense, Income, JournalEntry, JournalItem, Ledger, PendingExpense
+from .models import Account, Expense, Income, Invoice, JournalEntry, JournalItem, Ledger, Outstanding, OutstandingReceipt, PendingExpense
 from .serializers import (
     ApproveExpenseSerializer,
     ExpenseSerializer,
     IncomeSerializer,
+    InvoiceCreateSerializer,
+    InvoiceSerializer,
+    InvoiceSettleSerializer,
     JournalEntryCreateSerializer,
     JournalEntrySerializer,
     LedgerSerializer,
+    OutstandingReceiptSerializer,
+    OutstandingSerializer,
     PendingExpenseSerializer,
 )
 
@@ -914,9 +919,6 @@ class OutstandingSettleView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request, pk):
-        from django.db import transaction
-        from .models import Outstanding
-
         try:
             outstanding = Outstanding.objects.get(pk=pk)
         except Outstanding.DoesNotExist:
@@ -934,37 +936,81 @@ class OutstandingSettleView(APIView):
         except Account.DoesNotExist:
             return Response({'success': False, 'message': 'Payment account not found'}, status=404)
 
-        amount = float(outstanding.amount)
+        amount      = outstanding.amount
+        dept        = (outstanding.department or 'General').strip()
+        party       = outstanding.party_name
+        settle_date = request.data.get('date') or date.today().isoformat()
 
         try:
             with transaction.atomic():
                 bank_ledger = payment_account.get_or_create_ledger()
 
                 if outstanding.type == Outstanding.OutstandingType.RECEIVABLE:
+                    # Journal: Bank Dr / Accounts Receivable Cr
                     ar_ledger, _ = Ledger.objects.get_or_create(
                         name='Accounts Receivable', defaults={'type': Ledger.LedgerType.ASSET}
                     )
                     journal = JournalEntry.objects.create(
-                        date=request.data.get('date') or __import__('datetime').date.today().isoformat(),
-                        description=f'Settlement of receivable from {outstanding.party_name}'
+                        date=settle_date,
+                        description=f'Settlement of receivable from {party}',
                     )
-                    JournalItem.objects.create(entry=journal, ledger=bank_ledger, debit=amount, credit=0, vendor_payee=outstanding.party_name)
-                    JournalItem.objects.create(entry=journal, ledger=ar_ledger, debit=0, credit=amount, vendor_payee=outstanding.party_name)
+                    JournalItem.objects.create(
+                        entry=journal, ledger=bank_ledger, debit=amount, credit=0,
+                        vendor_payee=party, department=dept,
+                    )
+                    JournalItem.objects.create(
+                        entry=journal, ledger=ar_ledger, debit=0, credit=amount,
+                        vendor_payee=party, department=dept,
+                    )
+                    # Income record → shows in Finance Dashboard & Income tab
+                    income_ledger, _ = Ledger.objects.get_or_create(
+                        name=f'{dept} Income', defaults={'type': Ledger.LedgerType.INCOME}
+                    )
+                    Income.objects.create(
+                        amount=amount, category=income_ledger, account=payment_account,
+                        date=settle_date, description=f'Settled receivable — {party}',
+                        department=dept, journal_entry=journal,
+                    )
+
                 else:
+                    # Journal: Accounts Payable Dr / Bank Cr
                     ap_ledger, _ = Ledger.objects.get_or_create(
                         name='Accounts Payable', defaults={'type': Ledger.LedgerType.LIABILITY}
                     )
                     journal = JournalEntry.objects.create(
-                        date=request.data.get('date') or __import__('datetime').date.today().isoformat(),
-                        description=f'Settlement of payable to {outstanding.party_name}'
+                        date=settle_date,
+                        description=f'Settlement of payable to {party}',
                     )
-                    JournalItem.objects.create(entry=journal, ledger=ap_ledger, debit=amount, credit=0, vendor_payee=outstanding.party_name)
-                    JournalItem.objects.create(entry=journal, ledger=bank_ledger, debit=0, credit=amount, vendor_payee=outstanding.party_name)
+                    JournalItem.objects.create(
+                        entry=journal, ledger=ap_ledger, debit=amount, credit=0,
+                        vendor_payee=party, department=dept,
+                    )
+                    JournalItem.objects.create(
+                        entry=journal, ledger=bank_ledger, debit=0, credit=amount,
+                        vendor_payee=party, department=dept,
+                    )
+                    # Expense record → shows in Finance Dashboard & Expense tab
+                    expense_ledger, _ = Ledger.objects.get_or_create(
+                        name=f'{dept} Expense', defaults={'type': Ledger.LedgerType.EXPENSE}
+                    )
+                    Expense.objects.create(
+                        amount=amount, category=expense_ledger, account=payment_account,
+                        date=settle_date, description=f'Settled payable — {party}',
+                        department=dept, journal_entry=journal,
+                    )
 
-                outstanding.status = Outstanding.Status.PAID
+                outstanding.status             = Outstanding.Status.PAID
                 outstanding.settlement_journal = journal
                 outstanding.settlement_account = payment_account
                 outstanding.save(update_fields=['status', 'settlement_journal', 'settlement_account', 'updated_at'])
+
+                # Sync linked Invoice status (if this outstanding came from an Invoice)
+                if hasattr(outstanding, 'invoice') and outstanding.invoice:
+                    linked_inv = outstanding.invoice
+                    if linked_inv.status != Invoice.Status.SETTLED:
+                        linked_inv.status        = Invoice.Status.SETTLED
+                        linked_inv.journal_entry = journal
+                        linked_inv.save(update_fields=['status', 'journal_entry', 'updated_at'])
 
             from .serializers import OutstandingSerializer
             return api_success(OutstandingSerializer(outstanding).data, message='Settled successfully.')
@@ -1058,3 +1104,192 @@ class OutstandingReceiptView(APIView):
             r = OutstandingReceipt.objects.create(outstanding=outstanding, file=f, filename=f.name)
             created.append(r)
         return api_success(OutstandingReceiptSerializer(created, many=True).data, message=f'{len(created)} receipt(s) uploaded.')
+
+
+# ═══════════════════════════════════════════════════════════════════
+# INVOICE SYSTEM
+# ═══════════════════════════════════════════════════════════════════
+
+class InvoiceListCreateView(APIView):
+    """
+    GET  /api/accounting/invoices/         – list, filter by ?type=sales|purchase&status=pending|settled&department=
+    POST /api/accounting/invoices/         – create invoice + linked outstanding
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        qs = Invoice.objects.select_related('outstanding', 'journal_entry').all()
+        inv_type   = request.query_params.get('type')
+        inv_status = request.query_params.get('status')
+        department = request.query_params.get('department')
+        if inv_type:   qs = qs.filter(type=inv_type)
+        if inv_status: qs = qs.filter(status=inv_status)
+        if department: qs = qs.filter(department=department)
+        return api_success(InvoiceSerializer(qs, many=True).data, message='Invoices fetched.')
+
+    def post(self, request):
+        ser = InvoiceCreateSerializer(data=request.data)
+        if not ser.is_valid():
+            return Response({'success': False, 'message': 'Invalid data.', 'errors': ser.errors}, status=400)
+
+        d = ser.validated_data
+        inv_type   = d['type']
+        party_name = d['party_name']
+        amount     = d['amount']
+        department = d.get('department', '')
+        due_date   = d.get('due_date')
+        description = d.get('description', '')
+
+        try:
+            with transaction.atomic():
+                # Create Outstanding (receivable for sales, payable for purchase)
+                outstanding_type = (
+                    Outstanding.OutstandingType.RECEIVABLE
+                    if inv_type == Invoice.InvoiceType.SALES
+                    else Outstanding.OutstandingType.PAYABLE
+                )
+                outstanding = Outstanding.objects.create(
+                    type=outstanding_type,
+                    party_name=party_name,
+                    amount=amount,
+                    department=department,
+                    due_date=due_date,
+                    description=description or f'{inv_type.capitalize()} invoice for {party_name}',
+                    status=Outstanding.Status.PENDING,
+                )
+
+                invoice = Invoice.objects.create(
+                    type=inv_type,
+                    party_name=party_name,
+                    amount=amount,
+                    department=department,
+                    due_date=due_date,
+                    description=description,
+                    status=Invoice.Status.PENDING,
+                    outstanding=outstanding,
+                )
+
+            logger.info('Invoice #%s (%s) created → Outstanding #%s', invoice.pk, inv_type, outstanding.pk)
+            return api_success(InvoiceSerializer(invoice).data, message='Invoice created.', status_code=201)
+
+        except Exception as exc:
+            logger.error('Invoice creation failed: %s', exc, exc_info=True)
+            return Response({'success': False, 'message': str(exc)}, status=400)
+
+
+class InvoiceSettleView(APIView):
+    """
+    POST /api/accounting/invoices/{pk}/settle/
+    Body: { "payment_account": <account_id> }
+
+    Sales invoice   → Bank Dr / Sales Income Cr   (department income += amount)
+    Purchase invoice → Purchase Expense Dr / Bank Cr (department expense += amount)
+    Then marks invoice + outstanding as settled.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        try:
+            invoice = Invoice.objects.select_related('outstanding').get(pk=pk)
+        except Invoice.DoesNotExist:
+            return Response({'success': False, 'message': 'Invoice not found.'}, status=404)
+
+        if invoice.status == Invoice.Status.SETTLED:
+            return Response({'success': False, 'message': 'Invoice is already settled.'}, status=400)
+
+        ser = InvoiceSettleSerializer(data=request.data)
+        if not ser.is_valid():
+            return Response({'success': False, 'message': 'Invalid data.', 'errors': ser.errors}, status=400)
+
+        payment_account = ser.validated_data['payment_account']
+        dept = invoice.department or 'General'
+        amount = invoice.amount
+
+        try:
+            with transaction.atomic():
+                account_ledger = payment_account.get_or_create_ledger()
+
+                if invoice.type == Invoice.InvoiceType.SALES:
+                    # Sales income ledger (department-wise)
+                    income_ledger, _ = Ledger.objects.get_or_create(
+                        name=f'{dept} Income',
+                        defaults={'type': Ledger.LedgerType.INCOME},
+                    )
+                    entry = JournalEntry.objects.create(
+                        date=date.today(),
+                        description=f'Settlement – Sales Invoice #{invoice.pk} | {invoice.party_name}',
+                    )
+                    # Bank Dr (asset increases)
+                    JournalItem.objects.create(
+                        entry=entry, ledger=account_ledger,
+                        debit=amount, credit=0,
+                        department=dept, notes=f'Invoice #{invoice.pk}',
+                    )
+                    # Sales Cr (income recognised)
+                    JournalItem.objects.create(
+                        entry=entry, ledger=income_ledger,
+                        debit=0, credit=amount,
+                        department=dept, notes=f'Invoice #{invoice.pk}',
+                    )
+                    # Income record → Finance Dashboard & Income tab
+                    Income.objects.create(
+                        amount=amount, category=income_ledger, account=payment_account,
+                        date=date.today(), department=dept,
+                        description=f'Sales Invoice #{invoice.pk} — {invoice.party_name}',
+                        journal_entry=entry,
+                    )
+
+                else:  # PURCHASE
+                    # Purchase expense ledger (department-wise)
+                    expense_ledger, _ = Ledger.objects.get_or_create(
+                        name=f'{dept} Expense',
+                        defaults={'type': Ledger.LedgerType.EXPENSE},
+                    )
+                    entry = JournalEntry.objects.create(
+                        date=date.today(),
+                        description=f'Settlement – Purchase Bill #{invoice.pk} | {invoice.party_name}',
+                    )
+                    # Expense Dr (cost recognised)
+                    JournalItem.objects.create(
+                        entry=entry, ledger=expense_ledger,
+                        debit=amount, credit=0,
+                        department=dept, notes=f'Invoice #{invoice.pk}',
+                    )
+                    # Bank Cr (asset decreases)
+                    JournalItem.objects.create(
+                        entry=entry, ledger=account_ledger,
+                        debit=0, credit=amount,
+                        department=dept, notes=f'Invoice #{invoice.pk}',
+                    )
+                    # Expense record → Finance Dashboard & Expense tab
+                    Expense.objects.create(
+                        amount=amount, category=expense_ledger, account=payment_account,
+                        date=date.today(), department=dept,
+                        description=f'Purchase Bill #{invoice.pk} — {invoice.party_name}',
+                        journal_entry=entry,
+                    )
+
+                # Mark invoice settled
+                invoice.status = Invoice.Status.SETTLED
+                invoice.journal_entry = entry
+                invoice.save(update_fields=['status', 'journal_entry', 'updated_at'])
+
+                # Mark linked outstanding settled
+                if invoice.outstanding:
+                    invoice.outstanding.status = Outstanding.Status.PAID
+                    invoice.outstanding.settlement_journal = entry
+                    invoice.outstanding.settlement_account = payment_account
+                    invoice.outstanding.save(update_fields=['status', 'settlement_journal', 'settlement_account', 'updated_at'])
+
+            logger.info(
+                'Invoice #%s settled → JournalEntry #%s (account: %s, ₹%s)',
+                invoice.pk, entry.pk, payment_account.name, amount,
+            )
+            return api_success(
+                InvoiceSerializer(invoice).data,
+                message=f'Invoice #{invoice.pk} settled. Journal entry #{entry.pk} created.',
+            )
+
+        except Exception as exc:
+            logger.error('Invoice settlement failed: %s', exc, exc_info=True)
+            return Response({'success': False, 'message': str(exc)}, status=400)

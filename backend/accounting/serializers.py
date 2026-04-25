@@ -3,7 +3,7 @@ from decimal import Decimal
 from django.db import transaction
 from rest_framework import serializers
 
-from .models import JournalEntry, JournalItem, Ledger, Outstanding, PendingExpense
+from .models import Invoice, JournalEntry, JournalItem, Ledger, Outstanding, PendingExpense
 
 
 class LedgerSerializer(serializers.ModelSerializer):
@@ -167,3 +167,39 @@ class OutstandingSerializer(serializers.ModelSerializer):
             'due_date', 'linked_journal_id', 'settlement_journal_id',
             'settlement_account_name', 'receipts', 'created_at', 'updated_at'
         )
+
+
+class InvoiceSerializer(serializers.ModelSerializer):
+    outstanding_id = serializers.IntegerField(source='outstanding.id', read_only=True, allow_null=True)
+    journal_entry_id = serializers.IntegerField(source='journal_entry.id', read_only=True, allow_null=True)
+
+    class Meta:
+        model = Invoice
+        fields = (
+            'id', 'type', 'party_name', 'amount', 'department',
+            'due_date', 'description', 'status',
+            'outstanding_id', 'journal_entry_id',
+            'created_at', 'updated_at',
+        )
+        read_only_fields = ('status', 'outstanding_id', 'journal_entry_id', 'created_at', 'updated_at')
+
+
+class InvoiceCreateSerializer(serializers.Serializer):
+    type        = serializers.ChoiceField(choices=Invoice.InvoiceType.choices)
+    party_name  = serializers.CharField(max_length=200)
+    amount      = serializers.DecimalField(max_digits=14, decimal_places=2, min_value=Decimal('0.01'))
+    department  = serializers.CharField(max_length=100, required=False, allow_blank=True, default='')
+    due_date    = serializers.DateField(required=False, allow_null=True)
+    description = serializers.CharField(required=False, allow_blank=True, default='')
+
+
+class InvoiceSettleSerializer(serializers.Serializer):
+    """
+    payment_account: ID of the Account to use for settlement (Bank / Cash).
+    """
+    from .models import Account as _Account
+    payment_account = serializers.PrimaryKeyRelatedField(
+        queryset=_Account.objects.all(),
+        help_text='ID of the Account (bank/cash) used for payment.',
+    )
+

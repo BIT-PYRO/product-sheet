@@ -2,6 +2,8 @@ from django.urls import path
 
 from .views import (
     BalanceSheetView,
+    InvoiceListCreateView,
+    InvoiceSettleView,
     JournalCreateView,
     LedgerListView,
     LedgerSummaryView,
@@ -47,4 +49,7 @@ urlpatterns = [
     path('outstandings/dashboard/', OutstandingDashboardView.as_view(), name='accounting-outstandings-dashboard'),
     path('outstandings/<int:pk>/settle/', OutstandingSettleView.as_view(), name='accounting-outstanding-settle'),
     path('outstandings/<int:pk>/receipts/', OutstandingReceiptView.as_view(), name='accounting-outstanding-receipts'),
+    # Invoice endpoints
+    path('invoices/', InvoiceListCreateView.as_view(), name='accounting-invoices'),
+    path('invoices/<int:pk>/settle/', InvoiceSettleView.as_view(), name='accounting-invoice-settle'),
 ]

@@ -103,6 +103,10 @@ export default function FinanceEntryModal({ type, ledgers, accounts, onClose, on
       receipts.forEach(f => fd.append('receipt', f));
       const res = await fetch(apiUrl, { method: 'POST', body: fd });
       const result = await res.json().catch(() => null);
+      if (res.status === 401 || res.status === 403) {
+        window.location.href = '/frontend/login';
+        return;
+      }
       if (!res.ok || !result?.success) { setError(result?.message || 'Failed. Please try again.'); setSubmitting(false); return; }
       onSuccess();
     } catch { setError('Network error. Please try again.'); setSubmitting(false); }

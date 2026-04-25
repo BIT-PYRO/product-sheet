@@ -264,6 +264,7 @@ export default function HomePage() {
                 onClick={() => setIsProfileDropdownOpen(o => !o)}
                 title="Account options"
                 className="w-9 h-9 rounded-full border-2 border-trust-blue overflow-hidden flex items-center justify-center bg-trust-blue text-white text-sm font-bold hover:opacity-90 transition shrink-0"
+                suppressHydrationWarning
               >
                 {profilePhoto ? (
                   <img src={profilePhoto} alt="Profile" className="w-full h-full object-cover" />
@@ -294,6 +295,7 @@ export default function HomePage() {
                   <button
                     onClick={() => setIsSettingsOpen(o => !o)}
                     className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-midnight-ink hover:bg-cloud-gray transition w-full text-left"
+                    suppressHydrationWarning
                   >
                     <Settings className="h-4 w-4 text-cool-gray shrink-0" />
                     <span className="flex-1">Settings</span>
@@ -339,6 +341,7 @@ export default function HomePage() {
               onFocus={() => { setIsSearchOpen(true); fetchLiveData(); }}
               placeholder="Search by name, SKU, customer, workforce, product…"
               className="w-full h-11 pl-10 pr-9 text-sm rounded-xl border border-soft-border bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-trust-blue focus:border-transparent placeholder-slate-400 transition"
+              suppressHydrationWarning
             />
             {searchQuery && (
               <button
@@ -497,6 +500,7 @@ export default function HomePage() {
                   type="button"
                   onClick={() => alert(`You don't have access to "${block.title}". Contact your admin to request permissions.`)}
                   className="block text-left rounded-xl border border-soft-border bg-white p-6 opacity-50 cursor-not-allowed select-none"
+                  suppressHydrationWarning
                 >
                   {num}
                   <h2 className="text-lg font-semibold text-gray-400">{block.title}</h2>
@@ -513,6 +517,7 @@ export default function HomePage() {
                   type="button"
                   onClick={() => setIsEnrollWorkforceOpen(true)}
                   className="block text-left rounded-xl border border-soft-border bg-white p-6 hover:border-trust-blue hover:shadow-md transition"
+                  suppressHydrationWarning
                 >
                   {num}
                   <h2 className="text-lg font-semibold text-midnight-ink">{block.title}</h2>
@@ -528,6 +533,7 @@ export default function HomePage() {
                   type="button"
                   onClick={() => setIsGenericJobModalOpen(true)}
                   className="block text-left rounded-xl border border-soft-border bg-white p-6 hover:border-trust-blue hover:shadow-md transition"
+                  suppressHydrationWarning
                 >
                   {num}
                   <h2 className="text-lg font-semibold text-midnight-ink">{block.title}</h2>
