@@ -41,7 +41,7 @@ export function DataSections() {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
       <DataBlock title="Stone Details" rows={2} />
-      <DataBlock title="Labour / Making Charges" rows={2} />
+      <DataBlock title="craftsMan / Making Charges" rows={2} />
       <DataBlock title="Certifications" rows={2} />
       <DataBlock title="Additional Notes" rows={2} />
     </div>

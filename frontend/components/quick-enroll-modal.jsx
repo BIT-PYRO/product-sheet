@@ -276,7 +276,7 @@ export function QuickEnrollModal({ open, onOpenChange, onEnroll }) {
                 <SelectContent>
                   <SelectItem value="Intern">Intern</SelectItem>
                   <SelectItem value="Worker">Worker</SelectItem>
-                  <SelectItem value="Labour">Labour</SelectItem>
+                  <SelectItem value="craftsMan">craftsMan</SelectItem>
                   <SelectItem value="HR">HR</SelectItem>
                   <SelectItem value="Supervisor">Supervisor</SelectItem>
                   <SelectItem value="Manager">Manager</SelectItem>

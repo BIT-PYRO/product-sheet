@@ -115,7 +115,7 @@ export default function MasterKYCSheet() {
   const [currentPage, setCurrentPage] = useState(1);
   const [sortOrder, setSortOrder] = useState('default');
 
-  const KYC_TYPE_OPTIONS = ['All', 'Customer', 'Work from Home', 'Vendor', 'Labour', 'Company'];
+  const KYC_TYPE_OPTIONS = ['All', 'Customer', 'Work from Home', 'Vendor', 'craftsMan', 'Company'];
 
   useEffect(() => {
     fetch('/api/auth/session').then(r => r.json()).then(d => { if (d?.user?.username) setCurrentUsername(d.user.username); }).catch(() => {});

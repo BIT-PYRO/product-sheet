@@ -24,7 +24,7 @@ const ROLE_DOT = {
 
 const DESIGNATION_ORDER = [
   'Chairman','CEO','Director','General Manager','Department Head','Project Manager',
-  'Manager','Supervisor','Associate','Developer','Intern','Labour','Worker',
+  'Manager','Supervisor','Associate','Developer','Intern','craftsMan','Worker',
   'Cook','Pantry Boy','Janitor','Messenger','Security','Electrician','Plumber',
   'CCTV','Carpenter','Ironsmith','Locksmith',
 ];
@@ -40,7 +40,7 @@ const DEPT_DATA = {
   'Finance':                      { categories: [], roles: ['Chairman','CEO','Director','Department Head','Manager','Associate','Intern'] },
   'Information Technology':       { categories: ['Shopify','Software'], roles: ['Chairman','CEO','Director','Department Head','General Manager','Project Manager','Developer','Associate','Intern'] },
   'Human Resource':               { categories: [], roles: ['Chairman','CEO','Director','Department Head','Manager','Associate','Intern'] },
-  'Production':                   { categories: ['3D Printing','Die Cutting','Master Making','Wax','Wax Setting','Casting','Filing','Polish','Enamel','Hand Setting','Plating','Quality Check'], roles: ['Chairman','CEO','Director','Department Head','General Manager','Manager','Supervisor','Labour'] },
+  'Production':                   { categories: ['3D Printing','Die Cutting','Master Making','Wax','Wax Setting','Casting','Filing','Polish','Enamel','Hand Setting','Plating','Quality Check'], roles: ['Chairman','CEO','Director','Department Head','General Manager','Manager','Supervisor','craftsMan'] },
   'Services':                     { categories: [], roles: ['Security','Electrician','Plumber','CCTV','Carpenter','Ironsmith','Locksmith'] },
   'House Keeping':                { categories: [], roles: ['Cook','Pantry Boy','Janitor','Messenger'] },
 };

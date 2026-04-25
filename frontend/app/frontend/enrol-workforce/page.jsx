@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -18,10 +19,19 @@ const ERROR_CLS = 'text-xs text-red-500 mt-1';
 
 const DESIGNATION_ORDER = [
   'Chairman','CEO','Director','General Manager','Department Head','Project Manager',
-  'Manager','Supervisor','Associate','Developer','Intern','Craftsman/Artisan','Worker',
+  'Manager','Supervisor','Associate','Developer','Intern','craftsMan','Worker',
   'Cook','Pantry Boy','Janitor','Messenger','Security','Electrician','Plumber',
   'CCTV','Carpenter','Ironsmith','Locksmith',
 ];
+function normalizeRoleLabel(role) {
+  const value = String(role || '').trim();
+  if (!value) return '';
+  if (/^labour$/i.test(value)) return 'craftsMan';
+  if (/^craftsman$/i.test(value)) return 'craftsMan';
+  if (/^craftsman\/artisan$/i.test(value)) return 'craftsMan';
+  if (/^craftsman-artisan$/i.test(value)) return 'craftsMan';
+  return value;
+}
 function getDesignationRank(desig) {
   if (!desig) return 999;
   const idx = DESIGNATION_ORDER.findIndex(d => d.toLowerCase() === desig.toLowerCase());
@@ -115,7 +125,7 @@ const DEPT_DATA = {
   'Finance':                      { categories: [], roles: ['Chairman','CEO','Director','Department Head','Manager','Associate','Intern'] },
   'Information Technology':       { categories: ['Shopify','Software'], roles: ['Chairman','CEO','Director','Department Head','General Manager','Project Manager','Developer','Associate','Intern'] },
   'Human Resource':               { categories: [], roles: ['Chairman','CEO','Director','Department Head','Manager','Associate','Intern'] },
-  'Production':                   { categories: ['3D Printing','Die Cutting','Master Making','Wax','Wax Setting','Casting','Filing','Polish','Enamel','Hand Setting','Plating','Quality Check'], roles: ['Chairman','CEO','Director','Department Head','General Manager','Manager','Supervisor','Craftsman/Artisan'] },
+  'Production':                   { categories: ['3D Printing','Die Cutting','Master Making','Wax','Wax Setting','Casting','Filing','Polish','Enamel','Hand Setting','Plating','Quality Check'], roles: ['Chairman','CEO','Director','Department Head','General Manager','Manager','Supervisor','craftsMan'] },
   'Services':                     { categories: [], roles: ['Security','Electrician','Plumber','CCTV','Carpenter','Ironsmith','Locksmith'] },
   'House Keeping':                { categories: [], roles: ['Cook','Pantry Boy','Janitor','Messenger'] },
 };
@@ -217,7 +227,7 @@ function defaultPermsByRole(designation, department) {
     }
     return { sheets: s, manage_members: false };
   }
-  if (['Intern','Craftsman/Artisan','Worker'].includes(des)) {
+  if (['Intern','craftsMan','Worker'].includes(des)) {
     const s=baseBuild(); s['my-desk']=VEC; s['drafts']=VEC;
     if (dept==='Production') s['master-job-sheet']=V;
     if (des==='Intern') s['product-sheet']=V;
@@ -261,6 +271,42 @@ function validateForm(form) {
   return errors;
 }
 
+function normalizeDateValue(raw) {
+  const value = String(raw || '').trim();
+  if (!value) return null;
+  // Accept already-correct HTML date value.
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+  // Accept dd-mm-yyyy from legacy values and convert.
+  const m = value.match(/^(\d{2})-(\d{2})-(\d{4})$/);
+  if (m) {
+    const [, dd, mm, yyyy] = m;
+    return `${yyyy}-${mm}-${dd}`;
+  }
+  return value;
+}
+
+function extractApiErrorMessage(result) {
+  if (!result) return 'Unable to enroll workforce member.';
+  const detail = result?.error?.details;
+  if (typeof detail === 'string' && detail.trim()) return detail;
+  if (Array.isArray(detail)) {
+    const lines = detail.map(v => String(v || '').trim()).filter(Boolean);
+    if (lines.length) return lines.join(', ');
+  }
+  if (detail && typeof detail === 'object') {
+    const parts = [];
+    Object.entries(detail).forEach(([key, val]) => {
+      const values = Array.isArray(val) ? val : [val];
+      values.forEach(v => {
+        const msg = String(v || '').trim();
+        if (msg) parts.push(key === 'non_field_errors' ? msg : `${key}: ${msg}`);
+      });
+    });
+    if (parts.length) return parts.join(' | ');
+  }
+  return result?.error?.message || result?.message || 'Unable to enroll workforce member.';
+}
+
 export function EnrolWorkforceForm({ onEnroll, onClose, open=true, draftData=null, editingId=null, readOnly=false, canEditOverride=false }) {
   const { canEdit: sheetCanEdit, canCreate } = useSheetPermissions('master-workforce-sheet');
   const canEdit = canEditOverride || sheetCanEdit;
@@ -301,8 +347,16 @@ export function EnrolWorkforceForm({ onEnroll, onClose, open=true, draftData=nul
   useEffect(() => {
     fetch('/api/workforce/meta',{cache:'no-store'}).then(r=>r.json()).catch(()=>null).then(meta=>{
       if (!meta?.success) return;
-      const staticRoles = new Set(Object.values(DEPT_DATA).flatMap(d=>d.roles).map(r=>r.toLowerCase()));
-      setCustomRoles((meta.data?.designations||[]).filter(r=>!staticRoles.has(r.toLowerCase())));
+      const staticRoles = new Set(
+        Object.values(DEPT_DATA)
+          .flatMap(d=>d.roles)
+          .map(r=>normalizeRoleLabel(r).toLowerCase())
+      );
+      const normalizedMetaRoles = (meta.data?.designations||[])
+        .map(r=>normalizeRoleLabel(r))
+        .filter(Boolean);
+      const dedupedMetaRoles = [...new Map(normalizedMetaRoles.map(r=>[r.toLowerCase(), r])).values()];
+      setCustomRoles(dedupedMetaRoles.filter(r=>!staticRoles.has(r.toLowerCase())));
       const staticDepts = new Set(Object.keys(DEPT_DATA).map(d=>d.toLowerCase()));
       setCustomDepartments((meta.data?.departments||[]).filter(d=>!staticDepts.has(d.toLowerCase())));
     });
@@ -313,7 +367,7 @@ export function EnrolWorkforceForm({ onEnroll, onClose, open=true, draftData=nul
       ...d,
       departments: Array.isArray(d.departments)?d.departments:(d.department?[d.department]:[]),
       departmentOther: d.departmentOther||'',
-      designations: Array.isArray(d.designations)?d.designations:(d.designation?[d.designation]:[]),
+      designations: (Array.isArray(d.designations)?d.designations:(d.designation?[d.designation]:[])).map(normalizeRoleLabel),
       designationOther: d.designationOther||'',
       categories: Array.isArray(d.categories)?d.categories:(d.category?[d.category]:[]),
       categoryOther: d.categoryOther||'',
@@ -339,7 +393,7 @@ export function EnrolWorkforceForm({ onEnroll, onClose, open=true, draftData=nul
         email:d.email||'', contact:d.phone||'', whatsapp:d.whatsapp||'',
         departments:(d.department||'').split(',').map(s=>s.trim()).filter(Boolean),
         departmentOther:'',
-        designations:(d.designation||'').split(',').map(s=>s.trim()).filter(Boolean),
+        designations:(d.designation||'').split(',').map(s=>normalizeRoleLabel(s)).filter(Boolean),
         designationOther:'',
         workingStyle:d.working_style||'', workingStyleOther:'',
         categories:(d.category||'').split(',').map(s=>s.trim()).filter(Boolean),
@@ -454,7 +508,7 @@ export function EnrolWorkforceForm({ onEnroll, onClose, open=true, draftData=nul
       pincode:String(addr.pincode||'').trim(),
     });
     const resolveDept=()=>form.departments.map(v=>v==='Other'?(form.departmentOther||'').trim():v).filter(Boolean).join(', ');
-    const resolveDesig=()=>form.designations.map(v=>v==='Other'?(form.designationOther||'').trim():v).filter(Boolean).join(', ');
+    const resolveDesig=()=>form.designations.map(v=>v==='Other'?(form.designationOther||'').trim():normalizeRoleLabel(v)).filter(Boolean).join(', ');
     const resolveCat=()=>form.categories.map(v=>v==='Other'?(form.categoryOther||'').trim():v).filter(Boolean).join(', ');
     const primaryDept=form.departments.find(v=>v!=='Other')||(form.departmentOther||'');
     const primaryDesig=form.designations.find(v=>v!=='Other')||(form.designationOther||'');
@@ -465,7 +519,7 @@ export function EnrolWorkforceForm({ onEnroll, onClose, open=true, draftData=nul
       const response=await fetch(url,{method,headers:{'Content-Type':'application/json'},body:JSON.stringify({
         full_name:String(form.fullName||'').trim(),
         phone:String(form.contact||'').trim(),whatsapp:String(form.whatsapp||'').trim(),
-        email:String(form.email||'').trim(),dob:String(form.dob||'').trim()||null,
+        email:String(form.email||'').trim(),dob:normalizeDateValue(form.dob),
         gender:String(form.gender||'').trim(),
         department:resolveDept(),designation:resolveDesig(),
         working_style:String(form.workingStyle==='Other'?(form.workingStyleOther||''):(form.workingStyle||'')).trim(),
@@ -478,12 +532,12 @@ export function EnrolWorkforceForm({ onEnroll, onClose, open=true, draftData=nul
         account_name:String(form.accountName||'').trim(),bank_name:String(form.bankName||'').trim(),
         account_number:String(form.accountNumber||'').trim(),ifsc:String(form.ifsc||'').trim(),
         notes:String(form.notes||'').trim(),active:true,
-        date_of_joining:String(form.dateOfJoining||'').trim()||null,
+        date_of_joining:normalizeDateValue(form.dateOfJoining),
         ...(!editingId&&{permissions:defaultPermsByRole(primaryDesig,primaryDept)}),
       })});
       const result=await response.json().catch(()=>null);
       if (!response.ok||!result?.success) {
-        const msg=result?.error?.message||result?.message||'Unable to enroll workforce member.';
+        const msg=extractApiErrorMessage(result);
         setSubmitStatus({success:false,message:msg});
         formScrollRef.current?.scrollTo({top:0,behavior:'smooth'});
         return;
@@ -637,8 +691,8 @@ export function EnrolWorkforceForm({ onEnroll, onClose, open=true, draftData=nul
   const availableRoles=React.useMemo(()=>{
     const roles=new Set();
     if (form.departments.length===0||form.departments.every(d=>d==='Other')){roles.add('Chairman');roles.add('CEO');}
-    else form.departments.filter(d=>d!=='Other'&&DEPT_DATA[d]).forEach(d=>DEPT_DATA[d].roles.forEach(r=>roles.add(r)));
-    customRoles.forEach(r=>roles.add(r));
+    else form.departments.filter(d=>d!=='Other'&&DEPT_DATA[d]).forEach(d=>DEPT_DATA[d].roles.forEach(r=>roles.add(normalizeRoleLabel(r))));
+    customRoles.forEach(r=>roles.add(normalizeRoleLabel(r)));
     return [...roles];
   },[form.departments,customRoles]);
 
@@ -651,6 +705,9 @@ export function EnrolWorkforceForm({ onEnroll, onClose, open=true, draftData=nul
               {isReadOnly?'VIEW WORKFORCE':editingId?'EDIT WORKFORCE':'ENROLL WORKFORCE'}
             </DialogTitle>
           </div>
+          <DialogDescription className="sr-only">
+            Use this dialog to enroll or edit workforce details.
+          </DialogDescription>
           {isReadOnly&&canEdit&&(
             <button type="button" onClick={()=>{savedFormRef.current={...form};setIsReadOnly(false);}}
               className="absolute left-5 top-3.5 px-4 py-1 bg-white text-trust-blue font-bold text-sm rounded-full hover:bg-gray-100 transition shadow">Edit</button>

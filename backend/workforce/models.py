@@ -14,7 +14,7 @@ class WorkforceMember(AuditModel):
 	current_address = models.JSONField(default=dict, blank=True)
 	permanent_address = models.JSONField(default=dict, blank=True)
 	designation = models.CharField(max_length=150, blank=True)
-	category = models.CharField(max_length=100, blank=True)
+	category = models.TextField(blank=True)
 	working_style = models.CharField(max_length=50, blank=True)
 	gst_number = models.CharField(max_length=20, blank=True)
 	account_name = models.CharField(max_length=200, blank=True)

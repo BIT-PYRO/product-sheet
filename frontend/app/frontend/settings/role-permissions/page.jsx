@@ -18,14 +18,14 @@ const STATIC_DEPT_DATA = {
   'Finance':                      { roles: ['Chairman','CEO','Director','Department Head','Manager','Associate','Intern'] },
   'Information Technology':       { roles: ['Chairman','CEO','Director','Department Head','General Manager','Project Manager','Developer','Associate','Intern'] },
   'Human Resource':               { roles: ['Chairman','CEO','Director','Department Head','Manager','Associate','Intern'] },
-  'Production':                   { roles: ['Chairman','CEO','Director','Department Head','General Manager','Manager','Supervisor','Labour'] },
+  'Production':                   { roles: ['Chairman','CEO','Director','Department Head','General Manager','Manager','Supervisor','craftsMan'] },
   'Services':                     { roles: ['Security','Electrician','Plumber','CCTV','Carpenter','Ironsmith','Locksmith'] },
   'House Keeping':                { roles: ['Cook','Pantry Boy','Janitor','Messenger'] },
 };
 
 const DESIGNATION_ORDER = [
   'Chairman','CEO','Director','General Manager','Department Head','Project Manager',
-  'Manager','Supervisor','Associate','Developer','Intern','Labour','Worker',
+  'Manager','Supervisor','Associate','Developer','Intern','craftsMan','Worker',
   'Cook','Pantry Boy','Janitor','Messenger','Security','Electrician','Plumber',
   'CCTV','Carpenter','Ironsmith','Locksmith',
 ];
