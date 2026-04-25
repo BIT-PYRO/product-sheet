@@ -2,6 +2,14 @@ from django.urls import path
 
 from .views import (
     BalanceSheetView,
+    BankAccountDetailView,
+    BankAccountListView,
+    BankImportConfirmView,
+    BankImportPreviewView,
+    BankTransactionBulkDeleteView,
+    BankTransactionConvertView,
+    BankTransactionDetailView,
+    BankTransactionListView,
     JournalCreateView,
     LedgerListView,
     LedgerSummaryView,
@@ -47,4 +55,14 @@ urlpatterns = [
     path('outstandings/dashboard/', OutstandingDashboardView.as_view(), name='accounting-outstandings-dashboard'),
     path('outstandings/<int:pk>/settle/', OutstandingSettleView.as_view(), name='accounting-outstanding-settle'),
     path('outstandings/<int:pk>/receipts/', OutstandingReceiptView.as_view(), name='accounting-outstanding-receipts'),
+    # Bank Statement Import (parse + confirm flow)
+    path('bank-import/preview/', BankImportPreviewView.as_view(), name='accounting-bank-import-preview'),
+    path('bank-import/confirm/', BankImportConfirmView.as_view(), name='accounting-bank-import-confirm'),
+    # Banking Module
+    path('bank-accounts/', BankAccountListView.as_view(), name='accounting-bank-accounts'),
+    path('bank-accounts/<int:pk>/', BankAccountDetailView.as_view(), name='accounting-bank-account-detail'),
+    path('bank-transactions/', BankTransactionListView.as_view(), name='accounting-bank-transactions'),
+    path('bank-transactions/bulk-delete/', BankTransactionBulkDeleteView.as_view(), name='accounting-bank-transactions-bulk-delete'),
+    path('bank-transactions/convert/', BankTransactionConvertView.as_view(), name='accounting-bank-transactions-convert'),
+    path('bank-transactions/<int:pk>/', BankTransactionDetailView.as_view(), name='accounting-bank-transaction-detail'),
 ]
