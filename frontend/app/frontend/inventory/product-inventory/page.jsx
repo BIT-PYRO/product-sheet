@@ -8,6 +8,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { ArrowLeft, ChevronDown, Search, Upload, Trash2, Pencil, Download, RefreshCw, Printer, X } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import SortPopover from '@/components/sort-popover';
+import { fmtNum } from '@/lib/utils';
 import {
   Dialog,
   DialogContent,
@@ -1428,7 +1429,7 @@ function ProductRow({ row, isSelected, isEditing, editBuffer, visibleColumns, on
           {editing ? (
             <Input type="number" value={buf.value} onChange={(e) => onUpdateBuffer(sub.id, 'value', e.target.value)} className="border-0 p-1 text-sm h-8" />
           ) : (
-            <span className="px-1 text-sm">{sub.value}</span>
+            <span className="px-1 text-sm">{fmtNum(sub.value) || '—'}</span>
           )}
         </td>}
         {visibleColumns.has('unit') && <td className="border border-soft-border p-1.5">
@@ -1479,7 +1480,7 @@ function ProductRow({ row, isSelected, isEditing, editBuffer, visibleColumns, on
         </td>}
         {visibleColumns.has('designerSku') && <td className="border border-soft-border p-1.5 text-sm">{row.designerSku || '—'}</td>}
         {noStockSpan > 0 && <td colSpan={noStockSpan} className="border border-soft-border p-1.5 text-sm text-cool-gray">No stock entries</td>}
-        {visibleColumns.has('wip') && <td className="border border-soft-border p-1.5 text-center text-sm">{row.wip || 0}</td>}
+        {visibleColumns.has('wip') && <td className="border border-soft-border p-1.5 text-center text-sm">{fmtNum(row.wip) || 0}</td>}
         {visibleColumns.has('totalInDemand') && <td className="border border-soft-border p-1.5 text-sm">—</td>}
       </tr>
     );

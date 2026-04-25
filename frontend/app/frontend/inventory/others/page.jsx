@@ -6,6 +6,7 @@ import { ArrowLeft, ChevronDown, Download, Pencil, Plus, Printer, RefreshCw, Tra
 import * as XLSX from 'xlsx';
 import SortPopover from '@/components/sort-popover';
 import BulkUploadButton from '@/components/bulk-upload-button';
+import { fmtNum } from '@/lib/utils';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
 import LastUpdatedFooter from '@/components/last-updated-footer';
 import DeletionHistoryDrawer from '@/components/deletion-history-drawer';
@@ -209,7 +210,12 @@ export default function OthersInventoryPage() {
     } catch (err) { setReviewError(err.message || 'Review failed'); }
   }
 
-  const getField = (row, key) => edits[row.id]?.[key] !== undefined ? edits[row.id][key] : (row[key] ?? '');
+  const OTHERS_NUMERIC_KEYS = ['quantity', 'used_qty', 'min_level'];
+  const getField = (row, key) => {
+    if (edits[row.id]?.[key] !== undefined) return edits[row.id][key];
+    const v = row[key] ?? '';
+    return OTHERS_NUMERIC_KEYS.includes(key) && !editingRowIds.has(row.id) ? fmtNum(v) : v;
+  };
 
   const setField = (id, key, value) => {
     if (!editingRowIds.has(id)) return;

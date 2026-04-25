@@ -901,13 +901,13 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
                   </div>
                   <div className="px-1.5 py-0.5"></div>
                   <div className="px-1.5 py-0.5">
-                    <div className="text-sm font-bold text-foreground">{qtyByUnit[unit] ? qtyByUnit[unit].toFixed(2) : "-"}</div>
+                    <div className="text-sm font-bold text-foreground">{qtyByUnit[unit] ? fmtNum(qtyByUnit[unit]) : "-"}</div>
                   </div>
                   <div className="px-1.5 py-0.5">
                     <div className="text-sm font-semibold text-foreground">{qtyByUnit[unit] ? unit : ""}</div>
                   </div>
                   <div className="px-1.5 py-0.5">
-                    <div className="text-sm font-bold text-foreground">{weightByUnit[unit] ? weightByUnit[unit].toFixed(2) : "-"}</div>
+                    <div className="text-sm font-bold text-foreground">{weightByUnit[unit] ? fmtNum(weightByUnit[unit]) : "-"}</div>
                   </div>
                   <div className="px-1.5 py-0.5">
                     <div className="text-sm font-semibold text-foreground">{weightByUnit[unit] ? unit : ""}</div>

@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Search, Eye, FileIcon, ChevronDown, Download } from 'lucide-react';
 import * as XLSX from 'xlsx';
+import { fmtNum } from '@/lib/utils';
 import {
   Select,
   SelectContent,
@@ -737,12 +738,12 @@ export default function MasterJobSheet() {
                       <td className="border border-soft-border p-2">{row.category || '—'}</td>
                       <td className="border border-soft-border p-2">{row.firstName || '—'}</td>
                       <td className="border border-soft-border p-2">{row.status || '—'}</td>
-                      <td className="border border-soft-border p-2 text-center">{row.issuedQty || '—'}</td>
-                      <td className="border border-soft-border p-2 text-center">{row.issuedWeight || '—'}</td>
-                      <td className="border border-soft-border p-2 text-center">{row.receivedQty || '—'}</td>
-                      <td className="border border-soft-border p-2 text-center">{row.receivedWeight || '—'}</td>
-                      <td className="border border-soft-border p-2 text-center">{row.lossQty || '—'}</td>
-                      <td className="border border-soft-border p-2 text-center">{row.lossWeight || '—'}</td>
+                      <td className="border border-soft-border p-2 text-center">{fmtNum(row.issuedQty) || '—'}</td>
+                      <td className="border border-soft-border p-2 text-center">{fmtNum(row.issuedWeight) || '—'}</td>
+                      <td className="border border-soft-border p-2 text-center">{fmtNum(row.receivedQty) || '—'}</td>
+                      <td className="border border-soft-border p-2 text-center">{fmtNum(row.receivedWeight) || '—'}</td>
+                      <td className="border border-soft-border p-2 text-center">{row.lossQty ? fmtNum(row.lossQty) : '—'}</td>
+                      <td className="border border-soft-border p-2 text-center">{row.lossWeight ? fmtNum(row.lossWeight) : '—'}</td>
                     </tr>
                   ))}
                 </tbody>

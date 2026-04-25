@@ -14,6 +14,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { fmtNum } from '@/lib/utils';
 
 // ── localStorage keys (kept for fulfill log only) ────────────────────────
 const FULFILL_LOG_KEY = 'low_stock_fulfill_log_v1';
@@ -411,6 +412,7 @@ export default function LowStockPage() {
     if (!Number.isFinite(q) || !Number.isFinite(p) || q <= 0 || p <= 0) return null;
     return (q * p).toFixed(2);
   }, [fulfillForm.quantity, fulfillForm.pricePerUnit]);
+// NOTE: totalPrice remains toFixed(2) for monetary display
 
   // ── submit fulfill ────────────────────────────────────────────────────────
   async function handleFulfill() {
@@ -808,7 +810,7 @@ export default function LowStockPage() {
                           </td>
                           <td className="border border-soft-border px-4 py-3 font-medium text-midnight-ink max-w-[160px] truncate">{entry.itemName}</td>
                           <td className="border border-soft-border px-4 py-3 text-midnight-ink">{entry.vendorEmployee}</td>
-                          <td className="border border-soft-border px-4 py-3 text-right font-normal text-black">{entry.quantity}</td>
+                          <td className="border border-soft-border px-4 py-3 text-right font-normal text-black">{fmtNum(entry.quantity) || '—'}</td>
                           <td className="border border-soft-border px-4 py-3 text-right text-midnight-ink">₹{Number(entry.pricePerUnit).toLocaleString('en-IN')}</td>
                           <td className="border border-soft-border px-4 py-3 text-right font-semibold text-trust-blue">₹{Number(entry.totalPrice).toLocaleString('en-IN')}</td>
                           <td className="border border-soft-border px-4 py-3 text-cool-gray">{entry.referenceId || '—'}</td>

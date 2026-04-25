@@ -7,6 +7,7 @@ from .models import WorkforceMember
 class WorkforceMemberSerializer(serializers.ModelSerializer):
 	user_is_approved = serializers.SerializerMethodField()
 	user_is_superuser = serializers.SerializerMethodField()
+	user_is_active = serializers.SerializerMethodField()
 
 	def _get_user_for_email(self, obj):
 		email = (obj.email or '').strip().lower()
@@ -26,6 +27,12 @@ class WorkforceMemberSerializer(serializers.ModelSerializer):
 		if user is None:
 			return False
 		return user.is_superuser
+
+	def get_user_is_active(self, obj):
+		user = self._get_user_for_email(obj)
+		if user is None:
+			return None
+		return user.is_active
 
 	def validate_full_name(self, value):
 		clean_name = value.strip()
@@ -48,4 +55,5 @@ class WorkforceMemberSerializer(serializers.ModelSerializer):
 	class Meta:
 		model = WorkforceMember
 		fields = '__all__'
+		read_only_fields = ['user_is_approved', 'user_is_superuser', 'user_is_active']
 		read_only_fields = ['user_is_approved', 'user_is_superuser']

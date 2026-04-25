@@ -245,11 +245,19 @@ export default function ProfilePage() {
           if (match) {
             setWorkforceMember(match);
             setViewerMember(match);   // viewer IS the profile owner on own profile
+            // Prefer the server-stored photo URL (visible to all), fall back to localStorage
+            if (match.profile_photo_url) {
+              setProfilePhoto(match.profile_photo_url);
+              localStorage.setItem(`profile_photo_${u.username}`, match.profile_photo_url);
+            } else {
+              const saved = localStorage.getItem(`profile_photo_${u.username}`);
+              if (saved) setProfilePhoto(saved);
+            }
+          } else {
+            const saved = localStorage.getItem(`profile_photo_${u.username}`);
+            if (saved) setProfilePhoto(saved);
           }
         }
-
-        const saved = localStorage.getItem(`profile_photo_${u.username}`);
-        if (saved) setProfilePhoto(saved);
       } catch { router.replace('/login'); }
       finally  { setLoading(false); }
     }
@@ -277,11 +285,33 @@ export default function ProfilePage() {
     if (!file) return;
     if (file.size > 5 * 1024 * 1024) { alert('Photo must be under 5 MB.'); return; }
     const reader = new FileReader();
-    reader.onload = ev => {
+    reader.onload = async (ev) => {
       const dataUrl = ev.target.result;
+      // Show immediately and cache locally
       setProfilePhoto(dataUrl);
       localStorage.setItem(`profile_photo_${sessionUser.username}`, dataUrl);
       window.dispatchEvent(new CustomEvent('profile_photo_updated', { detail: { photo: dataUrl } }));
+      // Upload to server so all other users see the new photo
+      if (workforceMember?.id) {
+        try {
+          const res = await fetch(`/api/workforce/${workforceMember.id}/upload-photo`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ photo_data: dataUrl }),
+          });
+          const result = await res.json().catch(() => null);
+          if (res.ok && result?.data?.profile_photo_url) {
+            const url = result.data.profile_photo_url;
+            setWorkforceMember(prev => ({ ...prev, profile_photo_url: url }));
+            // Replace base64 in cache with the stable server URL
+            localStorage.setItem(`profile_photo_${sessionUser.username}`, url);
+            window.dispatchEvent(new CustomEvent('profile_photo_updated', { detail: { photo: url } }));
+            window.dispatchEvent(new CustomEvent('workforce-updated'));
+          }
+        } catch {
+          // Network error — local preview is still shown
+        }
+      }
     };
     reader.readAsDataURL(file);
   }
@@ -290,6 +320,15 @@ export default function ProfilePage() {
     setProfilePhoto(null);
     localStorage.removeItem(`profile_photo_${sessionUser.username}`);
     window.dispatchEvent(new CustomEvent('profile_photo_updated', { detail: { photo: null } }));
+    if (workforceMember?.id) {
+      fetch(`/api/workforce/${workforceMember.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ profile_photo_url: '' }),
+      }).catch(() => {});
+      setWorkforceMember(prev => ({ ...prev, profile_photo_url: '' }));
+      window.dispatchEvent(new CustomEvent('workforce-updated'));
+    }
   }
 
   function startEdit() {
@@ -393,6 +432,7 @@ export default function ProfilePage() {
       if (res.ok && result?.success) {
         setWorkforceMember(prev => ({ ...prev, ...payload }));
         setSaveMessage('Saved successfully!'); setIsEditing(false);
+        window.dispatchEvent(new CustomEvent('workforce-updated'));
       } else { setSaveMessage(result?.message || 'Failed to save.'); }
     } catch { setSaveMessage('Network error. Please try again.'); }
     finally  { setSaving(false); }
@@ -416,6 +456,7 @@ export default function ProfilePage() {
       if (res.ok && result?.success) {
         setWorkforceMember(prev => ({ ...prev, ...payload }));
         setSaveMessage('Job details saved!'); setIsEditingJob(false);
+        window.dispatchEvent(new CustomEvent('workforce-updated'));
       } else { setSaveMessage(result?.message || 'Failed to save job details.'); }
     } catch { setSaveMessage('Network error. Please try again.'); }
     finally  { setSaving(false); }

@@ -22,6 +22,7 @@ class JournalEntry(models.Model):
     date = models.DateField()
     description = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    import_hash = models.CharField(max_length=64, blank=True, null=True, unique=True, db_index=True)
 
     class Meta:
         ordering = ['-date', '-created_at']
@@ -267,3 +268,70 @@ class Invoice(models.Model):
     def __str__(self):
         return f'{self.get_type_display()} #{self.pk} – {self.party_name} ₹{self.amount} ({self.status})'
 
+# ---------------------------------------------------------------------------
+# Banking Module
+# ---------------------------------------------------------------------------
+
+class BankAccount(models.Model):
+    name = models.CharField(max_length=120)
+    bank_name = models.CharField(max_length=120, blank=True, default='')
+    account_number = models.CharField(max_length=50, blank=True, default='')
+    opening_balance = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    # Optional link to a Ledger so journal entries auto-use it
+    ledger = models.OneToOneField(
+        'Ledger',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='bank_account',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['name']
+
+    def __str__(self):
+        return f'{self.name} ({self.bank_name})'
+
+
+class BankTransaction(models.Model):
+    class TxType(models.TextChoices):
+        DEBIT = 'debit', 'Debit'
+        CREDIT = 'credit', 'Credit'
+
+    class Status(models.TextChoices):
+        UNPROCESSED = 'unprocessed', 'Unprocessed'
+        PROCESSED = 'processed', 'Processed'
+        IGNORED = 'ignored', 'Ignored'
+
+    bank_account = models.ForeignKey(BankAccount, on_delete=models.CASCADE, related_name='transactions')
+    date = models.DateField()
+    description = models.TextField()
+    amount = models.DecimalField(max_digits=14, decimal_places=2)  # always positive
+    type = models.CharField(max_length=10, choices=TxType.choices)  # debit/credit
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.UNPROCESSED)
+
+    department = models.CharField(max_length=100, blank=True, null=True)
+    suggested_ledger = models.ForeignKey(
+        'Ledger',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='suggested_transactions',
+    )
+    journal_entry = models.OneToOneField(
+        'JournalEntry',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='bank_transaction',
+    )
+
+    unique_hash = models.CharField(max_length=64, unique=True, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-date', '-created_at']
+
+    def __str__(self):
+        return f'BankTx #{self.pk} [{self.type}] {self.amount} on {self.date}'

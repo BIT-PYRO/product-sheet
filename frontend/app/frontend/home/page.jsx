@@ -150,7 +150,7 @@ export default function HomePage() {
         const fullName = [u?.first_name, u?.last_name].filter(Boolean).join(' ');
         setUsername(fullName || u?.username || u?.id || 'User');
         setUserInfo(u);
-        // Load profile photo from localStorage
+        // Profile photo: start with localStorage for instant display
         const key = `profile_photo_${u?.username || u?.id}`;
         const saved = localStorage.getItem(key);
         if (saved) setProfilePhoto(saved);
@@ -171,6 +171,11 @@ export default function HomePage() {
             if (match) {
               // Use workforce full_name for the welcome greeting if available
               if (match.full_name) setUsername(match.full_name);
+              // Prefer server-stored photo URL so all users see the same photo
+              if (match.profile_photo_url) {
+                setProfilePhoto(match.profile_photo_url);
+                localStorage.setItem(key, match.profile_photo_url);
+              }
               const des = (match.designation || '').toLowerCase().trim();
               const isSuperDesig = des === 'chairman' || des === 'ceo';
               setMyPerms(isSuperDesig ? null : (match.permissions || {}));

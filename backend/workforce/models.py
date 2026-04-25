@@ -27,6 +27,7 @@ class WorkforceMember(AuditModel):
 	notes = models.TextField(blank=True)
 	active = models.BooleanField(default=True)
 	permissions = models.JSONField(default=dict, blank=True)
+	profile_photo_url = models.URLField(max_length=500, blank=True)
 
 	# Stores the ID from the external software so webhook updates can be matched
 	external_id = models.CharField(max_length=255, blank=True, db_index=True)

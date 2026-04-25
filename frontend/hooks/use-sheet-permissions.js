@@ -50,6 +50,13 @@ export function useSheetPermissions(permKey) {
         // No workforce record → full access
         if (!match) { setLoading(false); return; }
 
+        // Revoked member → deny all access regardless of stored permissions
+        if (match.active === false) {
+          setCanView(false); setCanEdit(false); setCanCreate(false); setCanExport(false); setCanAmount(false);
+          setLoading(false);
+          return;
+        }
+
         // Chairman/CEO → full access
         const des = (match.designation || '').toLowerCase().trim();
         if (des === 'chairman' || des === 'ceo') { setLoading(false); return; }

@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import Link from 'next/link';
 import { RefreshCw, ChevronRight, ArrowLeft, Upload, Trash2, CloudDownload, FileDown } from 'lucide-react';
 import { useSheetPermissions } from '@/hooks/use-sheet-permissions';
+import { fmtNum } from '@/lib/utils';
 
 const fmt = (n) => `₹${Number(n).toFixed(2)}`;
 
@@ -1251,7 +1252,7 @@ export function OrderSheetView({ embedded = false }) {
                                         </td>
                                       )}
                                       <td className="px-3 py-2 text-midnight-ink whitespace-nowrap">{item.variationSku}</td>
-                                      <td className="px-3 py-2 text-midnight-ink font-semibold">{item.quantity}</td>
+                                      <td className="px-3 py-2 text-midnight-ink font-semibold">{fmtNum(item.quantity) || '—'}</td>
                                     </tr>
                                   ))
                                 )}

@@ -11,9 +11,16 @@ from rest_framework.views import APIView
 
 from common.api import api_success
 
-from .models import Account, Expense, Income, Invoice, JournalEntry, JournalItem, Ledger, Outstanding, OutstandingReceipt, PendingExpense
+from .models import (
+    Account, BankAccount, BankTransaction,
+    Expense, Income, Invoice, JournalEntry, JournalItem, Ledger, Outstanding, OutstandingReceipt, PendingExpense,
+)
+from .services.bank_import_service import build_preview, confirm_import, parse_file
 from .serializers import (
     ApproveExpenseSerializer,
+    BankAccountCreateSerializer,
+    BankAccountSerializer,
+    BankTransactionSerializer,
     ExpenseSerializer,
     IncomeSerializer,
     InvoiceCreateSerializer,
@@ -1293,3 +1300,414 @@ class InvoiceSettleView(APIView):
         except Exception as exc:
             logger.error('Invoice settlement failed: %s', exc, exc_info=True)
             return Response({'success': False, 'message': str(exc)}, status=400)
+
+# ---------------------------------------------------------------------------
+# Bank Statement Import  (parses file → stores as BankTransaction staging rows)
+# ---------------------------------------------------------------------------
+
+class BankImportPreviewView(APIView):
+    """
+    POST /api/accounting/bank-import/preview/
+    Accepts: multipart/form-data
+      - file: statement file (CSV / TXT / Excel / PDF)
+      - bank_account_id: int  — BankAccount PK  (preferred)
+                                OR Ledger PK for legacy callers
+
+    Behaviour:
+      1. Parses the file.
+      2. For each row, get_or_create a BankTransaction (duplicate guard via unique_hash).
+      3. Returns the saved BankTransaction rows so the frontend can show them.
+      4. Also returns all ledgers for dropdowns.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        import hashlib
+        from decimal import Decimal as _D
+
+        csv_file = request.FILES.get('file')
+        bank_account_id = request.data.get('bank_account_id')
+
+        if not csv_file:
+            return Response({'success': False, 'message': 'No file provided.'}, status=400)
+        if not bank_account_id:
+            return Response({'success': False, 'message': 'bank_account_id is required.'}, status=400)
+
+        try:
+            bank_account_id = int(bank_account_id)
+        except (ValueError, TypeError):
+            return Response({'success': False, 'message': 'Invalid bank_account_id.'}, status=400)
+
+        # Resolve BankAccount — create one on-the-fly if using legacy Ledger PK
+        bank_account = None
+        try:
+            bank_account = BankAccount.objects.get(pk=bank_account_id)
+        except BankAccount.DoesNotExist:
+            # Fallback: maybe it's a Ledger PK (old callers)
+            try:
+                ledger = Ledger.objects.get(pk=bank_account_id)
+                bank_account, _ = BankAccount.objects.get_or_create(
+                    name=ledger.name,
+                    defaults={
+                        'bank_name': '',
+                        'account_number': '',
+                        'opening_balance': _D('0'),
+                        'ledger': ledger,
+                    },
+                )
+            except Ledger.DoesNotExist:
+                return Response({'success': False, 'message': 'Invalid bank_account_id — no BankAccount or Ledger found.'}, status=400)
+
+        file_type = request.data.get('file_type', 'csv').lower().strip()
+
+        try:
+            file_bytes = csv_file.read()
+            rows = parse_file(file_bytes, file_type=file_type)
+        except ValueError as exc:
+            return Response({'success': False, 'message': str(exc)}, status=400)
+        except Exception as exc:
+            logger.exception('File parse error')
+            return Response({'success': False, 'message': f'Failed to parse file: {str(exc)}'}, status=500)
+
+        if not rows:
+            return Response({'success': False, 'message': 'No valid rows found in the file.'}, status=400)
+
+        # Get classification rules from the service
+        from .services.bank_import_service import classify_description, INCOME_LEDGER_NAME, FALLBACK_EXPENSE_LEDGER_NAME
+        all_ledgers = {l.name: l for l in Ledger.objects.all()}
+
+        created_count = 0
+        skipped_count = 0
+        saved_rows = []
+
+        for row in rows:
+            amount_float = float(row['amount'])
+            abs_amount = abs(amount_float)
+
+            # Build unique hash
+            raw = f"{row['date']}|{amount_float}|{row['description']}".strip().lower()
+            unique_hash = hashlib.sha256(raw.encode()).hexdigest()[:64]
+
+            # Classify
+            ledger_name, tx_type = classify_description(row['description'])
+            if tx_type is None:
+                if amount_float < 0:
+                    ledger_name = FALLBACK_EXPENSE_LEDGER_NAME
+                else:
+                    ledger_name = INCOME_LEDGER_NAME
+            suggested_ledger = all_ledgers.get(ledger_name)
+
+            tx_kind = BankTransaction.TxType.DEBIT if amount_float < 0 else BankTransaction.TxType.CREDIT
+
+            tx, created = BankTransaction.objects.get_or_create(
+                unique_hash=unique_hash,
+                defaults={
+                    'bank_account': bank_account,
+                    'date': row['date'],
+                    'description': row['description'],
+                    'amount': _D(str(abs_amount)),
+                    'type': tx_kind,
+                    'status': BankTransaction.Status.UNPROCESSED,
+                    'suggested_ledger': suggested_ledger,
+                },
+            )
+            if created:
+                created_count += 1
+            else:
+                skipped_count += 1
+            saved_rows.append(tx)
+
+        ledgers = list(Ledger.objects.values('id', 'name', 'type').order_by('name'))
+        from .serializers import BankTransactionSerializer as BTSer
+        return api_success({
+            'rows': BTSer(saved_rows, many=True).data,
+            'ledgers': ledgers,
+            'bank_account_id': bank_account.pk,
+            'created': created_count,
+            'skipped_duplicates': skipped_count,
+        })
+
+
+class BankImportConfirmView(APIView):
+    """
+    POST /api/accounting/bank-import/confirm/
+    Accepts: application/json
+    Body:
+      {
+        bank_account_id: int,
+        transactions: [
+          {
+            date: "YYYY-MM-DD",
+            description: str,
+            amount: float,
+            ledger_id: int,
+            department: str (optional),
+            import_hash: str
+          },
+          ...
+        ]
+      }
+
+    Creates JournalEntry + JournalItems for each confirmed transaction.
+    Skips duplicates (import_hash already exists).
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        bank_account_id = request.data.get('bank_account_id')
+        transactions = request.data.get('transactions', [])
+
+        if not bank_account_id:
+            return Response({'success': False, 'message': 'bank_account_id is required.'}, status=400)
+        if not isinstance(transactions, list) or len(transactions) == 0:
+            return Response({'success': False, 'message': 'No transactions provided.'}, status=400)
+
+        try:
+            bank_account_id = int(bank_account_id)
+        except (ValueError, TypeError):
+            return Response({'success': False, 'message': 'Invalid bank_account_id.'}, status=400)
+
+        try:
+            result = confirm_import(transactions, bank_account_id)
+        except ValueError as exc:
+            return Response({'success': False, 'message': str(exc)}, status=400)
+        except Exception as exc:
+            logger.exception('Bank import confirm error')
+            return Response({'success': False, 'message': 'Import failed.'}, status=500)
+
+        return api_success(result, message=f"{result['created']} entries created, {result['skipped_duplicates']} duplicates skipped.")
+
+
+# ---------------------------------------------------------------------------
+# Banking Module — BankAccount CRUD
+# ---------------------------------------------------------------------------
+
+class BankAccountListView(APIView):
+    """
+    GET  /api/accounting/bank-accounts/        — list all bank accounts with computed balances
+    POST /api/accounting/bank-accounts/        — create a new bank account
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        accounts = BankAccount.objects.prefetch_related('transactions').all()
+        return api_success(BankAccountSerializer(accounts, many=True).data)
+
+    def post(self, request):
+        ser = BankAccountCreateSerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+
+        # Auto-create a linked Ledger (Asset type) if not provided
+        ledger = ser.validated_data.get('ledger')
+        if not ledger:
+            name = ser.validated_data['name']
+            ledger, _ = Ledger.objects.get_or_create(
+                name=f'{name} Account',
+                defaults={'type': 'asset'},
+            )
+            ser.validated_data['ledger'] = ledger
+
+        account = ser.save()
+        return api_success(BankAccountSerializer(account).data, message='Bank account created.')
+
+
+class BankAccountDetailView(APIView):
+    """
+    GET    /api/accounting/bank-accounts/<pk>/
+    PATCH  /api/accounting/bank-accounts/<pk>/
+    DELETE /api/accounting/bank-accounts/<pk>/
+    """
+    permission_classes = [IsAuthenticated]
+
+    def _get(self, pk):
+        try:
+            return BankAccount.objects.get(pk=pk)
+        except BankAccount.DoesNotExist:
+            return None
+
+    def get(self, request, pk):
+        obj = self._get(pk)
+        if not obj:
+            return Response({'success': False, 'message': 'Not found.'}, status=404)
+        return api_success(BankAccountSerializer(obj).data)
+
+    def patch(self, request, pk):
+        obj = self._get(pk)
+        if not obj:
+            return Response({'success': False, 'message': 'Not found.'}, status=404)
+        ser = BankAccountCreateSerializer(obj, data=request.data, partial=True)
+        ser.is_valid(raise_exception=True)
+        ser.save()
+        return api_success(BankAccountSerializer(obj).data, message='Updated.')
+
+    def delete(self, request, pk):
+        obj = self._get(pk)
+        if not obj:
+            return Response({'success': False, 'message': 'Not found.'}, status=404)
+        obj.delete()
+        return api_success({}, message='Deleted.')
+
+
+# ---------------------------------------------------------------------------
+# Banking Module — BankTransaction list + detail
+# ---------------------------------------------------------------------------
+
+class BankTransactionListView(APIView):
+    """
+    GET /api/accounting/bank-transactions/
+    Query params: bank_account, status, date_from, date_to, search
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        qs = BankTransaction.objects.select_related('bank_account', 'suggested_ledger', 'journal_entry').all()
+
+        bank_account = request.query_params.get('bank_account')
+        status_filter = request.query_params.get('status')
+        date_from = request.query_params.get('date_from')
+        date_to = request.query_params.get('date_to')
+        search = request.query_params.get('search', '').strip()
+
+        if bank_account:
+            qs = qs.filter(bank_account_id=bank_account)
+        if status_filter:
+            qs = qs.filter(status=status_filter)
+        if date_from:
+            qs = qs.filter(date__gte=date_from)
+        if date_to:
+            qs = qs.filter(date__lte=date_to)
+        if search:
+            qs = qs.filter(description__icontains=search)
+
+        # Counts for header
+        total = qs.count()
+        unprocessed = qs.filter(status=BankTransaction.Status.UNPROCESSED).count()
+
+        data = BankTransactionSerializer(qs, many=True).data
+        return api_success({'transactions': data, 'total': total, 'unprocessed': unprocessed})
+
+
+class BankTransactionDetailView(APIView):
+    """
+    PATCH  /api/accounting/bank-transactions/<pk>/   — update ledger/department suggestion
+    DELETE /api/accounting/bank-transactions/<pk>/
+    """
+    permission_classes = [IsAuthenticated]
+
+    def patch(self, request, pk):
+        try:
+            obj = BankTransaction.objects.get(pk=pk)
+        except BankTransaction.DoesNotExist:
+            return Response({'success': False, 'message': 'Not found.'}, status=404)
+
+        ledger_id = request.data.get('suggested_ledger')
+        department = request.data.get('department')
+        if ledger_id is not None:
+            obj.suggested_ledger_id = ledger_id or None
+        if department is not None:
+            obj.department = department
+        obj.save(update_fields=['suggested_ledger_id', 'department'])
+        return api_success(BankTransactionSerializer(obj).data)
+
+    def delete(self, request, pk):
+        try:
+            obj = BankTransaction.objects.get(pk=pk)
+        except BankTransaction.DoesNotExist:
+            return Response({'success': False, 'message': 'Not found.'}, status=404)
+        obj.delete()
+        return api_success({}, message='Deleted.')
+
+
+class BankTransactionBulkDeleteView(APIView):
+    """DELETE /api/accounting/bank-transactions/bulk-delete/"""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        ids = request.data.get('ids', [])
+        if not ids:
+            return Response({'success': False, 'message': 'No ids provided.'}, status=400)
+        deleted, _ = BankTransaction.objects.filter(pk__in=ids).delete()
+        return api_success({'deleted': deleted}, message=f'{deleted} transaction(s) deleted.')
+
+
+# ---------------------------------------------------------------------------
+# Banking Module — Convert to Journal
+# ---------------------------------------------------------------------------
+
+class BankTransactionConvertView(APIView):
+    """
+    POST /api/accounting/bank-transactions/convert/
+
+    Body: [{ transaction_id, ledger_id, department (optional) }, ...]
+
+    Creates one JournalEntry per transaction using double-entry bookkeeping.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        items = request.data
+        if not isinstance(items, list) or len(items) == 0:
+            return Response({'success': False, 'message': 'Send a non-empty list of conversions.'}, status=400)
+
+        created_count = 0
+        skipped_count = 0
+        errors = []
+
+        with transaction.atomic():
+            for item in items:
+                tx_id = item.get('transaction_id')
+                ledger_id = item.get('ledger_id')
+                department = item.get('department', '') or None
+
+                if not tx_id or not ledger_id:
+                    errors.append(f'transaction_id and ledger_id are required (got {item}).')
+                    continue
+
+                try:
+                    tx = BankTransaction.objects.select_related('bank_account__ledger').get(pk=tx_id)
+                except BankTransaction.DoesNotExist:
+                    errors.append(f'Transaction id={tx_id} not found.')
+                    continue
+
+                if tx.status == BankTransaction.Status.PROCESSED:
+                    skipped_count += 1
+                    continue
+
+                try:
+                    counter_ledger = Ledger.objects.get(pk=ledger_id)
+                except Ledger.DoesNotExist:
+                    errors.append(f'Ledger id={ledger_id} not found.')
+                    continue
+
+                bank_ledger = tx.bank_account.ledger
+                if not bank_ledger:
+                    errors.append(f'BankAccount "{tx.bank_account.name}" has no linked ledger. Please assign one.')
+                    continue
+
+                abs_amount = abs(tx.amount)
+
+                entry = JournalEntry.objects.create(
+                    date=tx.date,
+                    description=tx.description,
+                )
+
+                if tx.type == BankTransaction.TxType.DEBIT:
+                    # Money OUT: Dr counter_ledger (expense), Cr bank_ledger
+                    JournalItem.objects.create(entry=entry, ledger=counter_ledger, debit=abs_amount, credit=0, department=department)
+                    JournalItem.objects.create(entry=entry, ledger=bank_ledger, debit=0, credit=abs_amount, department=department)
+                else:
+                    # Money IN: Dr bank_ledger, Cr counter_ledger (income)
+                    JournalItem.objects.create(entry=entry, ledger=bank_ledger, debit=abs_amount, credit=0, department=department)
+                    JournalItem.objects.create(entry=entry, ledger=counter_ledger, debit=0, credit=abs_amount, department=department)
+
+                tx.journal_entry = entry
+                tx.status = BankTransaction.Status.PROCESSED
+                if department:
+                    tx.department = department
+                tx.save(update_fields=['journal_entry', 'status', 'department'])
+                created_count += 1
+
+        return api_success(
+            {'created': created_count, 'skipped': skipped_count, 'errors': errors},
+            message=f'{created_count} journal entr{"ies" if created_count != 1 else "y"} created.'
+        )

@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { fmtNum } from '@/lib/utils';
 import { Search, X, Pencil, ChevronRight, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -385,7 +386,7 @@ export function CreateOrderForm({ embedded = false }) {
       shipping,
       notes,
       itemsCount: orderItems.length,
-      total: total.toFixed(2),
+      total: fmtNum(total),
     };
 
     try {

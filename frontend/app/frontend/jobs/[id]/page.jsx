@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
+import { fmtNum } from '@/lib/utils'
 import { Textarea } from '@/components/ui/textarea'
 import { Input } from '@/components/ui/input'
 import {
@@ -358,7 +359,7 @@ export default function JobDetail() {
                   <div key={i} className="bg-cloud-gray p-3 rounded-lg text-sm">
                     <p className="font-semibold text-midnight-ink">
                       {material.name}
-                      {material.quantity && ` (${material.quantity} ${material.unit || ''})`}
+                      {material.quantity && ` (${fmtNum(material.quantity)} ${material.unit || ''})`}
                     </p>
                     {material.notes && <p className="text-cool-gray">{material.notes}</p>}
                   </div>

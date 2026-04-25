@@ -6,6 +6,7 @@ import { ArrowLeft, ChevronDown, Download, Pencil, Plus, Printer, RefreshCw, Tra
 import * as XLSX from 'xlsx';
 import SortPopover from '@/components/sort-popover';
 import BulkUploadButton from '@/components/bulk-upload-button';
+import { fmtNum } from '@/lib/utils';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
 import LastUpdatedFooter from '@/components/last-updated-footer';
 import DeletionHistoryDrawer from '@/components/deletion-history-drawer';
@@ -379,6 +380,8 @@ export default function ToolsInventoryPage() {
     if (editingRowIds.has(row.id) && editBuffer[row.id]) {
       return editBuffer[row.id][key] ?? '';
     }
+    const numericKeys = ['new_qty', 'in_use_qty', 'used_qty', 'min_required_stock'];
+    if (numericKeys.includes(key)) return fmtNum(row[key]);
     return row[key] ?? '';
   }
 

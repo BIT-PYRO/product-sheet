@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import GlobalSearchBar from '@/components/global-search-bar';
+import { fmtNum } from '@/lib/utils';
 import DateTimeStamp from '@/components/date-time-stamp';
 import MultiselectFilterPopover from '@/components/multiselect-filter-popover';
 import { EnrolWorkforceForm } from '@/app/frontend/enrol-workforce/page';
@@ -895,14 +896,14 @@ export default function FindingInventoryPage() {
                           </td>}
                           {visibleColumns.has('mechanism') && <td className="border border-soft-border px-3 py-2.5 text-midnight-ink">{f.mechanism || '—'}</td>}
                           {visibleColumns.has('quantity') && <td className="border border-soft-border px-3 py-2.5 text-right text-midnight-ink font-medium">
-                            {f.quantity || '—'}
+                            {fmtNum(f.quantity) || '—'}
                           </td>}
                           {visibleColumns.has('used_qty') && <td className="border border-soft-border px-3 py-2.5 text-right text-midnight-ink font-medium">
-                            {f.used_qty || '—'}
+                            {fmtNum(f.used_qty) || '—'}
                           </td>}
-                          {visibleColumns.has('weight') && <td className="border border-soft-border px-3 py-2.5 text-right text-midnight-ink">{f.weight || '—'}</td>}
-                          {visibleColumns.has('dead_weight') && <td className="border border-soft-border px-3 py-2.5 text-right text-midnight-ink">{f.dead_weight || '—'}</td>}
-                          {visibleColumns.has('mold_qty_per_die') && <td className="border border-soft-border px-3 py-2.5 text-right text-midnight-ink">{f.mold_qty_per_die || '—'}</td>}
+                          {visibleColumns.has('weight') && <td className="border border-soft-border px-3 py-2.5 text-right text-midnight-ink">{fmtNum(f.weight) || '—'}</td>}
+                          {visibleColumns.has('dead_weight') && <td className="border border-soft-border px-3 py-2.5 text-right text-midnight-ink">{fmtNum(f.dead_weight) || '—'}</td>}
+                          {visibleColumns.has('mold_qty_per_die') && <td className="border border-soft-border px-3 py-2.5 text-right text-midnight-ink">{fmtNum(f.mold_qty_per_die) || '—'}</td>}
                         </>
                       )}
                     </tr>

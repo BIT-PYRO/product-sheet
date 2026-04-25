@@ -9,6 +9,7 @@ import MasterNavigationDrawer from '@/components/master_navigation_drawer';
 import GlobalSearchBar from '@/components/global-search-bar';
 import DateTimeStamp from '@/components/date-time-stamp';
 import DeletionHistoryDrawer from '@/components/deletion-history-drawer';
+import { fmtNum } from '@/lib/utils';
 import {
   Dialog,
   DialogContent,
@@ -95,7 +96,7 @@ const findingEmpty = () => ({
 
 const calcAmount = (qty, price) => {
   const q = Number(qty); const p = Number(price);
-  return (q > 0 && p > 0) ? String((q * p).toFixed(2)) : '';
+  return (q > 0 && p > 0) ? fmtNum(q * p) : '';
 };
 
 // ── Die Log constants ──────────────────────────────────────────────────────
