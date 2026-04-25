@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import AccountingJournalForm from '@/components/accounting-journal-form';
+import AccountingBankImport from '@/components/accounting-bank-import';
 import AccountingLedgerSummary from '@/components/accounting-ledger-summary';
 import AccountingTrialBalance from '@/components/accounting-trial-balance';
 import AccountingProfitLoss from '@/components/accounting-profit-loss';
@@ -24,6 +25,7 @@ const TABS = [
 
 export default function AccountancyPage() {
   const [activeTab, setActiveTab] = useState('journal');
+  const [journalMode, setJournalMode] = useState('manual'); // 'manual' | 'import'
 
   return (
     <main className="min-h-screen bg-cloud-gray">
@@ -63,7 +65,36 @@ export default function AccountancyPage() {
         </div>
 
         {/* Tab content */}
-        {activeTab === 'journal' && <AccountingJournalForm />}
+        {activeTab === 'journal' && (
+          <div className="space-y-4">
+            {/* Manual / Import toggle */}
+            <div className="flex gap-1 bg-cloud-gray border border-soft-border rounded-lg p-1 w-fit">
+              <button
+                type="button"
+                onClick={() => setJournalMode('manual')}
+                className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                  journalMode === 'manual'
+                    ? 'bg-white text-midnight-ink shadow-sm'
+                    : 'text-cool-gray hover:text-midnight-ink'
+                }`}
+              >
+                Manual Entry
+              </button>
+              <button
+                type="button"
+                onClick={() => setJournalMode('import')}
+                className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                  journalMode === 'import'
+                    ? 'bg-white text-midnight-ink shadow-sm'
+                    : 'text-cool-gray hover:text-midnight-ink'
+                }`}
+              >
+                Import Statement
+              </button>
+            </div>
+            {journalMode === 'manual' ? <AccountingJournalForm /> : <AccountingBankImport />}
+          </div>
+        )}
         {activeTab === 'ledger' && <AccountingLedgerSummary />}
         {activeTab === 'trial-balance' && <AccountingTrialBalance />}
         {activeTab === 'profit-loss' && <AccountingProfitLoss />}

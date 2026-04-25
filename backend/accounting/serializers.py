@@ -3,7 +3,10 @@ from decimal import Decimal
 from django.db import transaction
 from rest_framework import serializers
 
-from .models import JournalEntry, JournalItem, Ledger, Outstanding, PendingExpense
+from .models import (
+    BankAccount, BankTransaction,
+    JournalEntry, JournalItem, Ledger, Outstanding, PendingExpense,
+)
 
 
 class LedgerSerializer(serializers.ModelSerializer):
@@ -167,3 +170,81 @@ class OutstandingSerializer(serializers.ModelSerializer):
             'due_date', 'linked_journal_id', 'settlement_journal_id',
             'settlement_account_name', 'receipts', 'created_at', 'updated_at'
         )
+
+
+# ---------------------------------------------------------------------------
+# Banking
+# ---------------------------------------------------------------------------
+
+class BankAccountSerializer(serializers.ModelSerializer):
+    ledger_id = serializers.IntegerField(source='ledger.id', read_only=True, allow_null=True)
+    ledger_name = serializers.CharField(source='ledger.name', read_only=True, allow_null=True, default=None)
+    # Computed balance
+    balance = serializers.SerializerMethodField()
+    total_credits = serializers.SerializerMethodField()
+    total_debits = serializers.SerializerMethodField()
+    transaction_count = serializers.SerializerMethodField()
+    unprocessed_count = serializers.SerializerMethodField()
+    last_transaction_date = serializers.SerializerMethodField()
+
+    class Meta:
+        model = BankAccount
+        fields = (
+            'id', 'name', 'bank_name', 'account_number', 'opening_balance',
+            'ledger_id', 'ledger_name',
+            'balance', 'total_credits', 'total_debits',
+            'transaction_count', 'unprocessed_count', 'last_transaction_date',
+            'created_at',
+        )
+
+    def _txns(self, obj):
+        return obj.transactions.exclude(status=BankTransaction.Status.IGNORED)
+
+    def get_total_credits(self, obj):
+        from django.db.models import Sum
+        result = self._txns(obj).filter(type='credit').aggregate(s=Sum('amount'))['s'] or 0
+        return float(result)
+
+    def get_total_debits(self, obj):
+        from django.db.models import Sum
+        result = self._txns(obj).filter(type='debit').aggregate(s=Sum('amount'))['s'] or 0
+        return float(result)
+
+    def get_balance(self, obj):
+        return float(obj.opening_balance) + self.get_total_credits(obj) - self.get_total_debits(obj)
+
+    def get_transaction_count(self, obj):
+        return obj.transactions.count()
+
+    def get_unprocessed_count(self, obj):
+        return obj.transactions.filter(status=BankTransaction.Status.UNPROCESSED).count()
+
+    def get_last_transaction_date(self, obj):
+        last = obj.transactions.order_by('-date').values_list('date', flat=True).first()
+        return str(last) if last else None
+
+
+class BankAccountCreateSerializer(serializers.ModelSerializer):
+    ledger_id = serializers.PrimaryKeyRelatedField(
+        queryset=Ledger.objects.all(), source='ledger', required=False, allow_null=True,
+    )
+
+    class Meta:
+        model = BankAccount
+        fields = ('id', 'name', 'bank_name', 'account_number', 'opening_balance', 'ledger_id')
+
+
+class BankTransactionSerializer(serializers.ModelSerializer):
+    bank_account_name = serializers.CharField(source='bank_account.name', read_only=True)
+    suggested_ledger_name = serializers.CharField(source='suggested_ledger.name', read_only=True, allow_null=True, default=None)
+    journal_entry_id = serializers.IntegerField(source='journal_entry.id', read_only=True, allow_null=True)
+
+    class Meta:
+        model = BankTransaction
+        fields = (
+            'id', 'bank_account', 'bank_account_name',
+            'date', 'description', 'amount', 'type', 'status',
+            'department', 'suggested_ledger', 'suggested_ledger_name',
+            'journal_entry_id', 'unique_hash', 'created_at',
+        )
+

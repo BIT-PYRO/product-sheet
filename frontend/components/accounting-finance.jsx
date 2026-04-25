@@ -3,6 +3,8 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import FinanceEntryModal from './finance-entry-modal';
 import AccountingPayablesReceivables from './accounting-payables-receivables';
 import AccountingDepartmentDashboard from './accounting-department-dashboard';
+import BankingAccounts from './banking-accounts';
+import BankingStatements from './banking-statements';
 
 const fmt = n => `₹${Number(n).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
 const today = () => new Date().toISOString().slice(0, 10);
@@ -337,7 +339,7 @@ export default function AccountingFinance() {
           <p style={{ margin: '3px 0 0', fontSize: 12, color: C.muted }}>Track income and expenses — every entry creates a journal automatically.</p>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
-          {tab !== 'payables' && tab !== 'settlements' && tab !== 'dept' && (
+          {tab !== 'payables' && tab !== 'settlements' && tab !== 'dept' && tab !== 'banking' && (
             <>
               <button onClick={() => openModal('income')} style={{ padding: '8px 16px', background: C.green, color: '#fff', border: 'none', borderRadius: 8, fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
                 + Add Income
@@ -352,14 +354,14 @@ export default function AccountingFinance() {
 
       {/* Tabs */}
       <div style={{ borderBottom: `1px solid ${C.border}`, marginBottom: 22 }}>
-        {[['dashboard', 'Dashboard'], ['income', 'Income'], ['expense', 'Expenses'], ['payables', 'Payables & Receivables'], ['settlements', 'Settlements'], ['dept', 'Department Dashboard']].map(([k, l]) => (
+        {[['dashboard', 'Dashboard'], ['income', 'Income'], ['expense', 'Expenses'], ['payables', 'Payables & Receivables'], ['settlements', 'Settlements'], ['dept', 'Department Dashboard'], ['banking', 'Banking']].map(([k, l]) => (
           <button key={k} onClick={() => setTab(k)} style={tabBtn(tab === k)}>{l}</button>
         ))}
       </div>
 
       {/* Body */}
       <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start' }}>
-        {tab !== 'payables' && tab !== 'settlements' && tab !== 'dept' && <FilterBar filter={filter} setFilter={setFilter} customFrom={customFrom} setCustomFrom={setCustomFrom} customTo={customTo} setCustomTo={setCustomTo} />}
+        {tab !== 'payables' && tab !== 'settlements' && tab !== 'dept' && tab !== 'banking' && <FilterBar filter={filter} setFilter={setFilter} customFrom={customFrom} setCustomFrom={setCustomFrom} customTo={customTo} setCustomTo={setCustomTo} />}
 
         <div style={{ flex: 1, minWidth: 0 }}>
 
@@ -633,6 +635,18 @@ export default function AccountingFinance() {
 
           {/* DEPARTMENT DASHBOARD */}
           {tab === 'dept' && <AccountingDepartmentDashboard />}
+
+          {/* BANKING */}
+          {tab === 'banking' && (
+            <div className="space-y-6">
+              <BankingAccounts />
+              <hr className="border-soft-border" />
+              <div>
+                <h3 className="text-base font-semibold text-midnight-ink mb-3">Imported Transactions</h3>
+                <BankingStatements />
+              </div>
+            </div>
+          )}
 
           {/* PAYABLES & RECEIVABLES */}
           {tab === 'payables' && <AccountingPayablesReceivables embedded />}
