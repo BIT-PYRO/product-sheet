@@ -464,6 +464,31 @@ export default function ProfilePage() {
 
   function handleEditChange(name, value) { setEditData(prev => ({ ...prev, [name]: value })); }
 
+  async function handleDeleteDocument(docType) {
+    if (!workforceMember?.id || !docType) return;
+    setDocUploading(p => ({ ...p, [docType]: true }));
+    try {
+      const res = await fetch(`/api/workforce/${workforceMember.id}/delete-document`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ doc_type: docType }),
+      });
+      const result = await res.json().catch(() => null);
+      if (res.ok && result?.success) {
+        const key = docType === 'aadhaar' ? 'aadhaar_url' : 'pan_url';
+        setWorkforceMember(prev => ({ ...prev, [key]: '' }));
+        setSaveMessage(`${docType === 'aadhaar' ? 'Aadhaar' : 'PAN'} deleted successfully.`);
+        window.dispatchEvent(new CustomEvent('workforce-updated'));
+      } else {
+        setSaveMessage((result?.message || 'Failed to delete document.') + '');
+      }
+    } catch {
+      setSaveMessage('Network error while deleting document.');
+    } finally {
+      setDocUploading(p => ({ ...p, [docType]: false }));
+    }
+  }
+
   async function handleSave() {
     if (!workforceMember?.id) return;
     setSaving(true); setSaveMessage('');
@@ -913,32 +938,44 @@ export default function ProfilePage() {
                       <p className="text-sm text-cool-gray italic mb-2">Not uploaded yet.</p>
                     )}
                     {isEditing && (
-                      <label className={`flex items-center gap-2 cursor-pointer text-xs font-semibold px-3 py-1.5 rounded-lg border transition ${docUploading.aadhaar ? 'opacity-50 pointer-events-none' : 'border-trust-blue text-trust-blue hover:bg-blue-50'}`}>
-                        <input type="file" className="hidden" accept="image/*,application/pdf" disabled={docUploading.aadhaar}
-                          onChange={async (e) => {
-                            const file = e.target.files?.[0]; if (!file || !wf?.id) return;
-                            if (file.size > 10 * 1024 * 1024) { alert('File must be under 10 MB.'); return; }
-                            setDocUploading(p => ({ ...p, aadhaar: true }));
-                            try {
-                              const reader = new FileReader();
-                              reader.onload = async (ev) => {
-                                const res = await fetch(`/api/workforce/${wf.id}/upload-document`, {
-                                  method: 'POST', headers: { 'Content-Type': 'application/json' },
-                                  body: JSON.stringify({ photo_data: ev.target.result, doc_type: 'aadhaar' }),
-                                });
-                                const result = await res.json().catch(() => null);
-                                if (res.ok && (result?.data?.url || result?.data?.aadhaar_url)) {
-                                  const uploadedUrl = result.data.url || result.data.aadhaar_url;
-                                  setWorkforceMember(prev => ({ ...prev, aadhaar_url: uploadedUrl }));
-                                  setSaveMessage('Aadhaar uploaded successfully.');
-                                } else { setSaveMessage('Aadhaar upload failed. ' + (result?.message || 'Try again.')); }
-                                setDocUploading(p => ({ ...p, aadhaar: false }));
-                              };
-                              reader.readAsDataURL(file);
-                            } catch { setDocUploading(p => ({ ...p, aadhaar: false })); }
-                          }} />
-                        {docUploading.aadhaar ? 'Uploading…' : (wf?.aadhaar_url ? 'Replace Aadhaar' : 'Upload Aadhaar')}
-                      </label>
+                      <div className="flex items-center gap-2">
+                        <label className={`flex items-center gap-2 cursor-pointer text-xs font-semibold px-3 py-1.5 rounded-lg border transition ${docUploading.aadhaar ? 'opacity-50 pointer-events-none' : 'border-trust-blue text-trust-blue hover:bg-blue-50'}`}>
+                          <input type="file" className="hidden" accept="image/*,application/pdf" disabled={docUploading.aadhaar}
+                            onChange={async (e) => {
+                              const file = e.target.files?.[0]; if (!file || !wf?.id) return;
+                              if (file.size > 10 * 1024 * 1024) { alert('File must be under 10 MB.'); return; }
+                              setDocUploading(p => ({ ...p, aadhaar: true }));
+                              try {
+                                const reader = new FileReader();
+                                reader.onload = async (ev) => {
+                                  const res = await fetch(`/api/workforce/${wf.id}/upload-document`, {
+                                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ photo_data: ev.target.result, doc_type: 'aadhaar' }),
+                                  });
+                                  const result = await res.json().catch(() => null);
+                                  if (res.ok && (result?.data?.url || result?.data?.aadhaar_url)) {
+                                    const uploadedUrl = result.data.url || result.data.aadhaar_url;
+                                    setWorkforceMember(prev => ({ ...prev, aadhaar_url: uploadedUrl }));
+                                    setSaveMessage('Aadhaar uploaded successfully.');
+                                  } else { setSaveMessage('Aadhaar upload failed. ' + (result?.message || 'Try again.')); }
+                                  setDocUploading(p => ({ ...p, aadhaar: false }));
+                                };
+                                reader.readAsDataURL(file);
+                              } catch { setDocUploading(p => ({ ...p, aadhaar: false })); }
+                            }} />
+                          {docUploading.aadhaar ? 'Uploading…' : (wf?.aadhaar_url ? 'Replace Aadhaar' : 'Upload Aadhaar')}
+                        </label>
+                        {wf?.aadhaar_url && (
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteDocument('aadhaar')}
+                            disabled={docUploading.aadhaar}
+                            className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-red-300 text-red-600 hover:bg-red-50 disabled:opacity-50"
+                          >
+                            Delete
+                          </button>
+                        )}
+                      </div>
                     )}
                   </div>
                   {/* PAN Card */}
@@ -954,32 +991,44 @@ export default function ProfilePage() {
                       <p className="text-sm text-cool-gray italic mb-2">Not uploaded yet.</p>
                     )}
                     {isEditing && (
-                      <label className={`flex items-center gap-2 cursor-pointer text-xs font-semibold px-3 py-1.5 rounded-lg border transition ${docUploading.pan ? 'opacity-50 pointer-events-none' : 'border-trust-blue text-trust-blue hover:bg-blue-50'}`}>
-                        <input type="file" className="hidden" accept="image/*,application/pdf" disabled={docUploading.pan}
-                          onChange={async (e) => {
-                            const file = e.target.files?.[0]; if (!file || !wf?.id) return;
-                            if (file.size > 10 * 1024 * 1024) { alert('File must be under 10 MB.'); return; }
-                            setDocUploading(p => ({ ...p, pan: true }));
-                            try {
-                              const reader = new FileReader();
-                              reader.onload = async (ev) => {
-                                const res = await fetch(`/api/workforce/${wf.id}/upload-document`, {
-                                  method: 'POST', headers: { 'Content-Type': 'application/json' },
-                                  body: JSON.stringify({ photo_data: ev.target.result, doc_type: 'pan' }),
-                                });
-                                const result = await res.json().catch(() => null);
-                                if (res.ok && (result?.data?.url || result?.data?.pan_url)) {
-                                  const uploadedUrl = result.data.url || result.data.pan_url;
-                                  setWorkforceMember(prev => ({ ...prev, pan_url: uploadedUrl }));
-                                  setSaveMessage('PAN uploaded successfully.');
-                                } else { setSaveMessage('PAN upload failed. ' + (result?.message || 'Try again.')); }
-                                setDocUploading(p => ({ ...p, pan: false }));
-                              };
-                              reader.readAsDataURL(file);
-                            } catch { setDocUploading(p => ({ ...p, pan: false })); }
-                          }} />
-                        {docUploading.pan ? 'Uploading…' : (wf?.pan_url ? 'Replace PAN' : 'Upload PAN')}
-                      </label>
+                      <div className="flex items-center gap-2">
+                        <label className={`flex items-center gap-2 cursor-pointer text-xs font-semibold px-3 py-1.5 rounded-lg border transition ${docUploading.pan ? 'opacity-50 pointer-events-none' : 'border-trust-blue text-trust-blue hover:bg-blue-50'}`}>
+                          <input type="file" className="hidden" accept="image/*,application/pdf" disabled={docUploading.pan}
+                            onChange={async (e) => {
+                              const file = e.target.files?.[0]; if (!file || !wf?.id) return;
+                              if (file.size > 10 * 1024 * 1024) { alert('File must be under 10 MB.'); return; }
+                              setDocUploading(p => ({ ...p, pan: true }));
+                              try {
+                                const reader = new FileReader();
+                                reader.onload = async (ev) => {
+                                  const res = await fetch(`/api/workforce/${wf.id}/upload-document`, {
+                                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ photo_data: ev.target.result, doc_type: 'pan' }),
+                                  });
+                                  const result = await res.json().catch(() => null);
+                                  if (res.ok && (result?.data?.url || result?.data?.pan_url)) {
+                                    const uploadedUrl = result.data.url || result.data.pan_url;
+                                    setWorkforceMember(prev => ({ ...prev, pan_url: uploadedUrl }));
+                                    setSaveMessage('PAN uploaded successfully.');
+                                  } else { setSaveMessage('PAN upload failed. ' + (result?.message || 'Try again.')); }
+                                  setDocUploading(p => ({ ...p, pan: false }));
+                                };
+                                reader.readAsDataURL(file);
+                              } catch { setDocUploading(p => ({ ...p, pan: false })); }
+                            }} />
+                          {docUploading.pan ? 'Uploading…' : (wf?.pan_url ? 'Replace PAN' : 'Upload PAN')}
+                        </label>
+                        {wf?.pan_url && (
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteDocument('pan')}
+                            disabled={docUploading.pan}
+                            className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-red-300 text-red-600 hover:bg-red-50 disabled:opacity-50"
+                          >
+                            Delete
+                          </button>
+                        )}
+                      </div>
                     )}
                   </div>
                 </div>

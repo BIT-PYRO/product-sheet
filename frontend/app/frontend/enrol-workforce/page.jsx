@@ -502,6 +502,35 @@ export function EnrolWorkforceForm({ onEnroll, onClose, open=true, draftData=nul
     }
   }
 
+  async function deleteUploadedDocument(memberId, docType) {
+    if (!docType) return false;
+    if (!memberId) {
+      setUploadedDocs(prev => ({ ...prev, [docType]: null }));
+      setDocuments(prev => ({ ...prev, [docType]: null }));
+      setDocUploadStatus(prev => ({ ...prev, [docType]: null }));
+      return true;
+    }
+
+    setDocUploadStatus(prev => ({ ...prev, [docType]: 'deleting' }));
+    try {
+      const res = await fetch(`/api/workforce/${memberId}/delete-document`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ doc_type: docType }),
+      });
+      const result = await res.json().catch(() => null);
+      if (!res.ok || !result?.success) throw new Error(result?.message || 'Delete failed');
+
+      setUploadedDocs(prev => ({ ...prev, [docType]: null }));
+      setDocuments(prev => ({ ...prev, [docType]: null }));
+      setDocUploadStatus(prev => ({ ...prev, [docType]: null }));
+      return true;
+    } catch {
+      setDocUploadStatus(prev => ({ ...prev, [docType]: 'error' }));
+      return false;
+    }
+  }
+
   const doActualSubmit=async()=>{
     setIsSubmitting(true);
     setSubmitStatus(null);
@@ -987,12 +1016,38 @@ export function EnrolWorkforceForm({ onEnroll, onClose, open=true, draftData=nul
                         <div className="font-semibold text-green-700 text-sm">Aadhaar Card</div>
                         <div className="text-xs text-green-600 text-center mt-1">
                           {docUploadStatus.aadhaar==='uploading'?'Uploading...':
+                           docUploadStatus.aadhaar==='deleting'?'Removing...':
                            docUploadStatus.aadhaar==='done'?'✓ Uploaded successfully':
                            docUploadStatus.aadhaar==='error'?'⚠ Upload failed — will retry on save':
                            uploadedDocs.aadhaar?'✓ Already uploaded':
                            documents.aadhaar?.name||'File selected'}
                         </div>
                         {uploadedDocs.aadhaar&&<a href={buildDocProxyUrl(uploadedDocs.aadhaar,'preview')} target="_blank" rel="noopener noreferrer" className="text-xs text-trust-blue underline mt-1" onClick={e=>e.stopPropagation()}>View document</a>}
+                        {!isReadOnly && uploadedDocs.aadhaar && (
+                          <button
+                            type="button"
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              await deleteUploadedDocument(editingId, 'aadhaar');
+                            }}
+                            className="text-xs text-red-600 underline mt-1"
+                          >
+                            Delete old document
+                          </button>
+                        )}
+                        {!isReadOnly && documents.aadhaar && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setDocuments(prev => ({ ...prev, aadhaar: null }));
+                              setDocUploadStatus(prev => ({ ...prev, aadhaar: null }));
+                            }}
+                            className="text-xs text-red-600 underline mt-1"
+                          >
+                            Remove selected file
+                          </button>
+                        )}
                       </>
                     ):(
                       <>
@@ -1014,12 +1069,38 @@ export function EnrolWorkforceForm({ onEnroll, onClose, open=true, draftData=nul
                         <div className="font-semibold text-green-700 text-sm">PAN Card</div>
                         <div className="text-xs text-green-600 text-center mt-1">
                           {docUploadStatus.pan==='uploading'?'Uploading...':
+                           docUploadStatus.pan==='deleting'?'Removing...':
                            docUploadStatus.pan==='done'?'✓ Uploaded successfully':
                            docUploadStatus.pan==='error'?'⚠ Upload failed — will retry on save':
                            uploadedDocs.pan?'✓ Already uploaded':
                            documents.pan?.name||'File selected'}
                         </div>
                         {uploadedDocs.pan&&<a href={buildDocProxyUrl(uploadedDocs.pan,'preview')} target="_blank" rel="noopener noreferrer" className="text-xs text-trust-blue underline mt-1" onClick={e=>e.stopPropagation()}>View document</a>}
+                        {!isReadOnly && uploadedDocs.pan && (
+                          <button
+                            type="button"
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              await deleteUploadedDocument(editingId, 'pan');
+                            }}
+                            className="text-xs text-red-600 underline mt-1"
+                          >
+                            Delete old document
+                          </button>
+                        )}
+                        {!isReadOnly && documents.pan && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setDocuments(prev => ({ ...prev, pan: null }));
+                              setDocUploadStatus(prev => ({ ...prev, pan: null }));
+                            }}
+                            className="text-xs text-red-600 underline mt-1"
+                          >
+                            Remove selected file
+                          </button>
+                        )}
                       </>
                     ):(
                       <>

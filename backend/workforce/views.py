@@ -93,7 +93,7 @@ class WorkforceMemberViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 	@action(detail=True, methods=['post'], url_path='upload-document')
 	def upload_document(self, request, pk=None):
 		try:
-			from common.image_upload import upload_document_base64, upload_image_file
+			from common.image_upload import upload_document_base64, upload_document_file
 			member = self.get_object()
 			doc_type = str(request.data.get('doc_type', '')).strip().lower()
 			if doc_type not in ('aadhaar', 'pan'):
@@ -103,8 +103,7 @@ class WorkforceMemberViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 			if photo_data and str(photo_data).startswith('data:'):
 				url, err = upload_document_base64(photo_data, folder=folder, public_id=doc_type)
 			elif 'document' in request.FILES:
-				url = upload_image_file(request.FILES['document'], folder=folder, public_id=doc_type)
-				err = None if url else 'File upload failed.'
+				url, err = upload_document_file(request.FILES['document'], folder=folder, public_id=doc_type)
 			else:
 				return Response({'success': False, 'message': 'No document provided.'}, status=400)
 			if not url:
@@ -118,6 +117,27 @@ class WorkforceMemberViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 			return Response({'success': True, 'data': {'url': url, 'doc_type': doc_type}, 'message': f'{doc_type.upper()} document uploaded successfully.'})
 		except Exception as exc:
 			logger.exception('upload_document unexpected error for pk=%s', pk)
+			return Response({'success': False, 'message': f'Server error: {exc}'}, status=500)
+
+	@extend_schema(summary='Delete identity document (Aadhaar or PAN) for a workforce member', tags=['Workforce'])
+	@action(detail=True, methods=['post'], url_path='delete-document')
+	def delete_document(self, request, pk=None):
+		try:
+			member = self.get_object()
+			doc_type = str(request.data.get('doc_type', '')).strip().lower()
+			if doc_type not in ('aadhaar', 'pan'):
+				return Response({'success': False, 'message': 'doc_type must be "aadhaar" or "pan".'}, status=400)
+
+			if doc_type == 'aadhaar':
+				member.aadhaar_url = ''
+				member.save(update_fields=['aadhaar_url'])
+			else:
+				member.pan_url = ''
+				member.save(update_fields=['pan_url'])
+
+			return Response({'success': True, 'data': {'doc_type': doc_type}, 'message': f'{doc_type.upper()} document deleted successfully.'})
+		except Exception as exc:
+			logger.exception('delete_document unexpected error for pk=%s', pk)
 			return Response({'success': False, 'message': f'Server error: {exc}'}, status=500)
 
 	@extend_schema(summary='Get unique departments, designations and role-dept pairs', tags=['Workforce'])

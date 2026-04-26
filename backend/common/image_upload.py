@@ -161,6 +161,12 @@ def upload_document_base64(data_url: str, folder: str, public_id: str = None) ->
         except Exception as decode_err:
             return '', f'Could not decode document data: {decode_err}'
 
+        # PDFs are frequently blocked by Cloudinary account delivery/security settings.
+        # Keep workforce identity docs reliably previewable by storing PDFs locally.
+        if mime == 'application/pdf':
+            local_url = _upload_to_local_bytes(doc_bytes, folder, file_name)
+            return local_url, None
+
         cloudinary_url_env = os.environ.get('CLOUDINARY_URL', '')
         if cloudinary_url_env:
             # Use base public_id only; Cloudinary can append format, so including ext here can duplicate it.
@@ -188,6 +194,45 @@ def upload_document_base64(data_url: str, folder: str, public_id: str = None) ->
         return '', str(exc)
 
 
+def upload_document_file(document_file, folder: str, public_id: str = None) -> tuple:
+    """Upload a Django uploaded file as a document and return (url, error)."""
+    if not document_file:
+        return '', 'No document file provided.'
+
+    content_type = str(getattr(document_file, 'content_type', '') or '').lower()
+    ext = os.path.splitext(getattr(document_file, 'name', '') or '')[1].lower().lstrip('.')
+    if not ext:
+        ext = 'pdf' if content_type == 'application/pdf' else 'bin'
+
+    file_name = f'{public_id or uuid.uuid4().hex}.{ext}'
+    try:
+        file_bytes = document_file.read()
+        if hasattr(document_file, 'seek'):
+            document_file.seek(0)
+    except Exception as exc:
+        return '', f'Could not read uploaded file: {exc}'
+
+    # Keep PDFs local to avoid Cloudinary 401 delivery restrictions.
+    if content_type == 'application/pdf' or ext == 'pdf':
+        return _upload_to_local_bytes(file_bytes, folder, file_name), None
+
+    cloudinary_url_env = os.environ.get('CLOUDINARY_URL', '')
+    if cloudinary_url_env:
+        cloud_public_id = public_id or uuid.uuid4().hex
+        url, err = _upload_to_cloudinary_safe(
+            io.BytesIO(file_bytes),
+            folder,
+            cloud_public_id,
+            resource_type='auto',
+        )
+        if err:
+            logger.error('upload_document_file: Cloudinary error for folder=%r: %s. Falling back to local.', folder, err)
+            return _upload_to_local_bytes(file_bytes, folder, file_name), None
+        return _normalize_cloudinary_document_url(url), None
+
+    return _upload_to_local_bytes(file_bytes, folder, file_name), None
+
+
 
 def _upload_to_cloudinary_safe(image_source, folder: str, public_id: str = None, resource_type: str = 'image') -> tuple:
     """Upload to Cloudinary. Returns (url, error_message). Never raises."""
@@ -197,6 +242,8 @@ def _upload_to_cloudinary_safe(image_source, folder: str, public_id: str = None,
         kwargs = dict(
             folder=_safe_folder(folder),
             resource_type=resource_type,
+            type='upload',
+            access_mode='public',
             overwrite=True,
         )
         if public_id:

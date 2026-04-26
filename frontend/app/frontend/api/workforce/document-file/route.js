@@ -81,7 +81,10 @@ function buildCloudinaryFallbackUrls(targetUrl) {
   }
 
   // Some document uploads should be served from raw/upload rather than image/upload.
-  if (/\/image\/upload\//i.test(asString) && /\.(pdf|docx?|bin)([?#]|$)/i.test(singleExt)) {
+  if (/\/image\/upload\//i.test(asString)) {
+    candidates.add(asString.replace('/image/upload/', '/raw/upload/'));
+  }
+  if (/\/image\/upload\//i.test(singleExt)) {
     candidates.add(singleExt.replace('/image/upload/', '/raw/upload/'));
   }
 
