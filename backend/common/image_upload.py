@@ -157,11 +157,13 @@ def upload_document_base64(data_url: str, folder: str, public_id: str = None) ->
 
         cloudinary_url_env = os.environ.get('CLOUDINARY_URL', '')
         if cloudinary_url_env:
+            # Keep extension in public_id so remote URL preserves file type for preview/download.
+            public_id_with_ext = f"{public_id}.{ext}" if public_id else f"{uuid.uuid4().hex}.{ext}"
             url, err = _upload_to_cloudinary_safe(
                 io.BytesIO(doc_bytes),
                 folder,
-                public_id or uuid.uuid4().hex,
-                resource_type='raw',
+                public_id_with_ext,
+                resource_type='auto',
             )
             if err:
                 logger.error('upload_document_base64: Cloudinary error for folder=%r: %s. Falling back to local.', folder, err)

@@ -77,6 +77,12 @@ function getDesignationRank(desig) {
   return idx === -1 ? 998 : idx;
 }
 
+function buildDocProxyUrl(url, mode = 'preview') {
+  const clean = String(url || '').trim();
+  if (!clean) return '';
+  return `/api/workforce/document-file?mode=${encodeURIComponent(mode)}&url=${encodeURIComponent(clean)}`;
+}
+
 /* ─── helpers ────────────────────────────────────────── */
 function initials(name) {
   if (!name) return '?';
@@ -900,7 +906,7 @@ export default function ProfilePage() {
                     {wf?.aadhaar_url ? (
                       <div className="flex items-center gap-2 mb-2">
                         <Check className="h-4 w-4 text-green-500 shrink-0" />
-                        <a href={wf.aadhaar_url} target="_blank" rel="noopener noreferrer"
+                        <a href={buildDocProxyUrl(wf.aadhaar_url, 'preview')} target="_blank" rel="noopener noreferrer"
                           className="text-sm text-trust-blue underline hover:text-deep-blue truncate">View Document</a>
                       </div>
                     ) : (
@@ -941,7 +947,7 @@ export default function ProfilePage() {
                     {wf?.pan_url ? (
                       <div className="flex items-center gap-2 mb-2">
                         <Check className="h-4 w-4 text-green-500 shrink-0" />
-                        <a href={wf.pan_url} target="_blank" rel="noopener noreferrer"
+                        <a href={buildDocProxyUrl(wf.pan_url, 'preview')} target="_blank" rel="noopener noreferrer"
                           className="text-sm text-trust-blue underline hover:text-deep-blue truncate">View Document</a>
                       </div>
                     ) : (

@@ -307,6 +307,12 @@ function extractApiErrorMessage(result) {
   return result?.error?.message || result?.message || 'Unable to enroll workforce member.';
 }
 
+function buildDocProxyUrl(url, mode = 'preview') {
+  const clean = String(url || '').trim();
+  if (!clean) return '';
+  return `/api/workforce/document-file?mode=${encodeURIComponent(mode)}&url=${encodeURIComponent(clean)}`;
+}
+
 export function EnrolWorkforceForm({ onEnroll, onClose, open=true, draftData=null, editingId=null, readOnly=false, canEditOverride=false }) {
   const { canEdit: sheetCanEdit, canCreate } = useSheetPermissions('master-workforce-sheet');
   const canEdit = canEditOverride || sheetCanEdit;
@@ -986,7 +992,7 @@ export function EnrolWorkforceForm({ onEnroll, onClose, open=true, draftData=nul
                            uploadedDocs.aadhaar?'✓ Already uploaded':
                            documents.aadhaar?.name||'File selected'}
                         </div>
-                        {uploadedDocs.aadhaar&&<a href={uploadedDocs.aadhaar} target="_blank" rel="noopener noreferrer" className="text-xs text-trust-blue underline mt-1" onClick={e=>e.stopPropagation()}>View document</a>}
+                        {uploadedDocs.aadhaar&&<a href={buildDocProxyUrl(uploadedDocs.aadhaar,'preview')} target="_blank" rel="noopener noreferrer" className="text-xs text-trust-blue underline mt-1" onClick={e=>e.stopPropagation()}>View document</a>}
                       </>
                     ):(
                       <>
@@ -1013,7 +1019,7 @@ export function EnrolWorkforceForm({ onEnroll, onClose, open=true, draftData=nul
                            uploadedDocs.pan?'✓ Already uploaded':
                            documents.pan?.name||'File selected'}
                         </div>
-                        {uploadedDocs.pan&&<a href={uploadedDocs.pan} target="_blank" rel="noopener noreferrer" className="text-xs text-trust-blue underline mt-1" onClick={e=>e.stopPropagation()}>View document</a>}
+                        {uploadedDocs.pan&&<a href={buildDocProxyUrl(uploadedDocs.pan,'preview')} target="_blank" rel="noopener noreferrer" className="text-xs text-trust-blue underline mt-1" onClick={e=>e.stopPropagation()}>View document</a>}
                       </>
                     ):(
                       <>

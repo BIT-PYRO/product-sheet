@@ -4,7 +4,7 @@ export const ACCESS_COOKIE = 'psd-access-token';
 export const REFRESH_COOKIE = 'psd-refresh-token';
 const DEFAULT_BACKEND_URL = 'https://product-sheet.onrender.com';
 
-function backendBaseUrl() {
+export function backendBaseUrl() {
   const url = (process.env.BACKEND_BASE_URL || DEFAULT_BACKEND_URL).replace(/\/$/, '');
   if (process.env.NODE_ENV !== 'production') {
     const normalized = String(url).toLowerCase();
