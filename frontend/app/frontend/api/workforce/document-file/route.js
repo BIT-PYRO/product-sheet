@@ -1,6 +1,28 @@
 import { NextResponse } from 'next/server';
 import { ACCESS_COOKIE, REFRESH_COOKIE, backendBaseUrl } from '@/app/frontend/api/_lib/backend-auth';
 
+function extractAccessToken(payload) {
+  const access = payload?.data?.access || payload?.access || payload?.tokens?.access || '';
+  return String(access || '').trim();
+}
+
+async function requestTokenRefresh(refreshToken) {
+  if (!refreshToken) return '';
+
+  const response = await fetch(`${backendBaseUrl()}/api/v1/auth/refresh/`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ refresh: refreshToken }),
+    cache: 'no-store',
+  });
+
+  const payload = await response.json().catch(() => null);
+  if (!response.ok) return '';
+  return extractAccessToken(payload);
+}
+
 function parseIncomingUrl(rawUrl) {
   const value = String(rawUrl || '').trim();
   if (!value) return null;
@@ -35,6 +57,12 @@ function isAllowedHost(targetUrl) {
   return false;
 }
 
+function isBackendHost(targetUrl) {
+  if (!targetUrl) return false;
+  const backendHost = new URL(backendBaseUrl()).host;
+  return targetUrl.host === backendHost;
+}
+
 function inferFilename(sourceUrl, fallbackType) {
   const rawPath = sourceUrl?.pathname || '';
   const lastPart = rawPath.split('/').filter(Boolean).pop() || '';
@@ -47,10 +75,24 @@ function inferFilename(sourceUrl, fallbackType) {
   return 'document';
 }
 
+function inferContentType(filename, fallbackType) {
+  const type = String(fallbackType || '').toLowerCase();
+  if (type && type !== 'application/octet-stream') return fallbackType;
+
+  const name = String(filename || '').toLowerCase();
+  if (name.endsWith('.pdf')) return 'application/pdf';
+  if (name.endsWith('.png')) return 'image/png';
+  if (name.endsWith('.jpg') || name.endsWith('.jpeg')) return 'image/jpeg';
+  if (name.endsWith('.webp')) return 'image/webp';
+  if (name.endsWith('.gif')) return 'image/gif';
+
+  return fallbackType || 'application/octet-stream';
+}
+
 export async function GET(request) {
-  const hasAuth = Boolean(
-    request.cookies.get(ACCESS_COOKIE)?.value || request.cookies.get(REFRESH_COOKIE)?.value
-  );
+  const accessToken = request.cookies.get(ACCESS_COOKIE)?.value || '';
+  const refreshToken = request.cookies.get(REFRESH_COOKIE)?.value || '';
+  const hasAuth = Boolean(accessToken || refreshToken);
   if (!hasAuth) {
     return NextResponse.json({ success: false, message: 'Authentication required.' }, { status: 401 });
   }
@@ -72,13 +114,36 @@ export async function GET(request) {
     return NextResponse.json({ success: false, message: 'URL host is not allowed for preview.' }, { status: 403 });
   }
 
-  let upstream;
-  try {
-    upstream = await fetch(targetUrl.toString(), {
+  const targetIsBackend = isBackendHost(targetUrl);
+
+  const fetchUpstream = async (bearerToken = '') => {
+    const headers = {};
+    if (targetIsBackend && bearerToken) {
+      headers.Authorization = `Bearer ${bearerToken}`;
+    }
+
+    return fetch(targetUrl.toString(), {
       method: 'GET',
+      headers,
       cache: 'no-store',
       redirect: 'follow',
     });
+  };
+
+  let activeToken = accessToken;
+  let refreshedToken = '';
+  let upstream;
+  try {
+    upstream = await fetchUpstream(activeToken);
+
+    // Retry protected backend URLs after refreshing access token.
+    if (targetIsBackend && (upstream.status === 401 || upstream.status === 403) && refreshToken) {
+      refreshedToken = await requestTokenRefresh(refreshToken);
+      if (refreshedToken) {
+        activeToken = refreshedToken;
+        upstream = await fetchUpstream(activeToken);
+      }
+    }
   } catch (err) {
     return NextResponse.json(
       { success: false, message: `Unable to load document: ${err?.message || 'Network error'}` },
@@ -93,11 +158,12 @@ export async function GET(request) {
     );
   }
 
-  const contentType = upstream.headers.get('content-type') || 'application/octet-stream';
-  const filename = inferFilename(targetUrl, contentType);
+  const upstreamType = upstream.headers.get('content-type') || 'application/octet-stream';
+  const filename = inferFilename(targetUrl, upstreamType);
+  const contentType = inferContentType(filename, upstreamType);
   const dispositionType = mode === 'download' ? 'attachment' : 'inline';
 
-  return new NextResponse(upstream.body, {
+  const response = new NextResponse(upstream.body, {
     status: 200,
     headers: {
       'Content-Type': contentType,
@@ -106,4 +172,18 @@ export async function GET(request) {
       'X-Content-Type-Options': 'nosniff',
     },
   });
+
+  if (refreshedToken) {
+    response.cookies.set({
+      name: ACCESS_COOKIE,
+      value: refreshedToken,
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      path: '/',
+      maxAge: 60 * 60 * 24,
+    });
+  }
+
+  return response;
 }
