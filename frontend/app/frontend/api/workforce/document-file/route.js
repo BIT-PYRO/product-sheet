@@ -63,6 +63,31 @@ function isBackendHost(targetUrl) {
   return targetUrl.host === backendHost;
 }
 
+function isCloudinaryHost(targetUrl) {
+  const host = String(targetUrl?.host || '').toLowerCase();
+  return host === 'res.cloudinary.com' || host.endsWith('.cloudinary.com');
+}
+
+function buildCloudinaryFallbackUrls(targetUrl) {
+  if (!isCloudinaryHost(targetUrl)) return [];
+
+  const asString = targetUrl.toString();
+  const candidates = new Set();
+
+  // Repair accidental doubled extensions (e.g. aadhaar.pdf.pdf).
+  const singleExt = asString.replace(/\.(pdf|png|jpe?g|webp|gif)\.\1(?=([?#]|$))/i, '.$1');
+  if (singleExt !== asString) {
+    candidates.add(singleExt);
+  }
+
+  // Some document uploads should be served from raw/upload rather than image/upload.
+  if (/\/image\/upload\//i.test(asString) && /\.(pdf|docx?|bin)([?#]|$)/i.test(singleExt)) {
+    candidates.add(singleExt.replace('/image/upload/', '/raw/upload/'));
+  }
+
+  return Array.from(candidates);
+}
+
 function inferFilename(sourceUrl, fallbackType) {
   const rawPath = sourceUrl?.pathname || '';
   const lastPart = rawPath.split('/').filter(Boolean).pop() || '';
@@ -133,6 +158,7 @@ export async function GET(request) {
   let activeToken = accessToken;
   let refreshedToken = '';
   let upstream;
+  let resolvedUrl = targetUrl.toString();
   try {
     upstream = await fetchUpstream(activeToken);
 
@@ -142,6 +168,24 @@ export async function GET(request) {
       if (refreshedToken) {
         activeToken = refreshedToken;
         upstream = await fetchUpstream(activeToken);
+      }
+    }
+
+    // Retry malformed/legacy Cloudinary document URLs with normalized alternatives.
+    if (!upstream.ok && isCloudinaryHost(targetUrl) && (upstream.status === 401 || upstream.status === 404)) {
+      const fallbackUrls = buildCloudinaryFallbackUrls(targetUrl);
+      for (const fallbackUrl of fallbackUrls) {
+        const fallbackTarget = new URL(fallbackUrl);
+        const fallbackResponse = await fetch(fallbackTarget.toString(), {
+          method: 'GET',
+          cache: 'no-store',
+          redirect: 'follow',
+        });
+        if (fallbackResponse.ok && fallbackResponse.body) {
+          upstream = fallbackResponse;
+          resolvedUrl = fallbackTarget.toString();
+          break;
+        }
       }
     }
   } catch (err) {
@@ -159,7 +203,7 @@ export async function GET(request) {
   }
 
   const upstreamType = upstream.headers.get('content-type') || 'application/octet-stream';
-  const filename = inferFilename(targetUrl, upstreamType);
+  const filename = inferFilename(new URL(resolvedUrl), upstreamType);
   const contentType = inferContentType(filename, upstreamType);
   const dispositionType = mode === 'download' ? 'attachment' : 'inline';
 

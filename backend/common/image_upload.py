@@ -38,6 +38,12 @@ _SUPPORTED_MIMES = {
 }
 
 
+def _normalize_cloudinary_document_url(url: str) -> str:
+    """Normalize common Cloudinary document URL artifacts (e.g. .pdf.pdf)."""
+    value = str(url or '')
+    return value.replace('.pdf.pdf', '.pdf').replace('.jpg.jpg', '.jpg').replace('.png.png', '.png')
+
+
 def _safe_folder(folder: str) -> str:
     """Strip leading/trailing slashes from a Cloudinary folder path."""
     return folder.strip('/')
@@ -157,19 +163,19 @@ def upload_document_base64(data_url: str, folder: str, public_id: str = None) ->
 
         cloudinary_url_env = os.environ.get('CLOUDINARY_URL', '')
         if cloudinary_url_env:
-            # Keep extension in public_id so remote URL preserves file type for preview/download.
-            public_id_with_ext = f"{public_id}.{ext}" if public_id else f"{uuid.uuid4().hex}.{ext}"
+            # Use base public_id only; Cloudinary can append format, so including ext here can duplicate it.
+            cloud_public_id = public_id or uuid.uuid4().hex
             url, err = _upload_to_cloudinary_safe(
                 io.BytesIO(doc_bytes),
                 folder,
-                public_id_with_ext,
+                cloud_public_id,
                 resource_type='auto',
             )
             if err:
                 logger.error('upload_document_base64: Cloudinary error for folder=%r: %s. Falling back to local.', folder, err)
                 local_url = _upload_to_local_bytes(doc_bytes, folder, file_name)
                 return local_url, None
-            return url, None
+            return _normalize_cloudinary_document_url(url), None
         else:
             local_url = _upload_to_local_bytes(doc_bytes, folder, file_name)
             return local_url, None
