@@ -226,6 +226,48 @@ class OutstandingReceipt(models.Model):
         return f'Receipt for {self.outstanding} - {self.filename}'
 
 
+class Invoice(models.Model):
+    class InvoiceType(models.TextChoices):
+        SALES    = 'sales',    'Sales Invoice'
+        PURCHASE = 'purchase', 'Purchase Bill'
+
+    class Status(models.TextChoices):
+        PENDING  = 'pending',  'Pending'
+        SETTLED  = 'settled',  'Settled'
+
+    type         = models.CharField(max_length=20, choices=InvoiceType.choices)
+    party_name   = models.CharField(max_length=200)
+    amount       = models.DecimalField(max_digits=14, decimal_places=2)
+    department   = models.CharField(max_length=100, blank=True, default='')
+    due_date     = models.DateField(blank=True, null=True)
+    description  = models.TextField(blank=True, default='')
+    status       = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
+
+    # Created immediately on invoice creation (receivable or payable)
+    outstanding  = models.OneToOneField(
+        Outstanding,
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='invoice',
+    )
+
+    # Created only at settlement
+    journal_entry = models.OneToOneField(
+        JournalEntry,
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='invoice',
+    )
+
+    created_at   = models.DateTimeField(auto_now_add=True)
+    updated_at   = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'{self.get_type_display()} #{self.pk} – {self.party_name} ₹{self.amount} ({self.status})'
+
 # ---------------------------------------------------------------------------
 # Banking Module
 # ---------------------------------------------------------------------------

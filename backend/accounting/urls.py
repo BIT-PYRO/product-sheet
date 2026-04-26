@@ -2,6 +2,8 @@ from django.urls import path
 
 from .views import (
     BalanceSheetView,
+    InvoiceListCreateView,
+    InvoiceSettleView,
     BankAccountDetailView,
     BankAccountListView,
     BankImportConfirmView,
@@ -55,6 +57,9 @@ urlpatterns = [
     path('outstandings/dashboard/', OutstandingDashboardView.as_view(), name='accounting-outstandings-dashboard'),
     path('outstandings/<int:pk>/settle/', OutstandingSettleView.as_view(), name='accounting-outstanding-settle'),
     path('outstandings/<int:pk>/receipts/', OutstandingReceiptView.as_view(), name='accounting-outstanding-receipts'),
+    # Invoice endpoints
+    path('invoices/', InvoiceListCreateView.as_view(), name='accounting-invoices'),
+    path('invoices/<int:pk>/settle/', InvoiceSettleView.as_view(), name='accounting-invoice-settle'),
     # Bank Statement Import (parse + confirm flow)
     path('bank-import/preview/', BankImportPreviewView.as_view(), name='accounting-bank-import-preview'),
     path('bank-import/confirm/', BankImportConfirmView.as_view(), name='accounting-bank-import-confirm'),

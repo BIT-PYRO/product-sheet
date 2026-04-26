@@ -64,7 +64,7 @@ export async function POST(request) {
     };
 
     const response = NextResponse.json({ success: true });
-    response.cookies.set({ name: ACCESS_COOKIE, value: access, ...cookieOpts, maxAge: 60 * 60 });
+    response.cookies.set({ name: ACCESS_COOKIE, value: access, ...cookieOpts, maxAge: ONE_DAY_SECONDS });
     response.cookies.set({ name: REFRESH_COOKIE, value: refresh, ...cookieOpts, maxAge: ONE_DAY_SECONDS });
     response.cookies.set({ name: APPROVED_COOKIE, value: isApproved ? '1' : '0', ...cookieOpts, maxAge: ONE_DAY_SECONDS });
 

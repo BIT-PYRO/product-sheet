@@ -205,16 +205,25 @@ function SectionLine({ line, index, type, ledgers, loadingLedgers, onChange, onR
         </div>
         <div>
           <label style={labelStyle}>{isDebit ? 'Debit Amount (₹) *' : 'Credit Amount (₹) *'}</label>
-          <input
-            type="number"
-            step="0.01"
-            min="0"
-            placeholder="0.00"
-            value={line.amount}
-            onChange={(e) => onChange(index, 'amount', e.target.value)}
-            required
-            style={{ ...inputStyle, fontWeight: 600, fontSize: 15 }}
-          />
+            <input
+              type="text"
+              inputMode="decimal"
+              placeholder="0.00"
+              value={line.amount}
+              onChange={(e) => {
+                let raw = e.target.value.replace(/[^0-9.]/g, '');
+                const parts = raw.split('.');
+                if (parts.length > 2) raw = parts[0] + '.' + parts.slice(1).join('');
+                let formatted = parts[0];
+                if (formatted.length > 3) {
+                  formatted = formatted.substring(0, formatted.length - 3).replace(/\B(?=(\d{2})+(?!\d))/g, ",") + "," + formatted.substring(formatted.length - 3);
+                }
+                if (parts.length > 1) formatted += '.' + parts[1];
+                onChange(index, 'amount', formatted);
+              }}
+              required
+              style={{ ...inputStyle, fontWeight: 600, fontSize: 15 }}
+            />
         </div>
       </div>
 
@@ -445,11 +454,11 @@ export default function AccountingJournalForm() {
 
   /* ── totals ── */
   const totalDebit = useMemo(
-    () => debitLines.reduce((s, l) => s + (Number(l.amount) || 0), 0),
+    () => debitLines.reduce((s, l) => s + (Number(String(l.amount).replace(/,/g, '')) || 0), 0),
     [debitLines],
   );
   const totalCredit = useMemo(
-    () => creditLines.reduce((s, l) => s + (Number(l.amount) || 0), 0),
+    () => creditLines.reduce((s, l) => s + (Number(String(l.amount).replace(/,/g, '')) || 0), 0),
     [creditLines],
   );
   const isBalanced = totalDebit > 0 && totalDebit === totalCredit;
@@ -487,7 +496,7 @@ export default function AccountingJournalForm() {
 
     const buildLineData = (lines, type) =>
       lines.map((l) => {
-        const amt = Number(l.amount) || 0;
+        const amt = Number(String(l.amount).replace(/,/g, '')) || 0;
         return {
           type,
           ledger: l.ledger ? (isNaN(Number(l.ledger)) ? l.ledger : Number(l.ledger)) : null,

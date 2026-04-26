@@ -82,20 +82,16 @@ export default function FinanceEntryModal({ type, ledgers, accounts, onClose, on
 
   async function submit(e) {
     e.preventDefault();
-    setError('');
-
-    const parsed = parseFloat(String(amount).trim());
-    if (!amount || String(amount).trim() === '' || isNaN(parsed) || parsed <= 0) {
-      setError('Please enter a valid positive amount.');
-      return;
-    }
+    const rawAmount = parseFloat(String(amount).replace(/,/g, ''));
+    if (!amount || isNaN(rawAmount) || rawAmount <= 0) { setError('Enter a valid positive amount.'); return; }
     if (!department) { setError('Please select a department.'); return; }
     if (!account) { setError('Please select a payment account.'); return; }
     if (!description.trim()) { setError('Description is required.'); return; }
-    setSubmitting(true);
+
+    setSubmitting(true); setError('');
     try {
       const fd = new FormData();
-      fd.append('amount', parsed);
+      fd.append('amount', rawAmount);
       fd.append('account', account);
       fd.append('department', department);
       fd.append('date', date);
@@ -103,10 +99,28 @@ export default function FinanceEntryModal({ type, ledgers, accounts, onClose, on
       receipts.forEach(f => fd.append('receipt', f));
       const res = await fetch(apiUrl, { method: 'POST', body: fd });
       const result = await res.json().catch(() => null);
+      if (res.status === 401 || res.status === 403) {
+        window.location.href = '/frontend/login';
+        return;
+      }
+      
       if (!res.ok || !result?.success) { setError(result?.message || 'Failed. Please try again.'); setSubmitting(false); return; }
       onSuccess();
     } catch { setError('Network error. Please try again.'); setSubmitting(false); }
   }
+
+  const handleAmountChange = e => {
+    let raw = e.target.value.replace(/[^0-9.]/g, '');
+    const parts = raw.split('.');
+    if (parts.length > 2) raw = parts[0] + '.' + parts.slice(1).join('');
+    let formatted = parts[0];
+    if (formatted.length > 3) {
+      formatted = formatted.substring(0, formatted.length - 3).replace(/\B(?=(\d{2})+(?!\d))/g, ",") + "," + formatted.substring(formatted.length - 3);
+    }
+    if (parts.length > 1) formatted += '.' + parts[1];
+    setAmount(formatted);
+    setError('');
+  };
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.35)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, backdropFilter: 'blur(2px)' }}>
@@ -141,15 +155,12 @@ export default function FinanceEntryModal({ type, ledgers, accounts, onClose, on
             <div style={{ position: 'relative' }}>
               <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 18, fontWeight: 700, color: '#9ca3af' }}>₹</span>
               <input
-                type="number"
-                min="0.01"
-                step="0.01"
+                type="text"
+                inputMode="decimal"
                 placeholder="0.00"
                 value={amount}
-                onChange={e => { setAmount(e.target.value); setError(''); }}
-                onKeyDown={handleAmountKey}
-                onWheel={handleAmountWheel}
-                style={{ ...S.input, paddingLeft: 28, fontSize: 22, fontWeight: 700, borderColor: amount && parseFloat(amount) > 0 ? '#d1fae5' : '#e5e7eb' }}
+                onChange={handleAmountChange}
+                style={{ ...S.input, paddingLeft: 28, fontSize: 22, fontWeight: 700, borderColor: amount && parseFloat(amount.replace(/,/g, '')) > 0 ? '#d1fae5' : '#e5e7eb' }}
               />
             </div>
           </div>
@@ -208,7 +219,7 @@ export default function FinanceEntryModal({ type, ledgers, accounts, onClose, on
             <button type="button" onClick={onClose} style={{ flex: 1, padding: '11px 0', background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 8, fontWeight: 600, cursor: 'pointer', color: '#374151', fontSize: 14 }}>
               Cancel
             </button>
-            <button type="submit" disabled={submitting} style={{ flex: 2, padding: '11px 0', background: submitting ? '#9ca3af' : accent, color: '#fff', border: 'none', borderRadius: 8, fontWeight: 700, cursor: submitting ? 'not-allowed' : 'pointer', fontSize: 15, letterSpacing: 0.3 }}>
+            <button type="submit" disabled={submitting} style={{ flex: 2, padding: '11px 0', background: submitting ? '#9ca3af' : '#2563eb', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 700, cursor: submitting ? 'not-allowed' : 'pointer', fontSize: 15, letterSpacing: 0.3 }}>
               {submitting ? 'Saving…' : `Save ${isIncome ? 'Income' : 'Expense'}`}
             </button>
           </div>

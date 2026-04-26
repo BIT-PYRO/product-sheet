@@ -124,7 +124,7 @@ export async function GET(request) {
   };
 
   if (activeAccessToken && activeAccessToken !== accessToken) {
-    response.cookies.set({ name: ACCESS_COOKIE, value: activeAccessToken, ...cookieOpts, maxAge: 60 * 60 });
+    response.cookies.set({ name: ACCESS_COOKIE, value: activeAccessToken, ...cookieOpts, maxAge: ONE_DAY_SECONDS });
   }
 
   // Keep the approved cookie in sync — superusers always get '1'

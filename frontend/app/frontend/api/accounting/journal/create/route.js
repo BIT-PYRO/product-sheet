@@ -15,12 +15,12 @@ export async function POST(request) {
   }
   
   // Fallback for JSON
-  const body = await request.text();
+  const bodyBuffer = await request.arrayBuffer();
   return proxyAuthenticatedRequest(request, '/api/accounting/journal/create/', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
-    body,
+    body: Buffer.from(bodyBuffer),
   });
 }

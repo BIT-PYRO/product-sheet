@@ -1,10 +1,17 @@
 'use client';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import FinanceEntryModal from './finance-entry-modal';
 import AccountingPayablesReceivables from './accounting-payables-receivables';
 import AccountingDepartmentDashboard from './accounting-department-dashboard';
+import AccountingInvoices from './accounting-invoices';
+import AccountingSettlements from './accounting-settlements';
 import BankingAccounts from './banking-accounts';
 import BankingStatements from './banking-statements';
+
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { format, parseISO, isValid } from 'date-fns';
+import { Calendar as CalendarIcon } from 'lucide-react';
 
 const fmt = n => `₹${Number(n).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
 const today = () => new Date().toISOString().slice(0, 10);
@@ -20,28 +27,44 @@ const dateRange = preset => {
   return { from: '', to: '' };
 };
 
-function printRows(rows, columns, title) {
-  const html = `<html><head><title>${title}</title><style>
-    body{font-family:Inter,Arial,sans-serif;font-size:13px;padding:32px;color:#111827}
-    h2{margin:0 0 6px;font-size:18px}p.sub{color:#6b7280;font-size:12px;margin:0 0 20px}
-    table{border-collapse:collapse;width:100%}
-    th{background:#f9fafb;padding:8px 14px;text-align:left;font-size:11px;text-transform:uppercase;color:#6b7280;letter-spacing:.5px;border-bottom:1px solid #e5e7eb}
-    td{padding:10px 14px;border-bottom:1px solid #f3f4f6;font-size:13px}
-    .r{text-align:right;font-weight:700}
-    footer{margin-top:20px;font-size:11px;color:#9ca3af}
-  </style></head><body>
-    <h2>${title}</h2>
-    <p class="sub">Printed on ${new Date().toLocaleString('en-IN')}</p>
-    <table><thead><tr>${columns.map(c => `<th class="${c.right ? 'r' : ''}">${c.label}</th>`).join('')}</tr></thead>
-    <tbody>${rows.map(r => `<tr>${columns.map(c => `<td class="${c.right ? 'r' : ''}">${c.key === 'amount' ? fmt(r[c.key]) : (r[c.key] ?? '')}</td>`).join('')}</tr>`).join('')}</tbody></table>
-    <script>window.onload=()=>window.print()</script>
-  </body></html>`;
-  const w = window.open('', '_blank'); w.document.write(html); w.document.close();
+function MultiSelectDropdown({ label, options, selected, onChange, activeColor, activeBgColor }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef();
+  useEffect(() => {
+    const handleClick = e => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
+
+  const toggle = (opt) => {
+    if (selected.includes(opt)) onChange(selected.filter(x => x !== opt));
+    else onChange([...selected, opt]);
+  };
+
+  return (
+    <div ref={ref} style={{ position: 'relative' }}>
+      <button onClick={() => setOpen(!open)} style={{ padding: '6px 12px', border: 'none', borderRadius: 6, fontSize: 12, background: selected.length ? activeBgColor : '#fff', color: selected.length ? activeColor : C.muted, cursor: 'pointer', outline: 'none', fontWeight: selected.length ? 600 : 400, boxShadow: '0 1px 2px rgba(0,0,0,0.06)', display: 'flex', alignItems: 'center', gap: 6 }}>
+        {label} {selected.length > 0 && `(${selected.length})`}
+        <span style={{ fontSize: 10 }}>▼</span>
+      </button>
+      {open && (
+        <div style={{ position: 'absolute', top: '100%', left: 0, marginTop: 4, background: '#fff', border: `1px solid ${C.border}`, borderRadius: 8, boxShadow: '0 10px 25px rgba(0,0,0,0.1)', zIndex: 100, minWidth: 180, maxHeight: 250, overflowY: 'auto', padding: 6 }}>
+          {options.length === 0 ? <div style={{ padding: '8px 12px', fontSize: 12, color: C.muted }}>No options</div> : null}
+          {options.map(opt => (
+            <label key={opt} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', fontSize: 12, cursor: 'pointer', borderRadius: 4, transition: 'background 0.1s' }} onMouseEnter={e => e.currentTarget.style.background = C.slateBg} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+              <input type="checkbox" checked={selected.includes(opt)} onChange={() => toggle(opt)} style={{ cursor: 'pointer' }} />
+              <span style={{ color: C.text }}>{opt}</span>
+            </label>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function exportCSV(rows, columns, filename) {
-  const header = columns.map(c => c.label).join(',');
-  const body = rows.map(r => columns.map(c => `"${(c.key === 'amount' ? Number(r[c.key]).toFixed(2) : (r[c.key] ?? '')).toString().replace(/"/g, '""')}"`).join(',')).join('\n');
+  const header = 'S.No,' + columns.map(c => c.label).join(',');
+  const body = rows.map((r, i) => '"' + (i+1) + '",' + columns.map(c => `"${(c.key === 'amount' ? Number(r[c.key]).toFixed(2) : (r[c.key] ?? '')).toString().replace(/"/g, '""')}"`).join(',')).join('\n');
   const blob = new Blob([header + '\n' + body], { type: 'text/csv' });
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = filename; a.click();
 }
@@ -84,7 +107,7 @@ function StatCard({ label, value, color, bg, note, icon }) {
   );
 }
 
-function SelectableTable({ rows, columns, loading, emptyMsg, onPrint, onExport, accentColor }) {
+function SelectableTable({ rows, columns, loading, emptyMsg, exportName, accentColor }) {
   const [selected, setSelected] = useState(new Set());
   const toggleAll = () => setSelected(selected.size === rows.length ? new Set() : new Set(rows.map((_, i) => i)));
   const toggleRow = i => { const s = new Set(selected); s.has(i) ? s.delete(i) : s.add(i); setSelected(s); };
@@ -101,22 +124,23 @@ function SelectableTable({ rows, columns, loading, emptyMsg, onPrint, onExport, 
           </span>
         )}
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
-          <button onClick={() => onPrint(target)} style={btn}>
+          <button onClick={() => window.print()} style={btn}>
             Print{selected.size > 0 ? ` (${selected.size})` : ' All'}
           </button>
-          <button onClick={() => exportCSV(target, columns, 'export.csv')} style={btn}>
+          <button onClick={() => exportCSV(target, columns, exportName || 'export.csv')} style={btn}>
             Export CSV{selected.size > 0 ? ` (${selected.size})` : ''}
           </button>
         </div>
       </div>
 
-      <div style={{ background: '#fff', borderRadius: 10, border: '1px solid #e5e7eb', overflow: 'hidden' }}>
+      <div className="print-area" style={{ background: '#fff', borderRadius: 10, border: '1px solid #e5e7eb', overflow: 'hidden' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ background: '#f9fafb' }}>
-              <th style={{ padding: '10px 14px', width: 36 }}>
+              <th className="no-print" style={{ padding: '10px 14px', width: 36 }}>
                 <input type="checkbox" checked={rows.length > 0 && selected.size === rows.length} onChange={toggleAll} style={{ cursor: 'pointer', accentColor: '#2563eb' }} />
               </th>
+              <th className="print-only" style={{ padding: '10px 14px', fontSize: 11, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'left', borderBottom: '1px solid #e5e7eb', display: 'none' }}>S.No</th>
               {columns.map(c => (
                 <th key={c.key} style={{ padding: '10px 14px', fontSize: 11, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 0.5, textAlign: c.right ? 'right' : 'left', borderBottom: '1px solid #e5e7eb' }}>
                   {c.label}
@@ -129,11 +153,16 @@ function SelectableTable({ rows, columns, loading, emptyMsg, onPrint, onExport, 
               <tr><td colSpan={columns.length + 1} style={{ padding: 28, textAlign: 'center', color: '#9ca3af', fontSize: 14 }}>Loading…</td></tr>
             ) : rows.length === 0 ? (
               <tr><td colSpan={columns.length + 1} style={{ padding: 28, textAlign: 'center', color: '#9ca3af', fontSize: 14 }}>{emptyMsg}</td></tr>
-            ) : rows.map((row, i) => (
-              <tr key={row.id || i} onClick={() => toggleRow(i)} style={{ borderBottom: '1px solid #f3f4f6', background: selected.has(i) ? '#f0f9ff' : 'transparent', cursor: 'pointer', transition: 'background 0.1s' }}>
-                <td style={{ padding: '11px 14px' }}>
-                  <input type="checkbox" checked={selected.has(i)} onChange={() => toggleRow(i)} onClick={e => e.stopPropagation()} style={{ cursor: 'pointer', accentColor: '#2563eb' }} />
+            ) : rows.map((row, i) => {
+              const isSelected = selected.has(i);
+              const hideInPrintClass = selected.size > 0 && !isSelected ? 'hide-in-print' : '';
+
+              return (
+              <tr key={row.id || i} className={hideInPrintClass} onClick={() => toggleRow(i)} style={{ borderBottom: '1px solid #f3f4f6', background: isSelected ? '#f0f9ff' : 'transparent', cursor: 'pointer', transition: 'background 0.1s' }}>
+                <td className="no-print" style={{ padding: '11px 14px' }}>
+                  <input type="checkbox" checked={isSelected} onChange={() => toggleRow(i)} onClick={e => e.stopPropagation()} style={{ cursor: 'pointer', accentColor: '#2563eb' }} />
                 </td>
+                <td className="print-only" style={{ padding: '11px 14px', fontSize: 13, display: 'none' }}>{i + 1}</td>
                 {columns.map(c => (
                   <td key={c.key} style={{ padding: '11px 14px', fontSize: 13, textAlign: c.right ? 'right' : 'left' }}>
                     {c.key === 'amount' ? (
@@ -148,11 +177,51 @@ function SelectableTable({ rows, columns, loading, emptyMsg, onPrint, onExport, 
                   </td>
                 ))}
               </tr>
-            ))}
+            )})}
           </tbody>
         </table>
       </div>
     </div>
+  );
+}
+
+function DatePickerInput({ value, onChange }) {
+  const date = value ? parseISO(value) : null;
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button style={{ width: '100%', padding: '7px 8px', border: `1px solid ${C.border}`, borderRadius: 6, fontSize: 12, boxSizing: 'border-box', outline: 'none', background: '#fff', textAlign: 'left', display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: value ? C.text : C.muted, cursor: 'pointer' }}>
+          {isValid(date) ? format(date, 'PPP') : 'Pick a date'}
+          <CalendarIcon size={14} style={{ opacity: 0.5 }} />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-auto p-0" align="start" style={{ zIndex: 9999 }}>
+        <Calendar
+          mode="single"
+          selected={date}
+          captionLayout="dropdown"
+          fromYear={2015}
+          toYear={2050}
+          classNames={{
+            caption_label: 'hidden',
+            caption_dropdowns: 'flex justify-center gap-2 w-full',
+            dropdown: 'p-1 bg-slate-50 border border-slate-200 rounded-md text-sm cursor-pointer hover:bg-slate-100',
+            vhidden: 'hidden',
+          }}
+          onSelect={(d) => {
+            if (d) {
+              const year = d.getFullYear();
+              const month = String(d.getMonth() + 1).padStart(2, '0');
+              const day = String(d.getDate()).padStart(2, '0');
+              onChange(`${year}-${month}-${day}`);
+            } else {
+              onChange('');
+            }
+          }}
+          initialFocus
+        />
+      </PopoverContent>
+    </Popover>
   );
 }
 
@@ -168,7 +237,6 @@ function FilterBar({ filter, setFilter, customFrom, setCustomFrom, customTo, set
     textAlign: 'left', cursor: 'pointer', border: 'none', width: '100%',
     background: active ? C.blueBg : 'transparent',
     color: active ? C.blue : C.muted,
-    borderLeft: `3px solid ${active ? C.blue : 'transparent'}`,
     transition: 'all 0.12s',
   });
   return (
@@ -181,14 +249,31 @@ function FilterBar({ filter, setFilter, customFrom, setCustomFrom, customTo, set
         <div style={{ marginTop: 14, paddingTop: 14, borderTop: `1px solid ${C.border}`, display: 'flex', flexDirection: 'column', gap: 10 }}>
           <div>
             <p style={{ margin: '0 0 4px', fontSize: 10, fontWeight: 700, color: C.muted, textTransform: 'uppercase' }}>From</p>
-            <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)} style={{ width: '100%', padding: '7px 8px', border: `1px solid ${C.border}`, borderRadius: 6, fontSize: 12, boxSizing: 'border-box', outline: 'none' }} />
+            <DatePickerInput value={customFrom} onChange={setCustomFrom} />
           </div>
           <div>
             <p style={{ margin: '0 0 4px', fontSize: 10, fontWeight: 700, color: C.muted, textTransform: 'uppercase' }}>To</p>
-            <input type="date" value={customTo} onChange={e => setCustomTo(e.target.value)} style={{ width: '100%', padding: '7px 8px', border: `1px solid ${C.border}`, borderRadius: 6, fontSize: 12, boxSizing: 'border-box', outline: 'none' }} />
+            <DatePickerInput value={customTo} onChange={setCustomTo} />
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function SortBar({ options, current, onChange, activeColor = C.blue }) {
+  const sortBtnStyle = active => ({
+    padding: '5px 12px', borderRadius: 7, fontSize: 12, fontWeight: active ? 700 : 500,
+    border: 'none', cursor: 'pointer',
+    background: active ? activeColor : 'transparent',
+    color: active ? '#fff' : C.muted,
+    transition: 'all 0.14s',
+  });
+  return (
+    <div style={{ display: 'flex', gap: 3, background: '#fff', borderRadius: 8, padding: 3, boxShadow: '0 1px 2px rgba(0,0,0,0.06)' }}>
+      {options.map(([k, l]) => (
+        <button key={k} onClick={() => onChange(k)} style={sortBtnStyle(current === k)}>{l}</button>
+      ))}
     </div>
   );
 }
@@ -212,6 +297,8 @@ function MiniList({ rows, loading, accentColor, emptyText }) {
 
 export default function AccountingFinance() {
   const [tab, setTab] = useState('dashboard');
+  const [tabRefreshKey, setTabRefreshKey] = useState(0);
+  const switchTab = (k) => { setTab(k); setTabRefreshKey(n => n + 1); };
   const [filter, setFilter] = useState('thisMonth');
   const [customFrom, setCustomFrom] = useState('');
   const [customTo, setCustomTo] = useState('');
@@ -221,13 +308,15 @@ export default function AccountingFinance() {
 
   // Income inline filters
   const [incomeSearch, setIncomeSearch] = useState('');
-  const [incomeDeptFilter, setIncomeDeptFilter] = useState('');
-  const [incomeAccountFilter, setIncomeAccountFilter] = useState('');
+  const [incomeDeptFilter, setIncomeDeptFilter] = useState([]);
+  const [incomeAccountFilter, setIncomeAccountFilter] = useState([]);
+  const [incomeSortBy, setIncomeSortBy] = useState('date_desc');
 
   // Expense inline filters
   const [expenseSearch, setExpenseSearch] = useState('');
-  const [expenseDeptFilter, setExpenseDeptFilter] = useState('');
-  const [expenseAccountFilter, setExpenseAccountFilter] = useState('');
+  const [expenseDeptFilter, setExpenseDeptFilter] = useState([]);
+  const [expenseAccountFilter, setExpenseAccountFilter] = useState([]);
+  const [expenseSortBy, setExpenseSortBy] = useState('date_desc');
 
   const [dashboard, setDashboard] = useState({ total_income: 0, total_expense: 0, net: 0 });
   const [incomeRows, setIncomeRows] = useState([]);
@@ -296,15 +385,26 @@ export default function AccountingFinance() {
         (r.department || '').toLowerCase().includes(q)
       );
     }
-    if (incomeDeptFilter) rows = rows.filter(r => (r.department || '') === incomeDeptFilter);
-    if (incomeAccountFilter) rows = rows.filter(r => (r.account_name || '') === incomeAccountFilter);
+    if (incomeDeptFilter.length > 0) {
+      rows = rows.filter(r => incomeDeptFilter.includes(r.department || 'None'));
+    }
+    if (incomeAccountFilter.length > 0) {
+      rows = rows.filter(r => incomeAccountFilter.includes(r.account_name || 'None'));
+    }
+    rows.sort((a, b) => {
+      if (incomeSortBy === 'date_desc') return new Date(b.date) - new Date(a.date);
+      if (incomeSortBy === 'date_asc') return new Date(a.date) - new Date(b.date);
+      if (incomeSortBy === 'amount_high') return b.amount - a.amount;
+      if (incomeSortBy === 'amount_low') return a.amount - b.amount;
+      return 0;
+    });
     return rows;
-  }, [incomeRows, incomeSearch, incomeDeptFilter, incomeAccountFilter]);
+  }, [incomeRows, incomeSearch, incomeDeptFilter, incomeAccountFilter, incomeSortBy]);
 
   // Unique department / account values for dropdowns
-  const incomeDepts = useMemo(() => [...new Set(incomeRows.map(r => r.department).filter(Boolean))].sort(), [incomeRows]);
-  const incomeAccounts = useMemo(() => [...new Set(incomeRows.map(r => r.account_name).filter(Boolean))].sort(), [incomeRows]);
-  const incomeFiltersActive = incomeSearch || incomeDeptFilter || incomeAccountFilter;
+  const incomeDepts = useMemo(() => [...new Set(incomeRows.map(r => r.department || 'None'))].sort(), [incomeRows]);
+  const incomeAccounts = useMemo(() => [...new Set(incomeRows.map(r => r.account_name || 'None'))].sort(), [incomeRows]);
+  const incomeFiltersActive = incomeSearch || incomeDeptFilter.length > 0 || incomeAccountFilter.length > 0;
 
   // Derived expense list after inline filters
   const filteredExpenseRows = useMemo(() => {
@@ -317,34 +417,55 @@ export default function AccountingFinance() {
         (r.department || '').toLowerCase().includes(q)
       );
     }
-    if (expenseDeptFilter) rows = rows.filter(r => (r.department || '') === expenseDeptFilter);
-    if (expenseAccountFilter) rows = rows.filter(r => (r.account_name || '') === expenseAccountFilter);
+    if (expenseDeptFilter.length > 0) {
+      rows = rows.filter(r => expenseDeptFilter.includes(r.department || 'None'));
+    }
+    if (expenseAccountFilter.length > 0) {
+      rows = rows.filter(r => expenseAccountFilter.includes(r.account_name || 'None'));
+    }
+    rows.sort((a, b) => {
+      if (expenseSortBy === 'date_desc') return new Date(b.date) - new Date(a.date);
+      if (expenseSortBy === 'date_asc') return new Date(a.date) - new Date(b.date);
+      if (expenseSortBy === 'amount_high') return b.amount - a.amount;
+      if (expenseSortBy === 'amount_low') return a.amount - b.amount;
+      return 0;
+    });
     return rows;
-  }, [expenseRows, expenseSearch, expenseDeptFilter, expenseAccountFilter]);
+  }, [expenseRows, expenseSearch, expenseDeptFilter, expenseAccountFilter, expenseSortBy]);
 
   // Unique department / account values for Expense dropdowns
-  const expenseDepts = useMemo(() => [...new Set(expenseRows.map(r => r.department).filter(Boolean))].sort(), [expenseRows]);
-  const expenseAccounts = useMemo(() => [...new Set(expenseRows.map(r => r.account_name).filter(Boolean))].sort(), [expenseRows]);
-  const expenseFiltersActive = expenseSearch || expenseDeptFilter || expenseAccountFilter;
+  const expenseDepts = useMemo(() => [...new Set(expenseRows.map(r => r.department || 'None'))].sort(), [expenseRows]);
+  const expenseAccounts = useMemo(() => [...new Set(expenseRows.map(r => r.account_name || 'None'))].sort(), [expenseRows]);
+  const expenseFiltersActive = expenseSearch || expenseDeptFilter.length > 0 || expenseAccountFilter.length > 0;
 
   const incomeTot = filteredIncomeRows.reduce((s, r) => s + Number(r.amount), 0);
   const expenseTot = expenseRows.reduce((s, r) => s + Number(r.amount), 0);
 
   return (
     <div style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>
+      <style>{`
+        @media print { 
+          body * { visibility: hidden; }
+          .print-area, .print-area * { visibility: visible; }
+          .print-area { position: absolute; left: 0; top: 0; width: 100%; margin: 0; padding: 0; }
+          .no-print { display: none !important; }
+          .print-only { display: table-cell !important; }
+          .hide-in-print { display: none !important; }
+        }
+      `}</style>
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
+      <div className="no-print" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
         <div>
           <h2 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: C.text, letterSpacing: -0.5 }}>Finance</h2>
           <p style={{ margin: '3px 0 0', fontSize: 12, color: C.muted }}>Track income and expenses — every entry creates a journal automatically.</p>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
-          {tab !== 'payables' && tab !== 'settlements' && tab !== 'dept' && tab !== 'banking' && (
+          {tab === 'dashboard' && (
             <>
-              <button onClick={() => openModal('income')} style={{ padding: '8px 16px', background: C.green, color: '#fff', border: 'none', borderRadius: 8, fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
+              <button onClick={() => openModal('income')} style={{ padding: '8px 16px', background: '#fff', color: '#111827', border: '1px solid #e5e7eb', borderRadius: 8, fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
                 + Add Income
               </button>
-              <button onClick={() => openModal('expense')} style={{ padding: '8px 16px', background: C.surface, color: C.text, border: `1px solid ${C.border}`, borderRadius: 8, fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
+              <button onClick={() => openModal('expense')} style={{ padding: '8px 16px', background: '#fff', color: '#111827', border: '1px solid #e5e7eb', borderRadius: 8, fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
                 + Add Expense
               </button>
             </>
@@ -353,15 +474,15 @@ export default function AccountingFinance() {
       </div>
 
       {/* Tabs */}
-      <div style={{ borderBottom: `1px solid ${C.border}`, marginBottom: 22 }}>
-        {[['dashboard', 'Dashboard'], ['income', 'Income'], ['expense', 'Expenses'], ['payables', 'Payables & Receivables'], ['settlements', 'Settlements'], ['dept', 'Department Dashboard'], ['banking', 'Banking']].map(([k, l]) => (
-          <button key={k} onClick={() => setTab(k)} style={tabBtn(tab === k)}>{l}</button>
+      <div className="no-print" style={{ borderBottom: `1px solid ${C.border}`, marginBottom: 22 }}>
+        {[['dashboard', 'Dashboard'], ['income', 'Income'], ['expense', 'Expenses'], ['payables', 'Payables & Receivables'], ['settlements', 'Settlements'], ['dept', 'Department Dashboard'], ['invoices', 'Invoices'], ['banking', 'Banking']].map(([k, l]) => (
+          <button key={k} onClick={() => switchTab(k)} style={tabBtn(tab === k)}>{l}</button>
         ))}
       </div>
 
       {/* Body */}
       <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start' }}>
-        {tab !== 'payables' && tab !== 'settlements' && tab !== 'dept' && tab !== 'banking' && <FilterBar filter={filter} setFilter={setFilter} customFrom={customFrom} setCustomFrom={setCustomFrom} customTo={customTo} setCustomTo={setCustomTo} />}
+        <div className="no-print"><FilterBar filter={filter} setFilter={setFilter} customFrom={customFrom} setCustomFrom={setCustomFrom} customTo={customTo} setCustomTo={setCustomTo} /></div>
 
         <div style={{ flex: 1, minWidth: 0 }}>
 
@@ -503,14 +624,23 @@ export default function AccountingFinance() {
                     {incomeFiltersActive && <span style={{ marginLeft: 6, color: C.blue, fontWeight: 600 }}>· filtered</span>}
                   </p>
                 </div>
-                <button onClick={() => openModal('income')} style={{ padding: '8px 16px', background: '#111827', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
-                  + Add Income
-                </button>
+                <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                  <div className="no-print">
+                    <SortBar
+                      options={[['date_desc', 'Newest'], ['date_asc', 'Oldest'], ['amount_high', 'Amount: High to Low'], ['amount_low', 'Amount: Low to High']]}
+                      current={incomeSortBy}
+                      onChange={setIncomeSortBy}
+                      activeColor={C.blue}
+                    />
+                  </div>
+                  <button onClick={() => openModal('income')} style={{ padding: '8px 16px', background: '#fff', color: '#111827', border: '1px solid #e5e7eb', borderRadius: 8, fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
+                    + Add Income
+                  </button>
+                </div>
               </div>
 
               {/* Inline filter bar */}
-              <div style={{ display: 'flex', gap: 6, marginBottom: 14, alignItems: 'center', flexWrap: 'wrap', padding: '8px 12px', background: C.slateBg, borderRadius: 10, border: `1px solid ${C.border}` }}>
-                {/* Search — clean ghost input */}
+              <div className="no-print" style={{ display: 'flex', gap: 6, marginBottom: 14, alignItems: 'center', flexWrap: 'wrap', padding: '8px 12px', background: C.slateBg, borderRadius: 10, border: `1px solid ${C.border}` }}>
                 <input
                   type="text"
                   placeholder="Search…"
@@ -519,35 +649,16 @@ export default function AccountingFinance() {
                   style={{ flex: '1 1 140px', minWidth: 120, padding: '6px 10px', border: 'none', borderRadius: 6, fontSize: 12, background: '#fff', color: C.text, outline: 'none', boxShadow: '0 1px 2px rgba(0,0,0,0.06)' }}
                 />
 
-                {/* Thin divider */}
                 <div style={{ width: 1, height: 20, background: C.border, flexShrink: 0 }} />
 
-                {/* Department filter */}
-                <select
-                  value={incomeDeptFilter}
-                  onChange={e => setIncomeDeptFilter(e.target.value)}
-                  style={{ padding: '6px 8px', border: 'none', borderRadius: 6, fontSize: 12, background: incomeDeptFilter ? C.blueBg : '#fff', color: incomeDeptFilter ? C.blue : C.muted, cursor: 'pointer', outline: 'none', fontWeight: incomeDeptFilter ? 600 : 400, boxShadow: '0 1px 2px rgba(0,0,0,0.06)' }}
-                >
-                  <option value="">Department</option>
-                  {incomeDepts.map(d => <option key={d} value={d}>{d}</option>)}
-                </select>
+                <MultiSelectDropdown label="Department" options={incomeDepts} selected={incomeDeptFilter} onChange={setIncomeDeptFilter} activeColor={C.blue} activeBgColor={C.blueBg} />
+                <MultiSelectDropdown label="Account" options={incomeAccounts} selected={incomeAccountFilter} onChange={setIncomeAccountFilter} activeColor={C.blue} activeBgColor={C.blueBg} />
 
-                {/* Account filter */}
-                <select
-                  value={incomeAccountFilter}
-                  onChange={e => setIncomeAccountFilter(e.target.value)}
-                  style={{ padding: '6px 8px', border: 'none', borderRadius: 6, fontSize: 12, background: incomeAccountFilter ? C.blueBg : '#fff', color: incomeAccountFilter ? C.blue : C.muted, cursor: 'pointer', outline: 'none', fontWeight: incomeAccountFilter ? 600 : 400, boxShadow: '0 1px 2px rgba(0,0,0,0.06)' }}
-                >
-                  <option value="">Account</option>
-                  {incomeAccounts.map(a => <option key={a} value={a}>{a}</option>)}
-                </select>
-
-                {/* Clear — subtle text link */}
                 {incomeFiltersActive && (
                   <>
                     <div style={{ width: 1, height: 20, background: C.border, flexShrink: 0 }} />
                     <button
-                      onClick={() => { setIncomeSearch(''); setIncomeDeptFilter(''); setIncomeAccountFilter(''); }}
+                      onClick={() => { setIncomeSearch(''); setIncomeDeptFilter([]); setIncomeAccountFilter([]); }}
                       style={{ padding: '4px 8px', background: 'none', border: 'none', fontSize: 11, fontWeight: 600, color: C.muted, cursor: 'pointer', letterSpacing: 0.2 }}
                     >
                       Clear
@@ -557,9 +668,7 @@ export default function AccountingFinance() {
               </div>
 
               <SelectableTable rows={filteredIncomeRows} columns={COLS} loading={loadingIncome} emptyMsg="No income entries match your filters."
-                accentColor="#16a34a"
-                onPrint={r => printRows(r, COLS, 'Income Statement')}
-                onExport={r => exportCSV(r, COLS, 'income.csv')}
+                accentColor="#16a34a" exportName="income.csv"
               />
             </div>
           )}
@@ -572,14 +681,23 @@ export default function AccountingFinance() {
                   <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#111827' }}>Expenses</h3>
                   <p style={{ margin: '3px 0 0', fontSize: 12, color: '#9ca3af' }}>{filteredExpenseRows.length} entries · {fmt(filteredExpenseRows.reduce((a, r) => a + Number(r.amount), 0))}</p>
                 </div>
-                <button onClick={() => openModal('expense')} style={{ padding: '8px 16px', background: '#fff', color: '#111827', border: '1px solid #e5e7eb', borderRadius: 8, fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
-                  + Add Expense
-                </button>
+                <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                  <div className="no-print">
+                    <SortBar
+                      options={[['date_desc', 'Newest'], ['date_asc', 'Oldest'], ['amount_high', 'Amount: High to Low'], ['amount_low', 'Amount: Low to High']]}
+                      current={expenseSortBy}
+                      onChange={setExpenseSortBy}
+                      activeColor={C.blue}
+                    />
+                  </div>
+                  <button onClick={() => openModal('expense')} style={{ padding: '8px 16px', background: '#fff', color: '#111827', border: '1px solid #e5e7eb', borderRadius: 8, fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
+                    + Add Expense
+                  </button>
+                </div>
               </div>
 
               {/* Expense Filter Bar */}
-              <div style={{ display: 'flex', gap: 6, marginBottom: 14, alignItems: 'center', flexWrap: 'wrap', padding: '8px 12px', background: C.slateBg, borderRadius: 10, border: `1px solid ${C.border}` }}>
-                {/* Search Text */}
+              <div className="no-print" style={{ display: 'flex', gap: 6, marginBottom: 14, alignItems: 'center', flexWrap: 'wrap', padding: '8px 12px', background: C.slateBg, borderRadius: 10, border: `1px solid ${C.border}` }}>
                 <input
                   type="text"
                   placeholder="Search…"
@@ -588,35 +706,16 @@ export default function AccountingFinance() {
                   style={{ flex: '1 1 140px', minWidth: 120, padding: '6px 10px', border: 'none', borderRadius: 6, fontSize: 12, background: '#fff', color: C.text, outline: 'none', boxShadow: '0 1px 2px rgba(0,0,0,0.06)' }}
                 />
 
-                {/* Vertical Divider */}
                 <div style={{ width: 1, height: 20, background: C.border, flexShrink: 0 }} />
 
-                {/* Department Dropdown */}
-                <select
-                  value={expenseDeptFilter}
-                  onChange={e => setExpenseDeptFilter(e.target.value)}
-                  style={{ padding: '6px 8px', border: 'none', borderRadius: 6, fontSize: 12, background: expenseDeptFilter ? '#fef2f2' : '#fff', color: expenseDeptFilter ? '#dc2626' : C.muted, cursor: 'pointer', outline: 'none', fontWeight: expenseDeptFilter ? 600 : 400, boxShadow: '0 1px 2px rgba(0,0,0,0.06)' }}
-                >
-                  <option value="">Department</option>
-                  {expenseDepts.map(d => <option key={d} value={d}>{d}</option>)}
-                </select>
+                <MultiSelectDropdown label="Department" options={expenseDepts} selected={expenseDeptFilter} onChange={setExpenseDeptFilter} activeColor={C.red} activeBgColor={C.redBg} />
+                <MultiSelectDropdown label="Account" options={expenseAccounts} selected={expenseAccountFilter} onChange={setExpenseAccountFilter} activeColor={C.red} activeBgColor={C.redBg} />
 
-                {/* Account Dropdown */}
-                <select
-                  value={expenseAccountFilter}
-                  onChange={e => setExpenseAccountFilter(e.target.value)}
-                  style={{ padding: '6px 8px', border: 'none', borderRadius: 6, fontSize: 12, background: expenseAccountFilter ? '#fef2f2' : '#fff', color: expenseAccountFilter ? '#dc2626' : C.muted, cursor: 'pointer', outline: 'none', fontWeight: expenseAccountFilter ? 600 : 400, boxShadow: '0 1px 2px rgba(0,0,0,0.06)' }}
-                >
-                  <option value="">Account</option>
-                  {expenseAccounts.map(a => <option key={a} value={a}>{a}</option>)}
-                </select>
-
-                {/* Clear Filters Link (only visible if active filters) */}
                 {expenseFiltersActive && (
                   <>
                     <div style={{ width: 1, height: 20, background: C.border, flexShrink: 0 }} />
                     <button
-                      onClick={() => { setExpenseSearch(''); setExpenseDeptFilter(''); setExpenseAccountFilter(''); }}
+                      onClick={() => { setExpenseSearch(''); setExpenseDeptFilter([]); setExpenseAccountFilter([]); }}
                       style={{ padding: '4px 8px', background: 'none', border: 'none', fontSize: 11, fontWeight: 600, color: C.muted, cursor: 'pointer', letterSpacing: 0.2 }}
                     >
                       Clear
@@ -626,70 +725,34 @@ export default function AccountingFinance() {
               </div>
 
               <SelectableTable rows={filteredExpenseRows} columns={COLS} loading={loadingExpense} emptyMsg="No expense entries match your filters."
-                accentColor="#dc2626"
-                onPrint={r => printRows(r, COLS, 'Expense Report')}
-                onExport={r => exportCSV(r, COLS, 'expenses.csv')}
+                accentColor="#dc2626" exportName="expenses.csv"
               />
             </div>
           )}
 
+          {/* PAYABLES & RECEIVABLES */}
+          {tab === 'payables' && <AccountingPayablesReceivables embedded onRefresh={loadData} dateParams={params} />}
+
           {/* DEPARTMENT DASHBOARD */}
-          {tab === 'dept' && <AccountingDepartmentDashboard />}
+          {tab === 'dept' && <AccountingDepartmentDashboard dateParams={params} />}
+
+          {/* INVOICES (Sales Invoices + Purchase Bills sub-tabs) */}
+          {tab === 'invoices' && <AccountingInvoices key={`inv-${tabRefreshKey}`} onRefresh={loadData} dateParams={params} />}
 
           {/* BANKING */}
           {tab === 'banking' && (
             <div className="space-y-6">
-              <BankingAccounts />
+              <BankingAccounts dateParams={params} />
               <hr className="border-soft-border" />
               <div>
                 <h3 className="text-base font-semibold text-midnight-ink mb-3">Imported Transactions</h3>
-                <BankingStatements />
+                <BankingStatements dateParams={params} />
               </div>
             </div>
           )}
-
-          {/* PAYABLES & RECEIVABLES */}
-          {tab === 'payables' && <AccountingPayablesReceivables embedded />}
 
           {/* SETTLEMENTS */}
-          {tab === 'settlements' && (
-            <div>
-              <div style={{ marginBottom: 20 }}>
-                <h3 style={{ margin: '0 0 4px', fontSize: 16, fontWeight: 700, color: C.text }}>Settlements</h3>
-                <p style={{ margin: 0, fontSize: 12, color: C.muted }}>All payment settlements for receivables and payables.</p>
-              </div>
-              {!outstandingDash?.recent_settlements?.length ? (
-                <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: '40px 20px', textAlign: 'center', color: C.muted, fontSize: 13 }}>
-                  No settlements recorded yet.
-                </div>
-              ) : (
-                <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
-                  {/* Table header */}
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr auto', padding: '10px 16px', borderBottom: `1px solid ${C.border}`, background: C.slateBg }}>
-                    {['Party', 'Type', 'Via Account', 'Date', 'Amount'].map((h, i) => (
-                      <p key={i} style={{ margin: 0, fontSize: 10, fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: 0.7, textAlign: i === 4 ? 'right' : 'left' }}>{h}</p>
-                    ))}
-                  </div>
-                  {outstandingDash.recent_settlements.map((s, i, arr) => (
-                    <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr auto', padding: '12px 16px', borderBottom: i < arr.length - 1 ? `1px solid ${C.slateBg}` : 'none', alignItems: 'center' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <div style={{ width: 32, height: 32, borderRadius: 8, background: s.type === 'receivable' ? C.blueBg : C.redBg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, color: s.type === 'receivable' ? C.blue : C.red, flexShrink: 0 }}>
-                          {s.type === 'receivable' ? '↓' : '↑'}
-                        </div>
-                        <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: C.text }}>{s.party_name}</p>
-                      </div>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700, background: s.type === 'receivable' ? C.blueBg : C.redBg, color: s.type === 'receivable' ? C.blue : C.red, width: 'fit-content' }}>
-                        {s.type === 'receivable' ? 'Received' : 'Paid'}
-                      </span>
-                      <p style={{ margin: 0, fontSize: 12, color: C.muted }}>{s.settlement_account_name || '—'}</p>
-                      <p style={{ margin: 0, fontSize: 12, color: C.muted }}>{s.date || '—'}</p>
-                      <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: s.type === 'receivable' ? C.green : C.red, textAlign: 'right' }}>{fmt(s.amount)}</p>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
+          {tab === 'settlements' && <AccountingSettlements dateParams={params} />}
         </div>
       </div>
 
