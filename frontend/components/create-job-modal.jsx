@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/select"
 import { CalendarIcon, Plus, Trash2, X, ArrowRight, FileText, Loader2 } from "lucide-react"
 import { useDrafts, useDraftLoader } from "@/components/drafts-manager"
+import { fmtNum } from "@/lib/utils"
 
 function generateVoucherNo() {
   if (typeof window === 'undefined') return 'JJ-01'

@@ -166,7 +166,14 @@ def upload_document_base64(data_url: str, folder: str, public_id: str = None) ->
             # Use resource_type='raw' for PDFs so Cloudinary stores and serves them as-is.
             # Use resource_type='auto' for other document types.
             cloud_resource_type = 'raw' if mime == 'application/pdf' else 'auto'
-            cloud_public_id = public_id or uuid.uuid4().hex
+            # For raw uploads the public_id IS the URL path segment — include the
+            # file extension so the Cloudinary URL ends with e.g. ".pdf".
+            # Cloudinary image/auto uploads append the format automatically, so keep
+            # the bare name for those to avoid double-extension (aadhaar.pdf.pdf).
+            if cloud_resource_type == 'raw' and ext and ext != 'bin':
+                cloud_public_id = f'{public_id}.{ext}' if public_id else file_name
+            else:
+                cloud_public_id = public_id or uuid.uuid4().hex
             url, err = _upload_to_cloudinary_safe(
                 io.BytesIO(doc_bytes),
                 folder,
@@ -213,7 +220,12 @@ def upload_document_file(document_file, folder: str, public_id: str = None) -> t
         # Use resource_type='raw' for PDFs so Cloudinary stores and serves them as-is.
         is_pdf = content_type == 'application/pdf' or ext == 'pdf'
         cloud_resource_type = 'raw' if is_pdf else 'auto'
-        cloud_public_id = public_id or uuid.uuid4().hex
+        # For raw uploads include the extension in the public_id so the Cloudinary
+        # URL ends with .pdf (etc.) — required for correct Content-Type on delivery.
+        if cloud_resource_type == 'raw' and ext and ext != 'bin':
+            cloud_public_id = f'{public_id}.{ext}' if public_id else file_name
+        else:
+            cloud_public_id = public_id or uuid.uuid4().hex
         url, err = _upload_to_cloudinary_safe(
             io.BytesIO(file_bytes),
             folder,

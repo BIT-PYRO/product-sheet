@@ -88,6 +88,12 @@ function buildCloudinaryFallbackUrls(targetUrl) {
     candidates.add(singleExt.replace('/image/upload/', '/raw/upload/'));
   }
 
+  // Legacy: raw/upload files uploaded without extension (e.g. .../aadhaar) won't have
+  // a Content-Type. Try appending common document extensions so Cloudinary can infer it.
+  if (/\/raw\/upload\//i.test(asString) && !/\.(pdf|png|jpe?g|webp|gif|docx?)($|\?)/i.test(asString)) {
+    candidates.add(asString + '.pdf');
+  }
+
   return Array.from(candidates);
 }
 
