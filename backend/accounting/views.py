@@ -350,12 +350,31 @@ class JournalCreateView(APIView):
         )
 
 
+def _build_transaction_detail(item):
+    """Convert a JournalItem + its JournalEntry into a transaction detail dict."""
+    return {
+        'id': item.id,
+        'entry_id': item.entry_id,
+        'entry_date': str(item.entry.date),
+        'entry_description': item.entry.description or '',
+        'debit': float(item.debit or 0),
+        'credit': float(item.credit or 0),
+        'department': item.department or '',
+        'payment_method': item.payment_method or '',
+        'vendor_payee': item.vendor_payee or '',
+        'bill_date': str(item.bill_date) if item.bill_date else '',
+        'ref_id': item.ref_id or '',
+        'notes': item.notes or '',
+    }
+
+
 class LedgerSummaryView(APIView):
-    """Aggregate debit/credit totals per ledger from all journal items."""
+    """Aggregate debit/credit totals per ledger from all journal items, with transaction drill-down."""
 
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
+        # Aggregates
         summary = (
             JournalItem.objects
             .values('ledger__id', 'ledger__name', 'ledger__type')
@@ -363,16 +382,29 @@ class LedgerSummaryView(APIView):
             .order_by('ledger__name')
         )
 
-        data = [
-            {
-                'ledger_id': row['ledger__id'],
+        # Per-ledger transactions (select_related for entry date/description)
+        items_qs = (
+            JournalItem.objects
+            .select_related('entry')
+            .order_by('ledger__id', '-entry__date', '-entry__created_at')
+        )
+        # Group by ledger_id
+        from collections import defaultdict
+        tx_map = defaultdict(list)
+        for item in items_qs:
+            tx_map[item.ledger_id].append(_build_transaction_detail(item))
+
+        data = []
+        for row in summary:
+            lid = row['ledger__id']
+            data.append({
+                'ledger_id': lid,
                 'ledger': row['ledger__name'],
                 'type': row['ledger__type'],
                 'total_debit': str(row['total_debit']),
                 'total_credit': str(row['total_credit']),
-            }
-            for row in summary
-        ]
+                'transactions': tx_map.get(lid, []),
+            })
 
         return api_success(data, message='Ledger summary fetched successfully.')
 
@@ -390,6 +422,7 @@ class TrialBalanceView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
+        from collections import defaultdict
         # Aggregate per ledger
         rows = (
             JournalItem.objects
@@ -397,6 +430,11 @@ class TrialBalanceView(APIView):
             .annotate(total_debit=Sum('debit'), total_credit=Sum('credit'))
             .order_by('ledger__name')
         )
+
+        # Build transaction map
+        tx_map = defaultdict(list)
+        for item in JournalItem.objects.select_related('entry').order_by('ledger__id', '-entry__date'):
+            tx_map[item.ledger_id].append(_build_transaction_detail(item))
 
         entries = []
         grand_debit = 0
@@ -407,7 +445,6 @@ class TrialBalanceView(APIView):
             c = float(row['total_credit'] or 0)
             balance = d - c
 
-            # Positive balance → debit side; negative → credit side
             if balance >= 0:
                 debit_val = round(balance, 2)
                 credit_val = 0
@@ -418,12 +455,14 @@ class TrialBalanceView(APIView):
             grand_debit += debit_val
             grand_credit += credit_val
 
+            lid = row['ledger__id']
             entries.append({
-                'ledger_id': row['ledger__id'],
+                'ledger_id': lid,
                 'ledger': row['ledger__name'],
                 'type': row['ledger__type'],
                 'debit': debit_val,
                 'credit': credit_val,
+                'transactions': tx_map.get(lid, []),
             })
 
         grand_debit = round(grand_debit, 2)
@@ -460,12 +499,18 @@ class ProfitLossView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
+        from collections import defaultdict
         rows = (
             JournalItem.objects
             .values('ledger__id', 'ledger__name', 'ledger__type')
             .annotate(total_debit=Sum('debit'), total_credit=Sum('credit'))
             .order_by('ledger__name')
         )
+
+        # Transaction detail map
+        tx_map = defaultdict(list)
+        for item in JournalItem.objects.select_related('entry').order_by('ledger__id', '-entry__date'):
+            tx_map[item.ledger_id].append(_build_transaction_detail(item))
 
         income_items = []
         expense_items = []
@@ -476,24 +521,25 @@ class ProfitLossView(APIView):
             d = float(row['total_debit'] or 0)
             c = float(row['total_credit'] or 0)
             ledger_type = row['ledger__type']
+            lid = row['ledger__id']
 
             if ledger_type == 'income':
-                # Income: credit side minus debit side
                 balance = round(c - d, 2)
                 income_items.append({
-                    'ledger_id': row['ledger__id'],
+                    'ledger_id': lid,
                     'ledger': row['ledger__name'],
                     'amount': balance,
+                    'transactions': tx_map.get(lid, []),
                 })
                 total_income += balance
 
             elif ledger_type == 'expense':
-                # Expense: debit side minus credit side
                 balance = round(d - c, 2)
                 expense_items.append({
-                    'ledger_id': row['ledger__id'],
+                    'ledger_id': lid,
                     'ledger': row['ledger__name'],
                     'amount': balance,
+                    'transactions': tx_map.get(lid, []),
                 })
                 total_expense += balance
 
@@ -552,7 +598,13 @@ class BalanceSheetView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
+        from collections import defaultdict
         rows = _ledger_aggregates()
+
+        # Transaction detail map
+        tx_map = defaultdict(list)
+        for item in JournalItem.objects.select_related('entry').order_by('ledger__id', '-entry__date'):
+            tx_map[item.ledger_id].append(_build_transaction_detail(item))
 
         asset_items = []
         liability_items = []
@@ -563,32 +615,32 @@ class BalanceSheetView(APIView):
             d = float(row['total_debit'] or 0)
             c = float(row['total_credit'] or 0)
             ledger_type = row['ledger__type']
+            lid = row['ledger__id']
 
             if ledger_type == 'asset':
                 balance = round(d - c, 2)
                 asset_items.append({
-                    'ledger_id': row['ledger__id'],
+                    'ledger_id': lid,
                     'ledger': row['ledger__name'],
                     'amount': balance,
+                    'transactions': tx_map.get(lid, []),
                 })
                 total_assets += balance
 
             elif ledger_type == 'liability':
                 balance = round(c - d, 2)
                 liability_items.append({
-                    'ledger_id': row['ledger__id'],
+                    'ledger_id': lid,
                     'ledger': row['ledger__name'],
                     'amount': balance,
+                    'transactions': tx_map.get(lid, []),
                 })
                 total_liabilities += balance
 
         total_assets = round(total_assets, 2)
         total_liabilities = round(total_liabilities, 2)
 
-        # Equity = retained profit (income − expense)
         equity = _compute_profit()
-
-        # Accounting equation check
         is_balanced = total_assets == round(total_liabilities + equity, 2)
 
         return api_success(
