@@ -892,6 +892,8 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 				raise ValidationError({'rows': 'At least one row is required.'})
 
 			# ── Build existing received totals ──────────────────────────────────
+			# Count both received_qty AND loss_qty from prior events — lost pieces
+			# are accounted for and must not be counted as still-remaining.
 			already_received: dict = {}
 			for event in (voucher.received_rows or []):
 				for prev_row in (event.get('rows') or []):
@@ -899,6 +901,7 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 					already_received[key] = (
 						already_received.get(key, 0)
 						+ int(float(prev_row.get('received_qty', 0) or 0))
+						+ int(float(prev_row.get('loss_qty', 0) or 0))
 					)
 
 			# ── Build issued map ────────────────────────────────────────────────

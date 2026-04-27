@@ -148,7 +148,7 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
           for (const event of receivedEvents) {
             for (const row of (event.rows || [])) {
               const key = (row.sku || '').trim().toUpperCase()
-              alreadyReceived[key] = (alreadyReceived[key] || 0) + (parseFloat(row.received_qty) || 0)
+              alreadyReceived[key] = (alreadyReceived[key] || 0) + (parseFloat(row.received_qty) || 0) + (parseFloat(row.loss_qty) || 0)
               alreadyReceivedWeight[key] = (alreadyReceivedWeight[key] || 0) + (parseFloat(row.received_weight) || 0)
             }
           }
@@ -328,6 +328,17 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
       setSubmitError('Enter at least one Received Qty or Loss Qty before submitting.')
       return
     }
+    // Validate per-row: received + loss must not exceed the displayed issued qty
+    for (const pRow of payloadRows) {
+      const srcRow = rows.find(r => r.sku === pRow.sku)
+      const issued = parseFloat(srcRow?.issuedQty) || 0
+      if (issued > 0 && pRow.received_qty + pRow.loss_qty > issued) {
+        setSubmitError(
+          `SKU ${pRow.sku}: received (${pRow.received_qty}) + loss (${pRow.loss_qty}) = ${pRow.received_qty + pRow.loss_qty} exceeds available qty (${issued}).`
+        )
+        return
+      }
+    }
     setIsSubmitting(true)
     setSubmitError('')
     setSubmitWarnings([])
@@ -343,7 +354,9 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
       })
       const result = await res.json().catch(() => null)
       if (!res.ok || !result?.success) {
-        setSubmitError(result?.error?.message || result?.error?.details || 'Failed to process voucher.')
+        const det = result?.error?.details
+        const detailMsg = typeof det === 'string' ? det : (det?.rows || det?.approval_status || '')
+        setSubmitError(detailMsg || result?.error?.message || 'Failed to process voucher.')
         return
       }
       if (result?.data?.warnings?.length) {
