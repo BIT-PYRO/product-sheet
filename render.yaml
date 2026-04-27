@@ -20,7 +20,7 @@ services:
       - key: PORT
         value: "8000"
       - key: CORS_ALLOWED_ORIGINS_EXTRA
-        value: "https://miraee.onrender.com"
+        value: "https://product-sheet-frontend.onrender.com"
 
   - type: web
     name: miraee
