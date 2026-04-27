@@ -229,6 +229,7 @@ export default function ProfilePage() {
   const [saving, setSaving]             = useState(false);
   const [saveMessage, setSaveMessage]   = useState('');
   const [heroVisible, setHeroVisible]   = useState(true);
+  const [loggingOut, setLoggingOut]     = useState(false);
   const heroRef = useRef(null);
 
   useEffect(() => {
@@ -239,6 +240,15 @@ export default function ProfilePage() {
     if (heroRef.current) observer.observe(heroRef.current);
     return () => observer.disconnect();
   }, []);
+
+  /* ── logout ── */
+  async function handleLogout() {
+    setLoggingOut(true);
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+    } catch { /* ignore — cookies will be cleared anyway */ }
+    router.replace('/login');
+  }
 
   /* ── load ── */
   useEffect(() => {
@@ -597,11 +607,19 @@ export default function ProfilePage() {
           My Profile
         </h1>
 
-        {/* right: role badge */}
-        <div className="shrink-0">
+        {/* right: role badge + logout */}
+        <div className="shrink-0 flex items-center gap-2">
           <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full ${ROLE_COLORS[sessionUser?.role] || ROLE_COLORS.staff}`}>
             {ROLE_LABELS[sessionUser?.role] || 'Staff'}
           </span>
+          <button
+            onClick={handleLogout}
+            disabled={loggingOut}
+            className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-white/10 hover:bg-white/20 text-white border border-white/20 transition disabled:opacity-60"
+            title="Sign out"
+          >
+            {loggingOut ? 'Signing out…' : 'Logout'}
+          </button>
         </div>
 
         <input ref={fileInputRef} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={handlePhotoChange} />
