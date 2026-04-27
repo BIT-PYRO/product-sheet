@@ -23,7 +23,7 @@ services:
         value: "https://product-sheet-frontend.onrender.com"
 
   - type: web
-    name: miraee
+    name: product-sheet-frontend
     env: node
     region: oregon
     buildCommand: cd frontend && pnpm install --prod=false --frozen-lockfile && pnpm build
