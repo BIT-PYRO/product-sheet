@@ -228,12 +228,21 @@ export async function GET(request) {
     }
 
     // If still 401 from Cloudinary, the account requires signed delivery URLs.
-    // Generate a signed URL using CLOUDINARY_API_SECRET and retry once.
+    // The frontend CLOUDINARY_API_SECRET may differ from the backend production key,
+    // so ask the backend to sign the URL using its own CLOUDINARY_URL credentials.
     if (!upstream.ok && upstream.status === 401 && isCloudinaryHost(targetUrl)) {
-      const apiSecret = process.env.CLOUDINARY_API_SECRET || '';
-      if (apiSecret) {
-        const signedUrl = signCloudinaryDeliveryUrl(resolvedUrl, apiSecret);
-        if (signedUrl !== resolvedUrl) {
+      const backendSignRes = await fetch(
+        `${backendBaseUrl()}/api/v1/workforce/document-url/?url=${encodeURIComponent(resolvedUrl)}`,
+        {
+          method: 'GET',
+          headers: { Authorization: `Bearer ${activeToken}` },
+          cache: 'no-store',
+        }
+      ).catch(() => null);
+      if (backendSignRes?.ok) {
+        const body = await backendSignRes.json().catch(() => null);
+        const signedUrl = body?.data?.signed_url;
+        if (signedUrl) {
           const signedResponse = await fetch(signedUrl, {
             method: 'GET',
             cache: 'no-store',

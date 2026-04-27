@@ -1,3 +1,5 @@
+import logging
+
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -8,6 +10,8 @@ from common.mixins import StandardizedSuccessResponseMixin
 from .models import WorkforceMember
 from .serializers import WorkforceMemberSerializer
 from .services.permission_sync import sync_member_permissions
+
+logger = logging.getLogger(__name__)
 
 
 @extend_schema_view(
@@ -123,10 +127,35 @@ class WorkforceMemberViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 	@action(detail=True, methods=['post'], url_path='delete-document')
 	def delete_document(self, request, pk=None):
 		try:
+			import re as _re
+			from urllib.parse import urlparse as _urlparse
 			member = self.get_object()
 			doc_type = str(request.data.get('doc_type', '')).strip().lower()
 			if doc_type not in ('aadhaar', 'pan'):
 				return Response({'success': False, 'message': 'doc_type must be "aadhaar" or "pan".'}, status=400)
+
+			existing_url = member.aadhaar_url if doc_type == 'aadhaar' else member.pan_url
+
+			# Delete the actual file from Cloudinary so storage is not wasted
+			if existing_url and 'cloudinary.com' in existing_url:
+				try:
+					import cloudinary.uploader as _uploader
+					_parsed = _urlparse(existing_url)
+					_parts = [p for p in _parsed.path.strip('/').split('/') if p]
+					_upload_idx = next((i for i, p in enumerate(_parts) if p == 'upload'), None)
+					if _upload_idx is not None:
+						_resource_type = _parts[_upload_idx - 1] if _upload_idx > 0 else 'raw'
+						_after = _parts[_upload_idx + 1:]
+						# Strip signature token (s--...--) and version (v1234567890)
+						if _after and _re.match(r'^s--[A-Za-z0-9_-]+--$', _after[0]):
+							_after = _after[1:]
+						if _after and _re.match(r'^v\d+$', _after[0]):
+							_after = _after[1:]
+						_public_id = '/'.join(_after)
+						if _public_id:
+							_uploader.destroy(_public_id, resource_type=_resource_type, invalidate=True)
+				except Exception as del_err:
+					logger.warning('delete_document: Cloudinary destroy failed for %r: %s', existing_url, del_err)
 
 			if doc_type == 'aadhaar':
 				member.aadhaar_url = ''
@@ -139,6 +168,57 @@ class WorkforceMemberViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 		except Exception as exc:
 			logger.exception('delete_document unexpected error for pk=%s', pk)
 			return Response({'success': False, 'message': f'Server error: {exc}'}, status=500)
+
+	@extend_schema(summary='Return a signed Cloudinary delivery URL for an identity document', tags=['Workforce'])
+	@action(detail=False, methods=['get'], url_path='document-url')
+	def document_url(self, request):
+		"""Use the backend Cloudinary SDK (which has the correct production credentials)
+		to generate a signed delivery URL. Called by the frontend proxy when unsigned
+		delivery returns 401."""
+		import re as _re
+		from urllib.parse import urlparse as _urlparse
+
+		raw_url = (request.query_params.get('url') or '').strip()
+		if not raw_url:
+			return Response({'success': False, 'message': 'url parameter required.'}, status=400)
+
+		try:
+			_parsed = _urlparse(raw_url)
+		except Exception:
+			return Response({'success': False, 'message': 'Invalid URL.'}, status=400)
+
+		if not _re.search(r'\.cloudinary\.com$', _parsed.netloc or ''):
+			return Response({'success': False, 'message': 'Only Cloudinary URLs are supported.'}, status=400)
+
+		try:
+			import cloudinary.utils as _cld_utils
+
+			_parts = [p for p in (_parsed.path or '').strip('/').split('/') if p]
+			_upload_idx = next((i for i, p in enumerate(_parts) if p == 'upload'), None)
+			if _upload_idx is None:
+				return Response({'success': False, 'message': 'Not a Cloudinary upload URL.'}, status=400)
+
+			_resource_type = _parts[_upload_idx - 1] if _upload_idx > 0 else 'raw'
+			_after = _parts[_upload_idx + 1:]
+			# Strip existing signature token and version so public_id is clean
+			if _after and _re.match(r'^s--[A-Za-z0-9_-]+--$', _after[0]):
+				_after = _after[1:]
+			if _after and _re.match(r'^v\d+$', _after[0]):
+				_after = _after[1:]
+
+			_public_id = '/'.join(_after)
+			if not _public_id:
+				return Response({'success': False, 'message': 'Could not parse public_id from URL.'}, status=400)
+
+			signed_url, _ = _cld_utils.cloudinary_url(
+				_public_id,
+				resource_type=_resource_type,
+				sign_url=True,
+			)
+			return Response({'success': True, 'data': {'signed_url': signed_url}})
+		except Exception as exc:
+			logger.exception('document_url failed for url=%r', raw_url)
+			return Response({'success': False, 'message': f'Could not sign URL: {exc}'}, status=500)
 
 	@extend_schema(summary='Get unique departments, designations and role-dept pairs', tags=['Workforce'])
 	@action(detail=False, methods=['get'], url_path='meta')
