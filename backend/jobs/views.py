@@ -929,14 +929,9 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 				already = already_received.get(sku_key, 0)
 				remaining = issued - already
 
-				total_this = received_qty + loss_qty
-				if total_this > remaining:
-					raise ValidationError({
-						'rows': (
-							f'SKU {sku_key}: received_qty ({received_qty}) + loss_qty ({loss_qty}) = {total_this} '
-							f'exceeds remaining pieces ({remaining} = issued {issued} − already received {already}).'
-						)
-					})
+				# NOTE: received_qty CAN exceed issued_qty for amplification stages
+				# (e.g. Die → Wax Piece: 2 dies may yield 4 wax pieces). There is
+				# no upper-bound validation on received qty.
 
 				if loss_qty > 0:
 					any_loss = True

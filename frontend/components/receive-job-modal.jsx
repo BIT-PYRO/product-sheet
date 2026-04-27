@@ -328,17 +328,6 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
       setSubmitError('Enter at least one Received Qty or Loss Qty before submitting.')
       return
     }
-    // Validate per-row: received + loss must not exceed the displayed issued qty
-    for (const pRow of payloadRows) {
-      const srcRow = rows.find(r => r.sku === pRow.sku)
-      const issued = parseFloat(srcRow?.issuedQty) || 0
-      if (issued > 0 && pRow.received_qty + pRow.loss_qty > issued) {
-        setSubmitError(
-          `SKU ${pRow.sku}: received (${pRow.received_qty}) + loss (${pRow.loss_qty}) = ${pRow.received_qty + pRow.loss_qty} exceeds available qty (${issued}).`
-        )
-        return
-      }
-    }
     setIsSubmitting(true)
     setSubmitError('')
     setSubmitWarnings([])
