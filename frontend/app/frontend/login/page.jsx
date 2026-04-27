@@ -101,7 +101,7 @@ function GoogleLoginButton({ redirectPath }) {
   );
 }
 
-// ── Password login tab ───────────────────────────────────────────────────────
+// ── Password login form ──────────────────────────────────────────────────────
 function PasswordLogin({ redirectPath }) {
   const router = useRouter();
   const [username, setUsername] = useState('');
@@ -170,149 +170,10 @@ function PasswordLogin({ redirectPath }) {
   );
 }
 
-// ── Email OTP login tab ──────────────────────────────────────────────────────
-function EmailOTPLogin({ redirectPath }) {
-  const router = useRouter();
-  const [email, setEmail] = useState('');
-  const [otp, setOtp] = useState('');
-  const [step, setStep] = useState('email'); // 'email' | 'otp'
-  const [error, setError] = useState('');
-  const [info, setInfo] = useState('');
-  const [isSending, setIsSending] = useState(false);
-  const [isVerifying, setIsVerifying] = useState(false);
-  const [countdown, setCountdown] = useState(0);
-
-  useEffect(() => {
-    if (countdown <= 0) return;
-    const id = setTimeout(() => setCountdown((c) => c - 1), 1000);
-    return () => clearTimeout(id);
-  }, [countdown]);
-
-  const handleSendOTP = async (e) => {
-    e.preventDefault();
-    setError(''); setInfo('');
-    const cleanEmail = email.trim().toLowerCase();
-    if (!cleanEmail || !cleanEmail.includes('@')) {
-      setError('Please enter a valid email address.');
-      return;
-    }
-    setIsSending(true);
-    try {
-      const res = await fetch('/api/auth/send-otp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: cleanEmail }),
-      });
-      const result = await res.json();
-      if (!res.ok || !result.success) {
-        setError(result.message || 'Failed to send OTP.');
-        return;
-      }
-      setStep('otp');
-      setCountdown(60);
-      setInfo(`OTP sent to ${cleanEmail}. Check your inbox (and spam folder).`);
-    } catch {
-      setError('Unable to send OTP. Please try again.');
-    } finally {
-      setIsSending(false);
-    }
-  };
-
-  const handleVerifyOTP = async (e) => {
-    e.preventDefault();
-    setError('');
-    if (!otp.trim()) { setError('Please enter the OTP.'); return; }
-    setIsVerifying(true);
-    try {
-      const res = await fetch('/api/auth/verify-otp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email.trim().toLowerCase(), otp: otp.trim() }),
-      });
-      const result = await res.json();
-      if (!res.ok || !result.success) {
-        setError(result.message || 'Invalid OTP.');
-        return;
-      }
-      router.replace(redirectPath);
-    } catch {
-      setError('Unable to verify OTP. Please try again.');
-    } finally {
-      setIsVerifying(false);
-    }
-  };
-
-  if (step === 'otp') {
-    return (
-      <form onSubmit={handleVerifyOTP} className="mt-6 space-y-5">
-        {info && (
-          <p className="text-sm text-trust-blue bg-blue-50 border border-blue-100 px-3 py-2 rounded-md">{info}</p>
-        )}
-        <div className="space-y-2">
-          <label className="text-base font-semibold text-slate-text">
-            One-Time Password
-          </label>
-          <Input
-            value={otp}
-            onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 4))}
-            placeholder="Enter 4-digit OTP"
-            inputMode="numeric"
-            maxLength={4}
-            autoFocus
-            className="h-11 tracking-widest text-center text-lg font-semibold"
-          />
-        </div>
-        {error && (
-          <p className="text-sm text-danger-dark bg-danger-soft px-3 py-2 rounded-md">{error}</p>
-        )}
-        <Button type="submit" className="w-full h-11 text-base font-semibold" disabled={isVerifying}>
-          {isVerifying ? 'Verifying…' : 'Verify & Sign In'}
-        </Button>
-        <div className="text-center">
-          {countdown > 0 ? (
-            <p className="text-sm text-cool-gray">Resend OTP in {countdown}s</p>
-          ) : (
-            <button
-              type="button"
-              onClick={() => { setStep('email'); setOtp(''); setError(''); setInfo(''); }}
-              className="text-sm text-trust-blue hover:underline"
-            >
-              ← Change email / Resend OTP
-            </button>
-          )}
-        </div>
-      </form>
-    );
-  }
-
-  return (
-    <form onSubmit={handleSendOTP} className="mt-6 space-y-5">
-      <div className="space-y-2">
-        <label className="text-base font-semibold text-slate-text">Email Address</label>
-        <Input
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="your@email.com"
-          autoComplete="email"
-          className="h-11"
-        />
-      </div>
-      {error && (
-        <p className="text-sm text-danger-dark bg-danger-soft px-3 py-2 rounded-md">{error}</p>
-      )}
-      <Button type="submit" className="w-full h-11 text-base font-semibold" disabled={isSending}>
-        {isSending ? 'Sending OTP…' : 'Send OTP'}
-      </Button>
-    </form>
-  );
-}
-
 // ── Main login page ──────────────────────────────────────────────────────────
 function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [tab, setTab] = useState('password');
 
   const redirectPath = useMemo(() => safeRedirect(searchParams.get('next') || ''), [searchParams]);
 
@@ -329,37 +190,7 @@ function LoginContent() {
         <h1 className="text-2xl font-bold text-midnight-ink text-center">Sign In</h1>
         <p className="text-base text-cool-gray text-center mt-1">Access your workspace</p>
 
-        {/* Tab switcher */}
-        <div className="mt-6 flex rounded-lg bg-cloud-gray p-1 gap-1">
-          <button
-            type="button"
-            onClick={() => setTab('password')}
-            className={`flex-1 h-9 rounded-md text-sm font-semibold transition-all ${
-              tab === 'password'
-                ? 'bg-white text-midnight-ink shadow-sm'
-                : 'text-cool-gray hover:text-midnight-ink'
-            }`}
-          >
-            Username &amp; Password
-          </button>
-          <button
-            type="button"
-            onClick={() => setTab('email')}
-            className={`flex-1 h-9 rounded-md text-sm font-semibold transition-all ${
-              tab === 'email'
-                ? 'bg-white text-midnight-ink shadow-sm'
-                : 'text-cool-gray hover:text-midnight-ink'
-            }`}
-          >
-            Email OTP
-          </button>
-        </div>
-
-        {tab === 'password' ? (
-          <PasswordLogin redirectPath={redirectPath} />
-        ) : (
-          <EmailOTPLogin redirectPath={redirectPath} />
-        )}
+        <PasswordLogin redirectPath={redirectPath} />
 
         {/* Google Sign-In — shown only when NEXT_PUBLIC_GOOGLE_CLIENT_ID is set */}
         {process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID && (

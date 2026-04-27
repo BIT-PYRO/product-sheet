@@ -15,8 +15,8 @@ class UserRole(models.TextChoices):
 class User(AbstractUser):
 	role = models.CharField(max_length=20, choices=UserRole.choices, default=UserRole.STAFF)
 	is_approved = models.BooleanField(
-		default=True,
-		help_text='Approved users have full access. Unapproved users can only see Home and Profile.',
+		default=False,
+		help_text='Approved users have full access. Unapproved users can only access their Profile page.',
 	)
 
 

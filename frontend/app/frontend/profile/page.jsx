@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
@@ -568,9 +568,12 @@ export default function ProfilePage() {
 
       {/* ══ Full-width top nav bar ══ */}
       <header className="w-full bg-trust-blue flex items-center gap-4 px-6 py-0 h-14 shrink-0">
-        <button onClick={() => router.push('/home')} className="text-white/60 hover:text-white transition shrink-0" aria-label="Back">
-          <ArrowLeft className="h-5 w-5" />
-        </button>
+        {/* Hide Back for unapproved users — /home is not accessible to them */}
+        {sessionUser?.is_approved !== false && (
+          <button onClick={() => router.push('/home')} className="text-white/60 hover:text-white transition shrink-0" aria-label="Back">
+            <ArrowLeft className="h-5 w-5" />
+          </button>
+        )}
 
         {/* avatar + name (left side) */}
         <div className="flex items-center gap-3 flex-1 min-w-0">
@@ -898,7 +901,11 @@ export default function ProfilePage() {
                   <EditableField label="First Language"  name="first_language"  value={wf?.first_language}  editValue={editData.first_language}  isEditing={isEditing} onChange={handleEditChange} options={INDIAN_LANGUAGES} />
                   <EditableField label="Second Language" name="second_language" value={wf?.second_language} editValue={editData.second_language} isEditing={isEditing} onChange={handleEditChange} options={INDIAN_LANGUAGES} />
                   <EditableField label="GST Number"      name="gst_number"      value={wf?.gst_number}      editValue={editData.gst_number}      isEditing={isEditing} onChange={handleEditChange} />
-                  <EditableField label="Category"        name="category"        value={wf?.category}        editValue={editData.category}        isEditing={isEditing} onChange={handleEditChange} />
+                  {/* Category is admin-only — it determines software access permissions. Read-only here. */}
+                  <div>
+                    <FieldRow label="Category" value={wf?.category} />
+                    {isEditing && <p className="text-[11px] text-cool-gray mt-0.5">Assigned by admin.</p>}
+                  </div>
                   <EditableField label="Working Style"   name="working_style"   value={wf?.working_style}   editValue={editData.working_style}   isEditing={isEditing} onChange={handleEditChange} options={WORKING_STYLES} />
                 </div>
               </SectionCard>

@@ -4,8 +4,8 @@ const ACCESS_COOKIE = 'psd-access-token';
 const REFRESH_COOKIE = 'psd-refresh-token';
 const APPROVED_COOKIE = 'psd-approved';
 
-// Paths unapproved users are allowed to visit
-const PENDING_ALLOWED = ['/home', '/profile', '/settings', '/login', '/manage-members'];
+// Paths unapproved users are allowed to visit (everything else → /profile)
+const PENDING_ALLOWED = ['/profile', '/login'];
 
 function isPublicAsset(pathname) {
   return /\.[^/]+$/.test(pathname);
@@ -47,7 +47,7 @@ export function proxy(request) {
       pathname.startsWith('/api/') ||
       pathname.startsWith('/_next/');
     if (!isAllowed) {
-      return NextResponse.redirect(new URL('/home', request.url));
+      return NextResponse.redirect(new URL('/profile', request.url));
     }
   }
 
