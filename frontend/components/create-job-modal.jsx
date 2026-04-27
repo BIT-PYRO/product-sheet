@@ -104,9 +104,9 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
     }
   }, [open])
 
-  // Load picklists when mode is 'all' and modal opens
+  // Load picklists when mode is 'all' or 'single' and modal opens
   useEffect(() => {
-    if (open && mode === 'all') {
+    if (open && (mode === 'all' || mode === 'single')) {
       setIsPicklistLoading(true)
       setSelectedPicklistId("")
       fetch('/api/picklist-groups', { cache: 'no-store' })
@@ -126,7 +126,7 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
 
   // Auto-populate SKU rows when a picklist is selected
   useEffect(() => {
-    if (mode !== 'all' || !selectedPicklistId) return
+    if ((mode !== 'all' && mode !== 'single') || !selectedPicklistId) return
     const pl = picklists.find(p => String(p.id) === selectedPicklistId)
     if (!pl || !Array.isArray(pl.items) || pl.items.length === 0) return
     // Picklist items use Final Stock SKUs (e.g. AJB9/G). Convert to Master SKU
@@ -447,12 +447,20 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
           return (deptOrder[a.toDept.key] ?? 99) - (deptOrder[b.toDept.key] ?? 99)
         })
 
+        // Filter to only transitions within the user-selected From→To range
+        const filteredTransitions = (deptFrom && deptTo)
+          ? sortedTransitions.filter(t =>
+              (deptOrder[t.fromDept.key] ?? 99) >= (deptOrder[deptFrom] ?? 99) &&
+              (deptOrder[t.toDept.key] ?? 99) <= (deptOrder[deptTo] ?? 99)
+            )
+          : sortedTransitions
+
         // 3. Create one voucher per unique transition
         let localCounter = parseInt(localStorage.getItem('jj_counter') || '0')
         const batchId = `batch-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 
-        for (let i = 0; i < sortedTransitions.length; i++) {
-          const { fromDept, toDept, materialRows, productId } = sortedTransitions[i]
+        for (let i = 0; i < filteredTransitions.length; i++) {
+          const { fromDept, toDept, materialRows, productId } = filteredTransitions[i]
           const totalQty = materialRows.reduce((sum, r) => sum + (parseInt(r.issued_qty) || 0), 0)
 
           localCounter++
@@ -698,8 +706,8 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
                 </Select>
               </div>
 
-              {/* PICKLIST DROPDOWN - only in "all" mode */}
-              {mode === 'all' && (
+              {/* PICKLIST DROPDOWN - in "all" and "single" mode */}
+              {(mode === 'all' || mode === 'single') && (
                 <div className="flex flex-col gap-0.5">
                   <Label className="text-sm font-bold uppercase tracking-wide text-muted-foreground">Picklist</Label>
                   <Select value={selectedPicklistId} onValueChange={setSelectedPicklistId}>
@@ -1053,7 +1061,26 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
             <div className="grid grid-cols-[1fr_auto_1fr] gap-1.5 items-end">
               <div className="flex flex-col gap-0.5">
                 <Label className="text-sm font-medium text-muted-foreground">Issued By</Label>
-                <Input placeholder="Enter your name" value={issuedByName} onChange={(e) => setIssuedByName(e.target.value)} className="h-8 text-sm bg-background border-border focus:ring-1 focus:ring-trust-blue focus:border-trust-blue transition-colors cursor-text" />
+                <Select
+                  value={issuedByName}
+                  onValueChange={(v) => {
+                    setIssuedByName(v)
+                    const person = enrolledPeople.find(p => p.full_name === v)
+                    if (person) setIssuedByContact(person.phone || person.whatsapp || '')
+                  }}
+                >
+                  <SelectTrigger className="h-8 text-sm bg-background border-border focus:ring-1 focus:ring-trust-blue">
+                    <SelectValue placeholder="Select person" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {enrolledPeople.map(p => (
+                      <SelectItem key={p.id} value={p.full_name}>{p.full_name}</SelectItem>
+                    ))}
+                    {issuedByName && !enrolledPeople.find(p => p.full_name === issuedByName) && (
+                      <SelectItem value={issuedByName}>{issuedByName}</SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="hidden md:block" />
               <div className="flex flex-col gap-0.5">

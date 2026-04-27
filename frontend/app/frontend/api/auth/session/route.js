@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 const ACCESS_COOKIE = 'psd-access-token';
 const REFRESH_COOKIE = 'psd-refresh-token';
 const APPROVED_COOKIE = 'psd-approved';
+const ONE_DAY_SECONDS = 60 * 60 * 24;
 const DEFAULT_BACKEND_URL = process.env.NODE_ENV === 'production' ? 'https://product-sheet.onrender.com' : 'http://127.0.0.1:8000';
 
 function getBackendBaseUrl() {
@@ -45,25 +46,35 @@ export async function GET(request) {
   };
 
   let activeAccessToken = accessToken;
-  let meResponse = accessToken ? await fetchMe(accessToken) : null;
+  let meResponse = null;
 
-  if ((!meResponse || meResponse.status === 401) && refreshToken) {
-    const refreshResponse = await fetch(`${backendBaseUrl}/api/v1/auth/refresh/`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ refresh: refreshToken }),
-      cache: 'no-store',
-    });
+  try {
+    meResponse = accessToken ? await fetchMe(accessToken) : null;
 
-    const refreshResult = await refreshResponse.json().catch(() => null);
-    const newAccessToken = extractAccessToken(refreshResult);
+    if ((!meResponse || meResponse.status === 401) && refreshToken) {
+      const refreshResponse = await fetch(`${backendBaseUrl}/api/v1/auth/refresh/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ refresh: refreshToken }),
+        cache: 'no-store',
+      });
 
-    if (refreshResponse.ok && newAccessToken) {
-      activeAccessToken = newAccessToken;
-      meResponse = await fetchMe(activeAccessToken);
+      const refreshResult = await refreshResponse.json().catch(() => null);
+      const newAccessToken = extractAccessToken(refreshResult);
+
+      if (refreshResponse.ok && newAccessToken) {
+        activeAccessToken = newAccessToken;
+        meResponse = await fetchMe(activeAccessToken);
+      }
     }
+  } catch (networkErr) {
+    // Backend unreachable (Render cold start / network error) — return 503, not 500.
+    return NextResponse.json(
+      { success: false, message: 'Backend temporarily unavailable. Please try again.' },
+      { status: 503 }
+    );
   }
 
   if (!meResponse || !meResponse.ok) {

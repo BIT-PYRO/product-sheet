@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { createHash } from 'crypto';
 import { ACCESS_COOKIE, REFRESH_COOKIE, backendBaseUrl } from '@/app/frontend/api/_lib/backend-auth';
 
 function extractAccessToken(payload) {
@@ -95,6 +96,34 @@ function buildCloudinaryFallbackUrls(targetUrl) {
   }
 
   return Array.from(candidates);
+}
+
+// Generate a signed Cloudinary delivery URL using SHA1 (Cloudinary's default signing algorithm).
+// Required when the Cloudinary account has "Require Signed URLs" enabled for raw/restricted assets.
+function signCloudinaryDeliveryUrl(urlString, apiSecret) {
+  if (!apiSecret) return urlString;
+  try {
+    const url = new URL(urlString);
+    const pathParts = url.pathname.split('/').filter(Boolean);
+    const uploadIdx = pathParts.indexOf('upload');
+    if (uploadIdx === -1) return urlString;
+    // Already signed — don't double-sign
+    if (String(pathParts[uploadIdx + 1] || '').startsWith('s--')) return urlString;
+    // to_sign = everything after "upload/" (e.g. "v1234/documents/1/aadhaar.pdf")
+    const toSign = pathParts.slice(uploadIdx + 1).join('/');
+    // Cloudinary signature: SHA1(to_sign + api_secret) → base64 → first 8 chars, URL-safe
+    const sig = createHash('sha1')
+      .update(toSign + apiSecret, 'utf8')
+      .digest('base64')
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .slice(0, 8);
+    pathParts.splice(uploadIdx + 1, 0, `s--${sig}--`);
+    url.pathname = '/' + pathParts.join('/');
+    return url.toString();
+  } catch {
+    return urlString;
+  }
 }
 
 function inferFilename(sourceUrl, fallbackType) {
@@ -194,6 +223,26 @@ export async function GET(request) {
           upstream = fallbackResponse;
           resolvedUrl = fallbackTarget.toString();
           break;
+        }
+      }
+    }
+
+    // If still 401 from Cloudinary, the account requires signed delivery URLs.
+    // Generate a signed URL using CLOUDINARY_API_SECRET and retry once.
+    if (!upstream.ok && upstream.status === 401 && isCloudinaryHost(targetUrl)) {
+      const apiSecret = process.env.CLOUDINARY_API_SECRET || '';
+      if (apiSecret) {
+        const signedUrl = signCloudinaryDeliveryUrl(resolvedUrl, apiSecret);
+        if (signedUrl !== resolvedUrl) {
+          const signedResponse = await fetch(signedUrl, {
+            method: 'GET',
+            cache: 'no-store',
+            redirect: 'follow',
+          });
+          if (signedResponse.ok && signedResponse.body) {
+            upstream = signedResponse;
+            resolvedUrl = signedUrl;
+          }
         }
       }
     }

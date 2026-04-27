@@ -608,7 +608,26 @@ export function NeededVouchersModal({ open, onOpenChange, neededItems = [], onVo
                 <div className="grid grid-cols-2 gap-2 items-end">
                   <div className="flex flex-col gap-0.5">
                     <Label className="text-xs font-medium text-muted-foreground">Issued By</Label>
-                    <Input placeholder="Your name" value={form.issuedByName} onChange={e => updateForm('issuedByName', e.target.value)} className="h-8 text-sm bg-background border-border" />
+                    <Select
+                      value={form.issuedByName}
+                      onValueChange={(v) => {
+                        updateForm('issuedByName', v)
+                        const person = enrolledPeople.find(p => p.full_name === v)
+                        if (person) updateForm('issuedByContact', person.phone || person.whatsapp || '')
+                      }}
+                    >
+                      <SelectTrigger className="h-8 text-sm bg-background border-border">
+                        <SelectValue placeholder="Select person" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {enrolledPeople.map(p => (
+                          <SelectItem key={p.id} value={p.full_name}>{p.full_name}</SelectItem>
+                        ))}
+                        {form.issuedByName && !enrolledPeople.find(p => p.full_name === form.issuedByName) && (
+                          <SelectItem value={form.issuedByName}>{form.issuedByName}</SelectItem>
+                        )}
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div className="flex flex-col gap-0.5">
                     <Label className="text-xs font-medium text-muted-foreground">Contact</Label>
