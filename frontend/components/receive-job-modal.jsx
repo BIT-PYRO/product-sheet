@@ -127,8 +127,8 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
     }
   }, [voucherData, open])
 
-  // Fetch full job data on open to reliably get picklist_name / order_name
-  // and, for partial vouchers, recalculate remaining issued qty per row
+  // Fetch full job data on open: populate picklist/order, and fill received/loss
+  // from received_rows for ALL statuses (completed, partially_complete, in_process).
   useEffect(() => {
     if (!open || !voucherData?.id) return
     fetch(`/api/jobs/${voucherData.id}`, { cache: 'no-store' })
@@ -139,25 +139,52 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
         if (job.picklist_name) setPicklistName(job.picklist_name)
         if (job.order_name) setOrderName(job.order_name)
 
-        // For partially_complete vouchers, set issuedQty to the remaining
-        // (original issued − already received) so the form shows what's still outstanding
-        if (job.approval_status === 'partially_complete') {
-          const receivedEvents = Array.isArray(job.received_rows) ? job.received_rows : []
-          const alreadyReceived = {}
-          const alreadyReceivedWeight = {}
-          for (const event of receivedEvents) {
-            for (const row of (event.rows || [])) {
-              const key = (row.sku || '').trim().toUpperCase()
-              alreadyReceived[key] = (alreadyReceived[key] || 0) + (parseFloat(row.received_qty) || 0) + (parseFloat(row.loss_qty) || 0)
-              alreadyReceivedWeight[key] = (alreadyReceivedWeight[key] || 0) + (parseFloat(row.received_weight) || 0)
+        const status = job.approval_status || ''
+        const isCompleted = status === 'completed' || status === 'replaced'
+        const isPartial = status === 'partially_complete'
+
+        const receivedEvents = Array.isArray(job.received_rows) ? job.received_rows : []
+
+        // Aggregate all received_qty and loss_qty across every prior event per SKU
+        const totalReceived = {}
+        const totalLoss = {}
+        const totalReceivedWeight = {}
+        for (const event of receivedEvents) {
+          for (const row of (event.rows || [])) {
+            const key = (row.sku || '').trim().toUpperCase()
+            totalReceived[key] = (totalReceived[key] || 0) + (parseFloat(row.received_qty) || 0)
+            totalLoss[key] = (totalLoss[key] || 0) + (parseFloat(row.loss_qty) || 0)
+            totalReceivedWeight[key] = (totalReceivedWeight[key] || 0) + (parseFloat(row.received_weight) || 0)
+          }
+        }
+
+        const hasPriorActivity = Object.keys(totalReceived).length > 0 || Object.keys(totalLoss).length > 0
+
+        if (isCompleted && hasPriorActivity) {
+          // Completed: fill received/loss cols with the total values (read-only view)
+          setRows(prevRows => prevRows.map(r => {
+            const key = (r.sku || '').trim().toUpperCase()
+            return {
+              ...r,
+              receivedQty: String(totalReceived[key] || 0),
+              receivedWeight: String(totalReceivedWeight[key] || ''),
+              lossQty: String(totalLoss[key] || 0),
+              reissueQty: String(totalLoss[key] || 0),
             }
+          }))
+        } else if (isPartial && hasPriorActivity) {
+          // Partially complete: show remaining issued qty and leave received/loss blank
+          // so the user can enter only the outstanding pieces this round.
+          const alreadyAccountedFor = {}
+          for (const key of Object.keys(totalReceived)) {
+            alreadyAccountedFor[key] = (totalReceived[key] || 0) + (totalLoss[key] || 0)
           }
           setRows(prevRows => prevRows.map(r => {
             const key = (r.sku || '').trim().toUpperCase()
             const issuedQty = parseFloat(r.issuedQty) || 0
             const issuedWeight = parseFloat(r.issuedWeight) || 0
-            const remainingQty = Math.max(0, issuedQty - (alreadyReceived[key] || 0))
-            const remainingWeight = Math.max(0, issuedWeight - (alreadyReceivedWeight[key] || 0))
+            const remainingQty = Math.max(0, issuedQty - (alreadyAccountedFor[key] || 0))
+            const remainingWeight = Math.max(0, issuedWeight - (totalReceivedWeight[key] || 0))
             return {
               ...r,
               issuedQty: String(remainingQty),
@@ -583,6 +610,8 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
     }, 400)
   }
 
+  const isCompleted = ['completed', 'replaced'].includes(voucherData?.approvalStatus)
+
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
@@ -768,6 +797,20 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
             </div>
           </div>
 
+          {/* Completed / Replaced banner */}
+          {isCompleted && (
+            <div className="rounded-md bg-emerald-50 border border-emerald-300 px-3 py-2 text-xs text-emerald-800 font-semibold">
+              This voucher is <span className="uppercase">{voucherData?.approvalStatus}</span>. Received and loss quantities shown below are the final recorded values.
+            </div>
+          )}
+
+          {/* Partially complete info banner */}
+          {voucherData?.approvalStatus === 'partially_complete' && (
+            <div className="rounded-md bg-amber-50 border border-amber-300 px-3 py-2 text-xs text-amber-800 font-semibold">
+              Partially complete — issued qty shown below is the outstanding remaining. Enter only the pieces being processed in this round.
+            </div>
+          )}
+
           {/* SKU Table */}
           <div className="rounded-md overflow-auto border border-border text-xs">
             <table className="border-collapse" style={{ width: '100%' }}>
@@ -831,8 +874,8 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
                     {/* Received Qty+Unit */}
                     <td className="border-l-2 border-l-emerald-300 bg-emerald-50/50 p-0 whitespace-nowrap">
                       <div className="flex items-center h-7 px-1 gap-0.5">
-                        <input type="number" className="w-11 bg-transparent border-0 outline-none text-xs text-center " placeholder="0" value={row.receivedQty} onChange={(e) => updateRow(row.id, 'receivedQty', e.target.value)} />
-                        <select className="bg-transparent border-0 outline-none appearance-none cursor-pointer flex-shrink-0 text-gray-400" style={{ fontSize: 9 }} value={row.unit3 || 'Pcs'} onChange={(e) => updateRow(row.id, 'unit3', e.target.value)}>
+                        <input type="number" className={`w-11 bg-transparent border-0 outline-none text-xs text-center ${isCompleted ? 'cursor-default font-semibold text-emerald-700' : ''}`} placeholder="0" value={row.receivedQty} readOnly={isCompleted} onChange={isCompleted ? undefined : (e) => updateRow(row.id, 'receivedQty', e.target.value)} />
+                        <select className="bg-transparent border-0 outline-none appearance-none cursor-pointer flex-shrink-0 text-gray-400" style={{ fontSize: 9 }} value={row.unit3 || 'Pcs'} disabled={isCompleted} onChange={(e) => updateRow(row.id, 'unit3', e.target.value)}>
                           <option>Pcs</option><option>Pairs</option>
                         </select>
                       </div>
@@ -840,8 +883,8 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
                     {/* Received Weight+Unit */}
                     <td className="border-r border-border/30 bg-emerald-50/50 p-0 whitespace-nowrap">
                       <div className="flex items-center h-7 px-1 gap-0.5">
-                        <input type="number" className="w-11 bg-transparent border-0 outline-none text-xs text-center " placeholder="0.0" value={row.receivedWeight} onChange={(e) => updateRow(row.id, 'receivedWeight', e.target.value)} />
-                        <select className="bg-transparent border-0 outline-none appearance-none cursor-pointer flex-shrink-0 text-gray-400" style={{ fontSize: 9 }} value={row.unit4 || 'Kg'} onChange={(e) => updateRow(row.id, 'unit4', e.target.value)}>
+                        <input type="number" className={`w-11 bg-transparent border-0 outline-none text-xs text-center ${isCompleted ? 'cursor-default font-semibold text-emerald-700' : ''}`} placeholder="0.0" value={row.receivedWeight} readOnly={isCompleted} onChange={isCompleted ? undefined : (e) => updateRow(row.id, 'receivedWeight', e.target.value)} />
+                        <select className="bg-transparent border-0 outline-none appearance-none cursor-pointer flex-shrink-0 text-gray-400" style={{ fontSize: 9 }} value={row.unit4 || 'Kg'} disabled={isCompleted} onChange={(e) => updateRow(row.id, 'unit4', e.target.value)}>
                           <option>g</option><option>Kg</option><option>mg</option><option>lb</option><option>oz</option><option>ct</option>
                         </select>
                       </div>
@@ -849,8 +892,8 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
                     {/* Loss Qty+Unit */}
                     <td className="border-l-2 border-l-rose-300 bg-rose-50/50 p-0 whitespace-nowrap">
                       <div className="flex items-center h-7 px-1 gap-0.5">
-                        <input type="number" className="w-11 bg-transparent border-0 outline-none text-xs text-center" placeholder="0" value={row.lossQty} onChange={(e) => updateRow(row.id, 'lossQty', e.target.value)} />
-                        <select className="bg-transparent border-0 outline-none appearance-none cursor-pointer flex-shrink-0 text-gray-400" style={{ fontSize: 9 }} value={row.unit5 || 'Pcs'} onChange={(e) => updateRow(row.id, 'unit5', e.target.value)}>
+                        <input type="number" className={`w-11 bg-transparent border-0 outline-none text-xs text-center ${isCompleted ? 'cursor-default font-semibold text-rose-700' : ''}`} placeholder="0" value={row.lossQty} readOnly={isCompleted} onChange={isCompleted ? undefined : (e) => updateRow(row.id, 'lossQty', e.target.value)} />
+                        <select className="bg-transparent border-0 outline-none appearance-none cursor-pointer flex-shrink-0 text-gray-400" style={{ fontSize: 9 }} value={row.unit5 || 'Pcs'} disabled={isCompleted} onChange={(e) => updateRow(row.id, 'unit5', e.target.value)}>
                           <option>Pcs</option><option>Pairs</option>
                         </select>
                       </div>
@@ -915,6 +958,7 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
           )}
 
           {/* Action Button */}
+          {!isCompleted && (
           <div className="flex">
             <Button
               className="flex-1 h-9 bg-trust-blue hover:bg-deep-blue text-white font-bold text-sm rounded"
@@ -924,6 +968,7 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
               {isSubmitting ? 'Processing...' : 'Send for Next Stage'}
             </Button>
           </div>
+          )}
 
           {/* Received By, Contact, and Rate Workmanship - Single Row */}
           <div className="border border-border rounded-md px-3 py-2">
