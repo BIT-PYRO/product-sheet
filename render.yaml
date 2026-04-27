@@ -20,10 +20,10 @@ services:
       - key: PORT
         value: "8000"
       - key: CORS_ALLOWED_ORIGINS_EXTRA
-        value: "https://product-sheet-frontend.onrender.com"
+        value: "https://miraee.onrender.com"
 
   - type: web
-    name: product-sheet-frontend
+    name: miraee
     env: node
     region: oregon
     buildCommand: cd frontend && pnpm install --prod=false --frozen-lockfile && pnpm build
