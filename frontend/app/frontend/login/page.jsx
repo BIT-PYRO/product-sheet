@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useEffect, useMemo, useState } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,6 +9,96 @@ import { Input } from '@/components/ui/input';
 function safeRedirect(next) {
   if (next && next.startsWith('/') && !next.startsWith('//')) return next;
   return '/home';
+}
+
+// ── Google Sign-In button ────────────────────────────────────────────────────
+// Uses Google Identity Services (GIS). Credential (ID token) comes back via
+// callback — no page redirect needed. The token is posted to /api/auth/google
+// which verifies it with Django and sets httpOnly JWT cookies.
+function GoogleLoginButton({ redirectPath }) {
+  const router = useRouter();
+  const btnRef = useRef(null);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleCredential = useCallback(async (response) => {
+    setError('');
+    setLoading(true);
+    try {
+      const res = await fetch('/api/auth/google', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id_token: response.credential }),
+      });
+      const data = await res.json().catch(() => null);
+      if (res.ok && data?.success) {
+        router.replace(redirectPath);
+      } else {
+        setError(data?.message || 'Google login failed. Please try again.');
+        setLoading(false);
+      }
+    } catch {
+      setError('Network error. Please try again.');
+      setLoading(false);
+    }
+  }, [router, redirectPath]);
+
+  useEffect(() => {
+    const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+    if (!clientId || !btnRef.current) return;
+
+    const initGsi = () => {
+      if (!window.google?.accounts?.id) return;
+      window.google.accounts.id.initialize({
+        client_id: clientId,
+        callback: handleCredential,
+        ux_mode: 'popup',
+      });
+      window.google.accounts.id.renderButton(btnRef.current, {
+        theme: 'outline',
+        size: 'large',
+        width: btnRef.current.offsetWidth || 400,
+        text: 'signin_with',
+        shape: 'rectangular',
+      });
+    };
+
+    if (window.google?.accounts?.id) {
+      initGsi();
+      return;
+    }
+
+    const existing = document.querySelector('script[src*="accounts.google.com/gsi/client"]');
+    if (existing) {
+      existing.addEventListener('load', initGsi);
+      return () => existing.removeEventListener('load', initGsi);
+    }
+
+    const script = document.createElement('script');
+    script.src = 'https://accounts.google.com/gsi/client';
+    script.async = true;
+    script.defer = true;
+    script.onload = initGsi;
+    document.head.appendChild(script);
+  }, [handleCredential]);
+
+  if (!process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID) return null;
+
+  return (
+    <div className="space-y-2">
+      {loading && (
+        <div className="flex items-center justify-center gap-2 text-sm text-cool-gray py-2">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-gray-300 border-t-gray-600" />
+          Signing in…
+        </div>
+      )}
+      {/* GIS renders its button inside this div */}
+      <div ref={btnRef} className="w-full" />
+      {error && (
+        <p className="text-sm text-danger-dark bg-danger-soft px-3 py-2 rounded-md">{error}</p>
+      )}
+    </div>
+  );
 }
 
 // ── Password login tab ───────────────────────────────────────────────────────
@@ -269,6 +359,21 @@ function LoginContent() {
           <PasswordLogin redirectPath={redirectPath} />
         ) : (
           <EmailOTPLogin redirectPath={redirectPath} />
+        )}
+
+        {/* Google Sign-In — shown only when NEXT_PUBLIC_GOOGLE_CLIENT_ID is set */}
+        {process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID && (
+          <>
+            <div className="relative my-6">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t border-soft-border" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-white px-2 text-cool-gray font-medium">or continue with</span>
+              </div>
+            </div>
+            <GoogleLoginButton redirectPath={redirectPath} />
+          </>
         )}
       </section>
     </main>
