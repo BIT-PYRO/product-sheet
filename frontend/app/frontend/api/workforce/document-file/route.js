@@ -228,29 +228,53 @@ export async function GET(request) {
     }
 
     // If still 401 from Cloudinary, the account requires signed delivery URLs.
-    // The frontend CLOUDINARY_API_SECRET may differ from the backend production key,
-    // so ask the backend to sign the URL using its own CLOUDINARY_URL credentials.
+    // Strategy 1: sign on the frontend using CLOUDINARY_API_SECRET.
+    //   Requires CLOUDINARY_API_SECRET on Render = production secret: a-tcbC-bLuS01u1vIRs_joyOXmAa
+    // Strategy 2 (fallback): ask the backend to sign using its own CLOUDINARY_URL credentials.
     if (!upstream.ok && upstream.status === 401 && isCloudinaryHost(targetUrl)) {
-      const backendSignRes = await fetch(
-        `${backendBaseUrl()}/api/v1/workforce/document-url/?url=${encodeURIComponent(resolvedUrl)}`,
-        {
-          method: 'GET',
-          headers: { Authorization: `Bearer ${activeToken}` },
-          cache: 'no-store',
-        }
-      ).catch(() => null);
-      if (backendSignRes?.ok) {
-        const body = await backendSignRes.json().catch(() => null);
-        const signedUrl = body?.data?.signed_url;
-        if (signedUrl) {
+      let signed = false;
+
+      // --- Strategy 1: frontend signing ---
+      const apiSecret = process.env.CLOUDINARY_API_SECRET || '';
+      if (apiSecret) {
+        const signedUrl = signCloudinaryDeliveryUrl(resolvedUrl, apiSecret);
+        if (signedUrl !== resolvedUrl) {
           const signedResponse = await fetch(signedUrl, {
             method: 'GET',
             cache: 'no-store',
             redirect: 'follow',
-          });
-          if (signedResponse.ok && signedResponse.body) {
+          }).catch(() => null);
+          if (signedResponse?.ok && signedResponse.body) {
             upstream = signedResponse;
             resolvedUrl = signedUrl;
+            signed = true;
+          }
+        }
+      }
+
+      // --- Strategy 2: backend signing (fallback, uses correct production credentials) ---
+      if (!signed) {
+        const backendSignRes = await fetch(
+          `${backendBaseUrl()}/api/v1/workforce/document-url/?url=${encodeURIComponent(resolvedUrl)}`,
+          {
+            method: 'GET',
+            headers: { Authorization: `Bearer ${activeToken}` },
+            cache: 'no-store',
+          }
+        ).catch(() => null);
+        if (backendSignRes?.ok) {
+          const body = await backendSignRes.json().catch(() => null);
+          const backendSignedUrl = body?.data?.signed_url;
+          if (backendSignedUrl) {
+            const signedResponse = await fetch(backendSignedUrl, {
+              method: 'GET',
+              cache: 'no-store',
+              redirect: 'follow',
+            }).catch(() => null);
+            if (signedResponse?.ok && signedResponse.body) {
+              upstream = signedResponse;
+              resolvedUrl = backendSignedUrl;
+            }
           }
         }
       }
