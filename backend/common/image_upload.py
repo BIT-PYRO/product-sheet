@@ -161,21 +161,17 @@ def upload_document_base64(data_url: str, folder: str, public_id: str = None) ->
         except Exception as decode_err:
             return '', f'Could not decode document data: {decode_err}'
 
-        # PDFs are frequently blocked by Cloudinary account delivery/security settings.
-        # Keep workforce identity docs reliably previewable by storing PDFs locally.
-        if mime == 'application/pdf':
-            local_url = _upload_to_local_bytes(doc_bytes, folder, file_name)
-            return local_url, None
-
         cloudinary_url_env = os.environ.get('CLOUDINARY_URL', '')
         if cloudinary_url_env:
-            # Use base public_id only; Cloudinary can append format, so including ext here can duplicate it.
+            # Use resource_type='raw' for PDFs so Cloudinary stores and serves them as-is.
+            # Use resource_type='auto' for other document types.
+            cloud_resource_type = 'raw' if mime == 'application/pdf' else 'auto'
             cloud_public_id = public_id or uuid.uuid4().hex
             url, err = _upload_to_cloudinary_safe(
                 io.BytesIO(doc_bytes),
                 folder,
                 cloud_public_id,
-                resource_type='auto',
+                resource_type=cloud_resource_type,
             )
             if err:
                 logger.error('upload_document_base64: Cloudinary error for folder=%r: %s. Falling back to local.', folder, err)
@@ -212,18 +208,17 @@ def upload_document_file(document_file, folder: str, public_id: str = None) -> t
     except Exception as exc:
         return '', f'Could not read uploaded file: {exc}'
 
-    # Keep PDFs local to avoid Cloudinary 401 delivery restrictions.
-    if content_type == 'application/pdf' or ext == 'pdf':
-        return _upload_to_local_bytes(file_bytes, folder, file_name), None
-
     cloudinary_url_env = os.environ.get('CLOUDINARY_URL', '')
     if cloudinary_url_env:
+        # Use resource_type='raw' for PDFs so Cloudinary stores and serves them as-is.
+        is_pdf = content_type == 'application/pdf' or ext == 'pdf'
+        cloud_resource_type = 'raw' if is_pdf else 'auto'
         cloud_public_id = public_id or uuid.uuid4().hex
         url, err = _upload_to_cloudinary_safe(
             io.BytesIO(file_bytes),
             folder,
             cloud_public_id,
-            resource_type='auto',
+            resource_type=cloud_resource_type,
         )
         if err:
             logger.error('upload_document_file: Cloudinary error for folder=%r: %s. Falling back to local.', folder, err)
