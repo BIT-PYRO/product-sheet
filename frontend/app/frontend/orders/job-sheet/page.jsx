@@ -872,15 +872,19 @@ export function OrderSheetView({ embedded = false }) {
                     Export Picklist
                   </button>
                   )}
-                  {selectedInvoiceOrderIds.size > 0 && (
-                    <button
-                      onClick={() => setShowGenerateInvoiceModal(true)}
-                      className="gap-1.5 text-xs px-3 py-1 rounded-md border border-trust-blue bg-trust-blue text-white hover:bg-deep-blue font-medium transition-colors flex items-center"
-                    >
-                      <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                      Generate Invoice ({selectedInvoiceOrderIds.size})
-                    </button>
-                  )}
+                  <button
+                    onClick={() => selectedInvoiceOrderIds.size > 0 && setShowGenerateInvoiceModal(true)}
+                    disabled={selectedInvoiceOrderIds.size === 0}
+                    title={selectedInvoiceOrderIds.size === 0 ? 'Select one or more orders using the checkboxes to generate an invoice' : `Generate invoice for ${selectedInvoiceOrderIds.size} order(s)`}
+                    className={`gap-1.5 text-xs px-3 py-1 rounded-md border font-medium transition-colors flex items-center ${
+                      selectedInvoiceOrderIds.size > 0
+                        ? 'border-trust-blue bg-trust-blue text-white hover:bg-deep-blue cursor-pointer'
+                        : 'border-soft-border bg-white text-cool-gray cursor-not-allowed opacity-60'
+                    }`}
+                  >
+                    <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                    Generate Invoice{selectedInvoiceOrderIds.size > 0 ? ` (${selectedInvoiceOrderIds.size})` : ''}
+                  </button>
                   <span className="text-[11px] font-semibold text-cool-gray">{filteredOrders.length} total</span>
                 </div>
               </div>
