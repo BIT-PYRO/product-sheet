@@ -153,7 +153,12 @@ export default function DieInventoryPage() {
     setFetchError('');
     try {
       const res = await fetch('/api/die-inventory?page_size=500');
-      if (!res.ok) throw new Error(`Error ${res.status}`);
+      if (!res.ok) {
+        if (res.status === 502 || res.status === 503) {
+          throw new Error('Server is waking up — please wait a moment and click Refresh.');
+        }
+        throw new Error(`Error ${res.status}`);
+      }
       const data = await res.json();
       const results = data?.data?.results ?? data?.results ?? data?.data ?? [];
       setDies(Array.isArray(results) ? results : []);
