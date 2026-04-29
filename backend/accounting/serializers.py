@@ -211,10 +211,10 @@ class InvoiceSerializer(serializers.ModelSerializer):
             'id', 'type', 'party_name', 'amount', 'department',
             'due_date', 'description', 'status',
             'outstanding_id', 'journal_entry_id',
-            'receipts',
+            'receipts', 'order_refs',
             'created_at', 'updated_at',
         )
-        read_only_fields = ('status', 'outstanding_id', 'journal_entry_id', 'created_at', 'updated_at')
+        read_only_fields = ('status', 'outstanding_id', 'journal_entry_id', 'order_refs', 'created_at', 'updated_at')
 
 
 class InvoiceCreateSerializer(serializers.Serializer):
