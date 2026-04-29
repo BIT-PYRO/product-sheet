@@ -1,6 +1,7 @@
 'use client';
 import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import FinanceEntryModal from './finance-entry-modal';
+import { ReceiptsBadge } from './receipts-viewer';
 import AccountingPayablesReceivables from './accounting-payables-receivables';
 import AccountingDepartmentDashboard from './accounting-department-dashboard';
 import AccountingInvoices from './accounting-invoices';
@@ -15,6 +16,7 @@ import { Calendar as CalendarIcon } from 'lucide-react';
 
 const fmt = n => `₹${Number(n).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
 const today = () => new Date().toISOString().slice(0, 10);
+const fmtDate = d => { if (!d) return '—'; const [y,m,dy] = String(d).substring(0,10).split('-'); return `${dy}-${m}-${y}`; };
 
 const dateRange = preset => {
   const now = new Date(); const to = today();
@@ -75,6 +77,7 @@ const COLS = [
   { key: 'account_name', label: 'Account' },
   { key: 'description', label: 'Description' },
   { key: 'amount', label: 'Amount', right: true },
+  { key: 'receipts', label: 'Receipts' },
 ];
 
 // Design tokens
@@ -171,8 +174,13 @@ function SelectableTable({ rows, columns, loading, emptyMsg, exportName, accentC
                       <span style={{ display: 'inline-block', padding: '2px 8px', background: '#f3f4f6', color: '#374151', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>
                         {row[c.key] || '—'}
                       </span>
+                    ) : c.key === 'receipts' ? (
+                      <ReceiptsBadge
+                        receipts={row.receipts && row.receipts.length > 0 ? row.receipts : row.receipt ? [{ file: row.receipt, filename: String(row.receipt).split('/').pop() }] : []}
+                        title={`Receipts — ${row.description || row.account_name || ''}`}
+                      />
                     ) : (
-                      <span style={{ color: c.key === 'date' ? '#111827' : '#6b7280' }}>{row[c.key]}</span>
+                      <span style={{ color: c.key === 'date' ? '#111827' : '#6b7280' }}>{c.key === 'date' ? fmtDate(row[c.key]) : (row[c.key] || '—')}</span>
                     )}
                   </td>
                 ))}
@@ -286,7 +294,7 @@ function MiniList({ rows, loading, accentColor, emptyText }) {
       <div style={{ overflow: 'hidden', flex: 1 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span style={{ display: 'inline-block', padding: '2px 8px', background: C.slateBg, color: C.muted, borderRadius: 20, fontSize: 11, fontWeight: 600 }}>{r.department || '—'}</span>
-          <span style={{ fontSize: 11, color: C.muted }}>{r.date}</span>
+          <span style={{ fontSize: 11, color: C.muted }}>{fmtDate(r.date)}</span>
         </div>
         <p style={{ margin: '3px 0 0', fontSize: 12, color: C.muted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.account_name}{r.description ? ` — ${r.description}` : ''}</p>
       </div>

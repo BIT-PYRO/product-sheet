@@ -335,3 +335,31 @@ class BankTransaction(models.Model):
 
     def __str__(self):
         return f'BankTx #{self.pk} [{self.type}] {self.amount} on {self.date}'
+
+
+# ---------------------------------------------------------------------------
+# Bulk Settlement — groups multiple Outstanding settlements done at once
+# ---------------------------------------------------------------------------
+
+class BulkSettlement(models.Model):
+    """A named batch/folder that groups N Outstanding items settled together."""
+
+    label = models.CharField(max_length=255, blank=True, default='')
+    settlement_account = models.ForeignKey(
+        Account,
+        on_delete=models.PROTECT,
+        related_name='bulk_settlements',
+    )
+    settlement_date = models.DateField()
+    total_amount = models.DecimalField(max_digits=16, decimal_places=2, default=0)
+    items_count = models.IntegerField(default=0)
+    # JSON list of outstanding IDs settled in this batch
+    outstanding_ids = models.JSONField(default=list)
+    notes = models.TextField(blank=True, default='')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'BulkSettlement #{self.pk} – {self.items_count} items – ₹{self.total_amount}'

@@ -1,8 +1,17 @@
 'use client';
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { ReceiptsBadge } from './receipts-viewer';
 
 const fmt = n => `₹${Number(n).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
 const today = () => new Date().toISOString().slice(0, 10);
+// Display any ISO/YYYY-MM-DD date as DD-MM-YYYY
+const fmtDate = d => {
+  if (!d) return '—';
+  const s = typeof d === 'string' ? d : d.toISOString();
+  const part = s.substring(0, 10); // YYYY-MM-DD
+  const [y, m, dy] = part.split('-');
+  return `${dy}-${m}-${y}`;
+};
 
 const DEFAULT_DEPARTMENTS = [
   'Marketing', 'Customer Relation Management', 'Operations', 'Design',
@@ -258,7 +267,7 @@ function CreateModal({ type, accounts, workforce, onClose, onSuccess }) {
             <div onClick={() => fileRef.current?.click()} style={{ ...S.input, cursor: 'pointer', color: '#9ca3af', textAlign: 'center', border: '1px dashed #d1d5db', padding: 12 }}>
               Click to add receipts...
             </div>
-            <input ref={fileRef} type="file" accept="image/*,.pdf" multiple onChange={e => setReceipts(r => [...r, ...Array.from(e.target.files)])} style={{ display: 'none' }} />
+            <input ref={fileRef} type="file" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.xlsm,.ods,.csv,.ppt,.pptx,.txt,.rtf,.odt" multiple onChange={e => setReceipts(r => [...r, ...Array.from(e.target.files)])} style={{ display: 'none' }} />
             {receipts.length > 0 && (
               <div style={{ marginTop: 8, display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                 {receipts.map((f, i) => (
@@ -408,6 +417,99 @@ function SettleModal({ item, accounts, onClose, onSuccess }) {
   );
 }
 
+function BulkSettleModal({ items, accounts, onClose, onSuccess }) {
+  const [accountId, setAccountId] = useState('');
+  const [date, setDate] = useState(today());
+  const [label, setLabel] = useState('');
+  const [notes, setNotes] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+  const totalAmt = items.reduce((s, r) => s + Number(r.amount), 0);
+  const pendingItems = items.filter(r => r.status === 'pending');
+
+  async function submit(e) {
+    e.preventDefault();
+    if (!accountId) return setError('Please select a payment account.');
+    if (pendingItems.length === 0) return setError('No pending items selected.');
+    setSubmitting(true); setError('');
+    try {
+      const res = await fetch('/api/accounting/outstandings/bulk-settle/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          outstanding_ids: pendingItems.map(r => r.id),
+          payment_account_id: parseInt(accountId),
+          date,
+          label: label.trim() || undefined,
+          notes: notes.trim() || undefined,
+        }),
+      });
+      const data = await res.json().catch(() => null);
+      if (res.status === 401 || res.status === 403) { window.location.href = '/frontend/login'; return; }
+      if (!res.ok || !data?.success) { setError(data?.message || 'Failed.'); setSubmitting(false); return; }
+      onSuccess();
+    } catch { setError('Network error.'); setSubmitting(false); }
+  }
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, backdropFilter: 'blur(3px)' }}>
+      <div style={{ background: '#fff', borderRadius: 16, width: '100%', maxWidth: 540, padding: '28px 32px', boxShadow: '0 32px 80px rgba(0,0,0,0.2)', maxHeight: '96vh', overflowY: 'auto' }}>
+        <div style={{ marginBottom: 22 }}>
+          <span style={{ display: 'inline-block', padding: '3px 10px', background: '#eff6ff', color: '#1d4ed8', borderRadius: 20, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', marginBottom: 8 }}>Bulk Settlement</span>
+          <h3 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: '#111827' }}>Settle {pendingItems.length} Items at Once</h3>
+          <p style={{ margin: '5px 0 0', fontSize: 13, color: '#6b7280' }}>All selected pending items will be settled in a single batch and grouped as a folder in Settlement Logs.</p>
+        </div>
+
+        {/* Items summary */}
+        <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 10, padding: '12px 16px', marginBottom: 20 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+            <span style={{ fontSize: 12, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 0.5 }}>Selected Items</span>
+            <span style={{ fontSize: 13, fontWeight: 800, color: '#111827' }}>{fmt(totalAmt)} total</span>
+          </div>
+          <div style={{ maxHeight: 120, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 4 }}>
+            {pendingItems.map(r => (
+              <div key={r.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#374151', padding: '3px 0', borderBottom: '1px solid #f1f5f9' }}>
+                <span style={{ fontWeight: 600 }}>{r.party_name}</span>
+                <span style={{ fontWeight: 700, color: r.type === 'receivable' ? '#16a34a' : '#dc2626' }}>{fmt(r.amount)}</span>
+              </div>
+            ))}
+          </div>
+          {items.length > pendingItems.length && (
+            <p style={{ margin: '8px 0 0', fontSize: 11, color: '#f59e0b', fontWeight: 600 }}>⚠ {items.length - pendingItems.length} already-settled item(s) will be skipped.</p>
+          )}
+        </div>
+
+        {error && <div style={{ padding: '10px 14px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, color: '#dc2626', fontSize: 13, marginBottom: 18 }}>{error}</div>}
+
+        <form onSubmit={submit}>
+          <div style={{ marginBottom: 14 }}>
+            <label style={S.label}>Payment Account *</label>
+            <AddableAccountSelect accounts={accounts} value={accountId} onChange={setAccountId} />
+          </div>
+          <div style={{ marginBottom: 14 }}>
+            <label style={S.label}>Settlement Date</label>
+            <input type="date" style={S.input} value={date} onChange={e => setDate(e.target.value)} />
+          </div>
+          <div style={{ marginBottom: 14 }}>
+            <label style={S.label}>Batch Label (optional)</label>
+            <input type="text" style={S.input} placeholder={`e.g. April 2025 Supplier Payments`} value={label} onChange={e => setLabel(e.target.value)} />
+          </div>
+          <div style={{ marginBottom: 22 }}>
+            <label style={S.label}>Notes (optional)</label>
+            <textarea rows={2} style={{ ...S.input, resize: 'vertical' }} placeholder="Any additional notes..." value={notes} onChange={e => setNotes(e.target.value)} />
+          </div>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button type="button" onClick={onClose} style={{ flex: 1, padding: '11px 0', background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 8, fontWeight: 600, cursor: 'pointer', color: '#374151' }}>Cancel</button>
+            <button type="submit" disabled={submitting} style={{ flex: 2, padding: '11px 0', background: submitting ? '#9ca3af' : '#2563eb', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 700, cursor: submitting ? 'not-allowed' : 'pointer', fontSize: 15 }}>
+              {submitting ? 'Processing…' : `Settle ${pendingItems.length} Items`}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 function OutstandingTable({ rows, loading, onSettle, selected, setSelected }) {
   const toggleAll = () => setSelected(selected.size === rows.length ? new Set() : new Set(rows.map((_, i) => i)));
   const toggleRow = i => { const s = new Set(selected); s.has(i) ? s.delete(i) : s.add(i); setSelected(s); };
@@ -421,7 +523,7 @@ function OutstandingTable({ rows, loading, onSettle, selected, setSelected }) {
               <input type="checkbox" checked={rows.length > 0 && selected.size === rows.length} onChange={toggleAll} style={{ cursor: 'pointer' }} />
             </th>
             <th className="print-only" style={{ padding: '10px 14px', fontSize: 11, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'left', borderBottom: '1px solid #e5e7eb', display: 'none' }}>S.No</th>
-            {['Party', 'Amount', 'Department', 'Due Date', 'Description', 'Status', 'Action'].map(h => (
+            {['Date', 'Party', 'Amount', 'Department', 'Due Date', 'Description', 'Status', 'Receipts', 'Action'].map(h => (
               <th key={h} className={h === 'Action' ? 'no-print' : ''} style={{ padding: '10px 14px', fontSize: 11, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'left', borderBottom: '1px solid #e5e7eb' }}>{h}</th>
             ))}
           </tr>
@@ -441,6 +543,9 @@ function OutstandingTable({ rows, loading, onSettle, selected, setSelected }) {
                 <input type="checkbox" checked={isSelected} onChange={() => toggleRow(i)} onClick={e => e.stopPropagation()} style={{ cursor: 'pointer' }} />
               </td>
               <td className="print-only" style={{ padding: '11px 14px', fontSize: 13, color: '#111827', display: 'none' }}>{i + 1}</td>
+              <td style={{ padding: '11px 14px', fontSize: 12, color: '#6b7280', whiteSpace: 'nowrap' }}>
+                {fmtDate(row.created_at)}
+              </td>
               <td style={{ padding: '11px 14px', fontWeight: 600, color: '#111827', fontSize: 13 }}>{row.party_name}</td>
               <td style={{ padding: '11px 14px', textAlign: 'left', fontWeight: 700, color: row.type === 'receivable' ? '#16a34a' : '#dc2626', fontSize: 13 }}>{fmt(row.amount)}</td>
               <td style={{ padding: '11px 14px', fontSize: 12, color: '#374151', fontWeight: 600 }}>
@@ -450,9 +555,16 @@ function OutstandingTable({ rows, loading, onSettle, selected, setSelected }) {
                   </span>
                 ) : '—'}
               </td>
-              <td style={{ padding: '11px 14px', fontSize: 12, color: '#6b7280' }}>{row.due_date || '—'}</td>
+              <td style={{ padding: '11px 14px', fontSize: 12, color: '#6b7280' }}>{fmtDate(row.due_date)}</td>
               <td style={{ padding: '11px 14px', fontSize: 12, color: '#6b7280', maxWidth: 200 }}><span style={{ overflow: 'hidden', display: 'block', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.description || '—'}</span></td>
               <td style={{ padding: '11px 14px' }}><Badge status={row.status} type={row.type} /></td>
+              <td className="no-print" style={{ padding: '11px 10px' }} onClick={e => e.stopPropagation()}>
+                <ReceiptsBadge
+                  receipts={row.receipts || []}
+                  title={`Receipts — ${row.party_name}`}
+                  accentColor="#2563eb"
+                />
+              </td>
               <td className="no-print" style={{ padding: '11px 14px' }} onClick={e => e.stopPropagation()}>
                 {row.status === 'pending' ? (
                   <button onClick={() => onSettle(row)} style={{ padding: '5px 14px', background: '#16a34a', color: '#fff', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
@@ -595,6 +707,14 @@ export default function AccountingPayablesReceivables({ embedded = false, onRefr
               {selected.size} selected
             </span>
           )}
+          {selected.size >= 2 && filtered.filter((_, i) => selected.has(i)).every(r => r.status === 'pending') && (
+            <button
+              onClick={() => setModal({ bulkSettle: filtered.filter((_, i) => selected.has(i)) })}
+              style={{ padding: '7px 16px', background: '#2563eb', color: '#fff', border: 'none', borderRadius: 7, fontSize: 13, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
+            >
+              ⚡ Bulk Settle ({selected.size})
+            </button>
+          )}
           <button onClick={() => window.print()} style={btn}>
             Print{selected.size > 0 ? ` (${selected.size})` : ' All'}
           </button>
@@ -680,6 +800,14 @@ export default function AccountingPayablesReceivables({ embedded = false, onRefr
       {modal?.settle && (
         <SettleModal
           item={modal.settle}
+          accounts={accounts}
+          onClose={() => setModal(null)}
+          onSuccess={() => { setModal(null); loadAll(); if (onRefresh) onRefresh(); }}
+        />
+      )}
+      {modal?.bulkSettle && (
+        <BulkSettleModal
+          items={modal.bulkSettle}
           accounts={accounts}
           onClose={() => setModal(null)}
           onSuccess={() => { setModal(null); loadAll(); if (onRefresh) onRefresh(); }}

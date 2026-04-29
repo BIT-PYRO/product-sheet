@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
+const fmtDate = d => { if (!d) return '—'; const [y,m,dy] = String(d).substring(0,10).split('-'); return `${dy}-${m}-${y}`; };
+
 export default function ExpensesListPage() {
   const [expenses, setExpenses] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -93,7 +95,7 @@ export default function ExpensesListPage() {
             ) : (
               expenses.map((exp) => (
                 <tr key={exp.id} style={{ borderBottom: '1px solid #e5e7eb' }}>
-                  <td style={{ padding: '14px 16px', fontSize: 14, color: '#111827' }}>{exp.date}</td>
+                  <td style={{ padding: '14px 16px', fontSize: 14, color: '#111827' }}>{fmtDate(exp.date)}</td>
                   <td style={{ padding: '14px 16px', fontSize: 14, color: '#111827', fontWeight: 500 }}>
                     <span style={{ display: 'inline-block', padding: '2px 8px', background: '#e0e7ff', color: '#4338ca', borderRadius: 12, fontSize: 12 }}>
                       {exp.category_name}

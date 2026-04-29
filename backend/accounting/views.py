@@ -13,6 +13,7 @@ from common.api import api_success
 
 from .models import (
     Account, BankAccount, BankTransaction,
+    BulkSettlement,
     Expense, Income, Invoice, JournalEntry, JournalItem, Ledger, Outstanding, OutstandingReceipt, PendingExpense,
 )
 from .services.bank_import_service import build_preview, confirm_import, parse_file
@@ -21,6 +22,7 @@ from .serializers import (
     BankAccountCreateSerializer,
     BankAccountSerializer,
     BankTransactionSerializer,
+    BulkSettlementSerializer,
     ExpenseSerializer,
     IncomeSerializer,
     InvoiceCreateSerializer,
@@ -350,12 +352,31 @@ class JournalCreateView(APIView):
         )
 
 
+def _build_transaction_detail(item):
+    """Convert a JournalItem + its JournalEntry into a transaction detail dict."""
+    return {
+        'id': item.id,
+        'entry_id': item.entry_id,
+        'entry_date': str(item.entry.date),
+        'entry_description': item.entry.description or '',
+        'debit': float(item.debit or 0),
+        'credit': float(item.credit or 0),
+        'department': item.department or '',
+        'payment_method': item.payment_method or '',
+        'vendor_payee': item.vendor_payee or '',
+        'bill_date': str(item.bill_date) if item.bill_date else '',
+        'ref_id': item.ref_id or '',
+        'notes': item.notes or '',
+    }
+
+
 class LedgerSummaryView(APIView):
-    """Aggregate debit/credit totals per ledger from all journal items."""
+    """Aggregate debit/credit totals per ledger from all journal items, with transaction drill-down."""
 
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
+        # Aggregates
         summary = (
             JournalItem.objects
             .values('ledger__id', 'ledger__name', 'ledger__type')
@@ -363,16 +384,29 @@ class LedgerSummaryView(APIView):
             .order_by('ledger__name')
         )
 
-        data = [
-            {
-                'ledger_id': row['ledger__id'],
+        # Per-ledger transactions (select_related for entry date/description)
+        items_qs = (
+            JournalItem.objects
+            .select_related('entry')
+            .order_by('ledger__id', '-entry__date', '-entry__created_at')
+        )
+        # Group by ledger_id
+        from collections import defaultdict
+        tx_map = defaultdict(list)
+        for item in items_qs:
+            tx_map[item.ledger_id].append(_build_transaction_detail(item))
+
+        data = []
+        for row in summary:
+            lid = row['ledger__id']
+            data.append({
+                'ledger_id': lid,
                 'ledger': row['ledger__name'],
                 'type': row['ledger__type'],
                 'total_debit': str(row['total_debit']),
                 'total_credit': str(row['total_credit']),
-            }
-            for row in summary
-        ]
+                'transactions': tx_map.get(lid, []),
+            })
 
         return api_success(data, message='Ledger summary fetched successfully.')
 
@@ -390,6 +424,7 @@ class TrialBalanceView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
+        from collections import defaultdict
         # Aggregate per ledger
         rows = (
             JournalItem.objects
@@ -397,6 +432,11 @@ class TrialBalanceView(APIView):
             .annotate(total_debit=Sum('debit'), total_credit=Sum('credit'))
             .order_by('ledger__name')
         )
+
+        # Build transaction map
+        tx_map = defaultdict(list)
+        for item in JournalItem.objects.select_related('entry').order_by('ledger__id', '-entry__date'):
+            tx_map[item.ledger_id].append(_build_transaction_detail(item))
 
         entries = []
         grand_debit = 0
@@ -407,7 +447,6 @@ class TrialBalanceView(APIView):
             c = float(row['total_credit'] or 0)
             balance = d - c
 
-            # Positive balance → debit side; negative → credit side
             if balance >= 0:
                 debit_val = round(balance, 2)
                 credit_val = 0
@@ -418,12 +457,14 @@ class TrialBalanceView(APIView):
             grand_debit += debit_val
             grand_credit += credit_val
 
+            lid = row['ledger__id']
             entries.append({
-                'ledger_id': row['ledger__id'],
+                'ledger_id': lid,
                 'ledger': row['ledger__name'],
                 'type': row['ledger__type'],
                 'debit': debit_val,
                 'credit': credit_val,
+                'transactions': tx_map.get(lid, []),
             })
 
         grand_debit = round(grand_debit, 2)
@@ -460,12 +501,18 @@ class ProfitLossView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
+        from collections import defaultdict
         rows = (
             JournalItem.objects
             .values('ledger__id', 'ledger__name', 'ledger__type')
             .annotate(total_debit=Sum('debit'), total_credit=Sum('credit'))
             .order_by('ledger__name')
         )
+
+        # Transaction detail map
+        tx_map = defaultdict(list)
+        for item in JournalItem.objects.select_related('entry').order_by('ledger__id', '-entry__date'):
+            tx_map[item.ledger_id].append(_build_transaction_detail(item))
 
         income_items = []
         expense_items = []
@@ -476,24 +523,25 @@ class ProfitLossView(APIView):
             d = float(row['total_debit'] or 0)
             c = float(row['total_credit'] or 0)
             ledger_type = row['ledger__type']
+            lid = row['ledger__id']
 
             if ledger_type == 'income':
-                # Income: credit side minus debit side
                 balance = round(c - d, 2)
                 income_items.append({
-                    'ledger_id': row['ledger__id'],
+                    'ledger_id': lid,
                     'ledger': row['ledger__name'],
                     'amount': balance,
+                    'transactions': tx_map.get(lid, []),
                 })
                 total_income += balance
 
             elif ledger_type == 'expense':
-                # Expense: debit side minus credit side
                 balance = round(d - c, 2)
                 expense_items.append({
-                    'ledger_id': row['ledger__id'],
+                    'ledger_id': lid,
                     'ledger': row['ledger__name'],
                     'amount': balance,
+                    'transactions': tx_map.get(lid, []),
                 })
                 total_expense += balance
 
@@ -552,7 +600,13 @@ class BalanceSheetView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
+        from collections import defaultdict
         rows = _ledger_aggregates()
+
+        # Transaction detail map
+        tx_map = defaultdict(list)
+        for item in JournalItem.objects.select_related('entry').order_by('ledger__id', '-entry__date'):
+            tx_map[item.ledger_id].append(_build_transaction_detail(item))
 
         asset_items = []
         liability_items = []
@@ -563,32 +617,32 @@ class BalanceSheetView(APIView):
             d = float(row['total_debit'] or 0)
             c = float(row['total_credit'] or 0)
             ledger_type = row['ledger__type']
+            lid = row['ledger__id']
 
             if ledger_type == 'asset':
                 balance = round(d - c, 2)
                 asset_items.append({
-                    'ledger_id': row['ledger__id'],
+                    'ledger_id': lid,
                     'ledger': row['ledger__name'],
                     'amount': balance,
+                    'transactions': tx_map.get(lid, []),
                 })
                 total_assets += balance
 
             elif ledger_type == 'liability':
                 balance = round(c - d, 2)
                 liability_items.append({
-                    'ledger_id': row['ledger__id'],
+                    'ledger_id': lid,
                     'ledger': row['ledger__name'],
                     'amount': balance,
+                    'transactions': tx_map.get(lid, []),
                 })
                 total_liabilities += balance
 
         total_assets = round(total_assets, 2)
         total_liabilities = round(total_liabilities, 2)
 
-        # Equity = retained profit (income − expense)
         equity = _compute_profit()
-
-        # Accounting equation check
         is_balanced = total_assets == round(total_liabilities + equity, 2)
 
         return api_success(
@@ -1015,6 +1069,165 @@ class OutstandingSettleView(APIView):
             return api_success(OutstandingSerializer(outstanding).data, message='Settled successfully.')
         except Exception as e:
             return Response({'success': False, 'message': str(e)}, status=400)
+
+
+# ═══════════════════════════════════════════════════════════════════
+# BULK SETTLEMENT — settle multiple outstandings in one batch
+# ═══════════════════════════════════════════════════════════════════
+
+class BulkSettleView(APIView):
+    """
+    POST /api/accounting/outstandings/bulk-settle/
+    Body: {
+      outstanding_ids: [1, 2, 3],
+      payment_account_id: <int>,
+      date: "YYYY-MM-DD",
+      label: "Optional batch label",
+      notes: ""
+    }
+
+    Settles each pending outstanding individually (reusing OutstandingSettleView logic),
+    then creates a BulkSettlement record that groups them as a folder.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        outstanding_ids = request.data.get('outstanding_ids', [])
+        payment_account_id = request.data.get('payment_account_id')
+        settle_date = request.data.get('date') or date.today().isoformat()
+        label = (request.data.get('label') or '').strip()
+        notes = (request.data.get('notes') or '').strip()
+
+        if not outstanding_ids or not isinstance(outstanding_ids, list):
+            return Response({'success': False, 'message': 'outstanding_ids must be a non-empty list.'}, status=400)
+        if not payment_account_id:
+            return Response({'success': False, 'message': 'payment_account_id is required.'}, status=400)
+
+        try:
+            payment_account = Account.objects.get(pk=payment_account_id)
+        except Account.DoesNotExist:
+            return Response({'success': False, 'message': 'Payment account not found.'}, status=404)
+
+        outstandings = Outstanding.objects.filter(pk__in=outstanding_ids, status=Outstanding.Status.PENDING)
+        if not outstandings.exists():
+            return Response({'success': False, 'message': 'No pending outstandings found for the given IDs.'}, status=400)
+
+        settled_ids = []
+        total_amount = 0
+
+        try:
+            with transaction.atomic():
+                bank_ledger = payment_account.get_or_create_ledger()
+
+                for outstanding in outstandings:
+                    amount = outstanding.amount
+                    dept = (outstanding.department or 'General').strip()
+                    party = outstanding.party_name
+
+                    if outstanding.type == Outstanding.OutstandingType.RECEIVABLE:
+                        ar_ledger, _ = Ledger.objects.get_or_create(
+                            name='Accounts Receivable', defaults={'type': Ledger.LedgerType.ASSET}
+                        )
+                        journal = JournalEntry.objects.create(
+                            date=settle_date,
+                            description=f'[Bulk] Settlement of receivable from {party}',
+                        )
+                        JournalItem.objects.create(
+                            entry=journal, ledger=bank_ledger, debit=amount, credit=0,
+                            vendor_payee=party, department=dept,
+                        )
+                        JournalItem.objects.create(
+                            entry=journal, ledger=ar_ledger, debit=0, credit=amount,
+                            vendor_payee=party, department=dept,
+                        )
+                        income_ledger, _ = Ledger.objects.get_or_create(
+                            name=f'{dept} Income', defaults={'type': Ledger.LedgerType.INCOME}
+                        )
+                        Income.objects.create(
+                            amount=amount, category=income_ledger, account=payment_account,
+                            date=settle_date, description=f'[Bulk] Settled receivable — {party}',
+                            department=dept, journal_entry=journal,
+                        )
+                    else:
+                        ap_ledger, _ = Ledger.objects.get_or_create(
+                            name='Accounts Payable', defaults={'type': Ledger.LedgerType.LIABILITY}
+                        )
+                        journal = JournalEntry.objects.create(
+                            date=settle_date,
+                            description=f'[Bulk] Settlement of payable to {party}',
+                        )
+                        JournalItem.objects.create(
+                            entry=journal, ledger=ap_ledger, debit=amount, credit=0,
+                            vendor_payee=party, department=dept,
+                        )
+                        JournalItem.objects.create(
+                            entry=journal, ledger=bank_ledger, debit=0, credit=amount,
+                            vendor_payee=party, department=dept,
+                        )
+                        expense_ledger, _ = Ledger.objects.get_or_create(
+                            name=f'{dept} Expense', defaults={'type': Ledger.LedgerType.EXPENSE}
+                        )
+                        Expense.objects.create(
+                            amount=amount, category=expense_ledger, account=payment_account,
+                            date=settle_date, description=f'[Bulk] Settled payable — {party}',
+                            department=dept, journal_entry=journal,
+                        )
+
+                    outstanding.status = Outstanding.Status.PAID
+                    outstanding.settlement_journal = journal
+                    outstanding.settlement_account = payment_account
+                    outstanding.save(update_fields=['status', 'settlement_journal', 'settlement_account', 'updated_at'])
+
+                    # Sync linked Invoice if any
+                    if hasattr(outstanding, 'invoice') and outstanding.invoice:
+                        linked_inv = outstanding.invoice
+                        if linked_inv.status != Invoice.Status.SETTLED:
+                            linked_inv.status = Invoice.Status.SETTLED
+                            linked_inv.journal_entry = journal
+                            linked_inv.save(update_fields=['status', 'journal_entry', 'updated_at'])
+
+                    settled_ids.append(outstanding.pk)
+                    total_amount += float(amount)
+
+                # Auto-generate label if not provided
+                if not label:
+                    label = f'Bulk Settlement — {settle_date} ({len(settled_ids)} items)'
+
+                bulk = BulkSettlement.objects.create(
+                    label=label,
+                    settlement_account=payment_account,
+                    settlement_date=settle_date,
+                    total_amount=round(total_amount, 2),
+                    items_count=len(settled_ids),
+                    outstanding_ids=settled_ids,
+                    notes=notes,
+                )
+
+            logger.info(
+                'BulkSettlement #%s: %d items settled, total ₹%s via account %s',
+                bulk.pk, len(settled_ids), round(total_amount, 2), payment_account.name,
+            )
+            return api_success(
+                BulkSettlementSerializer(bulk).data,
+                message=f'{len(settled_ids)} items settled successfully as Bulk #{bulk.pk}.',
+                status_code=201,
+            )
+
+        except Exception as exc:
+            logger.error('BulkSettle failed: %s', exc, exc_info=True)
+            return Response({'success': False, 'message': str(exc)}, status=400)
+
+
+class BulkSettlementListView(APIView):
+    """
+    GET /api/accounting/bulk-settlements/
+    Returns all bulk settlement folders, newest first.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        qs = BulkSettlement.objects.select_related('settlement_account').all()
+        return api_success(BulkSettlementSerializer(qs, many=True).data, message='Bulk settlements fetched.')
 
 
 class OutstandingDashboardView(APIView):

@@ -2,6 +2,9 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 
 const fmt = n => `₹${Number(n).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
+const todayLabel = () => new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+const fileDate  = () => new Date().toISOString().slice(0, 10);
+const btnS = { padding: '7px 14px', background: '#fff', border: '1px solid #e5e7eb', borderRadius: 7, fontSize: 13, fontWeight: 600, color: '#374151', cursor: 'pointer' };
 
 // ── Design tokens (mirror accounting-finance.jsx) ────────────────────────────
 const C = {
@@ -24,9 +27,9 @@ const MOCK_DEPARTMENTS = [
     expense: 142000,
     income_entries: 24, expense_entries: 18,
     top_accounts: [
-      { name: 'Product Sales', amount: 210000, type: 'income' },
-      { name: 'Service Revenue', amount: 170000, type: 'income' },
-      { name: 'Travel & Conveyance', amount: 52000, type: 'expense' },
+      { name: 'Product Sales',      amount: 210000, type: 'income',  date: '15 Apr 2026', description: 'Monthly product sales revenue', receipt: 'INV-2026-041' },
+      { name: 'Service Revenue',    amount: 170000, type: 'income',  date: '18 Apr 2026', description: 'Consulting & support services', receipt: 'INV-2026-042' },
+      { name: 'Travel & Conveyance',amount:  52000, type: 'expense', date: '20 Apr 2026', description: 'Client visit travel expenses',  receipt: 'EXP-2026-018' },
     ],
   },
   {
@@ -37,9 +40,9 @@ const MOCK_DEPARTMENTS = [
     expense: 230000,
     income_entries: 8, expense_entries: 34,
     top_accounts: [
-      { name: 'Machinery Maintenance', amount: 95000, type: 'expense' },
-      { name: 'Utilities', amount: 48000, type: 'expense' },
-      { name: 'Raw Material', amount: 87000, type: 'expense' },
+      { name: 'Machinery Maintenance', amount: 95000, type: 'expense', date: '10 Apr 2026', description: 'Quarterly machine servicing',    receipt: 'EXP-2026-031' },
+      { name: 'Utilities',             amount: 48000, type: 'expense', date: '05 Apr 2026', description: 'Electricity & water bills',       receipt: 'EXP-2026-032' },
+      { name: 'Raw Material',          amount: 87000, type: 'expense', date: '12 Apr 2026', description: 'Raw material procurement batch 4', receipt: 'EXP-2026-033' },
     ],
   },
   {
@@ -50,9 +53,9 @@ const MOCK_DEPARTMENTS = [
     expense: 175000,
     income_entries: 2, expense_entries: 22,
     top_accounts: [
-      { name: 'Salaries', amount: 120000, type: 'expense' },
-      { name: 'Office Supplies', amount: 28000, type: 'expense' },
-      { name: 'Employee Benefits', amount: 27000, type: 'expense' },
+      { name: 'Salaries',         amount: 120000, type: 'expense', date: '01 Apr 2026', description: 'April salary disbursement',     receipt: 'EXP-2026-001' },
+      { name: 'Office Supplies',  amount:  28000, type: 'expense', date: '08 Apr 2026', description: 'Stationery & printer cartridges', receipt: 'EXP-2026-009' },
+      { name: 'Employee Benefits',amount:  27000, type: 'expense', date: '14 Apr 2026', description: 'Medical & wellness allowances',   receipt: 'EXP-2026-014' },
     ],
   },
   {
@@ -63,9 +66,9 @@ const MOCK_DEPARTMENTS = [
     expense: 118000,
     income_entries: 6, expense_entries: 15,
     top_accounts: [
-      { name: 'Digital Ads', amount: 60000, type: 'expense' },
-      { name: 'Events & Sponsorship', amount: 35000, type: 'expense' },
-      { name: 'Referral Income', amount: 55000, type: 'income' },
+      { name: 'Digital Ads',          amount: 60000, type: 'expense', date: '03 Apr 2026', description: 'Google & Meta ad campaigns Q1',  receipt: 'EXP-2026-021' },
+      { name: 'Events & Sponsorship', amount: 35000, type: 'expense', date: '17 Apr 2026', description: 'Industry expo sponsorship fee',   receipt: 'EXP-2026-025' },
+      { name: 'Referral Income',      amount: 55000, type: 'income',  date: '22 Apr 2026', description: 'Partner referral commission',     receipt: 'INV-2026-038' },
     ],
   },
   {
@@ -76,9 +79,9 @@ const MOCK_DEPARTMENTS = [
     expense: 41000,
     income_entries: 4, expense_entries: 9,
     top_accounts: [
-      { name: 'Bank Charges', amount: 18000, type: 'expense' },
-      { name: 'Audit Fees', amount: 23000, type: 'expense' },
-      { name: 'Interest Income', amount: 22000, type: 'income' },
+      { name: 'Bank Charges',   amount: 18000, type: 'expense', date: '02 Apr 2026', description: 'Monthly bank service charges',  receipt: 'EXP-2026-002' },
+      { name: 'Audit Fees',     amount: 23000, type: 'expense', date: '11 Apr 2026', description: 'Annual audit firm fees Q1',     receipt: 'EXP-2026-011' },
+      { name: 'Interest Income',amount: 22000, type: 'income',  date: '28 Apr 2026', description: 'FD interest credited this month', receipt: 'INV-2026-039' },
     ],
   },
 ];
@@ -184,21 +187,45 @@ function DeptCard({ dept, maxExpense, onClick, selected }) {
 // ── Department Detail Panel ───────────────────────────────────────────────────
 function DeptDetail({ dept }) {
   if (!dept) return null;
+  const [sel, setSel] = useState(new Set());
   const net = dept.income - dept.expense;
   const isPos = net >= 0;
+  const today = todayLabel();
+  const accs = dept.top_accounts;
+  const selCount = sel.size;
+  const togAcc = i => { const s = new Set(sel); s.has(i) ? s.delete(i) : s.add(i); setSel(s); };
+  const togAll = () => setSel(selCount === accs.length ? new Set() : new Set(accs.map((_, i) => i)));
+  const target = selCount > 0 ? accs.filter((_, i) => sel.has(i)) : accs;
+
+  const doCSV = () => {
+    const header = `Department: ${dept.name},Date: ${today},,,,`;
+    const summary = `Total Income: ${dept.income},Total Expense: ${dept.expense},Net: ${Math.abs(net)} ${isPos?'Surplus':'Deficit'},,, `;
+    const rows = [
+      'Account,Type,Date,Description,Receipt,Amount',
+      ...target.map(a => `${a.name},${a.type==='income'?'Income':'Expense'},${a.date||today},"${a.description||''}",${a.receipt||''},${a.amount}`)
+    ];
+    const csv = [header, summary, '', ...rows].join('\n');
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+    a.download = `dept_${dept.name.replace(/\s+/g,'_').toLowerCase()}_${fileDate()}.csv`;
+    a.click();
+  };
+
+  const doPrint = () => window.print();
 
   return (
-    <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 14, padding: '20px 22px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+    <div id="dept-print-area" style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 14, padding: '20px 22px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+      <style>{`@media print{body *{visibility:hidden}#dept-print-area,#dept-print-area *{visibility:visible}#dept-print-area{position:absolute;left:0;top:0;width:100%}.no-dept-print{display:none!important}.hide-dept-row{display:none!important}}`}</style>
+
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
-        <div style={{ width: 44, height: 44, borderRadius: 12, background: dept.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22 }}>
-          {dept.icon}
-        </div>
-        <div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+        <div style={{ width: 44, height: 44, borderRadius: 12, background: dept.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22 }}>{dept.icon}</div>
+        <div style={{ flex: 1 }}>
           <h3 style={{ margin: 0, fontSize: 17, fontWeight: 800, color: C.text }}>{dept.name} Department</h3>
           <p style={{ margin: '2px 0 0', fontSize: 12, color: C.muted }}>
-            {dept.income_entries + dept.expense_entries} total entries · Net{' '}
+            {dept.income_entries + dept.expense_entries} total entries &middot; Net{' '}
             <span style={{ color: isPos ? C.green : C.red, fontWeight: 700 }}>{fmt(Math.abs(net))} {isPos ? 'surplus' : 'deficit'}</span>
+            <span style={{ marginLeft: 10, color: C.muted }}>· {today}</span>
           </p>
         </div>
       </div>
@@ -206,9 +233,9 @@ function DeptDetail({ dept }) {
       {/* KPI row */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10, marginBottom: 20 }}>
         {[
-          { label: 'Total Income',   value: fmt(dept.income),  color: C.green, bg: C.greenBg },
-          { label: 'Total Expense',  value: fmt(dept.expense), color: C.red,   bg: C.redBg   },
-          { label: 'Net Balance',    value: fmt(Math.abs(net)), color: isPos ? C.green : C.red, bg: isPos ? C.greenBg : C.redBg },
+          { label: 'Total Income',  value: fmt(dept.income),   color: C.green, bg: C.greenBg },
+          { label: 'Total Expense', value: fmt(dept.expense),  color: C.red,   bg: C.redBg },
+          { label: 'Net Balance',   value: fmt(Math.abs(net)), color: isPos ? C.green : C.red, bg: isPos ? C.greenBg : C.redBg },
         ].map((k, i) => (
           <div key={i} style={{ background: k.bg, borderRadius: 10, padding: '14px 16px' }}>
             <p style={{ margin: '0 0 6px', fontSize: 10, fontWeight: 600, color: C.muted, textTransform: 'uppercase', letterSpacing: 0.5 }}>{k.label}</p>
@@ -217,29 +244,70 @@ function DeptDetail({ dept }) {
         ))}
       </div>
 
-      {/* Top Accounts */}
+      {/* Top Accounts — Print/Export bar + checkboxes */}
       <SectionLabel>Top Accounts</SectionLabel>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 0, borderRadius: 10, overflow: 'hidden', border: `1px solid ${C.border}` }}>
-        {dept.top_accounts.map((acc, i) => (
-          <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', background: C.surface, borderBottom: i < dept.top_accounts.length - 1 ? `1px solid ${C.slateBg}` : 'none' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <div style={{ width: 28, height: 28, borderRadius: 7, background: acc.type === 'income' ? C.greenBg : C.redBg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, color: acc.type === 'income' ? C.green : C.red, fontWeight: 900 }}>
-                {acc.type === 'income' ? '↑' : '↓'}
-              </div>
-              <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: C.text }}>{acc.name}</p>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <Badge
-                label={acc.type === 'income' ? 'Income' : 'Expense'}
-                color={acc.type === 'income' ? C.green : C.red}
-                bg={acc.type === 'income' ? C.greenBg : C.redBg}
-              />
-              <span style={{ fontSize: 13, fontWeight: 800, color: acc.type === 'income' ? C.green : C.red }}>
-                {fmt(acc.amount)}
-              </span>
-            </div>
-          </div>
-        ))}
+      <div className="no-dept-print" style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+        {selCount > 0 && (
+          <span style={{ fontSize: 12, fontWeight: 700, color: '#374151', background: '#eff6ff', border: '1px solid #bfdbfe', padding: '4px 10px', borderRadius: 20 }}>
+            {selCount} row{selCount > 1 ? 's' : ''} selected
+          </span>
+        )}
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+          <button onClick={doPrint} style={btnS}>Print{selCount > 0 ? ` (${selCount})` : ' All'}</button>
+          <button onClick={doCSV}   style={btnS}>Export CSV{selCount > 0 ? ` (${selCount})` : ''}</button>
+        </div>
+      </div>
+
+      <div style={{ borderRadius: 10, overflow: 'hidden', border: `1px solid ${C.border}` }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <thead>
+            <tr style={{ background: '#f9fafb' }}>
+              <th className="no-dept-print" style={{ width: 36, padding: '9px 12px', borderBottom: `1px solid ${C.border}` }}>
+                <input type="checkbox" checked={selCount === accs.length && accs.length > 0} onChange={togAll} style={{ cursor: 'pointer', accentColor: '#2563eb' }} />
+              </th>
+              {['Account', 'Type', 'Date', 'Description', 'Receipt', 'Amount'].map(h => (
+                <th key={h} style={{ padding: '9px 14px', fontSize: 11, fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: 0.5, textAlign: h === 'Amount' ? 'right' : 'left', borderBottom: `1px solid ${C.border}` }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {accs.map((acc, i) => {
+              const isSel = sel.has(i);
+              const hide = selCount > 0 && !isSel ? 'hide-dept-row' : '';
+              return (
+                <tr key={i} className={hide}
+                  onClick={() => togAcc(i)}
+                  style={{ borderBottom: i < accs.length - 1 ? `1px solid #f3f4f6` : 'none', background: isSel ? C.blueBg : 'transparent', cursor: 'pointer', transition: 'background 0.1s' }}
+                  onMouseEnter={e => { if (!isSel) e.currentTarget.style.background = '#f9fafb'; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = isSel ? C.blueBg : 'transparent'; }}
+                >
+                  <td className="no-dept-print" style={{ padding: '11px 12px' }}>
+                    <input type="checkbox" checked={isSel} onChange={() => togAcc(i)} onClick={e => e.stopPropagation()} style={{ cursor: 'pointer', accentColor: '#2563eb' }} />
+                  </td>
+                  <td style={{ padding: '11px 14px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <div style={{ width: 26, height: 26, borderRadius: 7, background: acc.type === 'income' ? C.greenBg : C.redBg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: acc.type === 'income' ? C.green : C.red, fontWeight: 900 }}>
+                        {acc.type === 'income' ? '↑' : '↓'}
+                      </div>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: C.text }}>{acc.name}</span>
+                    </div>
+                  </td>
+                  <td style={{ padding: '11px 14px' }}>
+                    <Badge label={acc.type === 'income' ? 'Income' : 'Expense'} color={acc.type === 'income' ? C.green : C.red} bg={acc.type === 'income' ? C.greenBg : C.redBg} />
+                  </td>
+                  <td style={{ padding: '11px 14px', fontSize: 12, color: C.muted, whiteSpace: 'nowrap' }}>{acc.date || today}</td>
+                  <td style={{ padding: '11px 14px', fontSize: 12, color: C.text, maxWidth: 200 }}>{acc.description || '—'}</td>
+                  <td style={{ padding: '11px 14px' }}>
+                    {acc.receipt
+                      ? <span style={{ fontSize: 11, fontWeight: 700, color: C.blue, background: C.blueBg, border: '1px solid #bfdbfe', padding: '2px 8px', borderRadius: 6 }}>{acc.receipt}</span>
+                      : <span style={{ fontSize: 12, color: C.muted }}>—</span>}
+                  </td>
+                  <td style={{ padding: '11px 14px', textAlign: 'right', fontSize: 13, fontWeight: 800, color: acc.type === 'income' ? C.green : C.red }}>{fmt(acc.amount)}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       </div>
     </div>
   );
@@ -444,6 +512,24 @@ export default function AccountingDepartmentDashboard() {
               <button key={k} onClick={() => setSortBy(k)} style={sortBtnStyle(sortBy === k)}>{l}</button>
             ))}
           </div>
+
+          {/* Divider */}
+          <div style={{ width: 1, height: 22, background: C.border, flexShrink: 0 }} />
+
+          {/* Print / Export — uses currently filtered sortedDepts */}
+          <button onClick={() => window.print()} style={btnS}>Print All</button>
+          <button onClick={() => {
+            const today = todayLabel();
+            const rows = [
+              `Department Summary,Date: ${today},,`,
+              'Department,Income,Expense,Net,Status',
+              ...sortedDepts.map(d => `${d.name},${d.income},${d.expense},${d.income-d.expense},${d.income>=d.expense?'Surplus':'Deficit'}`)
+            ].join('\n');
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(new Blob([rows], { type: 'text/csv' }));
+            a.download = `departments_${fileDate()}.csv`;
+            a.click();
+          }} style={btnS}>Export CSV</button>
 
         </div>
       </div>

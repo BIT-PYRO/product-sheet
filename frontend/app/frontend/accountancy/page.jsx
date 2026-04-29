@@ -9,6 +9,7 @@ import AccountingProfitLoss from '@/components/accounting-profit-loss';
 import AccountingBalanceSheet from '@/components/accounting-balance-sheet';
 import AccountingPendingExpenses from '@/components/accounting-pending-expenses';
 import AccountingFinance from '@/components/accounting-finance';
+import AccountingPayroll from '@/components/accounting-payroll';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
 import DateTimeStamp from '@/components/date-time-stamp';
 import DeletionHistoryDrawer from '@/components/deletion-history-drawer';
@@ -21,6 +22,7 @@ const TABS = [
   { key: 'balance-sheet', label: 'Balance Sheet' },
   { key: 'pending-expenses', label: 'Pending Expenses' },
   { key: 'finance', label: 'Finance' },
+  { key: 'payroll', label: 'Payroll' },
 ];
 
 export default function AccountancyPage() {
@@ -111,6 +113,7 @@ export default function AccountancyPage() {
         {activeTab === 'balance-sheet' && <AccountingBalanceSheet />}
         {activeTab === 'pending-expenses' && <AccountingPendingExpenses />}
         {activeTab === 'finance' && <AccountingFinance />}
+        {activeTab === 'payroll' && <AccountingPayroll />}
           </>
         )}
       </div>

@@ -2,6 +2,8 @@ from django.urls import path
 
 from .views import (
     BalanceSheetView,
+    BulkSettleView,
+    BulkSettlementListView,
     InvoiceListCreateView,
     InvoiceSettleView,
     BankAccountDetailView,
@@ -55,8 +57,11 @@ urlpatterns = [
     # Outstanding endpoints
     path('outstandings/', OutstandingListView.as_view(), name='accounting-outstandings'),
     path('outstandings/dashboard/', OutstandingDashboardView.as_view(), name='accounting-outstandings-dashboard'),
+    path('outstandings/bulk-settle/', BulkSettleView.as_view(), name='accounting-outstandings-bulk-settle'),
     path('outstandings/<int:pk>/settle/', OutstandingSettleView.as_view(), name='accounting-outstanding-settle'),
     path('outstandings/<int:pk>/receipts/', OutstandingReceiptView.as_view(), name='accounting-outstanding-receipts'),
+    # Bulk Settlement folders
+    path('bulk-settlements/', BulkSettlementListView.as_view(), name='accounting-bulk-settlements'),
     # Invoice endpoints
     path('invoices/', InvoiceListCreateView.as_view(), name='accounting-invoices'),
     path('invoices/<int:pk>/settle/', InvoiceSettleView.as_view(), name='accounting-invoice-settle'),
