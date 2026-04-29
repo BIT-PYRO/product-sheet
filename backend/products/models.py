@@ -54,6 +54,7 @@ class Product(AuditModel):
 	category = models.CharField(max_length=120, blank=True, default='')
 	selling_price = models.DecimalField(max_digits=12, decimal_places=2, default=0)
 	cost_price = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+	invoice_price = models.DecimalField(max_digits=14, decimal_places=2, default=0, blank=True, help_text='Per-unit price used when auto-calculating invoice totals from picklist orders')
 	is_active = models.BooleanField(default=True)
 	# Each item: {"value": "...", "quantity": "...", "location": "..."}
 	die_numbers = models.JSONField(default=list, blank=True)

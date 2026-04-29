@@ -220,7 +220,7 @@ class InvoiceSerializer(serializers.ModelSerializer):
 class InvoiceCreateSerializer(serializers.Serializer):
     type        = serializers.ChoiceField(choices=Invoice.InvoiceType.choices)
     party_name  = serializers.CharField(max_length=200)
-    amount      = serializers.DecimalField(max_digits=14, decimal_places=2, min_value=Decimal('0.01'))
+    amount      = serializers.DecimalField(max_digits=14, decimal_places=2, min_value=Decimal('0.00'))
     department  = serializers.CharField(max_length=100, required=False, allow_blank=True, default='')
     due_date    = serializers.DateField(required=False, allow_null=True)
     description = serializers.CharField(required=False, allow_blank=True, default='')

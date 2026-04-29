@@ -41,12 +41,21 @@ function OrderRefBadge({ order }) {
 }
 
 // ─── From-Orders Tab ────────────────────────────────────────────────────────
+const UNIT_TYPES = [
+  { value: 'Pieces', label: 'Pieces (Pcs.)' },
+  { value: 'Grams', label: 'Weight (Gms.)' },
+  { value: 'Hours', label: 'Time (Hrs.)' },
+];
+
 function FromOrdersTab({ selectedOrders, onClose, onSuccess }) {
   const [partyName, setPartyName] = useState('');
   const [department, setDepartment] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [description, setDescription] = useState('');
   const [invoiceMode, setInvoiceMode] = useState('combined');
+  const [unitType, setUnitType] = useState('');
+  const [amountOverride, setAmountOverride] = useState('');  // editable per-invoice amount
+  const [amountEdited, setAmountEdited] = useState(false);    // true once user manually edits
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -68,6 +77,9 @@ function FromOrdersTab({ selectedOrders, onClose, onSuccess }) {
     [displayedOrders]
   );
 
+  // Keep the amount field in sync with combinedTotal unless user has manually edited it
+  const displayAmount = amountEdited ? amountOverride : String(combinedTotal.toFixed(2));
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -86,6 +98,10 @@ function FromOrdersTab({ selectedOrders, onClose, onSuccess }) {
           due_date: dueDate || null,
           description,
           invoice_mode: invoiceMode,
+          unit_type: unitType || null,
+          ...(invoiceMode === 'combined' && amountEdited && parseFloat(amountOverride) > 0
+            ? { amount_override: parseFloat(amountOverride) }
+            : {}),
         }),
       });
       const data = await res.json().catch(() => null);
@@ -187,16 +203,75 @@ function FromOrdersTab({ selectedOrders, onClose, onSuccess }) {
         ))}
       </div>
 
-      {/* Amount preview */}
-      <div className="rounded-lg bg-emerald-50 border border-emerald-200 px-4 py-2 flex items-center justify-between">
-        <span className="text-xs font-medium text-emerald-700">
-          {invoiceMode === 'combined'
-            ? 'Combined amount'
-            : `${displayedOrders.length} invoice(s) × individual totals`}
-        </span>
-        <span className="font-mono font-bold text-emerald-700 text-sm">
-          {fmtRs(combinedTotal)}
-        </span>
+      {/* Unit type toggle */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <span className="text-xs font-medium text-midnight-ink">Quantity unit:</span>
+        {UNIT_TYPES.map(({ value, label }) => (
+          <button
+            key={value}
+            type="button"
+            onClick={() => setUnitType(unitType === value ? '' : value)}
+            className={`px-2.5 py-1 rounded-full text-[11px] font-semibold border transition-colors ${
+              unitType === value
+                ? 'bg-amber-500 text-white border-amber-500'
+                : 'bg-white text-cool-gray border-soft-border hover:border-amber-400 hover:text-amber-600'
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+        {unitType && (
+          <span className="text-[11px] text-cool-gray ml-1">
+            — overrides the per-order unit for this invoice's <em>Per</em> column
+          </span>
+        )}
+      </div>
+
+      {/* Amount preview / override */}
+      <div className="rounded-lg bg-emerald-50 border border-emerald-200 px-4 py-2">
+        {invoiceMode === 'combined' ? (
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-col gap-0.5">
+              <span className="text-xs font-medium text-emerald-700">Invoice amount</span>
+              {amountEdited && Math.abs(parseFloat(amountOverride || 0) - combinedTotal) > 0.001 && (
+                <span className="text-[10px] text-cool-gray">
+                  Order total: {fmtRs(combinedTotal)}
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-emerald-700 font-semibold text-sm">₹</span>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={displayAmount}
+                onChange={(e) => { setAmountOverride(e.target.value); setAmountEdited(true); }}
+                onFocus={(e) => e.target.select()}
+                className="w-36 text-right font-mono font-bold text-emerald-700 text-sm bg-transparent border-b border-emerald-400 focus:outline-none focus:border-emerald-600 py-0.5"
+              />
+              {amountEdited && (
+                <button
+                  type="button"
+                  title="Reset to order total"
+                  onClick={() => { setAmountOverride(String(combinedTotal.toFixed(2))); setAmountEdited(false); }}
+                  className="text-[10px] text-emerald-600 hover:underline shrink-0"
+                >
+                  Reset
+                </button>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-emerald-700">
+              {`${displayedOrders.length} invoice(s) × individual totals`}
+            </span>
+            <span className="font-mono font-bold text-emerald-700 text-sm">
+              {fmtRs(combinedTotal)}
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Invoice fields */}

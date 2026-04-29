@@ -999,6 +999,18 @@ class OutstandingSettleView(APIView):
 
         try:
             with transaction.atomic():
+                # Zero-amount: skip journal entries (debit=0/credit=0 violates DB constraint)
+                if amount == 0:
+                    outstanding.status = Outstanding.Status.PAID
+                    outstanding.save(update_fields=['status', 'updated_at'])
+                    if hasattr(outstanding, 'invoice') and outstanding.invoice:
+                        linked_inv = outstanding.invoice
+                        if linked_inv.status != Invoice.Status.SETTLED:
+                            linked_inv.status = Invoice.Status.SETTLED
+                            linked_inv.save(update_fields=['status', 'updated_at'])
+                    from .serializers import OutstandingSerializer
+                    return api_success(OutstandingSerializer(outstanding).data, message='Settled successfully.')
+
                 bank_ledger = payment_account.get_or_create_ledger()
 
                 if outstanding.type == Outstanding.OutstandingType.RECEIVABLE:
@@ -1422,6 +1434,18 @@ class InvoiceSettleView(APIView):
 
         try:
             with transaction.atomic():
+                # Zero-amount: skip journal entries (debit=0/credit=0 violates DB constraint)
+                if amount == 0:
+                    invoice.status = Invoice.Status.SETTLED
+                    invoice.save(update_fields=['status', 'updated_at'])
+                    if invoice.outstanding:
+                        invoice.outstanding.status = Outstanding.Status.PAID
+                        invoice.outstanding.save(update_fields=['status', 'updated_at'])
+                    return api_success(
+                        InvoiceSerializer(invoice).data,
+                        message=f'Invoice #{invoice.pk} settled (zero amount).',
+                    )
+
                 account_ledger = payment_account.get_or_create_ledger()
 
                 if invoice.type == Invoice.InvoiceType.SALES:
@@ -1528,8 +1552,10 @@ class InvoiceFromOrdersView(APIView):
         party_name   = request.data.get('party_name', '').strip()
         department   = request.data.get('department', '').strip()
         due_date     = request.data.get('due_date') or None
-        description  = request.data.get('description', '').strip()
-        invoice_mode = request.data.get('invoice_mode', 'combined')
+        description     = request.data.get('description', '').strip()
+        invoice_mode    = request.data.get('invoice_mode', 'combined')
+        unit_type       = request.data.get('unit_type', '').strip() or None  # optional override
+        amount_override = request.data.get('amount_override')  # optional manual amount (combined mode)
 
         if not order_ids:
             return Response({'success': False, 'message': 'No order_ids provided.'}, status=400)
@@ -1538,7 +1564,7 @@ class InvoiceFromOrdersView(APIView):
         if invoice_mode not in ('combined', 'per_order'):
             return Response({'success': False, 'message': 'invoice_mode must be combined or per_order.'}, status=400)
 
-        orders = list(Order.objects.filter(id__in=order_ids))
+        orders = list(Order.objects.filter(id__in=order_ids).prefetch_related('items__product'))
         if not orders:
             return Response({'success': False, 'message': 'No matching orders found.'}, status=404)
 
@@ -1547,7 +1573,35 @@ class InvoiceFromOrdersView(APIView):
                 f'PICKLIST-{o.picklist_number}' if o.order_source == 'picklist' and o.picklist_number
                 else f'CUSTOM-{o.id}'
             )
-            return {'id': o.id, 'name': name, 'order_source': o.order_source, 'total': str(o.total)}
+            items = list(o.items.all())
+            total_qty = sum(item.quantity for item in items)
+
+            # Use product.invoice_price when every item has one set > 0
+            priced_items = [
+                item for item in items
+                if item.product and float(item.product.invoice_price or 0) > 0
+            ]
+            if priced_items and len(priced_items) == len(items):
+                computed_total = sum(
+                    float(item.product.invoice_price) * item.quantity for item in items
+                )
+                rate = round(computed_total / total_qty, 2) if total_qty else 0
+            else:
+                total_float = float(o.total)
+                computed_total = total_float
+                rate = round(total_float / total_qty, 2) if total_qty else total_float
+
+            return {
+                'id': o.id,
+                'name': name,
+                'order_source': o.order_source,
+                'picklist_number': o.picklist_number,
+                'total': str(round(computed_total, 2)),
+                'units': unit_type or o.units or 'Pieces',
+                'quantity': total_qty,
+                'rate': str(rate),
+                'order_type': o.order_type or '',
+            }
 
         def _create_single_invoice(amount, refs, desc):
             outstanding_type = Outstanding.OutstandingType.RECEIVABLE
@@ -1578,8 +1632,17 @@ class InvoiceFromOrdersView(APIView):
                 created_invoices = []
 
                 if invoice_mode == 'combined':
-                    total_amount = sum(Decimal(str(o.total)) for o in orders)
                     refs = [_build_order_ref(o) for o in orders]
+                    computed_total = sum(Decimal(ref['total']) for ref in refs)
+                    # Use manually overridden amount when provided and valid
+                    if amount_override is not None:
+                        try:
+                            override_val = Decimal(str(amount_override))
+                            total_amount = override_val if override_val > 0 else computed_total
+                        except Exception:
+                            total_amount = computed_total
+                    else:
+                        total_amount = computed_total
                     order_names = ', '.join(r['name'] for r in refs)
                     desc = description or f'Combined invoice: {order_names}'
                     inv = _create_single_invoice(total_amount, refs, desc)
@@ -1587,7 +1650,7 @@ class InvoiceFromOrdersView(APIView):
                 else:  # per_order
                     for o in orders:
                         ref = _build_order_ref(o)
-                        amount = Decimal(str(o.total))
+                        amount = Decimal(ref['total'])
                         desc = description or f'Invoice for {ref["name"]}'
                         inv = _create_single_invoice(amount, [ref], desc)
                         created_invoices.append(inv)

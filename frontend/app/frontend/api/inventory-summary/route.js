@@ -159,6 +159,7 @@ function buildProductStockMap(products, transactions, wipBySkuAndStage = new Map
         ? product.plating_entries
         : (product.plating_type ? [{ type: product.plating_type, color: product.plating_color || '' }] : []),
       notes: product.notes || '',
+      invoicePrice: product.invoice_price || '0',
       images: Array.isArray(product.images) ? product.images : [],
       liveStock: {
         rawMaterial:     { ...stageVals('wax_piece'),         current: val('wax_piece', 'current') || defaultCurrent },

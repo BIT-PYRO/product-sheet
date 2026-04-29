@@ -158,7 +158,7 @@ function CreateInvoiceModal({ onClose, onSuccess, accounts }) {
   const submit = async () => {
     if (!form.party_name.trim()) return setErr('Party name is required.');
     const rawAmount = parseFloat(String(form.amount).replace(/,/g, ''));
-    if (!form.amount || isNaN(rawAmount) || rawAmount <= 0) return setErr('Enter a valid amount.');
+    if (form.amount === '' || isNaN(rawAmount) || rawAmount < 0) return setErr('Enter a valid amount (0 or greater).');
     setSaving(true); setErr('');
     try {
       const res = await fetch('/api/accounting/invoices', {
@@ -277,6 +277,393 @@ function StatusBadge({ status }) {
   return <span style={{ padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700, background: s.bg, color: s.color }}>{s.label}</span>;
 }
 
+/* ── Invoice Print Helper ─────────────────────────────────────── */
+/* ── Amount to Words (Indian system) ─────────────────────────── */
+function amountToWords(amount) {
+  const ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine',
+    'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
+  const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+  function b100(n) { return n < 20 ? ones[n] : tens[Math.floor(n / 10)] + (n % 10 ? ' ' + ones[n % 10] : ''); }
+  function b1000(n) { return n < 100 ? b100(n) : ones[Math.floor(n / 100)] + ' Hundred' + (n % 100 ? ' ' + b100(n % 100) : ''); }
+  const n = Math.floor(amount);
+  const paise = Math.round((amount - n) * 100);
+  let r = n, parts = [];
+  if (r >= 10000000) { parts.push(b100(Math.floor(r / 10000000)) + ' Crore');   r %= 10000000; }
+  if (r >= 100000)   { parts.push(b100(Math.floor(r / 100000)) + ' Lakh');      r %= 100000;   }
+  if (r >= 1000)     { parts.push(b100(Math.floor(r / 1000)) + ' Thousand');    r %= 1000;     }
+  if (r > 0)         { parts.push(b1000(r)); }
+  let words = n === 0 ? 'Zero' : parts.join(' ');
+  if (paise > 0) words += ' and ' + b100(paise) + ' Paise';
+  return 'INR ' + words + ' Only';
+}
+
+/* ── Unit label from units field ─────────────────────────────── */
+function perLabel(units) {
+  if (!units) return 'Pcs.';
+  const u = String(units).toLowerCase();
+  if (u.includes('gm') || u.includes('gram') || u.includes('weight')) return 'Gms.';
+  if (u.includes('hour') || u.includes('hr') || u.includes('time') || u.includes('duration') || u.includes('min')) return 'Hrs.';
+  return 'Pcs.';
+}
+
+function openInvoicePrint(invoice) {
+  const fmtD = d => { if (!d) return '—'; const [y, m, dy] = String(d).substring(0, 10).split('-'); return `${dy}-${m}-${y}`; };
+  const fmtAmt = n => `&#x20B9;${Number(n).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
+  const fmtNum = n => (n != null && n !== '' && Number(n) > 0) ? Number(n).toLocaleString('en-IN') : '—';
+
+  // Build line item rows
+  const refs = invoice.order_refs?.length ? invoice.order_refs : null;
+  const rows = refs
+    ? refs.map((ref, i) => {
+        const qty   = ref.quantity != null && Number(ref.quantity) > 0 ? Number(ref.quantity) : null;
+        const rate  = ref.rate != null && Number(ref.rate) > 0 ? Number(ref.rate) : null;
+        const total = ref.total != null ? Number(ref.total) : Number(invoice.amount);
+        const per   = perLabel(ref.units);
+        return `<tr>
+          <td style="border:1px solid #bbb;padding:9px 12px;text-align:center;color:#555">${i + 1}</td>
+          <td style="border:1px solid #bbb;padding:9px 12px">${ref.name || '—'}</td>
+          <td style="border:1px solid #bbb;padding:9px 12px;text-align:center">${qty != null ? fmtNum(qty) : '—'}</td>
+          <td style="border:1px solid #bbb;padding:9px 12px;text-align:center">${qty != null ? per : '—'}</td>
+          <td style="border:1px solid #bbb;padding:9px 12px;text-align:right">${rate != null ? fmtAmt(rate) : '—'}</td>
+          <td style="border:1px solid #bbb;padding:9px 12px;text-align:right;font-weight:600">${fmtAmt(total)}</td>
+        </tr>`;
+      }).join('')
+    : `<tr>
+        <td style="border:1px solid #bbb;padding:9px 12px;text-align:center;color:#555">1</td>
+        <td style="border:1px solid #bbb;padding:9px 12px">${invoice.description || 'Design & Production Services'}</td>
+        <td style="border:1px solid #bbb;padding:9px 12px;text-align:center">—</td>
+        <td style="border:1px solid #bbb;padding:9px 12px;text-align:center">—</td>
+        <td style="border:1px solid #bbb;padding:9px 12px;text-align:right">—</td>
+        <td style="border:1px solid #bbb;padding:9px 12px;text-align:right;font-weight:600">${fmtAmt(invoice.amount)}</td>
+      </tr>`;
+
+  const wordsLine = amountToWords(Number(invoice.amount));
+  const invDesc = invoice.description || (refs ? refs.map(r => r.name).join(', ') : 'Design & Production Services');
+
+  const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Invoice #${invoice.id} — ${invoice.party_name || ''}</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, sans-serif; font-size: 13px; color: #111; padding: 40px 48px; background: #fff; max-width: 860px; margin: 0 auto; }
+    .header { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 14px; border-bottom: 2px solid #111; }
+    .company-name { font-size: 22px; font-weight: 900; letter-spacing: -0.5px; }
+    .company-tagline { font-size: 11px; color: #666; margin-top: 3px; }
+    .inv-label { font-size: 26px; font-weight: 800; color: #444; letter-spacing: 3px; text-align: right; }
+    .inv-meta-table { width: auto; margin-top: 8px; border-collapse: collapse; float: right; }
+    .inv-meta-table td { font-size: 12px; padding: 2px 0; }
+    .inv-meta-table td:first-child { color: #777; padding-right: 12px; }
+    .inv-meta-table td:last-child { font-weight: 700; text-align: right; }
+    .bill-section { display: flex; gap: 32px; padding: 14px 0; border-bottom: 1px solid #ddd; }
+    .bill-block { flex: 1; }
+    .bill-block-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: #888; margin-bottom: 5px; border-bottom: 1px solid #eee; padding-bottom: 3px; }
+    .bill-block-name { font-size: 15px; font-weight: 800; margin-bottom: 2px; }
+    .bill-block-sub { font-size: 12px; color: #555; }
+    .desc-section { padding: 10px 0; border-bottom: 1px solid #ddd; font-size: 12px; }
+    .desc-section span { font-weight: 600; color: #333; }
+    table.items { width: 100%; border-collapse: collapse; margin-top: 12px; }
+    table.items th { border: 1px solid #999; padding: 8px 10px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; background: #f3f4f6; white-space: nowrap; }
+    table.items td { border: 1px solid #bbb; padding: 9px 10px; font-size: 12px; }
+    table.items tfoot td { border: 1px solid #999; padding: 10px 10px; font-weight: 700; background: #f9fafb; border-top: 2px solid #111; }
+    .amount-words { margin-top: 14px; padding: 10px 14px; background: #f9fafb; border: 1px solid #ddd; border-radius: 4px; font-size: 12px; }
+    .amount-words span { font-weight: 700; }
+    .status-strip { margin-top: 14px; font-size: 12px; color: #555; display: flex; gap: 24px; flex-wrap: wrap; }
+    .status-strip b { color: #111; }
+    .footer { margin-top: 28px; border-top: 1px solid #ddd; padding-top: 14px; display: flex; justify-content: space-between; align-items: flex-end; }
+    .footer-left { font-size: 11px; color: #666; line-height: 1.7; }
+    .footer-left strong { color: #333; }
+    .footer-right { text-align: right; font-size: 11px; color: #888; }
+    .sign-box { border-top: 1px solid #999; margin-top: 28px; padding-top: 6px; width: 160px; font-size: 11px; text-align: center; color: #555; }
+    .thank-you { text-align: center; font-size: 13px; font-weight: 700; color: #222; margin-top: 30px; letter-spacing: 0.3px; }
+    @media print { body { padding: 20px 26px; } }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <div class="header">
+    <div>
+      <div class="company-name">Product Sheet Design</div>
+      <div class="company-tagline">Design &amp; Production Services</div>
+    </div>
+    <div style="text-align:right">
+      <div class="inv-label">SALES INVOICE</div>
+      <table class="inv-meta-table">
+        <tr><td>Invoice No.</td><td>INV-${invoice.id}</td></tr>
+        <tr><td>Date</td><td>${fmtD(invoice.created_at)}</td></tr>
+        ${invoice.due_date ? `<tr><td>Due Date</td><td>${fmtD(invoice.due_date)}</td></tr>` : ''}
+        <tr><td>Status</td><td>${invoice.status === 'settled' ? '&#10003; Settled' : '&#8987; Pending'}</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <!-- Bill To / Service Info -->
+  <div class="bill-section">
+    <div class="bill-block">
+      <div class="bill-block-label">Bill To</div>
+      <div class="bill-block-name">${invoice.party_name || '—'}</div>
+      ${invoice.department ? `<div class="bill-block-sub">${invoice.department} Department</div>` : ''}
+    </div>
+    <div class="bill-block">
+      <div class="bill-block-label">Service Provider</div>
+      <div class="bill-block-name">Product Sheet Design</div>
+      <div class="bill-block-sub">Design &amp; Production Studio</div>
+    </div>
+  </div>
+
+  <!-- Description -->
+  <div class="desc-section">
+    <span>Description of Services: </span>${invDesc}
+  </div>
+
+  <!-- Items Table -->
+  <table class="items">
+    <thead>
+      <tr>
+        <th style="width:5%;text-align:center">SI No.</th>
+        <th style="text-align:left">Description of Goods / Services</th>
+        <th style="width:10%;text-align:center">Quantity</th>
+        <th style="width:8%;text-align:center">Per</th>
+        <th style="width:14%;text-align:right">Rate</th>
+        <th style="width:16%;text-align:right">Amount</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${rows}
+    </tbody>
+    <tfoot>
+      <tr>
+        <td colspan="5" style="text-align:right;font-size:12px;text-transform:uppercase;letter-spacing:0.5px">Total</td>
+        <td style="text-align:right;font-size:14px">${fmtAmt(invoice.amount)}</td>
+      </tr>
+    </tfoot>
+  </table>
+
+  <!-- Amount in Words -->
+  <div class="amount-words">
+    Amount Chargeable (in words): <span>${wordsLine}</span>
+  </div>
+
+  <!-- Status strip -->
+  <div class="status-strip">
+    <span>Status: <b>${invoice.status === 'settled' ? 'Settled' : 'Pending'}</b></span>
+    ${invoice.department ? `<span>Department: <b>${invoice.department}</b></span>` : ''}
+    ${invoice.due_date ? `<span>Payment Due: <b>${fmtD(invoice.due_date)}</b></span>` : ''}
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    <div class="footer-left">
+      <strong>For Product Sheet Design</strong><br>
+      Make all payments payable to <strong>Product Sheet Design</strong>.<br>
+      Total due${invoice.due_date ? ` by <strong>${fmtD(invoice.due_date)}</strong>` : ' upon receipt'}.<br>
+      Overdue accounts subject to a service charge of 1% per month.
+    </div>
+    <div class="sign-box">
+      <br><br>
+      Authorized Signatory
+    </div>
+  </div>
+
+  <div class="thank-you">Thank you for your business!</div>
+
+  <script>window.onload = function() { window.print(); }</script>
+</body>
+</html>`;
+
+  const w = window.open('', '_blank', 'width=900,height=1000');
+  if (!w) return;
+  w.document.write(html);
+  w.document.close();
+}
+
+/* ── Invoice Detail Modal ──────────────────────────────────────── */
+function InvoiceDetailModal({ invoice, onClose }) {
+  const fmtAmt = n => `₹${Number(n).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
+  const fmtD = d => { if (!d) return '—'; const [y, m, dy] = String(d).substring(0, 10).split('-'); return `${dy}-${m}-${y}`; };
+  const fmtNum = n => (n != null && Number(n) > 0) ? Number(n).toLocaleString('en-IN') : '—';
+
+  const refs = invoice.order_refs?.length ? invoice.order_refs : null;
+  const invDesc = invoice.description || (refs ? refs.map(r => r.name).join(', ') : 'Design & Production Services');
+  const wordsLine = amountToWords(Number(invoice.amount));
+
+  const itemRows = refs
+    ? refs
+    : [{ id: 'desc', name: invoice.description || 'Design & Production Services', order_source: null, quantity: null, units: null, rate: null, total: invoice.amount }];
+
+  // border styles
+  const cellBorder = '1px solid #d1d5db';
+  const hdrStyle = { border: cellBorder, padding: '8px 10px', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: '#555', background: '#f3f4f6', whiteSpace: 'nowrap' };
+  const cellStyle = { border: cellBorder, padding: '9px 10px', fontSize: 12, color: '#222' };
+
+  return (
+    <div
+      onClick={onClose}
+      style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, fontFamily: 'Arial, sans-serif' }}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{ background: '#fff', borderRadius: 4, width: '100%', maxWidth: 720, maxHeight: '94vh', overflowY: 'auto', boxShadow: '0 28px 80px rgba(0,0,0,0.28)', border: '1px solid #d1d5db' }}
+      >
+        {/* ── Document Header ── */}
+        <div style={{ padding: '20px 28px 16px', borderBottom: '2px solid #111', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <div>
+            <div style={{ fontSize: 20, fontWeight: 900, color: '#111', letterSpacing: -0.5 }}>Product Sheet Design</div>
+            <div style={{ fontSize: 11, color: '#666', marginTop: 3 }}>Design &amp; Production Services</div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
+            <div style={{ textAlign: 'right' }}>
+              <div style={{ fontSize: 22, fontWeight: 800, color: '#555', letterSpacing: 3 }}>SALES INVOICE</div>
+              <table style={{ borderCollapse: 'collapse', marginTop: 6, marginLeft: 'auto' }}>
+                <tbody>
+                  {[
+                    ['Invoice No.', `INV-${invoice.id}`],
+                    ['Date', fmtD(invoice.created_at)],
+                    ...(invoice.due_date ? [['Due Date', fmtD(invoice.due_date)]] : []),
+                  ].map(([lbl, val]) => (
+                    <tr key={lbl}>
+                      <td style={{ fontSize: 11, color: '#888', paddingRight: 10, paddingBottom: 2 }}>{lbl}</td>
+                      <td style={{ fontSize: 11, fontWeight: 700, textAlign: 'right', paddingBottom: 2 }}>{val}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <button onClick={onClose} style={{ background: '#f3f4f6', border: '1px solid #e5e7eb', borderRadius: 6, width: 28, height: 28, cursor: 'pointer', fontSize: 13, color: '#6b7280', fontWeight: 700, flexShrink: 0, marginTop: 2 }}>✕</button>
+          </div>
+        </div>
+
+        {/* ── Bill To / From ── */}
+        <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid #e5e7eb' }}>
+          <div style={{ flex: 1, padding: '14px 28px', borderRight: '1px solid #e5e7eb' }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: '#888', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 6, borderBottom: '1px solid #f0f0f0', paddingBottom: 3 }}>Bill To</div>
+            <div style={{ fontSize: 15, fontWeight: 800, color: '#111' }}>{invoice.party_name || '—'}</div>
+            {invoice.department && <div style={{ fontSize: 12, color: '#555', marginTop: 2 }}>{invoice.department} Department</div>}
+          </div>
+          <div style={{ flex: 1, padding: '14px 28px' }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: '#888', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 6, borderBottom: '1px solid #f0f0f0', paddingBottom: 3 }}>Service Provider</div>
+            <div style={{ fontSize: 15, fontWeight: 800, color: '#111' }}>Product Sheet Design</div>
+            <div style={{ fontSize: 12, color: '#555', marginTop: 2 }}>Design &amp; Production Studio</div>
+          </div>
+        </div>
+
+        {/* ── Description ── */}
+        <div style={{ padding: '10px 28px', borderBottom: '1px solid #e5e7eb', fontSize: 12, color: '#333' }}>
+          <span style={{ fontWeight: 700, color: '#555' }}>Description of Services: </span>{invDesc}
+        </div>
+
+        {/* ── Items Table ── */}
+        <div style={{ padding: '0 28px 0' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: 12 }}>
+            <thead>
+              <tr>
+                <th style={{ ...hdrStyle, textAlign: 'center', width: '5%' }}>SI No.</th>
+                <th style={{ ...hdrStyle, textAlign: 'left' }}>Description of Goods / Services</th>
+                <th style={{ ...hdrStyle, textAlign: 'center', width: '10%' }}>Quantity</th>
+                <th style={{ ...hdrStyle, textAlign: 'center', width: '8%' }}>Per</th>
+                <th style={{ ...hdrStyle, textAlign: 'right', width: '14%' }}>Rate</th>
+                <th style={{ ...hdrStyle, textAlign: 'right', width: '16%' }}>Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              {itemRows.map((ref, i) => {
+                const qty   = ref.quantity != null && Number(ref.quantity) > 0 ? Number(ref.quantity) : null;
+                const rate  = ref.rate != null && Number(ref.rate) > 0 ? Number(ref.rate) : null;
+                const total = ref.total != null ? Number(ref.total) : Number(invoice.amount);
+                const per   = perLabel(ref.units);
+                return (
+                  <tr key={ref.id ?? i}>
+                    <td style={{ ...cellStyle, textAlign: 'center', color: '#888' }}>{i + 1}</td>
+                    <td style={{ ...cellStyle }}>{ref.name || invDesc}</td>
+                    <td style={{ ...cellStyle, textAlign: 'center' }}>{qty != null ? fmtNum(qty) : '—'}</td>
+                    <td style={{ ...cellStyle, textAlign: 'center', color: '#555' }}>{qty != null ? per : '—'}</td>
+                    <td style={{ ...cellStyle, textAlign: 'right' }}>{rate != null ? fmtAmt(rate) : '—'}</td>
+                    <td style={{ ...cellStyle, textAlign: 'right', fontWeight: 700, color: '#059669' }}>{fmtAmt(total)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+            <tfoot>
+              <tr>
+                <td colSpan={5} style={{ border: cellBorder, padding: '10px 10px', textAlign: 'right', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: '#555', borderTop: '2px solid #111', background: '#f9fafb' }}>Total</td>
+                <td style={{ border: cellBorder, padding: '10px 10px', textAlign: 'right', fontSize: 15, fontWeight: 800, color: '#059669', borderTop: '2px solid #111', background: '#f9fafb' }}>{fmtAmt(invoice.amount)}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+
+        {/* ── Amount in words ── */}
+        <div style={{ margin: '12px 28px 0', padding: '9px 14px', background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 4, fontSize: 12, color: '#444' }}>
+          Amount Chargeable (in words): <strong>{wordsLine}</strong>
+        </div>
+
+        {/* ── Metadata strip ── */}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, padding: '12px 28px', borderTop: '1px solid #e5e7eb', marginTop: 12, alignItems: 'center' }}>
+          <StatusBadge status={invoice.status} />
+          {invoice.department && (
+            <span style={{ padding: '3px 10px', background: '#f1f5f9', borderRadius: 20, fontSize: 11, fontWeight: 600, color: '#475569' }}>{invoice.department}</span>
+          )}
+          {invoice.due_date && (
+            <span style={{ fontSize: 12, color: '#64748b' }}>Due: <strong>{fmtD(invoice.due_date)}</strong></span>
+          )}
+        </div>
+
+        {/* ── Receipts & linked picklists ── */}
+        <div style={{ padding: '10px 28px', borderTop: '1px solid #e5e7eb', display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center' }}>
+          <span style={{ fontSize: 11, fontWeight: 700, color: '#888', textTransform: 'uppercase', letterSpacing: 0.5, marginRight: 4 }}>Receipts:</span>
+          <ReceiptsBadge
+            receipts={invoice.receipts || []}
+            title={`Receipts — ${invoice.party_name}`}
+            accentColor={C.green}
+          />
+          {(invoice.order_refs || []).filter(r => r.order_source === 'picklist').map((ref) => {
+            const picklistNum = ref.picklist_number ?? ref.id;
+            return (
+              <a
+                key={ref.id}
+                href={`/frontend/orders?view=orders&picklist=${picklistNum}`}
+                target="_blank"
+                rel="noreferrer"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 10px', background: '#EFF6FF', color: '#2563EB', border: '1px solid #BFDBFE', borderRadius: 20, fontSize: 11, fontWeight: 600, textDecoration: 'none' }}
+              >
+                🔗 {ref.name}
+              </a>
+            );
+          })}
+        </div>
+
+        {/* ── Footer note ── */}
+        <div style={{ padding: '10px 28px', background: '#fafafa', borderTop: '1px solid #e5e7eb', fontSize: 11, color: '#777', lineHeight: 1.6 }}>
+          <strong>For Product Sheet Design</strong> — Make all payments payable to <strong>Product Sheet Design</strong>.
+          Total due{invoice.due_date ? ` by ${fmtD(invoice.due_date)}` : ' upon receipt'}.
+          Overdue accounts subject to a service charge of 1% per month.
+        </div>
+
+        {/* ── Thank you + action bar ── */}
+        <div style={{ padding: '14px 28px 20px', borderTop: '1px solid #e5e7eb', textAlign: 'center' }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: '#111', marginBottom: 16 }}>Thank you for your business!</div>
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 10 }}>
+            <button
+              onClick={() => openInvoicePrint(invoice)}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '9px 20px', background: '#111', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
+            >
+              🖨 Print Invoice
+            </button>
+            <button
+              onClick={onClose}
+              style={{ padding: '9px 20px', background: '#fff', color: '#374151', border: '1px solid #d1d5db', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function MultiSelectDropdown({ label, options, selected, onChange, activeColor, activeBgColor }) {
   const [open, setOpen] = useState(false);
   const ref = useRef();
@@ -331,6 +718,7 @@ export default function AccountingInvoicesSales({ onRefresh, dateParams }) {
   const [deptFilter, setDeptFilter] = useState([]);
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [sortBy, setSortBy] = useState('date_desc');
+  const [viewInvoice, setViewInvoice] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -417,7 +805,21 @@ export default function AccountingInvoicesSales({ onRefresh, dateParams }) {
           <button onClick={() => exportCSV(target, 'sales_invoices.csv')} style={{ padding: '9px 14px', background: C.surface, color: C.text, border: `1px solid ${C.border}`, borderRadius: 9, fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
             Export CSV {selectedIds.size > 0 ? `(${selectedIds.size})` : ''}
           </button>
-          <button onClick={() => window.print()} style={{ padding: '9px 14px', background: C.surface, color: C.text, border: `1px solid ${C.border}`, borderRadius: 9, fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
+          <button
+            onClick={() => {
+              if (selectedIds.size > 0) {
+                // Print each selected invoice as a proper document
+                const selected = filtered.filter(inv => selectedIds.has(inv.id));
+                selected.forEach((inv, i) => {
+                  // Stagger slightly so browser doesn't block multiple popups
+                  setTimeout(() => openInvoicePrint(inv), i * 300);
+                });
+              } else {
+                window.print();
+              }
+            }}
+            style={{ padding: '9px 14px', background: C.surface, color: C.text, border: `1px solid ${C.border}`, borderRadius: 9, fontWeight: 600, fontSize: 13, cursor: 'pointer' }}
+          >
             Print {selectedIds.size > 0 ? `(${selectedIds.size})` : ''}
           </button>
           <button onClick={() => setShowCreate(true)} style={{ padding: '8px 16px', background: '#fff', color: '#111827', border: '1px solid #e5e7eb', borderRadius: 8, fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
@@ -492,7 +894,18 @@ export default function AccountingInvoicesSales({ onRefresh, dateParams }) {
                   <input type="checkbox" checked={isSelected} onChange={() => toggleSelect(inv.id)} onClick={e => e.stopPropagation()} style={{ cursor: 'pointer' }} />
                 </td>
                 <td className="print-only" style={{ padding: '12px 14px', fontSize: 13, color: C.text, display: 'none' }}>{i + 1}</td>
-                <td className="no-print" style={{ padding: '12px 14px', fontSize: 12, color: C.muted, fontFamily: 'monospace' }}>#{inv.id}</td>
+                <td className="no-print" style={{ padding: '12px 14px', fontSize: 12, color: C.muted, fontFamily: 'monospace' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span>#{inv.id}</span>
+                    <button
+                      title="View invoice details"
+                      onClick={e => { e.stopPropagation(); setViewInvoice(inv); }}
+                      style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 24, height: 24, background: C.blueBg, border: `1px solid ${C.blueBorder}`, borderRadius: 6, cursor: 'pointer', color: C.blue, fontSize: 13, flexShrink: 0 }}
+                    >
+                      👁
+                    </button>
+                  </div>
+                </td>
                 <td style={{ padding: '12px 14px' }}>
                   <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: C.text }}>{inv.party_name}</p>
                   {inv.description && <p style={{ margin: '2px 0 0', fontSize: 11, color: C.muted }}>{inv.description}</p>}
@@ -522,11 +935,28 @@ export default function AccountingInvoicesSales({ onRefresh, dateParams }) {
                 <td style={{ padding: '12px 14px', textAlign: 'right', fontSize: 14, fontWeight: 800, color: C.green }}>{fmt(inv.amount)}</td>
                 <td style={{ padding: '12px 14px', textAlign: 'right', fontSize: 12, color: C.muted }}>{fmtDate(inv.due_date)}</td>
                 <td style={{ padding: '12px 14px', textAlign: 'right' }} onClick={e => e.stopPropagation()}>
-                  <ReceiptsBadge
-                    receipts={inv.receipts || []}
-                    title={`Receipts — ${inv.party_name}`}
-                    accentColor={C.green}
-                  />
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 5 }}>
+                    <ReceiptsBadge
+                      receipts={inv.receipts || []}
+                      title={`Receipts — ${inv.party_name}`}
+                      accentColor={C.green}
+                    />
+                    {(inv.order_refs || []).filter(r => r.order_source === 'picklist').map((ref) => {
+                      const picklistNum = ref.picklist_number ?? ref.id;
+                      return (
+                        <a
+                          key={ref.id}
+                          href={`/frontend/orders?view=orders&picklist=${picklistNum}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          title={`Open ${ref.name} in Orders`}
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 9px', background: '#EFF6FF', color: '#2563EB', border: '1px solid #BFDBFE', borderRadius: 12, fontSize: 11, fontWeight: 600, textDecoration: 'none', whiteSpace: 'nowrap' }}
+                        >
+                          🔗 {ref.name}
+                        </a>
+                      );
+                    })}
+                  </div>
                 </td>
                 <td style={{ padding: '12px 14px', textAlign: 'right' }}><StatusBadge status={inv.status} /></td>
               </tr>
@@ -536,6 +966,7 @@ export default function AccountingInvoicesSales({ onRefresh, dateParams }) {
       </div>
 
       {showCreate && <CreateInvoiceModal accounts={accounts} onClose={() => setShowCreate(false)} onSuccess={() => { load(); if (onRefresh) onRefresh(); }} />}
+      {viewInvoice && <InvoiceDetailModal invoice={viewInvoice} onClose={() => setViewInvoice(null)} />}
     </div>
   );
 }
