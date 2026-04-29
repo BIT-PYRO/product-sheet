@@ -496,6 +496,23 @@ export default function AccountingInvoicesSales({ onRefresh, dateParams }) {
                 <td style={{ padding: '12px 14px' }}>
                   <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: C.text }}>{inv.party_name}</p>
                   {inv.description && <p style={{ margin: '2px 0 0', fontSize: 11, color: C.muted }}>{inv.description}</p>}
+                  {inv.order_refs?.length > 0 && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 4 }}>
+                      {inv.order_refs.map((ref) => (
+                        <span
+                          key={ref.id}
+                          style={{
+                            fontSize: 10, fontWeight: 600, padding: '1px 6px', borderRadius: 10,
+                            background: ref.order_source === 'picklist' ? '#EFF6FF' : '#F1F5F9',
+                            color: ref.order_source === 'picklist' ? '#2563EB' : '#64748B',
+                            border: `1px solid ${ref.order_source === 'picklist' ? '#BFDBFE' : '#CBD5E1'}`,
+                          }}
+                        >
+                          {ref.name}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </td>
                 <td style={{ padding: '12px 14px' }}>
                   {inv.department ? (

@@ -259,6 +259,10 @@ class Invoice(models.Model):
         related_name='invoice',
     )
 
+    # Linked order references when invoice is generated from orders
+    # Stores list of {id, name, order_source, total} dicts
+    order_refs = models.JSONField(default=list, blank=True)
+
     created_at   = models.DateTimeField(auto_now_add=True)
     updated_at   = models.DateTimeField(auto_now=True)
 

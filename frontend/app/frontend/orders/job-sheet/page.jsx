@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { RefreshCw, ChevronRight, ArrowLeft, Upload, Trash2, CloudDownload, FileDown } from 'lucide-react';
 import { useSheetPermissions } from '@/hooks/use-sheet-permissions';
 import { fmtNum } from '@/lib/utils';
+import GenerateOrderInvoiceModal from '@/components/generate-order-invoice-modal';
 
 const fmt = (n) => `₹${Number(n).toFixed(2)}`;
 
@@ -50,6 +51,10 @@ export function OrderSheetView({ embedded = false }) {
   const [showExportPicklistDialog, setShowExportPicklistDialog] = useState(false);
   const [exportPicklistNum, setExportPicklistNum] = useState(null);
   const [isExporting, setIsExporting] = useState(false);
+
+  // Invoice generation state
+  const [selectedInvoiceOrderIds, setSelectedInvoiceOrderIds] = useState(new Set());
+  const [showGenerateInvoiceModal, setShowGenerateInvoiceModal] = useState(false);
 
   const CUSTOMER_DETAILS_PASSCODE = process.env.NEXT_PUBLIC_CUSTOMER_PASSCODE || '1234';
 
@@ -867,6 +872,15 @@ export function OrderSheetView({ embedded = false }) {
                     Export Picklist
                   </button>
                   )}
+                  {selectedInvoiceOrderIds.size > 0 && (
+                    <button
+                      onClick={() => setShowGenerateInvoiceModal(true)}
+                      className="gap-1.5 text-xs px-3 py-1 rounded-md border border-trust-blue bg-trust-blue text-white hover:bg-deep-blue font-medium transition-colors flex items-center"
+                    >
+                      <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                      Generate Invoice ({selectedInvoiceOrderIds.size})
+                    </button>
+                  )}
                   <span className="text-[11px] font-semibold text-cool-gray">{filteredOrders.length} total</span>
                 </div>
               </div>
@@ -955,7 +969,21 @@ export function OrderSheetView({ embedded = false }) {
                 <table className="w-full table-fixed border-collapse text-sm">
                   <thead className="bg-cloud-gray border-b border-soft-border sticky top-0 z-10">
                     <tr>
-                      <th className="text-left px-4 py-3 text-xs font-bold text-cool-gray uppercase tracking-wide w-[12%]">Date</th>
+                      <th className="px-3 py-3 w-[4%]">
+                        <input
+                          type="checkbox"
+                          className="cursor-pointer accent-trust-blue"
+                          checked={filteredOrders.length > 0 && filteredOrders.every(o => selectedInvoiceOrderIds.has(o.id))}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedInvoiceOrderIds(new Set(filteredOrders.map(o => o.id)));
+                            } else {
+                              setSelectedInvoiceOrderIds(new Set());
+                            }
+                          }}
+                        />
+                      </th>
+                      <th className="text-left px-4 py-3 text-xs font-bold text-cool-gray uppercase tracking-wide w-[11%]">Date</th>
                       <th className="text-left px-4 py-3 text-xs font-bold text-cool-gray uppercase tracking-wide w-[10%]">Time</th>
                       <th className="text-left px-4 py-3 text-xs font-bold text-cool-gray uppercase tracking-wide w-[12%]">Order Type</th>
                       <th className="text-left px-4 py-3 text-xs font-bold text-cool-gray uppercase tracking-wide w-[14%]">Order Reference</th>
@@ -997,6 +1025,21 @@ export function OrderSheetView({ embedded = false }) {
                             : 'border-l-transparent even:bg-white'
                         }`}
                       >
+                        {/* Invoice selection checkbox */}
+                        <td className="px-3 py-3" onClick={(e) => e.stopPropagation()}>
+                          <input
+                            type="checkbox"
+                            className="cursor-pointer accent-trust-blue"
+                            checked={selectedInvoiceOrderIds.has(order.id)}
+                            onChange={(e) => {
+                              setSelectedInvoiceOrderIds(prev => {
+                                const next = new Set(prev);
+                                e.target.checked ? next.add(order.id) : next.delete(order.id);
+                                return next;
+                              });
+                            }}
+                          />
+                        </td>
                         <td className="px-4 py-3">
                           <span className="text-midnight-ink text-xs">
                             {new Date(order.created_at).toLocaleDateString('en-GB')}
@@ -1556,6 +1599,18 @@ export function OrderSheetView({ embedded = false }) {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Generate Invoice Modal */}
+      {showGenerateInvoiceModal && (
+        <GenerateOrderInvoiceModal
+          selectedOrders={filteredOrders.filter(o => selectedInvoiceOrderIds.has(o.id))}
+          onClose={() => setShowGenerateInvoiceModal(false)}
+          onSuccess={() => {
+            setShowGenerateInvoiceModal(false);
+            setSelectedInvoiceOrderIds(new Set());
+          }}
+        />
       )}
     </main>
   );

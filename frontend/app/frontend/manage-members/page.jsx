@@ -146,6 +146,65 @@ function DeleteConfirmModal({ member, onClose, onRevoked }) {
   );
 }
 
+/* ─── Permanent Delete Confirmation Modal ───────────── */
+function PermanentDeleteModal({ member, onClose, onDeleted }) {
+  const [deleting, setDeleting] = useState(false);
+  const [error, setError]       = useState('');
+  const name = member.full_name || member.email || 'Unknown';
+
+  async function handleDelete() {
+    setDeleting(true);
+    setError('');
+    try {
+      const res = await fetch('/api/auth/delete-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ workforce_id: member.id }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.message || 'Delete failed.');
+      onDeleted(member.id);
+      onClose();
+    } catch (e) {
+      setError(e.message || 'Could not delete user. Please try again.');
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
+        <h2 className="text-base font-bold text-red-600 mb-2">Permanently Delete User</h2>
+        <p className="text-sm text-cool-gray mb-1">
+          Are you sure you want to <span className="font-semibold text-red-600">permanently delete</span>{' '}
+          <span className="font-semibold text-midnight-ink">{name}</span>?
+        </p>
+        <p className="text-xs text-cool-gray mb-1">
+          This will remove the workforce record <span className="font-semibold">and</span> their login account.
+        </p>
+        <p className="text-xs font-semibold text-red-500 mb-5">This action cannot be undone.</p>
+        {error && <p className="text-xs text-red-500 mb-3">{error}</p>}
+        <div className="flex justify-end gap-3">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-sm rounded-lg border border-soft-border text-midnight-ink hover:bg-cloud-gray transition"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleDelete}
+            disabled={deleting}
+            className="px-4 py-2 text-sm font-semibold rounded-lg bg-red-700 hover:bg-red-800 text-white transition disabled:opacity-60"
+          >
+            {deleting ? 'Deleting…' : 'Permanently Delete'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ─── All-permissions helper (for superusers) ────────── */
 function allPermissions() {
   const sheets = {};
@@ -407,10 +466,13 @@ export default function ManageMembersPage() {
   const [loadError, setLoadError] = useState('');
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [selectedMember, setSelectedMember]     = useState(null);
-  const [deleteTarget, setDeleteTarget]         = useState(null);
-  const [enrollOpen, setEnrollOpen]             = useState(false);
-  const [viewMember, setViewMember]             = useState(null);
+  const [selectedMember, setSelectedMember]       = useState(null);
+  const [deleteTarget, setDeleteTarget]           = useState(null);
+  const [permanentDeleteTarget, setPermanentDeleteTarget] = useState(null);
+  const [enrollOpen, setEnrollOpen]               = useState(false);
+  const [viewMember, setViewMember]               = useState(null);
+  const [merging, setMerging]                     = useState(false);
+  const [mergeError, setMergeError]               = useState('');
 
   useEffect(() => {
     async function load() {
@@ -467,6 +529,33 @@ export default function ManageMembersPage() {
     setAllMembers((prev) =>
       prev.map((m) => (m.id === memberId ? { ...m, active: false, permissions: {} } : m))
     );
+  }
+
+  function handleMemberDeleted(memberId) {
+    setAllMembers((prev) => prev.filter((m) => m.id !== memberId));
+  }
+
+  async function handleMergeDuplicates(duplicateEmails) {
+    setMerging(true);
+    setMergeError('');
+    try {
+      for (const email of duplicateEmails) {
+        const res = await fetch('/api/auth/merge-user', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email }),
+        });
+        if (!res.ok) {
+          const data = await res.json().catch(() => null);
+          throw new Error(data?.message || `Failed to merge ${email}`);
+        }
+      }
+      await refreshMembers();
+    } catch (e) {
+      setMergeError(e.message || 'Merge failed. Please try again.');
+    } finally {
+      setMerging(false);
+    }
   }
 
   async function refreshMembers() {
@@ -551,6 +640,15 @@ export default function ManageMembersPage() {
         />
       )}
 
+      {/* Permanent delete modal */}
+      {permanentDeleteTarget && (
+        <PermanentDeleteModal
+          member={permanentDeleteTarget}
+          onClose={() => setPermanentDeleteTarget(null)}
+          onDeleted={handleMemberDeleted}
+        />
+      )}
+
       {/* Enroll Workforce modal */}
       {enrollOpen && (
         <div className="fixed inset-0 z-50 flex items-start justify-center p-4 bg-black/40 backdrop-blur-sm overflow-y-auto">
@@ -587,6 +685,36 @@ export default function ManageMembersPage() {
       </header>
 
       <div className="max-w-4xl mx-auto px-4 py-6">
+        {/* Duplicate email warning banner */}
+        {(() => {
+          const emailCounts = {};
+          allMembers.forEach((m) => {
+            if (m.email) emailCounts[m.email.toLowerCase()] = (emailCounts[m.email.toLowerCase()] || 0) + 1;
+          });
+          const dupes = Object.entries(emailCounts).filter(([, count]) => count > 1).map(([e]) => e);
+          if (!dupes.length) return null;
+          return (
+            <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-yellow-300 bg-yellow-50 px-4 py-3">
+              <p className="text-sm text-yellow-800 font-medium">
+                ⚠️ {dupes.length} duplicate email{dupes.length > 1 ? 's' : ''} detected.
+                Merge to keep one record per person with the correct role and permissions.
+              </p>
+              <div className="flex items-center gap-2 shrink-0">
+                {mergeError && <span className="text-xs text-red-500">{mergeError}</span>}
+                {canEdit && (
+                  <button
+                    onClick={() => handleMergeDuplicates(dupes)}
+                    disabled={merging}
+                    className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-yellow-600 hover:bg-yellow-700 text-white transition disabled:opacity-60"
+                  >
+                    {merging ? 'Merging…' : 'Merge Duplicates'}
+                  </button>
+                )}
+              </div>
+            </div>
+          );
+        })()}
+
         {/* Search + Add row */}
         <div className="flex items-center justify-between gap-3 mb-4">
           <div className="relative flex-1 max-w-xs">
@@ -748,13 +876,22 @@ export default function ManageMembersPage() {
                         </button>
                       )}
                       {canEdit && m.active === false && (
-                        <button
-                          title="Restore Access"
-                          onClick={() => handleRestoreAccess(m.id)}
-                          className="p-1.5 rounded hover:bg-green-50 text-cool-gray hover:text-green-600 transition"
-                        >
-                          <RotateCcw className="h-4 w-4" />
-                        </button>
+                        <>
+                          <button
+                            title="Restore Access"
+                            onClick={() => handleRestoreAccess(m.id)}
+                            className="p-1.5 rounded hover:bg-green-50 text-cool-gray hover:text-green-600 transition"
+                          >
+                            <RotateCcw className="h-4 w-4" />
+                          </button>
+                          <button
+                            title="Permanently Delete"
+                            onClick={() => setPermanentDeleteTarget(m)}
+                            className="p-1.5 rounded hover:bg-red-100 text-cool-gray hover:text-red-700 transition"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        </>
                       )}
                     </div>
                   </li>

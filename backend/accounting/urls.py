@@ -5,6 +5,7 @@ from .views import (
     BulkSettleView,
     BulkSettlementListView,
     InvoiceListCreateView,
+    InvoiceFromOrdersView,
     InvoiceSettleView,
     BankAccountDetailView,
     BankAccountListView,
@@ -64,6 +65,7 @@ urlpatterns = [
     path('bulk-settlements/', BulkSettlementListView.as_view(), name='accounting-bulk-settlements'),
     # Invoice endpoints
     path('invoices/', InvoiceListCreateView.as_view(), name='accounting-invoices'),
+    path('invoices/from-orders/', InvoiceFromOrdersView.as_view(), name='accounting-invoices-from-orders'),
     path('invoices/<int:pk>/settle/', InvoiceSettleView.as_view(), name='accounting-invoice-settle'),
     # Bank Statement Import (parse + confirm flow)
     path('bank-import/preview/', BankImportPreviewView.as_view(), name='accounting-bank-import-preview'),

@@ -9,7 +9,10 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from decimal import Decimal
+
 from common.api import api_success
+from orders.models import Order
 
 from .models import (
     Account, BankAccount, BankTransaction,
@@ -1504,6 +1507,103 @@ class InvoiceSettleView(APIView):
 
         except Exception as exc:
             logger.error('Invoice settlement failed: %s', exc, exc_info=True)
+            return Response({'success': False, 'message': str(exc)}, status=400)
+
+
+class InvoiceFromOrdersView(APIView):
+    """
+    POST /api/accounting/invoices/from-orders/
+    Body:
+      order_ids     : list[int]   – IDs of Order objects to invoice
+      party_name    : str
+      department    : str
+      due_date      : date | null
+      description   : str
+      invoice_mode  : 'combined' | 'per_order'   (default: combined)
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        order_ids    = request.data.get('order_ids', [])
+        party_name   = request.data.get('party_name', '').strip()
+        department   = request.data.get('department', '').strip()
+        due_date     = request.data.get('due_date') or None
+        description  = request.data.get('description', '').strip()
+        invoice_mode = request.data.get('invoice_mode', 'combined')
+
+        if not order_ids:
+            return Response({'success': False, 'message': 'No order_ids provided.'}, status=400)
+        if not party_name:
+            return Response({'success': False, 'message': 'party_name is required.'}, status=400)
+        if invoice_mode not in ('combined', 'per_order'):
+            return Response({'success': False, 'message': 'invoice_mode must be combined or per_order.'}, status=400)
+
+        orders = list(Order.objects.filter(id__in=order_ids))
+        if not orders:
+            return Response({'success': False, 'message': 'No matching orders found.'}, status=404)
+
+        def _build_order_ref(o):
+            name = (
+                f'PICKLIST-{o.picklist_number}' if o.order_source == 'picklist' and o.picklist_number
+                else f'CUSTOM-{o.id}'
+            )
+            return {'id': o.id, 'name': name, 'order_source': o.order_source, 'total': str(o.total)}
+
+        def _create_single_invoice(amount, refs, desc):
+            outstanding_type = Outstanding.OutstandingType.RECEIVABLE
+            outstanding = Outstanding.objects.create(
+                type=outstanding_type,
+                party_name=party_name,
+                amount=amount,
+                department=department,
+                due_date=due_date,
+                description=desc or f'Sales invoice for {party_name}',
+                status=Outstanding.Status.PENDING,
+            )
+            invoice = Invoice.objects.create(
+                type=Invoice.InvoiceType.SALES,
+                party_name=party_name,
+                amount=amount,
+                department=department,
+                due_date=due_date,
+                description=desc,
+                status=Invoice.Status.PENDING,
+                outstanding=outstanding,
+                order_refs=refs,
+            )
+            return invoice
+
+        try:
+            with transaction.atomic():
+                created_invoices = []
+
+                if invoice_mode == 'combined':
+                    total_amount = sum(Decimal(str(o.total)) for o in orders)
+                    refs = [_build_order_ref(o) for o in orders]
+                    order_names = ', '.join(r['name'] for r in refs)
+                    desc = description or f'Combined invoice: {order_names}'
+                    inv = _create_single_invoice(total_amount, refs, desc)
+                    created_invoices.append(inv)
+                else:  # per_order
+                    for o in orders:
+                        ref = _build_order_ref(o)
+                        amount = Decimal(str(o.total))
+                        desc = description or f'Invoice for {ref["name"]}'
+                        inv = _create_single_invoice(amount, [ref], desc)
+                        created_invoices.append(inv)
+
+            logger.info(
+                'InvoiceFromOrders: created %d invoice(s) for order_ids=%s mode=%s',
+                len(created_invoices), order_ids, invoice_mode,
+            )
+            return api_success(
+                InvoiceSerializer(created_invoices, many=True).data,
+                message=f'{len(created_invoices)} invoice(s) created.',
+                status_code=201,
+            )
+
+        except Exception as exc:
+            logger.error('InvoiceFromOrders failed: %s', exc, exc_info=True)
             return Response({'success': False, 'message': str(exc)}, status=400)
 
 # ---------------------------------------------------------------------------
