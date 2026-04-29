@@ -261,6 +261,13 @@ export default function DieInventoryPage() {
   const someSelected = filtered.some((d) => selectedIds.has(d.id)) && !allSelected;
   const visibleColCount = 1 + DIE_COLUMNS.filter((c) => visibleColumns.has(c.id)).length;
 
+  const totalPages = Math.max(1, Math.ceil(filtered.length / rowsPerPage));
+  const safePage = Math.min(currentPage, totalPages);
+  const pagedFiltered = useMemo(() => {
+    const start = (safePage - 1) * rowsPerPage;
+    return filtered.slice(start, start + rowsPerPage);
+  }, [filtered, safePage, rowsPerPage]);
+
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
   const EXPORT_HEADERS = ['id','die_code','master_skus','designer_skus','location','quantity','wax_piece_qty','wax_piece_location','wax_setting_qty','wax_setting_location','casting_qty','casting_location','notes'];
   const buildExportRows = () => filtered.map((r) => EXPORT_HEADERS.map((h) => Array.isArray(r[h]) ? r[h].join(', ') : (r[h] ?? '')));
@@ -894,7 +901,7 @@ export default function DieInventoryPage() {
                     </td>
                   </tr>
                 )}
-                {!loading && filtered.map((d, index) => {
+                {!loading && pagedFiltered.map((d, index) => {
                   const isSelected = selectedIds.has(d.id);
                   const isEditing = editingRowIds.has(d.id);
                   const masterSkus = skuList(d.master_skus);
@@ -922,15 +929,25 @@ export default function DieInventoryPage() {
                               />
                             </td>
                             {visibleColumns.has('sno') && (
-                              <td className="border border-soft-border px-3 py-2 text-cool-gray" rowSpan={subRowCount}>{index + 1}</td>
+                              <td className="border border-soft-border px-3 py-2 text-cool-gray" rowSpan={subRowCount}>{(safePage - 1) * rowsPerPage + index + 1}</td>
                             )}
                             {visibleColumns.has('image') && (
                               <td className="border border-soft-border px-3 py-2" rowSpan={subRowCount}>
-                                {d.image ? (
-                                  <img src={d.image} alt={d.die_code} className="h-10 w-10 object-cover rounded" />
-                                ) : (
-                                  <div className="h-10 w-10 rounded bg-cloud-gray flex items-center justify-center text-[10px] text-cool-gray">No img</div>
-                                )}
+                                {(() => {
+                                  const imgs = d.image ? [d.image] : (d.designer_images || []);
+                                  if (imgs.length === 0) {
+                                    return <div className="h-10 w-10 rounded bg-cloud-gray flex items-center justify-center text-[10px] text-cool-gray">No img</div>;
+                                  }
+                                  return (
+                                    <div className="flex flex-wrap gap-1">
+                                      {imgs.slice(0, 3).map((src, i) => (
+                                        <a key={i} href={src} target="_blank" rel="noreferrer">
+                                          <img src={src} alt={`${d.die_code} img ${i + 1}`} className="h-10 w-10 object-cover rounded border border-soft-border hover:opacity-80 transition" />
+                                        </a>
+                                      ))}
+                                    </div>
+                                  );
+                                })()}
                               </td>
                             )}
                             {visibleColumns.has('die_code') && (
@@ -1361,8 +1378,6 @@ export default function DieInventoryPage() {
       </Dialog>
       {/* Fixed Footer */}
       {(() => {
-        const _tp = Math.max(1, Math.ceil(filtered.length / rowsPerPage));
-        const _sp = Math.min(currentPage, _tp);
         return (
           <div className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-soft-border shadow-lg px-4 py-2 flex flex-wrap items-center justify-between gap-3 text-sm text-cool-gray">
             <div className="flex items-center gap-2">
@@ -1372,10 +1387,10 @@ export default function DieInventoryPage() {
               </select>
             </div>
             <div className="flex items-center gap-3">
-              <span>{filtered.length === 0 ? '0' : `${(_sp - 1) * rowsPerPage + 1}-${Math.min(_sp * rowsPerPage, filtered.length)}`} of {filtered.length}</span>
-              <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={_sp <= 1} className="px-2 py-1 border border-soft-border rounded disabled:opacity-40 hover:bg-cloud-gray">&lsaquo;</button>
-              <span>{_sp} / {_tp}</span>
-              <button onClick={() => setCurrentPage(p => Math.min(_tp, p + 1))} disabled={_sp >= _tp} className="px-2 py-1 border border-soft-border rounded disabled:opacity-40 hover:bg-cloud-gray">&rsaquo;</button>
+              <span>{filtered.length === 0 ? '0' : `${(safePage - 1) * rowsPerPage + 1}-${Math.min(safePage * rowsPerPage, filtered.length)}`} of {filtered.length}</span>
+              <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={safePage <= 1} className="px-2 py-1 border border-soft-border rounded disabled:opacity-40 hover:bg-cloud-gray">&lsaquo;</button>
+              <span>{safePage} / {totalPages}</span>
+              <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={safePage >= totalPages} className="px-2 py-1 border border-soft-border rounded disabled:opacity-40 hover:bg-cloud-gray">&rsaquo;</button>
             </div>
             <div className="flex gap-4">
               <span>Selected: {selectedIds.size}</span>

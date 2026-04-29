@@ -290,6 +290,13 @@ export default function StoneInventoryPage() {
   const someSelected = selectedIds.size > 0 && !allSelected;
   const visibleTableColumnCount = 1 + STONE_MANAGE_COLUMNS.filter((column) => visibleColumns.has(column.id)).length;
 
+  const totalPages = Math.max(1, Math.ceil(filteredStones.length / rowsPerPage));
+  const safePage = Math.min(currentPage, totalPages);
+  const pagedStones = useMemo(() => {
+    const start = (safePage - 1) * rowsPerPage;
+    return filteredStones.slice(start, start + rowsPerPage);
+  }, [filteredStones, safePage, rowsPerPage]);
+
   const EXPORT_HEADERS = ['id','stone_type','species','variety','color','quality','wax_setting','cut','shape','length','width','height','qty','weight_cts','dos','donts'];
   const buildExportRows = () => filteredStones.map((r) => EXPORT_HEADERS.map((h) => r[h] ?? ''));
   const exportToExcel = () => {
@@ -993,7 +1000,7 @@ export default function StoneInventoryPage() {
                 </tr>
               )}
               {!loading &&
-                filteredStones.map((stone) => {
+                pagedStones.map((stone) => {
                   const isSelected = selectedIds.has(stone.id);
                   return (
                     <tr
@@ -1756,8 +1763,8 @@ export default function StoneInventoryPage() {
       )}
       {/* Fixed Footer */}
       {(() => {
-        const _tp = Math.max(1, Math.ceil(filteredStones.length / rowsPerPage));
-        const _sp = Math.min(currentPage, _tp);
+        const _tp = totalPages;
+        const _sp = safePage;
         return (
           <div className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-soft-border shadow-lg px-4 py-2 flex flex-wrap items-center justify-between gap-3 text-sm text-cool-gray">
             <div className="flex items-center gap-2">

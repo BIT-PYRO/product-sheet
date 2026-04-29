@@ -253,6 +253,13 @@ export default function FindingInventoryPage() {
   const someSelected = filtered.some((f) => selectedIds.has(f.id)) && !allSelected;
   const visibleTableColumnCount = 1 + FINDING_COLUMNS.filter((column) => visibleColumns.has(column.id)).length;
 
+  const totalPages = Math.max(1, Math.ceil(filtered.length / rowsPerPage));
+  const safePage = Math.min(currentPage, totalPages);
+  const pagedFiltered = useMemo(() => {
+    const start = (safePage - 1) * rowsPerPage;
+    return filtered.slice(start, start + rowsPerPage);
+  }, [filtered, safePage, rowsPerPage]);
+
   const selectedFindings = useMemo(
     () => findings.filter((f) => selectedIds.has(f.id)),
     [findings, selectedIds]
@@ -827,7 +834,7 @@ export default function FindingInventoryPage() {
                   </tr>
                 )}
                 {!loading &&
-                  filtered.map((f, index) => {
+                  pagedFiltered.map((f, index) => {
                     const isSelected = selectedIds.has(f.id);
                     return (
                     <tr
@@ -843,7 +850,7 @@ export default function FindingInventoryPage() {
                           className="h-4 w-4 cursor-pointer rounded border-soft-border accent-trust-blue"
                         />
                       </td>
-                      {visibleColumns.has('sno') && <td className="border border-soft-border px-3 py-2.5 text-cool-gray">{index + 1}</td>}
+                      {visibleColumns.has('sno') && <td className="border border-soft-border px-3 py-2.5 text-cool-gray">{(safePage - 1) * rowsPerPage + index + 1}</td>}
                       {editingRowIds.has(f.id) ? (
                         <>
                           {visibleColumns.has('finding_code') && <td className="border border-soft-border px-3 py-2.5"><input type="text" value={editBuffer[f.id]?.finding_code ?? ''} onChange={(e) => updateEditBuffer(f.id, 'finding_code', e.target.value)} className="h-8 w-full rounded border border-soft-border px-2 text-sm" /></td>}
@@ -1340,8 +1347,8 @@ export default function FindingInventoryPage() {
       )}
       {/* Fixed Footer */}
       {(() => {
-        const _tp = Math.max(1, Math.ceil(filtered.length / rowsPerPage));
-        const _sp = Math.min(currentPage, _tp);
+        const _tp = totalPages;
+        const _sp = safePage;
         return (
           <div className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-soft-border shadow-lg px-4 py-2 flex flex-wrap items-center justify-between gap-3 text-sm text-cool-gray">
             <div className="flex items-center gap-2">
