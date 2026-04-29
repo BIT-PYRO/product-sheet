@@ -403,6 +403,23 @@ class DieInventoryItemViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 	serializer_class = DieInventoryItemSerializer
 	search_fields = ['die_code', 'location', 'notes']
 
+	def get_serializer_context(self):
+		"""For list actions, precompute a sku→images map in a single query so the
+		serializer's get_designer_images never fires per-object DB queries."""
+		context = super().get_serializer_context()
+		if getattr(self, 'action', None) == 'list':
+			try:
+				from designers.models import DesignerSheet
+				sku_images: dict = {}
+				for sheet in DesignerSheet.objects.only('sku', 'image', 'designer_image_2', 'designer_image_3'):
+					urls = [u for u in (sheet.image, sheet.designer_image_2, sheet.designer_image_3) if u]
+					if urls:
+						sku_images[sheet.sku] = urls
+				context['sku_images'] = sku_images
+			except Exception:
+				context['sku_images'] = {}
+		return context
+
 	@extend_schema(summary='Bulk upload die inventory items', tags=['Die Inventory'])
 	@action(detail=False, methods=['post'], url_path='bulk-upload')
 	def bulk_upload(self, request):
