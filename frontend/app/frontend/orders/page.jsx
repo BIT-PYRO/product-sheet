@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
@@ -10,7 +10,7 @@ import { OrderProgressSheetView } from '@/app/frontend/orders/progress-sheet/pag
 import { useSheetPermissions } from '@/hooks/use-sheet-permissions';
 import DeletionHistoryDrawer from '@/components/deletion-history-drawer';
 
-export default function OrdersPage() {
+function OrdersPageInner() {
   const searchParams = useSearchParams();
   const { canView, canCreate, loading: permsLoading } = useSheetPermissions('orders');
   const [showCreateOrderForm, setShowCreateOrderForm] = useState(false);
@@ -159,5 +159,13 @@ export default function OrdersPage() {
       </div>
       <DeletionHistoryDrawer appLabel="orders" modelName="order" />
     </main>
+  );
+}
+
+export default function OrdersPage() {
+  return (
+    <Suspense>
+      <OrdersPageInner />
+    </Suspense>
   );
 }
