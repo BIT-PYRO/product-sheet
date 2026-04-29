@@ -282,6 +282,13 @@ export default function MachinesInventoryPage() {
   const allSelected = filteredRows.length > 0 && filteredRows.every((row) => selectedIds.has(row.id));
   const someSelected = selectedIds.size > 0 && !allSelected;
   const selectedRows = rows.filter((r) => selectedIds.has(r.id));
+
+  const totalPages = Math.max(1, Math.ceil(filteredRows.length / rowsPerPage));
+  const safePage = Math.min(currentPage, totalPages);
+  const pagedRows = useMemo(() => {
+    const start = (safePage - 1) * rowsPerPage;
+    return filteredRows.slice(start, start + rowsPerPage);
+  }, [filteredRows, safePage, rowsPerPage]);
   const runningVisibleCount = ['runningQty', 'runningLocation'].filter((key) => visibleColumns.has(key)).length;
   const idleVisibleCount = ['idleQty', 'idleLocation'].filter((key) => visibleColumns.has(key)).length;
   const breakdownVisibleCount = ['breakdownQty', 'breakdownLocation'].filter((key) => visibleColumns.has(key)).length;
@@ -842,7 +849,7 @@ export default function MachinesInventoryPage() {
                       No machines found. Add one using the options above.
                     </td>
                   </tr>
-                ) : filteredRows.map((row) => (
+                ) : pagedRows.map((row) => (
                   <tr key={row.id} className="border-b border-soft-border last:border-0 transition hover:bg-[#F8F9FA]">
                     <td className="border border-soft-border px-3 py-2.5">
                       <input
@@ -1330,8 +1337,8 @@ export default function MachinesInventoryPage() {
       )}
       {/* Fixed Footer */}
       {(() => {
-        const _tp = Math.max(1, Math.ceil(filteredRows.length / rowsPerPage));
-        const _sp = Math.min(currentPage, _tp);
+        const _tp = totalPages;
+        const _sp = safePage;
         return (
           <div className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-soft-border shadow-lg px-4 py-2 flex flex-wrap items-center justify-between gap-3 text-sm text-cool-gray">
             <div className="flex items-center gap-2">

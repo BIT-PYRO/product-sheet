@@ -255,10 +255,28 @@ class IssueRequestSerializer(serializers.ModelSerializer):
 # ── Die Inventory ─────────────────────────────────────────────────────────────
 
 class DieInventoryItemSerializer(serializers.ModelSerializer):
+    designer_images = serializers.SerializerMethodField()
+
+    def get_designer_images(self, obj):
+        """Return a deduplicated list of image URLs from all linked DesignerSheet records."""
+        from designers.models import DesignerSheet
+        skus = [s for s in (obj.designer_skus or []) if s]
+        if not skus:
+            return []
+        seen = set()
+        images = []
+        sheets = DesignerSheet.objects.filter(sku__in=skus).only('sku', 'image', 'designer_image_2', 'designer_image_3')
+        for sheet in sheets:
+            for url in (sheet.image, sheet.designer_image_2, sheet.designer_image_3):
+                if url and url not in seen:
+                    seen.add(url)
+                    images.append(url)
+        return images
+
     class Meta:
         model = DieInventoryItem
         fields = [
-            'id', 'die_code', 'image', 'master_skus', 'designer_skus',
+            'id', 'die_code', 'image', 'designer_images', 'master_skus', 'designer_skus',
             'location', 'quantity',
             'wax_piece_qty', 'wax_piece_location',
             'wax_setting_qty', 'wax_setting_location',

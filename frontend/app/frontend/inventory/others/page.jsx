@@ -372,6 +372,13 @@ export default function OthersInventoryPage() {
   const someSelected = selectedIds.size > 0 && !allSelected;
   const visibleTableColumnCount = 1 + OTHERS_COLUMNS.filter((column) => visibleColumns.has(column.id)).length;
 
+  const totalPages = Math.max(1, Math.ceil(filteredRows.length / rowsPerPage));
+  const safePage = Math.min(currentPage, totalPages);
+  const pagedRows = useMemo(() => {
+    const start = (safePage - 1) * rowsPerPage;
+    return filteredRows.slice(start, start + rowsPerPage);
+  }, [filteredRows, safePage, rowsPerPage]);
+
   const toggleSelectAll = (checked) => {
     if (editingRowIds.size > 0) return;
     if (checked) {
@@ -696,7 +703,7 @@ export default function OthersInventoryPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredRows.map((row, index) => {
+                  {pagedRows.map((row, index) => {
                     const qty = Number(getField(row, 'quantity') || 0);
                     const min = Number(getField(row, 'min_level') || 0);
                     const isLow = min > 0 && qty <= min;
@@ -711,7 +718,7 @@ export default function OthersInventoryPage() {
                             className="h-4 w-4 cursor-pointer rounded border-soft-border accent-trust-blue"
                           />
                         </td>
-                        {visibleColumns.has('sno') && <td className="border border-soft-border px-3 py-2 text-midnight-ink">{index + 1}</td>}
+                        {visibleColumns.has('sno') && <td className="border border-soft-border px-3 py-2 text-midnight-ink">{(safePage - 1) * rowsPerPage + index + 1}</td>}
                         {visibleColumns.has('item_name') && <td className="border border-soft-border px-3 py-2"><input type="text" value={getField(row, 'item_name')} onChange={(e) => setField(row.id, 'item_name', e.target.value)} readOnly={!editingRowIds.has(row.id)} placeholder="Coffee powder" className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue read-only:bg-gray-50 read-only:text-cool-gray" /></td>}
                         {visibleColumns.has('category') && <td className="border border-soft-border px-3 py-2">
                           <select value={getField(row, 'category')} onChange={(e) => setField(row.id, 'category', e.target.value)} disabled={!editingRowIds.has(row.id)} className="h-9 w-full rounded-lg border border-soft-border bg-white px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue disabled:bg-gray-50 disabled:text-cool-gray">
@@ -1183,8 +1190,8 @@ export default function OthersInventoryPage() {
       </Dialog>
       {/* Fixed Footer */}
       {(() => {
-        const _tp = Math.max(1, Math.ceil(filteredRows.length / rowsPerPage));
-        const _sp = Math.min(currentPage, _tp);
+        const _tp = totalPages;
+        const _sp = safePage;
         return (
           <div className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-soft-border shadow-lg px-4 py-2 flex flex-wrap items-center justify-between gap-3 text-sm text-cool-gray">
             <div className="flex items-center gap-2">

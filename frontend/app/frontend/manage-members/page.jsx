@@ -885,11 +885,12 @@ export default function ManageMembersPage() {
                             <RotateCcw className="h-4 w-4" />
                           </button>
                           <button
-                            title="Permanently Delete"
+                            title="Permanently Delete User"
                             onClick={() => setPermanentDeleteTarget(m)}
-                            className="p-1.5 rounded hover:bg-red-100 text-cool-gray hover:text-red-700 transition"
+                            className="flex items-center gap-1 px-2 py-1 rounded text-xs font-semibold bg-red-50 text-red-600 hover:bg-red-600 hover:text-white border border-red-200 hover:border-red-600 transition"
                           >
-                            <X className="h-4 w-4" />
+                            <Trash2 className="h-3.5 w-3.5" />
+                            Delete
                           </button>
                         </>
                       )}

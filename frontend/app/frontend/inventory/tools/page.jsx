@@ -307,6 +307,13 @@ export default function ToolsInventoryPage() {
   const someSelected = selectedIds.size > 0 && !allSelected;
   const selectedRows = rows.filter((r) => selectedIds.has(r.id));
   const visibleTableColumnCount = 1 + TOOLS_COLUMNS.filter((column) => visibleColumns.has(column.id)).length;
+
+  const totalPages = Math.max(1, Math.ceil(filteredRows.length / rowsPerPage));
+  const safePage = Math.min(currentPage, totalPages);
+  const pagedRows = useMemo(() => {
+    const start = (safePage - 1) * rowsPerPage;
+    return filteredRows.slice(start, start + rowsPerPage);
+  }, [filteredRows, safePage, rowsPerPage]);
   const pendingIssueRequests = issueRequests.filter((r) => r.status === 'pending');
   const sortedIssueRequests = [...issueRequests].sort((a, b) => new Date(b.requested_at || b.requestedAt || 0) - new Date(a.requested_at || a.requestedAt || 0));
   const activeRequest = issueRequests.find((r) => r.id === activeRequestId) || null;
@@ -780,7 +787,7 @@ export default function ToolsInventoryPage() {
                       No tools found. Add one using the button above.
                     </td>
                   </tr>
-                ) : filteredRows.map((row) => (
+                ) : pagedRows.map((row) => (
                   <tr key={row.id} className="transition hover:bg-[#F8F9FA]">
                     <td className="border border-soft-border px-3 py-2.5">
                       <input
@@ -1341,8 +1348,8 @@ export default function ToolsInventoryPage() {
       )}
       {/* Fixed Footer */}
       {(() => {
-        const _tp = Math.max(1, Math.ceil(filteredRows.length / rowsPerPage));
-        const _sp = Math.min(currentPage, _tp);
+        const _tp = totalPages;
+        const _sp = safePage;
         return (
           <div className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-soft-border shadow-lg px-4 py-2 flex flex-wrap items-center justify-between gap-3 text-sm text-cool-gray">
             <div className="flex items-center gap-2">
