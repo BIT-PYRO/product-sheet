@@ -258,20 +258,37 @@ class DieInventoryItemSerializer(serializers.ModelSerializer):
     designer_images = serializers.SerializerMethodField()
 
     def get_designer_images(self, obj):
-        """Return a deduplicated list of image URLs from all linked DesignerSheet records."""
-        from designers.models import DesignerSheet
-        skus = [s for s in (obj.designer_skus or []) if s]
-        if not skus:
+        """Return a deduplicated list of image URLs from all linked DesignerSheet records.
+
+        For list actions the ViewSet injects a precomputed ``sku_images`` dict into
+        the serializer context so this method performs zero extra DB queries.  For
+        detail/other actions it falls back to a single filter query.
+        """
+        try:
+            skus = [s for s in (obj.designer_skus or []) if s]
+            if not skus:
+                return []
+            seen = set()
+            images = []
+            sku_images = self.context.get('sku_images')  # injected by ViewSet for list
+            if sku_images is not None:
+                for sku in skus:
+                    for url in sku_images.get(sku, []):
+                        if url not in seen:
+                            seen.add(url)
+                            images.append(url)
+                return images
+            # Fallback: single query (detail / other actions)
+            from designers.models import DesignerSheet
+            sheets = DesignerSheet.objects.filter(sku__in=skus).only('sku', 'image', 'designer_image_2', 'designer_image_3')
+            for sheet in sheets:
+                for url in (sheet.image, sheet.designer_image_2, sheet.designer_image_3):
+                    if url and url not in seen:
+                        seen.add(url)
+                        images.append(url)
+            return images
+        except Exception:
             return []
-        seen = set()
-        images = []
-        sheets = DesignerSheet.objects.filter(sku__in=skus).only('sku', 'image', 'designer_image_2', 'designer_image_3')
-        for sheet in sheets:
-            for url in (sheet.image, sheet.designer_image_2, sheet.designer_image_3):
-                if url and url not in seen:
-                    seen.add(url)
-                    images.append(url)
-        return images
 
     class Meta:
         model = DieInventoryItem
