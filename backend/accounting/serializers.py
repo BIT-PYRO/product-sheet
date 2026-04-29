@@ -5,6 +5,7 @@ from rest_framework import serializers
 
 from .models import (
     BankAccount, BankTransaction,
+    BulkSettlement,
     Invoice, JournalEntry, JournalItem, Ledger, Outstanding, PendingExpense,
 )
 
@@ -84,12 +85,8 @@ class JournalEntryCreateSerializer(serializers.Serializer):
                 )
                 
                 # Check for attachments in request.FILES
-                # The frontend sends debit_X_attachment_Y or credit_X_attachment_Y
                 if request and request.FILES:
-                    # In items_data, we don't have the original 'type' to know if it's debit or credit easily?
-                    # The frontend passes `type` ('debit' or 'credit') in the item.
-                    # Wait, we popped it, but we can access it before popping if we check request data
-                    pass # We will handle attachment creation outside because we don't have index easily mapped to 'debit'/'credit' lists
+                    pass  # Handled outside
                     
             return entry
 
@@ -133,21 +130,45 @@ class ApproveExpenseSerializer(serializers.Serializer):
 class ExpenseSerializer(serializers.ModelSerializer):
     category_name = serializers.CharField(source='category.name', read_only=True)
     account_name = serializers.CharField(source='account.name', read_only=True)
+    receipts = serializers.SerializerMethodField()
+
+    def get_receipts(self, obj):
+        res = []
+        if obj.receipt:
+            res.append({'id': f'dir_{obj.id}', 'file': obj.receipt.url, 'filename': obj.receipt.name.split('/')[-1]})
+        if obj.journal_entry:
+            from .models import Outstanding
+            for out in Outstanding.objects.filter(settlement_journal=obj.journal_entry):
+                for r in out.receipts.all():
+                    res.append({'id': r.id, 'file': r.file.url, 'filename': r.filename})
+        return res
 
     class Meta:
         from .models import Expense
         model = Expense
-        fields = ('id', 'amount', 'category', 'category_name', 'account', 'account_name', 'date', 'description', 'department', 'receipt', 'created_at')
+        fields = ('id', 'amount', 'category', 'category_name', 'account', 'account_name', 'date', 'description', 'department', 'receipt', 'receipts', 'created_at')
 
 
 class IncomeSerializer(serializers.ModelSerializer):
     category_name = serializers.CharField(source='category.name', read_only=True)
     account_name = serializers.CharField(source='account.name', read_only=True)
+    receipts = serializers.SerializerMethodField()
+
+    def get_receipts(self, obj):
+        res = []
+        if obj.receipt:
+            res.append({'id': f'dir_{obj.id}', 'file': obj.receipt.url, 'filename': obj.receipt.name.split('/')[-1]})
+        if obj.journal_entry:
+            from .models import Outstanding
+            for out in Outstanding.objects.filter(settlement_journal=obj.journal_entry):
+                for r in out.receipts.all():
+                    res.append({'id': r.id, 'file': r.file.url, 'filename': r.filename})
+        return res
 
     class Meta:
         from .models import Income
         model = Income
-        fields = ('id', 'amount', 'category', 'category_name', 'account', 'account_name', 'date', 'description', 'department', 'receipt', 'created_at')
+        fields = ('id', 'amount', 'category', 'category_name', 'account', 'account_name', 'date', 'description', 'department', 'receipt', 'receipts', 'created_at')
 
 
 class OutstandingReceiptSerializer(serializers.ModelSerializer):
@@ -175,6 +196,14 @@ class OutstandingSerializer(serializers.ModelSerializer):
 class InvoiceSerializer(serializers.ModelSerializer):
     outstanding_id = serializers.IntegerField(source='outstanding.id', read_only=True, allow_null=True)
     journal_entry_id = serializers.IntegerField(source='journal_entry.id', read_only=True, allow_null=True)
+    receipts = serializers.SerializerMethodField()
+
+    def get_receipts(self, obj):
+        if obj.outstanding:
+            from .models import OutstandingReceipt
+            qs = OutstandingReceipt.objects.filter(outstanding=obj.outstanding)
+            return OutstandingReceiptSerializer(qs, many=True).data
+        return []
 
     class Meta:
         model = Invoice
@@ -182,6 +211,7 @@ class InvoiceSerializer(serializers.ModelSerializer):
             'id', 'type', 'party_name', 'amount', 'department',
             'due_date', 'description', 'status',
             'outstanding_id', 'journal_entry_id',
+            'receipts',
             'created_at', 'updated_at',
         )
         read_only_fields = ('status', 'outstanding_id', 'journal_entry_id', 'created_at', 'updated_at')
@@ -205,6 +235,7 @@ class InvoiceSettleSerializer(serializers.Serializer):
         queryset=_Account.objects.all(),
         help_text='ID of the Account (bank/cash) used for payment.',
     )
+
 # ---------------------------------------------------------------------------
 # Banking
 # ---------------------------------------------------------------------------
@@ -281,3 +312,22 @@ class BankTransactionSerializer(serializers.ModelSerializer):
             'journal_entry_id', 'unique_hash', 'created_at',
         )
 
+
+class BulkSettlementSerializer(serializers.ModelSerializer):
+    settlement_account_name = serializers.CharField(
+        source='settlement_account.name', read_only=True
+    )
+    # Resolve the Outstanding objects for the detail view
+    items = serializers.SerializerMethodField()
+
+    class Meta:
+        model = BulkSettlement
+        fields = (
+            'id', 'label', 'settlement_account', 'settlement_account_name',
+            'settlement_date', 'total_amount', 'items_count',
+            'outstanding_ids', 'notes', 'created_at', 'items',
+        )
+
+    def get_items(self, obj):
+        qs = Outstanding.objects.filter(pk__in=obj.outstanding_ids)
+        return OutstandingSerializer(qs, many=True).data

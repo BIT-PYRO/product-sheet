@@ -427,6 +427,7 @@ export default function AccountingJournalForm() {
 
   const [debitLines, setDebitLines] = useState([emptyLine('initial-debit')]);
   const [creditLines, setCreditLines] = useState([emptyLine('initial-credit')]);
+  const [showGuide, setShowGuide] = useState(false);
 
   /* ── fetch ledgers and set date ── */
   useEffect(() => {
@@ -560,7 +561,16 @@ export default function AccountingJournalForm() {
 
       {/* ── Entry Header Card ── */}
       <div style={cardStyle}>
-        
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+          <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#111827' }}>General Journal Entry</h2>
+          <button 
+            type="button" 
+            onClick={() => setShowGuide(true)}
+            style={{ padding: '6px 12px', background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
+          >
+            <span style={{ fontSize: 14 }}>📖</span> Journal Guide
+          </button>
+        </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 16 }}>
           <div>
@@ -698,11 +708,162 @@ export default function AccountingJournalForm() {
           {status.message}
         </div>
       )}
+
+      {/* ── Guide Modal ── */}
+      {showGuide && <JournalGuideModal onClose={() => setShowGuide(false)} />}
     </div>
   );
 }
 
 /* ── helper sub-components ───────────────────────────────────── */
+
+function JournalGuideModal({ onClose }) {
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(3px)' }} onClick={onClose}>
+      <div style={{ background: '#fff', borderRadius: 16, width: '100%', maxWidth: 700, maxHeight: '90vh', display: 'flex', flexDirection: 'column', boxShadow: '0 24px 60px rgba(0,0,0,0.2)' }} onClick={e => e.stopPropagation()}>
+        <div style={{ padding: '18px 24px', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8fafc', borderRadius: '16px 16px 0 0', flexShrink: 0 }}>
+          <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: '#111827', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span>📖</span> Comprehensive Journal Guide
+          </h3>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: '#6b7280' }}>✕</button>
+        </div>
+        
+        <div style={{ padding: '24px', overflowY: 'auto', fontSize: 14, color: '#374151', lineHeight: 1.6, flex: 1 }}>
+          <p style={{ marginTop: 0, marginBottom: 20, fontSize: 15 }}>
+            A Journal Entry is the foundation of accounting. Every entry must have <strong>at least one Debit</strong> and <strong>at least one Credit</strong>, and the <strong>Total Debit must equal Total Credit</strong>.
+          </p>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 28 }}>
+            <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 10, padding: 16 }}>
+              <h4 style={{ margin: '0 0 8px 0', color: '#1d4ed8', fontWeight: 800 }}>▲ DEBIT (What comes in)</h4>
+              <ul style={{ margin: 0, paddingLeft: 20, color: '#1e40af', fontSize: 13, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <li>Increase in Assets (e.g. Bank, Cash)</li>
+                <li>Increase in Expenses (e.g. Rent, Salary)</li>
+              </ul>
+            </div>
+            <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 10, padding: 16 }}>
+              <h4 style={{ margin: '0 0 8px 0', color: '#15803d', fontWeight: 800 }}>▼ CREDIT (What goes out)</h4>
+              <ul style={{ margin: 0, paddingLeft: 20, color: '#166534', fontSize: 13, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <li>Increase in Income (e.g. Sales)</li>
+                <li>Increase in Liabilities (e.g. Loans, Payables)</li>
+              </ul>
+            </div>
+          </div>
+
+          <h4 style={{ margin: '0 0 12px 0', fontSize: 16, fontWeight: 800, color: '#111827', borderBottom: '2px solid #e5e7eb', paddingBottom: 6 }}>📋 Field-by-Field Instructions</h4>
+          
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 28 }}>
+            
+            <div style={{ background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 8, padding: 14 }}>
+              <strong style={{ color: '#0369a1', display: 'block', marginBottom: 6, fontSize: 15 }}>1. Ledger Account (The most important field)</strong>
+              <p style={{ margin: 0, fontSize: 13, color: '#0c4a6e', marginBottom: 10 }}>
+                Think of a Ledger as a <strong>specific category or bucket</strong> for your money. Instead of just saying "I spent money," you specify <em>where</em> it went (e.g., "Office Rent"). 
+              </p>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
+                <div style={{ background: '#fff', padding: 8, borderRadius: 6, border: '1px solid #e0f2fe' }}>
+                  <span style={{ fontWeight: 700, color: '#0284c7', display: 'block', marginBottom: 2 }}>Assets (You own it)</span>
+                  <span style={{ fontSize: 12 }}>Bank accounts, Cash, Inventory.</span>
+                </div>
+                <div style={{ background: '#fff', padding: 8, borderRadius: 6, border: '1px solid #e0f2fe' }}>
+                  <span style={{ fontWeight: 700, color: '#0284c7', display: 'block', marginBottom: 2 }}>Liabilities (You owe it)</span>
+                  <span style={{ fontSize: 12 }}>Pending bills, Loans.</span>
+                </div>
+                <div style={{ background: '#fff', padding: 8, borderRadius: 6, border: '1px solid #e0f2fe' }}>
+                  <span style={{ fontWeight: 700, color: '#0284c7', display: 'block', marginBottom: 2 }}>Income (You earn it)</span>
+                  <span style={{ fontSize: 12 }}>Sales, Service Fees.</span>
+                </div>
+                <div style={{ background: '#fff', padding: 8, borderRadius: 6, border: '1px solid #e0f2fe' }}>
+                  <span style={{ fontWeight: 700, color: '#0284c7', display: 'block', marginBottom: 2 }}>Expense (You spend it)</span>
+                  <span style={{ fontSize: 12 }}>Rent, Salaries, Marketing.</span>
+                </div>
+              </div>
+              <p style={{ margin: 0, fontSize: 13, color: '#0c4a6e' }}>
+                <span style={{ fontWeight: 700 }}>How to use it:</span> If paying rent from your bank, select <strong>"Office Rent (Expense)"</strong> on the Debit side, and <strong>"Bank (Asset)"</strong> on the Credit side. If you don't see the category you need, just click <strong>"+ Add new..."</strong> to create it!
+              </p>
+            </div>
+
+            <div style={{ background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 8, padding: 12 }}>
+              <strong style={{ color: '#111827', display: 'block', marginBottom: 4 }}>2. Amount (Required)</strong>
+              <p style={{ margin: 0, fontSize: 13, color: '#4b5563' }}>
+                The monetary value for this specific line. Total debits across all lines must equal total credits before you can submit.
+              </p>
+            </div>
+
+            <div style={{ background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 8, padding: 12 }}>
+              <strong style={{ color: '#111827', display: 'block', marginBottom: 4 }}>3. Date & Description</strong>
+              <p style={{ margin: 0, fontSize: 13, color: '#4b5563' }}>
+                <strong>Date:</strong> The date the transaction occurred (defaults to today).<br/>
+                <strong>Description:</strong> Specific details about this single line item (e.g., "April 2026 Office Rent").
+              </p>
+            </div>
+
+            <div style={{ background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 8, padding: 12 }}>
+              <strong style={{ color: '#111827', display: 'block', marginBottom: 4 }}>4. Department (Optional)</strong>
+              <p style={{ margin: 0, fontSize: 13, color: '#4b5563' }}>
+                Select which department this transaction belongs to (e.g., Marketing, Sales). This is highly recommended as it allows you to filter the Profit & Loss statement by department later.
+              </p>
+            </div>
+
+            <div style={{ background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 8, padding: 12 }}>
+              <strong style={{ color: '#111827', display: 'block', marginBottom: 4 }}>5. Payment Method & Reference ID (Optional)</strong>
+              <p style={{ margin: 0, fontSize: 13, color: '#4b5563' }}>
+                <strong>Payment Method:</strong> How the transaction was executed (Cash, NEFT, UPI, etc.).<br/>
+                <strong>Reference ID:</strong> Transaction number, Cheque number, or Invoice ID for tracking.
+              </p>
+            </div>
+
+            <div style={{ background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 8, padding: 12 }}>
+              <strong style={{ color: '#111827', display: 'block', marginBottom: 4 }}>6. Vendor / Payee (Optional)</strong>
+              <p style={{ margin: 0, fontSize: 13, color: '#4b5563' }}>
+                The name of the person or company you are paying or receiving money from (e.g., "Sharma Traders").
+              </p>
+            </div>
+
+            <div style={{ background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 8, padding: 12 }}>
+              <strong style={{ color: '#111827', display: 'block', marginBottom: 4 }}>7. Attachments (Optional)</strong>
+              <p style={{ margin: 0, fontSize: 13, color: '#4b5563' }}>
+                Upload bills, receipts, or screenshots as proof. You can attach multiple files (PDFs, Images, Excel, etc.) per line.
+              </p>
+            </div>
+
+          </div>
+
+          <h4 style={{ margin: '0 0 12px 0', fontSize: 16, fontWeight: 800, color: '#111827', borderBottom: '2px solid #e5e7eb', paddingBottom: 6 }}>📝 Common Examples</h4>
+          
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: 12, background: '#fff' }}>
+              <strong style={{ display: 'block', marginBottom: 4, color: '#111827' }}>Example 1: Paying an Expense (e.g. Office Rent)</strong>
+              <div style={{ fontSize: 13, color: '#4b5563' }}>
+                <span style={{ color: '#2563eb', fontWeight: 600 }}>Debit:</span> Office Rent (Expense goes up)<br/>
+                <span style={{ color: '#16a34a', fontWeight: 600 }}>Credit:</span> Bank Account (Cash goes out)
+              </div>
+            </div>
+
+            <div style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: 12, background: '#fff' }}>
+              <strong style={{ display: 'block', marginBottom: 4, color: '#111827' }}>Example 2: Making a Sale and getting paid</strong>
+              <div style={{ fontSize: 13, color: '#4b5563' }}>
+                <span style={{ color: '#2563eb', fontWeight: 600 }}>Debit:</span> Bank Account (Cash comes in)<br/>
+                <span style={{ color: '#16a34a', fontWeight: 600 }}>Credit:</span> Sales (Income goes up)
+              </div>
+            </div>
+            
+            <div style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: 12, background: '#fff' }}>
+              <strong style={{ display: 'block', marginBottom: 4, color: '#111827' }}>Example 3: Adding money to business from owner</strong>
+              <div style={{ fontSize: 13, color: '#4b5563' }}>
+                <span style={{ color: '#2563eb', fontWeight: 600 }}>Debit:</span> Bank Account (Asset increases)<br/>
+                <span style={{ color: '#16a34a', fontWeight: 600 }}>Credit:</span> Capital / Owner's Equity (Liability to owner increases)
+              </div>
+            </div>
+          </div>
+
+        </div>
+        <div style={{ padding: '16px 24px', borderTop: '1px solid #e5e7eb', background: '#f9fafb', borderRadius: '0 0 16px 16px', textAlign: 'right', flexShrink: 0 }}>
+          <button onClick={onClose} style={{ padding: '10px 24px', background: '#2563eb', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 600, cursor: 'pointer', fontSize: 15 }}>I understand, let's start!</button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function SectionCard({ title, subtitle, color, bg, icon, children }) {
   return (

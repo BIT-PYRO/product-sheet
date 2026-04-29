@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
 const fmt = (n) => Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const fmtRs = (n) => `₹${fmt(n)}`;
@@ -79,9 +79,8 @@ function SectionTable({ title, items, total, colorClass, bgHeaderClass, expanded
           ) : items.map((item) => {
             const isOpen = expanded.has(item.ledger_id);
             return (
-              <>
+              <React.Fragment key={item.ledger_id}>
                 <tr
-                  key={item.ledger_id}
                   onClick={() => onToggle(item.ledger_id)}
                   className="border-t border-soft-border cursor-pointer hover:bg-cloud-gray/50 transition-colors"
                 >
@@ -91,7 +90,7 @@ function SectionTable({ title, items, total, colorClass, bgHeaderClass, expanded
                   <td className={`px-4 py-3 text-right font-mono font-semibold ${colorClass}`}>{fmtRs(item.amount)}</td>
                 </tr>
                 {isOpen && <TxDetailRows key={`tx-${item.ledger_id}`} transactions={item.transactions} colSpan={4} />}
-              </>
+              </React.Fragment>
             );
           })}
         </tbody>

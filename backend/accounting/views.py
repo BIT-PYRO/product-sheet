@@ -13,6 +13,7 @@ from common.api import api_success
 
 from .models import (
     Account, BankAccount, BankTransaction,
+    BulkSettlement,
     Expense, Income, Invoice, JournalEntry, JournalItem, Ledger, Outstanding, OutstandingReceipt, PendingExpense,
 )
 from .services.bank_import_service import build_preview, confirm_import, parse_file
@@ -21,6 +22,7 @@ from .serializers import (
     BankAccountCreateSerializer,
     BankAccountSerializer,
     BankTransactionSerializer,
+    BulkSettlementSerializer,
     ExpenseSerializer,
     IncomeSerializer,
     InvoiceCreateSerializer,
@@ -1067,6 +1069,165 @@ class OutstandingSettleView(APIView):
             return api_success(OutstandingSerializer(outstanding).data, message='Settled successfully.')
         except Exception as e:
             return Response({'success': False, 'message': str(e)}, status=400)
+
+
+# ═══════════════════════════════════════════════════════════════════
+# BULK SETTLEMENT — settle multiple outstandings in one batch
+# ═══════════════════════════════════════════════════════════════════
+
+class BulkSettleView(APIView):
+    """
+    POST /api/accounting/outstandings/bulk-settle/
+    Body: {
+      outstanding_ids: [1, 2, 3],
+      payment_account_id: <int>,
+      date: "YYYY-MM-DD",
+      label: "Optional batch label",
+      notes: ""
+    }
+
+    Settles each pending outstanding individually (reusing OutstandingSettleView logic),
+    then creates a BulkSettlement record that groups them as a folder.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        outstanding_ids = request.data.get('outstanding_ids', [])
+        payment_account_id = request.data.get('payment_account_id')
+        settle_date = request.data.get('date') or date.today().isoformat()
+        label = (request.data.get('label') or '').strip()
+        notes = (request.data.get('notes') or '').strip()
+
+        if not outstanding_ids or not isinstance(outstanding_ids, list):
+            return Response({'success': False, 'message': 'outstanding_ids must be a non-empty list.'}, status=400)
+        if not payment_account_id:
+            return Response({'success': False, 'message': 'payment_account_id is required.'}, status=400)
+
+        try:
+            payment_account = Account.objects.get(pk=payment_account_id)
+        except Account.DoesNotExist:
+            return Response({'success': False, 'message': 'Payment account not found.'}, status=404)
+
+        outstandings = Outstanding.objects.filter(pk__in=outstanding_ids, status=Outstanding.Status.PENDING)
+        if not outstandings.exists():
+            return Response({'success': False, 'message': 'No pending outstandings found for the given IDs.'}, status=400)
+
+        settled_ids = []
+        total_amount = 0
+
+        try:
+            with transaction.atomic():
+                bank_ledger = payment_account.get_or_create_ledger()
+
+                for outstanding in outstandings:
+                    amount = outstanding.amount
+                    dept = (outstanding.department or 'General').strip()
+                    party = outstanding.party_name
+
+                    if outstanding.type == Outstanding.OutstandingType.RECEIVABLE:
+                        ar_ledger, _ = Ledger.objects.get_or_create(
+                            name='Accounts Receivable', defaults={'type': Ledger.LedgerType.ASSET}
+                        )
+                        journal = JournalEntry.objects.create(
+                            date=settle_date,
+                            description=f'[Bulk] Settlement of receivable from {party}',
+                        )
+                        JournalItem.objects.create(
+                            entry=journal, ledger=bank_ledger, debit=amount, credit=0,
+                            vendor_payee=party, department=dept,
+                        )
+                        JournalItem.objects.create(
+                            entry=journal, ledger=ar_ledger, debit=0, credit=amount,
+                            vendor_payee=party, department=dept,
+                        )
+                        income_ledger, _ = Ledger.objects.get_or_create(
+                            name=f'{dept} Income', defaults={'type': Ledger.LedgerType.INCOME}
+                        )
+                        Income.objects.create(
+                            amount=amount, category=income_ledger, account=payment_account,
+                            date=settle_date, description=f'[Bulk] Settled receivable — {party}',
+                            department=dept, journal_entry=journal,
+                        )
+                    else:
+                        ap_ledger, _ = Ledger.objects.get_or_create(
+                            name='Accounts Payable', defaults={'type': Ledger.LedgerType.LIABILITY}
+                        )
+                        journal = JournalEntry.objects.create(
+                            date=settle_date,
+                            description=f'[Bulk] Settlement of payable to {party}',
+                        )
+                        JournalItem.objects.create(
+                            entry=journal, ledger=ap_ledger, debit=amount, credit=0,
+                            vendor_payee=party, department=dept,
+                        )
+                        JournalItem.objects.create(
+                            entry=journal, ledger=bank_ledger, debit=0, credit=amount,
+                            vendor_payee=party, department=dept,
+                        )
+                        expense_ledger, _ = Ledger.objects.get_or_create(
+                            name=f'{dept} Expense', defaults={'type': Ledger.LedgerType.EXPENSE}
+                        )
+                        Expense.objects.create(
+                            amount=amount, category=expense_ledger, account=payment_account,
+                            date=settle_date, description=f'[Bulk] Settled payable — {party}',
+                            department=dept, journal_entry=journal,
+                        )
+
+                    outstanding.status = Outstanding.Status.PAID
+                    outstanding.settlement_journal = journal
+                    outstanding.settlement_account = payment_account
+                    outstanding.save(update_fields=['status', 'settlement_journal', 'settlement_account', 'updated_at'])
+
+                    # Sync linked Invoice if any
+                    if hasattr(outstanding, 'invoice') and outstanding.invoice:
+                        linked_inv = outstanding.invoice
+                        if linked_inv.status != Invoice.Status.SETTLED:
+                            linked_inv.status = Invoice.Status.SETTLED
+                            linked_inv.journal_entry = journal
+                            linked_inv.save(update_fields=['status', 'journal_entry', 'updated_at'])
+
+                    settled_ids.append(outstanding.pk)
+                    total_amount += float(amount)
+
+                # Auto-generate label if not provided
+                if not label:
+                    label = f'Bulk Settlement — {settle_date} ({len(settled_ids)} items)'
+
+                bulk = BulkSettlement.objects.create(
+                    label=label,
+                    settlement_account=payment_account,
+                    settlement_date=settle_date,
+                    total_amount=round(total_amount, 2),
+                    items_count=len(settled_ids),
+                    outstanding_ids=settled_ids,
+                    notes=notes,
+                )
+
+            logger.info(
+                'BulkSettlement #%s: %d items settled, total ₹%s via account %s',
+                bulk.pk, len(settled_ids), round(total_amount, 2), payment_account.name,
+            )
+            return api_success(
+                BulkSettlementSerializer(bulk).data,
+                message=f'{len(settled_ids)} items settled successfully as Bulk #{bulk.pk}.',
+                status_code=201,
+            )
+
+        except Exception as exc:
+            logger.error('BulkSettle failed: %s', exc, exc_info=True)
+            return Response({'success': False, 'message': str(exc)}, status=400)
+
+
+class BulkSettlementListView(APIView):
+    """
+    GET /api/accounting/bulk-settlements/
+    Returns all bulk settlement folders, newest first.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        qs = BulkSettlement.objects.select_related('settlement_account').all()
+        return api_success(BulkSettlementSerializer(qs, many=True).data, message='Bulk settlements fetched.')
 
 
 class OutstandingDashboardView(APIView):

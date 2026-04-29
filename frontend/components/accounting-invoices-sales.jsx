@@ -1,8 +1,10 @@
 'use client';
 import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
+import { ReceiptsBadge } from './receipts-viewer';
 
 const fmt = n => `₹${Number(n).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
 const today = () => new Date().toISOString().slice(0, 10);
+const fmtDate = d => { if (!d) return '—'; const [y,m,dy] = String(d).substring(0,10).split('-'); return `${dy}-${m}-${y}`; };
 
 const C = {
   green: '#059669', greenBg: '#ecfdf5', greenBorder: '#a7f3d0',
@@ -118,6 +120,8 @@ function CreateInvoiceModal({ onClose, onSuccess, accounts }) {
   });
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
+  const [receipts, setReceipts] = useState([]);
+  const fileRef = useRef(null);
   const [partySuggestions, setPartySuggestions] = useState([]);
   const set = (k, v) => setForm(p => ({ ...p, [k]: v }));
 
@@ -169,7 +173,16 @@ function CreateInvoiceModal({ onClose, onSuccess, accounts }) {
       }
       
       console.log('Invoice create response:', res.status, data);
-      if (data?.success) { onSuccess(); onClose(); }
+      if (data?.success) {
+        // Upload receipts if any and if outstanding was created
+        const outstandingId = data.data?.outstanding_id;
+        if (receipts.length > 0 && outstandingId) {
+          const fd = new FormData();
+          receipts.forEach(f => fd.append('receipts', f));
+          await fetch(`/api/accounting/outstandings/${outstandingId}/receipts/`, { method: 'POST', body: fd }).catch(() => {});
+        }
+        onSuccess(); onClose();
+      }
       else {
         // Handle both DRF error wrapper {error:{message,details}} and direct {message,errors} formats
         let msg = data?.message || data?.error?.message || 'Failed to create invoice.';
@@ -217,6 +230,27 @@ function CreateInvoiceModal({ onClose, onSuccess, accounts }) {
           <div>
             <label style={labelStyle}>Description</label>
             <input style={inputStyle} placeholder="Optional note…" value={form.description} onChange={e => set('description', e.target.value)} />
+          </div>
+          <div style={{ gridColumn: '1/-1' }}>
+            <label style={labelStyle}>Receipts / Invoice Files (optional)</label>
+            <div
+              onClick={() => fileRef.current?.click()}
+              style={{ ...inputStyle, cursor: 'pointer', color: '#9ca3af', textAlign: 'center', border: '1px dashed #d1d5db', padding: 10 }}
+            >
+              Click to attach receipts or invoice files…
+            </div>
+            <input ref={fileRef} type="file" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.xlsm,.ods,.csv,.ppt,.pptx,.txt,.rtf,.odt" multiple style={{ display: 'none' }}
+              onChange={e => setReceipts(r => [...r, ...Array.from(e.target.files)])} />
+            {receipts.length > 0 && (
+              <div style={{ marginTop: 8, display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {receipts.map((f, i) => (
+                  <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 8px', background: '#f3f4f6', borderRadius: 6, fontSize: 12, color: '#374151' }}>
+                    {f.name}
+                    <button type="button" onClick={() => setReceipts(r => r.filter((_, idx) => idx !== i))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', fontSize: 14, padding: 0 }}>x</button>
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
@@ -435,7 +469,7 @@ export default function AccountingInvoicesSales({ onRefresh, dateParams }) {
                 <input type="checkbox" checked={filtered.length > 0 && selectedIds.size === filtered.length} onChange={toggleSelectAll} style={{ cursor: 'pointer' }} />
               </th>
               <th className="print-only" style={{ padding: '10px 14px', fontSize: 11, fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: 0.5, borderBottom: `1px solid ${C.border}`, textAlign: 'left', display: 'none' }}>S.No</th>
-              {['#', 'Party Name', 'Department', 'Amount', 'Due Date', 'Status'].map((h, i) => (
+              {['#', 'Party Name', 'Department', 'Amount', 'Due Date', 'Receipts', 'Status'].map((h, i) => (
                 <th key={i} className={h === '#' ? 'no-print' : ''} style={{ padding: '10px 14px', fontSize: 11, fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: 0.5, textAlign: i >= 3 ? 'right' : 'left', borderBottom: `1px solid ${C.border}` }}>{h}</th>
               ))}
             </tr>
@@ -469,7 +503,14 @@ export default function AccountingInvoicesSales({ onRefresh, dateParams }) {
                   ) : <span style={{ color: C.muted, fontSize: 12 }}>—</span>}
                 </td>
                 <td style={{ padding: '12px 14px', textAlign: 'right', fontSize: 14, fontWeight: 800, color: C.green }}>{fmt(inv.amount)}</td>
-                <td style={{ padding: '12px 14px', textAlign: 'right', fontSize: 12, color: inv.due_date ? C.muted : C.muted }}>{inv.due_date || '—'}</td>
+                <td style={{ padding: '12px 14px', textAlign: 'right', fontSize: 12, color: C.muted }}>{fmtDate(inv.due_date)}</td>
+                <td style={{ padding: '12px 14px', textAlign: 'right' }} onClick={e => e.stopPropagation()}>
+                  <ReceiptsBadge
+                    receipts={inv.receipts || []}
+                    title={`Receipts — ${inv.party_name}`}
+                    accentColor={C.green}
+                  />
+                </td>
                 <td style={{ padding: '12px 14px', textAlign: 'right' }}><StatusBadge status={inv.status} /></td>
               </tr>
             )})}

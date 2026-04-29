@@ -188,7 +188,7 @@ export default function FinanceEntryModal({ type, ledgers, accounts, onClose, on
               <div onClick={() => fileRef.current?.click()} style={{ ...S.input, cursor: 'pointer', color: '#9ca3af', textAlign: 'center', border: '1px dashed #d1d5db', padding: 9 }}>
                 Click to add...
               </div>
-              <input ref={fileRef} type="file" accept="image/*,.pdf" multiple onChange={e => setReceipts(r => [...r, ...Array.from(e.target.files)])} style={{ display: 'none' }} />
+              <input ref={fileRef} type="file" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.xlsm,.ods,.csv,.ppt,.pptx,.txt,.rtf,.odt" multiple onChange={e => setReceipts(r => [...r, ...Array.from(e.target.files)])} style={{ display: 'none' }} />
               {receipts.length > 0 && (
                 <div style={{ marginTop: 6, display: 'flex', flexWrap: 'wrap', gap: 4 }}>
                   {receipts.map((f, i) => (
