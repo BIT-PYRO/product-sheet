@@ -24,6 +24,13 @@ import { CalendarIcon, Plus, Trash2, X, ArrowRight, FileText, Loader2 } from "lu
 import { useDrafts, useDraftLoader } from "@/components/drafts-manager"
 import { fmtNum } from "@/lib/utils"
 
+function workStyleToWorkType(ws) {
+  const s = (ws || '').toLowerCase()
+  if (s.includes('contract')) return 'Contract'
+  if (s.includes('job')) return 'Job Work'
+  return 'In-House'
+}
+
 function generateVoucherNo() {
   if (typeof window === 'undefined') return 'JJ-01'
   // Get current counter from localStorage or start at 1
@@ -42,6 +49,7 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
   const [printVoucherData, setPrintVoucherData] = useState(null)
   const [activeTab, setActiveTab] = useState("stone")
   const [enrolledPeople, setEnrolledPeople] = useState([])
+  const [allWorkers, setAllWorkers] = useState([])
   const [rows, setRows] = useState([
     { id: 1, sku: "", category: "", metal: "", issuedQty: "", unit1: "", issuedWeight: "", unit2: "" },
     { id: 2, sku: "", category: "", metal: "", issuedQty: "", unit1: "", issuedWeight: "", unit2: "" },
@@ -73,13 +81,26 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
 
   async function loadWorkforceMembers() {
     try {
-      const response = await fetch('/api/workforce', { cache: 'no-store' })
-      const result = await response.json().catch(() => null)
-      if (!response.ok || !result?.success) {
-        return
+      const [wfRes, sessionRes] = await Promise.all([
+        fetch('/api/workforce?active=true&page_size=500', { cache: 'no-store' }),
+        fetch('/api/auth/session', { cache: 'no-store' }),
+      ])
+      const [wfResult, sessionData] = await Promise.all([
+        wfRes.json().catch(() => null),
+        sessionRes.json().catch(() => null),
+      ])
+      const all = Array.isArray(wfResult?.data) ? wfResult.data : (wfResult?.data?.results || [])
+      const prod = all.filter(w => (w.department || '').toLowerCase().includes('production'))
+      setEnrolledPeople(prod)
+      setAllWorkers(all)
+      if (sessionData?.user) {
+        const u = sessionData.user
+        const name = u.first_name ? `${u.first_name} ${u.last_name || ''}`.trim() : (u.username || '')
+        const email = (u.email || '').toLowerCase()
+        const wfRecord = all.find(m => (m.email || '').toLowerCase() === email)
+        if (name) setIssuedByName(name)
+        if (wfRecord) setIssuedByContact(wfRecord.phone || wfRecord.whatsapp || '')
       }
-      const rowsData = Array.isArray(result?.data) ? result.data : (result?.data?.results || [])
-      setEnrolledPeople(rowsData)
     } catch {
       // Keep form usable even if workforce list fails.
     }
@@ -746,7 +767,11 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
             <div className="grid grid-cols-[1fr_auto_1fr] gap-1.5 items-end">
               <div className="flex flex-col gap-0.5">
                 <Label className="text-sm font-medium text-muted-foreground">Issued To</Label>
-                <Select value={issuedTo} onValueChange={setIssuedTo}>
+                <Select value={issuedTo} onValueChange={(v) => {
+                  setIssuedTo(v)
+                  const person = enrolledPeople.find(p => p.full_name === v)
+                  if (person?.working_style) setWorkType(workStyleToWorkType(person.working_style))
+                }}>
                   <SelectTrigger className="h-8 text-sm bg-background border-border focus:ring-0 focus:outline-none">
                     <SelectValue />
                   </SelectTrigger>
@@ -1065,7 +1090,7 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
                   value={issuedByName}
                   onValueChange={(v) => {
                     setIssuedByName(v)
-                    const person = enrolledPeople.find(p => p.full_name === v)
+                    const person = allWorkers.find(p => p.full_name === v)
                     if (person) setIssuedByContact(person.phone || person.whatsapp || '')
                   }}
                 >
@@ -1073,10 +1098,10 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
                     <SelectValue placeholder="Select person" />
                   </SelectTrigger>
                   <SelectContent>
-                    {enrolledPeople.map(p => (
+                    {allWorkers.map(p => (
                       <SelectItem key={p.id} value={p.full_name}>{p.full_name}</SelectItem>
                     ))}
-                    {issuedByName && !enrolledPeople.find(p => p.full_name === issuedByName) && (
+                    {issuedByName && !allWorkers.find(p => p.full_name === issuedByName) && (
                       <SelectItem value={issuedByName}>{issuedByName}</SelectItem>
                     )}
                   </SelectContent>

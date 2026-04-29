@@ -4,6 +4,7 @@ const ACCESS_COOKIE = 'psd-access-token';
 const REFRESH_COOKIE = 'psd-refresh-token';
 const APPROVED_COOKIE = 'psd-approved';
 const ONE_DAY_SECONDS = 60 * 60 * 24;
+const SEVEN_DAYS_SECONDS = 60 * 60 * 24 * 7;
 const DEFAULT_BACKEND_URL = process.env.NODE_ENV === 'production' ? 'https://product-sheet.onrender.com' : 'http://127.0.0.1:8000';
 
 function getBackendBaseUrl() {
@@ -112,8 +113,8 @@ export async function POST(request) {
     });
 
     response.cookies.set({ name: ACCESS_COOKIE, value: access, ...cookieOpts, maxAge: ONE_DAY_SECONDS });
-    response.cookies.set({ name: REFRESH_COOKIE, value: refresh, ...cookieOpts, maxAge: ONE_DAY_SECONDS });
-    response.cookies.set({ name: APPROVED_COOKIE, value: isApproved ? '1' : '0', ...cookieOpts, maxAge: ONE_DAY_SECONDS });
+    response.cookies.set({ name: REFRESH_COOKIE, value: refresh, ...cookieOpts, maxAge: SEVEN_DAYS_SECONDS });
+    response.cookies.set({ name: APPROVED_COOKIE, value: isApproved ? '1' : '0', ...cookieOpts, maxAge: SEVEN_DAYS_SECONDS });
 
     return response;
   } catch {

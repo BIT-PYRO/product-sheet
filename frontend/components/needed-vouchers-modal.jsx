@@ -120,6 +120,7 @@ export function NeededVouchersModal({ open, onOpenChange, neededItems = [], onVo
   const [forms,            setForms]            = useState([])
   const [currentStep,      setCurrentStep]      = useState(0)
   const [enrolledPeople,   setEnrolledPeople]   = useState([])
+  const [allWorkers,       setAllWorkers]       = useState([])
   const [isQuickEnrollOpen,setIsQuickEnrollOpen]= useState(false)
   const [isCreating,       setIsCreating]       = useState(false)
   const [created,          setCreated]          = useState(false)
@@ -166,13 +167,29 @@ export function NeededVouchersModal({ open, onOpenChange, neededItems = [], onVo
   // Load workforce members
   useEffect(() => {
     if (!open) return
-    fetch('/api/workforce', { cache: 'no-store' })
-      .then(r => r.json())
-      .then(result => {
-        const data = Array.isArray(result?.data) ? result.data : (result?.data?.results || [])
-        setEnrolledPeople(data)
-      })
-      .catch(() => {})
+    Promise.all([
+      fetch('/api/workforce?active=true&page_size=500', { cache: 'no-store' }).then(r => r.json()).catch(() => null),
+      fetch('/api/auth/session', { cache: 'no-store' }).then(r => r.json()).catch(() => null),
+    ]).then(([wfResult, sessionData]) => {
+      const all = Array.isArray(wfResult?.data) ? wfResult.data : (wfResult?.data?.results || [])
+      const prod = all.filter(w => (w.department || '').toLowerCase().includes('production'))
+      setEnrolledPeople(prod)
+      setAllWorkers(all)
+      if (sessionData?.user) {
+        const u = sessionData.user
+        const name = u.first_name ? `${u.first_name} ${u.last_name || ''}`.trim() : (u.username || '')
+        const email = (u.email || '').toLowerCase()
+        const wfRecord = all.find(m => (m.email || '').toLowerCase() === email)
+        const contact = wfRecord?.phone || wfRecord?.whatsapp || ''
+        if (name) {
+          setForms(prev => prev.map(f => ({
+            ...f,
+            issuedByName: f.issuedByName || name,
+            issuedByContact: f.issuedByContact || contact,
+          })))
+        }
+      }
+    }).catch(() => {})
   }, [open])
 
   // Auto-fill category + metal from /api/products for each form's rows
@@ -612,7 +629,7 @@ export function NeededVouchersModal({ open, onOpenChange, neededItems = [], onVo
                       value={form.issuedByName}
                       onValueChange={(v) => {
                         updateForm('issuedByName', v)
-                        const person = enrolledPeople.find(p => p.full_name === v)
+                        const person = allWorkers.find(p => p.full_name === v)
                         if (person) updateForm('issuedByContact', person.phone || person.whatsapp || '')
                       }}
                     >
@@ -620,10 +637,10 @@ export function NeededVouchersModal({ open, onOpenChange, neededItems = [], onVo
                         <SelectValue placeholder="Select person" />
                       </SelectTrigger>
                       <SelectContent>
-                        {enrolledPeople.map(p => (
+                        {allWorkers.map(p => (
                           <SelectItem key={p.id} value={p.full_name}>{p.full_name}</SelectItem>
                         ))}
-                        {form.issuedByName && !enrolledPeople.find(p => p.full_name === form.issuedByName) && (
+                        {form.issuedByName && !allWorkers.find(p => p.full_name === form.issuedByName) && (
                           <SelectItem value={form.issuedByName}>{form.issuedByName}</SelectItem>
                         )}
                       </SelectContent>

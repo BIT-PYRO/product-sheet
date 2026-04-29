@@ -417,7 +417,8 @@ export default function ManageMembersPage() {
       try {
         const res = await fetch('/api/auth/session', { cache: 'no-store' });
         const result = await res.json().catch(() => null);
-        if (!res.ok || !result?.success) { router.replace('/login'); return; }
+        if (res.status === 401) { router.replace('/login'); return; }
+        if (!res.ok || !result?.success) { return; }
         setSessionUser(result.user);
 
         const allRes = await fetch('/api/workforce?page_size=200', { cache: 'no-store' });

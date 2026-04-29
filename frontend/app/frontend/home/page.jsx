@@ -169,10 +169,11 @@ export default function HomePage() {
         const response = await fetch('/api/auth/session', { cache: 'no-store' });
         const result = await response.json();
 
-        if (!response.ok || !result.success) {
+        if (response.status === 401) {
           router.replace('/login');
           return;
         }
+        if (!response.ok || !result.success) { return; }
 
         const u = result.user;
         const fullName = [u?.first_name, u?.last_name].filter(Boolean).join(' ');
@@ -193,7 +194,7 @@ export default function HomePage() {
           setPermsReady(true);
         }
       } catch {
-        router.replace('/login');
+        // Network error — fail silently, user stays on page
       }
     };
 

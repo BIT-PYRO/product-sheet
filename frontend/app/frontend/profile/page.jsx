@@ -256,7 +256,8 @@ export default function ProfilePage() {
       try {
         const res    = await fetch('/api/auth/session', { cache: 'no-store' });
         const result = await res.json();
-        if (!res.ok || !result.success) { router.replace('/login'); return; }
+        if (res.status === 401) { router.replace('/login'); return; }
+        if (!res.ok || !result.success) { return; }
 
         const u = result.user;
         setSessionUser(u);
@@ -330,7 +331,7 @@ export default function ProfilePage() {
             } catch { /* ignore — will retry next load */ }
           }
         }
-      } catch { router.replace('/login'); }
+      } catch { /* Network error — fail silently */ }
       finally  { setLoading(false); }
     }
     load();

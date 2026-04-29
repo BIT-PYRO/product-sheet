@@ -274,11 +274,12 @@ export default function RolePermissionsPage() {
       try {
         const res = await fetch('/api/auth/session', { cache: 'no-store' });
         const result = await res.json();
-        if (!res.ok || !result.success) { router.replace('/login'); return; }
+        if (res.status === 401) { router.replace('/login'); return; }
+        if (!res.ok || !result.success) { return; }
         const u = result.user;
         setCanEdit(u?.is_superuser || u?.role === 'admin');
       } catch {
-        router.replace('/login');
+        // Network error — fail silently
       } finally {
         setLoading(false);
       }

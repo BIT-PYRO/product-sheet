@@ -83,6 +83,8 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
       }
       // Populate contact
       if (voucherData.contact) setIssuedByContact(voucherData.contact)
+      // Pre-fill received by from the person the voucher was issued to
+      setReceivedByName(voucherData.name || voucherData.firstName || '')
       // Populate picklist / order info
       setPicklistName(voucherData.picklistName || '')
       setOrderName(voucherData.orderName || '')
@@ -199,25 +201,30 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
   // Load workforce members + auto-fill session user when modal opens
   useEffect(() => {
     if (!open) return
-    fetch('/api/workforce', { cache: 'no-store' })
-      .then(r => r.json())
-      .then(result => {
-        const members = Array.isArray(result?.data)
-          ? result.data
-          : (result?.data?.results || [])
-        setWorkforce(members)
-      })
-      .catch(() => {})
-    fetch('/api/auth/session', { cache: 'no-store' })
-      .then(r => r.json())
-      .then(data => {
-        const name = data?.user?.first_name
-          ? `${data.user.first_name} ${data.user.last_name || ''}`.trim()
-          : (data?.user?.username || '')
+    Promise.all([
+      fetch('/api/workforce?active=true&page_size=500', { cache: 'no-store' }).then(r => r.json()).catch(() => null),
+      fetch('/api/auth/session', { cache: 'no-store' }).then(r => r.json()).catch(() => null),
+    ]).then(([wfResult, sessionData]) => {
+      const all = Array.isArray(wfResult?.data) ? wfResult.data : (wfResult?.data?.results || [])
+      const prod = all.filter(w => (w.department || '').toLowerCase().includes('production'))
+      setWorkforce(prod)
+      // Auto-fill Issued By from current session user
+      if (sessionData?.user) {
+        const u = sessionData.user
+        const name = u.first_name ? `${u.first_name} ${u.last_name || ''}`.trim() : (u.username || '')
+        const email = (u.email || '').toLowerCase()
+        const wfRecord = all.find(m => (m.email || '').toLowerCase() === email)
         if (name) setIssuedByName(name)
-      })
-      .catch(() => {})
-  }, [open])
+        if (wfRecord) setIssuedByContact(prev => prev || wfRecord.phone || wfRecord.whatsapp || '')
+      }
+      // Auto-fill Received By contact from the issued-to person's workforce record
+      const issuedToName = voucherData?.name || voucherData?.firstName || ''
+      if (issuedToName) {
+        const worker = all.find(w => w.full_name === issuedToName)
+        if (worker) setReceivedByContact(worker.phone || worker.whatsapp || '')
+      }
+    }).catch(() => {})
+  }, [open, voucherData?.name])
 
   const addRow = () => {
     const newRow = {

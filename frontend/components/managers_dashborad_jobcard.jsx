@@ -36,12 +36,14 @@ import { CompanyKYCForm } from '@/components/company-kyc-form';
 import { ReceiveJobModal } from '@/components/receive-job-modal';
 import { GenericJobModal } from '@/components/generic-job-modal';
 import DateTimeStamp from '@/components/date-time-stamp';
+import { useProductionWorkforce } from '@/hooks/use-production-workforce';
 import LastUpdatedFooter from '@/components/last-updated-footer';
 import { useSheetPermissions } from '@/hooks/use-sheet-permissions';
 import { useColumnPreferences } from '@/hooks/use-column-preferences';
 
 export default function ManagersDashboard() {
   const { canView, canEdit, canCreate, canExport, loading: permsLoading } = useSheetPermissions('managers-dashboard');
+  const { productionWorkers, allWorkforce } = useProductionWorkforce();
   const [lastUpdated, setLastUpdated] = useState(null);
   const [currentUsername, setCurrentUsername] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
@@ -1101,8 +1103,8 @@ export default function ManagersDashboard() {
                   <SelectValue placeholder="Select Name" />
                 </SelectTrigger>
                 <SelectContent>
-                  {filterOptions.names.map(name => (
-                    <SelectItem key={name} value={name}>{name}</SelectItem>
+                  {productionWorkers.map(w => (
+                    <SelectItem key={w.id} value={w.full_name}>{w.full_name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -1116,8 +1118,8 @@ export default function ManagersDashboard() {
                   <SelectValue placeholder="Select Issuer" />
                 </SelectTrigger>
                 <SelectContent>
-                  {filterOptions.issuers.map(issuer => (
-                    <SelectItem key={issuer} value={issuer}>{issuer}</SelectItem>
+                  {allWorkforce.map(w => (
+                    <SelectItem key={w.id} value={w.full_name}>{w.full_name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
