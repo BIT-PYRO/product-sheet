@@ -2,12 +2,13 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, ChevronDown, Download, Pencil, Plus, Printer, RefreshCw, Trash2, Upload, X } from 'lucide-react';
+import { ArrowLeft, ChevronDown, Download, Pencil, Plus, Printer, RefreshCw, Trash2, X } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import SortPopover from '@/components/sort-popover';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
 import LastUpdatedFooter from '@/components/last-updated-footer';
 import DeletionHistoryDrawer from '@/components/deletion-history-drawer';
+import BulkUploadButton from '@/components/bulk-upload-button';
 import { useSheetPermissions } from '@/hooks/use-sheet-permissions';
 import { useColumnPreferences } from '@/hooks/use-column-preferences';
 import {
@@ -134,9 +135,6 @@ export default function DieInventoryPage() {
   const [activeRequestId, setActiveRequestId] = useState(null);
   const [reviewError, setReviewError] = useState('');
 
-  const [bulkUploadOpen, setBulkUploadOpen] = useState(false);
-  const [bulkFile, setBulkFile] = useState(null);
-  const [bulkUploading, setBulkUploading] = useState(false);
 
   const [workforceMembers, setWorkforceMembers] = useState([]);
   const [currentUserName, setCurrentUserName] = useState('');
@@ -550,31 +548,6 @@ export default function DieInventoryPage() {
     } catch (err) { setReviewError(err.message || 'Review failed'); }
   }
 
-  // ── Bulk upload ──────────────────────────────────────────────────────────────
-
-  async function handleBulkUpload() {
-    if (!bulkFile) { setStatusMsg('Please select a file.'); return; }
-    setBulkUploading(true);
-    try {
-      const formData = new FormData();
-      formData.append('file', bulkFile);
-      const res = await fetch('/api/bulk-upload?type=die-inventory', {
-        method: 'POST',
-        body: formData,
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.message || `Error ${res.status}`);
-      setBulkUploadOpen(false);
-      setBulkFile(null);
-      await fetchDies();
-      setStatusMsg(data?.message || 'Bulk upload complete.');
-    } catch (err) {
-      setStatusMsg(err.message || 'Bulk upload failed.');
-    } finally {
-      setBulkUploading(false);
-    }
-  }
-
   // ── Manage columns ───────────────────────────────────────────────────────────
 
   function toggleColumnSelection(columnId) {
@@ -727,14 +700,7 @@ export default function DieInventoryPage() {
             <Trash2 className="w-3.5 h-3.5 mr-1.5" />
             Delete
           </Button>
-          <Button
-            onClick={() => { setBulkFile(null); setBulkUploadOpen(true); }}
-            variant="outline"
-            className="border-midnight-ink text-midnight-ink hover:bg-midnight-ink/10 rounded-full px-4 text-sm h-8"
-          >
-            <Upload className="w-3.5 h-3.5 mr-1.5" />
-            Bulk Upload
-          </Button>
+          <BulkUploadButton sheetType="die-inventory" onComplete={fetchDies} className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8" />
           <div className="relative">
             {exportMenuOpen && <div className="fixed inset-0 z-10" onClick={() => setExportMenuOpen(false)} />}
             <Button onClick={() => setExportMenuOpen((p) => !p)} variant="outline"
@@ -1321,31 +1287,6 @@ export default function DieInventoryPage() {
             <Button variant="outline" onClick={() => { setAddOpen(false); setEditingDieId(null); setForm(emptyDie()); setStatusMsg(''); }} className="h-8">Cancel</Button>
             <Button onClick={handleSaveDie} disabled={saving} className="h-8 bg-trust-blue text-white hover:bg-trust-blue/90">
               {saving ? 'Saving…' : editingDieId !== null ? 'Update Die' : 'Save Die'}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* ── Bulk Upload dialog ────────────────────────────────────────────────── */}
-      <Dialog open={bulkUploadOpen} onOpenChange={setBulkUploadOpen}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Bulk Upload Dies</DialogTitle>
-            <DialogDescription className="sr-only">Upload an Excel file to add multiple dies at once.</DialogDescription>
-          </DialogHeader>
-          <p className="text-xs text-cool-gray mb-2">
-            Upload an Excel file (.xlsx) with columns: die_code, location, quantity, wax_setting, casting, notes, master_skus, designer_skus
-          </p>
-          <input
-            type="file"
-            accept=".xlsx,.xls,.csv"
-            onChange={(e) => setBulkFile(e.target.files?.[0] || null)}
-            className="text-sm"
-          />
-          <div className="flex justify-end gap-2 pt-3">
-            <Button variant="outline" onClick={() => setBulkUploadOpen(false)} className="h-8">Cancel</Button>
-            <Button onClick={handleBulkUpload} disabled={bulkUploading || !bulkFile} className="h-8 bg-emerald-600 text-white hover:bg-emerald-700">
-              {bulkUploading ? 'Uploading…' : 'Upload'}
             </Button>
           </div>
         </DialogContent>

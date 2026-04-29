@@ -102,6 +102,7 @@ export default function MasterProductSheet() {
     { id: 'platingType', label: 'Plating Type' },
     { id: 'platingColor', label: 'Plating Color' },
     { id: 'notes', label: 'Notes' },
+    { id: 'invoicePrice', label: 'Invoice Price (₹)' },
   ];
   
   // Column configuration with styling
@@ -136,6 +137,7 @@ export default function MasterProductSheet() {
     platingType: { minWidth: 'min-w-[85px]', headerBg: 'bg-[#dbeafe]' },
     platingColor: { minWidth: 'min-w-[85px]', headerBg: 'bg-[#dbeafe]' },
     notes: { minWidth: 'min-w-[100px]', headerBg: 'bg-[#dbeafe]' },
+    invoicePrice: { minWidth: 'min-w-[100px]', headerBg: 'bg-[#dbeafe]' },
   };
   
   // Set default visible columns to prevent horizontal scrolling
@@ -374,6 +376,7 @@ export default function MasterProductSheet() {
         platingType: product.plating_type || '',
         platingColor: product.plating_color || '',
         notes: product.notes || '',
+        invoicePrice: String(product.invoice_price || '0'),
         images: Array.isArray(product.images) ? product.images : [],
       }));
 
@@ -646,6 +649,7 @@ export default function MasterProductSheet() {
       platingType: '',
       platingColor: '',
       notes: '',
+      invoicePrice: '0',
       images: [],
     };
     setData((prev) => [newRow, ...prev]);
@@ -695,6 +699,7 @@ export default function MasterProductSheet() {
           plating_type: row.platingType,
           plating_color: row.platingColor,
           notes: row.notes,
+          invoice_price: parseFloat(row.invoicePrice) || 0,
           die_numbers: row.dieNumber
             ? row.dieNumber.split(',').map((v) => ({ value: v.trim(), quantity: '', location: '' })).filter((d) => d.value)
             : [],

@@ -1430,6 +1430,69 @@ async function uploadOthers(client, rows) {
   return { createdCount, updatedCount, skippedCount, failures, label: 'Others inventory' };
 }
 
+async function uploadDieInventory(client, rows) {
+  const existing = await fetchCollection(client, '/api/v1/inventory/die-inventory/');
+  const byCode = new Map(existing.map((d) => [String(d.die_code || '').trim().toLowerCase(), d]));
+
+  let createdCount = 0;
+  let updatedCount = 0;
+  let skippedCount = 0;
+  const failures = [];
+
+  for (const [index, row] of rows.entries()) {
+    const dieCode = String(pickValue(row, ['diecode', 'die_code', 'die code', 'code'])).trim();
+    if (!dieCode) { skippedCount += 1; continue; }
+
+    let masterSkus = pickValue(row, ['masterskus', 'master_skus', 'master skus', 'mastersku', 'master_sku', 'master sku'], '');
+    if (typeof masterSkus === 'string') {
+      masterSkus = masterSkus.split(',').map((s) => s.trim()).filter(Boolean);
+    } else if (!Array.isArray(masterSkus)) {
+      masterSkus = [];
+    }
+
+    let designerSkus = pickValue(row, ['designerskus', 'designer_skus', 'designer skus', 'designersku', 'designer_sku', 'designer sku'], '');
+    if (typeof designerSkus === 'string') {
+      designerSkus = designerSkus.split(',').map((s) => s.trim()).filter(Boolean);
+    } else if (!Array.isArray(designerSkus)) {
+      designerSkus = [];
+    }
+
+    const payload = {
+      die_code: dieCode,
+      location: String(pickValue(row, ['location'])).trim(),
+      quantity: toNumber(pickValue(row, ['quantity', 'qty']), 0),
+      wax_piece_qty: toNumber(pickValue(row, ['waxpieceqty', 'wax_piece_qty', 'wax piece qty', 'waxpiece']), 0),
+      wax_piece_location: String(pickValue(row, ['waxpiecelocation', 'wax_piece_location', 'wax piece location'])).trim(),
+      wax_setting_qty: String(pickValue(row, ['waxsettingqty', 'wax_setting_qty', 'wax setting qty', 'waxsetting', 'wax_setting'])).trim(),
+      wax_setting_location: String(pickValue(row, ['waxsettinglocation', 'wax_setting_location', 'wax setting location'])).trim(),
+      casting_qty: String(pickValue(row, ['castingqty', 'casting_qty', 'casting qty', 'casting'])).trim(),
+      casting_location: String(pickValue(row, ['castinglocation', 'casting_location', 'casting location'])).trim(),
+      notes: String(pickValue(row, ['notes', 'note', 'remarks'])).trim(),
+      used_qty: toNumber(pickValue(row, ['usedqty', 'used_qty', 'used qty']), 0),
+      min_level: toNumber(pickValue(row, ['minlevel', 'min_level', 'minimum level', 'min level']), 0),
+      master_skus: masterSkus,
+      designer_skus: designerSkus,
+    };
+
+    const existingItem = byCode.get(dieCode.toLowerCase());
+    const path = existingItem ? `/api/v1/inventory/die-inventory/${existingItem.id}/` : '/api/v1/inventory/die-inventory/';
+    const method = existingItem ? 'PATCH' : 'POST';
+    const { response, payload: result } = await client.request(path, {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      failures.push(`Row ${index + 2}: ${errorMessageFromPayload(result, `Failed to save die ${dieCode}`)}`);
+      continue;
+    }
+    if (existingItem) { updatedCount += 1; } else { createdCount += 1; byCode.set(dieCode.toLowerCase(), result?.data || {}); }
+  }
+
+  return { createdCount, updatedCount, skippedCount, failures, label: 'Die inventory' };
+}
+
 const UPLOAD_HANDLERS = {
   products: uploadProducts,
   workforce: uploadWorkforce,
@@ -1440,6 +1503,7 @@ const UPLOAD_HANDLERS = {
   tools: uploadTools,
   machines: uploadMachines,
   others: uploadOthers,
+  'die-inventory': uploadDieInventory,
 };
 
 export async function POST(request) {

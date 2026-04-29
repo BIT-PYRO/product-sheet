@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
 import { CreateOrderForm } from '@/app/frontend/orders/create-job/page';
@@ -10,13 +11,28 @@ import { useSheetPermissions } from '@/hooks/use-sheet-permissions';
 import DeletionHistoryDrawer from '@/components/deletion-history-drawer';
 
 export default function OrdersPage() {
+  const searchParams = useSearchParams();
   const { canView, canCreate, loading: permsLoading } = useSheetPermissions('orders');
   const [showCreateOrderForm, setShowCreateOrderForm] = useState(false);
   const [showOrderSheet, setShowOrderSheet] = useState(false);
   const [showOrderProgressSheet, setShowOrderProgressSheet] = useState(false);
+  const [autoPicklist, setAutoPicklist] = useState(null);
   const createOrderSectionRef = useRef(null);
   const orderSheetSectionRef = useRef(null);
   const orderProgressSectionRef = useRef(null);
+
+  // Auto-open order sheet when navigated from invoice with ?view=orders&picklist=N
+  useEffect(() => {
+    if (!searchParams) return;
+    const view = searchParams.get('view');
+    const picklist = searchParams.get('picklist');
+    if (view === 'orders') {
+      setShowOrderSheet(true);
+      setShowCreateOrderForm(false);
+      setShowOrderProgressSheet(false);
+      if (picklist) setAutoPicklist(Number(picklist));
+    }
+  }, [searchParams]);
 
   const scrollToSection = (ref) => {
     if (!ref?.current) return;
@@ -128,7 +144,7 @@ export default function OrdersPage() {
             ref={orderSheetSectionRef}
             className="mt-6 rounded-none border-y border-soft-border bg-white p-0"
           >
-            <OrderSheetView embedded />
+            <OrderSheetView embedded defaultPicklistNum={autoPicklist} />
           </section>
         )}
 

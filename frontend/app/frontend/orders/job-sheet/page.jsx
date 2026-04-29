@@ -11,7 +11,7 @@ const fmt = (n) => `₹${Number(n).toFixed(2)}`;
 
 const PSD_PICKLISTS_KEY = 'psd_picklists';
 
-export function OrderSheetView({ embedded = false }) {
+export function OrderSheetView({ embedded = false, defaultPicklistNum = null }) {
   const { canExport } = useSheetPermissions('orders');
   const picklistFileInputRef = useRef(null);
   const [isUploadingPicklist, setIsUploadingPicklist] = useState(false);
@@ -55,6 +55,14 @@ export function OrderSheetView({ embedded = false }) {
   // Invoice generation state
   const [selectedInvoiceOrderIds, setSelectedInvoiceOrderIds] = useState(new Set());
   const [showGenerateInvoiceModal, setShowGenerateInvoiceModal] = useState(false);
+
+  // Auto-filter to a specific picklist when navigated from invoice link
+  useEffect(() => {
+    if (defaultPicklistNum != null) {
+      setSourceFilter('picklist');
+      setSelectedPicklistNum(Number(defaultPicklistNum));
+    }
+  }, [defaultPicklistNum]);
 
   const CUSTOMER_DETAILS_PASSCODE = process.env.NEXT_PUBLIC_CUSTOMER_PASSCODE || '1234';
 

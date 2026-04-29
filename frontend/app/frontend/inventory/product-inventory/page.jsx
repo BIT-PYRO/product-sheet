@@ -37,6 +37,7 @@ const PRODUCT_COLUMNS = [
   { id: 'location', label: 'Location' },
   { id: 'wip', label: 'WIP' },
   { id: 'totalInDemand', label: 'Total In Demand' },
+  { id: 'invoicePrice', label: 'Invoice Price (₹)' },
 ];
 
 export default function ProductInventoryPage() {
@@ -231,6 +232,7 @@ export default function ProductInventoryPage() {
           designerSku: product.designerSku || '',
           productName: product.listingName || '',
           images: Array.isArray(product.images) ? product.images : [],
+          invoicePrice: String(product.invoicePrice || '0'),
           wip,
           subRows,
         };
@@ -462,6 +464,8 @@ export default function ProductInventoryPage() {
         row.subRows.forEach(sub => {
           buffer[sub.id] = { ...sub };
         });
+        // Buffer product-level fields (invoice price)
+        buffer[`product_${row.productId}`] = { productId: row.productId, invoicePrice: row.invoicePrice || '0' };
       }
     });
     setEditBuffer(buffer);
@@ -485,33 +489,44 @@ export default function ProductInventoryPage() {
       const buf = editBuffer[id];
       if (!buf) continue;
       try {
-        const isNew = String(id).startsWith('_');
-        const res = isNew
-          ? await fetch('/api/product-inventory', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                product: buf.productId,
-                final_sku: buf.finalSku,
-                value: buf.value,
-                unit: buf.unit,
-                location: buf.location,
-                total_in_demand: buf.totalInDemand,
-              }),
-            })
-          : await fetch(`/api/product-inventory/${id}`, {
-              method: 'PATCH',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                final_sku: buf.finalSku,
-                value: buf.value,
-                unit: buf.unit,
-                location: buf.location,
-                total_in_demand: buf.totalInDemand,
-              }),
-            });
-        const result = await res.json().catch(() => null);
-        if (!res.ok || !result?.success) throw new Error(result?.message || `Failed to save row`);
+        if (String(id).startsWith('product_')) {
+          // Save product-level fields (invoice price)
+          const res = await fetch(`/api/products/${buf.productId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ invoice_price: parseFloat(buf.invoicePrice) || 0 }),
+          });
+          const result = await res.json().catch(() => null);
+          if (!res.ok || !result?.success) throw new Error(result?.message || `Failed to save product`);
+        } else {
+          const isNew = String(id).startsWith('_');
+          const res = isNew
+            ? await fetch('/api/product-inventory', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  product: buf.productId,
+                  final_sku: buf.finalSku,
+                  value: buf.value,
+                  unit: buf.unit,
+                  location: buf.location,
+                  total_in_demand: buf.totalInDemand,
+                }),
+              })
+            : await fetch(`/api/product-inventory/${id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  final_sku: buf.finalSku,
+                  value: buf.value,
+                  unit: buf.unit,
+                  location: buf.location,
+                  total_in_demand: buf.totalInDemand,
+                }),
+              });
+          const result = await res.json().catch(() => null);
+          if (!res.ok || !result?.success) throw new Error(result?.message || `Failed to save row`);
+        }
       } catch (err) {
         errors.push(err.message);
       }
@@ -1412,6 +1427,7 @@ function ProductRow({ row, isSelected, isEditing, editBuffer, visibleColumns, on
   const subRows = row.subRows;
   const span = subRows.length || 1;
   const bgClass = isEditing ? 'bg-trust-blue/5' : 'hover:bg-cloud-gray';
+  const productBuf = editBuffer[`product_${row.productId}`];
 
   const renderSubCells = (sub) => {
     const buf = editBuffer[sub.id];
@@ -1482,6 +1498,7 @@ function ProductRow({ row, isSelected, isEditing, editBuffer, visibleColumns, on
         {noStockSpan > 0 && <td colSpan={noStockSpan} className="border border-soft-border p-1.5 text-sm text-cool-gray">No stock entries</td>}
         {visibleColumns.has('wip') && <td className="border border-soft-border p-1.5 text-center text-sm">{fmtNum(row.wip) || 0}</td>}
         {visibleColumns.has('totalInDemand') && <td className="border border-soft-border p-1.5 text-sm">—</td>}
+        {visibleColumns.has('invoicePrice') && <td className="border border-soft-border p-1.5 text-sm">{row.invoicePrice && row.invoicePrice !== '0' ? `₹${row.invoicePrice}` : '—'}</td>}
       </tr>
     );
   }
@@ -1528,6 +1545,21 @@ function ProductRow({ row, isSelected, isEditing, editBuffer, visibleColumns, on
           )}
           {/* Total In Demand — per sub-row */}
           {renderTotalInDemand(sub)}
+          {/* Invoice Price — product-level, spans all sub-rows */}
+          {idx === 0 && visibleColumns.has('invoicePrice') && (
+            <td rowSpan={span} className={`border border-soft-border p-1.5 align-middle ${isEditing ? 'bg-trust-blue/5' : ''}`}>
+              {isEditing && productBuf ? (
+                <Input
+                  type="number"
+                  value={productBuf.invoicePrice}
+                  onChange={(e) => onUpdateBuffer(`product_${row.productId}`, 'invoicePrice', e.target.value)}
+                  className="border-0 p-1 text-sm h-8 w-24"
+                />
+              ) : (
+                <span className="px-1 text-sm">{row.invoicePrice && row.invoicePrice !== '0' ? `₹${row.invoicePrice}` : '—'}</span>
+              )}
+            </td>
+          )}
         </tr>
       ))}
     </>
