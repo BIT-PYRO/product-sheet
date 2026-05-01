@@ -22,6 +22,14 @@ import {
 } from "@/components/ui/select"
 import { CalendarIcon, Plus, Trash2, X, ArrowRight, FileText, Loader2 } from "lucide-react"
 import { useDrafts, useDraftLoader } from "@/components/drafts-manager"
+import { fmtNum } from "@/lib/utils"
+
+function workStyleToWorkType(ws) {
+  const s = (ws || '').toLowerCase()
+  if (s.includes('contract')) return 'Contract'
+  if (s.includes('job')) return 'Job Work'
+  return 'In-House'
+}
 
 function generateVoucherNo() {
   if (typeof window === 'undefined') return 'JJ-01'
@@ -41,6 +49,7 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
   const [printVoucherData, setPrintVoucherData] = useState(null)
   const [activeTab, setActiveTab] = useState("stone")
   const [enrolledPeople, setEnrolledPeople] = useState([])
+  const [allWorkers, setAllWorkers] = useState([])
   const [rows, setRows] = useState([
     { id: 1, sku: "", category: "", metal: "", issuedQty: "", unit1: "", issuedWeight: "", unit2: "" },
     { id: 2, sku: "", category: "", metal: "", issuedQty: "", unit1: "", issuedWeight: "", unit2: "" },
@@ -72,13 +81,26 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
 
   async function loadWorkforceMembers() {
     try {
-      const response = await fetch('/api/workforce', { cache: 'no-store' })
-      const result = await response.json().catch(() => null)
-      if (!response.ok || !result?.success) {
-        return
+      const [wfRes, sessionRes] = await Promise.all([
+        fetch('/api/workforce?active=true&page_size=500', { cache: 'no-store' }),
+        fetch('/api/auth/session', { cache: 'no-store' }),
+      ])
+      const [wfResult, sessionData] = await Promise.all([
+        wfRes.json().catch(() => null),
+        sessionRes.json().catch(() => null),
+      ])
+      const all = Array.isArray(wfResult?.data) ? wfResult.data : (wfResult?.data?.results || [])
+      const prod = all.filter(w => (w.department || '').toLowerCase().includes('production'))
+      setEnrolledPeople(prod)
+      setAllWorkers(all)
+      if (sessionData?.user) {
+        const u = sessionData.user
+        const name = u.first_name ? `${u.first_name} ${u.last_name || ''}`.trim() : (u.username || '')
+        const email = (u.email || '').toLowerCase()
+        const wfRecord = all.find(m => (m.email || '').toLowerCase() === email)
+        if (name) setIssuedByName(name)
+        if (wfRecord) setIssuedByContact(wfRecord.phone || wfRecord.whatsapp || '')
       }
-      const rowsData = Array.isArray(result?.data) ? result.data : (result?.data?.results || [])
-      setEnrolledPeople(rowsData)
     } catch {
       // Keep form usable even if workforce list fails.
     }
@@ -103,9 +125,9 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
     }
   }, [open])
 
-  // Load picklists when mode is 'all' and modal opens
+  // Load picklists when mode is 'all' or 'single' and modal opens
   useEffect(() => {
-    if (open && mode === 'all') {
+    if (open && (mode === 'all' || mode === 'single')) {
       setIsPicklistLoading(true)
       setSelectedPicklistId("")
       fetch('/api/picklist-groups', { cache: 'no-store' })
@@ -125,7 +147,7 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
 
   // Auto-populate SKU rows when a picklist is selected
   useEffect(() => {
-    if (mode !== 'all' || !selectedPicklistId) return
+    if ((mode !== 'all' && mode !== 'single') || !selectedPicklistId) return
     const pl = picklists.find(p => String(p.id) === selectedPicklistId)
     if (!pl || !Array.isArray(pl.items) || pl.items.length === 0) return
     // Picklist items use Final Stock SKUs (e.g. AJB9/G). Convert to Master SKU
@@ -446,12 +468,20 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
           return (deptOrder[a.toDept.key] ?? 99) - (deptOrder[b.toDept.key] ?? 99)
         })
 
+        // Filter to only transitions within the user-selected From→To range
+        const filteredTransitions = (deptFrom && deptTo)
+          ? sortedTransitions.filter(t =>
+              (deptOrder[t.fromDept.key] ?? 99) >= (deptOrder[deptFrom] ?? 99) &&
+              (deptOrder[t.toDept.key] ?? 99) <= (deptOrder[deptTo] ?? 99)
+            )
+          : sortedTransitions
+
         // 3. Create one voucher per unique transition
         let localCounter = parseInt(localStorage.getItem('jj_counter') || '0')
         const batchId = `batch-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 
-        for (let i = 0; i < sortedTransitions.length; i++) {
-          const { fromDept, toDept, materialRows, productId } = sortedTransitions[i]
+        for (let i = 0; i < filteredTransitions.length; i++) {
+          const { fromDept, toDept, materialRows, productId } = filteredTransitions[i]
           const totalQty = materialRows.reduce((sum, r) => sum + (parseInt(r.issued_qty) || 0), 0)
 
           localCounter++
@@ -697,8 +727,8 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
                 </Select>
               </div>
 
-              {/* PICKLIST DROPDOWN - only in "all" mode */}
-              {mode === 'all' && (
+              {/* PICKLIST DROPDOWN - in "all" and "single" mode */}
+              {(mode === 'all' || mode === 'single') && (
                 <div className="flex flex-col gap-0.5">
                   <Label className="text-sm font-bold uppercase tracking-wide text-muted-foreground">Picklist</Label>
                   <Select value={selectedPicklistId} onValueChange={setSelectedPicklistId}>
@@ -737,7 +767,11 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
             <div className="grid grid-cols-[1fr_auto_1fr] gap-1.5 items-end">
               <div className="flex flex-col gap-0.5">
                 <Label className="text-sm font-medium text-muted-foreground">Issued To</Label>
-                <Select value={issuedTo} onValueChange={setIssuedTo}>
+                <Select value={issuedTo} onValueChange={(v) => {
+                  setIssuedTo(v)
+                  const person = enrolledPeople.find(p => p.full_name === v)
+                  if (person?.working_style) setWorkType(workStyleToWorkType(person.working_style))
+                }}>
                   <SelectTrigger className="h-8 text-sm bg-background border-border focus:ring-0 focus:outline-none">
                     <SelectValue />
                   </SelectTrigger>
@@ -1052,7 +1086,26 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
             <div className="grid grid-cols-[1fr_auto_1fr] gap-1.5 items-end">
               <div className="flex flex-col gap-0.5">
                 <Label className="text-sm font-medium text-muted-foreground">Issued By</Label>
-                <Input placeholder="Enter your name" value={issuedByName} onChange={(e) => setIssuedByName(e.target.value)} className="h-8 text-sm bg-background border-border focus:ring-1 focus:ring-trust-blue focus:border-trust-blue transition-colors cursor-text" />
+                <Select
+                  value={issuedByName}
+                  onValueChange={(v) => {
+                    setIssuedByName(v)
+                    const person = allWorkers.find(p => p.full_name === v)
+                    if (person) setIssuedByContact(person.phone || person.whatsapp || '')
+                  }}
+                >
+                  <SelectTrigger className="h-8 text-sm bg-background border-border focus:ring-1 focus:ring-trust-blue">
+                    <SelectValue placeholder="Select person" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {allWorkers.map(p => (
+                      <SelectItem key={p.id} value={p.full_name}>{p.full_name}</SelectItem>
+                    ))}
+                    {issuedByName && !allWorkers.find(p => p.full_name === issuedByName) && (
+                      <SelectItem value={issuedByName}>{issuedByName}</SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="hidden md:block" />
               <div className="flex flex-col gap-0.5">

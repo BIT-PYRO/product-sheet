@@ -309,7 +309,26 @@ export default function MasterWorkforceSheet() {
 
   const [isIdCardOpen, setIsIdCardOpen] = useState(false);
   const [idCardData, setIdCardData] = useState([]);
-  const [docPreview, setDocPreview] = useState(null); // { url, title }
+  const [docPreview, setDocPreview] = useState(null); // { url, title, sourceUrl, isImage }
+  const isPdfUrl = (url = '') => /\.pdf($|\?)/i.test(String(url || ''));
+  const buildDocProxyUrl = (url = '', mode = 'preview') => {
+    const clean = String(url || '').trim();
+    if (!clean) return '';
+    return `/api/workforce/document-file?mode=${encodeURIComponent(mode)}&url=${encodeURIComponent(clean)}`;
+  };
+  const openDocPreview = (url, title, opts = {}) => {
+    const source = String(url || '').trim();
+    if (!source) return;
+    const isImage = Boolean(opts.isImage);
+    setDocPreview({
+      url: buildDocProxyUrl(source, 'preview'),
+      sourceUrl: source,
+      title,
+      isImage,
+      isPdf: isPdfUrl(source),
+    });
+  };
+  const buildDownloadUrl = (url = '') => buildDocProxyUrl(url, 'download');
 
   const handleGenerateIdCards = () => {
     const ids = selectedRows.size > 0 ? Array.from(selectedRows) : paginatedData.map(r => r.id);
@@ -735,9 +754,9 @@ export default function MasterWorkforceSheet() {
               </div>
             </div>
             <div className="flex-1 overflow-auto flex items-center justify-center bg-gray-100 p-4">
-              {docPreview.url.match(/\.(pdf)$/i)
-                ? <iframe src={docPreview.url} className="w-full" style={{height:'70vh'}} title={docPreview.title} />
-                : <img src={docPreview.url} alt={docPreview.title} className="max-w-full max-h-[70vh] object-contain rounded shadow" />
+              {docPreview.isImage
+                ? <img src={docPreview.url} alt={docPreview.title} className="max-w-full max-h-[70vh] object-contain rounded shadow" />
+                : <iframe src={docPreview.url} className="w-full" style={{height:'70vh'}} title={docPreview.title} />
               }
             </div>
           </div>
@@ -1275,21 +1294,86 @@ export default function MasterWorkforceSheet() {
                           ) : column.id === 'profilePhoto' ? (
                             <div className="px-1 py-0.5">
                               {row.profilePhoto
-                                ? <img src={row.profilePhoto} alt={row.fullName} className="w-9 h-9 rounded object-cover border border-soft-border cursor-pointer hover:opacity-80" onClick={() => setDocPreview({ url: row.profilePhoto, title: row.fullName + ' — Photo' })} />
+                                ? (
+                                  <div className="flex flex-col items-start gap-1">
+                                    <img
+                                      src={row.profilePhoto}
+                                      alt={row.fullName}
+                                      className="w-9 h-9 rounded object-cover border border-soft-border cursor-pointer hover:opacity-80"
+                                      onClick={() => openDocPreview(row.profilePhoto, `${row.fullName} — Photo`, { isImage: true })}
+                                    />
+                                    <div className="flex items-center gap-2 text-xs">
+                                      <button
+                                        type="button"
+                                        onClick={() => openDocPreview(row.profilePhoto, `${row.fullName} — Photo`, { isImage: true })}
+                                        className="text-trust-blue underline hover:text-deep-blue"
+                                      >
+                                        View
+                                      </button>
+                                      <a
+                                        href={buildDownloadUrl(row.profilePhoto)}
+                                        download
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-trust-blue underline hover:text-deep-blue"
+                                      >
+                                        Download
+                                      </a>
+                                    </div>
+                                  </div>
+                                )
                                 : <span className="inline-flex w-9 h-9 rounded bg-cloud-gray items-center justify-center text-cool-gray text-xs font-bold border border-soft-border">{(row.fullName||'?').charAt(0).toUpperCase()}</span>
                               }
                             </div>
                           ) : column.id === 'aadhaarDoc' ? (
                             <div className="px-1 py-0.5">
                               {row.aadhaarDoc
-                                ? <a href={row.aadhaarDoc} target="_blank" rel="noopener noreferrer" className="text-xs text-trust-blue underline hover:text-deep-blue flex items-center gap-1"><svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>View</a>
+                                ? (
+                                  <div className="flex items-center gap-2 text-xs">
+                                    <button
+                                      type="button"
+                                      onClick={() => openDocPreview(row.aadhaarDoc, `${row.fullName} — Aadhaar`)}
+                                      className="text-trust-blue underline hover:text-deep-blue"
+                                    >
+                                      View
+                                    </button>
+                                    <a
+                                      href={buildDownloadUrl(row.aadhaarDoc)}
+                                      download
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-trust-blue underline hover:text-deep-blue"
+                                    >
+                                      Download
+                                    </a>
+                                  </div>
+                                )
                                 : <span className="text-xs text-cool-gray">—</span>
                               }
                             </div>
                           ) : column.id === 'panDoc' ? (
                             <div className="px-1 py-0.5">
                               {row.panDoc
-                                ? <a href={row.panDoc} target="_blank" rel="noopener noreferrer" className="text-xs text-trust-blue underline hover:text-deep-blue flex items-center gap-1"><svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>View</a>
+                                ? (
+                                  <div className="flex items-center gap-2 text-xs">
+                                    <button
+                                      type="button"
+                                      onClick={() => openDocPreview(row.panDoc, `${row.fullName} — PAN`)}
+                                      className="text-trust-blue underline hover:text-deep-blue"
+                                    >
+                                      View
+                                    </button>
+                                    <a
+                                      href={buildDownloadUrl(row.panDoc)}
+                                      download
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-trust-blue underline hover:text-deep-blue"
+                                    >
+                                      Download
+                                    </a>
+                                  </div>
+                                )
                                 : <span className="text-xs text-cool-gray">—</span>
                               }
                             </div>

@@ -3,6 +3,8 @@ import { NextResponse } from 'next/server';
 const ACCESS_COOKIE = 'psd-access-token';
 const REFRESH_COOKIE = 'psd-refresh-token';
 const APPROVED_COOKIE = 'psd-approved';
+const ONE_DAY_SECONDS = 60 * 60 * 24;
+const SEVEN_DAYS_SECONDS = 60 * 60 * 24 * 7;
 const DEFAULT_BACKEND_URL = process.env.NODE_ENV === 'production' ? 'https://product-sheet.onrender.com' : 'http://127.0.0.1:8000';
 
 function getBackendBaseUrl() {
@@ -45,25 +47,54 @@ export async function GET(request) {
   };
 
   let activeAccessToken = accessToken;
-  let meResponse = accessToken ? await fetchMe(accessToken) : null;
+  let meResponse = null;
+  let transientBackendError = false;
 
-  if ((!meResponse || meResponse.status === 401) && refreshToken) {
-    const refreshResponse = await fetch(`${backendBaseUrl}/api/v1/auth/refresh/`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ refresh: refreshToken }),
-      cache: 'no-store',
-    });
+  try {
+    meResponse = accessToken ? await fetchMe(accessToken) : null;
 
-    const refreshResult = await refreshResponse.json().catch(() => null);
-    const newAccessToken = extractAccessToken(refreshResult);
+    if ((!meResponse || meResponse.status === 401) && refreshToken) {
+      const refreshResponse = await fetch(`${backendBaseUrl}/api/v1/auth/refresh/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ refresh: refreshToken }),
+        cache: 'no-store',
+      });
 
-    if (refreshResponse.ok && newAccessToken) {
-      activeAccessToken = newAccessToken;
-      meResponse = await fetchMe(activeAccessToken);
+      // If the refresh endpoint itself returns a server error, treat as transient
+      if (refreshResponse.status >= 500) {
+        transientBackendError = true;
+      } else {
+        const refreshResult = await refreshResponse.json().catch(() => null);
+        const newAccessToken = extractAccessToken(refreshResult);
+
+        if (refreshResponse.ok && newAccessToken) {
+          activeAccessToken = newAccessToken;
+          meResponse = await fetchMe(activeAccessToken);
+        }
+      }
     }
+
+    // If backend returned a server error on the me endpoint, treat as transient
+    if (meResponse && meResponse.status >= 500) {
+      transientBackendError = true;
+    }
+  } catch (networkErr) {
+    // Backend unreachable (Render cold start / network error) — return 503, not 500.
+    return NextResponse.json(
+      { success: false, message: 'Backend temporarily unavailable. Please try again.' },
+      { status: 503 }
+    );
+  }
+
+  // Transient backend error — DO NOT clear cookies, user is still authenticated
+  if (transientBackendError) {
+    return NextResponse.json(
+      { success: false, message: 'Backend temporarily unavailable. Please try again.' },
+      { status: 503 }
+    );
   }
 
   if (!meResponse || !meResponse.ok) {
@@ -125,6 +156,10 @@ export async function GET(request) {
 
   if (activeAccessToken && activeAccessToken !== accessToken) {
     response.cookies.set({ name: ACCESS_COOKIE, value: activeAccessToken, ...cookieOpts, maxAge: ONE_DAY_SECONDS });
+    // Also slide the refresh cookie forward so it stays alive for 7 days from last activity
+    if (refreshToken) {
+      response.cookies.set({ name: REFRESH_COOKIE, value: refreshToken, ...cookieOpts, maxAge: SEVEN_DAYS_SECONDS });
+    }
   }
 
   // Keep the approved cookie in sync — superusers always get '1'

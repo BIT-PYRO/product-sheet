@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
@@ -75,6 +75,12 @@ function getDesignationRank(desig) {
   if (!desig) return 999;
   const idx = DESIGNATION_ORDER.findIndex(d => d.toLowerCase() === desig.toLowerCase());
   return idx === -1 ? 998 : idx;
+}
+
+function buildDocProxyUrl(url, mode = 'preview') {
+  const clean = String(url || '').trim();
+  if (!clean) return '';
+  return `/api/workforce/document-file?mode=${encodeURIComponent(mode)}&url=${encodeURIComponent(clean)}`;
 }
 
 /* ─── helpers ────────────────────────────────────────── */
@@ -223,6 +229,7 @@ export default function ProfilePage() {
   const [saving, setSaving]             = useState(false);
   const [saveMessage, setSaveMessage]   = useState('');
   const [heroVisible, setHeroVisible]   = useState(true);
+  const [loggingOut, setLoggingOut]     = useState(false);
   const heroRef = useRef(null);
 
   useEffect(() => {
@@ -234,13 +241,23 @@ export default function ProfilePage() {
     return () => observer.disconnect();
   }, []);
 
+  /* ── logout ── */
+  async function handleLogout() {
+    setLoggingOut(true);
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+    } catch { /* ignore — cookies will be cleared anyway */ }
+    router.replace('/login');
+  }
+
   /* ── load ── */
   useEffect(() => {
     async function load() {
       try {
         const res    = await fetch('/api/auth/session', { cache: 'no-store' });
         const result = await res.json();
-        if (!res.ok || !result.success) { router.replace('/login'); return; }
+        if (res.status === 401) { router.replace('/login'); return; }
+        if (!res.ok || !result.success) { return; }
 
         const u = result.user;
         setSessionUser(u);
@@ -314,7 +331,7 @@ export default function ProfilePage() {
             } catch { /* ignore — will retry next load */ }
           }
         }
-      } catch { router.replace('/login'); }
+      } catch { /* Network error — fail silently */ }
       finally  { setLoading(false); }
     }
     load();
@@ -458,6 +475,31 @@ export default function ProfilePage() {
 
   function handleEditChange(name, value) { setEditData(prev => ({ ...prev, [name]: value })); }
 
+  async function handleDeleteDocument(docType) {
+    if (!workforceMember?.id || !docType) return;
+    setDocUploading(p => ({ ...p, [docType]: true }));
+    try {
+      const res = await fetch(`/api/workforce/${workforceMember.id}/delete-document`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ doc_type: docType }),
+      });
+      const result = await res.json().catch(() => null);
+      if (res.ok && result?.success) {
+        const key = docType === 'aadhaar' ? 'aadhaar_url' : 'pan_url';
+        setWorkforceMember(prev => ({ ...prev, [key]: '' }));
+        setSaveMessage(`${docType === 'aadhaar' ? 'Aadhaar' : 'PAN'} deleted successfully.`);
+        window.dispatchEvent(new CustomEvent('workforce-updated'));
+      } else {
+        setSaveMessage((result?.message || 'Failed to delete document.') + '');
+      }
+    } catch {
+      setSaveMessage('Network error while deleting document.');
+    } finally {
+      setDocUploading(p => ({ ...p, [docType]: false }));
+    }
+  }
+
   async function handleSave() {
     if (!workforceMember?.id) return;
     setSaving(true); setSaveMessage('');
@@ -537,9 +579,12 @@ export default function ProfilePage() {
 
       {/* ══ Full-width top nav bar ══ */}
       <header className="w-full bg-trust-blue flex items-center gap-4 px-6 py-0 h-14 shrink-0">
-        <button onClick={() => router.push('/home')} className="text-white/60 hover:text-white transition shrink-0" aria-label="Back">
-          <ArrowLeft className="h-5 w-5" />
-        </button>
+        {/* Hide Back for unapproved users — /home is not accessible to them */}
+        {sessionUser?.is_approved !== false && (
+          <button onClick={() => router.push('/home')} className="text-white/60 hover:text-white transition shrink-0" aria-label="Back">
+            <ArrowLeft className="h-5 w-5" />
+          </button>
+        )}
 
         {/* avatar + name (left side) */}
         <div className="flex items-center gap-3 flex-1 min-w-0">
@@ -563,11 +608,19 @@ export default function ProfilePage() {
           My Profile
         </h1>
 
-        {/* right: role badge */}
-        <div className="shrink-0">
+        {/* right: role badge + logout */}
+        <div className="shrink-0 flex items-center gap-2">
           <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full ${ROLE_COLORS[sessionUser?.role] || ROLE_COLORS.staff}`}>
             {ROLE_LABELS[sessionUser?.role] || 'Staff'}
           </span>
+          <button
+            onClick={handleLogout}
+            disabled={loggingOut}
+            className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-white/10 hover:bg-white/20 text-white border border-white/20 transition disabled:opacity-60"
+            title="Sign out"
+          >
+            {loggingOut ? 'Signing out…' : 'Logout'}
+          </button>
         </div>
 
         <input ref={fileInputRef} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={handlePhotoChange} />
@@ -867,7 +920,11 @@ export default function ProfilePage() {
                   <EditableField label="First Language"  name="first_language"  value={wf?.first_language}  editValue={editData.first_language}  isEditing={isEditing} onChange={handleEditChange} options={INDIAN_LANGUAGES} />
                   <EditableField label="Second Language" name="second_language" value={wf?.second_language} editValue={editData.second_language} isEditing={isEditing} onChange={handleEditChange} options={INDIAN_LANGUAGES} />
                   <EditableField label="GST Number"      name="gst_number"      value={wf?.gst_number}      editValue={editData.gst_number}      isEditing={isEditing} onChange={handleEditChange} />
-                  <EditableField label="Category"        name="category"        value={wf?.category}        editValue={editData.category}        isEditing={isEditing} onChange={handleEditChange} />
+                  {/* Category is admin-only — it determines software access permissions. Read-only here. */}
+                  <div>
+                    <FieldRow label="Category" value={wf?.category} />
+                    {isEditing && <p className="text-[11px] text-cool-gray mt-0.5">Assigned by admin.</p>}
+                  </div>
                   <EditableField label="Working Style"   name="working_style"   value={wf?.working_style}   editValue={editData.working_style}   isEditing={isEditing} onChange={handleEditChange} options={WORKING_STYLES} />
                 </div>
               </SectionCard>
@@ -900,39 +957,51 @@ export default function ProfilePage() {
                     {wf?.aadhaar_url ? (
                       <div className="flex items-center gap-2 mb-2">
                         <Check className="h-4 w-4 text-green-500 shrink-0" />
-                        <a href={wf.aadhaar_url} target="_blank" rel="noopener noreferrer"
+                        <a href={buildDocProxyUrl(wf.aadhaar_url, 'preview')} target="_blank" rel="noopener noreferrer"
                           className="text-sm text-trust-blue underline hover:text-deep-blue truncate">View Document</a>
                       </div>
                     ) : (
                       <p className="text-sm text-cool-gray italic mb-2">Not uploaded yet.</p>
                     )}
                     {isEditing && (
-                      <label className={`flex items-center gap-2 cursor-pointer text-xs font-semibold px-3 py-1.5 rounded-lg border transition ${docUploading.aadhaar ? 'opacity-50 pointer-events-none' : 'border-trust-blue text-trust-blue hover:bg-blue-50'}`}>
-                        <input type="file" className="hidden" accept="image/*,application/pdf" disabled={docUploading.aadhaar}
-                          onChange={async (e) => {
-                            const file = e.target.files?.[0]; if (!file || !wf?.id) return;
-                            if (file.size > 10 * 1024 * 1024) { alert('File must be under 10 MB.'); return; }
-                            setDocUploading(p => ({ ...p, aadhaar: true }));
-                            try {
-                              const reader = new FileReader();
-                              reader.onload = async (ev) => {
-                                const res = await fetch(`/api/workforce/${wf.id}/upload-document`, {
-                                  method: 'POST', headers: { 'Content-Type': 'application/json' },
-                                  body: JSON.stringify({ photo_data: ev.target.result, doc_type: 'aadhaar' }),
-                                });
-                                const result = await res.json().catch(() => null);
-                                if (res.ok && (result?.data?.url || result?.data?.aadhaar_url)) {
-                                  const uploadedUrl = result.data.url || result.data.aadhaar_url;
-                                  setWorkforceMember(prev => ({ ...prev, aadhaar_url: uploadedUrl }));
-                                  setSaveMessage('Aadhaar uploaded successfully.');
-                                } else { setSaveMessage('Aadhaar upload failed. ' + (result?.message || 'Try again.')); }
-                                setDocUploading(p => ({ ...p, aadhaar: false }));
-                              };
-                              reader.readAsDataURL(file);
-                            } catch { setDocUploading(p => ({ ...p, aadhaar: false })); }
-                          }} />
-                        {docUploading.aadhaar ? 'Uploading…' : (wf?.aadhaar_url ? 'Replace Aadhaar' : 'Upload Aadhaar')}
-                      </label>
+                      <div className="flex items-center gap-2">
+                        <label className={`flex items-center gap-2 cursor-pointer text-xs font-semibold px-3 py-1.5 rounded-lg border transition ${docUploading.aadhaar ? 'opacity-50 pointer-events-none' : 'border-trust-blue text-trust-blue hover:bg-blue-50'}`}>
+                          <input type="file" className="hidden" accept="image/*,application/pdf" disabled={docUploading.aadhaar}
+                            onChange={async (e) => {
+                              const file = e.target.files?.[0]; if (!file || !wf?.id) return;
+                              if (file.size > 10 * 1024 * 1024) { alert('File must be under 10 MB.'); return; }
+                              setDocUploading(p => ({ ...p, aadhaar: true }));
+                              try {
+                                const reader = new FileReader();
+                                reader.onload = async (ev) => {
+                                  const res = await fetch(`/api/workforce/${wf.id}/upload-document`, {
+                                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ photo_data: ev.target.result, doc_type: 'aadhaar' }),
+                                  });
+                                  const result = await res.json().catch(() => null);
+                                  if (res.ok && (result?.data?.url || result?.data?.aadhaar_url)) {
+                                    const uploadedUrl = result.data.url || result.data.aadhaar_url;
+                                    setWorkforceMember(prev => ({ ...prev, aadhaar_url: uploadedUrl }));
+                                    setSaveMessage('Aadhaar uploaded successfully.');
+                                  } else { setSaveMessage('Aadhaar upload failed. ' + (result?.message || 'Try again.')); }
+                                  setDocUploading(p => ({ ...p, aadhaar: false }));
+                                };
+                                reader.readAsDataURL(file);
+                              } catch { setDocUploading(p => ({ ...p, aadhaar: false })); }
+                            }} />
+                          {docUploading.aadhaar ? 'Uploading…' : (wf?.aadhaar_url ? 'Replace Aadhaar' : 'Upload Aadhaar')}
+                        </label>
+                        {wf?.aadhaar_url && (
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteDocument('aadhaar')}
+                            disabled={docUploading.aadhaar}
+                            className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-red-300 text-red-600 hover:bg-red-50 disabled:opacity-50"
+                          >
+                            Delete
+                          </button>
+                        )}
+                      </div>
                     )}
                   </div>
                   {/* PAN Card */}
@@ -941,39 +1010,51 @@ export default function ProfilePage() {
                     {wf?.pan_url ? (
                       <div className="flex items-center gap-2 mb-2">
                         <Check className="h-4 w-4 text-green-500 shrink-0" />
-                        <a href={wf.pan_url} target="_blank" rel="noopener noreferrer"
+                        <a href={buildDocProxyUrl(wf.pan_url, 'preview')} target="_blank" rel="noopener noreferrer"
                           className="text-sm text-trust-blue underline hover:text-deep-blue truncate">View Document</a>
                       </div>
                     ) : (
                       <p className="text-sm text-cool-gray italic mb-2">Not uploaded yet.</p>
                     )}
                     {isEditing && (
-                      <label className={`flex items-center gap-2 cursor-pointer text-xs font-semibold px-3 py-1.5 rounded-lg border transition ${docUploading.pan ? 'opacity-50 pointer-events-none' : 'border-trust-blue text-trust-blue hover:bg-blue-50'}`}>
-                        <input type="file" className="hidden" accept="image/*,application/pdf" disabled={docUploading.pan}
-                          onChange={async (e) => {
-                            const file = e.target.files?.[0]; if (!file || !wf?.id) return;
-                            if (file.size > 10 * 1024 * 1024) { alert('File must be under 10 MB.'); return; }
-                            setDocUploading(p => ({ ...p, pan: true }));
-                            try {
-                              const reader = new FileReader();
-                              reader.onload = async (ev) => {
-                                const res = await fetch(`/api/workforce/${wf.id}/upload-document`, {
-                                  method: 'POST', headers: { 'Content-Type': 'application/json' },
-                                  body: JSON.stringify({ photo_data: ev.target.result, doc_type: 'pan' }),
-                                });
-                                const result = await res.json().catch(() => null);
-                                if (res.ok && (result?.data?.url || result?.data?.pan_url)) {
-                                  const uploadedUrl = result.data.url || result.data.pan_url;
-                                  setWorkforceMember(prev => ({ ...prev, pan_url: uploadedUrl }));
-                                  setSaveMessage('PAN uploaded successfully.');
-                                } else { setSaveMessage('PAN upload failed. ' + (result?.message || 'Try again.')); }
-                                setDocUploading(p => ({ ...p, pan: false }));
-                              };
-                              reader.readAsDataURL(file);
-                            } catch { setDocUploading(p => ({ ...p, pan: false })); }
-                          }} />
-                        {docUploading.pan ? 'Uploading…' : (wf?.pan_url ? 'Replace PAN' : 'Upload PAN')}
-                      </label>
+                      <div className="flex items-center gap-2">
+                        <label className={`flex items-center gap-2 cursor-pointer text-xs font-semibold px-3 py-1.5 rounded-lg border transition ${docUploading.pan ? 'opacity-50 pointer-events-none' : 'border-trust-blue text-trust-blue hover:bg-blue-50'}`}>
+                          <input type="file" className="hidden" accept="image/*,application/pdf" disabled={docUploading.pan}
+                            onChange={async (e) => {
+                              const file = e.target.files?.[0]; if (!file || !wf?.id) return;
+                              if (file.size > 10 * 1024 * 1024) { alert('File must be under 10 MB.'); return; }
+                              setDocUploading(p => ({ ...p, pan: true }));
+                              try {
+                                const reader = new FileReader();
+                                reader.onload = async (ev) => {
+                                  const res = await fetch(`/api/workforce/${wf.id}/upload-document`, {
+                                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ photo_data: ev.target.result, doc_type: 'pan' }),
+                                  });
+                                  const result = await res.json().catch(() => null);
+                                  if (res.ok && (result?.data?.url || result?.data?.pan_url)) {
+                                    const uploadedUrl = result.data.url || result.data.pan_url;
+                                    setWorkforceMember(prev => ({ ...prev, pan_url: uploadedUrl }));
+                                    setSaveMessage('PAN uploaded successfully.');
+                                  } else { setSaveMessage('PAN upload failed. ' + (result?.message || 'Try again.')); }
+                                  setDocUploading(p => ({ ...p, pan: false }));
+                                };
+                                reader.readAsDataURL(file);
+                              } catch { setDocUploading(p => ({ ...p, pan: false })); }
+                            }} />
+                          {docUploading.pan ? 'Uploading…' : (wf?.pan_url ? 'Replace PAN' : 'Upload PAN')}
+                        </label>
+                        {wf?.pan_url && (
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteDocument('pan')}
+                            disabled={docUploading.pan}
+                            className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-red-300 text-red-600 hover:bg-red-50 disabled:opacity-50"
+                          >
+                            Delete
+                          </button>
+                        )}
+                      </div>
                     )}
                   </div>
                 </div>

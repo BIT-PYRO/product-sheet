@@ -9,6 +9,7 @@ import {
   Select,
   SelectContent,
   SelectItem,
+  SelectSeparator,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
@@ -35,12 +36,14 @@ import { CompanyKYCForm } from '@/components/company-kyc-form';
 import { ReceiveJobModal } from '@/components/receive-job-modal';
 import { GenericJobModal } from '@/components/generic-job-modal';
 import DateTimeStamp from '@/components/date-time-stamp';
+import { useProductionWorkforce } from '@/hooks/use-production-workforce';
 import LastUpdatedFooter from '@/components/last-updated-footer';
 import { useSheetPermissions } from '@/hooks/use-sheet-permissions';
 import { useColumnPreferences } from '@/hooks/use-column-preferences';
 
 export default function ManagersDashboard() {
   const { canView, canEdit, canCreate, canExport, loading: permsLoading } = useSheetPermissions('managers-dashboard');
+  const { productionWorkers, allWorkforce } = useProductionWorkforce();
   const [lastUpdated, setLastUpdated] = useState(null);
   const [currentUsername, setCurrentUsername] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
@@ -74,7 +77,7 @@ export default function ManagersDashboard() {
   const [departmentFilter, setDepartmentFilter] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
-  const statusOptions = ['Pending', 'WIP', 'Completed'];
+  const statusOptions = ['In Process', 'Awaiting', 'Partial', 'Completed'];
   const newReissueOptions = ['New', 'Re-issue'];
 
   // Process columns — live pipeline stages (matches dept_from keys order)
@@ -193,6 +196,7 @@ export default function ManagersDashboard() {
     const departments = new Set();
     const types = new Set();
     const categories = new Set();
+    const picklists = new Set();
     for (const col of Object.values(jobCardsData)) {
       for (const bucket of ['new', 'wip', 'completed']) {
         for (const card of col[bucket]) {
@@ -201,6 +205,7 @@ export default function ManagersDashboard() {
           if (card.deptFrom) departments.add(card.deptFrom);
           if (card.workType) types.add(card.workType);
           if (card.category) categories.add(card.category);
+          if (card.picklistName) picklists.add(card.picklistName);
         }
       }
     }
@@ -210,15 +215,17 @@ export default function ManagersDashboard() {
       departments: Array.from(departments).sort(),
       types: Array.from(types).sort(),
       categories: Array.from(categories).sort(),
+      picklists: Array.from(picklists).sort(),
     };
   }, [jobCardsData]);
 
   // Filtered data derived from jobCardsData + all active filters
   const filteredJobCardsData = useMemo(() => {
     const applyFilter = (card, bucket) => {
-      if (statusFilter === 'Pending' && bucket !== 'new') return false;
-      if (statusFilter === 'WIP' && bucket !== 'wip') return false;
-      if (statusFilter === 'Completed' && bucket !== 'completed') return false;
+      if (statusFilter === 'In Process' && card.approvalStatus !== 'in_process') return false;
+      if (statusFilter === 'Awaiting' && card.approvalStatus !== 'awaiting') return false;
+      if (statusFilter === 'Partial' && card.approvalStatus !== 'partially_complete') return false;
+      if (statusFilter === 'Completed' && card.approvalStatus !== 'completed') return false;
       if (dateFromFilter || dateToFilter) {
         const cardDate = card.createdAt ? card.createdAt.slice(0, 10) : '';
         if (dateFromFilter && cardDate < dateFromFilter) return false;
@@ -229,7 +236,11 @@ export default function ManagersDashboard() {
       if (issuerFilter && card.issuedBy !== issuerFilter) return false;
       if (departmentFilter && card.deptFrom !== departmentFilter) return false;
       if (typeFilter && card.workType !== typeFilter) return false;
-      if (categoryFilter && card.category !== categoryFilter) return false;
+      if (categoryFilter) {
+        if (categoryFilter === 'New' && card.voucherType !== 'New') return false;
+        else if (categoryFilter === 'Re-Issue' && card.voucherType !== 'Re-Issue') return false;
+        else if (categoryFilter !== 'New' && categoryFilter !== 'Re-Issue' && card.picklistName !== categoryFilter) return false;
+      }
       if (searchTerm) {
         const term = searchTerm.toLowerCase();
         const haystack = [card.voucherNo, card.name, card.category, card.issuedBy, card.workType].join(' ').toLowerCase();
@@ -1092,8 +1103,8 @@ export default function ManagersDashboard() {
                   <SelectValue placeholder="Select Name" />
                 </SelectTrigger>
                 <SelectContent>
-                  {filterOptions.names.map(name => (
-                    <SelectItem key={name} value={name}>{name}</SelectItem>
+                  {productionWorkers.map(w => (
+                    <SelectItem key={w.id} value={w.full_name}>{w.full_name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -1107,8 +1118,8 @@ export default function ManagersDashboard() {
                   <SelectValue placeholder="Select Issuer" />
                 </SelectTrigger>
                 <SelectContent>
-                  {filterOptions.issuers.map(issuer => (
-                    <SelectItem key={issuer} value={issuer}>{issuer}</SelectItem>
+                  {allWorkforce.map(w => (
+                    <SelectItem key={w.id} value={w.full_name}>{w.full_name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -1152,9 +1163,16 @@ export default function ManagersDashboard() {
                   <SelectValue placeholder="Select Category" />
                 </SelectTrigger>
                 <SelectContent>
-                  {filterOptions.categories.map(option => (
-                    <SelectItem key={option} value={option}>{option}</SelectItem>
-                  ))}
+                  <SelectItem value="New">New</SelectItem>
+                  <SelectItem value="Re-Issue">Re-Issue</SelectItem>
+                  {filterOptions.picklists.length > 0 && (
+                    <>
+                      <SelectSeparator />
+                      {filterOptions.picklists.map(pl => (
+                        <SelectItem key={pl} value={pl}>{pl}</SelectItem>
+                      ))}
+                    </>
+                  )}
                 </SelectContent>
               </Select>
             </div>

@@ -1,9 +1,6 @@
-from datetime import timedelta
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
-from django.core.mail import send_mail
-from django.utils import timezone
 from drf_spectacular.utils import OpenApiExample, extend_schema
 from google.auth.transport import requests as google_requests
 from google.oauth2 import id_token
@@ -14,7 +11,7 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
-from .models import EmailOTP, RoleDefaultPermissions
+from .models import RoleDefaultPermissions
 
 from common.api import api_success
 from workforce.models import WorkforceMember
@@ -167,107 +164,7 @@ class GoogleLoginView(APIView):
 		)
 
 
-class SendOTPView(APIView):
-	permission_classes = [AllowAny]
 
-	@extend_schema(summary='Send OTP to email for login', tags=['Auth'])
-	def post(self, request):
-		email = str(request.data.get('email', '')).strip().lower()
-		if not email or '@' not in email:
-			return Response({'success': False, 'message': 'A valid email address is required.'}, status=400)
-
-		# Rate limit: 1 OTP per 60 seconds per email
-		recent = EmailOTP.objects.filter(
-			email=email,
-			created_at__gte=timezone.now() - timedelta(seconds=60),
-		).exists()
-		if recent:
-			return Response(
-				{'success': False, 'message': 'OTP already sent. Please wait 60 seconds before requesting again.'},
-				status=429,
-			)
-
-		# Invalidate prior unused OTPs
-		EmailOTP.objects.filter(email=email, used=False).update(used=True)
-
-		otp = EmailOTP.generate_otp()
-		EmailOTP.objects.create(email=email, otp=otp)
-
-		try:
-			send_mail(
-				subject='Your Login OTP — Product Sheet',
-				message=(
-					f'Your one-time login code is: {otp}\n\n'
-					'This code expires in 10 minutes. Do not share it with anyone.'
-				),
-				from_email=None,  # uses DEFAULT_FROM_EMAIL
-				recipient_list=[email],
-				fail_silently=False,
-			)
-		except Exception as exc:
-			return Response({'success': False, 'message': f'Failed to send email: {exc}'}, status=500)
-
-		return api_success({}, message='OTP sent to your email.')
-
-
-class VerifyOTPView(APIView):
-	permission_classes = [AllowAny]
-
-	@extend_schema(summary='Verify OTP and receive JWT tokens', tags=['Auth'])
-	def post(self, request):
-		email = str(request.data.get('email', '')).strip().lower()
-		otp_input = str(request.data.get('otp', '')).strip()
-
-		if not email or not otp_input:
-			return Response({'success': False, 'message': 'Email and OTP are required.'}, status=400)
-
-		latest = EmailOTP.objects.filter(email=email, used=False).first()
-
-		if not latest or not latest.is_valid():
-			return Response(
-				{'success': False, 'message': 'OTP has expired or was not found. Please request a new one.'},
-				status=400,
-			)
-
-		if latest.otp != otp_input:
-			return Response({'success': False, 'message': 'Incorrect OTP. Please try again.'}, status=400)
-
-		latest.used = True
-		latest.save()
-
-		User = get_user_model()
-		# First look up by email field so existing accounts (e.g. superusers whose
-		# username differs from their email) are matched correctly.
-		user = User.objects.filter(email=email).first()
-		created = False
-		if user is None:
-			# No account with this email — create one keyed by email as username.
-			user, created = User.objects.get_or_create(
-				username=email,
-				defaults={
-					'email': email,
-					'is_approved': False,
-				},
-			)
-			if created:
-				user.set_unusable_password()
-				user.save()
-
-		# Ensure WorkforceMember record exists
-		WorkforceMember.objects.get_or_create(
-			email=email,
-			defaults={'full_name': email.split('@')[0]},
-		)
-
-		refresh = RefreshToken.for_user(user)
-		return api_success(
-			{
-				'access': str(refresh.access_token),
-				'refresh': str(refresh),
-				'is_approved': user.is_approved,
-			},
-			message='Login successful.',
-		)
 
 
 class ApproveUserView(APIView):

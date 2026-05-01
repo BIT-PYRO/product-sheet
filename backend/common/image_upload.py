@@ -38,6 +38,12 @@ _SUPPORTED_MIMES = {
 }
 
 
+def _normalize_cloudinary_document_url(url: str) -> str:
+    """Normalize common Cloudinary document URL artifacts (e.g. .pdf.pdf)."""
+    value = str(url or '')
+    return value.replace('.pdf.pdf', '.pdf').replace('.jpg.jpg', '.jpg').replace('.png.png', '.png')
+
+
 def _safe_folder(folder: str) -> str:
     """Strip leading/trailing slashes from a Cloudinary folder path."""
     return folder.strip('/')
@@ -157,17 +163,28 @@ def upload_document_base64(data_url: str, folder: str, public_id: str = None) ->
 
         cloudinary_url_env = os.environ.get('CLOUDINARY_URL', '')
         if cloudinary_url_env:
+            # Use resource_type='raw' for PDFs so Cloudinary stores and serves them as-is.
+            # Use resource_type='auto' for other document types.
+            cloud_resource_type = 'raw' if mime == 'application/pdf' else 'auto'
+            # For raw uploads the public_id IS the URL path segment — include the
+            # file extension so the Cloudinary URL ends with e.g. ".pdf".
+            # Cloudinary image/auto uploads append the format automatically, so keep
+            # the bare name for those to avoid double-extension (aadhaar.pdf.pdf).
+            if cloud_resource_type == 'raw' and ext and ext != 'bin':
+                cloud_public_id = f'{public_id}.{ext}' if public_id else file_name
+            else:
+                cloud_public_id = public_id or uuid.uuid4().hex
             url, err = _upload_to_cloudinary_safe(
                 io.BytesIO(doc_bytes),
                 folder,
-                public_id or uuid.uuid4().hex,
-                resource_type='raw',
+                cloud_public_id,
+                resource_type=cloud_resource_type,
             )
             if err:
                 logger.error('upload_document_base64: Cloudinary error for folder=%r: %s. Falling back to local.', folder, err)
                 local_url = _upload_to_local_bytes(doc_bytes, folder, file_name)
                 return local_url, None
-            return url, None
+            return _normalize_cloudinary_document_url(url), None
         else:
             local_url = _upload_to_local_bytes(doc_bytes, folder, file_name)
             return local_url, None
@@ -180,6 +197,49 @@ def upload_document_base64(data_url: str, folder: str, public_id: str = None) ->
         return '', str(exc)
 
 
+def upload_document_file(document_file, folder: str, public_id: str = None) -> tuple:
+    """Upload a Django uploaded file as a document and return (url, error)."""
+    if not document_file:
+        return '', 'No document file provided.'
+
+    content_type = str(getattr(document_file, 'content_type', '') or '').lower()
+    ext = os.path.splitext(getattr(document_file, 'name', '') or '')[1].lower().lstrip('.')
+    if not ext:
+        ext = 'pdf' if content_type == 'application/pdf' else 'bin'
+
+    file_name = f'{public_id or uuid.uuid4().hex}.{ext}'
+    try:
+        file_bytes = document_file.read()
+        if hasattr(document_file, 'seek'):
+            document_file.seek(0)
+    except Exception as exc:
+        return '', f'Could not read uploaded file: {exc}'
+
+    cloudinary_url_env = os.environ.get('CLOUDINARY_URL', '')
+    if cloudinary_url_env:
+        # Use resource_type='raw' for PDFs so Cloudinary stores and serves them as-is.
+        is_pdf = content_type == 'application/pdf' or ext == 'pdf'
+        cloud_resource_type = 'raw' if is_pdf else 'auto'
+        # For raw uploads include the extension in the public_id so the Cloudinary
+        # URL ends with .pdf (etc.) — required for correct Content-Type on delivery.
+        if cloud_resource_type == 'raw' and ext and ext != 'bin':
+            cloud_public_id = f'{public_id}.{ext}' if public_id else file_name
+        else:
+            cloud_public_id = public_id or uuid.uuid4().hex
+        url, err = _upload_to_cloudinary_safe(
+            io.BytesIO(file_bytes),
+            folder,
+            cloud_public_id,
+            resource_type=cloud_resource_type,
+        )
+        if err:
+            logger.error('upload_document_file: Cloudinary error for folder=%r: %s. Falling back to local.', folder, err)
+            return _upload_to_local_bytes(file_bytes, folder, file_name), None
+        return _normalize_cloudinary_document_url(url), None
+
+    return _upload_to_local_bytes(file_bytes, folder, file_name), None
+
+
 
 def _upload_to_cloudinary_safe(image_source, folder: str, public_id: str = None, resource_type: str = 'image') -> tuple:
     """Upload to Cloudinary. Returns (url, error_message). Never raises."""
@@ -189,6 +249,8 @@ def _upload_to_cloudinary_safe(image_source, folder: str, public_id: str = None,
         kwargs = dict(
             folder=_safe_folder(folder),
             resource_type=resource_type,
+            type='upload',
+            access_mode='public',
             overwrite=True,
         )
         if public_id:

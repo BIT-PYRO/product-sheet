@@ -22,10 +22,11 @@ export default function AccountSettingsPage() {
       try {
         const res = await fetch('/api/auth/session', { cache: 'no-store' });
         const result = await res.json();
-        if (!res.ok || !result.success) { router.replace('/login'); return; }
+        if (res.status === 401) { router.replace('/login'); return; }
+        if (!res.ok || !result.success) { return; }
         setSessionUser(result.user);
       } catch {
-        router.replace('/login');
+        // Network error — fail silently
       } finally {
         setLoading(false);
       }

@@ -74,7 +74,13 @@ def _activate_ready_batch_vouchers(batch_id):
 						sku_key = str(mr.get('sku', '') or '').strip().upper()
 						if sku_key in actual_received:
 							mr = dict(mr)
-							mr['issued_qty'] = str(actual_received[sku_key])
+							# Preserve the original planned qty before we change issued_qty,
+							# so future top-ups can never exceed the original demand.
+							original_planned = int(float(mr.get('planned_qty') or mr.get('issued_qty', 0) or 0))
+							mr['planned_qty'] = str(original_planned)
+							# Cap at planned: if upstream over-produced (amplification stage)
+							# the surplus stays in the previous stage's current stock.
+							mr['issued_qty'] = str(min(original_planned, actual_received[sku_key]))
 						updated_rows.append(mr)
 					v.material_rows = updated_rows
 
@@ -146,10 +152,12 @@ def _propagate_qty_to_active_downstream(batch_id, voucher):
 			if sku_key in total_received:
 				new_total = total_received[sku_key]
 				old_qty = int(float(mr.get('issued_qty', 0) or 0))
-				delta = new_total - old_qty
+				# Never exceed the original planned qty — surplus stays in prev-stage current stock.
+				planned_qty = int(float(mr.get('planned_qty') or mr.get('issued_qty', 0) or 0))
+				new_issue = min(planned_qty, new_total)
+				delta = new_issue - old_qty
 				if delta > 0:
-					# Deduct the extra pieces from source stage current stock
-					# (they are now in WIP of the downstream voucher)
+					# Deduct the additional pieces moving into WIP of the downstream voucher.
 					if from_stage:
 						product = _Product.objects.filter(
 							Q(master_sku__iexact=mr.get('sku', ''))
@@ -167,7 +175,7 @@ def _propagate_qty_to_active_downstream(batch_id, voucher):
 								),
 							)
 					mr = dict(mr)
-					mr['issued_qty'] = str(new_total)
+					mr['issued_qty'] = str(new_issue)
 					changed = True
 			updated_rows.append(mr)
 		if changed:
@@ -892,6 +900,8 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 				raise ValidationError({'rows': 'At least one row is required.'})
 
 			# ── Build existing received totals ──────────────────────────────────
+			# Count both received_qty AND loss_qty from prior events — lost pieces
+			# are accounted for and must not be counted as still-remaining.
 			already_received: dict = {}
 			for event in (voucher.received_rows or []):
 				for prev_row in (event.get('rows') or []):
@@ -899,6 +909,7 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 					already_received[key] = (
 						already_received.get(key, 0)
 						+ int(float(prev_row.get('received_qty', 0) or 0))
+						+ int(float(prev_row.get('loss_qty', 0) or 0))
 					)
 
 			# ── Build issued map ────────────────────────────────────────────────
@@ -926,14 +937,9 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 				already = already_received.get(sku_key, 0)
 				remaining = issued - already
 
-				total_this = received_qty + loss_qty
-				if total_this > remaining:
-					raise ValidationError({
-						'rows': (
-							f'SKU {sku_key}: received_qty ({received_qty}) + loss_qty ({loss_qty}) = {total_this} '
-							f'exceeds remaining pieces ({remaining} = issued {issued} − already received {already}).'
-						)
-					})
+				# NOTE: received_qty CAN exceed issued_qty for amplification stages
+				# (e.g. Die → Wax Piece: 2 dies may yield 4 wax pieces). There is
+				# no upper-bound validation on received qty.
 
 				if loss_qty > 0:
 					any_loss = True

@@ -517,12 +517,26 @@ export function GenericJobModal({ open, onOpenChange, onJobCreated, initialData 
               <div className="grid grid-cols-[1fr_auto_1fr] gap-1.5 items-end">
                 <div className="flex flex-col gap-0.5">
                   <Label className="text-sm font-medium text-muted-foreground">Issued By</Label>
-                  <Input
-                    placeholder="Enter your name"
+                  <Select
                     value={issuedBy}
-                    onChange={(e) => setIssuedBy(e.target.value)}
-                    className="h-8 text-sm bg-background border-border focus:ring-1 focus:ring-trust-blue focus:border-trust-blue transition-colors cursor-text"
-                  />
+                    onValueChange={(v) => {
+                      setIssuedBy(v)
+                      const person = enrolledWorkers.find(w => w.full_name === v)
+                      if (person) setContact(person.phone || person.whatsapp || '')
+                    }}
+                  >
+                    <SelectTrigger className="h-8 text-sm bg-background border-border focus:ring-1 focus:ring-trust-blue">
+                      <SelectValue placeholder="Select person" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {enrolledWorkers.map(w => (
+                        <SelectItem key={w.id} value={w.full_name}>{w.full_name}</SelectItem>
+                      ))}
+                      {issuedBy && !enrolledWorkers.find(w => w.full_name === issuedBy) && (
+                        <SelectItem value={issuedBy}>{issuedBy}</SelectItem>
+                      )}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="hidden md:block" />
                 <div className="flex flex-col gap-0.5">
