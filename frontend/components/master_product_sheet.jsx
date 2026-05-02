@@ -700,6 +700,7 @@ export default function MasterProductSheet() {
           plating_color: row.platingColor,
           notes: row.notes,
           invoice_price: parseFloat(row.invoicePrice) || 0,
+          selling_price: parseFloat(row.invoicePrice) || 0,
           die_numbers: row.dieNumber
             ? row.dieNumber.split(',').map((v) => ({ value: v.trim(), quantity: '', location: '' })).filter((d) => d.value)
             : [],
