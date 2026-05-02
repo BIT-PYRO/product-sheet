@@ -684,7 +684,7 @@ export default function ManageMembersPage() {
         <h1 className="text-lg font-bold text-midnight-ink">Manage Members</h1>
       </header>
 
-      <div className="max-w-4xl mx-auto px-4 py-6">
+      <div className="w-full px-6 py-6">
         {/* Duplicate email warning banner */}
         {(() => {
           const emailCounts = {};
@@ -727,30 +727,32 @@ export default function ManageMembersPage() {
               className="w-full pl-9 pr-4 py-2 rounded-lg border border-soft-border bg-white text-sm text-midnight-ink placeholder-cool-gray focus:outline-none focus:ring-2 focus:ring-trust-blue"
             />
           </div>
-          {canEdit && (
-            <button
-              onClick={() => setEnrollOpen(true)}
-              className="flex items-center gap-2 bg-trust-blue hover:bg-deep-blue text-white text-sm font-semibold px-4 py-2 rounded-lg transition"
-            >
-              <Plus className="h-4 w-4" />
-              Enroll Workforce
-            </button>
-          )}
-          <div className="relative">
-            {exportMenuOpen && <div className="fixed inset-0 z-10" onClick={() => setExportMenuOpen(false)} />}
-            <button
-              type="button"
-              onClick={() => setExportMenuOpen((p) => !p)}
-              className="relative z-20 flex items-center gap-1.5 border border-emerald-500 text-emerald-600 hover:bg-emerald-50 text-sm font-semibold px-4 py-2 rounded-lg transition"
-            >
-              <Download className="h-4 w-4" /> Export <ChevronDown className="h-4 w-4" />
-            </button>
-            {exportMenuOpen && (
-              <div className="absolute right-0 top-10 z-30 w-52 rounded-lg bg-white shadow-lg border border-soft-border py-1">
-                <button type="button" onClick={exportToExcel} className="w-full px-4 py-2 text-sm text-midnight-ink hover:bg-cloud-gray text-left">Export as Excel (.xlsx)</button>
-                <button type="button" onClick={exportToPDF} className="w-full px-4 py-2 text-sm text-midnight-ink hover:bg-cloud-gray text-left">Export as PDF</button>
-              </div>
+          <div className="flex items-center gap-3">
+            {canEdit && (
+              <button
+                onClick={() => setEnrollOpen(true)}
+                className="flex items-center gap-2 bg-trust-blue hover:bg-deep-blue text-white text-sm font-semibold px-4 py-2 rounded-lg transition"
+              >
+                <Plus className="h-4 w-4" />
+                Enroll Workforce
+              </button>
             )}
+            <div className="relative">
+              {exportMenuOpen && <div className="fixed inset-0 z-10" onClick={() => setExportMenuOpen(false)} />}
+              <button
+                type="button"
+                onClick={() => setExportMenuOpen((p) => !p)}
+                className="relative z-20 flex items-center gap-1.5 border border-emerald-500 text-emerald-600 hover:bg-emerald-50 text-sm font-semibold px-4 py-2 rounded-lg transition"
+              >
+                <Download className="h-4 w-4" /> Export <ChevronDown className="h-4 w-4" />
+              </button>
+              {exportMenuOpen && (
+                <div className="absolute right-0 top-10 z-30 w-52 rounded-lg bg-white shadow-lg border border-soft-border py-1">
+                  <button type="button" onClick={exportToExcel} className="w-full px-4 py-2 text-sm text-midnight-ink hover:bg-cloud-gray text-left">Export as Excel (.xlsx)</button>
+                  <button type="button" onClick={exportToPDF} className="w-full px-4 py-2 text-sm text-midnight-ink hover:bg-cloud-gray text-left">Export as PDF</button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
