@@ -1,4 +1,5 @@
 'use client';
+import { Trash2 } from 'lucide-react';
 export const C={green:'#059669',greenBg:'#ecfdf5',red:'#dc2626',redBg:'#fef2f2',blue:'#2563eb',blueBg:'#eff6ff',amber:'#d97706',amberBg:'#fffbeb',slate:'#64748b',slateBg:'#f8fafc',text:'#0f172a',muted:'#64748b',border:'#e2e8f0',surface:'#ffffff'};
 export const fmt=n=>`₹${Number(n).toLocaleString('en-IN',{minimumFractionDigits:2})}`;
 export const STATUS_ORDER=['received','verified','approved','paid','posted'];
@@ -103,7 +104,7 @@ export function FilterRow({rows,q,setQ,dept,setDept}){
     </div>
   );
 }
-export function Table({rows,showPaid,paidIds,onTogglePaid,onView,verifiedIds,selected,onToggleSel,onToggleAll,onVerifyOne,showActionCol,actionLabel='Verify',doneLabel='✓ Verified',paidLabel='Process',csvFile='payroll',month=''}){
+export function Table({rows,showPaid,paidIds,onTogglePaid,onView,verifiedIds,selected,onToggleSel,onToggleAll,onVerifyOne,onDelete,showActionCol,actionLabel='Verify',doneLabel='✓ Verified',paidLabel='Process',csvFile='payroll',month=''}){
   const hasSel=!!selected;
   const right=['Gross','Deductions','Net Pay'];
   const selCount=selected?selected.size:0;
@@ -126,9 +127,10 @@ export function Table({rows,showPaid,paidIds,onTogglePaid,onView,verifiedIds,sel
         <table style={{width:'100%',borderCollapse:'collapse'}}>
           <thead><tr style={{background:'#f9fafb'}}>
             {hasSel&&<th className="no-print" style={{padding:'10px 14px',width:36,borderBottom:`1px solid ${C.border}`}}><input type="checkbox" checked={rows.length>0&&selected.size===rows.length} onChange={onToggleAll} style={{cursor:'pointer',accentColor:'#2563eb'}}/></th>}
-            {['Employee','Dept','Gross','Deductions','Net Pay','Info'].map(h=><th key={h} style={{padding:'10px 14px',fontSize:11,fontWeight:700,color:C.muted,textTransform:'uppercase',letterSpacing:0.5,textAlign:right.includes(h)?'right':'left',borderBottom:`1px solid ${C.border}`}}>{h}</th>)}
+            {['S.No','Employee','Dept','Gross','Deductions','Net Pay','Info'].map(h=><th key={h} style={{padding:'10px 14px',fontSize:11,fontWeight:700,color:C.muted,textTransform:'uppercase',letterSpacing:0.5,textAlign:right.includes(h)?'right':'left',borderBottom:`1px solid ${C.border}`}}>{h}</th>)}
             {(showActionCol||onVerifyOne)&&<th className="no-print" style={{padding:'10px 14px',fontSize:11,fontWeight:700,color:C.muted,textTransform:'uppercase',letterSpacing:0.5,borderBottom:`1px solid ${C.border}`}}>{actionLabel}</th>}
             {showPaid&&<th className="no-print" style={{padding:'10px 14px',fontSize:11,fontWeight:700,color:C.muted,textTransform:'uppercase',letterSpacing:0.5,borderBottom:`1px solid ${C.border}`}}>Payment</th>}
+            <th className="no-print" style={{padding:'10px 14px',fontSize:11,fontWeight:700,color:C.muted,textTransform:'uppercase',letterSpacing:0.5,borderBottom:`1px solid ${C.border}`}}>Actions</th>
           </tr></thead>
           <tbody>{rows.map((r,i)=>{
             const isSel=hasSel&&selected.has(r.id);
@@ -140,6 +142,7 @@ export function Table({rows,showPaid,paidIds,onTogglePaid,onView,verifiedIds,sel
                 onMouseEnter={e=>{if(!isSel)e.currentTarget.style.background='#f9fafb';}}
                 onMouseLeave={e=>{e.currentTarget.style.background=isSel?C.blueBg:'transparent';}}>
                 {hasSel&&<td className="no-print" style={{padding:'12px 14px'}}><input type="checkbox" checked={isSel} onChange={()=>onToggleSel(r.id)} onClick={e=>e.stopPropagation()} style={{cursor:'pointer',accentColor:'#2563eb'}}/></td>}
+                <td style={{padding:'12px 14px',fontSize:12,color:C.muted,fontWeight:600}}>{i+1}</td>
                 <td style={{padding:'12px 14px'}}><div style={{display:'flex',alignItems:'center',gap:8}}><div style={{width:30,height:30,borderRadius:8,background:`hsl(${r.id*60+210},70%,92%)`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,fontWeight:800,color:`hsl(${r.id*60+210},60%,35%)`}}>{r.name[0]}</div><div><p style={{margin:0,fontSize:13,fontWeight:700,color:C.text}}>{r.name}</p><p style={{margin:0,fontSize:11,color:C.muted}}>{r.bank} · {r.acc}</p></div></div></td>
                 <td style={{padding:'12px 14px'}}><span style={{display:'inline-block',padding:'2px 8px',background:'#f3f4f6',color:'#374151',borderRadius:20,fontSize:12,fontWeight:600}}>{r.dept}</span></td>
                 <td style={{padding:'12px 14px',textAlign:'right',fontSize:13,fontWeight:700,color:C.blue}}>{fmt(r.gross)}</td>
@@ -148,15 +151,26 @@ export function Table({rows,showPaid,paidIds,onTogglePaid,onView,verifiedIds,sel
                 <td className="no-print" style={{padding:'12px 14px'}}><button onClick={e=>{e.stopPropagation();onView&&onView(r);}} style={{padding:'4px 12px',background:C.blueBg,color:C.blue,border:'1px solid #bfdbfe',borderRadius:6,fontSize:12,fontWeight:700,cursor:'pointer'}}>View</button></td>
                 {(showActionCol||onVerifyOne)&&<td className="no-print" style={{padding:'12px 14px'}}>{isDone?<span style={{fontSize:12,fontWeight:700,color:C.green}}>{doneLabel}</span>:<button onClick={e=>{e.stopPropagation();onVerifyOne&&onVerifyOne(r.id);}} disabled={!onVerifyOne} style={{padding:'5px 12px',background:onVerifyOne?C.blue:'#e5e7eb',color:onVerifyOne?'#fff':'#9ca3af',border:'none',borderRadius:6,fontSize:12,fontWeight:700,cursor:onVerifyOne?'pointer':'not-allowed',opacity:onVerifyOne?1:0.7}}>{actionLabel}</button>}</td>}
                 {showPaid&&<td className="no-print" style={{padding:'12px 14px'}}>{(paidIds&&paidIds.has(r.id))?<span style={{fontSize:12,fontWeight:700,color:C.green}}>✓ Transferred</span>:<button onClick={e=>{e.stopPropagation();onTogglePaid&&onTogglePaid(r.id);}} disabled={!onTogglePaid} style={{padding:'5px 12px',background:onTogglePaid?C.blue:'#e5e7eb',color:onTogglePaid?'#fff':'#9ca3af',border:'none',borderRadius:6,fontSize:12,fontWeight:700,cursor:onTogglePaid?'pointer':'not-allowed',opacity:onTogglePaid?1:0.7}}>{paidLabel}</button>}</td>}
+                <td className="no-print" style={{padding:'12px 14px'}}>
+                  <button 
+                    onClick={e=>{e.stopPropagation(); if(confirm('Delete employee from payroll?')) { alert('Mock Delete: Employee removed from view.'); if(onDelete) onDelete(r.id); }}}
+                    style={{ background: 'none', border: 'none', color: C.red, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '6px', borderRadius: 6, transition: 'all 0.2s' }}
+                    onMouseEnter={e => { e.currentTarget.style.background = C.redBg; e.currentTarget.style.transform = 'scale(1.1)'; }}
+                    onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.transform = 'scale(1)'; }}
+                    title="Delete Record"
+                  >
+                    <Trash2 size={16} strokeWidth={2.5} />
+                  </button>
+                </td>
               </tr>
             );
           })}</tbody>
           <tfoot><tr style={{background:'#f9fafb',borderTop:`2px solid ${C.border}`}}>
-            <td colSpan={hasSel?3:2} style={{padding:'10px 14px',fontSize:12,fontWeight:700,color:C.muted}}>TOTALS</td>
+            <td colSpan={hasSel?4:3} style={{padding:'10px 14px',fontSize:12,fontWeight:700,color:C.muted}}>TOTALS</td>
             <td style={{padding:'10px 14px',textAlign:'right',fontSize:13,fontWeight:800,color:C.blue}}>{fmt(rows.reduce((s,r)=>s+r.gross,0))}</td>
             <td style={{padding:'10px 14px',textAlign:'right',fontSize:13,fontWeight:800,color:C.red}}>{fmt(rows.reduce((s,r)=>s+r.ded,0))}</td>
             <td style={{padding:'10px 14px',textAlign:'right',fontSize:14,fontWeight:900,color:C.green}}>{fmt(rows.reduce((s,r)=>s+r.net,0))}</td>
-            <td className="no-print"/>{onVerifyOne&&<td className="no-print"/>}{showPaid&&<td className="no-print"/>}
+            <td className="no-print"/>{onVerifyOne&&<td className="no-print"/>}{showPaid&&<td className="no-print"/>}<td className="no-print"/>
           </tr></tfoot>
         </table>
       </div>

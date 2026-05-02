@@ -1,609 +1,467 @@
 'use client';
-
-import { useState, useEffect, useCallback, useRef, useMemo, useLayoutEffect } from 'react';
-import { createPortal } from 'react-dom';
+import { useState, useEffect } from 'react';
+import { Shield, Settings, Save, Trash2, Plus, ChevronRight, Info, Lock, Star, ShieldCheck } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, ShieldCheck, ChevronDown, X } from 'lucide-react';
-import Link from 'next/link';
 
-// ── Static (hardcoded) workforce designation + department data ────────────────
-const STATIC_DEPT_DATA = {
-  'Marketing':                    { roles: ['Chairman','CEO','Director','Department Head','Manager','Associate','Intern'] },
-  'Customer Relation Management': { roles: ['Chairman','CEO','Director','Department Head','Manager','Associate','Intern'] },
-  'Operations':                   { roles: ['Chairman','CEO','Director','Department Head','Manager','Associate','Intern'] },
-  'Design':                       { roles: ['Chairman','CEO','Director','Department Head','Manager','Associate','Intern'] },
-  'Logistics':                    { roles: ['Chairman','CEO','Director','Department Head','Manager','Associate','Intern'] },
-  'Purchase':                     { roles: ['Chairman','CEO','Director','Department Head','Manager','Associate'] },
-  'Sales / Business Development': { roles: ['Chairman','CEO','Director','Department Head','Manager','Associate','Intern'] },
-  'Finance':                      { roles: ['Chairman','CEO','Director','Department Head','Manager','Associate','Intern'] },
-  'Information Technology':       { roles: ['Chairman','CEO','Director','Department Head','General Manager','Project Manager','Developer','Associate','Intern'] },
-  'Human Resource':               { roles: ['Chairman','CEO','Director','Department Head','Manager','Associate','Intern'] },
-  'Production':                   { roles: ['Chairman','CEO','Director','Department Head','General Manager','Manager','Supervisor','craftsMan'] },
-  'Services':                     { roles: ['Security','Electrician','Plumber','CCTV','Carpenter','Ironsmith','Locksmith'] },
-  'House Keeping':                { roles: ['Cook','Pantry Boy','Janitor','Messenger'] },
-};
-
-const DESIGNATION_ORDER = [
-  'Chairman','CEO','Director','General Manager','Department Head','Project Manager',
-  'Manager','Supervisor','Associate','Developer','Intern','craftsMan','Worker',
-  'Cook','Pantry Boy','Janitor','Messenger','Security','Electrician','Plumber',
-  'CCTV','Carpenter','Ironsmith','Locksmith',
+const APP_MODULES = [
+  {
+    id: 'products_inventory',
+    name: 'Products & Inventory',
+    pages: [
+      { id: 'product_sheet', name: 'Product Sheet' },
+      { id: 'master_product_sheet', name: 'Master Product Sheet' },
+      { id: 'master_inventory_sheet', name: 'Master Inventory Sheet' },
+      { id: 'inventory', name: 'Inventory' }
+    ]
+  },
+  {
+    id: 'design_findings',
+    name: 'Design & Findings',
+    pages: [
+      { id: 'designer_sheet', name: 'Designer Sheet' },
+      { id: 'master_designer_sheet', name: 'Master Designer Sheet' },
+      { id: 'finding_entry', name: 'Finding Sheet' },
+      { id: 'finding_sheet', name: 'Master Finding Sheet' }
+    ]
+  },
+  {
+    id: 'jobs_orders',
+    name: 'Jobs & Orders',
+    pages: [
+      { id: 'create_generic_job', name: 'Create Generic Job' },
+      { id: 'master_job_sheet', name: 'Master Job Sheet' },
+      { id: 'orders', name: 'Orders' },
+      { id: 'drafts', name: 'Drafts' }
+    ]
+  },
+  {
+    id: 'customers_kyc',
+    name: 'Customers & KYC',
+    pages: [
+      { id: 'enrol_customer', name: 'Enroll Customer' },
+      { id: 'master_customer_sheet', name: 'Master Customer Sheet' },
+      { id: 'master_kyc_sheet', name: 'Master KYC Sheet' }
+    ]
+  },
+  {
+    id: 'human_resources',
+    name: 'Human Resources',
+    pages: [
+      { id: 'team_directory', name: 'Team Directory' },
+      { id: 'enrol_workforce', name: 'Enroll Workforce' },
+      { id: 'master_workforce_sheet', name: 'Master Workforce Sheet' },
+      { id: 'master_task_manager', name: 'Master Task Manager' },
+      { id: 'meeting_manager', name: 'Meeting Manager' },
+      { id: 'attendance_dashboard', name: 'Attendance Dashboard' },
+      { id: 'leave_requests', name: 'Leave Requests' },
+      { id: 'org_hierarchy', name: 'Org Hierarchy' },
+      { id: 'roles_permissions', name: 'Roles & Permissions' },
+      { id: 'diary', name: 'Diary' }
+    ]
+  },
+  {
+    id: 'finance_accountancy',
+    name: 'Accountancy & Finance',
+    pages: [
+      { id: 'payroll', name: 'Payroll' },
+      { id: 'expenses', name: 'Expenses' },
+      { id: 'dept_expenses', name: 'Dept Expenses' },
+      { id: 'accounts_payable', name: 'Accounts Payable' },
+      { id: 'accounts_receivable', name: 'Accounts Receivable' },
+      { id: 'invoices', name: 'Invoices' },
+      { id: 'purchase_bills', name: 'Purchase Bills' },
+      { id: 'profit_loss', name: 'Profit & Loss' },
+      { id: 'finance_dashboard', name: 'Finance Dashboard' }
+    ]
+  },
+  {
+    id: 'workspace',
+    name: 'Workspace',
+    pages: [
+      { id: 'my_desk', name: 'My Desk' },
+      { id: 'managers_dashboard', name: 'Managers Dashboard' }
+    ]
+  }
 ];
 
-// ── Build merged DEPT_DATA from static defaults + dynamic DB pairs ────────────
-function buildDeptData(roleDeptPairs) {
-  const merged = {};
-  // Start with static
-  Object.entries(STATIC_DEPT_DATA).forEach(([dept, { roles }]) => {
-    merged[dept] = { roles: [...roles] };
-  });
-  // Overlay custom pairs from DB
-  (roleDeptPairs || []).forEach(({ role, department }) => {
-    const dept = (department || '').trim();
-    const rol  = (role || '').trim();
-    if (!rol) return;
-    if (dept) {
-      if (!merged[dept]) merged[dept] = { roles: [] };
-      if (!merged[dept].roles.includes(rol)) merged[dept].roles.push(rol);
-    } else {
-      // role without department — add to every department that doesn't yet have it
-      Object.values(merged).forEach(d => {
-        if (!d.roles.includes(rol)) d.roles.push(rol);
-      });
-    }
-  });
-  return merged;
-}
-
-function deptsForDesignations(designations, deptData) {
-  const departments = Object.keys(deptData);
-  const set = new Set();
-  designations.forEach(des => {
-    departments.forEach(d => { if (deptData[d].roles.includes(des)) set.add(d); });
-  });
-  return departments.filter(d => set.has(d));
-}
-
-// ── Modules ───────────────────────────────────────────────────────────────────
-const MODULES = [
-  { key: 'product-sheet', label: 'Product Sheet' },
-  { key: 'master-product-sheet', label: 'Master Product Sheet' },
-  { key: 'master-inventory-sheet', label: 'Master Inventory Sheet' },
-  { key: 'enrol-customer', label: 'Enroll Customer' },
-  { key: 'master-customer-sheet', label: 'Master Customer Sheet' },
-  { key: 'master-kyc-sheet', label: 'Master KYC Sheet' },
-  { key: 'enrol-workforce', label: 'Enroll Workforce' },
-  { key: 'master-workforce-sheet', label: 'Master Workforce Sheet' },
-  { key: 'master-job-sheet', label: 'Master Job Sheet' },
-  { key: 'managers-dashboard', label: 'Managers Dashboard' },
-  { key: 'drafts', label: 'Drafts' },
-  { key: 'orders', label: 'Orders' },
-  { key: 'my-desk', label: 'My Desk' },
-  { key: 'create-generic-job', label: 'Create Generic Job' },
-  { key: 'master-designer-sheet', label: 'Master Designer Sheet' },
-  { key: 'designer-sheet', label: 'Designer Sheet' },
-  { key: 'finding-sheet', label: 'Master Finding Sheet' },
-  { key: 'finding-entry', label: 'Finding Sheet' },
-  { key: 'inventory', label: 'Inventory' },
+const AVAILABLE_ACTIONS = [
+  { id: 'view', label: 'View', description: 'Can read data and view this module.' },
+  { id: 'create', label: 'Create', description: 'Can create new records in this module.' },
+  { id: 'edit', label: 'Edit', description: 'Can modify existing data within this module.' },
+  { id: 'delete', label: 'Delete', description: 'Can permanently delete records from this module.' },
+  { id: 'view_amounts', label: 'View Amounts', description: 'Can view financial values and prices on this page.' },
+  { id: 'export', label: 'Export', description: 'Can download or export data from this page.' }
 ];
-const PERM_COLS = ['view', 'edit', 'create', 'export', 'amount'];
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-function emptyPermissions() {
-  const sheets = {};
-  MODULES.forEach(({ key }) => {
-    sheets[key] = { view: false, edit: false, create: false, export: false, amount: false };
-  });
-  return { sheets, manage_members: false };
-}
-
-function mergePermissions(saved) {
-  const base = emptyPermissions();
-  if (!saved) return base;
-  if (saved.sheets) {
-    Object.keys(saved.sheets).forEach((key) => {
-      if (base.sheets[key]) {
-        let p = { ...base.sheets[key], ...saved.sheets[key] };
-        // Apply cascading: create→edit+view, edit→view
-        if (p.create) { p.edit = true; p.view = true; }
-        if (p.edit)   { p.view = true; }
-        base.sheets[key] = p;
-      }
-    });
-  }
-  if (typeof saved.manage_members === 'boolean') base.manage_members = saved.manage_members;
-  return base;
-}
-
-// ── Multi-select dropdown ─────────────────────────────────────────────────────
-function MultiSelect({ options, selected, onChange, disabled, placeholder }) {
-  const [open, setOpen] = useState(false);
-  const btnRef = useRef(null);
-  const dropRef = useRef(null);
-  const [pos, setPos] = useState({ top: 0, left: 0 });
-
-  useLayoutEffect(() => {
-    if (open && btnRef.current) {
-      const rect = btnRef.current.getBoundingClientRect();
-      setPos({ top: rect.bottom + window.scrollY + 4, left: rect.left + window.scrollX });
-    }
-  }, [open]);
-
-  useEffect(() => {
-    function handleClick(e) {
-      if (btnRef.current?.contains(e.target)) return;
-      if (dropRef.current?.contains(e.target)) return;
-      setOpen(false);
-    }
-    document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
-  }, []);
-
-  function toggle(val) {
-    if (disabled) return;
-    onChange(selected.includes(val) ? selected.filter(v => v !== val) : [...selected, val]);
-  }
-
-  function toggleAll() {
-    if (disabled) return;
-    onChange(selected.length === options.length ? [] : [...options]);
-  }
-
-  const displayText = selected.length === 0
-    ? (placeholder || '-- Select --')
-    : selected.length === 1
-      ? selected[0]
-      : `${selected.length} selected`;
-
-  return (
-    <div className="relative">
-      <button
-        ref={btnRef}
-        type="button"
-        onClick={() => !disabled && setOpen(o => !o)}
-        disabled={disabled}
-        className={`h-8 px-2 pr-7 rounded-md border border-soft-border bg-white text-xs text-midnight-ink text-left
-          focus:outline-none focus:ring-1 focus:ring-trust-blue min-w-[180px] relative
-          disabled:opacity-50 disabled:cursor-not-allowed truncate`}
-      >
-        {displayText}
-        <ChevronDown className="h-3.5 w-3.5 absolute right-2 top-1/2 -translate-y-1/2 text-cool-gray pointer-events-none" />
-      </button>
-      {open && createPortal(
-        <div
-          ref={dropRef}
-          style={{ position: 'absolute', top: pos.top, left: pos.left }}
-          className="z-[9999] w-56 bg-white border border-soft-border rounded-lg shadow-lg"
-        >
-          <label className="flex items-center gap-2 px-3 py-1.5 hover:bg-cloud-gray cursor-pointer border-b border-soft-border">
-            <input
-              type="checkbox"
-              checked={selected.length === options.length && options.length > 0}
-              ref={el => { if (el) el.indeterminate = selected.length > 0 && selected.length < options.length; }}
-              onChange={toggleAll}
-              className="accent-trust-blue w-3.5 h-3.5"
-            />
-            <span className="text-xs font-semibold text-midnight-ink">Select All</span>
-          </label>
-          {options.map(opt => (
-            <label key={opt} className="flex items-center gap-2 px-3 py-1.5 hover:bg-cloud-gray cursor-pointer">
-              <input
-                type="checkbox"
-                checked={selected.includes(opt)}
-                onChange={() => toggle(opt)}
-                className="accent-trust-blue w-3.5 h-3.5"
-              />
-              <span className="text-xs text-midnight-ink">{opt}</span>
-            </label>
-          ))}
-        </div>,
-        document.body
-      )}
-    </div>
-  );
-}
-
-// ── 3-state checkbox ──────────────────────────────────────────────────────────
-function TriCheckbox({ allOn, someOn, onChange, disabled }) {
-  return (
-    <input
-      type="checkbox"
-      checked={allOn}
-      ref={el => { if (el) el.indeterminate = !allOn && someOn; }}
-      onChange={onChange}
-      disabled={disabled}
-      className="accent-trust-blue w-3.5 h-3.5 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
-    />
-  );
-}
-
-// ── Page ──────────────────────────────────────────────────────────────────────
 export default function RolePermissionsPage() {
   const router = useRouter();
-  const [loading, setLoading] = useState(true);
-  const [canEdit, setCanEdit] = useState(false);
-
-  const [selectedDesignations, setSelectedDesignations] = useState([]);
-  const [selectedDepts, setSelectedDepts] = useState([]);
-
-  const [permsMap, setPermsMap] = useState({});
-  const [loadingPerms, setLoadingPerms] = useState(false);
+  const [roleName, setRoleName] = useState('');
+  const [activeModule, setActiveModule] = useState(APP_MODULES[0].id);
+  const [selectedRoleId, setSelectedRoleId] = useState(null);
+  const [savedRoles, setSavedRoles] = useState([]);
+  
+  const [permissions, setPermissions] = useState({});
+  const [toast, setToast] = useState({ open: false, message: '', type: 'success' });
   const [saving, setSaving] = useState(false);
-  const [saveMsg, setSaveMsg] = useState('');
-  const [isSaveError, setIsSaveError] = useState(false);
+  const [loadingRoles, setLoadingRoles] = useState(true);
 
-  // Dynamic dept/role data fetched from the backend
-  const [deptData, setDeptData] = useState(STATIC_DEPT_DATA);
-  const [allDesignations, setAllDesignations] = useState(() =>
-    [...new Set(Object.values(STATIC_DEPT_DATA).flatMap(d => d.roles))].sort(
-      (a, b) => {
-        const ai = DESIGNATION_ORDER.indexOf(a); const bi = DESIGNATION_ORDER.indexOf(b);
-        return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
-      }
-    )
-  );
-
-  // All departments available — departments and designations are independent
-  const availableDepts = useMemo(
-    () => Object.keys(deptData).sort(),
-    [deptData]
-  );
-
-  // When designations are cleared, also clear departments
   useEffect(() => {
-    if (selectedDesignations.length === 0) { setSelectedDepts([]); }
-    setSaveMsg('');
-  }, [selectedDesignations]);
-
-  // All active designation x department combos — any pairing is allowed
-  const activeKeys = useMemo(() => {
-    const keys = [];
-    selectedDesignations.forEach(des => {
-      selectedDepts.forEach(dept => {
-        keys.push(`${des}||${dept}`);
-      });
-    });
-    return keys;
-  }, [selectedDesignations, selectedDepts]);
-
-  const hasSelection = activeKeys.length > 0;
-
-  // ── Auth ───────────────────────────────────────────────────────────────────
-  useEffect(() => {
-    async function load() {
-      try {
-        const res = await fetch('/api/auth/session', { cache: 'no-store' });
-        const result = await res.json();
-        if (res.status === 401) { router.replace('/login'); return; }
-        if (!res.ok || !result.success) { return; }
-        const u = result.user;
-        setCanEdit(u?.is_superuser || u?.role === 'admin');
-      } catch {
-        // Network error — fail silently
-      } finally {
-        setLoading(false);
-      }
-    }
-    load();
-  }, [router]);
-
-  // ── Load all saved permissions + dynamic meta ──────────────────────────────
-  const loadAllPermissions = useCallback(async () => {
-    setLoadingPerms(true);
-    try {
-      const [permRes, metaRes] = await Promise.all([
-        fetch('/api/role-permissions', { cache: 'no-store' }),
-        fetch('/api/workforce/meta', { cache: 'no-store' }),
-      ]);
-
-      if (permRes.ok) {
-        const result = await permRes.json();
-        if (result.success) {
-          const map = {};
-          (result.data || []).forEach((item) => {
-            const key = `${item.role}||${item.department || ''}`;
-            map[key] = mergePermissions(item.permissions);
-          });
-          setPermsMap(map);
-        }
-      }
-
-      if (metaRes.ok) {
-        const meta = await metaRes.json();
-        if (meta.success) {
-          const merged = buildDeptData(meta.data?.role_dept_pairs || []);
-          setDeptData(merged);
-          const allRoles = [...new Set(Object.values(merged).flatMap(d => d.roles))].sort(
-            (a, b) => {
-              const ai = DESIGNATION_ORDER.indexOf(a); const bi = DESIGNATION_ORDER.indexOf(b);
-              return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
-            }
-          );
-          setAllDesignations(allRoles);
-        }
-      }
-    } catch { /* silent */ }
-    finally { setLoadingPerms(false); }
+    fetchRoles();
   }, []);
 
-  useEffect(() => { if (!loading) loadAllPermissions(); }, [loading, loadAllPermissions]);
-
-  // ── Aggregated permissions across all active keys ───────────────────────────
-  function getAggregated(moduleKey, col) {
-    let on = 0;
-    activeKeys.forEach(k => {
-      const p = permsMap[k] || emptyPermissions();
-      if (p.sheets[moduleKey]?.[col]) on++;
-    });
-    return { allOn: on === activeKeys.length, someOn: on > 0 };
-  }
-
-  function getAggregatedAll(moduleKey) {
-    let on = 0;
-    activeKeys.forEach(k => {
-      const p = permsMap[k] || emptyPermissions();
-      if (PERM_COLS.every(c => p.sheets[moduleKey]?.[c])) on++;
-    });
-    return { allOn: on === activeKeys.length, someOn: on > 0 };
-  }
-
-  function getAggregatedManageMembers() {
-    let on = 0;
-    activeKeys.forEach(k => {
-      const p = permsMap[k] || emptyPermissions();
-      if (p.manage_members) on++;
-    });
-    return { allOn: on === activeKeys.length, someOn: on > 0 };
-  }
-
-  // ── Permission toggles (apply to ALL active keys) ─────────────────────────
-  function toggleSheetPerm(moduleKey, col) {
-    const { allOn } = getAggregated(moduleKey, col);
-    const newVal = !allOn;
-    setPermsMap(prev => {
-      const next = { ...prev };
-      activeKeys.forEach(k => {
-        const p = next[k] || emptyPermissions();
-        let updated = { ...p.sheets[moduleKey], [col]: newVal };
-
-        // cascading rules: create→edit+view, edit→view, unview→unedit+uncreate, unedit→uncreate
-        if (newVal) {
-          if (col === 'create') { updated.view = true; updated.edit = true; }
-          if (col === 'edit')   { updated.view = true; }
-        } else {
-          if (col === 'view')   { updated.edit = false; updated.create = false; }
-          if (col === 'edit')   { updated.create = false; }
-        }
-
-        next[k] = { ...p, sheets: { ...p.sheets, [moduleKey]: updated } };
-      });
-      return next;
-    });
-  }
-
-  function toggleAllForModule(moduleKey) {
-    const { allOn } = getAggregatedAll(moduleKey);
-    const newVal = !allOn;
-    setPermsMap(prev => {
-      const next = { ...prev };
-      activeKeys.forEach(k => {
-        const p = next[k] || emptyPermissions();
-        const newSheet = Object.fromEntries(PERM_COLS.map(c => [c, newVal]));
-        next[k] = { ...p, sheets: { ...p.sheets, [moduleKey]: newSheet } };
-      });
-      return next;
-    });
-  }
-
-  function toggleManageMembers() {
-    const { allOn } = getAggregatedManageMembers();
-    const newVal = !allOn;
-    setPermsMap(prev => {
-      const next = { ...prev };
-      activeKeys.forEach(k => {
-        const p = next[k] || emptyPermissions();
-        next[k] = { ...p, manage_members: newVal };
-      });
-      return next;
-    });
-  }
-
-  // ── Save (bulk-save all active combos) ──────────────────────────────────────
-  async function handleSave() {
-    if (!hasSelection || !canEdit) return;
-    setSaveMsg(''); setIsSaveError(false); setSaving(true);
+  const fetchRoles = async () => {
     try {
-      const results = await Promise.all(
-        activeKeys.map(k => {
-          const [des, dept] = k.split('||');
-          const perms = permsMap[k] || emptyPermissions();
-          // Encode / → __SLASH__ and ' ' → __SP__ so path segments are pure alphanumeric+underscore
-          const safeEncode = (s) => s.replace(/\//g, '__SLASH__').replace(/ /g, '__SP__');
-          const safeDes  = safeEncode(des);
-          const safeDept = safeEncode(dept);
-          return fetch(
-            `/api/role-permissions/${safeDes}/${safeDept}`,
-            {
-              method: 'PATCH',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ permissions: perms }),
-            }
-          ).then(r => r.json().then(j => ({ ok: r.ok, ...j })));
-        })
-      );
-      const failed = results.filter(r => !r.ok || !r.success);
-      if (failed.length > 0) {
-        setSaveMsg(`${failed.length} of ${results.length} failed to save.`); setIsSaveError(true);
-      } else {
-        setSaveMsg(`Saved ${results.length} combo${results.length > 1 ? 's' : ''} successfully.`);
+      const res = await fetch('/api/roles');
+      if (res.ok) {
+        const data = await res.json();
+        setSavedRoles(data.roles || []);
       }
-    } catch {
-      setSaveMsg('Unable to save. Please try again.'); setIsSaveError(true);
-    } finally { setSaving(false); }
-  }
+    } catch (err) {
+      console.error("Failed to fetch roles:", err);
+    } finally {
+      setLoadingRoles(false);
+    }
+  };
 
-  // ── Render ──────────────────────────────────────────────────────────────────
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-cloud-gray flex items-center justify-center">
-        <div className="w-8 h-8 border-4 border-trust-blue border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
-  }
+  const selectedRole = savedRoles.find(r => r.id === selectedRoleId);
+  const isSystemRole = selectedRole?.is_system === true;
+
+  const handleSelectRole = (role) => {
+    if (selectedRoleId === role.id) {
+      setSelectedRoleId(null);
+      setRoleName('');
+      setPermissions({});
+      return;
+    }
+
+    setSelectedRoleId(role.id);
+    setRoleName(role.name);
+    const newPerms = {};
+    (role.permissions || []).forEach(p => {
+      newPerms[p] = true;
+    });
+    setPermissions(newPerms);
+  };
+
+  const handleToggle = (moduleId, pageId, actionId) => {
+    if (isSystemRole) return;
+    const key = `${moduleId}:${pageId}:${actionId}`;
+    setPermissions((prev) => ({
+      ...prev,
+      [key]: !prev[key]
+    }));
+  };
+
+  const generatePayload = () => {
+    return Object.keys(permissions).filter(key => permissions[key]);
+  };
+
+  const showToast = (message, type = 'success') => {
+    setToast({ open: true, message, type });
+    setTimeout(() => setToast({ open: false, message: '', type: 'success' }), 4000);
+  };
+
+  const handleSaveRole = async () => {
+    if (!roleName.trim()) {
+      showToast('Please enter a Role Name.', 'error');
+      return;
+    }
+
+    const payloadArray = generatePayload();
+    if (payloadArray.length === 0) {
+      showToast('Please select at least one permission.', 'error');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const url = selectedRoleId ? `/api/roles/${selectedRoleId}` : `/api/roles`;
+      const method = selectedRoleId ? "PUT" : "POST";
+
+      const res = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: roleName, permissions: payloadArray })
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to save role");
+
+      showToast(selectedRoleId ? `Role '${roleName}' updated!` : `Role '${roleName}' created!`, 'success');
+
+      if (!selectedRoleId) {
+        setRoleName('');
+        setPermissions({});
+      }
+      fetchRoles();
+    } catch (err) {
+      showToast(err.message || 'Error saving role', 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeleteRole = async (roleId) => {
+    if (!window.confirm("Are you sure you want to delete this role?")) return;
+
+    try {
+      const res = await fetch(`/api/roles/${roleId}`, {
+        method: "DELETE"
+      });
+      if (res.ok) {
+        showToast("Role deleted successfully.", "success");
+        if (selectedRoleId === roleId) {
+          setSelectedRoleId(null);
+          setRoleName('');
+          setPermissions({});
+        }
+        fetchRoles();
+      } else {
+        const data = await res.json();
+        showToast(data.error || "Error deleting role.", "error");
+      }
+    } catch (err) {
+      showToast("Error deleting role.", "error");
+    }
+  };
 
   return (
-    <div className="min-h-screen bg-cloud-gray font-sans">
-      <header className="bg-white border-b border-soft-border px-6 py-4 flex items-center gap-4">
-        <Link href="/frontend/home" className="p-1.5 rounded-full hover:bg-cloud-gray transition" title="Back">
-          <ArrowLeft className="h-5 w-5 text-midnight-ink" />
-        </Link>
-        <h1 className="text-base font-bold text-midnight-ink">Default Role Permissions</h1>
-      </header>
+    <div className="flex flex-col h-[calc(100vh-64px)] w-full bg-[#f8fafc] overflow-hidden">
+      {/* Header Bar */}
+      <div className="flex items-center justify-between p-4 px-6 bg-white border-b border-soft-border shadow-sm shrink-0">
+        <div className="flex items-center gap-4">
+          <div className="bg-trust-blue text-white p-2 rounded-lg flex items-center justify-center">
+            <Shield className="w-6 h-6" />
+          </div>
+          <div>
+            <h1 className="text-xl font-black text-midnight-ink">Roles & Permissions</h1>
+            <span className="text-[10px] font-bold text-cool-gray block -mt-0.5 tracking-wider uppercase">MANAGE USER ACCESS LEVELS</span>
+          </div>
+        </div>
 
-      <div className="mx-auto px-4 py-8 max-w-[1400px]">
-        <div className="bg-white rounded-xl border border-soft-border overflow-hidden">
-          {/* Toolbar */}
-          <div className="flex items-center gap-4 px-5 py-3 border-b border-soft-border bg-cloud-gray flex-wrap">
-            <div className="flex items-center gap-2">
-              <ShieldCheck className="h-4 w-4 text-trust-blue shrink-0" />
-              <span className="text-xs font-bold text-midnight-ink uppercase tracking-widest whitespace-nowrap">Permissions</span>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <label className="text-xs font-semibold text-midnight-ink whitespace-nowrap">Designation</label>
-              <MultiSelect
-                options={allDesignations}
-                selected={selectedDesignations}
-                onChange={v => { setSelectedDesignations(v); setSaveMsg(''); }}
-                placeholder="-- Select --"
-              />
-            </div>
-
-            <div className="flex items-center gap-2">
-              <label className="text-xs font-semibold text-midnight-ink whitespace-nowrap">Department</label>
-              <MultiSelect
-                options={availableDepts}
-                selected={selectedDepts}
-                onChange={v => { setSelectedDepts(v); setSaveMsg(''); }}
-                disabled={selectedDesignations.length === 0}
-                placeholder={selectedDesignations.length === 0 ? '-- Select designation first --' : '-- Select --'}
-              />
-            </div>
-
-            {loadingPerms && <div className="w-4 h-4 border-2 border-trust-blue border-t-transparent rounded-full animate-spin" />}
-
-            {hasSelection && canEdit && (
-              <div className="flex items-center gap-3 ml-auto">
-                {saveMsg && (
-                  <p className={`text-xs font-medium ${isSaveError ? 'text-red-600' : 'text-green-600'}`}>{saveMsg}</p>
-                )}
-                <button
-                  onClick={handleSave}
-                  disabled={saving}
-                  className="h-8 px-4 rounded-md bg-trust-blue hover:bg-deep-blue text-white text-xs font-semibold transition disabled:opacity-60 whitespace-nowrap"
-                >
-                  {saving ? 'Saving\u2026' : `Save (${activeKeys.length})`}
-                </button>
-              </div>
-            )}
+        <div className="flex items-center gap-4">
+          <div className="relative">
+            <span className="absolute -top-2 left-2 bg-white px-1 text-[10px] text-cool-gray font-medium z-10">Role Name</span>
+            <input
+              type="text"
+              value={roleName}
+              onChange={e => setRoleName(e.target.value)}
+              disabled={isSystemRole}
+              placeholder="e.g. Fulfillment Manager"
+              className={`w-72 h-9 px-3 text-sm font-semibold text-midnight-ink border rounded-md focus:outline-none focus:ring-1 focus:ring-trust-blue ${isSystemRole ? 'bg-[#fef3c7] border-[#f59e0b]' : 'bg-[#f1f5f9] border-soft-border'}`}
+            />
           </div>
 
-          {/* Selected chips */}
-          {(selectedDesignations.length > 0 || selectedDepts.length > 0) && (
-            <div className="flex items-center gap-2 px-5 py-2 border-b border-soft-border flex-wrap">
-              {selectedDesignations.map(d => (
-                <span key={`d-${d}`} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-trust-blue/10 text-trust-blue text-[10px] font-semibold">
-                  {d}
-                  <button onClick={() => setSelectedDesignations(prev => prev.filter(v => v !== d))} className="hover:text-red-500">
-                    <X className="h-3 w-3" />
-                  </button>
-                </span>
-              ))}
-              {selectedDesignations.length > 0 && selectedDepts.length > 0 && (
-                <span className="text-[10px] text-cool-gray font-medium">&times;</span>
-              )}
-              {selectedDepts.map(d => (
-                <span key={`dept-${d}`} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-50 text-green-700 text-[10px] font-semibold">
-                  {d}
-                  <button onClick={() => setSelectedDepts(prev => prev.filter(v => v !== d))} className="hover:text-red-500">
-                    <X className="h-3 w-3" />
-                  </button>
-                </span>
-              ))}
-              {activeKeys.length > 0 && (
-                <span className="text-[10px] text-cool-gray ml-auto">{activeKeys.length} combo{activeKeys.length !== 1 ? 's' : ''}</span>
-              )}
+          {isSystemRole && (
+            <div className="flex items-center gap-1.5 bg-[#fef3c7] border border-[#f59e0b] px-3 py-1.5 rounded-md">
+              <Star className="w-4 h-4 text-[#f59e0b] fill-current" />
+              <span className="text-[11px] font-bold text-[#92400e]">SYSTEM ROLE</span>
             </div>
           )}
 
-          {/* Table */}
-          {hasSelection ? (
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="bg-cloud-gray/60 border-b border-soft-border">
-                    <th className="text-left px-4 py-2.5 font-semibold text-midnight-ink sticky left-0 bg-cloud-gray/60 min-w-[180px]">Module</th>
-                    {PERM_COLS.map(col => (
-                      <th key={col} className="px-3 py-2.5 font-semibold text-midnight-ink capitalize text-center min-w-[70px]">{col}</th>
-                    ))}
-                    <th className="px-3 py-2.5 font-semibold text-midnight-ink text-center min-w-[50px]">All</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {MODULES.map(({ key, label }, idx) => {
-                    const aggAll = getAggregatedAll(key);
-                    return (
-                      <tr key={key} className={`border-b border-soft-border/50 ${idx % 2 === 0 ? 'bg-white' : 'bg-cloud-gray/30'}`}>
-                        <td className="px-4 py-2 font-medium text-midnight-ink sticky left-0 bg-inherit">{label}</td>
-                        {PERM_COLS.map(col => {
-                          const { allOn, someOn } = getAggregated(key, col);
+          <div className="h-6 w-px bg-soft-border"></div>
+
+          {selectedRoleId && !isSystemRole && (
+            <button
+              onClick={() => handleDeleteRole(selectedRoleId)}
+              className="flex items-center gap-2 text-red-500 hover:text-red-600 font-bold text-sm px-3 py-1.5 rounded-md hover:bg-red-50 transition-colors"
+            >
+              <Trash2 className="w-4 h-4" />
+              Delete
+            </button>
+          )}
+
+          <button
+            onClick={handleSaveRole}
+            disabled={saving || isSystemRole}
+            className="flex items-center gap-2 bg-trust-blue hover:bg-trust-blue-hover text-white font-bold text-sm px-5 py-2 rounded-md shadow-sm transition-transform active:scale-95 disabled:opacity-50 disabled:active:scale-100"
+          >
+            {saving ? (
+              <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            ) : (
+              <Save className="w-4 h-4" />
+            )}
+            {selectedRoleId ? 'Update Role' : 'Create Role'}
+          </button>
+        </div>
+      </div>
+
+      {/* Main Content: 3 Columns */}
+      <div className="flex flex-1 min-h-0 overflow-hidden">
+        
+        {/* Left Col: Saved Roles */}
+        <div className="w-[280px] flex flex-col bg-white border-r border-soft-border shrink-0">
+          <div className="p-4 border-b border-soft-border bg-[#f8fafc] shrink-0">
+            <h2 className="text-xs font-black text-cool-gray tracking-[0.05em] uppercase">SAVED ROLES</h2>
+          </div>
+          <div className="flex-1 overflow-y-auto p-3 space-y-1.5">
+            <button
+              onClick={() => { setSelectedRoleId(null); setRoleName(''); setPermissions({}); }}
+              className={`w-full flex items-center p-3 rounded-xl transition-colors ${!selectedRoleId ? 'bg-trust-blue/10' : 'hover:bg-cloud-gray'}`}
+            >
+              <Plus className={`w-5 h-5 mr-3 ${!selectedRoleId ? 'text-trust-blue' : 'text-cool-gray'}`} />
+              <span className={`text-sm font-bold ${!selectedRoleId ? 'text-trust-blue' : 'text-midnight-ink'}`}>New Custom Role</span>
+            </button>
+            <div className="h-px bg-soft-border my-2"></div>
+
+            {loadingRoles ? (
+              <div className="p-4 text-center">
+                <div className="w-6 h-6 border-2 border-trust-blue/30 border-t-trust-blue rounded-full animate-spin mx-auto" />
+              </div>
+            ) : (
+              savedRoles.map(role => (
+                <button
+                  key={role.id}
+                  onClick={() => handleSelectRole(role)}
+                  className={`w-full flex items-center justify-between p-3 rounded-xl transition-colors ${
+                    selectedRoleId === role.id 
+                      ? (role.is_system ? 'bg-[#fef3c7]/60' : 'bg-trust-blue/10')
+                      : (role.is_system ? 'bg-[#fef3c7]/20 border border-[#f59e0b]/30' : 'hover:bg-cloud-gray')
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    {role.is_system ? (
+                      <ShieldCheck className={`w-5 h-5 ${selectedRoleId === role.id ? 'text-[#f59e0b]' : 'text-[#f59e0b]'}`} />
+                    ) : (
+                      <Shield className={`w-5 h-5 ${selectedRoleId === role.id ? 'text-trust-blue' : 'text-cool-gray'}`} />
+                    )}
+                    <div className="flex flex-col items-start">
+                      <span className={`text-[13px] ${selectedRoleId === role.id ? 'font-black' : 'font-bold'} ${role.is_system ? 'text-midnight-ink' : 'text-midnight-ink'}`}>
+                        {role.name}
+                      </span>
+                      {role.is_system && (
+                        <span className="text-[10px] font-bold text-[#f59e0b]">Full Access</span>
+                      )}
+                    </div>
+                  </div>
+                  {role.is_system && <Star className="w-4 h-4 text-[#f59e0b] fill-current" />}
+                  {selectedRoleId === role.id && !role.is_system && <ChevronRight className="w-4 h-4 text-trust-blue" />}
+                  {selectedRoleId === role.id && role.is_system && <ChevronRight className="w-4 h-4 text-[#f59e0b]" />}
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* Middle Col: Modules Selection */}
+        <div className="w-[320px] flex flex-col bg-[#f1f5f9] border-r border-soft-border shrink-0">
+          <div className="p-4 border-b border-soft-border bg-[#e2e8f0] shrink-0">
+            <h2 className="text-xs font-black text-cool-gray tracking-[0.05em] uppercase">APPLICATION MODULES</h2>
+          </div>
+          <div className="flex-1 overflow-y-auto p-3 space-y-2">
+            {APP_MODULES.map((module) => {
+              const isActive = activeModule === module.id;
+              const activeCount = Object.keys(permissions).filter(key => key.startsWith(`${module.id}:`) && permissions[key]).length;
+
+              return (
+                <button
+                  key={module.id}
+                  onClick={() => setActiveModule(module.id)}
+                  className={`w-full flex items-center justify-between py-4 px-5 rounded-2xl transition-all duration-200 ${
+                    isActive ? 'bg-white shadow-sm' : 'hover:bg-cloud-gray/50'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={`w-2.5 h-2.5 rounded-full transition-colors ${isActive ? 'bg-trust-blue' : 'bg-transparent'}`} />
+                    <span className={`text-[14px] ${isActive ? 'font-black text-midnight-ink' : 'font-bold text-cool-gray'}`}>
+                      {module.name}
+                    </span>
+                  </div>
+                  {activeCount > 0 && (
+                    <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-black ${isActive ? 'bg-trust-blue text-white' : 'bg-[#cbd5e1] text-white'}`}>
+                      {activeCount}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Right Col: Permissions Grid */}
+        <div className="flex-1 flex flex-col bg-white overflow-hidden">
+          <div className="p-6 pb-4 shrink-0">
+            <div className="flex items-center gap-3 mb-1">
+              <h2 className="text-2xl font-black text-midnight-ink">
+                {APP_MODULES.find(m => m.id === activeModule)?.name}
+              </h2>
+              <span className="bg-trust-blue/10 text-trust-blue px-3 py-1 rounded-lg text-xs font-black">
+                {APP_MODULES.find(m => m.id === activeModule)?.pages.length} PAGES
+              </span>
+            </div>
+            <p className="text-[13px] font-semibold text-cool-gray">
+              Toggle individual permissions for each sub-page within this module.
+            </p>
+          </div>
+
+          <div className="flex-1 flex flex-col p-6 pt-0 min-h-0">
+            <div className="flex-1 flex flex-col border border-soft-border rounded-2xl overflow-hidden shadow-sm">
+              <div className="overflow-auto flex-1">
+                <table className="w-full text-left border-collapse min-w-[700px]">
+                  <thead className="bg-[#f8fafc] sticky top-0 z-10 border-b-2 border-soft-border shadow-sm">
+                    <tr>
+                      <th className="px-6 py-4 text-xs font-black text-midnight-ink">PAGE / SECTION</th>
+                      {AVAILABLE_ACTIONS.map(action => (
+                        <th key={action.id} className="px-4 py-4 text-xs font-black text-midnight-ink text-center">
+                          <div className="flex items-center justify-center gap-1.5 group relative cursor-help">
+                            {action.label}
+                            <Info className="w-3.5 h-3.5 text-cool-gray" />
+                            {/* Simple tooltip simulation */}
+                            <div className="absolute hidden group-hover:block bottom-full mb-2 bg-midnight-ink text-white text-[10px] px-2 py-1 rounded w-32 left-1/2 -translate-x-1/2 z-20 whitespace-normal text-center">
+                              {action.description}
+                            </div>
+                          </div>
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {APP_MODULES.find(m => m.id === activeModule)?.pages.map((page, idx) => (
+                      <tr key={page.id} className="border-b border-soft-border hover:bg-trust-blue/5 transition-colors">
+                        <td className="px-6 py-4 text-sm font-bold text-midnight-ink">
+                          {page.name}
+                        </td>
+                        {AVAILABLE_ACTIONS.map(action => {
+                          const isChecked = permissions[`${activeModule}:${page.id}:${action.id}`] || false;
                           return (
-                            <td key={col} className="px-3 py-2 text-center">
-                              <TriCheckbox
-                                allOn={allOn}
-                                someOn={someOn}
-                                onChange={() => canEdit && toggleSheetPerm(key, col)}
-                                disabled={!canEdit}
+                            <td key={action.id} className="px-4 py-4 text-center">
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={() => handleToggle(activeModule, page.id, action.id)}
+                                disabled={isSystemRole}
+                                className="w-4 h-4 rounded border-soft-border text-trust-blue focus:ring-trust-blue disabled:opacity-50 cursor-pointer disabled:cursor-default"
                               />
                             </td>
                           );
                         })}
-                        <td className="px-3 py-2 text-center">
-                          <TriCheckbox
-                            allOn={aggAll.allOn}
-                            someOn={aggAll.someOn}
-                            onChange={() => canEdit && toggleAllForModule(key)}
-                            disabled={!canEdit}
-                          />
-                        </td>
                       </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-
-              {/* Manage Members */}
-              <div className="px-4 py-3 border-t border-soft-border flex items-center justify-between">
-                <label className={`flex items-center gap-3 select-none ${canEdit ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'}`}>
-                  {(() => { const { allOn, someOn } = getAggregatedManageMembers(); return (
-                    <TriCheckbox allOn={allOn} someOn={someOn} onChange={() => canEdit && toggleManageMembers()} disabled={!canEdit} />
-                  ); })()}
-                  <span className="text-xs font-medium text-midnight-ink">Manage Members access</span>
-                </label>
-                {!canEdit && (
-                  <p className="text-xs text-cool-gray italic">You have view-only access to default permissions.</p>
-                )}
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </div>
-          ) : (
-            <div className="text-center py-16 text-cool-gray text-sm">
-              {selectedDesignations.length === 0
-                ? 'Select designation(s) and department(s) to view permissions.'
-                : 'Select department(s) to load permissions.'}
+
+            <div className="mt-6 p-4 bg-[#fef3c7]/30 border border-dashed border-[#f59e0b] rounded-2xl flex items-center gap-4 shrink-0">
+              <div className="text-[#f59e0b] bg-[#f59e0b]/10 p-2 rounded-xl">
+                <Lock className="w-5 h-5" />
+              </div>
+              <p className="text-[13px] font-semibold text-[#92400e]">
+                <strong className="font-black">Security Tip:</strong> Least privilege approach is recommended. Only grant the specific permissions required for the user to perform their specific role tasks.
+              </p>
             </div>
-          )}
+          </div>
         </div>
       </div>
+
+      {/* Toast Notification */}
+      {toast.open && (
+        <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 px-6 py-3 rounded-xl shadow-lg border text-sm font-bold z-50 flex items-center gap-2 ${
+          toast.type === 'error' ? 'bg-red-50 text-red-600 border-red-200' : 'bg-green-50 text-green-700 border-green-200'
+        }`}>
+          <span>{toast.message}</span>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,6 +1,7 @@
 'use client';
 import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { ReceiptsBadge } from './receipts-viewer';
+import { Trash2 } from 'lucide-react';
 
 const fmt = n => `₹${Number(n).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
 const today = () => new Date().toISOString().slice(0, 10);
@@ -772,6 +773,24 @@ export default function AccountingInvoicesSales({ onRefresh, dateParams }) {
 
   const target = selectedIds.size > 0 ? filtered.filter(s => selectedIds.has(s.id)) : filtered;
 
+  const handleDelete = async (id, e) => {
+    e.stopPropagation();
+    if (!confirm('Are you sure you want to delete this invoice? This will also remove the associated outstanding record.')) return;
+    try {
+      const res = await fetch(`/api/accounting/invoices/${id}/`, { method: 'DELETE' });
+      if (res.status === 204 || res.status === 200) {
+        load();
+        if (onRefresh) onRefresh();
+      } else {
+        const data = await res.json().catch(() => ({}));
+        alert(data.message || 'Failed to delete invoice.');
+      }
+    } catch (err) {
+      console.error('Delete error:', err);
+      alert('Network error while deleting.');
+    }
+  };
+
   return (
     <div style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>
       <style>{`
@@ -871,16 +890,16 @@ export default function AccountingInvoicesSales({ onRefresh, dateParams }) {
                 <input type="checkbox" checked={filtered.length > 0 && selectedIds.size === filtered.length} onChange={toggleSelectAll} style={{ cursor: 'pointer' }} />
               </th>
               <th className="print-only" style={{ padding: '10px 14px', fontSize: 11, fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: 0.5, borderBottom: `1px solid ${C.border}`, textAlign: 'left', display: 'none' }}>S.No</th>
-              {['#', 'Party Name', 'Department', 'Amount', 'Due Date', 'Receipts', 'Status'].map((h, i) => (
-                <th key={i} className={h === '#' ? 'no-print' : ''} style={{ padding: '10px 14px', fontSize: 11, fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: 0.5, textAlign: i >= 3 ? 'right' : 'left', borderBottom: `1px solid ${C.border}` }}>{h}</th>
+              {['S.No', 'Party Name', 'Department', 'Amount', 'Due Date', 'Receipts', 'Status', 'Actions'].map((h, i) => (
+                <th key={i} className={(h === 'S.No' || h === 'Actions') ? 'no-print' : ''} style={{ padding: '10px 14px', fontSize: 11, fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: 0.5, textAlign: (i >= 3 && i <= 6) ? 'right' : 'left', borderBottom: `1px solid ${C.border}` }}>{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={7} style={{ padding: 28, textAlign: 'center', color: C.muted, fontSize: 13 }}>Loading…</td></tr>
+              <tr><td colSpan={8} style={{ padding: 28, textAlign: 'center', color: C.muted, fontSize: 13 }}>Loading…</td></tr>
             ) : filtered.length === 0 ? (
-              <tr><td colSpan={7} style={{ padding: 36, textAlign: 'center', color: C.muted, fontSize: 13 }}>No invoices found.</td></tr>
+              <tr><td colSpan={8} style={{ padding: 36, textAlign: 'center', color: C.muted, fontSize: 13 }}>No invoices found.</td></tr>
             ) : filtered.map((inv, i) => {
               const isSelected = selectedIds.has(inv.id);
               const hideInPrintClass = selectedIds.size > 0 && !isSelected ? 'hide-in-print' : '';
@@ -894,6 +913,7 @@ export default function AccountingInvoicesSales({ onRefresh, dateParams }) {
                   <input type="checkbox" checked={isSelected} onChange={() => toggleSelect(inv.id)} onClick={e => e.stopPropagation()} style={{ cursor: 'pointer' }} />
                 </td>
                 <td className="print-only" style={{ padding: '12px 14px', fontSize: 13, color: C.text, display: 'none' }}>{i + 1}</td>
+<<<<<<< HEAD
                 <td className="no-print" style={{ padding: '12px 14px', fontSize: 12, color: C.muted, fontFamily: 'monospace' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     <span>#{inv.id}</span>
@@ -906,6 +926,9 @@ export default function AccountingInvoicesSales({ onRefresh, dateParams }) {
                     </button>
                   </div>
                 </td>
+=======
+                <td className="no-print" style={{ padding: '12px 14px', fontSize: 12, color: C.muted, fontWeight: 600 }}>{i + 1}</td>
+>>>>>>> JATIN
                 <td style={{ padding: '12px 14px' }}>
                   <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: C.text }}>{inv.party_name}</p>
                   {inv.description && <p style={{ margin: '2px 0 0', fontSize: 11, color: C.muted }}>{inv.description}</p>}
@@ -959,6 +982,17 @@ export default function AccountingInvoicesSales({ onRefresh, dateParams }) {
                   </div>
                 </td>
                 <td style={{ padding: '12px 14px', textAlign: 'right' }}><StatusBadge status={inv.status} /></td>
+                <td className="no-print" style={{ padding: '12px 14px' }}>
+                  <button 
+                    onClick={(e) => handleDelete(inv.id, e)}
+                    style={{ background: 'none', border: 'none', color: C.red, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '6px', borderRadius: 6, transition: 'all 0.2s' }}
+                    onMouseEnter={e => { e.currentTarget.style.background = C.redBg; e.currentTarget.style.transform = 'scale(1.1)'; }}
+                    onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.transform = 'scale(1)'; }}
+                    title="Delete Invoice"
+                  >
+                    <Trash2 size={16} strokeWidth={2.5} />
+                  </button>
+                </td>
               </tr>
             )})}
           </tbody>

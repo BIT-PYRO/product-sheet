@@ -1,6 +1,7 @@
 from django.urls import path
 
 from .views import ApproveUserView, DeleteUserView, GoogleLoginView, LoginView, MeView, MergeUsersView, RefreshTokenView, RoleDefaultPermissionsDetailView, RoleDefaultPermissionsListView, SetCredentialsView
+from .views_roles import RoleListCreateView, RoleDetailView
 
 
 urlpatterns = [
@@ -15,4 +16,6 @@ urlpatterns = [
     path('role-permissions/', RoleDefaultPermissionsListView.as_view(), name='role_permissions_list'),
     path('role-permissions/<str:role>/<path:department>/', RoleDefaultPermissionsDetailView.as_view(), name='role_permissions_detail'),
     path('role-permissions/<str:role>/', RoleDefaultPermissionsDetailView.as_view(), name='role_permissions_detail_nodept'),
+    path('roles/', RoleListCreateView.as_view(), name='roles_list_create'),
+    path('roles/<int:pk>/', RoleDetailView.as_view(), name='roles_detail'),
 ]

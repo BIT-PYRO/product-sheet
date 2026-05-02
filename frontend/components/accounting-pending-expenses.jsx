@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { Trash2 } from 'lucide-react';
 
 const STATUS_COLORS = {
   pending:  'bg-yellow-100 text-yellow-800 border-yellow-200',
@@ -118,6 +119,22 @@ export default function AccountingPendingExpenses() {
   };
 
   /* ── render ── */
+  const handleDelete = async (id) => {
+    if (!confirm('Are you sure you want to delete this pending expense record?')) return;
+    try {
+      const res = await fetch(`/api/accounting/pending-expenses/${id}/`, { method: 'DELETE' });
+      if (res.status === 204 || res.status === 200) {
+        showToast('success', 'Expense record deleted.');
+        fetchExpenses();
+      } else {
+        const data = await res.json().catch(() => ({}));
+        showToast('error', data.message || 'Failed to delete record.');
+      }
+    } catch (err) {
+      showToast('error', 'Network error while deleting.');
+    }
+  };
+
   return (
     <div className="max-w-5xl mx-auto">
 
@@ -173,6 +190,7 @@ export default function AccountingPendingExpenses() {
           <table className="w-full text-sm border-collapse">
             <thead>
               <tr className="bg-cloud-gray text-cool-gray uppercase text-xs">
+                <th className="px-4 py-3 text-left font-semibold">S.No</th>
                 <th className="px-4 py-3 text-left font-semibold">Employee</th>
                 <th className="px-4 py-3 text-left font-semibold">Category</th>
                 <th className="px-4 py-3 text-left font-semibold">Description</th>
@@ -182,13 +200,14 @@ export default function AccountingPendingExpenses() {
               </tr>
             </thead>
             <tbody>
-              {expenses.map((exp) => (
+              {expenses.map((exp, idx) => (
                 <tr
                   key={exp.id}
                   className={`border-t border-soft-border transition-colors ${
                     exp.status === 'pending' ? 'hover:bg-yellow-50/40' : 'opacity-70'
                   }`}
                 >
+                  <td className="px-4 py-3 font-semibold text-cool-gray">{idx + 1}</td>
                   <td className="px-4 py-3 font-medium text-midnight-ink">{exp.employee_name}</td>
                   <td className="px-4 py-3 text-midnight-ink">
                     {exp.category_name || (
@@ -220,6 +239,16 @@ export default function AccountingPendingExpenses() {
                           className="px-3 py-1 text-xs font-medium rounded border border-red-300 text-red-600 hover:bg-red-50 transition"
                         >
                           Reject
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(exp.id)}
+                          style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '6px', borderRadius: 6, transition: 'all 0.2s' }}
+                          onMouseEnter={e => { e.currentTarget.style.background = '#fef2f2'; e.currentTarget.style.transform = 'scale(1.1)'; }}
+                          onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.transform = 'scale(1)'; }}
+                          title="Delete Permanent Record"
+                        >
+                          <Trash2 size={16} strokeWidth={2.5} />
                         </button>
                       </div>
                     ) : (
