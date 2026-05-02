@@ -87,6 +87,48 @@ function EditableRow({ label, value, inputValue, onInputChange, placeholder }) {
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
+function EditablePriceCell({ price, onChange }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState('');
+
+  function startEdit() {
+    setDraft(price > 0 ? String(price) : '');
+    setEditing(true);
+  }
+
+  function commitEdit() {
+    const parsed = parseFloat(draft);
+    onChange(isNaN(parsed) ? 0 : parsed);
+    setEditing(false);
+  }
+
+  if (editing) {
+    return (
+      <input
+        autoFocus
+        type="number"
+        min="0"
+        step="0.01"
+        className="w-24 border border-soft-border bg-white rounded px-2 py-1 text-sm text-right focus:outline-none focus:ring-2 focus:ring-midnight-ink/20"
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commitEdit}
+        onKeyDown={(e) => { if (e.key === 'Enter') commitEdit(); if (e.key === 'Escape') setEditing(false); }}
+      />
+    );
+  }
+
+  return (
+    <button
+      onClick={startEdit}
+      className={`hover:underline focus:outline-none ${price <= 0 ? 'text-amber-600 font-medium' : 'text-midnight-ink'}`}
+      title="Click to edit price"
+    >
+      {price <= 0 ? '₹0.00 — set price' : fmt(price)}
+    </button>
+  );
+}
+
 export function CreateOrderForm({ embedded = false }) {
   const router = useRouter();
   
@@ -255,7 +297,7 @@ export function CreateOrderForm({ embedded = false }) {
         id: `product-${p.id}`,
         name: p.name,
         sku: p.master_sku,
-        price: parseFloat(p.selling_price) || 0,
+        price: parseFloat(p.invoice_price) || parseFloat(p.selling_price) || 0,
         quantity: 1,
       }));
     setOrderItems((prev) => [...prev, ...newItems]);
@@ -286,6 +328,13 @@ export function CreateOrderForm({ embedded = false }) {
   function updateItemQty(id, qty) {
     setOrderItems((prev) =>
       prev.map((i) => (i.id === id ? { ...i, quantity: Math.max(1, qty) } : i))
+    );
+  }
+
+  function updateItemPrice(id, price) {
+    const parsed = parseFloat(price);
+    setOrderItems((prev) =>
+      prev.map((i) => (i.id === id ? { ...i, price: isNaN(parsed) ? 0 : Math.max(0, parsed) } : i))
     );
   }
 
@@ -452,6 +501,14 @@ export function CreateOrderForm({ embedded = false }) {
     if (orderItems.length === 0) {
       setOrderMessage({ type: 'error', text: 'Add at least one product to create an order' });
       setTimeout(() => setOrderMessage({ type: '', text: '' }), 3000);
+      return;
+    }
+
+    const zeroPriceItems = orderItems.filter((i) => i.price <= 0);
+    if (zeroPriceItems.length > 0) {
+      const names = zeroPriceItems.map((i) => i.name).join(', ');
+      setOrderMessage({ type: 'error', text: `Please set a price for: ${names}` });
+      setTimeout(() => setOrderMessage({ type: '', text: '' }), 4000);
       return;
     }
 
@@ -628,7 +685,10 @@ export function CreateOrderForm({ embedded = false }) {
                           </div>
                         </td>
                         <td className="px-4 py-3 text-right text-midnight-ink">
-                          {fmt(item.price)}
+                          <EditablePriceCell
+                            price={item.price}
+                            onChange={(val) => updateItemPrice(item.id, val)}
+                          />
                         </td>
                         <td className="px-4 py-3 text-right font-medium text-midnight-ink">
                           {fmt(item.price * item.quantity)}
@@ -835,12 +895,20 @@ export function CreateOrderForm({ embedded = false }) {
       ════════════════════════════════════════════════════════════════════ */}
       <div className={`max-w-6xl mx-auto ${embedded ? 'px-0 py-4' : 'px-6 py-6'}`}>
         {orderMessage.text && (
-          <div className={`mb-4 p-4 rounded-lg text-sm ${
+          <div className={`mb-4 p-4 rounded-lg text-sm flex items-center justify-between gap-3 ${
             orderMessage.type === 'success'
-              ? 'bg-cloud-gray border border-soft-border text-midnight-ink'
-              : 'bg-cloud-gray border border-soft-border text-midnight-ink'
+              ? 'bg-green-50 border border-green-200 text-green-800'
+              : 'bg-red-50 border border-red-200 text-red-800'
           }`}>
-            {orderMessage.text}
+            <span>{orderMessage.text}</span>
+            {orderMessage.type === 'success' && (
+              <Link
+                href="/orders"
+                className="shrink-0 font-semibold underline hover:no-underline text-green-900"
+              >
+                View in Order Sheet →
+              </Link>
+            )}
           </div>
         )}
         <div className="flex justify-center gap-3">
@@ -921,8 +989,13 @@ export function CreateOrderForm({ embedded = false }) {
                     {p.master_sku && <div className="text-xs text-cool-gray">SKU: {p.master_sku}</div>}
                     {p.category && <div className="text-xs text-cool-gray">{p.category}</div>}
                   </div>
-                  <div className="text-sm font-semibold text-midnight-ink shrink-0">
-                    {fmt(p.selling_price || 0)}
+                  <div className="text-sm font-semibold shrink-0">
+                    {(() => {
+                      const price = parseFloat(p.invoice_price) || parseFloat(p.selling_price) || 0;
+                      return price <= 0
+                        ? <span className="text-amber-600">No price set</span>
+                        : <span className="text-midnight-ink">{fmt(price)}</span>;
+                    })()}
                   </div>
                 </label>
               ))}
