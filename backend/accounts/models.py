@@ -50,3 +50,19 @@ class EmailOTP(models.Model):
 	@classmethod
 	def generate_otp(cls):
 		return ''.join(random.choices(string.digits, k=4))
+class Permission(models.Model):
+    identifier = models.CharField(max_length=100, unique=True, db_index=True)
+    description = models.CharField(max_length=255, blank=True, default='')
+
+    def __str__(self):
+        return self.identifier
+
+class Role(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+    permissions = models.ManyToManyField(Permission, related_name='roles', blank=True)
+    is_system = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.name

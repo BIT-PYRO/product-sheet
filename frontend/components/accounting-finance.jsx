@@ -12,7 +12,7 @@ import BankingStatements from './banking-statements';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { format, parseISO, isValid } from 'date-fns';
-import { Calendar as CalendarIcon } from 'lucide-react';
+import { Calendar as CalendarIcon, Trash2 } from 'lucide-react';
 
 const fmt = n => `₹${Number(n).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
 const today = () => new Date().toISOString().slice(0, 10);
@@ -110,7 +110,7 @@ function StatCard({ label, value, color, bg, note, icon }) {
   );
 }
 
-function SelectableTable({ rows, columns, loading, emptyMsg, exportName, accentColor }) {
+function SelectableTable({ rows, columns, loading, emptyMsg, exportName, accentColor, onDelete }) {
   const [selected, setSelected] = useState(new Set());
   const toggleAll = () => setSelected(selected.size === rows.length ? new Set() : new Set(rows.map((_, i) => i)));
   const toggleRow = i => { const s = new Set(selected); s.has(i) ? s.delete(i) : s.add(i); setSelected(s); };
@@ -149,13 +149,14 @@ function SelectableTable({ rows, columns, loading, emptyMsg, exportName, accentC
                   {c.label}
                 </th>
               ))}
+              <th className="no-print" style={{ padding: '10px 14px', fontSize: 11, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'right', borderBottom: '1px solid #e5e7eb' }}>Actions</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={columns.length + 1} style={{ padding: 28, textAlign: 'center', color: '#9ca3af', fontSize: 14 }}>Loading…</td></tr>
+              <tr><td colSpan={columns.length + 3} style={{ padding: 28, textAlign: 'center', color: '#9ca3af', fontSize: 14 }}>Loading…</td></tr>
             ) : rows.length === 0 ? (
-              <tr><td colSpan={columns.length + 1} style={{ padding: 28, textAlign: 'center', color: '#9ca3af', fontSize: 14 }}>{emptyMsg}</td></tr>
+              <tr><td colSpan={columns.length + 3} style={{ padding: 28, textAlign: 'center', color: '#9ca3af', fontSize: 14 }}>{emptyMsg}</td></tr>
             ) : rows.map((row, i) => {
               const isSelected = selected.has(i);
               const hideInPrintClass = selected.size > 0 && !isSelected ? 'hide-in-print' : '';
@@ -166,6 +167,7 @@ function SelectableTable({ rows, columns, loading, emptyMsg, exportName, accentC
                   <input type="checkbox" checked={isSelected} onChange={() => toggleRow(i)} onClick={e => e.stopPropagation()} style={{ cursor: 'pointer', accentColor: '#2563eb' }} />
                 </td>
                 <td className="print-only" style={{ padding: '11px 14px', fontSize: 13, display: 'none' }}>{i + 1}</td>
+                <td className="no-print" style={{ padding: '11px 14px', fontSize: 12, color: C.muted, fontWeight: 600 }}>{i + 1}</td>
                 {columns.map(c => (
                   <td key={c.key} style={{ padding: '11px 14px', fontSize: 13, textAlign: c.right ? 'right' : 'left' }}>
                     {c.key === 'amount' ? (
@@ -184,6 +186,17 @@ function SelectableTable({ rows, columns, loading, emptyMsg, exportName, accentC
                     )}
                   </td>
                 ))}
+                <td className="no-print" style={{ padding: '11px 14px', textAlign: 'right' }}>
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); if(onDelete) onDelete(row.id); }}
+                    style={{ background: 'none', border: 'none', color: C.red, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '6px', borderRadius: 6, transition: 'all 0.2s' }}
+                    onMouseEnter={e => { e.currentTarget.style.background = C.redBg; e.currentTarget.style.transform = 'scale(1.1)'; }}
+                    onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.transform = 'scale(1)'; }}
+                    title="Delete Entry"
+                  >
+                    <Trash2 size={16} strokeWidth={2.5} />
+                  </button>
+                </td>
               </tr>
             )})}
           </tbody>
@@ -372,6 +385,23 @@ export default function AccountingFinance() {
       if (a?.success) setAccounts(a.data.map(x => ({ value: x.id, label: `${x.name} (${x.type})` })));
     });
   }, [loadData]);
+
+  const handleDelete = async (id, entryType) => {
+    if (!confirm(`Are you sure you want to delete this ${entryType} entry? This will also remove the associated journal entry.`)) return;
+    const endpoint = entryType === 'income' ? `/api/accounting/income/${id}/` : `/api/accounting/expenses/${id}/`;
+    try {
+      const res = await fetch(endpoint, { method: 'DELETE' });
+      if (res.status === 204 || res.status === 200) {
+        loadData();
+      } else {
+        const data = await res.json().catch(() => ({}));
+        alert(data.message || 'Failed to delete record.');
+      }
+    } catch (err) {
+      console.error('Delete error:', err);
+      alert('Network error while deleting.');
+    }
+  };
 
   const tabBtn = active => ({
     padding: '9px 18px', fontSize: 13, fontWeight: active ? 700 : 500, cursor: 'pointer',
@@ -676,7 +706,7 @@ export default function AccountingFinance() {
               </div>
 
               <SelectableTable rows={filteredIncomeRows} columns={COLS} loading={loadingIncome} emptyMsg="No income entries match your filters."
-                accentColor="#16a34a" exportName="income.csv"
+                accentColor="#16a34a" exportName="income.csv" onDelete={id => handleDelete(id, 'income')}
               />
             </div>
           )}
@@ -733,7 +763,7 @@ export default function AccountingFinance() {
               </div>
 
               <SelectableTable rows={filteredExpenseRows} columns={COLS} loading={loadingExpense} emptyMsg="No expense entries match your filters."
-                accentColor="#dc2626" exportName="expenses.csv"
+                accentColor="#dc2626" exportName="expenses.csv" onDelete={id => handleDelete(id, 'expense')}
               />
             </div>
           )}

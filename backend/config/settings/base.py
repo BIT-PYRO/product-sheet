@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     'designers',
     'findings',
     'accounting',
+    'hr',
 ]
 
 MIDDLEWARE = [
