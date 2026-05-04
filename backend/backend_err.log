@@ -1,0 +1,16 @@
+Watching for file changes with StatReloader
+Exception in thread django-main-thread:
+Traceback (most recent call last):
+  File "C:\Program Files\Python310\lib\threading.py", line 1016, in _bootstrap_inner
+    self.run()
+  File "C:\Program Files\Python310\lib\threading.py", line 953, in run
+    self._target(*self._args, **self._kwargs)
+  File "C:\Users\Asus\AppData\Roaming\Python\Python310\site-packages\django\utils\autoreload.py", line 64, in wrapper
+    fn(*args, **kwargs)
+  File "C:\Users\Asus\AppData\Roaming\Python\Python310\site-packages\django\core\management\commands\runserver.py", line 133, in inner_run
+    self.stdout.write("Performing system checks...\n\n")
+  File "C:\Users\Asus\AppData\Roaming\Python\Python310\site-packages\django\core\management\base.py", line 181, in write
+    self._out.write(style_func(msg))
+AttributeError: 'NoneType' object has no attribute 'write'
+C:\Users\Asus\AppData\Roaming\Python\Python310\site-packages\google\api_core\_python_version_support.py:275: FutureWarning: You are using a Python version (3.10.6) which Google will stop supporting in new releases of google.api_core once it reaches its end of life (2026-10-04). Please upgrade to the latest Python version, or at least Python 3.11, to continue receiving updates for google.api_core past that date.
+  warnings.warn(message, FutureWarning)
