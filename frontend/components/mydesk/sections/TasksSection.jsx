@@ -1062,13 +1062,13 @@ export default function TasksSection({ members = [] }) {
                         maxRows={10}
                         fullWidth
                     />
-                    <Stack direction={{ xs: 'column', lg: 'row' }} spacing={0.75} alignItems={{ xs: 'stretch', lg: 'center' }} sx={{ width: '100%' }}>
+                    <Stack direction={{ xs: 'column', lg: 'row' }} spacing={0.75} sx={{ width: '100%', alignItems: { xs: 'stretch', lg: 'center' } }}>
                         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={0.75} sx={{ flex: 1, flexWrap: 'wrap' }}>
                             <TextField
                                 type="date"
                                 size="small"
                                 label="Due"
-                                InputLabelProps={{ shrink: true }}
+                                slotProps={{ inputLabel: { shrink: true } }}
                                 value={form.dueDate}
                                 onChange={(event) => setForm({ ...form, dueDate: event.target.value })}
                                 sx={{ minWidth: 148 }}
@@ -1077,7 +1077,7 @@ export default function TasksSection({ members = [] }) {
                                 type="time"
                                 size="small"
                                 label="Time"
-                                InputLabelProps={{ shrink: true }}
+                                slotProps={{ inputLabel: { shrink: true } }}
                                 value={form.dueTime}
                                 onChange={(event) => setForm({ ...form, dueTime: event.target.value })}
                                 sx={{ minWidth: 122 }}
@@ -1125,7 +1125,7 @@ export default function TasksSection({ members = [] }) {
                 </Stack>
 
                 {Array.isArray(form.attachments) && form.attachments.length > 0 && (
-                    <Stack direction="row" spacing={0.75} sx={{ mt: 0.9 }} flexWrap="wrap" useFlexGap>
+                    <Stack direction="row" spacing={0.75} useFlexGap sx={{ mt: 0.9, flexWrap: 'wrap' }}>
                         {form.attachments.map((file) => (
                             <Chip
                                 key={`${file.name}-${file.size}-${file.lastModified}`}
@@ -1140,13 +1140,13 @@ export default function TasksSection({ members = [] }) {
             </Paper>
 
             <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
-                <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} justifyContent="space-between" alignItems={{ xs: 'stretch', md: 'center' }}>
+                <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} sx={{ justifyContent: 'space-between', alignItems: { xs: 'stretch', md: 'center' } }}>
                     <Tabs value={view} onChange={(_, value) => setView(value)}>
                         <Tab icon={<ViewKanbanIcon fontSize="small" />} iconPosition="start" value="kanban" label="Kanban" />
                         <Tab icon={<ViewListIcon fontSize="small" />} iconPosition="start" value="list" label="List" />
                     </Tabs>
 
-                    <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                    <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap' }}>
                         {visibleCategoryPills.map((pill) => (
                             <Chip
                                 key={pill.id}
@@ -1180,13 +1180,13 @@ export default function TasksSection({ members = [] }) {
                                         borderTopColor: `${statusMeta[status].color}.main`,
                                     }}
                                 >
-                                    <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ px: 1.25, py: 1, borderBottom: 1, borderColor: 'divider' }}>
+                                    <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center', px: 1.25, py: 1, borderBottom: 1, borderColor: 'divider' }}>
                                         <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>{statusMeta[status].label}</Typography>
                                         <Chip size="small" label={columnTasks.length} color={statusMeta[status].color} variant="outlined" />
                                     </Stack>
                                     <Box sx={{ p: 1.25 }}>
                                         {columnTasks.length === 0 ? (
-                                            <Stack alignItems="center" justifyContent="center" sx={{ minHeight: 220 }}>
+                                            <Stack sx={{ alignItems: 'center', justifyContent: 'center', minHeight: 220 }}>
                                                 <Typography variant="body2" color="text.secondary">{statusMeta[status].empty}</Typography>
                                             </Stack>
                                         ) : (
@@ -1214,7 +1214,7 @@ export default function TasksSection({ members = [] }) {
                                                             transition: 'box-shadow 0.2s ease, border-color 0.2s ease',
                                                         }}
                                                     >
-                                                        <Stack direction="row" justifyContent="space-between" alignItems="center">
+                                                        <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center' }}>
                                                             <Typography
                                                                 variant="subtitle2"
                                                                 sx={{ fontWeight: 700, cursor: 'pointer' }}
@@ -1377,17 +1377,17 @@ export default function TasksSection({ members = [] }) {
                                             }}
                                         />
 
-                                        <Stack direction="row" spacing={0.5} alignItems="center">
+                                        <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
                                             <CheckIcon fontSize="small" color="success" />
                                             <Typography variant="body2" sx={{ textTransform: 'capitalize' }}>{task.status.replace('_', ' ')}</Typography>
                                         </Stack>
 
-                                        <Stack direction="row" spacing={0.5} alignItems="center">
+                                        <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
                                             {due.overdue && <WarningAmberIcon fontSize="small" color="error" />}
                                             <Typography variant="body2" sx={{ color: due.color, fontWeight: due.overdue || due.today ? 700 : 400 }}>{due.label}</Typography>
                                         </Stack>
 
-                                        <Stack direction="row" spacing={1} alignItems="center">
+                                        <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
                                             <Box
                                                 sx={{
                                                     width: 24,
@@ -1484,7 +1484,7 @@ export default function TasksSection({ members = [] }) {
                             <Stack spacing={0.5}>
                                 <Typography variant="subtitle2">Attachments</Typography>
                                 {selectedTask.taskAttachments.map((attachment) => (
-                                    <Stack key={attachment.id} direction="row" spacing={0.75} alignItems="center" justifyContent="space-between">
+                                    <Stack key={attachment.id} direction="row" spacing={0.75} sx={{ alignItems: 'center', justifyContent: 'space-between' }}>
                                         <Button
                                             variant="outlined"
                                             size="small"
