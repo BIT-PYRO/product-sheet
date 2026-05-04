@@ -46,6 +46,8 @@ INSTALLED_APPS = [
     'designers',
     'findings',
     'accounting',
+    'core.mydesk',
+    'calendar_integration',
 ]
 
 MIDDLEWARE = [
@@ -132,6 +134,9 @@ SIMPLE_JWT = {
 }
 
 GOOGLE_CLIENT_ID = env('GOOGLE_CLIENT_ID', default='')
+GOOGLE_CLIENT_SECRET = env('GOOGLE_CLIENT_SECRET', default='')
+GOOGLE_CALENDAR_REDIRECT_URI = env('GOOGLE_CALENDAR_REDIRECT_URI', default='http://localhost:3000/api/calendar/callback/')
+FRONTEND_URL = env('FRONTEND_URL', default='http://localhost:3000')
 
 # ── External Workforce Sync ──────────────────────────────────────────────────
 EXTERNAL_WORKFORCE_WEBHOOK_SECRET = env('EXTERNAL_WORKFORCE_WEBHOOK_SECRET', default='')
