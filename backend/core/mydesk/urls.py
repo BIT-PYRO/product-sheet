@@ -43,6 +43,10 @@ from core.mydesk.views import (
     GalleryItemListCreateView,
     GalleryItemDetailView,
     GalleryItemDownloadView,
+    ChatContactsView,
+    ChatConversationListView,
+    ChatMessageListCreateView,
+    ChatMarkReadView,
 )
 
 # --- URL Patterns ---
@@ -115,6 +119,12 @@ urlpatterns = [
     path('api/mydesk/gallery/items/', GalleryItemListCreateView.as_view(), name='mydesk-gallery-items-list-create'),
     path('api/mydesk/gallery/items/<int:pk>/', GalleryItemDetailView.as_view(), name='mydesk-gallery-items-detail'),
     path('api/mydesk/gallery/items/<int:pk>/download/', GalleryItemDownloadView.as_view(), name='mydesk-gallery-items-download'),
+
+    # Chat
+    path('api/mydesk/chat/contacts/', ChatContactsView.as_view(), name='mydesk-chat-contacts'),
+    path('api/mydesk/chat/conversations/', ChatConversationListView.as_view(), name='mydesk-chat-conversations'),
+    path('api/mydesk/chat/conversations/<int:conv_id>/messages/', ChatMessageListCreateView.as_view(), name='mydesk-chat-messages'),
+    path('api/mydesk/chat/conversations/<int:conv_id>/read/', ChatMarkReadView.as_view(), name='mydesk-chat-mark-read'),
 ]
 
 # In your main urlpatterns, add:

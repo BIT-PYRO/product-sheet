@@ -764,3 +764,48 @@ class AttendanceRulebook(models.Model):
     class Meta:
         app_label = 'mydesk'
         ordering = ['user_id']
+
+
+# ---------------------------------------------------------------------------
+# Chat
+# ---------------------------------------------------------------------------
+
+class ChatConversation(models.Model):
+    """Direct-message thread between exactly two users."""
+    participants = models.ManyToManyField(
+        User,
+        related_name='chat_conversations',
+        blank=False,
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        app_label = 'mydesk'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        ids = ', '.join(str(u.id) for u in self.participants.all())
+        return f'ChatConversation({ids})'
+
+
+class ChatMessage(models.Model):
+    conversation = models.ForeignKey(
+        ChatConversation,
+        on_delete=models.CASCADE,
+        related_name='messages',
+    )
+    sender = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='sent_chat_messages',
+    )
+    content = models.TextField()
+    is_read = models.BooleanField(default=False, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        app_label = 'mydesk'
+        ordering = ['created_at']
+
+    def __str__(self):
+        return f'Msg {self.id} from {self.sender_id} in conv {self.conversation_id}'

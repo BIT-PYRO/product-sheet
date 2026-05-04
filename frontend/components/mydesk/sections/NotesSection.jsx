@@ -517,7 +517,7 @@ export default function NotesSection({ members = [] }) {
                         </Stack>
 
                         {attachments.length > 0 && (
-                            <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
+                            <Stack direction="row" spacing={0.75} useFlexGap sx={{ flexWrap: 'wrap' }}>
                                 {attachments.map((file) => (
                                     <Chip
                                         key={`${file.name}-${file.size}-${file.lastModified}`}
@@ -604,7 +604,7 @@ export default function NotesSection({ members = [] }) {
                             >
                                 {toPlainText(note.content_html || '') || '—'}
                             </Typography>
-                            <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap sx={{ mt: 1 }}>
+                            <Stack direction="row" spacing={0.75} useFlexGap sx={{ mt: 1, flexWrap: 'wrap' }}>
                                 {parseSharedMemberIds(note.labels).length > 0 && (
                                     <Chip label={getSharedWithLabel(note.labels)} size="small" variant="outlined" />
                                 )}
@@ -695,7 +695,7 @@ export default function NotesSection({ members = [] }) {
                                 </Button>
                             </Stack>
                             {selectedEditAttachments.length > 0 && (
-                                <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
+                                <Stack direction="row" spacing={0.75} useFlexGap sx={{ flexWrap: 'wrap' }}>
                                     {selectedEditAttachments.map((file) => (
                                         <Chip
                                             key={`${file.name}-${file.size}-${file.lastModified}`}
@@ -770,7 +770,7 @@ export default function NotesSection({ members = [] }) {
                     <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1.25 }}>
                         This note remains private by default. Choose members who can access it.
                     </Typography>
-                    <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
+                    <Stack direction="row" spacing={0.75} useFlexGap sx={{ flexWrap: 'wrap' }}>
                         {(Array.isArray(members) ? members : []).map((member) => {
                             const memberId = getMemberId(member);
                             if (memberId === null || memberId === undefined) return null;

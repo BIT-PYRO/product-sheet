@@ -48,6 +48,8 @@ from core.mydesk.models import (
     GalleryItem,
     GalleryItemShare,
     HrMeetingManagerCompanyEvent,
+    ChatConversation,
+    ChatMessage,
 )
 from workforce.models import WorkforceMember
 from core.mydesk.serializers import (
@@ -7225,3 +7227,162 @@ class GalleryItemDownloadView(OrgScopedBaseAPIView):
             relative_url += "&download=1"
         absolute_url = request.build_absolute_uri(relative_url)
         return Response({'url': absolute_url})
+
+
+# ---------------------------------------------------------------------------
+# Chat API Views
+# ---------------------------------------------------------------------------
+
+def _serialize_user(user):
+    """Return a minimal user dict for chat responses."""
+    return {
+        'id': user.id,
+        'username': user.username,
+        'first_name': user.first_name,
+        'last_name': user.last_name,
+        'display_name': (f'{user.first_name} {user.last_name}'.strip() or user.username),
+        'email': user.email,
+    }
+
+
+def _serialize_message(msg, me_id):
+    return {
+        'id': msg.id,
+        'content': msg.content,
+        'sender': _serialize_user(msg.sender),
+        'is_mine': (msg.sender_id == me_id),
+        'is_read': msg.is_read,
+        'created_at': msg.created_at.isoformat(),
+    }
+
+
+def _serialize_conversation(conv, me_id):
+    """Return conversation info with last message and unread count for the requesting user."""
+    other = conv.participants.exclude(id=me_id).first()
+    last_msg = conv.messages.order_by('-created_at').first()
+    unread = conv.messages.filter(is_read=False).exclude(sender_id=me_id).count()
+    return {
+        'id': conv.id,
+        'other_user': _serialize_user(other) if other else None,
+        'last_message': _serialize_message(last_msg, me_id) if last_msg else None,
+        'unread_count': unread,
+        'created_at': conv.created_at.isoformat(),
+    }
+
+
+class ChatContactsView(OrgScopedBaseAPIView):
+    """List all users the current user can chat with (all active users except self)."""
+
+    def get(self, request):
+        search = (request.query_params.get('search') or '').strip().lower()
+        qs = User.objects.filter(is_active=True).exclude(id=request.user.id).order_by('first_name', 'username')
+        if search:
+            qs = qs.filter(
+                Q(first_name__icontains=search) |
+                Q(last_name__icontains=search) |
+                Q(username__icontains=search)
+            )
+        result = [_serialize_user(u) for u in qs[:50]]
+        return Response(result)
+
+
+class ChatConversationListView(OrgScopedBaseAPIView):
+    """
+    GET  /api/mydesk/chat/conversations/       – list my conversations
+    POST /api/mydesk/chat/conversations/       – get-or-create conversation with a user
+         body: { recipient_id: <int> }
+    """
+
+    def get(self, request):
+        convs = (
+            ChatConversation.objects
+            .filter(participants=request.user)
+            .prefetch_related('participants', 'messages')
+            .order_by('-created_at')
+        )
+        return Response([_serialize_conversation(c, request.user.id) for c in convs])
+
+    def post(self, request):
+        recipient_id = request.data.get('recipient_id')
+        if not recipient_id:
+            return Response({'error': 'recipient_id required'}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            recipient = User.objects.get(id=recipient_id, is_active=True)
+        except User.DoesNotExist:
+            return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        if recipient.id == request.user.id:
+            return Response({'error': 'Cannot chat with yourself'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Find existing conversation between exactly these two users
+        existing = (
+            ChatConversation.objects
+            .filter(participants=request.user)
+            .filter(participants=recipient)
+            .first()
+        )
+        if existing:
+            return Response(_serialize_conversation(existing, request.user.id))
+
+        conv = ChatConversation.objects.create()
+        conv.participants.add(request.user, recipient)
+        return Response(_serialize_conversation(conv, request.user.id), status=status.HTTP_201_CREATED)
+
+
+class ChatMessageListCreateView(OrgScopedBaseAPIView):
+    """
+    GET  /api/mydesk/chat/conversations/<conv_id>/messages/   – list messages
+         ?after=<message_id>  to poll only new messages
+    POST /api/mydesk/chat/conversations/<conv_id>/messages/   – send message
+         body: { content: "..." }
+    """
+
+    def _get_conv_or_403(self, request, conv_id):
+        try:
+            conv = ChatConversation.objects.get(id=conv_id)
+        except ChatConversation.DoesNotExist:
+            return None, Response({'error': 'Not found'}, status=status.HTTP_404_NOT_FOUND)
+        if not conv.participants.filter(id=request.user.id).exists():
+            return None, Response({'error': 'Forbidden'}, status=status.HTTP_403_FORBIDDEN)
+        return conv, None
+
+    def get(self, request, conv_id):
+        conv, err = self._get_conv_or_403(request, conv_id)
+        if err:
+            return err
+        qs = conv.messages.select_related('sender').order_by('created_at')
+        after_id = request.query_params.get('after')
+        if after_id:
+            try:
+                qs = qs.filter(id__gt=int(after_id))
+            except (ValueError, TypeError):
+                pass
+        messages = [_serialize_message(m, request.user.id) for m in qs]
+        return Response(messages)
+
+    def post(self, request, conv_id):
+        conv, err = self._get_conv_or_403(request, conv_id)
+        if err:
+            return err
+        content = (request.data.get('content') or '').strip()
+        if not content:
+            return Response({'error': 'content required'}, status=status.HTTP_400_BAD_REQUEST)
+        msg = ChatMessage.objects.create(conversation=conv, sender=request.user, content=content)
+        return Response(_serialize_message(msg, request.user.id), status=status.HTTP_201_CREATED)
+
+
+class ChatMarkReadView(OrgScopedBaseAPIView):
+    """
+    POST /api/mydesk/chat/conversations/<conv_id>/read/
+    Mark all unread messages in this conversation as read (messages not sent by me).
+    """
+
+    def post(self, request, conv_id):
+        try:
+            conv = ChatConversation.objects.get(id=conv_id)
+        except ChatConversation.DoesNotExist:
+            return Response({'error': 'Not found'}, status=status.HTTP_404_NOT_FOUND)
+        if not conv.participants.filter(id=request.user.id).exists():
+            return Response({'error': 'Forbidden'}, status=status.HTTP_403_FORBIDDEN)
+        updated = conv.messages.filter(is_read=False).exclude(sender=request.user).update(is_read=True)
+        return Response({'marked_read': updated})
