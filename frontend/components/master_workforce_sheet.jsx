@@ -1020,16 +1020,6 @@ export default function MasterWorkforceSheet() {
             </Button>
           )}
           {canEdit && (
-            <Button 
-              onClick={handleEditRow}
-              variant="outline"
-              className="border-trust-blue text-trust-blue hover:bg-trust-blue/10 rounded-full px-4 text-sm h-8"
-              disabled={isArchivedView}
-            >
-              Edit Row
-            </Button>
-          )}
-          {canEdit && (
             <Button
               onClick={handleDeleteSelectedRows}
               variant="outline"

@@ -1,6 +1,7 @@
 'use client';
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { ReceiptsBadge } from './receipts-viewer';
+import { Trash2 } from 'lucide-react';
 
 const fmt = n => `₹${Number(n).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
 const today = () => new Date().toISOString().slice(0, 10);
@@ -510,7 +511,7 @@ function BulkSettleModal({ items, accounts, onClose, onSuccess }) {
   );
 }
 
-function OutstandingTable({ rows, loading, onSettle, selected, setSelected }) {
+function OutstandingTable({ rows, loading, onSettle, onDelete, selected, setSelected }) {
   const toggleAll = () => setSelected(selected.size === rows.length ? new Set() : new Set(rows.map((_, i) => i)));
   const toggleRow = i => { const s = new Set(selected); s.has(i) ? s.delete(i) : s.add(i); setSelected(s); };
 
@@ -523,16 +524,16 @@ function OutstandingTable({ rows, loading, onSettle, selected, setSelected }) {
               <input type="checkbox" checked={rows.length > 0 && selected.size === rows.length} onChange={toggleAll} style={{ cursor: 'pointer' }} />
             </th>
             <th className="print-only" style={{ padding: '10px 14px', fontSize: 11, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'left', borderBottom: '1px solid #e5e7eb', display: 'none' }}>S.No</th>
-            {['Date', 'Party', 'Amount', 'Department', 'Due Date', 'Description', 'Status', 'Receipts', 'Action'].map(h => (
-              <th key={h} className={h === 'Action' ? 'no-print' : ''} style={{ padding: '10px 14px', fontSize: 11, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'left', borderBottom: '1px solid #e5e7eb' }}>{h}</th>
+            {['S.No', 'Date', 'Party', 'Amount', 'Department', 'Due Date', 'Description', 'Status', 'Receipts', 'Action'].map(h => (
+              <th key={h} className={(h === 'Action' || h === 'S.No') ? 'no-print' : ''} style={{ padding: '10px 14px', fontSize: 11, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'left', borderBottom: '1px solid #e5e7eb' }}>{h}</th>
             ))}
           </tr>
         </thead>
         <tbody>
           {loading ? (
-            <tr><td colSpan={8} style={{ padding: 28, textAlign: 'center', color: '#9ca3af' }}>Loading…</td></tr>
+            <tr><td colSpan={11} style={{ padding: 28, textAlign: 'center', color: '#9ca3af' }}>Loading…</td></tr>
           ) : rows.length === 0 ? (
-            <tr><td colSpan={8} style={{ padding: 28, textAlign: 'center', color: '#9ca3af' }}>No records found.</td></tr>
+            <tr><td colSpan={11} style={{ padding: 28, textAlign: 'center', color: '#9ca3af' }}>No records found.</td></tr>
           ) : rows.map((row, i) => {
             const isSelected = selected.has(i);
             const hideInPrintClass = selected.size > 0 && !isSelected ? 'hide-in-print' : '';
@@ -543,6 +544,7 @@ function OutstandingTable({ rows, loading, onSettle, selected, setSelected }) {
                 <input type="checkbox" checked={isSelected} onChange={() => toggleRow(i)} onClick={e => e.stopPropagation()} style={{ cursor: 'pointer' }} />
               </td>
               <td className="print-only" style={{ padding: '11px 14px', fontSize: 13, color: '#111827', display: 'none' }}>{i + 1}</td>
+              <td className="no-print" style={{ padding: '11px 14px', fontSize: 12, color: '#6b7280', fontWeight: 600 }}>{i + 1}</td>
               <td style={{ padding: '11px 14px', fontSize: 12, color: '#6b7280', whiteSpace: 'nowrap' }}>
                 {fmtDate(row.created_at)}
               </td>
@@ -565,7 +567,7 @@ function OutstandingTable({ rows, loading, onSettle, selected, setSelected }) {
                   accentColor="#2563eb"
                 />
               </td>
-              <td className="no-print" style={{ padding: '11px 14px' }} onClick={e => e.stopPropagation()}>
+              <td className="no-print" style={{ padding: '11px 14px', display: 'flex', gap: 10, alignItems: 'center' }} onClick={e => e.stopPropagation()}>
                 {row.status === 'pending' ? (
                   <button onClick={() => onSettle(row)} style={{ padding: '5px 14px', background: '#16a34a', color: '#fff', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
                     Settle
@@ -573,6 +575,15 @@ function OutstandingTable({ rows, loading, onSettle, selected, setSelected }) {
                 ) : (
                   <span style={{ fontSize: 12, color: row.type === 'receivable' ? '#16a34a' : '#dc2626', fontWeight: 700 }}>✓ {row.type === 'receivable' ? 'Received' : 'Paid'}</span>
                 )}
+                <button 
+                  onClick={(e) => onDelete(row.id, e)}
+                  style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '6px', borderRadius: 6, transition: 'all 0.2s' }}
+                  onMouseEnter={e => { e.currentTarget.style.background = '#fef2f2'; e.currentTarget.style.transform = 'scale(1.1)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.transform = 'scale(1)'; }}
+                  title="Delete Record"
+                >
+                  <Trash2 size={16} strokeWidth={2.5} />
+                </button>
               </td>
             </tr>
           )})}
@@ -619,6 +630,24 @@ export default function AccountingPayablesReceivables({ embedded = false, onRefr
   }, [type]);
 
   useEffect(() => { loadAll(); }, [loadAll]);
+
+  const handleDelete = async (id, e) => {
+    if (e) e.stopPropagation();
+    if (!confirm('Are you sure you want to delete this record? This will also remove any associated journal entries.')) return;
+    try {
+      const res = await fetch(`/api/accounting/outstandings/${id}/`, { method: 'DELETE' });
+      if (res.status === 204 || res.status === 200) {
+        loadAll();
+        if (onRefresh) onRefresh();
+      } else {
+        const data = await res.json().catch(() => ({}));
+        alert(data.message || 'Failed to delete record.');
+      }
+    } catch (err) {
+      console.error('Delete error:', err);
+      alert('Network error while deleting.');
+    }
+  };
 
   const filtered = useMemo(() => {
     let r = statusFilter === 'all' ? rows : rows.filter(x => x.status === statusFilter);
@@ -783,6 +812,7 @@ export default function AccountingPayablesReceivables({ embedded = false, onRefr
         rows={filtered}
         loading={loading}
         onSettle={item => setModal({ settle: item })}
+        onDelete={handleDelete}
         selected={selected}
         setSelected={setSelected}
       />

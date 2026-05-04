@@ -1,6 +1,7 @@
 'use client';
 import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { ReceiptsBadge } from './receipts-viewer';
+import { Trash2 } from 'lucide-react';
 
 const fmt = n => `₹${Number(n).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
 
@@ -137,6 +138,23 @@ export default function AccountingSettlements() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  const handleDelete = async (id, e) => {
+    if (e) e.stopPropagation();
+    if (!confirm('Are you sure you want to delete this settlement record?')) return;
+    try {
+      const res = await fetch(`/api/accounting/outstandings/${id}/`, { method: 'DELETE' });
+      if (res.status === 204 || res.status === 200) {
+        load();
+      } else {
+        const data = await res.json().catch(() => ({}));
+        alert(data.message || 'Failed to delete record.');
+      }
+    } catch (err) {
+      console.error('Delete error:', err);
+      alert('Network error while deleting.');
+    }
+  };
 
   const filtered = useMemo(() => {
     let rows = settlements;
@@ -302,23 +320,26 @@ export default function AccountingSettlements() {
                 <th className="no-print" style={{ padding: '10px 14px', width: 40, borderBottom: `1px solid ${C.border}` }}>
                   <input type="checkbox" checked={filtered.length > 0 && selectedIds.size === filtered.length} onChange={toggleSelectAll} style={{ cursor: 'pointer' }} />
                 </th>
-                {['Party Name', 'Type', 'Department', 'Via Account', 'Date', 'Receipts', 'Amount'].map((h, i) => (
-                  <th key={i} style={{ padding: '10px 14px', fontSize: 11, fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: 0.5, borderBottom: `1px solid ${C.border}`, textAlign: i >= 4 ? 'right' : 'left' }}>{h}</th>
+                <th className="print-only" style={{ padding: '10px 14px', fontSize: 11, fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: 0.5, borderBottom: `1px solid ${C.border}`, textAlign: 'left', display: 'none' }}>S.No</th>
+                {['S.No', 'Party Name', 'Type', 'Department', 'Via Account', 'Date', 'Receipts', 'Amount', 'Actions'].map((h, i) => (
+                  <th key={i} className={(h === 'Actions' || h === 'S.No') ? 'no-print' : ''} style={{ padding: '10px 14px', fontSize: 11, fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: 0.5, borderBottom: `1px solid ${C.border}`, textAlign: i >= 5 && i <= 7 ? 'right' : 'left' }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={7} style={{ padding: 28, textAlign: 'center', color: C.muted }}>Loading…</td></tr>
+                <tr><td colSpan={10} style={{ padding: 28, textAlign: 'center', color: C.muted }}>Loading…</td></tr>
               ) : filtered.length === 0 ? (
-                <tr><td colSpan={7} style={{ padding: 36, textAlign: 'center', color: C.muted }}>No individual settlements found.</td></tr>
-              ) : filtered.map(s => {
+                <tr><td colSpan={10} style={{ padding: 36, textAlign: 'center', color: C.muted }}>No individual settlements found.</td></tr>
+              ) : filtered.map((s, i) => {
                 const isSelected = selectedIds.has(s.id);
                 return (
                   <tr key={s.id} className={selectedIds.size > 0 && !isSelected ? 'hide-in-print' : ''} style={{ borderBottom: `1px solid ${C.slateBg}`, background: isSelected ? C.blueBg : 'transparent' }}>
                     <td className="no-print" style={{ padding: '12px 14px' }}>
                       <input type="checkbox" checked={isSelected} onChange={() => toggleSelect(s.id)} style={{ cursor: 'pointer' }} />
                     </td>
+                    <td className="print-only" style={{ padding: '12px 14px', fontSize: 13, color: C.text, display: 'none' }}>{i + 1}</td>
+                    <td className="no-print" style={{ padding: '12px 14px', fontSize: 12, color: C.muted, fontWeight: 600 }}>{i + 1}</td>
                     <td style={{ padding: '12px 14px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                         <div style={{ width: 28, height: 28, borderRadius: 6, background: s.type === 'receivable' ? C.blueBg : C.redBg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, color: s.type === 'receivable' ? C.blue : C.red, flexShrink: 0 }}>
@@ -344,6 +365,17 @@ export default function AccountingSettlements() {
                       />
                     </td>
                     <td style={{ padding: '12px 14px', fontSize: 14, fontWeight: 800, color: s.type === 'receivable' ? C.green : C.red, textAlign: 'right' }}>{fmt(s.amount)}</td>
+                    <td className="no-print" style={{ padding: '12px 14px' }}>
+                      <button 
+                        onClick={(e) => handleDelete(s.id, e)}
+                        style={{ background: 'none', border: 'none', color: C.red, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '6px', borderRadius: 6, transition: 'all 0.2s' }}
+                        onMouseEnter={e => { e.currentTarget.style.background = C.redBg; e.currentTarget.style.transform = 'scale(1.1)'; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.transform = 'scale(1)'; }}
+                        title="Delete Settlement"
+                      >
+                        <Trash2 size={16} strokeWidth={2.5} />
+                      </button>
+                    </td>
                   </tr>
                 );
               })}
