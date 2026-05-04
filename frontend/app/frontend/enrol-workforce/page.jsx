@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 import React, { useState, useEffect, useRef } from "react";
 import { createPortal } from 'react-dom';
 import { X, Check, ChevronDown, Camera, Upload } from 'lucide-react';
@@ -346,7 +346,6 @@ export function EnrolWorkforceForm({ onEnroll, onClose, open=true, draftData=nul
   const [isReadOnly, setIsReadOnly] = useState(readOnly);
   const savedFormRef = React.useRef(null);
   const originalEmailRef = React.useRef('');
-  const [emailChangeDialog, setEmailChangeDialog] = useState(null);
   const [customRoles, setCustomRoles] = useState([]);
   const [customDepartments, setCustomDepartments] = useState([]);
 
@@ -613,14 +612,6 @@ export function EnrolWorkforceForm({ onEnroll, onClose, open=true, draftData=nul
     }
     setFieldErrors({});
 
-    // If editing and the email has changed, ask for confirmation first
-    const newEmail=String(form.email||'').trim().toLowerCase();
-    const oldEmail=(originalEmailRef.current||'').trim().toLowerCase();
-    if (editingId && oldEmail && newEmail && newEmail!==oldEmail) {
-      setEmailChangeDialog({oldEmail:originalEmailRef.current,newEmail:String(form.email||'').trim()});
-      return;
-    }
-
     await doActualSubmit();
   };
 
@@ -631,7 +622,7 @@ export function EnrolWorkforceForm({ onEnroll, onClose, open=true, draftData=nul
   };
 
   const handleClose=()=>{if(onClose)onClose();};
-  const handleDialogOpenChange=(nextOpen)=>{if(!nextOpen&&!emailChangeDialog)handleClose();};
+  const handleDialogOpenChange=(nextOpen)=>{if(!nextOpen)handleClose();};
 
   const handleInput=(e,section,field)=>{
     const {name,value,type,checked}=e.target;
@@ -733,7 +724,7 @@ export function EnrolWorkforceForm({ onEnroll, onClose, open=true, draftData=nul
 
   return (
     <Dialog open={open} onOpenChange={handleDialogOpenChange}>
-      <DialogContent ref={formScrollRef} className={`max-w-4xl max-h-[90vh] overflow-y-auto bg-gradient-to-br from-cloud-gray to-cloud-gray text-midnight-ink p-0 gap-0 [&>button]:hidden${emailChangeDialog?' pointer-events-none select-none':''}`}>
+      <DialogContent ref={formScrollRef} className="max-w-4xl max-h-[90vh] overflow-y-auto bg-gradient-to-br from-cloud-gray to-cloud-gray text-midnight-ink p-0 gap-0 [&>button]:hidden">
         <DialogHeader className="px-5 pt-4 pb-3 border-b border-soft-border bg-trust-blue relative">
           <div className="flex items-center justify-center">
             <DialogTitle className="text-lg font-bold text-white">
@@ -758,55 +749,6 @@ export function EnrolWorkforceForm({ onEnroll, onClose, open=true, draftData=nul
               {submitStatus.message}
             </div>
           </div>
-        )}
-
-        {/* Email change confirmation — portaled to body so it is always centered in viewport */}
-        {emailChangeDialog&&typeof document!=='undefined'&&createPortal(
-          <div
-            className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/50"
-            onClick={e=>{e.stopPropagation();e.preventDefault();}}
-            onClickCapture={e=>{e.stopPropagation();e.preventDefault();}}
-            onMouseDown={e=>{e.stopPropagation();e.preventDefault();}}
-            onMouseUp={e=>{e.stopPropagation();e.preventDefault();}}
-            onPointerDown={e=>{e.stopPropagation();e.preventDefault();}}
-            onPointerUp={e=>{e.stopPropagation();e.preventDefault();}}
-          >
-            <div
-              className="bg-white rounded-xl shadow-2xl p-6 max-w-md w-full mx-4 border border-soft-border"
-              onClick={e=>{e.stopPropagation();e.preventDefault();}}
-              onPointerDown={e=>{e.stopPropagation();e.preventDefault();}}
-            >
-              <h3 className="font-bold text-midnight-ink text-base mb-3">Confirm Email Change</h3>
-              <p className="text-sm text-cool-gray mb-1">
-                The email is being changed from{' '}
-                <span className="font-semibold text-midnight-ink">{emailChangeDialog.oldEmail}</span>
-                {' '}to{' '}
-                <span className="font-semibold text-midnight-ink">{emailChangeDialog.newEmail}</span>.
-              </p>
-              <p className="text-sm text-cool-gray mb-5">
-                A new user account will be created with the new email. The account associated with the old email will be replaced.
-              </p>
-              <div className="flex gap-2 justify-end">
-                <button
-                  type="button"
-                  onPointerDown={e=>{e.stopPropagation();e.preventDefault();}}
-                  onClick={e=>{e.stopPropagation();e.preventDefault();setEmailChangeDialog(null);}}
-                  className="px-4 py-2 text-sm font-semibold rounded-lg border border-soft-border text-cool-gray hover:bg-cloud-gray transition"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onPointerDown={e=>{e.stopPropagation();e.preventDefault();}}
-                  onClick={e=>{e.stopPropagation();e.preventDefault();setEmailChangeDialog(null);doActualSubmit();}}
-                  className="px-4 py-2 text-sm font-semibold rounded-lg bg-trust-blue text-white hover:bg-deep-blue transition"
-                >
-                  Yes, Proceed
-                </button>
-              </div>
-            </div>
-          </div>,
-          document.body
         )}
 
         <div className="px-5 pb-5 flex flex-col gap-2">
@@ -1017,9 +959,9 @@ export function EnrolWorkforceForm({ onEnroll, onClose, open=true, draftData=nul
                         <div className="text-xs text-green-600 text-center mt-1">
                           {docUploadStatus.aadhaar==='uploading'?'Uploading...':
                            docUploadStatus.aadhaar==='deleting'?'Removing...':
-                           docUploadStatus.aadhaar==='done'?'✓ Uploaded successfully':
-                           docUploadStatus.aadhaar==='error'?'⚠ Upload failed — will retry on save':
-                           uploadedDocs.aadhaar?'✓ Already uploaded':
+                           docUploadStatus.aadhaar==='done'?'? Uploaded successfully':
+                           docUploadStatus.aadhaar==='error'?'? Upload failed — will retry on save':
+                           uploadedDocs.aadhaar?'? Already uploaded':
                            documents.aadhaar?.name||'File selected'}
                         </div>
                         {uploadedDocs.aadhaar&&<a href={buildDocProxyUrl(uploadedDocs.aadhaar,'preview')} target="_blank" rel="noopener noreferrer" className="text-xs text-trust-blue underline mt-1" onClick={e=>e.stopPropagation()}>View document</a>}
@@ -1070,9 +1012,9 @@ export function EnrolWorkforceForm({ onEnroll, onClose, open=true, draftData=nul
                         <div className="text-xs text-green-600 text-center mt-1">
                           {docUploadStatus.pan==='uploading'?'Uploading...':
                            docUploadStatus.pan==='deleting'?'Removing...':
-                           docUploadStatus.pan==='done'?'✓ Uploaded successfully':
-                           docUploadStatus.pan==='error'?'⚠ Upload failed — will retry on save':
-                           uploadedDocs.pan?'✓ Already uploaded':
+                           docUploadStatus.pan==='done'?'? Uploaded successfully':
+                           docUploadStatus.pan==='error'?'? Upload failed — will retry on save':
+                           uploadedDocs.pan?'? Already uploaded':
                            documents.pan?.name||'File selected'}
                         </div>
                         {uploadedDocs.pan&&<a href={buildDocProxyUrl(uploadedDocs.pan,'preview')} target="_blank" rel="noopener noreferrer" className="text-xs text-trust-blue underline mt-1" onClick={e=>e.stopPropagation()}>View document</a>}
@@ -1156,7 +1098,7 @@ export function EnrolWorkforceForm({ onEnroll, onClose, open=true, draftData=nul
               </div>
             ):(
               <div className="text-sm text-gray-500 text-center mt-2 p-2 bg-gray-50 rounded border border-gray-200">
-                🔒 You don&apos;t have permission to {editingId?'edit':'enroll'} workforce members.
+                ?? You don&apos;t have permission to {editingId?'edit':'enroll'} workforce members.
               </div>
             )}
 

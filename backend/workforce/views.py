@@ -44,6 +44,20 @@ class WorkforceMemberViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 			raise ValidationError({'detail': 'already_exists', 'id': existing.id})
 		instance = serializer.save()
 		sync_member_permissions(instance)
+		# Ensure a Django User exists for this member so they can log in immediately
+		if email:
+			from django.contrib.auth import get_user_model
+			User = get_user_model()
+			user = (
+				User.objects.filter(email__iexact=email).first()
+				or User.objects.filter(username__iexact=email).first()
+			)
+			if user is None:
+				user = User(username=email, email=email)
+				user.set_unusable_password()
+			user.is_active = True
+			user.is_approved = True
+			user.save()
 		try:
 			from common.audit import log_activity
 			from common.models import ActivityLog
@@ -57,12 +71,44 @@ class WorkforceMemberViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 		old_designation = old.designation
 		old_department = old.department
 		old_active = old.active
+		old_email = (old.email or '').strip().lower()
 		try:
 			from common.audit import serialize_instance
 			old_data = serialize_instance(old)
 		except Exception:
 			old_data = None
 		instance = serializer.save()
+		new_email = (instance.email or '').strip().lower()
+
+		# Update the Django User's email in-place when the workforce email changes
+		if old_email and new_email and old_email != new_email:
+			User = get_user_model()
+			# Block: new email already belongs to a DIFFERENT user
+			conflict = (
+				User.objects.filter(email__iexact=new_email).exclude(email__iexact=old_email).first()
+				or User.objects.filter(username__iexact=new_email).exclude(username__iexact=old_email).first()
+			)
+			if conflict:
+				# Roll back the workforce email change and raise a validation error
+				instance.email = old_email
+				instance.save(update_fields=['email'])
+				from rest_framework.exceptions import ValidationError
+				raise ValidationError({'email': f'The email {new_email} is already in use by another account.'})
+			# Update the existing user's email and username in-place
+			old_user = (
+				User.objects.filter(email__iexact=old_email).first()
+				or User.objects.filter(username__iexact=old_email).first()
+			)
+			if old_user is not None:
+				old_user.email = new_email
+				if old_user.username.lower() == old_email:
+					old_user.username = new_email
+				old_user.save(update_fields=['email', 'username'])
+				logger.info(
+					'Email changed for workforce member %s: %s → %s; Django user updated in-place.',
+					instance.pk, old_email, new_email,
+				)
+
 		# Re-sync permissions if designation or department changed — only for active members
 		if instance.active and (instance.designation != old_designation or instance.department != old_department):
 			sync_member_permissions(instance)
