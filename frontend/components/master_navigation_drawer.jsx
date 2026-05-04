@@ -39,6 +39,7 @@ const NAV_GROUPS = [
     label: 'Others',
     items: [
       { href: '/managers-dashboard', permKey: 'managers-dashboard', label: 'Managers Dashboard' },
+      { href: '/activity-logs', permKey: '__superuser_only__', label: 'Activity Logs' },
       {
         href: '/orders',
         permKey: 'orders',

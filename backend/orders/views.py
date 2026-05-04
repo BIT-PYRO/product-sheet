@@ -9,6 +9,7 @@ from .serializers import OrderDetailSerializer, OrderListSerializer
 
 
 class OrderViewSet(viewsets.ModelViewSet):
+    audit_sheet = 'order'
     permission_classes = [AllowAny]
     queryset = Order.objects.all()
 
@@ -39,7 +40,48 @@ class OrderViewSet(viewsets.ModelViewSet):
         else:
             serializer.save()
 
+        try:
+            from common.audit import log_activity
+            from common.models import ActivityLog
+            log_activity(request, ActivityLog.ACTION_CREATE, 'order', serializer.instance)
+        except Exception:
+            pass
+
         return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    def update(self, request, *args, **kwargs):
+        """Update order — capture old state for diff."""
+        instance = self.get_object()
+        try:
+            from common.audit import serialize_instance
+            old_data = serialize_instance(instance)
+        except Exception:
+            old_data = None
+
+        partial = kwargs.pop('partial', False)
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        try:
+            from common.audit import log_activity
+            from common.models import ActivityLog
+            log_activity(request, ActivityLog.ACTION_UPDATE, 'order', serializer.instance, old_data=old_data)
+        except Exception:
+            pass
+
+        return Response(serializer.data)
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        try:
+            from common.audit import log_activity
+            from common.models import ActivityLog
+            log_activity(request, ActivityLog.ACTION_DELETE, 'order', instance)
+        except Exception:
+            pass
+        instance.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(detail=False, methods=['post'], url_path='from-picklist')
     def from_picklist(self, request):

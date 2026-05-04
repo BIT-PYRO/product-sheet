@@ -1,4 +1,6 @@
 import json
+import logging
+import traceback
 
 from django.conf import settings
 from rest_framework.decorators import api_view, permission_classes
@@ -7,6 +9,8 @@ from rest_framework.response import Response
 from rest_framework import status
 
 from . import services
+
+logger = logging.getLogger(__name__)
 
 
 @api_view(['GET'])
@@ -51,6 +55,12 @@ def calendar_callback(request):
         creds = services.exchange_code(code)
         services.save_credentials(request.user, creds)
     except Exception as exc:
+        logger.error(
+            "calendar_callback exchange_code failed for user %s: %s\n%s",
+            request.user.pk,
+            exc,
+            traceback.format_exc(),
+        )
         return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
     # Redirect back to the frontend mydesk page

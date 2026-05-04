@@ -45,6 +45,17 @@ class LoginView(TokenObtainPairView):
 		response = super().post(request, *args, **kwargs)
 		if response.status_code >= 400:
 			return response
+		# Log the login event — resolve user from username so we have an instance
+		try:
+			from common.audit import log_activity
+			from common.models import ActivityLog
+			username = request.data.get('username', '')
+			User = get_user_model()
+			user_obj = User.objects.filter(username=username).first()
+			if user_obj:
+				log_activity(request, ActivityLog.ACTION_LOGIN, ActivityLog.SHEET_AUTH, user_obj, extra={'login_method': 'credentials'})
+		except Exception:
+			pass
 		return api_success(response.data, message='Login successful.')
 
 
@@ -181,6 +192,13 @@ class GoogleLoginView(APIView):
 			user.save(update_fields=['is_active'])
 
 		refresh = RefreshToken.for_user(user)
+		# Log the Google login event
+		try:
+			from common.audit import log_activity
+			from common.models import ActivityLog
+			log_activity(request, ActivityLog.ACTION_LOGIN, ActivityLog.SHEET_AUTH, user, extra={'login_method': 'google', 'email': email})
+		except Exception:
+			pass
 		return api_success(
 			{
 				'access': str(refresh.access_token),

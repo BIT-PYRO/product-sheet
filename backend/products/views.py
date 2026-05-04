@@ -176,6 +176,8 @@ class TableColumnConfigViewSet(ModelViewSet):
 	destroy=extend_schema(summary='Delete product', tags=['Products']),
 )
 class ProductViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
+	audit_sheet = 'product'
+
 	class ProductFilter(django_filters.FilterSet):
 		category = django_filters.CharFilter(lookup_expr='iexact')
 		master_sku = django_filters.CharFilter(lookup_expr='iexact')
@@ -204,6 +206,12 @@ class ProductViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 
 	def destroy(self, request, *args, **kwargs):
 		instance = self.get_object()
+		try:
+			from common.audit import log_activity
+			from common.models import ActivityLog
+			log_activity(request, ActivityLog.ACTION_DELETE, 'product', instance)
+		except Exception:
+			pass
 		with db_transaction.atomic():
 			# Nullable FK — detach jobs so the product can be deleted
 			instance.jobs.update(product=None)
@@ -241,5 +249,12 @@ class ProductViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 		current_images.append(image_url)
 		product.images = current_images
 		product.save(update_fields=['images'])
+
+		try:
+			from common.audit import log_activity
+			from common.models import ActivityLog
+			log_activity(request, ActivityLog.ACTION_UPLOAD, 'product', product, extra={'url': image_url})
+		except Exception:
+			pass
 
 		return Response({'success': True, 'data': {'url': image_url, 'images': product.images}})

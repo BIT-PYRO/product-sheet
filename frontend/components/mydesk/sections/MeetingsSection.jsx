@@ -125,6 +125,16 @@ export default function MeetingsSection({ members = [] }) {
     useEffect(() => {
         loadMeetings();
 
+        // Show an error toast if the OAuth callback failed
+        const calendarParam = searchParams.get('calendar');
+        if (calendarParam === 'error') {
+            setToast({
+                open: true,
+                message: 'Google Calendar connection failed. Please try again.',
+                severity: 'error',
+            });
+        }
+
         try {
             const cached = window.localStorage.getItem('unify:last-scheduled-meeting');
             if (cached) {

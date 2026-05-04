@@ -19,6 +19,7 @@ from .serializers import DesignerSheetSerializer
     destroy=extend_schema(summary='Delete designer sheet', tags=['Designers']),
 )
 class DesignerSheetViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
+    audit_sheet = 'designer'
     queryset = DesignerSheet.objects.all().order_by('-created_at')
     serializer_class = DesignerSheetSerializer
     filterset_fields = ['is_active', 'sku']
@@ -50,5 +51,12 @@ class DesignerSheetViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 
         setattr(designer, field, image_url)
         designer.save(update_fields=[field])
+
+        try:
+            from common.audit import log_activity
+            from common.models import ActivityLog
+            log_activity(request, ActivityLog.ACTION_UPLOAD, 'designer', designer, extra={'field': field, 'url': image_url})
+        except Exception:
+            pass
 
         return Response({'success': True, 'data': {'url': image_url, 'field': field}})

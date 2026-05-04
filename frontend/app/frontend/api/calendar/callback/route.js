@@ -40,14 +40,29 @@ export async function GET(request) {
       const refreshPayload = await refreshResp.json().catch(() => ({}));
       const newToken = refreshPayload?.access || refreshPayload?.data?.access || '';
       if (newToken) {
-        await fetch(backendCallbackUrl, {
+        const retryResp = await fetch(backendCallbackUrl, {
           headers: { Authorization: `Bearer ${newToken}` },
           redirect: 'manual',
           cache: 'no-store',
         });
+        // 302 = redirect (success), 200 = ok, anything 4xx/5xx = failure
+        if (retryResp.status >= 400) {
+          const body = await retryResp.text().catch(() => '');
+          console.error('[calendar/callback] backend retry failed:', retryResp.status, body);
+          return NextResponse.redirect(new URL('/mydesk?calendar=error', request.url));
+        }
+      } else {
+        // Could not refresh token
+        return NextResponse.redirect(new URL('/mydesk?calendar=error', request.url));
       }
+    } else if (resp.status >= 400) {
+      // Non-401 error from backend
+      const body = await resp.text().catch(() => '');
+      console.error('[calendar/callback] backend failed:', resp.status, body);
+      return NextResponse.redirect(new URL('/mydesk?calendar=error', request.url));
     }
-  } catch {
+  } catch (err) {
+    console.error('[calendar/callback] fetch threw:', err);
     return NextResponse.redirect(new URL('/mydesk?calendar=error', request.url));
   }
 

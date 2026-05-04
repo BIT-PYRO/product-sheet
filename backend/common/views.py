@@ -1,17 +1,30 @@
 from celery.result import AsyncResult
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import OpenApiExample, extend_schema
-from rest_framework.filters import OrderingFilter
+from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.mixins import ListModelMixin
-from rest_framework.permissions import IsAdminUser, IsAuthenticated
+from rest_framework.permissions import BasePermission, IsAdminUser, IsAuthenticated
 from rest_framework.viewsets import GenericViewSet
 from rest_framework.views import APIView
+from rest_framework.pagination import PageNumberPagination
 
 from common.api import api_success
 from common.mixins import StandardizedSuccessResponseMixin
-from common.models import DeletionLog
-from common.serializers import DeletionLogSerializer
+from common.models import ActivityLog, DeletionLog
+from common.serializers import ActivityLogSerializer, DeletionLogSerializer
 from common.tasks import generate_operations_summary_task, ping_task
+
+
+class IsSuperuser(BasePermission):
+	"""Allow access only to Django superusers (is_superuser=True)."""
+	def has_permission(self, request, view):
+		return bool(request.user and request.user.is_authenticated and request.user.is_superuser)
+
+
+class ActivityLogPagination(PageNumberPagination):
+	page_size = 50
+	page_size_query_param = 'page_size'
+	max_page_size = 200
 
 
 class TriggerPingTaskView(APIView):
@@ -115,3 +128,45 @@ class DeletionLogViewSet(StandardizedSuccessResponseMixin, ListModelMixin, Gener
 	filterset_fields = ['app_label', 'model_name']
 	ordering_fields = ['deleted_at']
 	ordering = ['-deleted_at']
+
+
+@extend_schema(tags=['Activity Log'])
+class ActivityLogViewSet(ListModelMixin, GenericViewSet):
+	"""
+	Superuser-only read-only endpoint for the comprehensive audit trail.
+
+	Supported query params:
+	  sheet       — filter by sheet label (product, designer, …)
+	  action      — filter by action (create, update, delete, upload, login)
+	  user_id     — filter by user PK
+	  date_from   — ISO date, e.g. 2026-01-01
+	  date_to     — ISO date, e.g. 2026-12-31
+	  search      — partial match on object_repr or user_name
+	"""
+	permission_classes = [IsSuperuser]
+	serializer_class = ActivityLogSerializer
+	pagination_class = ActivityLogPagination
+	queryset = ActivityLog.objects.select_related('user').all()
+	filter_backends = [DjangoFilterBackend, OrderingFilter, SearchFilter]
+	filterset_fields = ['sheet', 'action']
+	ordering_fields = ['timestamp']
+	ordering = ['-timestamp']
+	search_fields = ['object_repr', 'user_name']
+
+	def get_queryset(self):
+		qs = super().get_queryset()
+		params = self.request.query_params
+
+		user_id = params.get('user_id')
+		if user_id:
+			qs = qs.filter(user_id=user_id)
+
+		date_from = params.get('date_from')
+		if date_from:
+			qs = qs.filter(timestamp__date__gte=date_from)
+
+		date_to = params.get('date_to')
+		if date_to:
+			qs = qs.filter(timestamp__date__lte=date_to)
+
+		return qs

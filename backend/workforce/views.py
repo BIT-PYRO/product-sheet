@@ -23,6 +23,7 @@ logger = logging.getLogger(__name__)
 	destroy=extend_schema(summary='Delete workforce member', tags=['Workforce']),
 )
 class WorkforceMemberViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
+	audit_sheet = 'workforce'
 	queryset = WorkforceMember.objects.all().order_by('-created_at')
 	serializer_class = WorkforceMemberSerializer
 	filterset_fields = ['active']
@@ -43,6 +44,12 @@ class WorkforceMemberViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 			raise ValidationError({'detail': 'already_exists', 'id': existing.id})
 		instance = serializer.save()
 		sync_member_permissions(instance)
+		try:
+			from common.audit import log_activity
+			from common.models import ActivityLog
+			log_activity(getattr(self, 'request', None), ActivityLog.ACTION_CREATE, 'workforce', instance)
+		except Exception:
+			pass
 
 	def perform_update(self, serializer):
 		from django.contrib.auth import get_user_model
@@ -50,6 +57,11 @@ class WorkforceMemberViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 		old_designation = old.designation
 		old_department = old.department
 		old_active = old.active
+		try:
+			from common.audit import serialize_instance
+			old_data = serialize_instance(old)
+		except Exception:
+			old_data = None
 		instance = serializer.save()
 		# Re-sync permissions if designation or department changed — only for active members
 		if instance.active and (instance.designation != old_designation or instance.department != old_department):
@@ -70,6 +82,12 @@ class WorkforceMemberViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 			else:
 				# Restore: reload permissions from role defaults
 				sync_member_permissions(instance)
+		try:
+			from common.audit import log_activity
+			from common.models import ActivityLog
+			log_activity(getattr(self, 'request', None), ActivityLog.ACTION_UPDATE, 'workforce', instance, old_data=old_data)
+		except Exception:
+			pass
 
 	@extend_schema(summary='Upload or update profile photo for a workforce member', tags=['Workforce'])
 	@action(detail=True, methods=['post'], url_path='upload-photo')
@@ -88,6 +106,12 @@ class WorkforceMemberViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 				return Response({'success': False, 'message': 'Photo upload failed. Please try a different image (JPEG or PNG).'}, status=400)
 			member.profile_photo_url = url
 			member.save(update_fields=['profile_photo_url'])
+			try:
+				from common.audit import log_activity
+				from common.models import ActivityLog
+				log_activity(request, ActivityLog.ACTION_UPLOAD, 'workforce', member, extra={'field': 'profile_photo_url', 'url': url})
+			except Exception:
+				pass
 			return Response({'success': True, 'data': {'profile_photo_url': url}, 'message': 'Photo uploaded successfully.'})
 		except Exception as exc:
 			logger.exception('upload_photo unexpected error for pk=%s', pk)
@@ -118,6 +142,12 @@ class WorkforceMemberViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 			else:
 				member.pan_url = url
 				member.save(update_fields=['pan_url'])
+			try:
+				from common.audit import log_activity
+				from common.models import ActivityLog
+				log_activity(request, ActivityLog.ACTION_UPLOAD, 'workforce', member, extra={'field': f'{doc_type}_url', 'url': url})
+			except Exception:
+				pass
 			return Response({'success': True, 'data': {'url': url, 'doc_type': doc_type}, 'message': f'{doc_type.upper()} document uploaded successfully.'})
 		except Exception as exc:
 			logger.exception('upload_document unexpected error for pk=%s', pk)

@@ -21,6 +21,12 @@ services:
         value: "8000"
       - key: CORS_ALLOWED_ORIGINS_EXTRA
         value: "https://product-sheet-frontend.onrender.com"
+      - key: GOOGLE_CLIENT_ID
+        value: "448098100393-drt9nuct3uf962eqjjeq6ikeigblfntb.apps.googleusercontent.com"
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_CALENDAR_REDIRECT_URI
+        value: "https://product-sheet-frontend.onrender.com/api/calendar/callback/"
 
   - type: web
     name: product-sheet-frontend

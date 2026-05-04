@@ -47,6 +47,7 @@ from core.mydesk.views import (
     ChatConversationListView,
     ChatMessageListCreateView,
     ChatMarkReadView,
+    TeamMembersView,
 )
 
 # --- URL Patterns ---
@@ -125,6 +126,9 @@ urlpatterns = [
     path('api/mydesk/chat/conversations/', ChatConversationListView.as_view(), name='mydesk-chat-conversations'),
     path('api/mydesk/chat/conversations/<int:conv_id>/messages/', ChatMessageListCreateView.as_view(), name='mydesk-chat-messages'),
     path('api/mydesk/chat/conversations/<int:conv_id>/read/', ChatMarkReadView.as_view(), name='mydesk-chat-mark-read'),
+
+    # Team members (for meeting scheduling)
+    path('api/team/members/', TeamMembersView.as_view(), name='team-members'),
 ]
 
 # In your main urlpatterns, add:

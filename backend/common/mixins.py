@@ -14,8 +14,56 @@ class StandardizedSuccessResponseMixin:
         "destroy": "Record deleted successfully.",
     }
 
+    def _audit_sheet(self):
+        return getattr(self, 'audit_sheet', 'other')
+
+    def perform_create(self, serializer):
+        super().perform_create(serializer)
+        try:
+            from common.audit import log_activity
+            from common.models import ActivityLog
+            log_activity(
+                getattr(self, 'request', None),
+                ActivityLog.ACTION_CREATE,
+                self._audit_sheet(),
+                serializer.instance,
+            )
+        except Exception:
+            pass
+
+    def perform_update(self, serializer):
+        try:
+            from common.audit import serialize_instance
+            old_data = serialize_instance(serializer.instance)
+        except Exception:
+            old_data = None
+        super().perform_update(serializer)
+        try:
+            from common.audit import log_activity
+            from common.models import ActivityLog
+            log_activity(
+                getattr(self, 'request', None),
+                ActivityLog.ACTION_UPDATE,
+                self._audit_sheet(),
+                serializer.instance,
+                old_data=old_data,
+            )
+        except Exception:
+            pass
+
     def perform_destroy(self, instance):
         """Log the deletion before removing the record."""
+        try:
+            from common.audit import log_activity
+            from common.models import ActivityLog
+            log_activity(
+                getattr(self, 'request', None),
+                ActivityLog.ACTION_DELETE,
+                self._audit_sheet(),
+                instance,
+            )
+        except Exception:
+            pass
         self._record_deletion(instance)
         super().perform_destroy(instance)
 

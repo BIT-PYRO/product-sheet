@@ -7229,6 +7229,7 @@ class GalleryItemDownloadView(OrgScopedBaseAPIView):
         return Response({'url': absolute_url})
 
 
+
 # ---------------------------------------------------------------------------
 # Chat API Views
 # ---------------------------------------------------------------------------
@@ -7386,3 +7387,20 @@ class ChatMarkReadView(OrgScopedBaseAPIView):
             return Response({'error': 'Forbidden'}, status=status.HTTP_403_FORBIDDEN)
         updated = conv.messages.filter(is_read=False).exclude(sender=request.user).update(is_read=True)
         return Response({'marked_read': updated})
+
+
+class TeamMembersView(OrgScopedBaseAPIView):
+    """Return a minimal list of organisation users for meeting scheduling."""
+
+    def get(self, request):
+        org_id = _get_org_id_or_none(request.user)
+        users = list(_organization_users(org_id))
+        members = [
+            {
+                'id': user.id,
+                'name': _user_full_name(user),
+                'email': str(user.email or '').strip(),
+            }
+            for user in users
+        ]
+        return Response(members)

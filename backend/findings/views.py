@@ -16,6 +16,7 @@ from .serializers import FindingSerializer
     destroy=extend_schema(summary='Delete finding', tags=['Findings']),
 )
 class FindingViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
+    audit_sheet = 'finding'
     queryset = Finding.objects.all().order_by('-created_at')
     serializer_class = FindingSerializer
     filterset_fields = ['is_active', 'finding_code']

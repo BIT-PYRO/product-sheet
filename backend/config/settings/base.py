@@ -1,10 +1,14 @@
 from datetime import timedelta
+import os
 from pathlib import Path
 
 import dj_database_url
 import environ
 from celery.schedules import crontab
 from django.core.exceptions import ImproperlyConfigured
+
+# Allow OAuth token scope changes (e.g. when include_granted_scopes returns extra scopes)
+os.environ.setdefault('OAUTHLIB_RELAX_TOKEN_SCOPE', '1')
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent

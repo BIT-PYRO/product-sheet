@@ -16,6 +16,7 @@ from .serializers import KYCRecordSerializer
 	destroy=extend_schema(summary='Delete KYC record', tags=['KYC']),
 )
 class KYCRecordViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
+	audit_sheet = 'kyc'
 	queryset = KYCRecord.objects.all().order_by('-created_at')
 	serializer_class = KYCRecordSerializer
 	filterset_fields = ['member', 'status']
