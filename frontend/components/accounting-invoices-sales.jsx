@@ -913,7 +913,6 @@ export default function AccountingInvoicesSales({ onRefresh, dateParams }) {
                   <input type="checkbox" checked={isSelected} onChange={() => toggleSelect(inv.id)} onClick={e => e.stopPropagation()} style={{ cursor: 'pointer' }} />
                 </td>
                 <td className="print-only" style={{ padding: '12px 14px', fontSize: 13, color: C.text, display: 'none' }}>{i + 1}</td>
-<<<<<<< HEAD
                 <td className="no-print" style={{ padding: '12px 14px', fontSize: 12, color: C.muted, fontFamily: 'monospace' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     <span>#{inv.id}</span>
@@ -926,9 +925,6 @@ export default function AccountingInvoicesSales({ onRefresh, dateParams }) {
                     </button>
                   </div>
                 </td>
-=======
-                <td className="no-print" style={{ padding: '12px 14px', fontSize: 12, color: C.muted, fontWeight: 600 }}>{i + 1}</td>
->>>>>>> JATIN
                 <td style={{ padding: '12px 14px' }}>
                   <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: C.text }}>{inv.party_name}</p>
                   {inv.description && <p style={{ margin: '2px 0 0', fontSize: 11, color: C.muted }}>{inv.description}</p>}
