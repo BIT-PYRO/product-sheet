@@ -14,7 +14,7 @@ from django.conf import settings
 from django.core.files.base import ContentFile
 from django.core.mail import send_mail
 from django.db import connection, transaction
-from django.db.models import Q
+from django.db.models import Prefetch, Q
 from django.http import FileResponse, HttpResponse, HttpResponseRedirect
 from django.utils import timezone
 
