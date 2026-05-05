@@ -93,8 +93,7 @@ export default function CalendarPopover({
                                     <ListItemText
                                         primary={eventItem.title || 'Untitled'}
                                         secondary={formatEventTime(eventItem.start)}
-                                        primaryTypographyProps={{ variant: 'body2', fontWeight: 600 }}
-                                        secondaryTypographyProps={{ variant: 'caption' }}
+                                        slotProps={{ primary: { variant: 'body2', fontWeight: 600 }, secondary: { variant: 'caption' } }}
                                     />
                                     <Chip size="small" label={meta.label} variant="outlined" />
                                 </ListItem>

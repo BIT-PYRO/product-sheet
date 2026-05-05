@@ -118,7 +118,7 @@ export default function PersonalTodoSection() {
                         <ListItemText
                             primary={item.text}
                             secondary={`Recurring: ${item.recurring}`}
-                            primaryTypographyProps={{ sx: { textDecoration: item.is_done ? 'line-through' : 'none' } }}
+                            slotProps={{ primary: { sx: { textDecoration: item.is_done ? 'line-through' : 'none' } } }}
                             onClick={async () => {
                                 const nextDone = !item.is_done;
                                 setItems((previous) => previous.map((entry) => entry.id === item.id ? { ...entry, is_done: nextDone } : entry));

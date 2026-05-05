@@ -447,7 +447,7 @@ export default function DiarySection() {
                                             </Typography>
                                         </Stack>
                                     )}
-                                    secondaryTypographyProps={{ component: 'div' }}
+                                    slotProps={{ secondary: { component: 'div' } }}
                                 />
                             </ListItem>
                         ))}
