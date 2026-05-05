@@ -42,6 +42,38 @@ class InventoryTransactionViewSet(StandardizedSuccessResponseMixin, ModelViewSet
 	filterset_fields = ['product', 'txn_type']
 	search_fields = ['remark']
 
+	def _cross_log_product(self, instance, action_type, old_data=None):
+		"""Also write an ActivityLog entry for the parent product sheet so inventory
+		changes appear in the product's activity log panel."""
+		try:
+			product = getattr(instance, 'product', None)
+			if product is None:
+				return
+			from common.audit import log_activity
+			from common.models import ActivityLog
+			log_activity(
+				getattr(self, 'request', None),
+				action_type,
+				'product',
+				product,
+				old_data=old_data,
+			)
+		except Exception:
+			pass
+
+	def perform_create(self, serializer):
+		super().perform_create(serializer)
+		self._cross_log_product(serializer.instance, 'create')
+
+	def perform_update(self, serializer):
+		try:
+			from common.audit import serialize_instance
+			old_product_data = serialize_instance(serializer.instance.product) if getattr(serializer.instance, 'product', None) else None
+		except Exception:
+			old_product_data = None
+		super().perform_update(serializer)
+		self._cross_log_product(serializer.instance, 'update', old_data=old_product_data)
+
 
 @extend_schema_view(
 	list=extend_schema(summary='List picklist groups', tags=['Inventory']),

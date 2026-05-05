@@ -169,4 +169,8 @@ class ActivityLogViewSet(ListModelMixin, GenericViewSet):
 		if date_to:
 			qs = qs.filter(timestamp__date__lte=date_to)
 
+		object_id = params.get('object_id')
+		if object_id:
+			qs = qs.filter(object_id=object_id)
+
 		return qs
