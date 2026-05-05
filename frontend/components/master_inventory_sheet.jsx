@@ -2272,7 +2272,7 @@ export default function MasterInventorySheet() {
           <span>Selected: {selectedRows.size}</span>
         </div>
         <LastUpdatedFooter timestamp={lastUpdated} username={currentUsername} compact />
-        <DeletionHistoryDrawer appLabel="inventory" modelName="inventorytransaction" />
+        <DeletionHistoryDrawer appLabel="inventory" modelName="inventorytransaction" sheet="inventory" />
       </div>
 
       <CreateJobModal

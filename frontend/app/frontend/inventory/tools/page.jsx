@@ -1369,7 +1369,7 @@ export default function ToolsInventoryPage() {
               {editingRowIds.size > 0 && <span className="text-trust-blue font-semibold">Editing {editingRowIds.size} item(s)</span>}
             </div>
             <LastUpdatedFooter timestamp={lastUpdated} username={currentUserName} compact />
-            <DeletionHistoryDrawer appLabel="inventory" modelName="toolitem" />
+            <DeletionHistoryDrawer appLabel="inventory" modelName="toolitem" sheet="inventory" />
           </div>
         );
       })()}

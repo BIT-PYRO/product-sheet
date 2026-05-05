@@ -1343,7 +1343,7 @@ export default function DieInventoryPage() {
               {editingRowIds.size > 0 && <span className="text-trust-blue font-semibold">Editing {editingRowIds.size} item(s)</span>}
             </div>
             <LastUpdatedFooter timestamp={lastUpdated} username={currentUserName} compact />
-            <DeletionHistoryDrawer appLabel="inventory" modelName="dieinventoryitem" />
+            <DeletionHistoryDrawer appLabel="inventory" modelName="dieinventoryitem" sheet="inventory" />
           </div>
         );
       })()}

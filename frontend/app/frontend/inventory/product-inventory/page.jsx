@@ -1417,7 +1417,7 @@ export default function ProductInventoryPage() {
           {editingRowIds.size > 0 && <span className="text-trust-blue font-semibold">Editing {editingRowIds.size} item(s)</span>}
         </div>
         <LastUpdatedFooter timestamp={lastUpdated} username={currentUsername} compact />
-        <DeletionHistoryDrawer appLabel="inventory" modelName="productinventoryitem" />
+        <DeletionHistoryDrawer appLabel="inventory" modelName="productinventoryitem" sheet="inventory" />
       </div>
     </div>
   );

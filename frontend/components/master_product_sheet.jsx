@@ -1794,7 +1794,7 @@ export default function MasterProductSheet() {
           {editingRowIds.size > 0 && <span className="text-trust-blue font-semibold">Editing {editingRowIds.size} row(s)</span>}
         </div>
         <LastUpdatedFooter timestamp={lastUpdated} username={currentUsername} compact />
-        <DeletionHistoryDrawer appLabel="products" modelName="product" />
+        <DeletionHistoryDrawer appLabel="products" modelName="product" sheet="product" />
       </div>
     </div>
   );

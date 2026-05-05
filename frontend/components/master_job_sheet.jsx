@@ -1318,7 +1318,7 @@ export default function MasterJobSheet() {
           <EnrolWorkforceForm />
         </DialogContent>
       </Dialog>
-      <DeletionHistoryDrawer appLabel="jobs" modelName="job" />
+      <DeletionHistoryDrawer appLabel="jobs" modelName="job" sheet="job" />
     </div>
   );
 }

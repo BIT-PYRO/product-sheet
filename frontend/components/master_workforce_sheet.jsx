@@ -1454,7 +1454,7 @@ export default function MasterWorkforceSheet() {
           {editingRowIds.size > 0 && <span className="text-trust-blue font-semibold">Editing {editingRowIds.size} row(s)</span>}
         </div>
         <LastUpdatedFooter timestamp={lastUpdated} username={currentUsername} compact />
-        <DeletionHistoryDrawer appLabel="workforce" modelName="workforcemember" />
+        <DeletionHistoryDrawer appLabel="workforce" modelName="workforcemember" sheet="workforce" />
       </div>
 
       {/* Quick Enroll Modal */}

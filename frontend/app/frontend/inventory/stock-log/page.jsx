@@ -801,7 +801,7 @@ export default function StockLogPage() {
           </div>
         </DialogContent>
       </Dialog>
-      <DeletionHistoryDrawer appLabel="inventory" modelName="stocktransaction" />
+      <DeletionHistoryDrawer appLabel="inventory" modelName="stocktransaction" sheet="inventory" />
     </main>
   );
 }

@@ -157,7 +157,7 @@ function OrdersPageInner() {
           </section>
         )}
       </div>
-      <DeletionHistoryDrawer appLabel="orders" modelName="order" />
+      <DeletionHistoryDrawer appLabel="orders" modelName="order" sheet="order" />
     </main>
   );
 }

@@ -1783,7 +1783,7 @@ export default function StoneInventoryPage() {
               <span>Selected: {selectedIds.size}</span>
             </div>
             <LastUpdatedFooter timestamp={lastUpdated} username={currentUserName} compact />
-            <DeletionHistoryDrawer appLabel="inventory" modelName="stoneitem" />
+            <DeletionHistoryDrawer appLabel="inventory" modelName="stoneitem" sheet="inventory" />
           </div>
         );
       })()}

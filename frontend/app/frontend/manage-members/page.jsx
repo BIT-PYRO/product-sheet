@@ -874,7 +874,7 @@ export default function ManageMembersPage() {
           )}
         </div>
       </div>
-      <DeletionHistoryDrawer appLabel="accounts" modelName="user" />
+      <DeletionHistoryDrawer appLabel="accounts" modelName="user" sheet="auth" />
     </main>
   );
 }

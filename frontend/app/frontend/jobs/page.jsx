@@ -245,7 +245,7 @@ export default function JobsDashboard() {
           </div>
         ) : null}
       </div>
-      <DeletionHistoryDrawer appLabel="jobs" modelName="job" />
+      <DeletionHistoryDrawer appLabel="jobs" modelName="job" sheet="job" />
     </div>
   )
 }
