@@ -355,7 +355,7 @@ export default function MeetingsSection({ members = [] }) {
             )}
 
             <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
-                <Stack direction={{ xs: 'column', sm: 'row' }} alignItems={{ xs: 'stretch', sm: 'center' }} justifyContent="space-between" spacing={1.25}>
+                <Stack direction={{ xs: 'column', sm: 'row' }} sx={{ alignItems: { xs: 'stretch', sm: 'center' }, justifyContent: 'space-between' }} spacing={1.25}>
                     <Typography variant="h6" sx={{ fontWeight: 700 }}>
                         My Meetings
                     </Typography>
@@ -407,7 +407,7 @@ export default function MeetingsSection({ members = [] }) {
                                     size="small"
                                     type="date"
                                     label="Date"
-                                    InputLabelProps={{ shrink: true }}
+                                    slotProps={{ inputLabel: { shrink: true } }}
                                     value={form.date}
                                     onChange={(event) => setForm({ ...form, date: event.target.value })}
                                     fullWidth
@@ -416,7 +416,7 @@ export default function MeetingsSection({ members = [] }) {
                                     size="small"
                                     type="time"
                                     label="Time"
-                                    InputLabelProps={{ shrink: true }}
+                                    slotProps={{ inputLabel: { shrink: true } }}
                                     value={form.time}
                                     onChange={(event) => setForm({ ...form, time: event.target.value })}
                                     fullWidth
@@ -451,7 +451,7 @@ export default function MeetingsSection({ members = [] }) {
 
                             <Box>
                                 <Typography variant="caption" color="text.secondary">Notification Before</Typography>
-                                <Stack direction="row" spacing={0.75} alignItems="center" sx={{ mt: 0.5 }}>
+                                <Stack direction="row" spacing={0.75} sx={{ alignItems: 'center', mt: 0.5 }}>
                                     {['10m', '1h', 'custom'].map((option) => (
                                         <Chip
                                             key={option}
@@ -495,7 +495,7 @@ export default function MeetingsSection({ members = [] }) {
                             </Box>
 
                             {/* ── Submit row ── */}
-                            <Stack direction="row" spacing={1} justifyContent="flex-end" sx={{ pt: 0.5 }}>
+                            <Stack direction="row" spacing={1} sx={{ justifyContent: 'flex-end', pt: 0.5 }}>
                                 <Button
                                     variant="outlined"
                                     size="small"
@@ -566,9 +566,9 @@ export default function MeetingsSection({ members = [] }) {
                                     transition: 'box-shadow 0.2s ease',
                                 }}
                             >
-                                <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" spacing={1.25}>
+                                <Stack direction={{ xs: 'column', md: 'row' }} sx={{ justifyContent: 'space-between' }} spacing={1.25}>
                                     <Box sx={{ minWidth: 0, flex: 1 }}>
-                                        <Stack direction="row" spacing={0.75} alignItems="center" sx={{ mb: 0.35 }}>
+                                        <Stack direction="row" spacing={0.75} sx={{ alignItems: 'center', mb: 0.35 }}>
                                             <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
                                                 {meeting.title}
                                             </Typography>
@@ -582,7 +582,7 @@ export default function MeetingsSection({ members = [] }) {
                                         </Typography>
                                     </Box>
 
-                                    <Stack direction="row" spacing={0.5} alignItems="center" justifyContent={{ xs: 'flex-start', md: 'flex-end' }}>
+                                    <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center', justifyContent: { xs: 'flex-start', md: 'flex-end' } }}>
                                         <Button
                                             variant="contained"
                                             size="small"

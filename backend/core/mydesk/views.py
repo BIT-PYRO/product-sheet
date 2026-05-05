@@ -7264,23 +7264,15 @@ def _serialize_message(msg, me_id):
 
 def _serialize_conversation(conv, me_id):
     """Return conversation info with last message and unread count for the requesting user."""
-    prefetched = getattr(conv, '_prefetched_objects_cache', {}) or {}
-
-    participants_manager = conv.participants
-    if 'participants' in prefetched:
-        participants = prefetched.get('participants') or []
-        other = next((u for u in participants if u.id != me_id), None)
+    # Use .all() — Django automatically hits the prefetch cache when prefetch_related was used.
+    if conv.is_broadcast:
+        other = None
     else:
-        other = participants_manager.exclude(id=me_id).first()
+        other = next((u for u in conv.participants.all() if u.id != me_id), None)
 
-    messages_manager = conv.messages
-    if 'messages' in prefetched:
-        messages = prefetched.get('messages') or []
-        last_msg = messages[-1] if messages else None
-        unread = sum(1 for m in messages if (not m.is_read and m.sender_id != me_id))
-    else:
-        last_msg = messages_manager.select_related('sender', 'sender__presence').order_by('-created_at').first()
-        unread = messages_manager.filter(is_read=False).exclude(sender_id=me_id).count()
+    all_messages = list(conv.messages.all())  # plain list — safe for [-1] indexing
+    last_msg = all_messages[-1] if all_messages else None
+    unread = sum(1 for m in all_messages if (not m.is_read and m.sender_id != me_id))
 
     return {
         'id': conv.id,
