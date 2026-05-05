@@ -382,7 +382,7 @@ export default function ExpensesSection() {
     return (
         <Stack spacing={1}>
             <Paper variant="outlined" sx={{ borderRadius: 2 }}>
-                <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', md: 'center' }} sx={{ px: 2.5, py: 1 }} spacing={1}>
+                <Stack direction={{ xs: 'column', md: 'row' }} sx={{ justifyContent: 'space-between', alignItems: { xs: 'flex-start', md: 'center' }, px: 2.5, py: 1 }} spacing={1}>
                     <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>New Entry</Typography>
                     <Stack direction="row" spacing={1}>
                         <Button size="small" variant={form.transactionType === 'expense' ? 'contained' : 'outlined'} onClick={() => setForm({ ...form, transactionType: 'expense' })}>↑ Spent</Button>
@@ -441,7 +441,7 @@ export default function ExpensesSection() {
             </Paper>
 
             <Paper variant="outlined" sx={{ borderRadius: 2 }}>
-                <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', md: 'center' }} sx={{ px: 2.5, py: 2 }} spacing={1}>
+                <Stack direction={{ xs: 'column', md: 'row' }} sx={{ justifyContent: 'space-between', alignItems: { xs: 'flex-start', md: 'center' }, px: 2.5, py: 2 }} spacing={1}>
                     <Typography variant="h6" sx={{ fontWeight: 700 }}>
                         <Box component="span" sx={{ color: 'text.primary', fontWeight: 700 }}>
                             Spent <Box component="span" sx={{ color: 'error.main', fontWeight: 700 }}>{canViewAmounts ? `₹${totalSpent.toLocaleString()}` : "₹ ****"}</Box>
@@ -485,8 +485,8 @@ export default function ExpensesSection() {
                 <Divider />
 
                 <Stack sx={{ p: 2.5, overflowX: 'auto' }} spacing={1.25}>
-                    <Stack direction="row" spacing={1} sx={{ minWidth: 'max-content' }} alignItems="center" justifyContent="space-between">
-                        <Stack direction="row" spacing={1} alignItems="center">
+                    <Stack direction="row" spacing={1} sx={{ minWidth: 'max-content', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
                             <FormControl size="small" sx={{ minWidth: 130 }}>
                                 <InputLabel>Timeline</InputLabel>
                                 <Select label="Timeline" value={timeline} onChange={(event) => setTimeline(event.target.value)}>

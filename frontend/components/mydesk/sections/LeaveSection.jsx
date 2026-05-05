@@ -130,7 +130,7 @@ export default function LeaveSection() {
         <Stack spacing={2}>
             {/* ── Application Form ── */}
             <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
-                <Stack direction="row" alignItems="center" spacing={1} mb={1.5}>
+                <Stack direction="row" sx={{ alignItems: 'center' }} spacing={1} mb={1.5}>
                     <Typography variant="subtitle1" fontWeight={700}>
                         {editingId ? 'Edit Leave Request' : 'Apply for Leave'}
                     </Typography>
@@ -139,16 +139,16 @@ export default function LeaveSection() {
 
                 {formError && <Alert severity="error" sx={{ mb: 1.5, py: 0.5 }}>{formError}</Alert>}
 
-                <Stack direction="row" spacing={1.5} flexWrap="wrap" useFlexGap alignItems="center">
+                <Stack direction="row" spacing={1.5} useFlexGap sx={{ flexWrap: 'wrap', alignItems: 'center' }}>
                     <FormControl size="small" sx={{ minWidth: 170 }}>
                         <InputLabel>Leave Type</InputLabel>
                         <Select label="Leave Type" value={form.type} onChange={(e) => setForm((p) => ({ ...p, type: e.target.value }))}>
                             {LEAVE_TYPES.map((t) => <MenuItem key={t.value} value={t.value}>{t.label}</MenuItem>)}
                         </Select>
                     </FormControl>
-                    <TextField type="date" size="small" label="From" InputLabelProps={{ shrink: true }}
+                    <TextField type="date" size="small" label="From" slotProps={{ inputLabel: { shrink: true } }}
                         value={form.from} onChange={(e) => setForm((p) => ({ ...p, from: e.target.value }))} sx={{ minWidth: 155 }} />
-                    <TextField type="date" size="small" label="To" InputLabelProps={{ shrink: true }}
+                    <TextField type="date" size="small" label="To" slotProps={{ inputLabel: { shrink: true } }}
                         value={form.to} onChange={(e) => setForm((p) => ({ ...p, to: e.target.value }))} sx={{ minWidth: 155 }} />
                     {form.from && form.to && form.to >= form.from && (
                         <Chip label={`${dayCount(form.from, form.to)} day${dayCount(form.from, form.to) !== 1 ? 's' : ''}`}
@@ -198,9 +198,9 @@ export default function LeaveSection() {
                         <Box key={entry.id} sx={{ px: 2, py: 1.5,
                             bgcolor: entry.status === 'approved' ? 'rgba(34,197,94,0.04)' :
                                 entry.status === 'rejected' ? 'rgba(239,68,68,0.04)' : 'transparent' }}>
-                            <Stack direction="row" spacing={1.5} alignItems="flex-start" flexWrap="wrap">
+                            <Stack direction="row" spacing={1.5} sx={{ alignItems: 'flex-start', flexWrap: 'wrap' }}>
                                 <Box sx={{ flex: 1, minWidth: 200 }}>
-                                    <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+                                    <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
                                         <Typography variant="body2" fontWeight={700}>
                                             {LEAVE_LABEL[entry.leave_type] || entry.leave_type?.toUpperCase()}
                                         </Typography>
@@ -237,7 +237,7 @@ export default function LeaveSection() {
                                     )}
                                 </Box>
                                 {entry.status === 'pending' && (
-                                    <Stack direction="row" spacing={0.5} alignItems="center" flexShrink={0}>
+                                    <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center', flexShrink: 0 }}>
                                         <Tooltip title="Remind HR">
                                             <span>
                                                 <IconButton size="small" color="primary" disabled={remindingId === entry.id}

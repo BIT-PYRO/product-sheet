@@ -771,12 +771,14 @@ class AttendanceRulebook(models.Model):
 # ---------------------------------------------------------------------------
 
 class ChatConversation(models.Model):
-    """Direct-message thread between exactly two users."""
+    """Direct-message thread between exactly two users, or a broadcast to all."""
     participants = models.ManyToManyField(
         User,
         related_name='chat_conversations',
         blank=False,
     )
+    is_broadcast = models.BooleanField(default=False, db_index=True)
+    name = models.CharField(max_length=100, blank=True, default='')
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -784,6 +786,8 @@ class ChatConversation(models.Model):
         ordering = ['-created_at']
 
     def __str__(self):
+        if self.is_broadcast:
+            return 'ChatConversation(broadcast)'
         ids = ', '.join(str(u.id) for u in self.participants.all())
         return f'ChatConversation({ids})'
 
@@ -801,6 +805,7 @@ class ChatMessage(models.Model):
     )
     content = models.TextField()
     is_read = models.BooleanField(default=False, db_index=True)
+    is_delivered = models.BooleanField(default=True, db_index=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -809,3 +814,17 @@ class ChatMessage(models.Model):
 
     def __str__(self):
         return f'Msg {self.id} from {self.sender_id} in conv {self.conversation_id}'
+
+
+class UserPresence(models.Model):
+    """Tracks when a user was last active (for online status indicator)."""
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='presence')
+    last_active = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        app_label = 'mydesk'
+
+    @property
+    def is_online(self):
+        from django.utils import timezone as tz
+        return (tz.now() - self.last_active).total_seconds() < 180  # 3 minutes
