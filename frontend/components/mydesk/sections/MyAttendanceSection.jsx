@@ -120,7 +120,7 @@ function RulebookCard({ rulebook }) {
                     { label: 'Regularizations/month', value: rulebook.regularization_limit_per_month },
                     { label: 'Weekly Off', value: rulebook.weekly_off },
                 ].map(({ label, value }) => (
-                    <Grid key={label} item xs={6} sm={4} md={3}>
+                    <Grid key={label} size={{ xs: 6, sm: 4, md: 3 }}>
                         <Typography variant="caption" color="text.secondary" display="block">{label}</Typography>
                         <Typography variant="body2" fontWeight={600}>{value}</Typography>
                     </Grid>
@@ -330,7 +330,7 @@ export default function MyAttendanceSection() {
             {/* Summary cards */}
             <Grid container spacing={1.25}>
                 {summaryCards.map((card) => (
-                    <Grid key={card.key} item xs={6} sm={4} md={2.4}>
+                    <Grid key={card.key} size={{ xs: 6, sm: 4, md: 2.4 }}>
                         <Paper variant="outlined" sx={{ p: 1.25, borderRadius: 2 }}>
                             <Typography variant="caption" color="text.secondary">{card.label}</Typography>
                             <Typography variant="h6" sx={{ fontWeight: 700, color: card.color }}>
