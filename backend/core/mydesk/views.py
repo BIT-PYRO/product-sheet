@@ -7536,13 +7536,18 @@ class TeamMembersView(OrgScopedBaseAPIView):
 
     def get(self, request):
         org_id = _get_org_id_or_none(request.user)
-        users = list(_organization_users(org_id))
+        qs = _organization_users(org_id)
+        if not qs.exists():
+            # Single-tenant / no org setup — return all active users
+            qs = User.objects.filter(is_active=True).order_by('first_name', 'username', 'id')
         members = [
             {
                 'id': user.id,
+                'full_name': _user_full_name(user),
                 'name': _user_full_name(user),
+                'username': user.username,
                 'email': str(user.email or '').strip(),
             }
-            for user in users
+            for user in qs
         ]
         return Response(members)

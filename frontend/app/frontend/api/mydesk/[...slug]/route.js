@@ -16,6 +16,13 @@ async function proxyRaw(request, backendPath, method) {
 
   const contentType = request.headers.get('content-type') || '';
 
+  // Buffer the body upfront so it can be re-used on token-refresh retries
+  // and to avoid ReadableStream streaming issues in Turbopack dev mode.
+  let bodyBuffer = null;
+  if (method !== 'GET' && method !== 'DELETE') {
+    bodyBuffer = await request.arrayBuffer();
+  }
+
   // Build forwarded headers — include Content-Type for non-GET so multipart boundary is preserved
   const buildHeaders = (token) => {
     const headers = {};
@@ -25,14 +32,11 @@ async function proxyRaw(request, backendPath, method) {
   };
 
   const doFetch = async (token) => {
-    const body = method === 'GET' || method === 'DELETE' ? undefined : request.body;
     return fetch(`${backendBaseUrl()}${backendPath}`, {
       method,
       headers: buildHeaders(token),
-      body,
+      body: bodyBuffer,
       cache: 'no-store',
-      // Required for streaming body in Node.js fetch
-      duplex: 'half',
     });
   };
 
