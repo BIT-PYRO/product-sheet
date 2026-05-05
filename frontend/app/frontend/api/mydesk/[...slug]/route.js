@@ -76,7 +76,8 @@ export async function GET(request, { params }) {
   const slug = (await params).slug || [];
   const url = new URL(request.url);
   const qs = url.search || '';
-  const backendPath = `/api/mydesk/${slug.join('/')}/${qs}`;
+  const basePath = `/api/mydesk/${slug.join('/')}/`;
+  const backendPath = qs ? `${basePath}${qs}` : basePath;
   return proxyAuthenticatedRequest(request, backendPath);
 }
 

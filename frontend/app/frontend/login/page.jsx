@@ -32,6 +32,7 @@ function GoogleLoginButton({ redirectPath }) {
       });
       const data = await res.json().catch(() => null);
       if (res.ok && data?.success) {
+        sessionStorage.setItem('calendar_auto_connect', '1');
         router.replace(redirectPath);
       } else {
         setError(data?.message || 'Google login failed. Please try again.');

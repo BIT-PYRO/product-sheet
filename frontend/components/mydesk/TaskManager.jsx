@@ -131,7 +131,15 @@ export default function TaskManager() {
     const loadCalendarStatus = useCallback(async () => {
         try {
             const status = await fetchCalendarStatus();
-            setCalendarConnected(Boolean(status.connected));
+            const isConnected = Boolean(status.connected);
+            setCalendarConnected(isConnected);
+            if (!isConnected && typeof window !== 'undefined') {
+                const flag = sessionStorage.getItem('calendar_auto_connect');
+                if (flag) {
+                    sessionStorage.removeItem('calendar_auto_connect');
+                    redirectToGoogleAuth();
+                }
+            }
         } catch {
             setCalendarConnected(false);
         }
@@ -147,6 +155,22 @@ export default function TaskManager() {
         const resolved = resolveSectionFromSearch(searchParams);
         setSelectedSection((prev) => (prev === resolved ? prev : resolved));
     }, [searchParams]);
+
+    // Show toast and refresh status when returning from Google Calendar OAuth callback
+    useEffect(() => {
+        const calendarParam = searchParams?.get('calendar');
+        if (!calendarParam) return;
+        if (calendarParam === 'connected') {
+            setToast({ open: true, message: 'Google Calendar connected successfully!', severity: 'success' });
+            loadCalendarStatus();
+        } else if (calendarParam === 'error') {
+            setToast({ open: true, message: 'Failed to connect Google Calendar. Please try again.', severity: 'error' });
+        }
+        // Clear the param from the URL without a page reload
+        const url = new URL(window.location.href);
+        url.searchParams.delete('calendar');
+        window.history.replaceState({}, '', url.toString());
+    }, [searchParams, loadCalendarStatus]);
 
     useEffect(() => {
         loadMonthEvents(calendarMonth);

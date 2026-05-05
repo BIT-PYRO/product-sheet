@@ -50,6 +50,7 @@ from core.mydesk.models import (
     HrMeetingManagerCompanyEvent,
     ChatConversation,
     ChatMessage,
+    UserPresence,
 )
 from workforce.models import WorkforceMember
 from core.mydesk.serializers import (
@@ -7236,6 +7237,8 @@ class GalleryItemDownloadView(OrgScopedBaseAPIView):
 
 def _serialize_user(user):
     """Return a minimal user dict for chat responses."""
+    presence = getattr(user, 'presence', None)
+    is_online = presence.is_online if presence else False
     return {
         'id': user.id,
         'username': user.username,
@@ -7243,6 +7246,7 @@ def _serialize_user(user):
         'last_name': user.last_name,
         'display_name': (f'{user.first_name} {user.last_name}'.strip() or user.username),
         'email': user.email,
+        'is_online': is_online,
     }
 
 
@@ -7253,17 +7257,35 @@ def _serialize_message(msg, me_id):
         'sender': _serialize_user(msg.sender),
         'is_mine': (msg.sender_id == me_id),
         'is_read': msg.is_read,
+        'is_delivered': msg.is_delivered,
         'created_at': msg.created_at.isoformat(),
     }
 
 
 def _serialize_conversation(conv, me_id):
     """Return conversation info with last message and unread count for the requesting user."""
-    other = conv.participants.exclude(id=me_id).first()
-    last_msg = conv.messages.order_by('-created_at').first()
-    unread = conv.messages.filter(is_read=False).exclude(sender_id=me_id).count()
+    prefetched = getattr(conv, '_prefetched_objects_cache', {}) or {}
+
+    participants_manager = conv.participants
+    if 'participants' in prefetched:
+        participants = prefetched.get('participants') or []
+        other = next((u for u in participants if u.id != me_id), None)
+    else:
+        other = participants_manager.exclude(id=me_id).first()
+
+    messages_manager = conv.messages
+    if 'messages' in prefetched:
+        messages = prefetched.get('messages') or []
+        last_msg = messages[-1] if messages else None
+        unread = sum(1 for m in messages if (not m.is_read and m.sender_id != me_id))
+    else:
+        last_msg = messages_manager.select_related('sender', 'sender__presence').order_by('-created_at').first()
+        unread = messages_manager.filter(is_read=False).exclude(sender_id=me_id).count()
+
     return {
         'id': conv.id,
+        'is_broadcast': conv.is_broadcast,
+        'name': conv.name or '',
         'other_user': _serialize_user(other) if other else None,
         'last_message': _serialize_message(last_msg, me_id) if last_msg else None,
         'unread_count': unread,
@@ -7298,7 +7320,23 @@ class ChatConversationListView(OrgScopedBaseAPIView):
         convs = (
             ChatConversation.objects
             .filter(participants=request.user)
-            .prefetch_related('participants', 'messages')
+            .prefetch_related(
+                Prefetch(
+                    'participants',
+                    queryset=User.objects.select_related('presence').only(
+                        'id',
+                        'username',
+                        'first_name',
+                        'last_name',
+                        'email',
+                        'presence__last_active',
+                    ),
+                ),
+                Prefetch(
+                    'messages',
+                    queryset=ChatMessage.objects.select_related('sender', 'sender__presence').order_by('created_at'),
+                ),
+            )
             .order_by('-created_at')
         )
         return Response([_serialize_conversation(c, request.user.id) for c in convs])
@@ -7387,6 +7425,118 @@ class ChatMarkReadView(OrgScopedBaseAPIView):
             return Response({'error': 'Forbidden'}, status=status.HTTP_403_FORBIDDEN)
         updated = conv.messages.filter(is_read=False).exclude(sender=request.user).update(is_read=True)
         return Response({'marked_read': updated})
+
+
+class ChatBroadcastView(OrgScopedBaseAPIView):
+    """
+    GET /api/mydesk/chat/broadcast/
+    Returns the single org-wide broadcast conversation, creating it if needed.
+    """
+
+    def get(self, request):
+        org_id = self.get_org_id()
+        conv = (
+            ChatConversation.objects
+            .filter(is_broadcast=True)
+            .prefetch_related(
+                Prefetch(
+                    'participants',
+                    queryset=User.objects.select_related('presence').only(
+                        'id',
+                        'username',
+                        'first_name',
+                        'last_name',
+                        'email',
+                        'presence__last_active',
+                    ),
+                ),
+                Prefetch(
+                    'messages',
+                    queryset=ChatMessage.objects.select_related('sender', 'sender__presence').order_by('created_at'),
+                ),
+            )
+            .first()
+        )
+        if conv is None:
+            conv = ChatConversation.objects.create(is_broadcast=True, name='Team Broadcast')
+
+        participant_ids = set(conv.participants.values_list('id', flat=True))
+        missing_ids = []
+        if request.user.id not in participant_ids:
+            missing_ids.append(request.user.id)
+
+        # Add org users as participants if org_id is set, only when missing.
+        if org_id:
+            org_user_ids = list(_organization_users(org_id).values_list('id', flat=True))
+            missing_ids.extend(uid for uid in org_user_ids if uid not in participant_ids)
+
+        if missing_ids:
+            conv.participants.add(*sorted(set(missing_ids)))
+            conv = (
+                ChatConversation.objects
+                .filter(id=conv.id)
+                .prefetch_related(
+                    Prefetch(
+                        'participants',
+                        queryset=User.objects.select_related('presence').only(
+                            'id',
+                            'username',
+                            'first_name',
+                            'last_name',
+                            'email',
+                            'presence__last_active',
+                        ),
+                    ),
+                    Prefetch(
+                        'messages',
+                        queryset=ChatMessage.objects.select_related('sender', 'sender__presence').order_by('created_at'),
+                    ),
+                )
+                .first()
+            )
+
+        return Response(_serialize_conversation(conv, request.user.id))
+
+
+class ChatHeartbeatView(OrgScopedBaseAPIView):
+    """
+    POST /api/mydesk/chat/heartbeat/
+    Updates the requesting user's last_active presence timestamp.
+    """
+
+    def post(self, request):
+        presence, _ = UserPresence.objects.get_or_create(user=request.user)
+        presence.save()  # triggers auto_now=True on last_active
+        return Response({'ok': True})
+
+
+class ChatMessageDetailView(OrgScopedBaseAPIView):
+    """
+    DELETE /api/mydesk/chat/conversations/<conv_id>/messages/<msg_id>/
+    Deletes a message. Only the sender can delete their own messages.
+    """
+
+    def _get_conv_or_error(self, request, conv_id):
+        try:
+            conv = ChatConversation.objects.get(id=conv_id)
+        except ChatConversation.DoesNotExist:
+            return None, Response({'error': 'Not found'}, status=status.HTTP_404_NOT_FOUND)
+        if not conv.participants.filter(id=request.user.id).exists():
+            return None, Response({'error': 'Forbidden'}, status=status.HTTP_403_FORBIDDEN)
+        return conv, None
+
+    def delete(self, request, conv_id, msg_id):
+        conv, err = self._get_conv_or_error(request, conv_id)
+        if err:
+            return err
+        try:
+            msg = conv.messages.get(id=msg_id)
+        except ChatMessage.DoesNotExist:
+            return Response({'error': 'Message not found'}, status=status.HTTP_404_NOT_FOUND)
+        if msg.sender_id != request.user.id:
+            return Response({'error': 'You can only delete your own messages'}, status=status.HTTP_403_FORBIDDEN)
+        msg.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class TeamMembersView(OrgScopedBaseAPIView):

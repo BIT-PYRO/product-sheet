@@ -9,6 +9,10 @@ from django.core.exceptions import ImproperlyConfigured
 
 # Allow OAuth token scope changes (e.g. when include_granted_scopes returns extra scopes)
 os.environ.setdefault('OAUTHLIB_RELAX_TOKEN_SCOPE', '1')
+# Allow OAuth over HTTP in local development (google-auth-oauthlib requires HTTPS otherwise)
+_debug_mode = os.environ.get('DEBUG', os.environ.get('DJANGO_DEBUG', 'false')).lower() not in ('false', '0', '')
+if _debug_mode:
+    os.environ.setdefault('OAUTHLIB_INSECURE_TRANSPORT', '1')
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
