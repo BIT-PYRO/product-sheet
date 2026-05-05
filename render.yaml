@@ -27,6 +27,8 @@ services:
         sync: false
       - key: GOOGLE_CALENDAR_REDIRECT_URI
         value: "https://product-sheet-frontend.onrender.com/api/calendar/callback/"
+      - key: FRONTEND_URL
+        value: "https://product-sheet-frontend.onrender.com"
 
   - type: web
     name: product-sheet-frontend
@@ -38,8 +40,8 @@ services:
       - key: BACKEND_BASE_URL
         fromService:
           name: product-sheet-backend
-          property: host
-          prefix: "https://"
+          type: web
+          property: url
       - key: EXTERNAL_PICKLIST_API_URL
         value: https://unify-8ba1.onrender.com/api/external/shops/janki-jewels/picklists/
       - key: EXTERNAL_PICKLIST_API_KEY_HEADER
