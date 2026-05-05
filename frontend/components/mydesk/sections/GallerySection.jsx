@@ -725,7 +725,7 @@ export default function GallerySection({ members = [] }) {
             />
 
             <Stack spacing={1.5}>
-                <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.25} justifyContent="space-between" alignItems={{ xs: 'stretch', md: 'center' }}>
+                <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.25} sx={{ justifyContent: 'space-between', alignItems: { xs: 'stretch', md: 'center' } }}>
 
 
                     <Stack direction={{ xs: 'column', sm: 'row' }} spacing={0.9} sx={{ width: { xs: '100%', md: 'auto' } }}>
@@ -817,10 +817,9 @@ export default function GallerySection({ members = [] }) {
                 <Stack
                     direction={{ xs: 'column', md: 'row' }}
                     spacing={1}
-                    justifyContent="space-between"
-                    alignItems={{ xs: 'stretch', md: 'center' }}
+                    sx={{ justifyContent: 'space-between', alignItems: { xs: 'stretch', md: 'center' } }}
                 >
-                    <Stack direction="row" spacing={0.4} flexWrap="wrap" useFlexGap>
+                    <Stack direction="row" spacing={0.4} useFlexGap sx={{ flexWrap: 'wrap' }}>
                         {[
                             { key: 'recent', label: 'Recent' },
                             { key: 'all', label: 'All files' },
@@ -850,7 +849,7 @@ export default function GallerySection({ members = [] }) {
                         })}
                     </Stack>
 
-                    <Stack direction="row" spacing={0.8} alignItems="center" sx={{ flexWrap: 'wrap' }}>
+                    <Stack direction="row" spacing={0.8} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
                         <Select
                             size="small"
                             value={mediaFilter}
@@ -898,7 +897,7 @@ export default function GallerySection({ members = [] }) {
                 </Stack>
 
                 {activeSectionTab === 'recent' && (
-                    <Stack direction="row" alignItems="center" justifyContent="space-between">
+                    <Stack direction="row" sx={{ alignItems: 'center', justifyContent: 'space-between' }}>
 
                         <Button
                             size="small"
@@ -917,7 +916,7 @@ export default function GallerySection({ members = [] }) {
                 )}
 
                 {isLoading && (
-                    <Stack alignItems="center" justifyContent="center" sx={{ py: 2.5 }}>
+                    <Stack sx={{ alignItems: 'center', justifyContent: 'center', py: 2.5 }}>
                         <CircularProgress size={22} />
                     </Stack>
                 )}
@@ -948,7 +947,7 @@ export default function GallerySection({ members = [] }) {
                                             boxShadow: highlighted ? vaultColors.highlightShadow : 'none',
                                         }}
                                     >
-                                        <Stack direction="row" alignItems="center" spacing={0.9}>
+                                        <Stack direction="row" spacing={0.9} sx={{ alignItems: 'center' }}>
                                             <Avatar sx={{ width: 22, height: 22, bgcolor: vaultColors.panelBg }}>
                                                 {renderFileVisual(item, previewUrls[item.id] || item.file_url || item.download_url)}
                                             </Avatar>
@@ -1058,7 +1057,7 @@ export default function GallerySection({ members = [] }) {
                                 return 'Select teammates';
                             }
                             return (
-                                <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
+                                <Stack direction="row" spacing={0.5} useFlexGap sx={{ flexWrap: 'wrap' }}>
                                     {selected.map((memberId) => {
                                         const member = memberOptions.find((entry) => String(entry.id) === String(memberId));
                                         return <Chip key={memberId} size="small" label={member ? member.label : String(memberId)} />;
