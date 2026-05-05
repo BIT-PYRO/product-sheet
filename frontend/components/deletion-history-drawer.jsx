@@ -30,9 +30,10 @@ const ACTION_COLORS = {
  *   appLabel   {string}  Django app label  e.g. "inventory"
  *   modelName  {string}  Django model name e.g. "toolitem"
  *   sheet      {string}  ActivityLog sheet key e.g. "inventory"
+ *   objectId   {string|number}  Optional — filter activity logs to a single record
  *   title      {string}  Optional — unused, kept for backward compat
  */
-export default function DeletionHistoryDrawer({ appLabel, modelName, sheet, title }) {
+export default function DeletionHistoryDrawer({ appLabel, modelName, sheet, objectId, title }) {
   const [open, setOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('deletion');
   const [isSuperuser, setIsSuperuser] = useState(false);
@@ -96,8 +97,9 @@ export default function DeletionHistoryDrawer({ appLabel, modelName, sheet, titl
     setActLoading(true);
     setActError('');
     try {
+      const objectIdParam = objectId ? `&object_id=${encodeURIComponent(objectId)}` : '';
       const res = await fetch(
-        `/api/activity-logs?sheet=${encodeURIComponent(sheet)}&page_size=50&ordering=-timestamp`,
+        `/api/activity-logs?sheet=${encodeURIComponent(sheet)}&page_size=50&ordering=-timestamp${objectIdParam}`,
         { cache: 'no-store' },
       );
       const json = await res.json().catch(() => null);

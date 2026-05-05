@@ -20,6 +20,7 @@ import { PrintJobCardModal } from '@/components/print-job-card-modal'
 import { useSheetPermissions } from '@/hooks/use-sheet-permissions'
 import DateTimeStamp from '@/components/date-time-stamp'
 import MasterNavigationDrawer from '@/components/master_navigation_drawer'
+import DeletionHistoryDrawer from '@/components/deletion-history-drawer'
 import Link from 'next/link'
 
 const PRODUCT_SHEET_SYNC_KEY = 'product_sheet_updated_at'
@@ -4179,6 +4180,12 @@ function ProductSheetContent() {
         open={isPrintJobCardModalOpen}
         onOpenChange={setIsPrintJobCardModalOpen}
         data={jobCardToPrint}
+      />
+      <DeletionHistoryDrawer
+        appLabel="products"
+        modelName="product"
+        sheet="product"
+        objectId={editProductId || undefined}
       />
 
     </div>);
