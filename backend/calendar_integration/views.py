@@ -93,18 +93,82 @@ def calendar_callback(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def calendar_events(request):
-    """List calendar events for a given date range."""
+    """List calendar events for a given date range.
+
+    Always returns the user's MyDesk tasks whose dueDate falls in the range.
+    Google Calendar events are appended if the user has a connected account.
+    """
+    import datetime
+
     start = request.query_params.get('start')
     end = request.query_params.get('end')
     if not start or not end:
         return Response({'error': 'start and end query params required.'}, status=status.HTTP_400_BAD_REQUEST)
 
+    # --- MyDesk tasks (always included, no Google connection required) ---
+    task_events = []
     try:
-        events = services.list_events(request.user, start, end)
-    except Exception as exc:
-        return Response({'error': str(exc)}, status=status.HTTP_502_BAD_GATEWAY)
+        from core.mydesk.models import PersonalTodoItem
 
-    return Response(events)
+        # Parse the range dates to compare against meta.dueDate strings
+        try:
+            range_start = datetime.date.fromisoformat(start[:10])
+            range_end = datetime.date.fromisoformat(end[:10])
+        except ValueError:
+            range_start = None
+            range_end = None
+
+        qs = PersonalTodoItem.objects.filter(
+            user=request.user,
+        ).exclude(meta__type__isnull=True)
+
+        for item in qs:
+            meta = item.meta if isinstance(item.meta, dict) else {}
+            if meta.get('type') != 'task':
+                continue
+            due_date_raw = meta.get('dueDate') or meta.get('due_date') or ''
+            if not due_date_raw:
+                continue
+            try:
+                due_date = datetime.date.fromisoformat(str(due_date_raw)[:10])
+            except ValueError:
+                continue
+            if range_start and range_end:
+                if not (range_start <= due_date <= range_end):
+                    continue
+            # Include time if present
+            due_time = (meta.get('dueTime') or '').strip()
+            if due_time:
+                start_str = f"{due_date.isoformat()}T{due_time}:00"
+            else:
+                start_str = due_date.isoformat()
+
+            task_events.append({
+                'id': f'task_{item.id}',
+                'title': (meta.get('title') or item.text or 'Task').strip() or 'Task',
+                'start': start_str,
+                'end': start_str,
+                'allDay': not bool(due_time),
+                'event_type': 'task',
+                'source': 'task',
+                'description': meta.get('description', ''),
+                'location': '',
+                'hangoutLink': '',
+                'htmlLink': '',
+                'status': meta.get('status', ''),
+                'priority': meta.get('priority', ''),
+            })
+    except Exception:
+        pass  # Never block the response due to task fetch errors
+
+    # --- Google Calendar events (only if connected) ---
+    google_events = []
+    try:
+        google_events = services.list_events(request.user, start, end)
+    except Exception:
+        pass  # Gracefully degrade — tasks are still returned
+
+    return Response(task_events + google_events)
 
 
 @api_view(['POST'])
