@@ -1,8 +1,10 @@
 import json
 import logging
+import secrets
 import traceback
 
 from django.conf import settings
+from django.core.cache import cache
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -33,7 +35,13 @@ def calendar_auth(request):
         )
     # Pass login_hint so Google skips the account-chooser for users already signed in
     login_hint = getattr(request.user, 'email', '') or ''
-    auth_url = services.get_auth_url(state=str(request.user.pk), login_hint=login_hint)
+    oauth_state = secrets.token_urlsafe(24)
+    auth_url, code_verifier = services.get_auth_url(state=oauth_state, login_hint=login_hint)
+    cache.set(
+        f'calendar_oauth_verifier:{request.user.pk}:{oauth_state}',
+        code_verifier,
+        timeout=600,
+    )
     return Response({'auth_url': auth_url})
 
 
@@ -42,6 +50,7 @@ def calendar_auth(request):
 def calendar_callback(request):
     """Handle OAuth2 redirect from Google."""
     code = request.query_params.get('code')
+    oauth_state = request.query_params.get('state')
     error = request.query_params.get('error')
 
     if error or not code:
@@ -51,8 +60,20 @@ def calendar_callback(request):
             status=status.HTTP_400_BAD_REQUEST,
         )
 
+    code_verifier = None
+    if oauth_state:
+        cache_key = f'calendar_oauth_verifier:{request.user.pk}:{oauth_state}'
+        code_verifier = cache.get(cache_key)
+        cache.delete(cache_key)
+
+    if not code_verifier:
+        return Response(
+            {'error': 'OAuth session expired or invalid. Please connect Google Calendar again.'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
     try:
-        creds = services.exchange_code(code)
+        creds = services.exchange_code(code, code_verifier=code_verifier)
         services.save_credentials(request.user, creds)
     except Exception as exc:
         logger.error(

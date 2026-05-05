@@ -10,6 +10,7 @@ import { backendBaseUrl, ACCESS_COOKIE, REFRESH_COOKIE } from '@/app/frontend/ap
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
   const code = searchParams.get('code');
+  const state = searchParams.get('state');
   const error = searchParams.get('error');
 
   if (error || !code) {
@@ -21,7 +22,9 @@ export async function GET(request) {
   const refreshToken = cookieStore.get(REFRESH_COOKIE)?.value || '';
 
   // Forward code to Django backend callback
-  const backendCallbackUrl = `${backendBaseUrl()}/api/calendar/callback/?code=${encodeURIComponent(code)}`;
+  const qs = new URLSearchParams({ code: String(code) });
+  if (state) qs.set('state', state);
+  const backendCallbackUrl = `${backendBaseUrl()}/api/calendar/callback/?${qs.toString()}`;
   try {
     const resp = await fetch(backendCallbackUrl, {
       headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
