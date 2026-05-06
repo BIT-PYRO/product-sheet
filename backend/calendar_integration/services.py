@@ -176,10 +176,66 @@ def list_events(user, start, end):
 
 
 def create_event(user, payload):
+    """Create a Google Calendar event from our internal payload format.
+
+    Accepts either:
+      - Our frontend format: {title, start (ISO str), end (ISO str), description, attendees, timezone, ...}
+      - Already-formatted Google format: {summary, start: {dateTime, ...}, end: {dateTime, ...}, ...}
+    """
     service = get_calendar_service(user)
     if not service:
         raise ValueError('Google Calendar not connected.')
-    event = service.events().insert(calendarId='primary', body=payload).execute()
+
+    title = payload.get('title') or payload.get('summary') or '(No title)'
+    description = payload.get('description', '')
+    attendees = payload.get('attendees', [])
+    tz = payload.get('timezone', 'Asia/Kolkata')
+
+    start_raw = payload.get('start', '')
+    end_raw = payload.get('end', '')
+
+    # Build start object
+    if isinstance(start_raw, dict):
+        google_start = start_raw
+    else:
+        google_start = {'dateTime': _to_rfc3339(start_raw), 'timeZone': tz}
+
+    # Build end object — fall back to start + 1 hour if missing
+    if isinstance(end_raw, dict):
+        google_end = end_raw
+    elif end_raw:
+        google_end = {'dateTime': _to_rfc3339(end_raw), 'timeZone': tz}
+    else:
+        start_dt = datetime.datetime.fromisoformat(
+            google_start['dateTime'].replace('Z', '+00:00')
+        )
+        end_dt = start_dt + datetime.timedelta(hours=1)
+        google_end = {
+            'dateTime': end_dt.isoformat().replace('+00:00', 'Z'),
+            'timeZone': tz,
+        }
+
+    body = {
+        'summary': title,
+        'description': description,
+        'start': google_start,
+        'end': google_end,
+    }
+
+    if attendees:
+        body['attendees'] = attendees
+
+    # Pass through conference data if provided (e.g., from the schedule endpoint)
+    conference_data_version = 0
+    if 'conferenceData' in payload:
+        body['conferenceData'] = payload['conferenceData']
+        conference_data_version = 1
+
+    event = service.events().insert(
+        calendarId='primary',
+        body=body,
+        conferenceDataVersion=conference_data_version,
+    ).execute()
     return event
 
 

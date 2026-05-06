@@ -112,7 +112,7 @@ export default function ScheduleModal({
                             type="date"
                             value={date}
                             onChange={(event) => setDate(event.target.value)}
-                            InputLabelProps={{ shrink: true }}
+                            slotProps={{ inputLabel: { shrink: true } }}
                             fullWidth
                         />
                         <TextField
@@ -120,7 +120,7 @@ export default function ScheduleModal({
                             type="time"
                             value={time}
                             onChange={(event) => setTime(event.target.value)}
-                            InputLabelProps={{ shrink: true }}
+                            slotProps={{ inputLabel: { shrink: true } }}
                             fullWidth
                         />
                     </Stack>

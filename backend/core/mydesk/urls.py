@@ -49,6 +49,7 @@ from core.mydesk.views import (
     ChatMarkReadView,
     ChatBroadcastView,
     ChatHeartbeatView,
+    ChatGoOfflineView,
     ChatMessageDetailView,
     TeamMembersView,
 )
@@ -132,6 +133,7 @@ urlpatterns = [
     path('api/mydesk/chat/conversations/<int:conv_id>/read/', ChatMarkReadView.as_view(), name='mydesk-chat-mark-read'),
     path('api/mydesk/chat/broadcast/', ChatBroadcastView.as_view(), name='mydesk-chat-broadcast'),
     path('api/mydesk/chat/heartbeat/', ChatHeartbeatView.as_view(), name='mydesk-chat-heartbeat'),
+    path('api/mydesk/chat/go-offline/', ChatGoOfflineView.as_view(), name='mydesk-chat-go-offline'),
 
     # Team members (for meeting scheduling)
     path('api/team/members/', TeamMembersView.as_view(), name='team-members'),

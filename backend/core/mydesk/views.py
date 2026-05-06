@@ -7345,11 +7345,12 @@ class ChatConversationListView(OrgScopedBaseAPIView):
         if recipient.id == request.user.id:
             return Response({'error': 'Cannot chat with yourself'}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Find existing conversation between exactly these two users
+        # Find existing DM conversation between exactly these two users (exclude broadcast)
         existing = (
             ChatConversation.objects
             .filter(participants=request.user)
             .filter(participants=recipient)
+            .filter(is_broadcast=False)
             .first()
         )
         if existing:
@@ -7499,6 +7500,22 @@ class ChatHeartbeatView(OrgScopedBaseAPIView):
     def post(self, request):
         presence, _ = UserPresence.objects.get_or_create(user=request.user)
         presence.save()  # triggers auto_now=True on last_active
+        return Response({'ok': True})
+
+
+class ChatGoOfflineView(OrgScopedBaseAPIView):
+    """
+    POST /api/mydesk/chat/go-offline/
+    Immediately marks the requesting user as offline by backdating last_active.
+    Called when the user navigates away or closes the tab.
+    """
+
+    def post(self, request):
+        presence, _ = UserPresence.objects.get_or_create(user=request.user)
+        # Set last_active far enough in the past to be outside the online window
+        UserPresence.objects.filter(pk=presence.pk).update(
+            last_active=timezone.now() - timedelta(minutes=10)
+        )
         return Response({'ok': True})
 
 

@@ -827,4 +827,4 @@ class UserPresence(models.Model):
     @property
     def is_online(self):
         from django.utils import timezone as tz
-        return (tz.now() - self.last_active).total_seconds() < 180  # 3 minutes
+        return (tz.now() - self.last_active).total_seconds() < 45  # heartbeat every 20 s; 45 s allows one missed beat
