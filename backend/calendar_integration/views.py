@@ -203,7 +203,7 @@ def calendar_schedule(request):
     """Schedule a meeting — alias for event create with meet link."""
     payload = dict(request.data)
     payload.setdefault('conferenceData', {
-        'createRequest': {'requestId': 'mydesk-meet', 'conferenceSolutionKey': {'type': 'hangoutsMeet'}}
+        'createRequest': {'requestId': secrets.token_urlsafe(12), 'conferenceSolutionKey': {'type': 'hangoutsMeet'}}
     })
     try:
         event = services.create_event(request.user, payload)
