@@ -13,7 +13,16 @@ export async function GET(request) {
   const state = searchParams.get('state');
   const error = searchParams.get('error');
 
-  const frontendOrigin = process.env.FRONTEND_URL || new URL(request.url).origin;
+  let frontendOrigin = process.env.FRONTEND_URL;
+  if (!frontendOrigin) {
+    const proto = request.headers.get('x-forwarded-proto') || 'https';
+    const host = request.headers.get('x-forwarded-host') || request.headers.get('host');
+    if (host) {
+      frontendOrigin = `${proto}://${host}`;
+    } else {
+      frontendOrigin = new URL(request.url).origin;
+    }
+  }
 
   if (error || !code) {
     return NextResponse.redirect(new URL('/mydesk?calendar=error', frontendOrigin));
