@@ -13,7 +13,7 @@ function safeRedirect(next) {
 
 // ── Google Sign-In button ────────────────────────────────────────────────────
 // Uses Google Identity Services (GIS). Credential (ID token) comes back via
-// callback — no page redirect needed. The token is posted to /api/auth/google
+// callback — no page redirect needed. The token is posted to /frontend/api/auth/google
 // which verifies it with Django and sets httpOnly JWT cookies.
 function GoogleLoginButton({ redirectPath }) {
   const router = useRouter();
@@ -25,7 +25,7 @@ function GoogleLoginButton({ redirectPath }) {
     setError('');
     setLoading(true);
     try {
-      const res = await fetch('/api/auth/google', {
+      const res = await fetch('/frontend/api/auth/google', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id_token: response.credential }),

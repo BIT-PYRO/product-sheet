@@ -16,7 +16,7 @@ function GoogleAuthHandler() {
       return;
     }
 
-    fetch('/api/auth/google', {
+    fetch('/frontend/api/auth/google', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id_token: token }),
