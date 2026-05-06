@@ -23,3 +23,10 @@ import environ as _environ
 _prod_env = _environ.Env()
 _extra_cors = _prod_env.list('CORS_ALLOWED_ORIGINS_EXTRA', default=[])
 CORS_ALLOWED_ORIGINS = list(CORS_ALLOWED_ORIGINS) + _extra_cors
+
+# If GOOGLE_CALENDAR_REDIRECT_URI was not set in the environment (or fell back to the
+# localhost default from base.py), derive it from FRONTEND_URL so Google always
+# redirects back to the production frontend, never to localhost.
+_redirect_uri = str(GOOGLE_CALENDAR_REDIRECT_URI)
+if 'localhost' in _redirect_uri or '127.0.0.1' in _redirect_uri:
+    GOOGLE_CALENDAR_REDIRECT_URI = FRONTEND_URL.rstrip('/') + '/api/calendar/callback/'
