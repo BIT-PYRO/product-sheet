@@ -160,8 +160,12 @@ def list_events(user, start, end):
         maxResults=200,
     ).execute()
     items = result.get('items', [])
-    return [
-        {
+    normalized = []
+    for e in items:
+        hangout_link = e.get('hangoutLink', '')
+        has_conference = bool(hangout_link) or bool(e.get('conferenceData'))
+        event_type = 'meeting' if has_conference else 'personal'
+        normalized.append({
             'id': e.get('id'),
             'title': e.get('summary', '(No title)'),
             'start': e.get('start', {}).get('dateTime') or e.get('start', {}).get('date'),
@@ -169,11 +173,12 @@ def list_events(user, start, end):
             'allDay': 'date' in e.get('start', {}),
             'location': e.get('location', ''),
             'description': e.get('description', ''),
-            'hangoutLink': e.get('hangoutLink', ''),
+            'hangoutLink': hangout_link,
+            'meet_link': hangout_link,
             'htmlLink': e.get('htmlLink', ''),
-        }
-        for e in items
-    ]
+            'event_type': event_type,
+        })
+    return normalized
 
 
 def _normalize_datetime_value(value, timezone_name):
@@ -297,8 +302,25 @@ def create_event(user, payload):
         'calendarId': 'primary',
         'body': normalized_payload,
     }
-    if normalized_payload.get('conferenceData'):
-        insert_kwargs['conferenceDataVersion'] = 1
+
+    if attendees:
+        body['attendees'] = attendees
+
+    # Auto-create a Google Meet link for meeting-type events
+    event_type_hint = str(payload.get('event_type', '')).lower()
+    conference_data_version = 0
+    if 'conferenceData' in payload:
+        body['conferenceData'] = payload['conferenceData']
+        conference_data_version = 1
+    elif event_type_hint == 'meeting':
+        import secrets as _secrets
+        body['conferenceData'] = {
+            'createRequest': {
+                'requestId': _secrets.token_hex(8),
+                'conferenceSolutionKey': {'type': 'hangoutsMeet'},
+            }
+        }
+        conference_data_version = 1
 
     event = service.events().insert(**insert_kwargs).execute()
     return event
