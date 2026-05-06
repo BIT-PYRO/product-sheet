@@ -37,6 +37,8 @@ services:
     buildCommand: cd frontend && pnpm install --prod=false --frozen-lockfile && pnpm build
     startCommand: cd frontend && pnpm start
     envVars:
+      - key: FRONTEND_URL
+        value: "https://product-sheet-frontend.onrender.com"
       - key: BACKEND_BASE_URL
         fromService:
           name: product-sheet-backend

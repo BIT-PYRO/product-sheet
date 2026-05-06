@@ -3,6 +3,7 @@ import datetime
 import secrets
 
 from django.conf import settings
+from django.contrib.auth import get_user_model
 from django.utils import timezone
 
 from google.oauth2.credentials import Credentials
@@ -173,6 +174,116 @@ def list_events(user, start, end):
         }
         for e in items
     ]
+
+
+def _normalize_datetime_value(value, timezone_name):
+    if value is None:
+        return None
+
+    if isinstance(value, dict):
+        normalized = dict(value)
+        if normalized.get('dateTime') and not normalized.get('timeZone'):
+            normalized['timeZone'] = timezone_name
+        return normalized
+
+    if isinstance(value, datetime.datetime):
+        return {'dateTime': value.isoformat(), 'timeZone': timezone_name}
+
+    if isinstance(value, datetime.date):
+        dt = datetime.datetime.combine(value, datetime.time.min)
+        return {'dateTime': dt.isoformat(), 'timeZone': timezone_name}
+
+    raw = str(value).strip()
+    if not raw:
+        return None
+    return {'dateTime': raw, 'timeZone': timezone_name}
+
+
+def _normalize_attendees(payload):
+    seen = set()
+    normalized = []
+
+    def add_email(email):
+        email = str(email or '').strip().lower()
+        if email and email not in seen:
+            seen.add(email)
+            normalized.append({'email': email})
+
+    raw_attendees = (payload or {}).get('attendees') or []
+    if isinstance(raw_attendees, (str, dict)):
+        raw_attendees = [raw_attendees]
+
+    for item in raw_attendees:
+        if isinstance(item, dict):
+            add_email(item.get('email'))
+        else:
+            add_email(item)
+
+    tagged_user_ids = (payload or {}).get('tagged_user_ids') or []
+    if isinstance(tagged_user_ids, str):
+        tagged_user_ids = [x.strip() for x in tagged_user_ids.split(',') if x.strip()]
+    elif not isinstance(tagged_user_ids, (list, tuple, set)):
+        tagged_user_ids = [tagged_user_ids]
+
+    if tagged_user_ids:
+        User = get_user_model()
+        emails = User.objects.filter(pk__in=tagged_user_ids).values_list('email', flat=True)
+        for email in emails:
+            add_email(email)
+
+    return normalized
+
+
+def _normalize_event_payload(payload):
+    payload = payload or {}
+    normalized = dict(payload)
+
+    timezone_name = (
+        payload.get('timezone')
+        or payload.get('timeZone')
+        or settings.TIME_ZONE
+        or 'UTC'
+    )
+
+    if payload.get('title') and not normalized.get('summary'):
+        normalized['summary'] = payload.get('title')
+    normalized.pop('title', None)
+
+    normalized.pop('event_type', None)
+    normalized.pop('timezone', None)
+    normalized.pop('timeZone', None)
+    normalized.pop('tagged_user_ids', None)
+    normalized.pop('platform', None)
+
+    start_value = _normalize_datetime_value(payload.get('start'), timezone_name)
+    if start_value is not None:
+        normalized['start'] = start_value
+
+    end_value = _normalize_datetime_value(payload.get('end'), timezone_name)
+    if end_value is not None:
+        normalized['end'] = end_value
+
+    attendees = _normalize_attendees(payload)
+    if attendees:
+        normalized['attendees'] = attendees
+    else:
+        normalized.pop('attendees', None)
+
+    conference_data = normalized.get('conferenceData')
+    if isinstance(conference_data, dict):
+        conference_data = dict(conference_data)
+        create_request = conference_data.get('createRequest')
+        if not isinstance(create_request, dict):
+            create_request = {}
+
+        request_id = str(create_request.get('requestId') or '').strip()
+        if not request_id or request_id == 'mydesk-meet':
+            create_request['requestId'] = secrets.token_urlsafe(12)
+
+        conference_data['createRequest'] = create_request
+        normalized['conferenceData'] = conference_data
+
+    return normalized
 
 
 def create_event(user, payload):
