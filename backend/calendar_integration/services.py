@@ -298,29 +298,14 @@ def create_event(user, payload):
         raise ValueError('Google Calendar not connected.')
 
     normalized_payload = _normalize_event_payload(payload)
+
     insert_kwargs = {
         'calendarId': 'primary',
         'body': normalized_payload,
     }
 
-    if attendees:
-        body['attendees'] = attendees
-
-    # Auto-create a Google Meet link for meeting-type events
-    event_type_hint = str(payload.get('event_type', '')).lower()
-    conference_data_version = 0
-    if 'conferenceData' in payload:
-        body['conferenceData'] = payload['conferenceData']
-        conference_data_version = 1
-    elif event_type_hint == 'meeting':
-        import secrets as _secrets
-        body['conferenceData'] = {
-            'createRequest': {
-                'requestId': _secrets.token_hex(8),
-                'conferenceSolutionKey': {'type': 'hangoutsMeet'},
-            }
-        }
-        conference_data_version = 1
+    if 'conferenceData' in normalized_payload:
+        insert_kwargs['conferenceDataVersion'] = 1
 
     event = service.events().insert(**insert_kwargs).execute()
     return event
