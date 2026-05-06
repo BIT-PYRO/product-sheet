@@ -144,7 +144,7 @@ SIMPLE_JWT = {
 
 GOOGLE_CLIENT_ID = env('GOOGLE_CLIENT_ID', default='')
 GOOGLE_CLIENT_SECRET = env('GOOGLE_CLIENT_SECRET', default='')
-GOOGLE_CALENDAR_REDIRECT_URI = env('GOOGLE_CALENDAR_REDIRECT_URI', default='http://localhost:3000/api/calendar/callback/')
+GOOGLE_CALENDAR_REDIRECT_URI = env('GOOGLE_CALENDAR_REDIRECT_URI', default='https://product-sheet-frontend.onrender.com/api/calendar/callback/')
 FRONTEND_URL = env('FRONTEND_URL', default='http://localhost:3000')
 
 # ── External Workforce Sync ──────────────────────────────────────────────────
