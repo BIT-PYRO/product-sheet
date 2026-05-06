@@ -110,7 +110,7 @@ export default function MeetingsSection({ members = [] }) {
             ]);
             const onlyMeetings = (Array.isArray(events) ? events : []).filter((eventItem) => {
                 const eventType = (eventItem?.event_type || '').toLowerCase();
-                return eventType === 'meeting' || Boolean(eventItem?.meet_link);
+                return eventType === 'meeting' || Boolean(eventItem?.meet_link) || Boolean(eventItem?.hangoutLink);
             });
             setMeetings(onlyMeetings);
         } catch (error) {
