@@ -13,8 +13,10 @@ export async function GET(request) {
   const state = searchParams.get('state');
   const error = searchParams.get('error');
 
+  const frontendOrigin = process.env.FRONTEND_URL || new URL(request.url).origin;
+
   if (error || !code) {
-    return NextResponse.redirect(new URL('/mydesk?calendar=error', request.url));
+    return NextResponse.redirect(new URL('/mydesk?calendar=error', frontendOrigin));
   }
 
   const cookieStore = await cookies();
@@ -52,22 +54,22 @@ export async function GET(request) {
         if (retryResp.status >= 400) {
           const body = await retryResp.text().catch(() => '');
           console.error('[calendar/callback] backend retry failed:', retryResp.status, body);
-          return NextResponse.redirect(new URL('/mydesk?calendar=error', request.url));
+          return NextResponse.redirect(new URL('/mydesk?calendar=error', frontendOrigin));
         }
       } else {
         // Could not refresh token
-        return NextResponse.redirect(new URL('/mydesk?calendar=error', request.url));
+        return NextResponse.redirect(new URL('/mydesk?calendar=error', frontendOrigin));
       }
     } else if (resp.status >= 400) {
       // Non-401 error from backend
       const body = await resp.text().catch(() => '');
       console.error('[calendar/callback] backend failed:', resp.status, body);
-      return NextResponse.redirect(new URL('/mydesk?calendar=error', request.url));
+      return NextResponse.redirect(new URL('/mydesk?calendar=error', frontendOrigin));
     }
   } catch (err) {
     console.error('[calendar/callback] fetch threw:', err);
-    return NextResponse.redirect(new URL('/mydesk?calendar=error', request.url));
+    return NextResponse.redirect(new URL('/mydesk?calendar=error', frontendOrigin));
   }
 
-  return NextResponse.redirect(new URL('/mydesk?calendar=connected', request.url));
+  return NextResponse.redirect(new URL('/mydesk?calendar=connected', frontendOrigin));
 }
