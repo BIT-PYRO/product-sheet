@@ -203,6 +203,7 @@ const STOCK_FILTER_OPTIONS = [
   { value: 'wip', label: 'WIP' },
   { value: 'location', label: 'Location' },
   { value: 'wip-vs-current', label: 'WIP/Current Stock' },
+  { value: 'final-stock', label: 'Final Stock Value' },
 ];
 
 const PRODUCT_SORT_FIELDS = [
@@ -1347,6 +1348,16 @@ export default function MasterInventorySheet() {
           dieNumbers:      row.dieNumbers || '',
         });
       });
+    } else if (fieldType === 'final-stock') {
+      // Initialize per-variation final stock values keyed by variation SKU
+      sortedProducts.forEach((p) => {
+        const variations = Array.isArray(p.finalStock) ? p.finalStock : [];
+        const entry = {};
+        variations.forEach((v) => {
+          entry[v.sku] = String(parseNumericValue(v.value) || '');
+        });
+        draft.set(p.id, entry);
+      });
     } else {
       // min, current, wip — all stage columns + dieNumbers/dieLocation editable
       const rows = sortedProducts.map((p) => buildInventoryRow(p, fieldType));
@@ -1465,6 +1476,39 @@ export default function MasterInventorySheet() {
               method: 'PATCH',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ die_numbers: dieEntry }),
+            }));
+          }
+        }
+      } else if (editFieldType === 'final-stock') {
+        // Save per-variation final stock value changes as adjustment transactions
+        for (const [productId, editData] of editDraft.entries()) {
+          const product = sortedProducts.find((p) => p.id === productId);
+          if (!product) continue;
+          const variations = Array.isArray(product.finalStock) ? product.finalStock : [];
+
+          for (const [varSku, newValStr] of Object.entries(editData)) {
+            const originalVariation = variations.find((v) => v.sku === varSku);
+            const oldVal = parseNumericValue(originalVariation?.value) || 0;
+            const newVal = parseFloat(newValStr) || 0;
+            const delta = Math.round(newVal - oldVal);
+            if (delta === 0) continue;
+
+            // Match the stage key format used in inventory-summary/route.js:
+            // Single-SKU products use 'final_stock'; variation products use 'final_stock__<sku_lower>'
+            const isSingleSku = variations.length === 1 && varSku === product.masterSku;
+            const stageKey = isSingleSku ? 'final_stock' : `final_stock__${varSku.toLowerCase()}`;
+
+            allCalls.push(fetch('/api/inventory/', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                product: productId,
+                txn_type: 'adjust',
+                quantity: delta,
+                stage: stageKey,
+                stock_type: 'current',
+                remark: `Final Stock Value — ${varSku}`,
+              }),
             }));
           }
         }
@@ -2092,7 +2136,7 @@ export default function MasterInventorySheet() {
                           rowSpan={variationCount > 1 ? variationCount : undefined}
                           className={`border-b border-r border-soft-border px-2 h-9 text-center ${
                             column.key === '__select__' ? 'sticky left-0 z-10 bg-white border-l shadow-[2px_0_4px_-1px_rgba(0,0,0,0.08)]' : ''
-                          } ${isEditMode && !NON_EDITABLE_KEYS.has(column.key) && STOCK_STAGE_MAP[column.key] !== undefined && editFieldType !== 'wip-vs-current' ? 'bg-blue-50/40' : ''}`}
+                          } ${isEditMode && !NON_EDITABLE_KEYS.has(column.key) && STOCK_STAGE_MAP[column.key] !== undefined && editFieldType !== 'wip-vs-current' && editFieldType !== 'final-stock' ? 'bg-blue-50/40' : ''}`}
                         >
                           {column.key === '__select__' ? (
                             <Checkbox
@@ -2102,6 +2146,10 @@ export default function MasterInventorySheet() {
                           ) : isRowEditing ? (
                             (() => {
                               const isStockCol = STOCK_STAGE_MAP[column.key] !== undefined;
+
+                              if (editFieldType === 'final-stock') {
+                                return <CompositeStockDisplay value={row[column.key]} />;
+                              }
 
                               if (editFieldType === 'location') {
                                 if (!isStockCol) return <CompositeStockDisplay value={row[column.key]} />;
@@ -2172,12 +2220,14 @@ export default function MasterInventorySheet() {
                         else if (column.key === 'finalStockUnit') displayValue = variation.unit;
                         else if (column.key === 'dieLocation') displayValue = variation.location || (isFirst ? row.dieLocation : '');
 
-                        const isVariationEditable = isFirst && isRowEditing && !NON_EDITABLE_KEYS.has(column.key) && (() => {
-                          if (editFieldType === 'location') return column.key === 'dieLocation';
-                          return column.key === 'finalStockValue' || column.key === 'dieLocation';
+                        const isVariationEditable = isRowEditing && !NON_EDITABLE_KEYS.has(column.key) && (() => {
+                          if (editFieldType === 'final-stock') return column.key === 'finalStockValue';
+                          if (editFieldType === 'location') return isFirst && column.key === 'dieLocation';
+                          return isFirst && (column.key === 'finalStockValue' || column.key === 'dieLocation');
                         })();
 
                         const isVariationHighlighted = isEditMode && !NON_EDITABLE_KEYS.has(column.key) && (() => {
+                          if (editFieldType === 'final-stock') return column.key === 'finalStockValue';
                           if (editFieldType === 'location') return isFirst && column.key === 'dieLocation';
                           if (editFieldType === 'wip-vs-current') return false;
                           return isFirst && (column.key === 'finalStockValue' || column.key === 'dieLocation');
@@ -2192,9 +2242,9 @@ export default function MasterInventorySheet() {
                               column.key === 'finalStockValue' ? (
                                 <input
                                   type="number"
-                                  value={editData?.finalStockValue ?? ''}
+                                  value={editFieldType === 'final-stock' ? (editData?.[variation.sku] ?? '') : (editData?.finalStockValue ?? '')}
                                   min="0"
-                                  onChange={(e) => handleEditFieldChange(row.id, 'finalStockValue', e.target.value)}
+                                  onChange={(e) => handleEditFieldChange(row.id, editFieldType === 'final-stock' ? variation.sku : 'finalStockValue', e.target.value)}
                                   className="w-full min-w-[60px] border border-trust-blue/50 rounded px-1 py-0.5 text-xs text-center bg-blue-50 focus:outline-none focus:ring-1 focus:ring-trust-blue"
                                 />
                               ) : (
