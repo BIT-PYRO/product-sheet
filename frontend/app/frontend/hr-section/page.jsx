@@ -11,7 +11,6 @@ const ManageMembersPage = dynamic(() => import('@/app/frontend/manage-members/pa
 const MasterWorkforceSheet = dynamic(() => import('@/components/master_workforce_sheet'), { ssr: false });
 const HRMasterTaskTracker = dynamic(() => import('@/components/hr/hr-task-tracker'), { ssr: false });
 const HRMeetingManager = dynamic(() => import('@/components/hr/hr-meeting-manager'), { ssr: false });
-const RolePermissionsPage = dynamic(() => import('@/app/frontend/settings/role-permissions/page'), { ssr: false });
 const HRAttendanceDashboard = dynamic(() => import('@/components/hr/hr-attendance-dashboard'), { ssr: false });
 const HRLeaveRequests = dynamic(() => import('@/components/hr/hr-leave-requests'), { ssr: false });
 const HRPayrollDashboard = dynamic(() => import('@/components/hr/hr-payroll-dashboard'), { ssr: false });
@@ -25,7 +24,6 @@ const SIDEBAR_ITEMS = [
   { path: 'master-workforce-sheet', label: 'Master Workforce Sheet', component: MasterWorkforceSheet },
   { path: 'master-task-manager', label: 'Master Task Manager', component: HRMasterTaskTracker },
   { path: 'meeting-manager', label: 'Meeting Manager', component: HRMeetingManager },
-  { path: 'roles-permissions', label: 'Roles & Permissions', component: RolePermissionsPage },
   { path: 'attendance-dashboard', label: 'Attendance Dashboard', component: HRAttendanceDashboard },
   { path: 'org-hierarchy', label: 'Org Hierarchy', component: HROrgHierarchy },
   { path: 'payroll', label: 'Payroll', component: HRPayrollDashboard },

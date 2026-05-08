@@ -113,7 +113,12 @@ urlpatterns = [
     path('api/hr/meeting-manager/', HrMeetingManagerOverviewView.as_view(), name='hr-meeting-manager-overview'),
     path('api/hr/meeting-manager/company-events/<int:event_id>/', HrMeetingManagerCompanyEventDetailView.as_view(), name='hr-meeting-manager-company-event-detail'),
 
-    # Expense Tracker (HR)
+    # Expense Tracker (HR) — standard paths used by hr-api.js
+    path('api/hr/expenses/', HrExpenseTrackerOverviewView.as_view(), name='hr-expenses-overview'),
+    path('api/hr/expenses/member/<int:user_id>/', HrExpenseTrackerMemberDetailView.as_view(), name='hr-expenses-member-detail'),
+    path('api/hr/expenses/<int:expense_id>/approval/', HrExpenseTrackerApprovalActionView.as_view(), name='hr-expenses-approval'),
+
+    # Expense Tracker (HR) — tracker-prefixed paths (legacy/alternate)
     path('api/hr/expenses/tracker/', HrExpenseTrackerOverviewView.as_view(), name='hr-expense-tracker-overview'),
     path('api/hr/expenses/tracker/member/<int:user_id>/', HrExpenseTrackerMemberDetailView.as_view(), name='hr-expense-tracker-member-detail'),
     path('api/hr/expenses/tracker/<int:expense_id>/approval/', HrExpenseTrackerApprovalActionView.as_view(), name='hr-expense-tracker-approval-action'),

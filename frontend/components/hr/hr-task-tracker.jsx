@@ -1,7 +1,17 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { getTasks } from '@/lib/hr-api';
+import { getTasks, getTasksExportUrl } from '@/lib/hr-api';
+
+// Normalize status values from MyDesk to match our filter set
+function normalizeStatus(s) {
+  if (!s) return 'pending';
+  const v = s.toLowerCase();
+  if (v === 'done' || v === 'completed') return 'completed';
+  if (v === 'in_progress' || v === 'in progress') return 'in_progress';
+  if (v === 'cancelled' || v === 'canceled') return 'cancelled';
+  return 'pending';
+}
 
 const PRIORITY_FILTERS = [
   { value: 'all', label: 'All Priorities' },
@@ -13,18 +23,18 @@ const PRIORITY_FILTERS = [
 
 const STATUS_FILTERS = [
   { value: 'all', label: 'All Statuses' },
-  { value: 'pending', label: 'Pending' },
+  { value: 'pending', label: 'Pending / Todo' },
   { value: 'in_progress', label: 'In Progress' },
-  { value: 'completed', label: 'Completed' },
+  { value: 'completed', label: 'Completed / Done' },
   { value: 'cancelled', label: 'Cancelled' },
 ];
 
 function statusColor(status) {
   switch (status) {
-    case 'completed': return 'bg-[#2E7D32] text-white border-transparent';
+    case 'completed': case 'done': return 'bg-[#2E7D32] text-white border-transparent';
     case 'in_progress': return 'bg-blue-100 text-blue-700 border-blue-200';
     case 'cancelled': return 'bg-gray-100 text-gray-500 border-gray-200';
-    case 'pending':
+    case 'pending': case 'todo':
     default: return 'bg-gray-100 text-gray-700 border-gray-200';
   }
 }
@@ -45,8 +55,8 @@ export default function HRMasterTaskTracker() {
 
   // Filters
   const [search, setSearch] = useState('');
-  const [fromDate, setFromDate] = useState('2026-04-01');
-  const [toDate, setToDate] = useState('2026-05-01');
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
   const [priorityFilter, setPriorityFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [assigneeFilter, setAssigneeFilter] = useState('all');
@@ -56,8 +66,45 @@ export default function HRMasterTaskTracker() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const d = await getTasks(); 
-      setTasks(d?.tasks || []);
+      // Load HR tasks (includes MyDesk todos merged on backend)
+      const hrData = await getTasks();
+      const hrTasks = (hrData?.tasks || []).map(t => ({
+        ...t,
+        status: normalizeStatus(t.status),
+      }));
+
+      // Also directly load current user's MyDesk todos as additional source
+      let myDeskTasks = [];
+      try {
+        const res = await fetch('/api/mydesk/todos/', { cache: 'no-store' });
+        if (res.ok) {
+          const todos = await res.json();
+          const arr = Array.isArray(todos) ? todos : (todos?.results || []);
+          myDeskTasks = arr.map(item => {
+            const meta = (item.meta && typeof item.meta === 'object') ? item.meta : {};
+            return {
+              id: `mydesk_direct_${item.id}`,
+              title: meta.title || item.text || '',
+              description: meta.description || '',
+              priority: meta.priority || 'medium',
+              status: normalizeStatus(meta.status || (item.is_done ? 'done' : 'todo')),
+              due_date: meta.dueDate || meta.due_date || '',
+              assigned_to: null,
+              assigned_to_name: meta.assignee || 'Me',
+              assigned_by: null,
+              assigned_by_name: null,
+              created_at: item.created_at || '',
+              source: 'mydesk',
+            };
+          });
+        }
+      } catch {}
+
+      // Merge: deduplicate by title+assignee (backend already includes MyDesk todos)
+      // If backend already returned mydesk items, don't double-add
+      const backendHasMyDesk = hrTasks.some(t => String(t.id).startsWith('mydesk_'));
+      const allTasks = backendHasMyDesk ? hrTasks : [...hrTasks, ...myDeskTasks];
+      setTasks(allTasks);
     } catch {} finally { setLoading(false); }
   }, []);
 
@@ -220,7 +267,7 @@ export default function HRMasterTaskTracker() {
           </button>
         </div>
         <div className="flex gap-2">
-          <button className="px-3 py-1.5 text-xs font-bold text-trust-blue border border-trust-blue rounded hover:bg-blue-50 transition">EXPORT CSV</button>
+          <button onClick={() => window.open(getTasksExportUrl(), '_blank')} className="px-3 py-1.5 text-xs font-bold text-trust-blue border border-trust-blue rounded hover:bg-blue-50 transition">EXPORT CSV</button>
           <button className="px-3 py-1.5 text-xs font-bold text-white bg-trust-blue rounded hover:bg-blue-700 transition">EXPORT PDF</button>
         </div>
       </div>

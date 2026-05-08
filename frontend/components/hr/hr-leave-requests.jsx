@@ -95,7 +95,7 @@ export default function HRLeaveRequests() {
             <textarea value={rejectReason} onChange={e=>setRejectReason(e.target.value)} rows={3} className="w-full border border-soft-border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-trust-blue outline-none resize-none mb-4" placeholder="Enter reason…" />
             <div className="flex gap-2">
               <button onClick={()=>setRejectDialog(null)} className="flex-1 py-2 border border-soft-border rounded-lg text-sm text-cool-gray hover:bg-cloud-gray transition">Cancel</button>
-              <button onClick={async()=>{setActing(rejectDialog.id);await actionLeaveRequest(rejectDialog.id,{action:'reject',reason:rejectReason});setRejectDialog(null);setActing(null);loadLeaves();}} className="flex-1 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 transition">Reject</button>
+              <button onClick={async()=>{setActing(rejectDialog.id);await actionLeaveRequest(rejectDialog.id,{action:'reject',decline_reason:rejectReason});setRejectDialog(null);setActing(null);loadLeaves();}} className="flex-1 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 transition">Reject</button>
             </div>
           </div>
         </div>
