@@ -944,12 +944,7 @@ def _serialize_payroll_record(org_id, user, month_start, payroll_profile, paymen
 
     effective_net = _round2(max(0.0, effective_gross - _round2(payment_record.total_deductions)))
 
-    payslip_pdf_url = None
-    if getattr(payment_record, 'payslip_pdf', None):
-        try:
-            payslip_pdf_url = payment_record.payslip_pdf.url
-        except Exception:
-            payslip_pdf_url = None
+    payslip_pdf_url = getattr(payment_record, 'payslip_pdf_url', None)
 
     payment_date_value = payment_record.payment_date.isoformat() if payment_record.payment_date else None
 
@@ -1907,6 +1902,11 @@ def _build_bank_transfer_rows(org_id, month_start):
     }
     department_map = _build_workforce_department_map(org_id, users)
 
+    from workforce.models import WorkforceMember
+    wf_list = list(WorkforceMember.objects.all())
+    wf_by_email = {wf.email.lower(): wf for wf in wf_list if wf.email}
+    wf_by_name = {wf.full_name.lower(): wf for wf in wf_list if wf.full_name}
+
     rows = []
     for user in users:
         record = record_map.get(user.id)
@@ -1919,19 +1919,29 @@ def _build_bank_transfer_rows(org_id, month_start):
 
         payroll_profile = profile_map.get(user.id) or _build_transient_payroll_profile(org_id, user)
         profile_obj = _get_user_profile_object(user)
+        
+        wf_profile = wf_by_email.get(user.email.lower() if user.email else '')
+        if not wf_profile:
+            name_key = (user.get_full_name() or user.username).lower()
+            wf_profile = wf_by_name.get(name_key)
+
         bank_name = (
             getattr(payroll_profile, 'bank_name', '')
             or getattr(profile_obj, 'bank_name', '')
+            or getattr(wf_profile, 'bank_name', '')
             or ''
         ).strip()
         account_number = (
             getattr(payroll_profile, 'bank_account_number', '')
             or getattr(profile_obj, 'bank_account_number', '')
+            or getattr(wf_profile, 'account_number', '')
+            or getattr(wf_profile, 'bank_account_number', '')
             or ''
         ).strip()
         ifsc_code = (
             getattr(profile_obj, 'bank_ifsc_code', '')
             or getattr(profile_obj, 'ifsc', '')
+            or getattr(wf_profile, 'ifsc', '')
             or ''
         ).strip()
 
@@ -5946,17 +5956,17 @@ class MyDeskPayrollOverviewView(OrgScopedBaseAPIView):
             )
         }
 
-        locked_months = set(
+        approved_months = set(
             PayrollRun.objects.filter(
                 org_id=org_id,
                 month__gte=fy_start,
                 month__lte=fy_end,
-                is_locked=True,
+                hr_approved_at__isnull=False,
             ).values_list('month', flat=True)
         )
 
         selected_record = payment_records.get(month_start)
-        selected_available = bool(selected_record and month_start in locked_months)
+        selected_available = bool(selected_record and month_start in approved_months)
         if selected_available:
             selected_payslip = _serialize_payroll_record(
                 org_id,
@@ -5992,14 +6002,14 @@ class MyDeskPayrollOverviewView(OrgScopedBaseAPIView):
                 'dispute_resolved_at': None,
                 'dispute_resolution_note': '',
                 'available': False,
-                'message': 'Payslip is available only after payroll is locked for this month.',
+                'message': 'Payslip is available only after HR approval for this month.',
             }
 
         history_snapshots = []
         salary_history = []
         for month_value in _month_starts(fy_start, fy_end):
             monthly_record = payment_records.get(month_value)
-            is_available = bool(monthly_record and month_value in locked_months)
+            is_available = bool(monthly_record and month_value in approved_months)
             if not is_available:
                 salary_history.append({
                     'month': month_value.isoformat(),
@@ -6520,6 +6530,10 @@ class HrPayrollRunControlView(OrgScopedBaseAPIView):
             run.bank_file_generated_at = now
             run.bank_file_generated_by = request.user
             run.save(update_fields=['bank_file_generated_at', 'bank_file_generated_by', 'updated_at'])
+            
+            PayrollPaymentRecord.objects.filter(
+                org_id=org_id, month=month_start, finance_verified=True
+            ).update(status='Paid', payment_date=now.date())
             detail = f'Bank transfer file prepared with {len(bank_rows)} rows.'
 
             payload = self._response_payload(org_id, month_start, run, detail=detail)
@@ -6582,6 +6596,15 @@ class HrPayrollRunControlView(OrgScopedBaseAPIView):
             }
             return Response(payload)
 
+        elif action == 'approve_finance_bulk':
+            run.finance_approved_at = now
+            run.finance_approved_by = request.user
+            run.save(update_fields=['finance_approved_at', 'finance_approved_by', 'updated_at'])
+            PayrollPaymentRecord.objects.filter(
+                org_id=org_id, month=month_start, status='Sent to Finance'
+            ).update(finance_verified=True)
+            return Response(self._response_payload(org_id, month_start, run, detail="Payroll approved by Finance."))
+
         elif action == 'mark_paid':
             target_user_id = request.data.get('user_id')
             if not target_user_id:
@@ -6589,8 +6612,12 @@ class HrPayrollRunControlView(OrgScopedBaseAPIView):
             record = PayrollPaymentRecord.objects.filter(org_id=org_id, user_id=target_user_id, month=month_start).first()
             if not record:
                 return Response({'detail': 'Record not found.'}, status=status.HTTP_404_NOT_FOUND)
-            record.status = 'Paid' if record.status != 'Paid' else 'Processed'
-            record.payment_date = now.date() if record.status == 'Paid' else None
+            if record.status != 'Paid':
+                record.status = 'Paid'
+                record.payment_date = now.date()
+            else:
+                record.status = 'Sent to Finance'
+                record.payment_date = None
             record.save(update_fields=['status', 'payment_date', 'updated_at'])
             return Response(self._response_payload(org_id, month_start, run, detail=f"Marked as {record.status}"))
 

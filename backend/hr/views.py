@@ -452,47 +452,87 @@ class HrPayrollDashboardView(APIView):
             by_user.setdefault(e.user_id, []).append(e)
             
         import calendar
+        from workforce.models import WorkforceMember
         _, num_days = calendar.monthrange(year, mon)
+
+        profiles_map = {p.user_id: p for p in EmployeePayrollProfile.objects.filter(is_active=True)}
+        
+        # Build WorkforceMember map for bank details fallback
+        wf_list = list(WorkforceMember.objects.all())
+        wf_by_email = {wf.email.lower(): wf for wf in wf_list if wf.email}
+        wf_by_name = {wf.full_name.lower(): wf for wf in wf_list if wf.full_name}
 
         rows = []
         for user in users:
+            profile = profiles_map.get(user.id)
             rec = record_map.get(user.id)
+            pan = getattr(profile, 'pan_number', '') or ''
+            
+            # Primary: EmployeePayrollProfile; fallback: Master Workforce Sheet
+            wf_profile = wf_by_email.get(user.email.lower() if user.email else '')
+            if not wf_profile:
+                name_key = (user.get_full_name() or user.username).lower()
+                wf_profile = wf_by_name.get(name_key)
+                
+            bank = (getattr(profile, 'bank_account_number', '') or getattr(wf_profile, 'account_number', '') or getattr(wf_profile, 'bank_account_number', '') or '').strip()
+            bank_ifsc = (getattr(profile, 'ifsc_code', '') or getattr(wf_profile, 'ifsc', '') or '').strip()
+            bank_name = (getattr(profile, 'bank_name', '') or getattr(wf_profile, 'bank_name', '') or '').strip()
+            account_name = (getattr(wf_profile, 'account_name', '') or '').strip()
+            bank_display = f"****{bank[-4:]}" if len(bank) >= 4 else (bank or '-')
+            emp_code = getattr(profile, 'employee_code', '') or '-'
+            uan = getattr(profile, 'uan_number', '') if hasattr(profile, 'uan_number') else ''
             if rec:
                 rows.append({
                     'id': rec.id,
                     'user_id': rec.user_id,
                     'employee_name': rec.user.get_full_name() or rec.user.username,
+                    'employee_id': emp_code,
+                    'pan_masked': f"{'*'*6}{pan[-4:]}" if len(pan) >= 4 else (pan or '-'),
+                    'uan': uan or '-',
+                    'bank_account_display': bank_display,
+                    'bank_account_number': bank or '',
+                    'bank_account_name': account_name or '',
+                    'bank_ifsc': bank_ifsc or '',
+                    'bank_name': bank_name or '',
                     'month': str(rec.month),
                     'gross_amount': float(rec.gross_amount),
                     'total_deductions': float(rec.total_deductions),
                     'net_amount': float(rec.net_amount),
                     'status': rec.status,
+                    'finance_verified': rec.status in ('Finance Approved', 'Paid'),
                     'payment_date': str(rec.payment_date) if rec.payment_date else '',
+                    'utr_reference': rec.utr_reference or '',
                     'working_days': float(rec.working_days),
                     'present_days': float(rec.present_days),
                     'lop_days': float(rec.lop_days),
                 })
             else:
                 elist = by_user.get(user.id, [])
-                present = sum(1 for e in elist if e.status == 'present')
                 half_day = sum(1 for e in elist if e.status == 'half_day')
                 absent = sum(1 for e in elist if e.status == 'absent')
                 salary_deductions = sum(float(e.salary_deduction_days) for e in elist)
                 lop_days = float(absent) + (float(half_day) * 0.5) + salary_deductions
-                payable_days = float(num_days) - lop_days
-                if payable_days < 0:
-                    payable_days = 0.0
-
+                payable_days = max(0.0, float(num_days) - lop_days)
                 rows.append({
                     'id': None,
                     'user_id': user.id,
                     'employee_name': user.get_full_name() or user.username,
+                    'employee_id': emp_code,
+                    'pan_masked': f"{'*'*6}{pan[-4:]}" if len(pan) >= 4 else (pan or '-'),
+                    'uan': uan or '-',
+                    'bank_account_display': bank_display,
+                    'bank_account_number': bank or '',
+                    'bank_account_name': account_name or '',
+                    'bank_ifsc': bank_ifsc or '',
+                    'bank_name': bank_name or '',
                     'month': f"{year}-{mon:02d}-01",
                     'gross_amount': None,
                     'total_deductions': None,
                     'net_amount': None,
                     'status': 'Pending',
+                    'finance_verified': False,
                     'payment_date': '',
+                    'utr_reference': '',
                     'working_days': float(num_days),
                     'present_days': payable_days,
                     'lop_days': lop_days,
@@ -505,7 +545,10 @@ class HrPayrollDashboardView(APIView):
                 'id': payroll_run.id,
                 'month': str(payroll_run.month),
                 'is_locked': payroll_run.is_locked,
+                'attendance_locked_at': payroll_run.attendance_locked_at.isoformat() if payroll_run.attendance_locked_at else None,
+                'calculation_run_at': payroll_run.calculation_run_at.isoformat() if payroll_run.calculation_run_at else None,
                 'hr_approved_at': payroll_run.hr_approved_at.isoformat() if payroll_run.hr_approved_at else None,
+                'sent_to_finance_at': payroll_run.sent_to_finance_at.isoformat() if payroll_run.sent_to_finance_at else None,
                 'finance_approved_at': payroll_run.finance_approved_at.isoformat() if payroll_run.finance_approved_at else None,
                 'exception_count': payroll_run.exception_count,
                 'exception_report': payroll_run.exception_report,
@@ -513,7 +556,13 @@ class HrPayrollDashboardView(APIView):
         except PayrollRun.DoesNotExist:
             pass
 
-        return Response({'rows': rows, 'run': run})
+        # Compute totals only from calculated records
+        total_gross = sum(r['gross_amount'] or 0 for r in rows if r['gross_amount'] is not None)
+        total_ded = sum(r['total_deductions'] or 0 for r in rows if r['total_deductions'] is not None)
+        total_net = sum(r['net_amount'] or 0 for r in rows if r['net_amount'] is not None)
+        totals = {'gross': total_gross, 'deductions': total_ded, 'net': total_net}
+
+        return Response({'rows': rows, 'run': run, 'totals': totals})
 
 
 class HrPayrollEmployeeDetailView(APIView):
@@ -551,7 +600,7 @@ class HrPayrollRunControlView(APIView):
         return Response(PayrollRunSerializer(run).data)
 
     def post(self, request):
-        """Actions: hr_approve, finance_approve, lock"""
+        """Actions: lock_attendance, run_calculation, hr_approve, send_to_finance, lock"""
         action = request.data.get('action', '')
         month_str = request.data.get('month', '')
         if not month_str:
@@ -565,8 +614,9 @@ class HrPayrollRunControlView(APIView):
         run, _ = PayrollRun.objects.get_or_create(month=date(year, mon, 1))
 
         if action == 'lock_attendance':
-            # Mark all attendance entries for the month as locked
             AttendanceEntry.objects.filter(entry_date__year=year, entry_date__month=mon).update(is_locked=True, locked_at=timezone.now())
+            run.attendance_locked_at = timezone.now()
+            run.attendance_locked_by = request.user
         elif action == 'run_calculation':
             import calendar
             _, num_days = calendar.monthrange(year, mon)
@@ -620,31 +670,28 @@ class HrPayrollRunControlView(APIView):
                 if payable_days < 0:
                     payable_days = 0.0
                 
-                prorated_gross = (base_gross / working_days) * payable_days if working_days else 0
-                prorated_gross = round(prorated_gross, 2)
-                
-                deductions = 0.0
-                net = prorated_gross - deductions
-                
+                prorated_gross = round((base_gross / working_days) * payable_days, 2) if working_days else 0
+
+                # Deductions: PF 12%, ESI 0.75% (if <=21000), PT 200 (if >=15000)
+                pf = round(prorated_gross * 0.12, 2)
+                esi = round(prorated_gross * 0.0075, 2) if 0 < prorated_gross <= 21000 else 0.0
+                pt = 200.0 if prorated_gross >= 15000 else 0.0
+                total_ded = round(min(prorated_gross, pf + esi + pt), 2)
+                net = round(max(0.0, prorated_gross - total_ded), 2)
+
                 if net == 0 and working_days > 0 and base_gross > 0:
-                    exceptions.append({
-                        "user_id": user.id,
-                        "name": user.get_full_name() or user.username,
-                        "type": "Zero Pay",
-                        "message": "Calculated net pay is zero."
-                    })
-                
+                    exceptions.append({"user_id": user.id, "name": user.get_full_name() or user.username, "type": "Zero Pay", "message": "Net pay is zero."})
+
                 record, _ = PayrollPaymentRecord.objects.get_or_create(
-                    user=user,
-                    month=date(year, mon, 1),
-                    defaults={'org_id': ''}
-                )
+                    user=user, month=date(year, mon, 1), defaults={'org_id': ''})
                 record.working_days = working_days
                 record.present_days = payable_days
                 record.lop_days = lop_days
                 record.gross_amount = prorated_gross
-                record.total_deductions = deductions
+                record.total_deductions = total_ded
                 record.net_amount = net
+                record.earnings_breakup = [{'component': 'Basic Pay', 'amount': prorated_gross}]
+                record.deductions_breakup = [{'component': 'PF', 'amount': pf}, {'component': 'ESI', 'amount': esi}, {'component': 'Professional Tax', 'amount': pt}]
                 record.status = 'Processed'
                 record.save()
             
@@ -655,9 +702,38 @@ class HrPayrollRunControlView(APIView):
         elif action == 'hr_approve':
             run.hr_approved_at = timezone.now()
             run.hr_approved_by = request.user
-        elif action == 'finance_approve':
-            run.finance_approved_at = timezone.now()
-            run.finance_approved_by = request.user
+            # Update all processed records to HR Approved — employees can now see payroll in MyDesk
+            PayrollPaymentRecord.objects.filter(
+                month=date(year, mon, 1), status='Processed'
+            ).update(status='HR Approved')
+        elif action == 'send_to_finance':
+            from django.db.models import Sum
+            aggr = PayrollPaymentRecord.objects.filter(month=date(year, mon, 1)).aggregate(
+                total_gross=Sum('gross_amount'), total_net=Sum('net_amount'))
+            # Create accounting payroll batch record
+            try:
+                from accounting.models import JournalEntry, JournalItem, Ledger
+                gross_total = aggr['total_gross'] or 0
+                net_total = aggr['total_net'] or 0
+                if gross_total > 0:
+                    sal_exp, _ = Ledger.objects.get_or_create(name='Salary Expense', defaults={'type': 'expense'})
+                    sal_pay, _ = Ledger.objects.get_or_create(name='Salary Payable', defaults={'type': 'liability'})
+                    je = JournalEntry.objects.create(date=date.today(), description=f'Payroll {month_str}')
+                    JournalItem.objects.create(entry=je, ledger=sal_exp, debit=gross_total, credit=0)
+                    JournalItem.objects.create(entry=je, ledger=sal_pay, debit=0, credit=net_total)
+                    ded_total = float(gross_total) - float(net_total)
+                    if ded_total > 0:
+                        ded_led, _ = Ledger.objects.get_or_create(name='Salary Deductions Payable', defaults={'type': 'liability'})
+                        JournalItem.objects.create(entry=je, ledger=ded_led, debit=0, credit=ded_total)
+                    run.accounting_payroll_id = je.id
+            except Exception:
+                pass
+            run.sent_to_finance_at = timezone.now()
+            run.sent_to_finance_by = request.user
+            # Mark all HR-approved records as Sent to Finance
+            PayrollPaymentRecord.objects.filter(
+                month=date(year, mon, 1), status='HR Approved'
+            ).update(status='Sent to Finance')
         elif action == 'post_gl':
             from django.db.models import Sum
             from accounting.models import JournalEntry, JournalItem, Ledger
@@ -710,9 +786,45 @@ class HrPayrollRunControlView(APIView):
         elif action == 'generate_payslips':
             run.payslips_generated_at = timezone.now()
             run.payslips_generated_by = request.user
+            # Simulate PDF generation by populating the URL for all processed/approved records
+            records = PayrollPaymentRecord.objects.filter(month=date(year, mon, 1))
+            for rec in records:
+                # In a real system, you would call a PDF generator (like ReportLab or WeasyPrint)
+                # and save the file to AWS S3 or Google Cloud Storage, then save the URL here.
+                rec.payslip_pdf_url = f"/api/files/payslip/{rec.id}/{year}-{mon:02d}.pdf"
+                rec.save(update_fields=['payslip_pdf_url'])
         elif action == 'export_bank_file':
             run.bank_file_generated_at = timezone.now()
             run.bank_file_generated_by = request.user
+            # Mark all as paid when bank file is exported bulk
+            PayrollPaymentRecord.objects.filter(
+                month=date(year, mon, 1), status='Finance Approved'
+            ).update(status='Paid', payment_date=date.today())
+        elif action == 'approve_finance':
+            run.finance_approved_at = timezone.now()
+            run.finance_approved_by = request.user
+        elif action == 'approve_finance_bulk':
+            run.finance_approved_at = timezone.now()
+            run.finance_approved_by = request.user
+            PayrollPaymentRecord.objects.filter(
+                month=date(year, mon, 1), status='Sent to Finance'
+            ).update(status='Finance Approved')
+        elif action == 'verify_finance':
+            user_id = request.data.get('user_id')
+            if user_id:
+                rec, _ = PayrollPaymentRecord.objects.get_or_create(month=date(year, mon, 1), user_id=user_id)
+                if rec.status == 'Finance Approved':
+                    rec.status = 'Sent to Finance'
+                else:
+                    rec.status = 'Finance Approved'
+                rec.save(update_fields=['status'])
+        elif action == 'mark_paid':
+            user_id = request.data.get('user_id')
+            if user_id:
+                rec, _ = PayrollPaymentRecord.objects.get_or_create(month=date(year, mon, 1), user_id=user_id)
+                rec.status = 'Paid'
+                rec.payment_date = date.today()
+                rec.save(update_fields=['status', 'payment_date'])
         
         run.save()
         return Response(PayrollRunSerializer(run).data)

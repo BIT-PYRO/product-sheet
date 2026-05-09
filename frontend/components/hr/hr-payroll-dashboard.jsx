@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Search, Download, Eye, Plus, Trash2, Info, Menu, X, DollarSign, Edit2, Save } from 'lucide-react';
+import { Search, Download, Eye, Plus, Trash2, Info, Menu, X, Edit2, Save } from 'lucide-react';
 import { getPayrollDashboard, getPayrollRun, actionPayrollRun, getPayrollEmployeeDetail, savePayrollRecord, saveEmployeeSalaryStructure } from '@/lib/hr-api';
 import { toast } from 'sonner';
 
@@ -85,7 +85,8 @@ export default function HRPayrollDashboard() {
     try { 
         const r = await actionPayrollRun(action, monthToken); 
         if(r?.id) setRun(r); 
-        if(action === 'run_calculation') load();
+        // Reload rows after any action that changes record status
+        if(['run_calculation','hr_approve','send_to_finance','lock'].includes(action)) load();
     } catch (e) {
         toast.error(e.message || 'Action failed');
     } finally { setActing(''); }
@@ -138,7 +139,19 @@ export default function HRPayrollDashboard() {
           <div>
             <div className="flex items-center gap-3 mb-3">
               <h2 className="text-[15px] font-bold text-gray-800">Payroll Run Workflow</h2>
-              <span className="px-2 py-0.5 border border-gray-200 text-gray-500 text-[11px] rounded-full">Draft</span>
+              {run?.is_locked ? (
+                <span className="px-2 py-0.5 border border-green-400 text-green-600 text-[11px] rounded-full bg-green-50">Locked</span>
+              ) : run?.sent_to_finance_at ? (
+                <span className="px-2 py-0.5 border border-purple-400 text-purple-600 text-[11px] rounded-full bg-purple-50">Sent to Finance</span>
+              ) : run?.hr_approved_at ? (
+                <span className="px-2 py-0.5 border border-blue-400 text-blue-600 text-[11px] rounded-full bg-blue-50">HR Approved</span>
+              ) : run?.calculation_run_at ? (
+                <span className="px-2 py-0.5 border border-yellow-400 text-yellow-600 text-[11px] rounded-full bg-yellow-50">Calculated</span>
+              ) : run?.attendance_locked_at ? (
+                <span className="px-2 py-0.5 border border-orange-400 text-orange-600 text-[11px] rounded-full bg-orange-50">Attendance Locked</span>
+              ) : (
+                <span className="px-2 py-0.5 border border-gray-200 text-gray-500 text-[11px] rounded-full">Draft</span>
+              )}
             </div>
             <div className="flex items-center gap-2">
               <span className="px-2.5 py-1 border border-gray-200 text-gray-600 text-xs rounded-full">Employees: {rows.length}</span>
@@ -158,14 +171,11 @@ export default function HRPayrollDashboard() {
         </div>
         
         <div className="px-4 py-3 border-t border-gray-100 flex flex-wrap gap-2 items-center bg-gray-50/50 rounded-b-lg">
-          <BtnWorkflow label="LOCK ATTENDANCE" active={!run?.is_locked} onClick={()=>doAction('lock_attendance')} />
-          <BtnWorkflow label="RUN CALCULATION" active={!run?.is_locked} onClick={()=>doAction('run_calculation')} />
-          <BtnWorkflow label="APPROVE HR" active={!run?.hr_approved_at && !run?.is_locked} onClick={()=>doAction('hr_approve')} />
-          <BtnWorkflow label="APPROVE FINANCE" active={run?.hr_approved_at && !run?.finance_approved_at && !run?.is_locked} onClick={()=>doAction('finance_approve')} />
-          <BtnWorkflow label="GENERATE PAYSLIPS" active={!!run?.finance_approved_at} onClick={()=>doAction('generate_payslips')} />
-          <BtnWorkflow label="EXPORT BANK FILE" active={!!run?.finance_approved_at} onClick={()=>doAction('export_bank_file')} />
-          <BtnWorkflow label="POST GL" active={!!run?.finance_approved_at && !run?.is_locked} onClick={()=>doAction('post_gl')} />
-          <BtnWorkflow label="LOCK PAYROLL" active={!!run?.finance_approved_at && !run?.is_locked} onClick={()=>doAction('lock')} />
+          <BtnWorkflow label="LOCK ATTENDANCE" active={!run?.attendance_locked_at && !run?.is_locked} onClick={()=>doAction('lock_attendance')} />
+          <BtnWorkflow label="RUN CALCULATION" active={!!run?.attendance_locked_at && !run?.is_locked} onClick={()=>doAction('run_calculation')} />
+          <BtnWorkflow label="APPROVE HR" active={!!run?.calculation_run_at && !run?.hr_approved_at && !run?.is_locked} onClick={()=>doAction('hr_approve')} />
+          <BtnWorkflow label="SEND TO FINANCE" active={!!run?.hr_approved_at && !run?.sent_to_finance_at && !run?.is_locked} onClick={()=>doAction('send_to_finance')} />
+          <BtnWorkflow label="LOCK PAYROLL" active={!!run?.sent_to_finance_at && !run?.is_locked} onClick={()=>doAction('lock')} />
         </div>
       </div>
 
@@ -225,14 +235,19 @@ export default function HRPayrollDashboard() {
                   <td className="px-4 py-3 text-center">{r.working_days}</td>
                   <td className="px-4 py-3 text-center">{r.present_days}</td>
                   <td className="px-4 py-3 text-center text-red-500 font-medium">{r.lop_days}</td>
-                  <td className="px-4 py-3 text-gray-500">{fmt(r.gross)}</td>
-                  <td className="px-4 py-3 text-gray-500">{fmt(r.deductions)}</td>
-                  <td className="px-4 py-3 font-bold text-gray-800">{fmt(r.net)}</td>
-                  <td className="px-4 py-3 text-gray-500">{r.utr || '-'}</td>
+                  <td className="px-4 py-3 text-gray-500">{r.gross_amount != null ? fmt(r.gross_amount) : '-'}</td>
+                  <td className="px-4 py-3 text-gray-500">{r.total_deductions != null ? fmt(r.total_deductions) : '-'}</td>
+                  <td className="px-4 py-3 font-bold text-gray-800">{r.net_amount != null ? fmt(r.net_amount) : '-'}</td>
+                  <td className="px-4 py-3 text-gray-500">{r.utr_reference || '-'}</td>
                   <td className="px-4 py-3 text-gray-500">{r.payment_date || '-'}</td>
                   <td className="px-4 py-3">
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-blue-200 bg-blue-50 text-[#3B82F6] text-[11px] font-semibold">
-                      <DollarSign className="w-3 h-3" /> {r.status || 'Pending'}
+                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[11px] font-semibold
+                      ${ r.status === 'Paid' ? 'border-green-300 bg-green-50 text-green-700'
+                        : r.status === 'HR Approved' ? 'border-blue-300 bg-blue-50 text-blue-700'
+                        : r.status === 'Sent to Finance' ? 'border-purple-300 bg-purple-50 text-purple-700'
+                        : r.status === 'Processed' ? 'border-yellow-300 bg-yellow-50 text-yellow-700'
+                        : 'border-gray-200 bg-gray-50 text-gray-500'}`}>
+                      {r.status || 'Pending'}
                     </span>
                   </td>
                   <td className="px-4 py-3 text-right">

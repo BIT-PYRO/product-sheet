@@ -189,22 +189,66 @@ class EmployeePayrollProfile(models.Model):
 class PayrollRun(models.Model):
     org_id = models.CharField(max_length=64, db_index=True, blank=True, default='')
     month = models.DateField(db_index=True)
+
+    # Attendance lock
+    attendance_locked_at = models.DateTimeField(blank=True, null=True)
+    attendance_locked_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, blank=True, null=True,
+        related_name='hr_payroll_attendance_locks',
+    )
+
+    # Calculation run
+    calculation_run_at = models.DateTimeField(blank=True, null=True)
+    calculation_run_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, blank=True, null=True,
+        related_name='hr_payroll_calculations',
+    )
+    exception_count = models.IntegerField(default=0)
+    exception_report = models.JSONField(default=list, blank=True)
+
+    # HR Approval — after this employees see their payroll in MyDesk
     hr_approved_at = models.DateTimeField(blank=True, null=True)
     hr_approved_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, blank=True, null=True,
         related_name='hr_payroll_hr_approvals',
     )
+
+    # Send to Finance — transfers payroll to accounting module
+    sent_to_finance_at = models.DateTimeField(blank=True, null=True)
+    sent_to_finance_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, blank=True, null=True,
+        related_name='hr_payroll_finance_sends',
+    )
+    accounting_payroll_id = models.IntegerField(blank=True, null=True)  # FK to accounting payroll batch
+
+    # Finance approved (set by accounting side)
     finance_approved_at = models.DateTimeField(blank=True, null=True)
     finance_approved_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, blank=True, null=True,
         related_name='hr_payroll_finance_approvals',
     )
+
+    # GL Posting
     gl_posted_at = models.DateTimeField(blank=True, null=True)
     gl_posted_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, blank=True, null=True,
         related_name='hr_payroll_gl_postings',
     )
     gl_reference = models.CharField(max_length=120, blank=True, default='')
+
+    # Payslip & Bank file generation
+    payslips_generated_at = models.DateTimeField(blank=True, null=True)
+    payslips_generated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, blank=True, null=True,
+        related_name='hr_payroll_payslip_generations',
+    )
+    bank_file_generated_at = models.DateTimeField(blank=True, null=True)
+    bank_file_generated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, blank=True, null=True,
+        related_name='hr_payroll_bank_file_generations',
+    )
+
+    # Final lock
     is_locked = models.BooleanField(default=False)
     notes = models.TextField(blank=True, default='')
     created_at = models.DateTimeField(auto_now_add=True)
@@ -218,8 +262,12 @@ class PayrollRun(models.Model):
 
 class PayrollPaymentRecord(models.Model):
     STATUS_CHOICES = [
-        ('Paid', 'Paid'),
+        ('Pending', 'Pending'),
         ('Processed', 'Processed'),
+        ('HR Approved', 'HR Approved'),
+        ('Sent to Finance', 'Sent to Finance'),
+        ('Finance Approved', 'Finance Approved'),
+        ('Paid', 'Paid'),
         ('On Hold', 'On Hold'),
     ]
 
@@ -238,6 +286,7 @@ class PayrollPaymentRecord(models.Model):
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Paid')
     earnings_breakup = models.JSONField(default=list, blank=True)
     deductions_breakup = models.JSONField(default=list, blank=True)
+    payslip_pdf_url = models.URLField(max_length=500, blank=True, null=True)
     remarks = models.TextField(blank=True, default='')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
