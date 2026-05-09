@@ -464,14 +464,14 @@ export async function listMyDeskDiaryEntries(filters = {}) {
         params.set(key, String(value));
     });
     const query = params.toString() ? `?${params.toString()}` : '';
-    const response = await fetch(`/api/diary/entries/${query}`, { credentials: 'include' });
+    const response = await fetch(`/api/mydesk/diary/${query}`, { credentials: 'include' });
     return parseResponse(response);
 }
 
 export async function createMyDeskDiaryEntry(payload) {
     if (payload instanceof FormData) {
         return executeMutation(async () => {
-            const response = await fetch('/api/diary/entries/', {
+            const response = await fetch('/api/mydesk/diary/', {
                 method: 'POST',
                 credentials: 'include',
                 body: payload,
@@ -481,7 +481,7 @@ export async function createMyDeskDiaryEntry(payload) {
     }
 
     return executeMutation(async () => {
-        const response = await fetch('/api/diary/entries/', {
+        const response = await fetch('/api/mydesk/diary/', {
             method: 'POST',
             credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
@@ -494,7 +494,7 @@ export async function createMyDeskDiaryEntry(payload) {
 export async function updateMyDeskDiaryEntry(id, payload) {
     if (payload instanceof FormData) {
         return executeMutation(async () => {
-            const response = await fetch(`/api/diary/entries/${id}/`, {
+            const response = await fetch(`/api/mydesk/diary/${id}/`, {
                 method: 'PATCH',
                 credentials: 'include',
                 body: payload,
@@ -504,7 +504,7 @@ export async function updateMyDeskDiaryEntry(id, payload) {
     }
 
     return executeMutation(async () => {
-        const response = await fetch(`/api/diary/entries/${id}/`, {
+        const response = await fetch(`/api/mydesk/diary/${id}/`, {
             method: 'PATCH',
             credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
@@ -516,7 +516,7 @@ export async function updateMyDeskDiaryEntry(id, payload) {
 
 export async function deleteMyDeskDiaryEntry(id) {
     return executeMutation(async () => {
-        const response = await fetch(`/api/diary/entries/${id}/`, {
+        const response = await fetch(`/api/mydesk/diary/${id}/`, {
             method: 'DELETE',
             credentials: 'include',
         });
@@ -568,7 +568,7 @@ export async function listHrDiaryLogbooks(filters = {}) {
         params.set(key, String(value));
     });
     const query = params.toString() ? `?${params.toString()}` : '';
-    const response = await fetch(`/api/hr/diary/logbooks/${query}`, { credentials: 'include' });
+    const response = await fetch(`/api/hr/diary-dashboard/${query}`, { credentials: 'include' });
     return parseResponse(response);
 }
 

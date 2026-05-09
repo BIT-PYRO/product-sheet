@@ -94,12 +94,19 @@ class ExpenseEntry(models.Model):
     ]
 
     CATEGORY_CHOICES = [
-        ('travel', 'Travel'),
-        ('food', 'Food & Meals'),
+        ('travel', 'Travel & Transport'),
+        ('food', 'Meals & Entertainment'),
         ('office_supplies', 'Office Supplies'),
-        ('equipment', 'Equipment'),
+        ('software', 'Software & Subscriptions'),
+        ('equipment', 'Equipment & Hardware'),
+        ('marketing', 'Marketing & Advertising'),
+        ('training', 'Training & Development'),
+        ('courier', 'Courier & Shipping'),
+        ('utilities', 'Utilities'),
+        ('maintenance', 'Repairs & Maintenance'),
+        ('vendor', 'Vendor Payments'),
+        ('misc', 'Miscellaneous'),
         ('client_entertainment', 'Client Entertainment'),
-        ('misc', 'Misc'),
         ('other', 'Other'),
     ]
 
@@ -828,3 +835,22 @@ class UserPresence(models.Model):
     def is_online(self):
         from django.utils import timezone as tz
         return (tz.now() - self.last_active).total_seconds() < 180  # 3 minutes
+
+
+class DiaryEntry(models.Model):
+    org_id = models.CharField(max_length=64, db_index=True, blank=True, default='')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='diary_entries')
+    title = models.CharField(max_length=255, blank=True, default='')
+    note = models.TextField(blank=True, default='')
+    hours = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    entry_date = models.DateField(default=timezone.now)
+    attachments = models.JSONField(default=list, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        app_label = 'mydesk'
+        ordering = ['-entry_date', '-created_at']
+
+    def __str__(self):
+        return f'Diary {self.id} for {self.user.username} on {self.entry_date}'

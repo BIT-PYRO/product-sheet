@@ -80,20 +80,45 @@ export const actionLeaveRequest = (pk, data) =>
   });
 
 // ── Payroll ────────────────────────────────────────────────────────────────
-export const getPayrollDashboard = (month) =>
-  hrFetch(`/payroll/dashboard/?month=${month}`);
+export const getPayrollDashboard = (month, search = '') => {
+  const qs = new URLSearchParams({ month, ...(search ? { search } : {}) }).toString();
+  return hrFetch(`/payroll/dashboard/?${qs}`);
+};
 
-export const getPayrollEmployeeDetail = (userId) =>
-  hrFetch(`/payroll/dashboard/${userId}/`);
+export const getPayrollEmployeeDetail = (userId, month) => {
+  const qs = new URLSearchParams({ month }).toString();
+  return hrFetch(`/payroll/dashboard/${userId}/?${qs}`);
+};
 
-export const getPayrollRun = (month) =>
-  hrFetch(`/payroll/run/?month=${month}`);
+export const getPayrollRun = (month) => {
+  const qs = new URLSearchParams({ month }).toString();
+  return hrFetch(`/payroll/run/?${qs}`);
+};
 
-export const actionPayrollRun = (action, month) =>
+export const actionPayrollRun = (action, month, extra = {}) =>
   hrFetch('/payroll/run/', {
     method: 'POST',
-    body: JSON.stringify({ action, month }),
+    body: JSON.stringify({ action, month, ...extra }),
   });
+
+export const saveEmployeeSalaryStructure = (userId, month, rows) =>
+  hrFetch(`/payroll/dashboard/${userId}/`, {
+    method: 'PUT',
+    body: JSON.stringify({ month, rows }),
+  });
+
+export const savePayrollRecord = (userId, month, data) =>
+  hrFetch(`/payroll/dashboard/${userId}/`, {
+    method: 'PUT',
+    body: JSON.stringify({ month, ...data }),
+  });
+
+export const addPayrollRecordForMember = (userId, month, data) =>
+  hrFetch(`/payroll/member/${userId}/add/`, {
+    method: 'POST',
+    body: JSON.stringify({ month, ...data }),
+  });
+
 
 // ── Expenses ───────────────────────────────────────────────────────────────
 export const getExpenses = (params = {}) => {

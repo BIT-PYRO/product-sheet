@@ -18,6 +18,7 @@ from core.mydesk.models import (
     PayrollTaxDeclaration,
     GalleryAlbum,
     GalleryItem,
+    DiaryEntry,
 )
 
 try:
@@ -606,3 +607,22 @@ class GalleryItemSerializer(serializers.ModelSerializer):
                 'email': recipient.email,
             })
         return recipients
+
+
+class DiaryEntrySerializer(serializers.ModelSerializer):
+    member_name = serializers.SerializerMethodField()
+    member_email = serializers.SerializerMethodField()
+
+    class Meta:
+        model = DiaryEntry
+        fields = [
+            'id', 'user', 'member_name', 'member_email', 'title', 'note',
+            'hours', 'entry_date', 'attachments', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'user', 'member_name', 'member_email', 'created_at', 'updated_at']
+
+    def get_member_name(self, obj):
+        return obj.user.get_full_name() or obj.user.username
+
+    def get_member_email(self, obj):
+        return obj.user.email

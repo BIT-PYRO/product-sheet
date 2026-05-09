@@ -51,6 +51,7 @@ from core.mydesk.models import (
     ChatConversation,
     ChatMessage,
     UserPresence,
+    DiaryEntry,
 )
 from workforce.models import WorkforceMember
 from core.mydesk.serializers import (
@@ -63,6 +64,7 @@ from core.mydesk.serializers import (
     PayrollTaxDeclarationSerializer,
     GalleryAlbumSerializer,
     GalleryItemSerializer,
+    DiaryEntrySerializer,
 )
 from core.mydesk.helpers import _get_org_id_or_none
 from core.mydesk.notifications import push_unified_notification
@@ -813,11 +815,39 @@ def _compute_default_monthly_payroll(org_id, user, month_start, payroll_profile)
 
     gross_amount = _round2(salary_gross + expense_total)
 
-    estimated_deductions = _round2((salary_gross * 0.12) + (salary_gross * 0.02) + (200 if salary_gross > 0 else 0))
-    total_deductions = _round2(min(salary_gross, estimated_deductions))
+    tax_regime = getattr(payroll_profile, 'tax_regime', 'new')
+    
+    # Complex Deductions
+    pf_deduction = _round2(salary_gross * 0.12) if salary_gross > 0 else 0.0
+    esi_deduction = _round2(salary_gross * 0.0075) if 0 < salary_gross <= 21000 else 0.0
+    pt_deduction = 200.0 if salary_gross >= 15000 else 0.0
+    
+    # Tax calculation based on regime
+    tds_deduction = 0.0
+    annual_gross = salary_gross * 12
+    if tax_regime == 'new':
+        if annual_gross > 700000:
+            tds_deduction = _round2((salary_gross - (700000/12)) * 0.10) # Simplified 10% on excess
+    elif tax_regime == 'old':
+        if annual_gross > 500000:
+            tds_deduction = _round2((salary_gross - (500000/12)) * 0.20) # Simplified 20% on excess
+            
+    tds_deduction = max(0.0, tds_deduction)
+
+    total_deductions = _round2(pf_deduction + esi_deduction + pt_deduction + tds_deduction)
+    total_deductions = _round2(min(salary_gross, total_deductions))
+    
     net_amount = _round2(max(0.0, gross_amount - total_deductions))
 
-    fallback_earnings, deductions = _default_breakups(salary_gross, total_deductions)
+    deductions = [
+        {'component': 'PF (Provident Fund)', 'amount': pf_deduction},
+        {'component': 'ESI', 'amount': esi_deduction},
+        {'component': 'Professional Tax', 'amount': pt_deduction},
+        {'component': 'TDS', 'amount': tds_deduction},
+    ]
+    deductions = [d for d in deductions if d['amount'] > 0]
+
+    fallback_earnings, _ = _default_breakups(salary_gross, total_deductions)
     salary_earnings = _salary_snapshot_to_earnings(salary_snapshot, ratio=proration_ratio) or fallback_earnings
     earnings = salary_earnings + expense_earnings
 
@@ -1269,7 +1299,7 @@ def _status_payable_value(status_value):
 
 def _organization_users(org_id):
     if not org_id:
-        return User.objects.none()
+        return User.objects.filter(is_active=True).order_by('first_name', 'username', 'id')
     return User.objects.filter(is_active=True).filter(
         Q(team_settings__organization__organization_id=org_id)
         | Q(shop_credentials__organization_id=org_id)
@@ -3602,6 +3632,83 @@ class HrExpenseTrackerRequestApprovalView(OrgScopedBaseAPIView):
             'user_id': target_user.id,
             'updated_count': updated_count,
         })
+
+
+class HrExpenseTrackerAddForMemberView(OrgScopedBaseAPIView):
+    """HR creates an expense entry on behalf of an org member."""
+    permission_classes = [HasModulePermission]
+    required_permissions = {
+        'POST': 'human_resources:attendance_dashboard:edit',
+    }
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
+
+    def post(self, request, user_id):
+        org_id = self.get_org_id()
+        target_user = _organization_users(org_id).filter(id=user_id).first()
+        if not target_user:
+            return Response({'detail': 'Member not found in your organization.'}, status=status.HTTP_404_NOT_FOUND)
+
+        data = request.data.dict() if hasattr(request.data, 'dict') else dict(request.data)
+
+        # Build expense fields
+        category = str(data.get('category') or 'misc').strip()
+        transaction_type = str(data.get('transaction_type') or 'expense').strip()
+        try:
+            amount = float(str(data.get('amount') or '0').strip())
+        except ValueError:
+            return Response({'amount': 'A valid number is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        spent_on_raw = str(data.get('spent_on') or '').strip()
+        if not spent_on_raw:
+            return Response({'spent_on': 'This field is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        from datetime import date as _date
+        try:
+            spent_on = _date.fromisoformat(spent_on_raw)
+        except ValueError:
+            return Response({'spent_on': 'Enter a valid date (YYYY-MM-DD).'}, status=status.HTTP_400_BAD_REQUEST)
+
+        department = str(data.get('department') or '').strip()
+        notes = str(data.get('notes') or '').strip()
+        payment_method = str(data.get('payment_method') or '').strip()
+
+        entry = ExpenseEntry(
+            org_id=org_id or '',
+            user=target_user,
+            transaction_type=transaction_type,
+            category=category,
+            amount=amount,
+            spent_on=spent_on,
+            department=department,
+            notes=notes,
+            payment_method=payment_method,
+            status='Submitted',  # HR-added expenses go directly to Submitted
+        )
+
+        # Add workflow step
+        actor_name = _actor_display_name(request.user)
+        entry.workflow_steps = [{
+            'step': 'Created by HR',
+            'actor': actor_name,
+            'actor_id': request.user.id,
+            'at': timezone.now().isoformat(),
+            'note': f'Added on behalf of {_user_full_name(target_user)} by HR',
+        }]
+
+        if 'receipt' in request.FILES:
+            entry.receipt = request.FILES['receipt']
+
+        entry.save()
+
+        workforce_member = _build_workforce_member_map(org_id, [target_user]).get(target_user.id)
+        dept_name = department
+        if not dept_name and workforce_member and workforce_member.department:
+            dept_name = str(workforce_member.department.name or '').strip()
+
+        return Response(
+            _expense_entry_payload(request, entry, user_obj=target_user, department_name=dept_name),
+            status=status.HTTP_201_CREATED,
+        )
 
 
 class LeaveRequestListCreateView(OrgScopedBaseAPIView):
@@ -6181,6 +6288,7 @@ class HrPayrollRunControlView(OrgScopedBaseAPIView):
         'post_gl',
         'lock_payroll',
         'verify_finance',
+        'mark_paid',
     }
 
     def _resolve_month_start(self, request):
@@ -6473,6 +6581,18 @@ class HrPayrollRunControlView(OrgScopedBaseAPIView):
             }
             return Response(payload)
 
+        elif action == 'mark_paid':
+            target_user_id = request.data.get('user_id')
+            if not target_user_id:
+                return Response({'detail': 'user_id is required.'}, status=status.HTTP_400_BAD_REQUEST)
+            record = PayrollPaymentRecord.objects.filter(org_id=org_id, user_id=target_user_id, month=month_start).first()
+            if not record:
+                return Response({'detail': 'Record not found.'}, status=status.HTTP_404_NOT_FOUND)
+            record.status = 'Paid' if record.status != 'Paid' else 'Processed'
+            record.payment_date = now.date() if record.status == 'Paid' else None
+            record.save(update_fields=['status', 'payment_date', 'updated_at'])
+            return Response(self._response_payload(org_id, month_start, run, detail=f"Marked as {record.status}"))
+
         elif action == 'post_gl':
             if not run.finance_approved_at:
                 return Response(
@@ -6481,7 +6601,32 @@ class HrPayrollRunControlView(OrgScopedBaseAPIView):
                 )
 
             if not run.gl_reference:
-                run.gl_reference = f"GL-PAY-{month_start.strftime('%Y%m')}-{int(now.timestamp())}"
+                from django.db import transaction
+                from accounting.models import JournalEntry, JournalItem, Ledger
+                with transaction.atomic():
+                    run.gl_reference = f"GL-PAY-{month_start.strftime('%Y%m')}-{int(now.timestamp())}"
+                    entry = JournalEntry.objects.create(
+                        date=now.date(),
+                        description=f"Payroll for {_month_label(month_start)}",
+                        import_hash=run.gl_reference
+                    )
+                    stats = self._summary_stats(org_id, month_start)
+                    gross = stats['total_gross']
+                    net = stats['total_net']
+                    liabilities = gross - net
+
+                    if gross > 0:
+                        salary_expense, _ = Ledger.objects.get_or_create(name='Salary Expense', defaults={'type': Ledger.LedgerType.EXPENSE})
+                        JournalItem.objects.create(entry=entry, ledger=salary_expense, debit=gross, credit=0)
+                        
+                        if liabilities > 0:
+                            liab_ledger, _ = Ledger.objects.get_or_create(name='Payroll Liabilities', defaults={'type': Ledger.LedgerType.LIABILITY})
+                            JournalItem.objects.create(entry=entry, ledger=liab_ledger, debit=0, credit=liabilities)
+                        
+                        if net > 0:
+                            bank_account, _ = Ledger.objects.get_or_create(name='Bank Account', defaults={'type': Ledger.LedgerType.ASSET})
+                            JournalItem.objects.create(entry=entry, ledger=bank_account, debit=0, credit=net)
+
             run.gl_posted_at = now
             run.gl_posted_by = request.user
             run.save(update_fields=['gl_reference', 'gl_posted_at', 'gl_posted_by', 'updated_at'])
@@ -7551,3 +7696,230 @@ class TeamMembersView(OrgScopedBaseAPIView):
             for user in qs
         ]
         return Response(members)
+
+class HrDeptExpenseView(OrgScopedBaseAPIView):
+    permission_classes = [HasModulePermission]
+    required_permissions = {
+        'GET': 'human_resources:attendance_dashboard:view',
+        'POST': 'human_resources:attendance_dashboard:edit',
+    }
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
+
+    def get(self, request):
+        org_id = self.get_org_id()
+        
+        queryset = ExpenseEntry.objects.filter(
+            org_id=org_id,
+            department='Human Resources',
+            transaction_type='expense',
+        ).order_by('-spent_on', '-created_at')
+
+        total_submitted = 0.0
+        pending_approval = 0.0
+        approved = 0.0
+        
+        filtered_entries = []
+        status_filter = request.query_params.get('status', 'All')
+
+        for expense in queryset:
+            amt = _expense_amount_value(expense.amount)
+            status_label = _expense_status_label(expense.status)
+            
+            if status_label in ['Submitted', 'Draft']:
+                total_submitted += amt
+            elif status_label in ['Dept Head Approved', 'Finance Reviewed']:
+                pending_approval += amt
+            elif status_label in ['Approved', 'Paid']:
+                approved += amt
+
+            if status_filter != 'All':
+                if status_filter == 'Pending' and status_label not in ['Submitted', 'Dept Head Approved', 'Finance Reviewed', 'Draft']:
+                    continue
+                elif status_filter == 'Approved' and status_label not in ['Approved', 'Paid']:
+                    continue
+                elif status_filter == 'Rejected' and status_label != 'Rejected':
+                    continue
+
+            filtered_entries.append(_expense_entry_payload(request, expense, user_obj=expense.user, department_name='Human Resources'))
+
+        return Response({
+            'summary': {
+                'total_submitted': _round2(total_submitted),
+                'pending_approval': _round2(pending_approval),
+                'approved': _round2(approved),
+            },
+            'expenses': filtered_entries
+        })
+
+    def post(self, request):
+        org_id = self.get_org_id()
+        data = request.data
+        
+        amount = _round2(float(data.get('amount') or 0))
+        if amount <= 0:
+            return Response({'detail': 'Valid amount required.'}, status=status.HTTP_400_BAD_REQUEST)
+            
+        category = str(data.get('category') or 'misc').strip()
+        spent_on_raw = data.get('spent_on')
+        notes = str(data.get('notes') or '').strip()
+        payment_method = str(data.get('payment_method') or '').strip()
+        
+        from datetime import date as _date
+        if spent_on_raw:
+            try:
+                spent_on = _date.fromisoformat(str(spent_on_raw))
+            except (ValueError, TypeError):
+                spent_on = timezone.localdate()
+        else:
+            spent_on = timezone.localdate()
+
+        expense = ExpenseEntry(
+            org_id=org_id,
+            user=request.user,
+            transaction_type='expense',
+            category=category,
+            amount=amount,
+            spent_on=spent_on,
+            department='Human Resources',
+            status='Submitted',
+            notes=notes,
+            payment_method=payment_method
+        )
+        
+        if 'receipt' in request.FILES:
+            expense.receipt = request.FILES['receipt']
+            
+        expense.save()
+
+        # Record workflow step inline (matches pattern at line ~3437)
+        workflow_steps = expense.workflow_steps if isinstance(expense.workflow_steps, list) else []
+        workflow_steps.append({
+            'step': 'Submitted',
+            'actor': request.user.get_full_name() or request.user.username,
+            'actor_id': request.user.id,
+            'at': timezone.now().isoformat(),
+            'note': notes,
+        })
+        expense.workflow_steps = workflow_steps
+        expense.save(update_fields=['workflow_steps'])
+        
+        try:
+            from accounting.models import PendingExpense, Ledger
+            ledger_name = f'{category.title()} Expense'
+            category_ledger, _ = Ledger.objects.get_or_create(
+                name=ledger_name,
+                defaults={'type': Ledger.LedgerType.EXPENSE}
+            )
+            
+            PendingExpense.objects.create(
+                source_id=f"HR_DEPT_{expense.id}",
+                employee_name=request.user.get_full_name() or request.user.username,
+                amount=amount,
+                category=category_ledger,
+                description=f"HR Dept: {notes}" if notes else f"HR Dept Expense - {category}",
+                source="HR Department",
+                status=PendingExpense.Status.PENDING,
+                department="HR & Admin"
+            )
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).error("Failed to sync HR expense to PendingExpense: %s", str(e))
+
+        return Response(_expense_entry_payload(request, expense, user_obj=request.user, department_name='Human Resources'), status=status.HTTP_201_CREATED)
+
+
+# ═══════════════════════════════════════════════════════════════════
+# DIARY / WORK LOG SYSTEM
+# ═══════════════════════════════════════════════════════════════════
+
+class MyDiaryListView(OrgScopedBaseAPIView):
+    """
+    GET /api/mydesk/diary/
+    POST /api/mydesk/diary/
+    """
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
+
+    def get(self, request):
+        org_id = self.get_org_id()
+        entries = DiaryEntry.objects.filter(org_id=org_id, user=request.user)
+        
+        start_date = request.query_params.get('start_date')
+        end_date = request.query_params.get('end_date')
+        if start_date:
+            entries = entries.filter(entry_date__gte=start_date)
+        if end_date:
+            entries = entries.filter(entry_date__lte=end_date)
+            
+        serializer = DiaryEntrySerializer(entries, many=True, context={'request': request})
+        return Response({'success': True, 'data': serializer.data})
+
+    def post(self, request):
+        org_id = self.get_org_id()
+        data = request.data.copy()
+        
+        serializer = DiaryEntrySerializer(data=data, context={'request': request})
+        if serializer.is_valid():
+            serializer.save(user=request.user, org_id=org_id)
+            return Response({'success': True, 'data': serializer.data}, status=status.HTTP_201_CREATED)
+        return Response({'success': False, 'errors': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class HrDiaryDashboardView(OrgScopedBaseAPIView):
+    """
+    GET /api/hr/diary-dashboard/
+    """
+    permission_classes = [HasModulePermission]
+    required_permissions = {
+        'GET': 'human_resources:attendance_dashboard:view',
+    }
+
+    def get(self, request):
+        org_id = self.get_org_id()
+        
+        end_date = request.query_params.get('end_date', timezone.localdate().isoformat())
+        start_date = request.query_params.get('start_date', (timezone.localdate() - timedelta(days=7)).isoformat())
+        
+        entries = DiaryEntry.objects.filter(org_id=org_id, entry_date__range=[start_date, end_date]).select_related('user')
+        
+        from django.db.models import Sum, Count
+        summary = entries.aggregate(
+            total_hours=Sum('hours'),
+            total_entries=Count('id')
+        )
+        
+        members_data = {}
+        users = _organization_users(org_id)
+        for user in users:
+            members_data[user.id] = {
+                'id': user.id,
+                'name': user.get_full_name() or user.username,
+                'email': user.email,
+                'total_hours': 0.0,
+                'entry_count': 0,
+                'recent_entries': []
+            }
+            
+        for entry in entries:
+            if entry.user_id in members_data:
+                members_data[entry.user_id]['total_hours'] += float(entry.hours or 0)
+                members_data[entry.user_id]['entry_count'] += 1
+                if len(members_data[entry.user_id]['recent_entries']) < 5:
+                    members_data[entry.user_id]['recent_entries'].append(
+                        DiaryEntrySerializer(entry, context={'request': request}).data
+                    )
+
+        active_members_count = sum(1 for m in members_data.values() if m['entry_count'] > 0)
+        total_hours = float(summary['total_hours'] or 0)
+        total_entries = int(summary['total_entries'] or 0)
+        
+        return Response({
+            'success': True,
+            'summary': {
+                'total_logged_hours': round(total_hours, 1),
+                'total_entries': total_entries,
+                'active_members': active_members_count,
+                'avg_hours_per_entry': round(total_hours / (total_entries or 1), 1)
+            },
+            'members': list(members_data.values())
+        })

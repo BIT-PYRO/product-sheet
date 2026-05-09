@@ -110,9 +110,20 @@ export async function proxyAuthenticatedRequest(request, backendPath, options = 
     }
 
     const isNoContent = backendResponse.status === 204 || backendResponse.status === 205;
-    const payload = isNoContent
-      ? null
-      : await backendResponse.json().catch(() => ({ success: false, message: 'Invalid backend response' }));
+    const payload = await (async () => {
+      if (isNoContent) return null;
+      try {
+        const text = await backendResponse.text();
+        try {
+          return JSON.parse(text);
+        } catch (e) {
+          console.error(`[backend-auth] Invalid backend response for ${backendPath}. Status: ${backendResponse.status}. Body preview:`, text.substring(0, 500));
+          return { success: false, message: 'Invalid backend response' };
+        }
+      } catch (e) {
+        return { success: false, message: 'Invalid backend response' };
+      }
+    })();
 
     const response = isNoContent
       ? new NextResponse(null, { status: backendResponse.status })

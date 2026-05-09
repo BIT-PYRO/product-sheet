@@ -39,6 +39,7 @@ from core.mydesk.views import (
     HrExpenseTrackerMemberDetailView,
     HrExpenseTrackerApprovalActionView,
     HrExpenseTrackerRequestApprovalView,
+    HrExpenseTrackerAddForMemberView,
     GalleryAlbumListCreateView,
     GalleryItemListCreateView,
     GalleryItemDetailView,
@@ -51,6 +52,9 @@ from core.mydesk.views import (
     ChatHeartbeatView,
     ChatMessageDetailView,
     TeamMembersView,
+    HrDeptExpenseView,
+    MyDiaryListView,
+    HrDiaryDashboardView,
 )
 
 # --- URL Patterns ---
@@ -117,6 +121,8 @@ urlpatterns = [
     path('api/hr/expenses/tracker/member/<int:user_id>/', HrExpenseTrackerMemberDetailView.as_view(), name='hr-expense-tracker-member-detail'),
     path('api/hr/expenses/tracker/<int:expense_id>/approval/', HrExpenseTrackerApprovalActionView.as_view(), name='hr-expense-tracker-approval-action'),
     path('api/hr/expenses/tracker/member/<int:user_id>/request-approval/', HrExpenseTrackerRequestApprovalView.as_view(), name='hr-expense-tracker-request-approval'),
+    path('api/hr/expenses/tracker/member/<int:user_id>/add/', HrExpenseTrackerAddForMemberView.as_view(), name='hr-expense-tracker-add-for-member'),
+    path('api/hr/dept-expenses/', HrDeptExpenseView.as_view(), name='hr-dept-expenses'),
 
     # Gallery
     path('api/mydesk/gallery/albums/', GalleryAlbumListCreateView.as_view(), name='mydesk-gallery-albums'),
@@ -132,6 +138,10 @@ urlpatterns = [
     path('api/mydesk/chat/conversations/<int:conv_id>/read/', ChatMarkReadView.as_view(), name='mydesk-chat-mark-read'),
     path('api/mydesk/chat/broadcast/', ChatBroadcastView.as_view(), name='mydesk-chat-broadcast'),
     path('api/mydesk/chat/heartbeat/', ChatHeartbeatView.as_view(), name='mydesk-chat-heartbeat'),
+
+    # Diary / Work Log
+    path('api/mydesk/diary/', MyDiaryListView.as_view(), name='mydesk-diary-list'),
+    path('api/hr/diary-dashboard/', HrDiaryDashboardView.as_view(), name='hr-diary-dashboard'),
 
     # Team members (for meeting scheduling)
     path('api/team/members/', TeamMembersView.as_view(), name='team-members'),

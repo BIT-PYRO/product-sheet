@@ -11,13 +11,28 @@ export async function GET(request, { params }) {
   const slug = (await params).slug || [];
   const url = new URL(request.url);
   const qs = url.search || '';
-  // Build path: ensure single trailing slash before query string
-  const backendPath = `/api/hr/${slug.join('/')}/${qs}`;
+  const basePath = `/api/hr/${slug.join('/')}/`;
+  const backendPath = qs ? `${basePath}${qs}` : basePath;
   return proxyAuthenticatedRequest(request, backendPath);
 }
 
 export async function POST(request, { params }) {
   const slug = (await params).slug || [];
+  const contentType = request.headers.get('content-type') || '';
+  
+  if (contentType.includes('multipart/form-data')) {
+    // Parse and rebuild FormData to avoid stream issues
+    const incomingForm = await request.formData();
+    const outgoingForm = new FormData();
+    for (const [key, value] of incomingForm.entries()) {
+      outgoingForm.append(key, value);
+    }
+    return proxyAuthenticatedRequest(request, `/api/hr/${slug.join('/')}/`, {
+      method: 'POST',
+      body: outgoingForm,
+    });
+  }
+
   const body = await request.text();
   return proxyAuthenticatedRequest(request, `/api/hr/${slug.join('/')}/`, {
     method: 'POST',
@@ -28,6 +43,20 @@ export async function POST(request, { params }) {
 
 export async function PUT(request, { params }) {
   const slug = (await params).slug || [];
+  const contentType = request.headers.get('content-type') || '';
+  
+  if (contentType.includes('multipart/form-data')) {
+    const incomingForm = await request.formData();
+    const outgoingForm = new FormData();
+    for (const [key, value] of incomingForm.entries()) {
+      outgoingForm.append(key, value);
+    }
+    return proxyAuthenticatedRequest(request, `/api/hr/${slug.join('/')}/`, {
+      method: 'PUT',
+      body: outgoingForm,
+    });
+  }
+
   const body = await request.text();
   return proxyAuthenticatedRequest(request, `/api/hr/${slug.join('/')}/`, {
     method: 'PUT',
@@ -38,6 +67,20 @@ export async function PUT(request, { params }) {
 
 export async function PATCH(request, { params }) {
   const slug = (await params).slug || [];
+  const contentType = request.headers.get('content-type') || '';
+  
+  if (contentType.includes('multipart/form-data')) {
+    const incomingForm = await request.formData();
+    const outgoingForm = new FormData();
+    for (const [key, value] of incomingForm.entries()) {
+      outgoingForm.append(key, value);
+    }
+    return proxyAuthenticatedRequest(request, `/api/hr/${slug.join('/')}/`, {
+      method: 'PATCH',
+      body: outgoingForm,
+    });
+  }
+
   const body = await request.text();
   return proxyAuthenticatedRequest(request, `/api/hr/${slug.join('/')}/`, {
     method: 'PATCH',
