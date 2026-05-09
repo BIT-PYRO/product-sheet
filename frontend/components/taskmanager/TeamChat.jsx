@@ -6,6 +6,7 @@ import React, {
   useRef,
   useCallback,
 } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   Box,
   Typography,
@@ -29,6 +30,8 @@ import DoneAllIcon from '@mui/icons-material/DoneAll';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import SendIcon from '@mui/icons-material/Send';
 import ChatIcon from '@mui/icons-material/Chat';
+import ChatCalendarModal from '../mydesk/ChatCalendarModal';
+import MeetScheduleModal from '../mydesk/MeetScheduleModal';
 
 // --- Helpers -----------------------------------------------------------------
 
@@ -271,7 +274,10 @@ function MessageBubble({ msg, onDelete }) {
 
 // --- Main TeamChat -----------------------------------------------------------
 export default function TeamChat({ isOpen, embedded, title, showCloseButton, focusWithUserId }) {
+  var router = useRouter();
   var [contacts, setContacts] = useState([]);
+  var [calendarOpen, setCalendarOpen] = useState(false);
+  var [meetOpen, setMeetOpen] = useState(false);
   var [conversations, setConversations] = useState([]);
   var [broadcastConv, setBroadcastConv] = useState(null);
   var [selectedConvId, setSelectedConvId] = useState(null);
@@ -286,6 +292,7 @@ export default function TeamChat({ isOpen, embedded, title, showCloseButton, foc
   var messagesEndRef = useRef(null);
   var pollTimerRef = useRef(null);
   var heartbeatTimerRef = useRef(null);
+  var convPollTimerRef = useRef(null);
   var inputRef = useRef(null);
   var lastMsgIdRef = useRef(0);
 
@@ -298,6 +305,17 @@ export default function TeamChat({ isOpen, embedded, title, showCloseButton, foc
   var sendHeartbeat = useCallback(async function() {
     try { await apiFetch('chat/heartbeat/', { method: 'POST', body: '{}' }); }
     catch (_) {}
+  }, []);
+
+  var sendGoOffline = useCallback(function() {
+    // Use fetch with keepalive so it fires even during page unload
+    fetch('/api/mydesk/chat/go-offline/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: '{}',
+      keepalive: true,
+    }).catch(function() {});
   }, []);
 
   var refreshConversations = useCallback(async function() {
@@ -401,6 +419,22 @@ export default function TeamChat({ isOpen, embedded, title, showCloseButton, foc
     }
   }, [input, selectedConvId, scrollToBottom, refreshConversations]);
 
+  // Send a message directly to the selected conversation (used by modals)
+  var sendMessageDirect = useCallback(async function(text) {
+    if (!text || !selectedConvId) return;
+    try {
+      var msg = await apiFetch('chat/conversations/' + selectedConvId + '/messages/', {
+        method: 'POST',
+        body: JSON.stringify({ content: text }),
+      });
+      setMessages(function(prev) { return prev.concat([msg]); });
+      setLastMsgId(msg.id);
+      lastMsgIdRef.current = msg.id;
+      setTimeout(scrollToBottom, 50);
+      refreshConversations();
+    } catch (e) { console.error('Direct send error:', e); }
+  }, [selectedConvId, scrollToBottom, refreshConversations]);
+
   var deleteMessage = useCallback(async function(msgId) {
     if (!selectedConvId) return;
     try {
@@ -426,12 +460,33 @@ export default function TeamChat({ isOpen, embedded, title, showCloseButton, foc
     }
     init();
     sendHeartbeat();
-    heartbeatTimerRef.current = setInterval(sendHeartbeat, 30000);
+    heartbeatTimerRef.current = setInterval(sendHeartbeat, 20000);
+
+    // Refresh conversations list every 5 s to pick up new messages and presence changes
+    convPollTimerRef.current = setInterval(refreshConversations, 5000);
+
+    // Mark user offline immediately when they leave/hide the page
+    function handleVisibilityChange() {
+      if (document.visibilityState === 'hidden') {
+        sendGoOffline();
+      } else {
+        // They came back — send a heartbeat right away
+        sendHeartbeat();
+      }
+    }
+    function handlePageHide() { sendGoOffline(); }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('pagehide', handlePageHide);
+
     return function() {
       if (pollTimerRef.current) clearInterval(pollTimerRef.current);
       if (heartbeatTimerRef.current) clearInterval(heartbeatTimerRef.current);
+      if (convPollTimerRef.current) clearInterval(convPollTimerRef.current);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('pagehide', handlePageHide);
     };
-  }, [sendHeartbeat]);
+  }, [sendHeartbeat, sendGoOffline, refreshConversations]);
 
   // Auto-open focusWithUserId
   useEffect(function() {
@@ -502,7 +557,8 @@ export default function TeamChat({ isOpen, embedded, title, showCloseButton, foc
                 display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px',
                 border: '1px solid #d1d5db', borderRadius: 6, background: 'white',
                 cursor: 'pointer', fontSize: 12, color: '#374151', fontWeight: 500,
-              }
+              },
+              onClick: function() { setCalendarOpen(true); }
             }, React.createElement(CalendarTodayIcon, { sx: { fontSize: 14 } }), 'Calendar')
           ),
           React.createElement(Tooltip, { title: 'Video Meet' },
@@ -511,7 +567,8 @@ export default function TeamChat({ isOpen, embedded, title, showCloseButton, foc
                 display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px',
                 border: '1px solid #d1d5db', borderRadius: 6, background: 'white',
                 cursor: 'pointer', fontSize: 12, color: '#374151', fontWeight: 500,
-              }
+              },
+              onClick: function() { setMeetOpen(true); }
             }, React.createElement(VideoCallIcon, { sx: { fontSize: 14 } }), 'Meet')
           ),
           React.createElement(Tooltip, { title: 'New' },
@@ -770,7 +827,16 @@ export default function TeamChat({ isOpen, embedded, title, showCloseButton, foc
             )
           )
         )
-      )
+      ),
+      React.createElement(ChatCalendarModal, {
+        open: calendarOpen,
+        onClose: function() { setCalendarOpen(false); },
+      }),
+      React.createElement(MeetScheduleModal, {
+        open: meetOpen,
+        onClose: function() { setMeetOpen(false); },
+        onSendChatMessage: selectedConvId ? sendMessageDirect : null,
+      })
     )
   );
 }

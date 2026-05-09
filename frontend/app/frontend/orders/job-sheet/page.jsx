@@ -49,7 +49,8 @@ export function OrderSheetView({ embedded = false, defaultPicklistNum = null }) 
 
   // Export picklist state
   const [showExportPicklistDialog, setShowExportPicklistDialog] = useState(false);
-  const [exportPicklistNum, setExportPicklistNum] = useState(null);
+  const [exportPicklistNums, setExportPicklistNums] = useState(new Set());
+  const [exportMerged, setExportMerged] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
 
   // Invoice generation state
@@ -343,104 +344,210 @@ export function OrderSheetView({ embedded = false, defaultPicklistNum = null }) 
           .map((o) => o.picklist_number)
       ),
     ].sort((a, b) => b - a);
-    setExportPicklistNum(nums[0] ?? null);
+    setExportPicklistNums(nums.length > 0 ? new Set([nums[0]]) : new Set());
+    setExportMerged(false);
     setShowExportPicklistDialog(true);
   };
 
   const handleExportPicklist = () => {
-    if (exportPicklistNum == null) return;
+    if (exportPicklistNums.size === 0) return;
     setIsExporting(true);
 
-    // Gather all items for this picklist from matching orders
-    const picklistOrders = orders.filter(
-      (o) => o.order_source === 'picklist' && o.picklist_number === exportPicklistNum
-    );
-
-    // Group by master SKU, tracking each variation SKU and its qty separately.
-    // Order items store the variation SKU (e.g. AJE116/G); strip the last /suffix
-    // to recover the master SKU (e.g. AJE116).
-    // masterMap: masterSku → { productName, totalQty, variations: Map<variationSku, qty> }
-    const masterMap = new Map();
-    picklistOrders.forEach((order) => {
-      (order.items || []).forEach((item) => {
-        const variationSku = String(item.sku || '').trim().toUpperCase();
-        if (!variationSku) return;
-        const masterSku = variationSku.includes('/')
-          ? variationSku.substring(0, variationSku.lastIndexOf('/'))
-          : variationSku;
-        const qty = Number(item.quantity) || 0;
-        const productName = String(item.name || '').trim();
-
-        if (!masterMap.has(masterSku)) {
-          masterMap.set(masterSku, { productName, totalQty: 0, variations: new Map() });
-        }
-        const entry = masterMap.get(masterSku);
-        entry.totalQty += qty;
-        // Use the item name as product name if not set yet
-        if (!entry.productName && productName) entry.productName = productName;
-        // Aggregate per variation SKU
-        entry.variations.set(variationSku, (entry.variations.get(variationSku) || 0) + qty);
-      });
-    });
-
-    const rows = Array.from(masterMap.entries())
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([masterSku, entry]) => ({ masterSku, ...entry }));
-
-    // Build printable HTML
-    const picklistName = `PICKLIST-${exportPicklistNum}`;
     const exportDate = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
-    const totalPiecesAll = rows.reduce((s, r) => s + r.totalQty, 0);
+    const sortedNums = Array.from(exportPicklistNums).sort((a, b) => a - b);
 
-    const rowsHtml = rows.map((item) => {
-      const normalized = item.masterSku.toLowerCase();
-      const product = productsBySku[normalized] || null;
-      const imageList = Array.isArray(product?.images) ? product.images : [];
-      const firstImage = imageList[0] || null;
-      const displayName = item.productName || product?.listing_name || product?.name || '';
+    // Build a helper to aggregate items for a single picklist number and return an HTML section
+    const buildPicklistSection = (num, isLast) => {
+      const picklistOrders = orders.filter(
+        (o) => o.order_source === 'picklist' && o.picklist_number === num
+      );
 
-      const imgHtml = firstImage
-        ? `<img src="${firstImage}" alt="${item.masterSku}" style="width:100px;height:100px;object-fit:cover;border-radius:8px;border:1px solid #e5e7eb;" />`
-        : `<div style="width:100px;height:100px;border-radius:8px;border:1px solid #e5e7eb;background:#f9fafb;display:flex;align-items:center;justify-content:center;color:#9ca3af;font-size:11px;">No image</div>`;
+      // masterMap: masterSku → { productName, totalQty, variations: Map<variationSku, qty> }
+      const masterMap = new Map();
+      picklistOrders.forEach((order) => {
+        (order.items || []).forEach((item) => {
+          const variationSku = String(item.sku || '').trim().toUpperCase();
+          if (!variationSku) return;
+          const masterSku = variationSku.includes('/')
+            ? variationSku.substring(0, variationSku.lastIndexOf('/'))
+            : variationSku;
+          const qty = Number(item.quantity) || 0;
+          const productName = String(item.name || '').trim();
 
-      // Variation rows (only shown if there are multiple variations or variation ≠ master)
-      const variationEntries = Array.from(item.variations.entries());
-      const showVariations = variationEntries.length > 0 && !(variationEntries.length === 1 && variationEntries[0][0] === item.masterSku);
-      const variationsHtml = showVariations
-        ? `<div style="margin-top:6px;display:flex;flex-direction:column;gap:3px;">
-            ${variationEntries.map(([vSku, vQty]) => `
-              <div style="display:flex;align-items:center;gap:8px;">
-                <span style="font-size:11px;color:#6b7280;background:#f3f4f6;padding:1px 6px;border-radius:4px;font-family:monospace;">${vSku}</span>
-                <span style="font-size:11px;font-weight:600;color:#374151;">×${vQty}</span>
-              </div>`).join('')}
-          </div>`
-        : '';
+          if (!masterMap.has(masterSku)) {
+            masterMap.set(masterSku, { productName, totalQty: 0, variations: new Map() });
+          }
+          const entry = masterMap.get(masterSku);
+          entry.totalQty += qty;
+          if (!entry.productName && productName) entry.productName = productName;
+          entry.variations.set(variationSku, (entry.variations.get(variationSku) || 0) + qty);
+        });
+      });
+
+      const rows = Array.from(masterMap.entries())
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([masterSku, entry]) => ({ masterSku, ...entry }));
+
+      const picklistName = `PICKLIST-${num}`;
+      const totalPiecesAll = rows.reduce((s, r) => s + r.totalQty, 0);
+
+      const rowsHtml = rows.map((item) => {
+        const normalized = item.masterSku.toLowerCase();
+        const product = productsBySku[normalized] || null;
+        const imageList = Array.isArray(product?.images) ? product.images : [];
+        const firstImage = imageList[0] || null;
+        const displayName = item.productName || product?.listing_name || product?.name || '';
+
+        const imgHtml = firstImage
+          ? `<img src="${firstImage}" alt="${item.masterSku}" style="width:100px;height:100px;object-fit:cover;border-radius:8px;border:1px solid #e5e7eb;" />`
+          : `<div style="width:100px;height:100px;border-radius:8px;border:1px solid #e5e7eb;background:#f9fafb;display:flex;align-items:center;justify-content:center;color:#9ca3af;font-size:11px;">No image</div>`;
+
+        const variationEntries = Array.from(item.variations.entries());
+        const showVariations = variationEntries.length > 0 && !(variationEntries.length === 1 && variationEntries[0][0] === item.masterSku);
+        const variationsHtml = showVariations
+          ? `<div style="margin-top:6px;display:flex;flex-direction:column;gap:3px;">
+              ${variationEntries.map(([vSku, vQty]) => `
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <span style="font-size:11px;color:#6b7280;background:#f3f4f6;padding:1px 6px;border-radius:4px;font-family:monospace;">${vSku}</span>
+                  <span style="font-size:11px;font-weight:600;color:#374151;">×${vQty}</span>
+                </div>`).join('')}
+            </div>`
+          : '';
+
+        return `
+          <tr>
+            <td style="padding:10px 14px;vertical-align:middle;border-bottom:1px solid #f3f4f6;">${imgHtml}</td>
+            <td style="padding:10px 14px;vertical-align:top;border-bottom:1px solid #f3f4f6;">
+              <div style="font-weight:700;font-size:13px;color:#111827;">${item.masterSku}</div>
+              ${displayName ? `<div style="font-size:12px;color:#6b7280;margin-top:2px;">${displayName}</div>` : ''}
+              ${variationsHtml}
+            </td>
+            <td style="padding:10px 14px;vertical-align:middle;border-bottom:1px solid #f3f4f6;font-weight:700;font-size:15px;color:#2563eb;text-align:center;">${item.totalQty}</td>
+          </tr>`;
+      }).join('');
 
       return `
-        <tr>
-          <td style="padding:10px 14px;vertical-align:middle;border-bottom:1px solid #f3f4f6;">${imgHtml}</td>
-          <td style="padding:10px 14px;vertical-align:top;border-bottom:1px solid #f3f4f6;">
-            <div style="font-weight:700;font-size:13px;color:#111827;">${item.masterSku}</div>
-            ${displayName ? `<div style="font-size:12px;color:#6b7280;margin-top:2px;">${displayName}</div>` : ''}
-            ${variationsHtml}
-          </td>
-          <td style="padding:10px 14px;vertical-align:middle;border-bottom:1px solid #f3f4f6;font-weight:700;font-size:15px;color:#2563eb;text-align:center;">${item.totalQty}</td>
-        </tr>`;
-    }).join('');
+        <div style="${!isLast ? 'page-break-after:always;' : ''} margin-bottom:40px;">
+          <h2 style="font-size:18px;font-weight:800;color:#111827;margin-bottom:4px;">${picklistName}</h2>
+          <p style="font-size:12px;color:#6b7280;margin-bottom:16px;">${rows.length} SKU${rows.length !== 1 ? 's' : ''} &nbsp;·&nbsp; ${totalPiecesAll} pieces total</p>
+          <table style="width:100%;border-collapse:collapse;">
+            <thead>
+              <tr>
+                <th style="width:124px;background:#f3f4f6;padding:10px 14px;text-align:left;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#6b7280;border-bottom:2px solid #e5e7eb;">Image</th>
+                <th style="background:#f3f4f6;padding:10px 14px;text-align:left;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#6b7280;border-bottom:2px solid #e5e7eb;">Master SKU &amp; Product Name</th>
+                <th style="width:100px;background:#f3f4f6;padding:10px 14px;text-align:center;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#6b7280;border-bottom:2px solid #e5e7eb;">Qty Needed</th>
+              </tr>
+            </thead>
+            <tbody>${rowsHtml}</tbody>
+          </table>
+        </div>`;
+    };
+
+    const docTitle = sortedNums.length === 1
+      ? `PICKLIST-${sortedNums[0]}`
+      : exportMerged
+        ? `Combined Picklist (${sortedNums.map((n) => `PICKLIST-${n}`).join(' + ')})`
+        : `Picklist Export (${sortedNums.map((n) => `PICKLIST-${n}`).join(', ')})`;
+
+    // ── Merged mode: aggregate all selected picklists into one combined list ──
+    const buildMergedSection = () => {
+      const masterMap = new Map();
+      sortedNums.forEach((num) => {
+        orders
+          .filter((o) => o.order_source === 'picklist' && o.picklist_number === num)
+          .forEach((order) => {
+            (order.items || []).forEach((item) => {
+              const variationSku = String(item.sku || '').trim().toUpperCase();
+              if (!variationSku) return;
+              const masterSku = variationSku.includes('/')
+                ? variationSku.substring(0, variationSku.lastIndexOf('/'))
+                : variationSku;
+              const qty = Number(item.quantity) || 0;
+              const productName = String(item.name || '').trim();
+              if (!masterMap.has(masterSku)) {
+                masterMap.set(masterSku, { productName, totalQty: 0, variations: new Map() });
+              }
+              const entry = masterMap.get(masterSku);
+              entry.totalQty += qty;
+              if (!entry.productName && productName) entry.productName = productName;
+              entry.variations.set(variationSku, (entry.variations.get(variationSku) || 0) + qty);
+            });
+          });
+      });
+
+      const rows = Array.from(masterMap.entries())
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([masterSku, entry]) => ({ masterSku, ...entry }));
+
+      const totalPiecesAll = rows.reduce((s, r) => s + r.totalQty, 0);
+      const subtitle = sortedNums.map((n) => `PICKLIST-${n}`).join(' + ');
+
+      const rowsHtml = rows.map((item) => {
+        const normalized = item.masterSku.toLowerCase();
+        const product = productsBySku[normalized] || null;
+        const imageList = Array.isArray(product?.images) ? product.images : [];
+        const firstImage = imageList[0] || null;
+        const displayName = item.productName || product?.listing_name || product?.name || '';
+
+        const imgHtml = firstImage
+          ? `<img src="${firstImage}" alt="${item.masterSku}" style="width:100px;height:100px;object-fit:cover;border-radius:8px;border:1px solid #e5e7eb;" />`
+          : `<div style="width:100px;height:100px;border-radius:8px;border:1px solid #e5e7eb;background:#f9fafb;display:flex;align-items:center;justify-content:center;color:#9ca3af;font-size:11px;">No image</div>`;
+
+        const variationEntries = Array.from(item.variations.entries());
+        const showVariations = variationEntries.length > 0 && !(variationEntries.length === 1 && variationEntries[0][0] === item.masterSku);
+        const variationsHtml = showVariations
+          ? `<div style="margin-top:6px;display:flex;flex-direction:column;gap:3px;">
+              ${variationEntries.map(([vSku, vQty]) => `
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <span style="font-size:11px;color:#6b7280;background:#f3f4f6;padding:1px 6px;border-radius:4px;font-family:monospace;">${vSku}</span>
+                  <span style="font-size:11px;font-weight:600;color:#374151;">×${vQty}</span>
+                </div>`).join('')}
+            </div>`
+          : '';
+
+        return `
+          <tr>
+            <td style="padding:10px 14px;vertical-align:middle;border-bottom:1px solid #f3f4f6;">${imgHtml}</td>
+            <td style="padding:10px 14px;vertical-align:top;border-bottom:1px solid #f3f4f6;">
+              <div style="font-weight:700;font-size:13px;color:#111827;">${item.masterSku}</div>
+              ${displayName ? `<div style="font-size:12px;color:#6b7280;margin-top:2px;">${displayName}</div>` : ''}
+              ${variationsHtml}
+            </td>
+            <td style="padding:10px 14px;vertical-align:middle;border-bottom:1px solid #f3f4f6;font-weight:700;font-size:15px;color:#2563eb;text-align:center;">${item.totalQty}</td>
+          </tr>`;
+      }).join('');
+
+      return `
+        <div style="margin-bottom:40px;">
+          <p style="font-size:12px;color:#6b7280;margin-bottom:4px;">${subtitle}</p>
+          <p style="font-size:12px;color:#6b7280;margin-bottom:16px;">${rows.length} SKU${rows.length !== 1 ? 's' : ''} &nbsp;·&nbsp; ${totalPiecesAll} pieces total</p>
+          <table style="width:100%;border-collapse:collapse;">
+            <thead>
+              <tr>
+                <th style="width:124px;background:#f3f4f6;padding:10px 14px;text-align:left;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#6b7280;border-bottom:2px solid #e5e7eb;">Image</th>
+                <th style="background:#f3f4f6;padding:10px 14px;text-align:left;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#6b7280;border-bottom:2px solid #e5e7eb;">Master SKU &amp; Product Name</th>
+                <th style="width:100px;background:#f3f4f6;padding:10px 14px;text-align:center;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#6b7280;border-bottom:2px solid #e5e7eb;">Qty Needed</th>
+              </tr>
+            </thead>
+            <tbody>${rowsHtml}</tbody>
+          </table>
+        </div>`;
+    };
+
+    const sectionsHtml = exportMerged && sortedNums.length > 1
+      ? buildMergedSection()
+      : sortedNums
+          .map((num, idx) => buildPicklistSection(num, idx === sortedNums.length - 1))
+          .join('');
 
     const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>${picklistName}</title>
+  <title>${docTitle}</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: system-ui, -apple-system, sans-serif; background: #fff; color: #111827; padding: 24px; }
-    h1 { font-size: 18px; font-weight: 800; color: #111827; }
-    .meta { font-size: 12px; color: #6b7280; margin-top: 4px; margin-bottom: 20px; }
-    table { width: 100%; border-collapse: collapse; }
-    thead th { background: #f3f4f6; padding: 10px 14px; text-align: left; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: #6b7280; border-bottom: 2px solid #e5e7eb; }
-    thead th:last-child { text-align: center; }
     tbody tr:hover { background: #f9fafb; }
     @media print {
       body { padding: 12px; }
@@ -449,23 +556,14 @@ export function OrderSheetView({ embedded = false, defaultPicklistNum = null }) 
   </style>
 </head>
 <body>
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;">
     <div>
-      <h1>${picklistName}</h1>
-      <p class="meta">Exported on ${exportDate} &nbsp;·&nbsp; ${rows.length} SKU${rows.length !== 1 ? 's' : ''} &nbsp;·&nbsp; ${totalPiecesAll} pieces total</p>
+      <h1 style="font-size:20px;font-weight:800;color:#111827;">${docTitle}</h1>
+      <p style="font-size:12px;color:#6b7280;margin-top:4px;">Exported on ${exportDate} &nbsp;·&nbsp; ${sortedNums.length} picklist${sortedNums.length !== 1 ? 's' : ''}</p>
     </div>
     <button onclick="window.print()" style="padding:8px 18px;background:#2563eb;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;">Print / Save PDF</button>
   </div>
-  <table>
-    <thead>
-      <tr>
-        <th style="width:124px;">Image</th>
-        <th>Master SKU &amp; Product Name</th>
-        <th style="width:100px;">Qty Needed</th>
-      </tr>
-    </thead>
-    <tbody>${rowsHtml}</tbody>
-  </table>
+  ${sectionsHtml}
 </body>
 </html>`;
 
@@ -1360,57 +1458,117 @@ export function OrderSheetView({ embedded = false, defaultPicklistNum = null }) 
                 </div>
                 <h3 className="text-lg font-bold text-center text-midnight-ink mb-1">Export Picklist</h3>
                 <p className="text-center text-xs text-cool-gray mb-4">
-                  Choose a picklist to export. The export includes Master SKU, Quantity Needed, and product images.
+                  Select one or more picklists to export.
                 </p>
 
                 {nums.length === 0 ? (
                   <div className="text-center py-6 text-xs text-cool-gray">No picklists found.</div>
                 ) : (
-                  <div className="space-y-1.5 max-h-56 overflow-y-auto mb-4 pr-1">
-                    {nums.map((num) => {
-                      const picklistOrder = orders.find(
-                        (o) => o.order_source === 'picklist' && o.picklist_number === num
-                      );
-                      const itemCount = (() => {
-                        const m = new Map();
-                        orders
-                          .filter((o) => o.order_source === 'picklist' && o.picklist_number === num)
-                          .forEach((o) => (o.items || []).forEach((i) => {
-                            const v = String(i.sku || '').toUpperCase();
-                            const s = v.includes('/') ? v.substring(0, v.lastIndexOf('/')) : v;
-                            if (s) m.set(s, (m.get(s) || 0) + (Number(i.quantity) || 0));
-                          }));
-                        return { skus: m.size, pieces: Array.from(m.values()).reduce((a, b) => a + b, 0) };
-                      })();
-                      const isSelected = exportPicklistNum === num;
-                      return (
-                        <label
-                          key={num}
-                          className={`flex items-start gap-3 w-full px-3 py-2.5 rounded-lg border cursor-pointer transition-colors ${
-                            isSelected
-                              ? 'border-trust-blue bg-trust-blue/5'
-                              : 'border-soft-border bg-cloud-gray hover:border-trust-blue/50 hover:bg-trust-blue/5'
-                          }`}
-                        >
-                          <input
-                            type="radio"
-                            name="export-picklist"
-                            checked={isSelected}
-                            onChange={() => setExportPicklistNum(num)}
-                            className="mt-0.5 w-4 h-4 accent-trust-blue cursor-pointer shrink-0"
-                          />
-                          <div className="min-w-0">
-                            <p className={`text-xs font-bold ${isSelected ? 'text-trust-blue' : 'text-midnight-ink'}`}>
-                              PICKLIST-{num}
-                            </p>
-                            <p className="text-[11px] text-cool-gray mt-0.5">
-                              {itemCount.skus} SKU{itemCount.skus !== 1 ? 's' : ''} &nbsp;·&nbsp; {itemCount.pieces} pieces
-                              {picklistOrder ? ` · ${new Date(picklistOrder.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}` : ''}
-                            </p>
-                          </div>
-                        </label>
-                      );
-                    })}
+                  <>
+                    {/* Select All row */}
+                    <label className="flex items-center gap-3 w-full px-3 py-2 rounded-lg border border-soft-border bg-cloud-gray cursor-pointer mb-1.5 hover:border-trust-blue/50">
+                      <input
+                        type="checkbox"
+                        checked={nums.every((n) => exportPicklistNums.has(n))}
+                        onChange={() => {
+                          const allSelected = nums.every((n) => exportPicklistNums.has(n));
+                          setExportPicklistNums(allSelected ? new Set() : new Set(nums));
+                        }}
+                        className="w-4 h-4 accent-trust-blue cursor-pointer shrink-0"
+                      />
+                      <span className="text-xs font-semibold text-midnight-ink">Select All</span>
+                    </label>
+                    <div className="space-y-1.5 max-h-48 overflow-y-auto mb-4 pr-1">
+                      {nums.map((num) => {
+                        const picklistOrder = orders.find(
+                          (o) => o.order_source === 'picklist' && o.picklist_number === num
+                        );
+                        const itemCount = (() => {
+                          const m = new Map();
+                          orders
+                            .filter((o) => o.order_source === 'picklist' && o.picklist_number === num)
+                            .forEach((o) => (o.items || []).forEach((i) => {
+                              const v = String(i.sku || '').toUpperCase();
+                              const s = v.includes('/') ? v.substring(0, v.lastIndexOf('/')) : v;
+                              if (s) m.set(s, (m.get(s) || 0) + (Number(i.quantity) || 0));
+                            }));
+                          return { skus: m.size, pieces: Array.from(m.values()).reduce((a, b) => a + b, 0) };
+                        })();
+                        const isSelected = exportPicklistNums.has(num);
+                        return (
+                          <label
+                            key={num}
+                            className={`flex items-start gap-3 w-full px-3 py-2.5 rounded-lg border cursor-pointer transition-colors ${
+                              isSelected
+                                ? 'border-trust-blue bg-trust-blue/5'
+                                : 'border-soft-border bg-cloud-gray hover:border-trust-blue/50 hover:bg-trust-blue/5'
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => {
+                                setExportPicklistNums((prev) => {
+                                  const next = new Set(prev);
+                                  if (next.has(num)) next.delete(num); else next.add(num);
+                                  return next;
+                                });
+                              }}
+                              className="mt-0.5 w-4 h-4 accent-trust-blue cursor-pointer shrink-0"
+                            />
+                            <div className="min-w-0">
+                              <p className={`text-xs font-bold ${isSelected ? 'text-trust-blue' : 'text-midnight-ink'}`}>
+                                PICKLIST-{num}
+                              </p>
+                              <p className="text-[11px] text-cool-gray mt-0.5">
+                                {itemCount.skus} SKU{itemCount.skus !== 1 ? 's' : ''} &nbsp;·&nbsp; {itemCount.pieces} pieces
+                                {picklistOrder ? ` · ${new Date(picklistOrder.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}` : ''}
+                              </p>
+                            </div>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </>
+                )}
+
+                {/* Merge toggle — only shown when 2+ picklists are selected */}
+                {exportPicklistNums.size > 1 && (
+                  <div className="mb-4 rounded-lg border border-soft-border overflow-hidden">
+                    <button
+                      type="button"
+                      onClick={() => setExportMerged(false)}
+                      className={`w-full flex items-start gap-3 px-3 py-2.5 transition-colors border-b ${
+                        !exportMerged ? 'bg-trust-blue/10 border-trust-blue/30' : 'bg-cloud-gray border-soft-border hover:bg-trust-blue/5'
+                      }`}
+                    >
+                      <span className={`mt-0.5 w-4 h-4 rounded-full border-2 shrink-0 flex items-center justify-center ${
+                        !exportMerged ? 'border-trust-blue' : 'border-cool-gray'
+                      }`}>
+                        {!exportMerged && <span className="w-2 h-2 rounded-full bg-trust-blue block" />}
+                      </span>
+                      <div className="text-left">
+                        <p className={`text-xs font-semibold ${!exportMerged ? 'text-trust-blue' : 'text-midnight-ink'}`}>Separate sections</p>
+                        <p className="text-[11px] text-cool-gray">Each picklist printed as its own section</p>
+                      </div>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setExportMerged(true)}
+                      className={`w-full flex items-start gap-3 px-3 py-2.5 transition-colors ${
+                        exportMerged ? 'bg-trust-blue/10' : 'bg-cloud-gray hover:bg-trust-blue/5'
+                      }`}
+                    >
+                      <span className={`mt-0.5 w-4 h-4 rounded-full border-2 shrink-0 flex items-center justify-center ${
+                        exportMerged ? 'border-trust-blue' : 'border-cool-gray'
+                      }`}>
+                        {exportMerged && <span className="w-2 h-2 rounded-full bg-trust-blue block" />}
+                      </span>
+                      <div className="text-left">
+                        <p className={`text-xs font-semibold ${exportMerged ? 'text-trust-blue' : 'text-midnight-ink'}`}>Combined list</p>
+                        <p className="text-[11px] text-cool-gray">Quantities for the same SKU are summed across all selected picklists</p>
+                      </div>
+                    </button>
                   </div>
                 )}
 
@@ -1423,11 +1581,11 @@ export function OrderSheetView({ embedded = false, defaultPicklistNum = null }) 
                   </button>
                   <button
                     onClick={handleExportPicklist}
-                    disabled={exportPicklistNum == null || isExporting || nums.length === 0}
+                    disabled={exportPicklistNums.size === 0 || isExporting || nums.length === 0}
                     className="flex-1 py-2 rounded-lg bg-trust-blue hover:bg-deep-blue text-white font-medium transition-all text-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
                   >
                     <FileDown className="w-4 h-4" />
-                    {isExporting ? 'Exporting…' : 'Export'}
+                    {isExporting ? 'Exporting…' : `Export${exportPicklistNums.size > 1 ? ` (${exportPicklistNums.size})` : ''}`}
                   </button>
                 </div>
               </div>

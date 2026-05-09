@@ -3888,10 +3888,8 @@ class HrLeaveRequestView(OrgScopedBaseAPIView):
             return Response({'detail': 'HR permission required.'}, status=status.HTTP_403_FORBIDDEN)
         org_id = self.get_org_id()
         qs = LeaveRequest.objects.select_related('user', 'requested_to', 'approved_by', 'manager_actioned_by').all()
-        if org_id:
-            qs = qs.filter(org_id=org_id)
-        else:
-            return Response({'rows': []})
+        # Single-tenant: org_id is always '' so filter by '' to match all records
+        qs = qs.filter(org_id=org_id)
 
         # Optional filters
         status_f = request.query_params.get('status')
@@ -3925,13 +3923,16 @@ class HrLeaveRequestView(OrgScopedBaseAPIView):
         leave = generics.get_object_or_404(LeaveRequest.objects.select_related('user'), org_id=org_id, pk=pk)
 
         action = (request.data.get('action') or '').strip().lower()  # 'approve' | 'reject'
-        decline_reason = (request.data.get('decline_reason') or '').strip()
+        # Accept decline_reason, reason, or reject_reason from different frontend callers
+        decline_reason = (
+            request.data.get('decline_reason')
+            or request.data.get('reason')
+            or request.data.get('reject_reason')
+            or ''
+        ).strip()
 
         if action not in ('approve', 'reject'):
             return Response({'detail': 'action must be approve or reject.'}, status=status.HTTP_400_BAD_REQUEST)
-
-        if action == 'reject' and not decline_reason:
-            return Response({'decline_reason': 'Rejection reason is required.'}, status=status.HTTP_400_BAD_REQUEST)
 
         leave.status = 'approved' if action == 'approve' else 'rejected'
         leave.approved_by = request.user
@@ -7490,11 +7491,12 @@ class ChatConversationListView(OrgScopedBaseAPIView):
         if recipient.id == request.user.id:
             return Response({'error': 'Cannot chat with yourself'}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Find existing conversation between exactly these two users
+        # Find existing DM conversation between exactly these two users (exclude broadcast)
         existing = (
             ChatConversation.objects
             .filter(participants=request.user)
             .filter(participants=recipient)
+            .filter(is_broadcast=False)
             .first()
         )
         if existing:
@@ -7644,6 +7646,22 @@ class ChatHeartbeatView(OrgScopedBaseAPIView):
     def post(self, request):
         presence, _ = UserPresence.objects.get_or_create(user=request.user)
         presence.save()  # triggers auto_now=True on last_active
+        return Response({'ok': True})
+
+
+class ChatGoOfflineView(OrgScopedBaseAPIView):
+    """
+    POST /api/mydesk/chat/go-offline/
+    Immediately marks the requesting user as offline by backdating last_active.
+    Called when the user navigates away or closes the tab.
+    """
+
+    def post(self, request):
+        presence, _ = UserPresence.objects.get_or_create(user=request.user)
+        # Set last_active far enough in the past to be outside the online window
+        UserPresence.objects.filter(pk=presence.pk).update(
+            last_active=timezone.now() - timedelta(minutes=10)
+        )
         return Response({'ok': True})
 
 

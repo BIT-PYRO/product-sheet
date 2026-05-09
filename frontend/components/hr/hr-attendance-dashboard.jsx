@@ -354,20 +354,23 @@ export default function HRAttendanceDashboard() {
               <table className="w-full text-left border-collapse whitespace-nowrap">
                 <thead className="sticky top-0 z-10 shadow-[0_1px_2px_rgba(0,0,0,0.05)]"><tr>{['Employee','Type','From','To','Days','Reason','Status','Submitted','Actions'].map(h=><th key={h} className={thCls}>{h}</th>)}</tr></thead>
                 <tbody>
-                  {leaves.map(l=><tr key={l.id} className="hover:bg-gray-50/50">
-                    <td className={`${tdCls} font-semibold text-[13px]`}>{l.employee_name}</td>
+                  {leaves.map(l=>{
+                    const leaveDays = (l.start_date && l.end_date) ? Math.max(1, Math.round((new Date(l.end_date+'T00:00:00') - new Date(l.start_date+'T00:00:00')) / 86400000) + 1) : '—';
+                    return <tr key={l.id} className="hover:bg-gray-50/50">
+                    <td className={`${tdCls} font-semibold text-[13px]`}>{l.requested_by_name}</td>
                     <td className={`${tdCls} text-[13px]`}>{l.leave_type?.replace(/_/g,' ').toUpperCase()}</td>
                     <td className={`${tdCls} text-[13px]`}>{l.start_date}</td>
                     <td className={`${tdCls} text-[13px]`}>{l.end_date}</td>
-                    <td className={`${tdCls} text-[13px]`}>{l.leave_days}</td>
+                    <td className={`${tdCls} text-[13px]`}>{leaveDays}</td>
                     <td className={`${tdCls} text-[13px] max-w-[200px] truncate`} title={l.reason}>{l.reason}</td>
                     <td className={tdCls}><Badge status={l.status} /></td>
                     <td className={`${tdCls} text-[13px] text-gray-500`}>{new Date(l.created_at).toLocaleDateString()}</td>
                     <td className={tdCls}>{l.status==='pending' ? <div className="flex gap-2">
                       <button onClick={async()=>{await actionLeaveRequest(l.id,{action:'approve'});loadLeaves();}} className="text-xs px-3 py-1.5 bg-green-50 text-green-700 border border-green-200 rounded font-semibold hover:bg-green-100 transition shadow-sm">Approve</button>
-                      <button onClick={async()=>{await actionLeaveRequest(l.id,{action:'reject',reject_reason:'Rejected'});loadLeaves();}} className="text-xs px-3 py-1.5 bg-red-50 text-red-700 border border-red-200 rounded font-semibold hover:bg-red-100 transition shadow-sm">Reject</button>
+                      <button onClick={async()=>{await actionLeaveRequest(l.id,{action:'reject',decline_reason:'Rejected'});loadLeaves();}} className="text-xs px-3 py-1.5 bg-red-50 text-red-700 border border-red-200 rounded font-semibold hover:bg-red-100 transition shadow-sm">Reject</button>
                     </div> : <span className="text-gray-400 text-xs">—</span>}</td>
-                  </tr>)}
+                  </tr>;
+                  })}
                   {leaves.length===0 && <tr><td colSpan={9} className="px-5 py-6 text-gray-500 text-[13px]">No leave requests found.</td></tr>}
                 </tbody>
               </table>}

@@ -131,7 +131,7 @@ export const getMemberExpenses = (userId) =>
 
 export const actionExpense = (expenseId, data) =>
   hrFetch(`/expenses/${expenseId}/approval/`, {
-    method: 'POST',
+    method: 'PUT',
     body: JSON.stringify(data),
   });
 
@@ -166,3 +166,33 @@ export const updateMeeting = (eventId, data) =>
 
 export const deleteMeeting = (eventId) =>
   hrFetch(`/meetings/${eventId}/`, { method: 'DELETE' });
+
+// ── MyDesk Calendar (direct proxy — same as MyDesk module) ─────────────────
+/**
+ * Fetch Google Calendar events for the current user, filtered to meetings only.
+ * Uses the same /api/calendar/events/ endpoint that MyDesk uses.
+ */
+export async function getCalendarMeetings(startDate, endDate) {
+  const res = await fetch(
+    `/api/calendar/events/?start=${encodeURIComponent(startDate)}&end=${encodeURIComponent(endDate)}`,
+    { cache: 'no-store' },
+  );
+  if (!res.ok) return [];
+  const events = await res.json();
+  // Only return meetings (has hangoutLink / conferenceData / event_type === 'meeting')
+  return Array.isArray(events)
+    ? events.filter(
+        (e) =>
+          e.event_type === 'meeting' ||
+          Boolean(e.meet_link) ||
+          Boolean(e.hangoutLink),
+      )
+    : [];
+}
+
+// ── Calendar connection status ─────────────────────────────────────────────
+export async function getCalendarStatus() {
+  const res = await fetch('/api/calendar/status/', { cache: 'no-store' });
+  if (!res.ok) return { connected: false };
+  return res.json();
+}

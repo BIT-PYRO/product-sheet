@@ -12,10 +12,12 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .models import (
-    AttendanceEntry, AttendanceRulebook, LeaveRequest,
+    AttendanceRulebook, LeaveRequest,
     EmployeePayrollProfile, PayrollRun, PayrollPaymentRecord,
     ExpenseEntry, MasterTask, CompanyEvent,
 )
+# Regularization data lives in the MyDesk shared table
+from core.mydesk.models import AttendanceEntry
 from .serializers import (
     AttendanceEntrySerializer, AttendanceRulebookSerializer, LeaveRequestSerializer,
     EmployeePayrollProfileSerializer, PayrollRunSerializer, PayrollPaymentRecordSerializer,
@@ -775,7 +777,37 @@ class HrMasterTaskTrackerView(APIView):
         status_filter = request.query_params.get('status', '')
         if status_filter:
             qs = qs.filter(status=status_filter)
-        return Response({'tasks': MasterTaskSerializer(qs[:200], many=True).data})
+
+        hr_tasks = list(MasterTaskSerializer(qs[:200], many=True).data)
+
+        # Include ALL MyDesk personal todos from all users (org-wide)
+        mydesk_tasks = []
+        try:
+            from core.mydesk.models import PersonalTodoItem
+            todo_qs = PersonalTodoItem.objects.select_related('user').all()[:500]
+            for item in todo_qs:
+                meta = item.meta if isinstance(item.meta, dict) else {}
+                task_status = meta.get('status') or ('done' if item.is_done else 'todo')
+                if status_filter and status_filter.lower() not in (task_status or '').lower():
+                    continue
+                mydesk_tasks.append({
+                    'id': f'mydesk_{item.id}',
+                    'title': meta.get('title') or item.text or '',
+                    'description': meta.get('description', ''),
+                    'priority': meta.get('priority', 'medium'),
+                    'status': task_status,
+                    'due_date': meta.get('dueDate') or meta.get('due_date') or '',
+                    'assigned_to': item.user_id,
+                    'assigned_to_name': item.user.get_full_name() or item.user.username,
+                    'assigned_by': None,
+                    'assigned_by_name': None,
+                    'created_at': item.created_at.isoformat(),
+                    'source': 'mydesk',
+                })
+        except Exception:
+            pass
+
+        return Response({'tasks': hr_tasks + mydesk_tasks})
 
     def post(self, request):
         ser = MasterTaskSerializer(data=request.data)
@@ -825,7 +857,39 @@ class HrMeetingManagerOverviewView(APIView):
 
     def get(self, request):
         qs = CompanyEvent.objects.all().select_related('created_by')
-        return Response({'events': CompanyEventSerializer(qs[:100], many=True).data})
+        company_events = CompanyEventSerializer(qs[:100], many=True).data
+
+        # Aggregate Google Calendar meetings from all connected team members
+        calendar_meetings = []
+        try:
+            from calendar_integration.models import GoogleCalendarCredential
+            from calendar_integration import services as cal_services
+
+            start = request.query_params.get(
+                'start',
+                (date.today() - timedelta(days=7)).isoformat(),
+            )
+            end = request.query_params.get(
+                'end',
+                (date.today() + timedelta(days=60)).isoformat(),
+            )
+
+            connected_users = GoogleCalendarCredential.objects.select_related('user').values_list('user', flat=True)
+            for user_id in connected_users:
+                try:
+                    user_obj = User.objects.get(pk=user_id)
+                    events = cal_services.list_events(user_obj, start, end)
+                    for ev in events:
+                        if ev.get('event_type') == 'meeting':
+                            ev['calendar_owner'] = user_obj.get_full_name() or user_obj.username
+                            ev['calendar_owner_email'] = user_obj.email
+                            calendar_meetings.append(ev)
+                except Exception:
+                    continue
+        except Exception:
+            pass
+
+        return Response({'events': list(company_events), 'calendar_meetings': calendar_meetings})
 
     def post(self, request):
         ser = CompanyEventSerializer(data=request.data)

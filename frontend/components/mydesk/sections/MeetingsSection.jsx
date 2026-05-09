@@ -110,7 +110,7 @@ export default function MeetingsSection({ members = [] }) {
             ]);
             const onlyMeetings = (Array.isArray(events) ? events : []).filter((eventItem) => {
                 const eventType = (eventItem?.event_type || '').toLowerCase();
-                return eventType === 'meeting' || Boolean(eventItem?.meet_link);
+                return eventType === 'meeting' || Boolean(eventItem?.meet_link) || Boolean(eventItem?.hangoutLink);
             });
             setMeetings(onlyMeetings);
         } catch (error) {
@@ -428,7 +428,7 @@ export default function MeetingsSection({ members = [] }) {
                             {Array.isArray(members) && members.length > 0 && (
                                 <Box>
                                     <Typography variant="caption" color="text.secondary">Tag Members</Typography>
-                                    <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap sx={{ mt: 0.5 }}>
+                                    <Stack direction="row" spacing={0.75} useFlexGap sx={{ mt: 0.5, flexWrap: 'wrap' }}>
                                         {members.map((member) => {
                                             const label = member.full_name || member.username;
                                             const selected = form.taggedUserIds.includes(member.id);

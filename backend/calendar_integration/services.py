@@ -160,8 +160,12 @@ def list_events(user, start, end):
         maxResults=200,
     ).execute()
     items = result.get('items', [])
-    return [
-        {
+    normalized = []
+    for e in items:
+        hangout_link = e.get('hangoutLink', '')
+        has_conference = bool(hangout_link) or bool(e.get('conferenceData'))
+        event_type = 'meeting' if has_conference else 'personal'
+        normalized.append({
             'id': e.get('id'),
             'title': e.get('summary', '(No title)'),
             'start': e.get('start', {}).get('dateTime') or e.get('start', {}).get('date'),
@@ -169,11 +173,12 @@ def list_events(user, start, end):
             'allDay': 'date' in e.get('start', {}),
             'location': e.get('location', ''),
             'description': e.get('description', ''),
-            'hangoutLink': e.get('hangoutLink', ''),
+            'hangoutLink': hangout_link,
+            'meet_link': hangout_link,
             'htmlLink': e.get('htmlLink', ''),
-        }
-        for e in items
-    ]
+            'event_type': event_type,
+        })
+    return normalized
 
 
 def _normalize_datetime_value(value, timezone_name):
@@ -287,15 +292,19 @@ def _normalize_event_payload(payload):
 
 
 def create_event(user, payload):
+    """Create a Google Calendar event from either internal or Google-native payload."""
     service = get_calendar_service(user)
     if not service:
         raise ValueError('Google Calendar not connected.')
+
     normalized_payload = _normalize_event_payload(payload)
+
     insert_kwargs = {
         'calendarId': 'primary',
         'body': normalized_payload,
     }
-    if normalized_payload.get('conferenceData'):
+
+    if 'conferenceData' in normalized_payload:
         insert_kwargs['conferenceDataVersion'] = 1
 
     event = service.events().insert(**insert_kwargs).execute()

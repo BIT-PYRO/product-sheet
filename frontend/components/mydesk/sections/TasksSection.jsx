@@ -1633,7 +1633,7 @@ export default function TasksSection({ members = [] }) {
                         type="datetime-local"
                         fullWidth
                         label="Reminder date & time"
-                        InputLabelProps={{ shrink: true }}
+                        slotProps={{ inputLabel: { shrink: true } }}
                         value={reminderDraft}
                         onChange={(event) => setReminderDraft(event.target.value)}
                     />
