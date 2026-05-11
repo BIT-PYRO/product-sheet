@@ -45,6 +45,7 @@ export default function HomePage() {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [myDesignation, setMyDesignation] = useState('');
   const searchRef = useRef(null);
   const profileDropdownRef = useRef(null);
   const userInfoRef = useRef(null);
@@ -154,6 +155,7 @@ export default function HomePage() {
           localStorage.setItem(key, match.profile_photo_url);
         }
         const des = (match.designation || '').toLowerCase().trim();
+        setMyDesignation(match.designation || '');
         const isSuperDesig = des === 'chairman' || des === 'ceo';
         setMyPerms(isSuperDesig ? null : (match.permissions || {}));
       } else {
@@ -340,6 +342,16 @@ export default function HomePage() {
                         >
                           <ShieldCheck className="h-3.5 w-3.5 text-cool-gray shrink-0" />
                           Default Role Permissions
+                        </Link>
+                      )}
+                      {(userInfo?.is_superuser || ['ceo', 'chairman', 'director'].includes(myDesignation.toLowerCase().trim())) && (
+                        <Link
+                          href="/frontend/settings/api-keys"
+                          onClick={() => { setIsProfileDropdownOpen(false); setIsSettingsOpen(false); }}
+                          className="flex items-center gap-2.5 pl-4 pr-2 py-2 text-sm text-midnight-ink hover:bg-cloud-gray transition rounded-r-lg"
+                        >
+                          <KeyRound className="h-3.5 w-3.5 text-cool-gray shrink-0" />
+                          API Keys
                         </Link>
                       )}
                     </div>

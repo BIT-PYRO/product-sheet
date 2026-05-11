@@ -6,6 +6,8 @@ import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import APIKeyList from '@/components/api_keys/APIKeyList';
 
+const PRIVILEGED_DESIGNATIONS = ['ceo', 'chairman', 'director'];
+
 export default function APIKeysPage() {
   const router = useRouter();
   const [user, setUser] = useState(null);
@@ -19,11 +21,30 @@ export default function APIKeysPage() {
         const result = await res.json();
         if (!result.success) { router.replace('/login'); return; }
         const u = result.user;
-        if (!u || !['admin', 'manager'].includes(u.role)) {
-          router.replace('/frontend/home');
-          return;
+        if (!u) { router.replace('/login'); return; }
+
+        // Superusers always have access
+        if (u.is_superuser) { setUser(u); return; }
+
+        // Check workforce designation
+        const email = (u.email || '').toLowerCase();
+        if (email) {
+          try {
+            const wfRes = await fetch(`/api/workforce-me?email=${encodeURIComponent(email)}`, { cache: 'no-store' });
+            const wfData = await wfRes.json().catch(() => null);
+            const list = Array.isArray(wfData?.data) ? wfData.data
+              : Array.isArray(wfData?.data?.results) ? wfData.data.results
+              : Array.isArray(wfData?.results) ? wfData.results : [];
+            const match = list.find((m) => (m.email || '').toLowerCase() === email);
+            const des = (match?.designation || '').toLowerCase().trim();
+            if (PRIVILEGED_DESIGNATIONS.includes(des)) { setUser(u); return; }
+          } catch {
+            // fall through to redirect
+          }
         }
-        setUser(u);
+
+        // Not authorised
+        router.replace('/frontend/home');
       } catch {
         router.replace('/login');
       } finally {

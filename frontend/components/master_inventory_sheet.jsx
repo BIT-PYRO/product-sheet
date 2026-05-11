@@ -1,8 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronDown, Download, Upload, FileText, KeyRound } from 'lucide-react';
-import Link from 'next/link';
+import { ChevronDown, Download, Upload, FileText } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
 import GlobalSearchBar from '@/components/global-search-bar';
@@ -1866,12 +1865,6 @@ export default function MasterInventorySheet() {
             <Button variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8" onClick={() => setIsManageColumnsOpen(true)}>
               Manage Columns
             </Button>
-            <Link href="/frontend/settings/api-keys">
-              <Button variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8 gap-1.5">
-                <KeyRound className="h-3.5 w-3.5" />
-                API Keys
-              </Button>
-            </Link>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8">
