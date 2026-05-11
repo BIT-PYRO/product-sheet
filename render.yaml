@@ -29,6 +29,8 @@ services:
         value: "https://product-sheet-frontend.onrender.com/api/calendar/callback/"
       - key: FRONTEND_URL
         value: "https://product-sheet-frontend.onrender.com"
+      - key: PRODUCTION_SOFTWARE_API_URL
+        value: "https://product-sheet-backend.onrender.com"
 
   - type: web
     name: product-sheet-frontend

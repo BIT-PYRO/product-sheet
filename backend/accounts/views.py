@@ -555,6 +555,7 @@ class APIKeyViewSet(viewsets.ViewSet):
 
         out = APIKeyListSerializer(instance).data
         out['raw_key'] = raw_key  # shown once only
+        out['api_base_url'] = getattr(settings, 'PRODUCTION_SOFTWARE_API_URL', '')
         return api_success(out, message='API key created. Copy the raw_key now — it will not be shown again.', status_code=201)
 
     @extend_schema(summary='Retrieve a single API key', tags=['API Keys'])

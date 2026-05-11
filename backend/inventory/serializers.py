@@ -173,12 +173,14 @@ class ProductInventoryItemSerializer(serializers.ModelSerializer):
     designer_sku = serializers.CharField(source='product.designer_sku', read_only=True)
     product_name = serializers.CharField(source='product.name', read_only=True)
     images = serializers.JSONField(source='product.images', read_only=True)
+    # Alias for external API consumers — same value as `value`, using the expected field name
+    actual_quantity = serializers.DecimalField(source='value', max_digits=14, decimal_places=3, read_only=True)
 
     class Meta:
         model = ProductInventoryItem
         fields = [
             'id', 'product', 'master_sku', 'designer_sku', 'product_name', 'images',
-            'final_sku', 'value', 'unit', 'location', 'total_in_demand',
+            'final_sku', 'value', 'actual_quantity', 'unit', 'location', 'total_in_demand',
             'created_at', 'updated_at', 'created_by', 'updated_by',
         ]
         read_only_fields = ['created_at', 'updated_at', 'created_by', 'updated_by']

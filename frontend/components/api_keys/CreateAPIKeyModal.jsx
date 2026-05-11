@@ -44,6 +44,8 @@ export default function CreateAPIKeyModal({ open, onOpenChange, onCreated }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [rawKey, setRawKey] = useState(null);
+  const [apiBaseUrl, setApiBaseUrl] = useState('');
+  const [createdScopes, setCreatedScopes] = useState([]);
 
   // Workforce dropdown state
   const [comboOpen, setComboOpen] = useState(false);
@@ -75,7 +77,7 @@ export default function CreateAPIKeyModal({ open, onOpenChange, onCreated }) {
   function reset() {
     setName(''); setGivenToId(null); setGivenToName(''); setDescription('');
     setSelectedScopes([]); setCanRead(true); setCanWrite(false); setCanComment(false);
-    setSaving(false); setError(''); setRawKey(null);
+    setSaving(false); setError(''); setRawKey(null); setApiBaseUrl(''); setCreatedScopes([]);
     setComboOpen(false);
   }
 
@@ -131,6 +133,8 @@ export default function CreateAPIKeyModal({ open, onOpenChange, onCreated }) {
         return;
       }
       setRawKey(result.data.raw_key);
+      setApiBaseUrl(result.data.api_base_url || '');
+      setCreatedScopes(selectedScopes);
     } catch {
       setError('Network error. Please try again.');
     } finally {
@@ -150,7 +154,12 @@ export default function CreateAPIKeyModal({ open, onOpenChange, onCreated }) {
             <p className="text-sm text-cool-gray">
               API key <strong className="text-midnight-ink">{name}</strong> created successfully.
             </p>
-            <APIKeyCopyOnce rawKey={rawKey} />
+            <APIKeyCopyOnce
+              rawKey={rawKey}
+              apiBaseUrl={apiBaseUrl}
+              pageScopes={createdScopes}
+              keyName={name}
+            />
             <div className="flex justify-end">
               <Button onClick={handleClose}>Done</Button>
             </div>

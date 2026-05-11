@@ -152,6 +152,9 @@ FRONTEND_URL = env('FRONTEND_URL', default='http://localhost:3000')
 # ── External Workforce Sync ──────────────────────────────────────────────────
 EXTERNAL_WORKFORCE_WEBHOOK_SECRET = env('EXTERNAL_WORKFORCE_WEBHOOK_SECRET', default='')
 
+# ── Production API (used in API key integration card) ────────────────────────
+PRODUCTION_SOFTWARE_API_URL = env('PRODUCTION_SOFTWARE_API_URL', default='')
+
 CORS_ALLOWED_ORIGINS = env.list('CORS_ALLOWED_ORIGINS', default=['http://localhost:3000'])
 
 
