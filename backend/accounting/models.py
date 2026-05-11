@@ -87,6 +87,7 @@ class PendingExpense(models.Model):
     # Identity from the external expense system
     source_id = models.CharField(max_length=200, unique=True)
     source = models.CharField(max_length=100, default='external_app')
+    department = models.CharField(max_length=100, blank=True, null=True)
 
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
 

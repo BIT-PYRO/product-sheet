@@ -894,7 +894,7 @@ export default function StoneLogPage() {
           </div>
         </DialogContent>
       </Dialog>
-      <DeletionHistoryDrawer appLabel="inventory" modelName="stonetransaction" />
+      <DeletionHistoryDrawer appLabel="inventory" modelName="stonetransaction" sheet="inventory" />
     </main>
   );
 }

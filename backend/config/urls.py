@@ -56,6 +56,8 @@ urlpatterns = [
     path('api/v1/designers/', include('designers.urls')),
     path('api/v1/findings/', include('findings.urls')),
     path('api/v1/product-inventory/', include(_product_inventory_router.urls)),
+    path('', include('core.mydesk.urls')),
+    path('api/calendar/', include('calendar_integration.urls')),
     # Always serve media (static() is a no-op when DEBUG=False)
     re_path(r'^media/(?P<path>.*)$', media_serve, {'document_root': settings.MEDIA_ROOT}),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

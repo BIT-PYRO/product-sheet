@@ -365,7 +365,7 @@ export default function DraftsPage() {
         )}
       </div>
       )}
-      <DeletionHistoryDrawer appLabel="drafts" modelName="draft" />
+      <DeletionHistoryDrawer appLabel="drafts" modelName="draft" sheet="other" />
     </main>
   )
 }

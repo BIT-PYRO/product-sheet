@@ -684,37 +684,7 @@ export default function ManageMembersPage() {
         <h1 className="text-lg font-bold text-midnight-ink">Manage Members</h1>
       </header>
 
-      <div className="w-full px-6 py-6">
-        {/* Duplicate email warning banner */}
-        {(() => {
-          const emailCounts = {};
-          allMembers.forEach((m) => {
-            if (m.email) emailCounts[m.email.toLowerCase()] = (emailCounts[m.email.toLowerCase()] || 0) + 1;
-          });
-          const dupes = Object.entries(emailCounts).filter(([, count]) => count > 1).map(([e]) => e);
-          if (!dupes.length) return null;
-          return (
-            <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-yellow-300 bg-yellow-50 px-4 py-3">
-              <p className="text-sm text-yellow-800 font-medium">
-                ⚠️ {dupes.length} duplicate email{dupes.length > 1 ? 's' : ''} detected.
-                Merge to keep one record per person with the correct role and permissions.
-              </p>
-              <div className="flex items-center gap-2 shrink-0">
-                {mergeError && <span className="text-xs text-red-500">{mergeError}</span>}
-                {canEdit && (
-                  <button
-                    onClick={() => handleMergeDuplicates(dupes)}
-                    disabled={merging}
-                    className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-yellow-600 hover:bg-yellow-700 text-white transition disabled:opacity-60"
-                  >
-                    {merging ? 'Merging…' : 'Merge Duplicates'}
-                  </button>
-                )}
-              </div>
-            </div>
-          );
-        })()}
-
+      <div className="max-w-4xl mx-auto px-4 py-6">
         {/* Search + Add row */}
         <div className="flex items-center justify-between gap-3 mb-4">
           <div className="relative flex-1 max-w-xs">
@@ -904,7 +874,7 @@ export default function ManageMembersPage() {
           )}
         </div>
       </div>
-      <DeletionHistoryDrawer appLabel="accounts" modelName="user" />
+      <DeletionHistoryDrawer appLabel="accounts" modelName="user" sheet="auth" />
     </main>
   );
 }

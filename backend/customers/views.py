@@ -16,6 +16,7 @@ from .serializers import CustomerSerializer
     destroy=extend_schema(summary='Delete customer', tags=['Customers']),
 )
 class CustomerViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
+    audit_sheet = 'customer'
     queryset = Customer.objects.all().order_by('-created_at')
     serializer_class = CustomerSerializer
     filterset_fields = ['status', 'business_type', 'city', 'state']

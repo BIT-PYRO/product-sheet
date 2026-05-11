@@ -1148,7 +1148,7 @@ export default function ProductFindingLogPage() {
           </div>
         </DialogContent>
       </Dialog>
-      <DeletionHistoryDrawer appLabel="inventory" modelName="productinventorytransaction" />
+      <DeletionHistoryDrawer appLabel="inventory" modelName="productinventorytransaction" sheet="inventory" />
     </main>
   );
 }

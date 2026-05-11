@@ -254,6 +254,7 @@ def _deduct_source_current_stock(voucher):
 	destroy=extend_schema(summary='Delete job', tags=['Jobs']),
 )
 class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
+	audit_sheet = 'job'
 	queryset = Job.objects.select_related('picklist_group').all().order_by('-created_at')
 	serializer_class = JobSerializer
 	filterset_fields = ['status', 'product', 'assignee', 'approval_status', 'batch_id', 'picklist_group']
@@ -272,6 +273,12 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 		# source stage current stock deducted immediately.
 		if instance.approval_status == VoucherApprovalStatus.IN_PROCESS and not instance.batch_id:
 			_deduct_source_current_stock(instance)
+		try:
+			from common.audit import log_activity
+			from common.models import ActivityLog
+			log_activity(getattr(self, 'request', None), ActivityLog.ACTION_CREATE, 'job', instance)
+		except Exception:
+			pass
 
 	search_fields = ['title']
 
@@ -280,7 +287,18 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 		next_status = serializer.validated_data.get('status', instance.status)
 		if next_status != instance.status and not can_transition(instance.status, next_status):
 			raise ValidationError({'status': f'Invalid transition: {instance.status} -> {next_status}'})
+		try:
+			from common.audit import serialize_instance
+			old_data = serialize_instance(instance)
+		except Exception:
+			old_data = None
 		serializer.save()
+		try:
+			from common.audit import log_activity
+			from common.models import ActivityLog
+			log_activity(getattr(self, 'request', None), ActivityLog.ACTION_UPDATE, 'job', serializer.instance, old_data=old_data)
+		except Exception:
+			pass
 
 	@action(detail=False, methods=['get'], url_path='wip-summary')
 	def wip_summary(self, request):

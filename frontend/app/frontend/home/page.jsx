@@ -22,7 +22,7 @@ const SHEET_BLOCKS = [
   { href: '/managers-dashboard', permKey: 'managers-dashboard', title: 'Managers Dashboard', subtitle: 'Manager view and job cards', keywords: ['manager', 'dashboard', 'job cards', 'overview', 'manage', 'admin'] },
   { href: '/drafts', permKey: 'drafts', title: 'Drafts', subtitle: 'View and load saved drafts', keywords: ['draft', 'saved', 'pending', 'resume', 'incomplete', 'continue'] },
   { href: '/orders', permKey: 'orders', title: 'Orders', subtitle: 'Create and manage job orders', keywords: ['order', 'job order', 'manage orders', 'create order', 'dispatch'] },
-  { href: '#my-desk', permKey: 'my-desk', title: 'My Desk', subtitle: 'Coming soon', keywords: ['desk', 'personal', 'my work'] },
+  { href: '/mydesk', permKey: 'my-desk', title: 'My Desk', subtitle: 'Personal workspace — notes, tasks, attendance, payroll & more', keywords: ['desk', 'personal', 'my work', 'notes', 'tasks', 'payroll', 'attendance', 'leave'] },
   { href: '#create-generic-job', permKey: 'create-generic-job', title: 'Create Generic Job', subtitle: 'Create jobs for any type of work', keywords: ['job', 'generic', 'create', 'work', 'assignment', 'electrical', 'plumbing', 'craftsMan'] },
   { href: '/master-designer-sheet', permKey: 'master-designer-sheet', title: 'Master Designer Sheet', subtitle: 'Designer records and details', keywords: ['designer', 'records', 'details', 'master', 'design'] },
   { href: '/designer-sheet', permKey: 'designer-sheet', title: 'Designer Sheet', subtitle: 'Designer entry and design data', keywords: ['designer', 'design', 'entry', 'die code', 'alloy', 'motive', 'tracking'] },

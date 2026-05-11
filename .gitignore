@@ -38,3 +38,4 @@ API_readme.md
 # ── General ─────────────────────────────────────────────────
 .DS_Store
 .venv/
+backend/backend.log

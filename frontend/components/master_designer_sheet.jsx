@@ -1022,7 +1022,7 @@ export default function MasterDesignerSheet() {
           {editingRowIds.size > 0 && <span className="text-trust-blue font-semibold">Editing {editingRowIds.size} row(s)</span>}
         </div>
         <LastUpdatedFooter timestamp={lastUpdated} username={currentUsername} compact />
-        <DeletionHistoryDrawer appLabel="designers" modelName="designersheet" />
+        <DeletionHistoryDrawer appLabel="designers" modelName="designersheet" sheet="designer" />
       </div>
     </div>
   );

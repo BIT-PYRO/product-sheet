@@ -117,7 +117,7 @@ export default function AccountancyPage() {
           </>
         )}
       </div>
-      <DeletionHistoryDrawer appLabel="accounting" modelName="journalentry" />
+      <DeletionHistoryDrawer appLabel="accounting" modelName="journalentry" sheet="accounting" />
     </main>
   );
 }

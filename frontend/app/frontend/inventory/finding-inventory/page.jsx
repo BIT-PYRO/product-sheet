@@ -1368,7 +1368,7 @@ export default function FindingInventoryPage() {
               {editingRowIds.size > 0 && <span className="text-trust-blue font-semibold">Editing {editingRowIds.size} item(s)</span>}
             </div>
             <LastUpdatedFooter timestamp={lastUpdated} username={currentUserName} compact />
-            <DeletionHistoryDrawer appLabel="inventory" modelName="findinginventoryitem" />
+            <DeletionHistoryDrawer appLabel="inventory" modelName="findinginventoryitem" sheet="inventory" />
           </div>
         );
       })()}

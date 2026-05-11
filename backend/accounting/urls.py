@@ -29,6 +29,7 @@ from .views import (
     ExpenseCreateView,
     IncomeListView,
     IncomeCreateView,
+    DepartmentDashboardView,
     FinanceDashboardView,
     OutstandingListView,
     OutstandingSettleView,
@@ -51,6 +52,7 @@ urlpatterns = [
     path('profit-loss/', ProfitLossView.as_view(), name='accounting-profit-loss'),
     path('balance-sheet/', BalanceSheetView.as_view(), name='accounting-balance-sheet'),
     # Pending Expense endpoints
+    path('departments/dashboard/', DepartmentDashboardView.as_view(), name='accounting-departments-dashboard'),
     path('pending-expenses/', PendingExpenseListView.as_view(), name='accounting-pending-expenses'),
     path('pending-expenses/sync/', PendingExpenseSyncView.as_view(), name='accounting-pending-expenses-sync'),
     path('pending-expenses/<int:pk>/approve/', PendingExpenseApproveView.as_view(), name='accounting-pending-expense-approve'),

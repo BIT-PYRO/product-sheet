@@ -1,10 +1,11 @@
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
-from .views import DeletionLogViewSet, TaskStatusView, TriggerOperationsSummaryTaskView, TriggerPingTaskView
+from .views import ActivityLogViewSet, DeletionLogViewSet, TaskStatusView, TriggerOperationsSummaryTaskView, TriggerPingTaskView
 
 router = DefaultRouter()
 router.register('deletion-logs', DeletionLogViewSet, basename='deletion-logs')
+router.register('activity-logs', ActivityLogViewSet, basename='activity-logs')
 
 urlpatterns = [
     path('tasks/ping/', TriggerPingTaskView.as_view(), name='trigger-ping-task'),

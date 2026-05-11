@@ -1,10 +1,18 @@
 from datetime import timedelta
+import os
 from pathlib import Path
 
 import dj_database_url
 import environ
 from celery.schedules import crontab
 from django.core.exceptions import ImproperlyConfigured
+
+# Allow OAuth token scope changes (e.g. when include_granted_scopes returns extra scopes)
+os.environ.setdefault('OAUTHLIB_RELAX_TOKEN_SCOPE', '1')
+# Allow OAuth over HTTP in local development (google-auth-oauthlib requires HTTPS otherwise)
+_debug_mode = os.environ.get('DEBUG', os.environ.get('DJANGO_DEBUG', 'false')).lower() not in ('false', '0', '')
+if _debug_mode:
+    os.environ.setdefault('OAUTHLIB_INSECURE_TRANSPORT', '1')
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
@@ -46,6 +54,8 @@ INSTALLED_APPS = [
     'designers',
     'findings',
     'accounting',
+    'core.mydesk',
+    'calendar_integration',
     'hr',
 ]
 
@@ -133,6 +143,9 @@ SIMPLE_JWT = {
 }
 
 GOOGLE_CLIENT_ID = env('GOOGLE_CLIENT_ID', default='')
+GOOGLE_CLIENT_SECRET = env('GOOGLE_CLIENT_SECRET', default='')
+GOOGLE_CALENDAR_REDIRECT_URI = env('GOOGLE_CALENDAR_REDIRECT_URI', default='https://product-sheet-frontend.onrender.com/api/calendar/callback/')
+FRONTEND_URL = env('FRONTEND_URL', default='http://localhost:3000')
 
 # ── External Workforce Sync ──────────────────────────────────────────────────
 EXTERNAL_WORKFORCE_WEBHOOK_SECRET = env('EXTERNAL_WORKFORCE_WEBHOOK_SECRET', default='')

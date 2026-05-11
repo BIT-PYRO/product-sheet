@@ -565,7 +565,7 @@ export default function MasterKYCSheet() {
           <span>Selected: {selectedRows.size}</span>
         </div>
         <LastUpdatedFooter timestamp={lastUpdated} username={currentUsername} compact />
-        <DeletionHistoryDrawer appLabel="kyc" modelName="kycrecord" />
+        <DeletionHistoryDrawer appLabel="kyc" modelName="kycrecord" sheet="kyc" />
       </div>
 
       {/* Manage Columns Dialog */}

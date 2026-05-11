@@ -7,13 +7,9 @@ from .views import (
     HrAttendanceOverrideView,
     AttendanceRulebookView,
     HrAttendanceScoreListView,
-    HrLeaveRequestView,
     HrPayrollDashboardView,
     HrPayrollEmployeeDetailView,
     HrPayrollRunControlView,
-    HrExpenseTrackerOverviewView,
-    HrExpenseTrackerMemberDetailView,
-    HrExpenseApprovalView,
     HrMasterTaskTrackerView,
     HrMasterTaskAssignView,
     HrMasterTaskExportView,
@@ -32,19 +28,14 @@ urlpatterns = [
     path('attendance/rulebook/<int:user_id>/', AttendanceRulebookView.as_view(), name='hr-attendance-rulebook'),
     path('attendance/scores/', HrAttendanceScoreListView.as_view(), name='hr-attendance-scores'),
 
-    # ── Leaves ──────────────────────────────────────────────────────────
-    path('leaves/', HrLeaveRequestView.as_view(), name='hr-leaves-list'),
-    path('leaves/<int:pk>/', HrLeaveRequestView.as_view(), name='hr-leaves-detail'),
+    # NOTE: Leaves and Expenses routes are intentionally removed here.
+    # They are handled by core.mydesk.urls which reads the correct shared models
+    # (core.mydesk.models.LeaveRequest / ExpenseEntry) that employees write to via MyDesk.
 
     # ── Payroll ─────────────────────────────────────────────────────────
     path('payroll/run/', HrPayrollRunControlView.as_view(), name='hr-payroll-run-control'),
     path('payroll/dashboard/', HrPayrollDashboardView.as_view(), name='hr-payroll-dashboard'),
     path('payroll/dashboard/<int:user_id>/', HrPayrollEmployeeDetailView.as_view(), name='hr-payroll-employee-detail'),
-
-    # ── Expenses ─────────────────────────────────────────────────────────
-    path('expenses/', HrExpenseTrackerOverviewView.as_view(), name='hr-expenses-overview'),
-    path('expenses/member/<int:user_id>/', HrExpenseTrackerMemberDetailView.as_view(), name='hr-expenses-member-detail'),
-    path('expenses/<int:expense_id>/approval/', HrExpenseApprovalView.as_view(), name='hr-expense-approval'),
 
     # ── Tasks ────────────────────────────────────────────────────────────
     path('tasks/', HrMasterTaskTrackerView.as_view(), name='hr-master-task-tracker'),

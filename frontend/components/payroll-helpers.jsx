@@ -1,11 +1,11 @@
 'use client';
+import { useState } from 'react';
 import { Trash2 } from 'lucide-react';
 export const C={green:'#059669',greenBg:'#ecfdf5',red:'#dc2626',redBg:'#fef2f2',blue:'#2563eb',blueBg:'#eff6ff',amber:'#d97706',amberBg:'#fffbeb',slate:'#64748b',slateBg:'#f8fafc',text:'#0f172a',muted:'#64748b',border:'#e2e8f0',surface:'#ffffff'};
 export const fmt=n=>`₹${Number(n).toLocaleString('en-IN',{minimumFractionDigits:2})}`;
-export const STATUS_ORDER=['received','verified','approved','paid','posted'];
+export const STATUS_ORDER=['received','approved','paid','posted'];
 export const STATUS_CFG={
   received:{label:'Received',bg:'#f1f5f9',color:C.slate,border:C.border},
-  verified:{label:'Verified',bg:C.blueBg,color:C.blue,border:'#bfdbfe'},
   approved:{label:'Approved',bg:'#f5f3ff',color:'#7c3aed',border:'#ddd6fe'},
   paid:{label:'Paid',bg:C.greenBg,color:C.green,border:'#a7f3d0'},
   posted:{label:'Posted',bg:'#064e3b',color:'#ecfdf5',border:'#065f46'},
@@ -67,15 +67,36 @@ export function Card({label,value,color,icon,note}){
 }
 export function EmpModal({emp,onClose}){
   if(!emp) return null;
-  const {name,dept,bank,acc,ifsc,gross,ded,net,earnings,deductions}=emp;
+  const {name,dept,bank,acc,acc_display,acc_name,ifsc,bank_name,gross,ded,net,earnings,deductions}=emp;
+  const hasBankDetails = acc || ifsc || bank_name || acc_name;
+  const [copied,setCopied]=useState('');
+  const copy=(val,key)=>{
+    if(!val) return;
+    navigator.clipboard.writeText(val).then(()=>{setCopied(key);setTimeout(()=>setCopied(''),1500);});
+  };
   const R=({l,v})=><div style={{display:'flex',justifyContent:'space-between',padding:'7px 0',borderBottom:`1px solid ${C.slateBg}`}}><span style={{fontSize:13,color:C.muted}}>{l}</span><span style={{fontSize:13,fontWeight:700,color:C.text}}>{fmt(v)}</span></div>;
+  const BR=({l,v,k})=>{
+    const empty=!v;
+    return(
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'8px 0',borderBottom:`1px solid ${C.slateBg}`}}>
+        <span style={{fontSize:12,color:C.muted,fontWeight:500,minWidth:110}}>{l}</span>
+        <div style={{display:'flex',alignItems:'center',gap:8}}>
+          {empty
+            ? <span style={{fontSize:12,color:'#9ca3af',fontStyle:'italic'}}>Not entered</span>
+            : <span style={{fontSize:13,fontWeight:700,color:C.text,fontFamily:'monospace'}}>{v}</span>
+          }
+          {!empty && <button onClick={()=>copy(v,k)} title="Copy" style={{background:copied===k?C.greenBg:'#f1f5f9',border:`1px solid ${copied===k?'#a7f3d0':C.border}`,borderRadius:5,padding:'2px 8px',fontSize:11,color:copied===k?C.green:C.muted,cursor:'pointer',fontWeight:600,transition:'all 0.15s'}}>{copied===k?'✓':'Copy'}</button>}
+        </div>
+      </div>
+    );
+  };
   return(
     <div onClick={onClose} style={{position:'fixed',inset:0,zIndex:9999,background:'rgba(15,23,42,0.45)',display:'flex',alignItems:'center',justifyContent:'center',padding:16}}>
       <div onClick={e=>e.stopPropagation()} style={{background:'#fff',borderRadius:16,width:'100%',maxWidth:500,boxShadow:'0 20px 60px rgba(0,0,0,0.2)',maxHeight:'90vh',overflowY:'auto'}}>
         <div style={{padding:'20px 24px 0',display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
           <div><h2 style={{margin:0,fontSize:17,fontWeight:800,color:C.text}}>{name}</h2>
             <div style={{display:'flex',gap:6,marginTop:6,flexWrap:'wrap'}}>
-              {[dept,`${bank} · ${acc}`,`IFSC: ${ifsc}`].map(t=><span key={t} style={{padding:'2px 9px',background:C.slateBg,borderRadius:20,fontSize:11,fontWeight:600,color:C.slate}}>{t}</span>)}
+              {[dept].filter(Boolean).map(t=><span key={t} style={{padding:'2px 9px',background:C.slateBg,borderRadius:20,fontSize:11,fontWeight:600,color:C.slate}}>{t}</span>)}
             </div>
           </div>
           <button onClick={onClose} style={{background:'none',border:'none',fontSize:20,color:C.muted,cursor:'pointer'}}>✕</button>
@@ -84,6 +105,16 @@ export function EmpModal({emp,onClose}){
           <div><p style={{margin:'0 0 8px',fontSize:11,fontWeight:700,color:C.muted,textTransform:'uppercase'}}>Earnings</p><div style={{background:C.slateBg,borderRadius:10,padding:'2px 14px'}}><R l="Basic" v={earnings.basic}/><R l="HRA" v={earnings.hra}/><R l="Allowance" v={earnings.allowance}/><R l="Reimbursement" v={earnings.reimb}/></div><div style={{display:'flex',justifyContent:'space-between',padding:'6px 14px 0'}}><span style={{fontSize:12,fontWeight:700,color:C.muted}}>Total</span><span style={{fontSize:14,fontWeight:800,color:C.green}}>{fmt(gross)}</span></div></div>
           <div><p style={{margin:'0 0 8px',fontSize:11,fontWeight:700,color:C.muted,textTransform:'uppercase'}}>Deductions</p><div style={{background:'#fef9f9',border:`1px solid #fee2e2`,borderRadius:10,padding:'2px 14px'}}><R l="PF" v={deductions.pf}/><R l="TDS" v={deductions.tds}/><R l="Prof. Tax" v={deductions.pt}/></div><div style={{display:'flex',justifyContent:'space-between',padding:'6px 14px 0'}}><span style={{fontSize:12,fontWeight:700,color:C.muted}}>Total</span><span style={{fontSize:14,fontWeight:800,color:C.red}}>{fmt(ded)}</span></div></div>
           <div style={{background:'linear-gradient(135deg,#f0fdf4,#ecfdf5)',border:`1px solid #a7f3d0`,borderRadius:12,padding:'14px 18px',display:'flex',justifyContent:'space-between',alignItems:'center'}}><div><p style={{margin:0,fontSize:11,fontWeight:700,color:C.green,textTransform:'uppercase'}}>Net Pay</p><p style={{margin:'2px 0 0',fontSize:11,color:C.muted}}>Gross − Deductions</p></div><span style={{fontSize:24,fontWeight:900,color:C.green}}>{fmt(net)}</span></div>
+          <div>
+            <p style={{margin:'0 0 8px',fontSize:11,fontWeight:700,color:C.muted,textTransform:'uppercase'}}>Bank Details</p>
+            <div style={{background:'#f8faff',border:`1px solid #dbeafe`,borderRadius:10,padding:'2px 14px'}}>
+              <BR l="Account Name" v={acc_name} k="acc_name"/>
+              <BR l="Bank Name" v={bank_name||bank} k="bank_name"/>
+              <BR l="Account No." v={acc} k="acc"/>
+              <BR l="IFSC Code" v={ifsc} k="ifsc"/>
+            </div>
+            {!hasBankDetails && <p style={{margin:'6px 0 0',fontSize:11,color:'#9ca3af',fontStyle:'italic'}}>Bank details not entered yet in this employee's profile.</p>}
+          </div>
           <button onClick={onClose} style={{padding:'10px',background:C.slateBg,border:`1px solid ${C.border}`,borderRadius:9,fontSize:13,fontWeight:600,cursor:'pointer',color:C.text}}>Close</button>
         </div>
       </div>
@@ -91,7 +122,7 @@ export function EmpModal({emp,onClose}){
   );
 }
 export function FilterRow({rows,q,setQ,dept,setDept}){
-  const depts=[...new Set(rows.map(r=>r.dept))].sort();
+  const depts=[...new Set(rows.map(r=>r.dept).filter(Boolean))].sort();
   const s={padding:'7px 12px',background:'#fff',border:'1px solid #e5e7eb',borderRadius:7,fontSize:12,color:'#374151',outline:'none'};
   return(
     <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:4}}>

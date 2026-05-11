@@ -540,7 +540,7 @@ export default function MasterCustomerSheet() {
 					<span>Visible Rows: {sortedCustomers.length || emptyRowsData.length}</span>
 				</div>
 				<LastUpdatedFooter timestamp={lastUpdated} username={currentUsername} compact />
-				<DeletionHistoryDrawer appLabel="customers" modelName="customer" />
+				<DeletionHistoryDrawer appLabel="customers" modelName="customer" sheet="customer" />
 			</div>
 
 			<Dialog open={isManageColumnsOpen} onOpenChange={setIsManageColumnsOpen}>

@@ -17,76 +17,6 @@ const C = {
   text:  '#0f172a', muted: '#64748b', border: '#e2e8f0', surface: '#ffffff',
 };
 
-// ── Mock data (replace with API calls later) ─────────────────────────────────
-const MOCK_DEPARTMENTS = [
-  {
-    name: 'Sales',
-    color: C.green, bg: C.greenBg, border: C.greenBorder,
-    icon: '💼',
-    income:  380000,
-    expense: 142000,
-    income_entries: 24, expense_entries: 18,
-    top_accounts: [
-      { name: 'Product Sales',      amount: 210000, type: 'income',  date: '15 Apr 2026', description: 'Monthly product sales revenue', receipt: 'INV-2026-041' },
-      { name: 'Service Revenue',    amount: 170000, type: 'income',  date: '18 Apr 2026', description: 'Consulting & support services', receipt: 'INV-2026-042' },
-      { name: 'Travel & Conveyance',amount:  52000, type: 'expense', date: '20 Apr 2026', description: 'Client visit travel expenses',  receipt: 'EXP-2026-018' },
-    ],
-  },
-  {
-    name: 'Operations',
-    color: C.blue, bg: C.blueBg, border: C.blueBorder,
-    icon: '⚙️',
-    income:  95000,
-    expense: 230000,
-    income_entries: 8, expense_entries: 34,
-    top_accounts: [
-      { name: 'Machinery Maintenance', amount: 95000, type: 'expense', date: '10 Apr 2026', description: 'Quarterly machine servicing',    receipt: 'EXP-2026-031' },
-      { name: 'Utilities',             amount: 48000, type: 'expense', date: '05 Apr 2026', description: 'Electricity & water bills',       receipt: 'EXP-2026-032' },
-      { name: 'Raw Material',          amount: 87000, type: 'expense', date: '12 Apr 2026', description: 'Raw material procurement batch 4', receipt: 'EXP-2026-033' },
-    ],
-  },
-  {
-    name: 'HR & Admin',
-    color: C.amber, bg: C.amberBg, border: C.amberBorder,
-    icon: '👥',
-    income:  12000,
-    expense: 175000,
-    income_entries: 2, expense_entries: 22,
-    top_accounts: [
-      { name: 'Salaries',         amount: 120000, type: 'expense', date: '01 Apr 2026', description: 'April salary disbursement',     receipt: 'EXP-2026-001' },
-      { name: 'Office Supplies',  amount:  28000, type: 'expense', date: '08 Apr 2026', description: 'Stationery & printer cartridges', receipt: 'EXP-2026-009' },
-      { name: 'Employee Benefits',amount:  27000, type: 'expense', date: '14 Apr 2026', description: 'Medical & wellness allowances',   receipt: 'EXP-2026-014' },
-    ],
-  },
-  {
-    name: 'Marketing',
-    color: C.violet, bg: C.violetBg, border: C.violetBorder,
-    icon: '📣',
-    income:  55000,
-    expense: 118000,
-    income_entries: 6, expense_entries: 15,
-    top_accounts: [
-      { name: 'Digital Ads',          amount: 60000, type: 'expense', date: '03 Apr 2026', description: 'Google & Meta ad campaigns Q1',  receipt: 'EXP-2026-021' },
-      { name: 'Events & Sponsorship', amount: 35000, type: 'expense', date: '17 Apr 2026', description: 'Industry expo sponsorship fee',   receipt: 'EXP-2026-025' },
-      { name: 'Referral Income',      amount: 55000, type: 'income',  date: '22 Apr 2026', description: 'Partner referral commission',     receipt: 'INV-2026-038' },
-    ],
-  },
-  {
-    name: 'Finance',
-    color: C.slate, bg: C.slateBg, border: C.slateBorder,
-    icon: '🏦',
-    income:  22000,
-    expense: 41000,
-    income_entries: 4, expense_entries: 9,
-    top_accounts: [
-      { name: 'Bank Charges',   amount: 18000, type: 'expense', date: '02 Apr 2026', description: 'Monthly bank service charges',  receipt: 'EXP-2026-002' },
-      { name: 'Audit Fees',     amount: 23000, type: 'expense', date: '11 Apr 2026', description: 'Annual audit firm fees Q1',     receipt: 'EXP-2026-011' },
-      { name: 'Interest Income',amount: 22000, type: 'income',  date: '28 Apr 2026', description: 'FD interest credited this month', receipt: 'INV-2026-039' },
-    ],
-  },
-];
-
-
 
 // ── Small helpers ─────────────────────────────────────────────────────────────
 function SectionLabel({ children }) {
@@ -315,11 +245,25 @@ function DeptDetail({ dept }) {
 
 // ── Main Component ────────────────────────────────────────────────────────────
 export default function AccountingDepartmentDashboard() {
+  const [departments, setDepartments] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [selectedDept, setSelectedDept] = useState(null);
   const [sortBy, setSortBy] = useState('expense');
   const [filterDepts, setFilterDepts] = useState(new Set()); // empty = show all
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
+
+  useEffect(() => {
+    fetch('/api/accounting/departments/dashboard/', { cache: 'no-store' })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          setDepartments(data.data);
+        }
+      })
+      .catch(err => console.error("Failed to load department dashboard:", err))
+      .finally(() => setLoading(false));
+  }, []);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -332,10 +276,10 @@ export default function AccountingDepartmentDashboard() {
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  const maxExpense = useMemo(() => Math.max(...MOCK_DEPARTMENTS.map(d => d.expense)), []);
+  const maxExpense = useMemo(() => Math.max(...departments.map(d => d.expense), 0), [departments]);
 
   const sortedDepts = useMemo(() => {
-    return [...MOCK_DEPARTMENTS]
+    return [...departments]
       .filter(d => filterDepts.size === 0 || filterDepts.has(d.name))
       .sort((a, b) => {
         if (sortBy === 'expense') return b.expense - a.expense;
@@ -343,7 +287,7 @@ export default function AccountingDepartmentDashboard() {
         if (sortBy === 'name')    return a.name.localeCompare(b.name);
         return 0;
       });
-  }, [sortBy, filterDepts]);
+  }, [departments, sortBy, filterDepts]);
 
   const toggleFilter = name => {
     setFilterDepts(prev => {
@@ -353,11 +297,11 @@ export default function AccountingDepartmentDashboard() {
     });
   };
 
-  const totalIncome  = MOCK_DEPARTMENTS.reduce((s, d) => s + d.income, 0);
-  const totalExpense = MOCK_DEPARTMENTS.reduce((s, d) => s + d.expense, 0);
+  const totalIncome  = departments.reduce((s, d) => s + d.income, 0);
+  const totalExpense = departments.reduce((s, d) => s + d.expense, 0);
   const totalNet     = totalIncome - totalExpense;
 
-  const activeDetail = selectedDept ? MOCK_DEPARTMENTS.find(d => d.name === selectedDept) : null;
+  const activeDetail = selectedDept ? departments.find(d => d.name === selectedDept) : null;
 
   const sortBtnStyle = active => ({
     padding: '5px 12px', borderRadius: 7, fontSize: 12, fontWeight: active ? 700 : 500,
@@ -367,6 +311,10 @@ export default function AccountingDepartmentDashboard() {
     transition: 'all 0.14s',
   });
 
+  if (loading) {
+    return <div style={{ padding: 40, textAlign: 'center', color: C.muted }}>Loading department dashboard...</div>;
+  }
+
   return (
     <div style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>
 
@@ -374,10 +322,10 @@ export default function AccountingDepartmentDashboard() {
       <SectionLabel>Company-wide Overview</SectionLabel>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, marginBottom: 26 }}>
         {[
-          { label: 'Total Income',     value: fmt(totalIncome),            color: C.green, bg: '#fff', note: `${MOCK_DEPARTMENTS.reduce((s,d)=>s+d.income_entries,0)} entries` },
-          { label: 'Total Expense',    value: fmt(totalExpense),           color: C.red,   bg: '#fff', note: `${MOCK_DEPARTMENTS.reduce((s,d)=>s+d.expense_entries,0)} entries` },
+          { label: 'Total Income',     value: fmt(totalIncome),            color: C.green, bg: '#fff', note: `${departments.reduce((s,d)=>s+d.income_entries,0)} entries` },
+          { label: 'Total Expense',    value: fmt(totalExpense),           color: C.red,   bg: '#fff', note: `${departments.reduce((s,d)=>s+d.expense_entries,0)} entries` },
           { label: 'Net Balance',      value: fmt(Math.abs(totalNet)),     color: totalNet >= 0 ? C.green : C.red, bg: '#fff', note: totalNet >= 0 ? 'Surplus' : 'Deficit' },
-          { label: 'Departments',      value: MOCK_DEPARTMENTS.length,     color: C.blue,  bg: '#fff', note: 'Tracked departments' },
+          { label: 'Departments',      value: departments.length,     color: C.blue,  bg: '#fff', note: 'Tracked departments' },
         ].map((k, i) => (
           <div key={i} style={{ background: k.bg, border: `1px solid ${C.border}`, borderRadius: 12, padding: '18px 20px', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
             <p style={{ margin: '0 0 10px', fontSize: 11, fontWeight: 600, color: C.muted, textTransform: 'uppercase', letterSpacing: 0.8 }}>{k.label}</p>
@@ -434,7 +382,7 @@ export default function AccountingDepartmentDashboard() {
                     <button onClick={() => setFilterDepts(new Set())} style={{ fontSize: 11, fontWeight: 600, color: C.blue, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>Clear all</button>
                   )}
                 </div>
-                {MOCK_DEPARTMENTS.map(dept => {
+                {departments.map(dept => {
                   const checked = filterDepts.has(dept.name);
                   return (
                     <div
@@ -465,7 +413,7 @@ export default function AccountingDepartmentDashboard() {
 
           {/* Inline badges — shown right after dropdown in same row */}
           {[...filterDepts].map(name => {
-            const meta = MOCK_DEPARTMENTS.find(d => d.name === name);
+            const meta = departments.find(d => d.name === name);
             return (
               <span key={name} style={{
                 display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 700,

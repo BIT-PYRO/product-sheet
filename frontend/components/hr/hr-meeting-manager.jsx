@@ -1,36 +1,77 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { getMeetings, createMeeting } from '@/lib/hr-api';
-import { RefreshCcw, ChevronLeft, ChevronRight } from 'lucide-react';
+import { getMeetings, createMeeting, getCalendarMeetings, getCalendarStatus } from '@/lib/hr-api';
+import { RefreshCcw, ChevronLeft, ChevronRight, Video, ExternalLink } from 'lucide-react';
 
 const EVENT_TYPES = ['event', 'birthday', 'holiday', 'big_sale', 'annual_event'];
 
+// Format ISO date string to YYYY-MM-DD in local time
+function toLocalDateStr(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
 export default function HRMeetingManager() {
-  const [events, setEvents] = useState([]);
+  const [events, setEvents] = useState([]);               // company events
+  const [calendarMeetings, setCalendarMeetings] = useState([]); // Google Calendar meetings
+  const [calendarConnected, setCalendarConnected] = useState(false);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   
-  // Date state
-  const [selectedDate, setSelectedDate] = useState(new Date('2026-05-01'));
-  const [currentMonth, setCurrentMonth] = useState(new Date('2026-05-01'));
+  // Date state — default to today
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [currentMonth, setCurrentMonth] = useState(() => {
+    const d = new Date();
+    return new Date(d.getFullYear(), d.getMonth(), 1);
+  });
 
   // Form state
-  const [form, setForm] = useState({ title: '', event_type: 'event', start_date: '2026-05-01', end_date: '', description: '' });
+  const [form, setForm] = useState({
+    title: '',
+    event_type: 'event',
+    start_date: toLocalDateStr(new Date()),
+    end_date: '',
+    description: '',
+  });
 
   // Filter state
   const [search, setSearch] = useState('');
-  const [deptFilter, setDeptFilter] = useState('all');
-  const [hostFilter, setHostFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState('all');
+
+  const loadCompanyEvents = useCallback(async () => {
+    try {
+      const d = await getMeetings();
+      setEvents(d?.events || []);
+    } catch {}
+  }, []);
+
+  const loadCalendarMeetings = useCallback(async () => {
+    try {
+      const today = new Date();
+      const start = toLocalDateStr(new Date(today.getFullYear(), today.getMonth() - 1, 1));
+      const end = toLocalDateStr(new Date(today.getFullYear(), today.getMonth() + 3, 0));
+      const meetings = await getCalendarMeetings(start, end);
+      setCalendarMeetings(meetings);
+    } catch {}
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
-    try { 
-      const d = await getMeetings(); 
-      setEvents(d?.events || []); 
-    } catch {} finally { setLoading(false); }
-  }, []);
+    try {
+      const [statusRes] = await Promise.allSettled([
+        getCalendarStatus(),
+      ]);
+      if (statusRes.status === 'fulfilled') {
+        setCalendarConnected(statusRes.value?.connected ?? false);
+      }
+      await Promise.allSettled([loadCompanyEvents(), loadCalendarMeetings()]);
+    } finally {
+      setLoading(false);
+    }
+  }, [loadCompanyEvents, loadCalendarMeetings]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -39,8 +80,8 @@ export default function HRMeetingManager() {
     setSaving(true);
     try {
       await createMeeting(form);
-      setForm({ title: '', event_type: 'event', start_date: selectedDate.toISOString().split('T')[0], end_date: '', description: '' });
-      await load();
+      setForm({ title: '', event_type: 'event', start_date: toLocalDateStr(selectedDate), end_date: '', description: '' });
+      await loadCompanyEvents();
     } finally { setSaving(false); }
   };
 
@@ -54,13 +95,16 @@ export default function HRMeetingManager() {
 
   // Filter events by selected date
   // Need to adjust date comparison to avoid timezone issues. We'll use simple string matching if possible.
-  const selectedDateString = selectedDate.toLocaleDateString('en-CA'); // 'YYYY-MM-DD' in local time usually. Let's use custom formatting.
-  const yearStr = selectedDate.getFullYear();
-  const monthStr = String(selectedDate.getMonth() + 1).padStart(2, '0');
-  const dayStr = String(selectedDate.getDate()).padStart(2, '0');
-  const targetDateStr = `${yearStr}-${monthStr}-${dayStr}`;
+  const targetDateStr = toLocalDateStr(selectedDate);
 
   const dayEvents = filteredEvents.filter(e => e.start_date === targetDateStr);
+
+  // Google Calendar meetings for the selected day
+  const dayMeetings = calendarMeetings.filter(m => {
+    if (!m.start) return false;
+    const mDate = m.start.substring(0, 10);
+    return mDate === targetDateStr;
+  });
 
   // Calendar generation
   const daysInMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0).getDate();
@@ -82,41 +126,34 @@ export default function HRMeetingManager() {
     <div className="space-y-4 font-sans text-midnight-ink">
       
       {/* Top Stats */}
-      <div className="bg-white rounded-xl border border-soft-border p-3 shadow-sm flex items-center gap-2">
+      <div className="bg-white rounded-xl border border-soft-border p-3 shadow-sm flex items-center gap-2 flex-wrap">
         <span className="px-3 py-1 bg-gray-100 text-gray-700 text-xs font-semibold rounded-full border border-gray-200">
-          Team Members: 11
+          My Calendar: {calendarConnected ? '✓ Connected' : '✗ Not connected'}
         </span>
         <span className="px-3 py-1 bg-trust-blue text-white text-xs font-semibold rounded-full">
-          Connected Calendars: 10
+          Meetings: {calendarMeetings.length}
         </span>
-        <span className="px-3 py-1 bg-trust-blue text-white text-xs font-semibold rounded-full">
-          Meetings: {events.length}
+        <span className="px-3 py-1 bg-gray-100 text-gray-700 text-xs font-semibold rounded-full border border-gray-200">
+          Company Events: {events.length}
         </span>
-        <button onClick={load} className="ml-2 text-cool-gray hover:text-midnight-ink transition p-1">
-          <RefreshCcw className="w-4 h-4" />
+        <button onClick={load} disabled={loading} className="ml-2 text-cool-gray hover:text-midnight-ink transition p-1 disabled:opacity-50">
+          <RefreshCcw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
         </button>
+        {!calendarConnected && (
+          <a href="/frontend/my-desk" className="ml-auto text-xs text-trust-blue underline font-medium hover:text-blue-700">
+            Connect Google Calendar in MyDesk →
+          </a>
+        )}
       </div>
 
       {/* Filter Bar */}
       <div className="bg-white rounded-xl border border-soft-border p-3 shadow-sm flex flex-wrap items-center gap-4">
         <div className="flex-1 min-w-[200px]">
           <input 
-            type="text" placeholder="Search Meetings" 
+            type="text" placeholder="Search company events or meetings"
             value={search} onChange={e=>setSearch(e.target.value)} 
             className={inputCls} 
           />
-        </div>
-        <div className="flex items-center border border-soft-border rounded-md bg-white">
-            <span className="text-[11px] font-medium uppercase text-cool-gray px-3 border-r border-soft-border">Department</span>
-            <select value={deptFilter} onChange={e=>setDeptFilter(e.target.value)} className="h-9 px-2 text-sm focus:outline-none bg-transparent">
-              <option value="all">All Departments</option>
-            </select>
-        </div>
-        <div className="flex items-center border border-soft-border rounded-md bg-white">
-            <span className="text-[11px] font-medium uppercase text-cool-gray px-3 border-r border-soft-border">Host / Creator</span>
-            <select value={hostFilter} onChange={e=>setHostFilter(e.target.value)} className="h-9 px-2 text-sm focus:outline-none bg-transparent">
-              <option value="all">All Hosts</option>
-            </select>
         </div>
         <div className="flex items-center border border-soft-border rounded-md bg-white">
             <span className="text-[11px] font-medium uppercase text-cool-gray px-3 border-r border-soft-border">Event Type</span>
@@ -125,7 +162,7 @@ export default function HRMeetingManager() {
               {EVENT_TYPES.map(t=><option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1).replace('_', ' ')}</option>)}
             </select>
         </div>
-        <button onClick={()=>{setSearch('');setDeptFilter('all');setHostFilter('all');setTypeFilter('all');}} className="text-trust-blue text-sm font-semibold hover:underline px-2">
+        <button onClick={()=>{setSearch('');setTypeFilter('all');}} className="text-trust-blue text-sm font-semibold hover:underline px-2">
           RESET
         </button>
       </div>
@@ -158,21 +195,30 @@ export default function HRMeetingManager() {
                 const d = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), dateNum);
                 const isSelected = d.toDateString() === selectedDate.toDateString();
                 const isToday = d.toDateString() === new Date().toDateString();
+                const dStr = toLocalDateStr(d);
+                const hasMeeting = calendarMeetings.some(m => m.start && m.start.substring(0, 10) === dStr);
+                const hasEvent = filteredEvents.some(e => e.start_date === dStr);
                 
                 return (
                   <button
                     key={dateNum}
                     onClick={() => {
                         setSelectedDate(d);
-                        setForm(prev => ({...prev, start_date: d.toISOString().split('T')[0]}));
+                        setForm(prev => ({...prev, start_date: toLocalDateStr(d)}));
                     }}
                     className={`
-                      w-8 h-8 mx-auto rounded-md flex items-center justify-center transition text-[13px]
+                      w-8 h-8 mx-auto rounded-md flex flex-col items-center justify-center transition text-[13px] relative
                       ${isSelected ? 'bg-blue-100 text-blue-700 font-bold border border-blue-200 shadow-sm' : 'hover:bg-gray-100'}
                       ${isToday && !isSelected ? 'text-trust-blue font-bold underline decoration-2 underline-offset-4' : ''}
                     `}
                   >
                     {dateNum}
+                    {(hasMeeting || hasEvent) && (
+                      <span className="absolute bottom-0.5 left-1/2 -translate-x-1/2 flex gap-0.5">
+                        {hasMeeting && <span className="w-1 h-1 rounded-full bg-trust-blue" />}
+                        {hasEvent && <span className="w-1 h-1 rounded-full bg-pink-500" />}
+                      </span>
+                    )}
                   </button>
                 );
               })}
@@ -221,12 +267,47 @@ export default function HRMeetingManager() {
             <div className="flex items-center justify-between p-4 border-b border-soft-border">
               <h3 className="font-bold text-[17px] text-midnight-ink">Meetings On {selectedDate.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: '2-digit', year: 'numeric' })}</h3>
               <span className="px-2.5 py-0.5 bg-trust-blue text-white text-[11px] font-semibold rounded-full shadow-sm">
-                0 meetings
+                {dayMeetings.length} meetings
               </span>
             </div>
-            <div className="p-4 text-[13px] text-cool-gray">
-              No meetings found for this day.
-            </div>
+            {dayMeetings.length === 0 ? (
+              <div className="p-4 text-[13px] text-cool-gray">
+                No Google Calendar meetings found for this day.
+              </div>
+            ) : (
+              <div className="divide-y divide-soft-border">
+                {dayMeetings.map((m, idx) => {
+                  const startTime = m.start ? new Date(m.start).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : '';
+                  const endTime = m.end ? new Date(m.end).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : '';
+                  return (
+                    <div key={m.id || idx} className="p-4 hover:bg-gray-50 transition">
+                      <div className="flex justify-between items-start mb-1">
+                        <div className="font-bold text-[15px] text-midnight-ink">{m.title}</div>
+                        {startTime && (
+                          <span className="text-[11px] text-cool-gray font-medium whitespace-nowrap ml-2">
+                            {startTime}{endTime ? ` – ${endTime}` : ''}
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-xs text-cool-gray mb-2">
+                        {m.calendar_owner && <>Calendar: {m.calendar_owner} &bull; </>}
+                        {m.location && <>{m.location} &bull; </>}
+                        Google Meet
+                      </div>
+                      {m.description && (
+                        <div className="text-[13px] text-midnight-ink bg-gray-50 p-2 rounded border border-gray-100 mb-2">{m.description}</div>
+                      )}
+                      {m.meet_link && (
+                        <a href={m.meet_link} target="_blank" rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-xs font-semibold text-trust-blue hover:underline">
+                          Join Meeting
+                        </a>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           {/* Events Section */}

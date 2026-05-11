@@ -36,10 +36,43 @@ from .serializers import (
 	destroy=extend_schema(summary='Delete inventory transaction', tags=['Inventory']),
 )
 class InventoryTransactionViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
+	audit_sheet = 'inventory'
 	queryset = InventoryTransaction.objects.all().order_by('-created_at')
 	serializer_class = InventoryTransactionSerializer
 	filterset_fields = ['product', 'txn_type']
 	search_fields = ['remark']
+
+	def _cross_log_product(self, instance, action_type, old_data=None):
+		"""Also write an ActivityLog entry for the parent product sheet so inventory
+		changes appear in the product's activity log panel."""
+		try:
+			product = getattr(instance, 'product', None)
+			if product is None:
+				return
+			from common.audit import log_activity
+			from common.models import ActivityLog
+			log_activity(
+				getattr(self, 'request', None),
+				action_type,
+				'product',
+				product,
+				old_data=old_data,
+			)
+		except Exception:
+			pass
+
+	def perform_create(self, serializer):
+		super().perform_create(serializer)
+		self._cross_log_product(serializer.instance, 'create')
+
+	def perform_update(self, serializer):
+		try:
+			from common.audit import serialize_instance
+			old_product_data = serialize_instance(serializer.instance.product) if getattr(serializer.instance, 'product', None) else None
+		except Exception:
+			old_product_data = None
+		super().perform_update(serializer)
+		self._cross_log_product(serializer.instance, 'update', old_data=old_product_data)
 
 
 @extend_schema_view(
@@ -51,6 +84,7 @@ class InventoryTransactionViewSet(StandardizedSuccessResponseMixin, ModelViewSet
 	destroy=extend_schema(summary='Delete picklist group', tags=['Inventory']),
 )
 class PicklistGroupViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
+	audit_sheet = 'inventory'
 	queryset = PicklistGroup.objects.prefetch_related('items').all().order_by('-number', '-uploaded_at')
 	serializer_class = PicklistGroupSerializer
 	lookup_field = 'group_id'
@@ -67,6 +101,7 @@ class PicklistGroupViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 	destroy=extend_schema(summary='Delete stone item', tags=['Stone Inventory']),
 )
 class StoneItemViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
+	audit_sheet = 'inventory'
 	queryset = StoneItem.objects.all().order_by('-created_at')
 	serializer_class = StoneItemSerializer
 	filterset_fields = ['stone_type', 'species', 'variety', 'color', 'quality', 'shape', 'wax_setting']
@@ -78,6 +113,7 @@ class StoneItemViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 	create=extend_schema(summary='Add stone stock', tags=['Stone Inventory']),
 )
 class StoneStockEntryViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
+	audit_sheet = 'inventory'
 	queryset = StoneStockEntry.objects.select_related('stone').all().order_by('-created_at')
 	serializer_class = StoneStockEntrySerializer
 	filterset_fields = ['stone']
@@ -93,6 +129,7 @@ class StoneStockEntryViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 	destroy=extend_schema(summary='Delete tool item', tags=['Tools Inventory']),
 )
 class ToolItemViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
+	audit_sheet = 'inventory'
 	queryset = ToolItem.objects.all()
 	serializer_class = ToolItemSerializer
 	search_fields = ['tool_name', 'department', 'new_location', 'particulars']
@@ -107,6 +144,7 @@ class ToolItemViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 	destroy=extend_schema(summary='Delete other item', tags=['Others Inventory']),
 )
 class OtherItemViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
+	audit_sheet = 'inventory'
 	queryset = OtherItem.objects.all()
 	serializer_class = OtherItemSerializer
 	filterset_fields = ['category']
@@ -122,6 +160,7 @@ class OtherItemViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 	destroy=extend_schema(summary='Delete machine item', tags=['Machines Inventory']),
 )
 class MachineItemViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
+	audit_sheet = 'inventory'
 	queryset = MachineItem.objects.all()
 	serializer_class = MachineItemSerializer
 	search_fields = ['machine_name', 'department']
@@ -136,6 +175,7 @@ class MachineItemViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 	destroy=extend_schema(summary='Delete product inventory item', tags=['Product Inventory']),
 )
 class ProductInventoryItemViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
+	audit_sheet = 'inventory'
 	queryset = ProductInventoryItem.objects.select_related('product').all().order_by('-created_at')
 	serializer_class = ProductInventoryItemSerializer
 	filterset_fields = ['product', 'final_sku', 'unit']
@@ -198,6 +238,7 @@ class ProductInventoryItemViewSet(StandardizedSuccessResponseMixin, ModelViewSet
 	destroy=extend_schema(summary='Delete stock transaction', tags=['Stock Log']),
 )
 class StockTransactionViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
+	audit_sheet = 'inventory'
 	queryset = StockTransaction.objects.all().order_by('-txn_date', '-created_at')
 	serializer_class = StockTransactionSerializer
 	filterset_fields = ['inventory_type', 'txn_type', 'tool', 'machine', 'other_item']
@@ -215,6 +256,7 @@ class StockTransactionViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 	destroy=extend_schema(summary='Delete stone transaction', tags=['Stone Log']),
 )
 class StoneTransactionViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
+	audit_sheet = 'inventory'
 	queryset = StoneTransaction.objects.select_related('stone').all().order_by('-txn_date', '-created_at')
 	serializer_class = StoneTransactionSerializer
 	filterset_fields = ['txn_type', 'stone']
@@ -232,6 +274,7 @@ class StoneTransactionViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 	destroy=extend_schema(summary='Delete finding inventory item', tags=['Finding Inventory']),
 )
 class FindingInventoryItemViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
+	audit_sheet = 'inventory'
 	queryset = FindingInventoryItem.objects.all().order_by('-created_at')
 	serializer_class = FindingInventoryItemSerializer
 	filterset_fields = ['material', 'finding_stage', 'mechanism']
@@ -249,6 +292,7 @@ class FindingInventoryItemViewSet(StandardizedSuccessResponseMixin, ModelViewSet
 	destroy=extend_schema(summary='Delete finding transaction', tags=['Finding Log']),
 )
 class FindingInventoryTransactionViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
+	audit_sheet = 'inventory'
 	queryset = FindingInventoryTransaction.objects.select_related('finding').all().order_by('-txn_date', '-created_at')
 	serializer_class = FindingInventoryTransactionSerializer
 	filterset_fields = ['txn_type', 'finding']
@@ -266,6 +310,7 @@ class FindingInventoryTransactionViewSet(StandardizedSuccessResponseMixin, Model
 	destroy=extend_schema(summary='Delete product inventory transaction', tags=['Product Log']),
 )
 class ProductInventoryTransactionViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
+	audit_sheet = 'inventory'
 	queryset = ProductInventoryTransaction.objects.select_related('product').all().order_by('-txn_date', '-created_at')
 	serializer_class = ProductInventoryTransactionSerializer
 	filterset_fields = ['txn_type', 'product']
@@ -283,6 +328,7 @@ class ProductInventoryTransactionViewSet(StandardizedSuccessResponseMixin, Model
 	destroy=extend_schema(summary='Delete issue request', tags=['Issue Requests']),
 )
 class IssueRequestViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
+	audit_sheet = 'inventory'
 	queryset = IssueRequest.objects.all().order_by('-requested_at')
 	serializer_class = IssueRequestSerializer
 	filterset_fields = ['inventory_type', 'status']
@@ -399,6 +445,7 @@ class IssueRequestViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 	destroy=extend_schema(summary='Delete die inventory item', tags=['Die Inventory']),
 )
 class DieInventoryItemViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
+	audit_sheet = 'inventory'
 	queryset = DieInventoryItem.objects.all().order_by('-created_at')
 	serializer_class = DieInventoryItemSerializer
 	search_fields = ['die_code', 'location', 'notes']
@@ -488,6 +535,7 @@ class DieInventoryItemViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 	destroy=extend_schema(summary='Delete die transaction', tags=['Die Log']),
 )
 class DieTransactionViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
+	audit_sheet = 'inventory'
 	queryset = DieTransaction.objects.select_related('die').all().order_by('-txn_date', '-created_at')
 	serializer_class = DieTransactionSerializer
 	filterset_fields = ['txn_type', 'die']

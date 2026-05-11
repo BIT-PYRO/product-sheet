@@ -661,6 +661,94 @@ class BalanceSheetView(APIView):
         )
 
 
+class DepartmentDashboardView(APIView):
+    """
+    GET /api/accounting/departments/dashboard/
+    Aggregates income/expense for all departments from JournalItems and PendingExpenses.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        departments = {}
+
+        def get_dept(name):
+            if not name: name = 'General'
+            if name == 'Human Resources': name = 'HR & Admin'
+            if name not in departments:
+                departments[name] = {
+                    'name': name,
+                    'income': 0, 'expense': 0,
+                    'income_entries': 0, 'expense_entries': 0,
+                    'top_accounts': []
+                }
+            return departments[name]
+
+        # 1. Posted Journal Items
+        items = JournalItem.objects.select_related('entry', 'ledger').all()
+        for item in items:
+            if item.ledger.type not in ('income', 'expense'):
+                continue
+            
+            dept = get_dept(item.department)
+            
+            if item.ledger.type == 'expense' and item.debit > 0:
+                dept['expense'] += float(item.debit)
+                dept['expense_entries'] += 1
+                dept['top_accounts'].append({
+                    'name': item.ledger.name,
+                    'amount': float(item.debit),
+                    'type': 'expense',
+                    'date': str(item.entry.date),
+                    'description': item.notes or item.entry.description,
+                    'receipt': item.ref_id or ''
+                })
+            elif item.ledger.type == 'income' and item.credit > 0:
+                dept['income'] += float(item.credit)
+                dept['income_entries'] += 1
+                dept['top_accounts'].append({
+                    'name': item.ledger.name,
+                    'amount': float(item.credit),
+                    'type': 'income',
+                    'date': str(item.entry.date),
+                    'description': item.notes or item.entry.description,
+                    'receipt': item.ref_id or ''
+                })
+
+
+        # Define UI colors for standard departments
+        color_map = {
+            'Sales': {'color': '#059669', 'bg': '#ecfdf5', 'border': '#a7f3d0', 'icon': '💼'},
+            'Operations': {'color': '#2563eb', 'bg': '#eff6ff', 'border': '#bfdbfe', 'icon': '⚙️'},
+            'HR & Admin': {'color': '#d97706', 'bg': '#fffbeb', 'border': '#fde68a', 'icon': '👥'},
+            'Marketing': {'color': '#7c3aed', 'bg': '#f5f3ff', 'border': '#ddd6fe', 'icon': '📣'},
+            'Finance': {'color': '#64748b', 'bg': '#f8fafc', 'border': '#e2e8f0', 'icon': '🏦'},
+        }
+        fallback_colors = {'color': '#0f172a', 'bg': '#f8fafc', 'border': '#e2e8f0', 'icon': '🏢'}
+
+        # Format output
+        results = []
+        for name, data in departments.items():
+            meta = color_map.get(name, fallback_colors)
+            data.update(meta)
+            # Sort top accounts by amount descending
+            data['top_accounts'].sort(key=lambda x: x['amount'], reverse=True)
+            results.append(data)
+            
+        # Guarantee base departments exist
+        existing = {r['name'] for r in results}
+        for name, meta in color_map.items():
+            if name not in existing:
+                results.append({
+                    'name': name,
+                    'income': 0, 'expense': 0,
+                    'income_entries': 0, 'expense_entries': 0,
+                    'top_accounts': [],
+                    **meta
+                })
+
+        return api_success(results, message='Department dashboard fetched.')
+
+
 
 # ═══════════════════════════════════════════════════════════════════
 # PENDING EXPENSE SYSTEM
@@ -817,6 +905,7 @@ class PendingExpenseApproveView(APIView):
                 ledger=expense.category,
                 debit=expense.amount,
                 credit=0,
+                department=expense.department,
             )
             # Credit the payment ledger (cash / bank / wallet going out)
             JournalItem.objects.create(
@@ -824,6 +913,7 @@ class PendingExpenseApproveView(APIView):
                 ledger=payment_ledger,
                 debit=0,
                 credit=expense.amount,
+                department=expense.department,
             )
             # Mark approved
             expense.status = PendingExpense.Status.APPROVED
