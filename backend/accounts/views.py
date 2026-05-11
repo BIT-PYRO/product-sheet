@@ -12,7 +12,7 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
-from .models import APIKey, RoleDefaultPermissions
+from .models import APIKey, RoleDefaultPermissions, SCOPE_CHOICES
 from .permissions import IsAdminOrManager
 from .serializers import (
     APIKeyCreateSerializer,
@@ -507,12 +507,52 @@ class APIKeyViewSet(viewsets.ViewSet):
             name=d['name'],
             description=d.get('description', ''),
             given_to=d.get('given_to', ''),
+            given_to_workforce_id=d.get('given_to_workforce_id'),
             page_scopes=d['page_scopes'],
             can_read=d.get('can_read', True),
             can_write=d.get('can_write', False),
             can_comment=d.get('can_comment', False),
             created_by=request.user,
         )
+
+        # Send a MyDesk note to the assigned workforce member (non-fatal)
+        workforce_id = d.get('given_to_workforce_id')
+        if workforce_id:
+            try:
+                from django.contrib.auth import get_user_model
+                from core.mydesk.models import MyDeskNote
+                User = get_user_model()
+                member = WorkforceMember.objects.filter(pk=workforce_id).first()
+                if member and member.email:
+                    recipient_user = User.objects.filter(email__iexact=member.email).first()
+                    if recipient_user:
+                        scope_labels = ', '.join([SCOPE_CHOICES.get(s, s) for s in instance.page_scopes])
+                        perms = []
+                        if instance.can_read:
+                            perms.append('Read')
+                        if instance.can_write:
+                            perms.append('Write')
+                        if instance.can_comment:
+                            perms.append('Comment / Suggest')
+                        perm_str = ', '.join(perms) or 'None'
+                        assigned_by = request.user.get_full_name() or request.user.username
+                        MyDeskNote.objects.create(
+                            user=recipient_user,
+                            title=f'API Key Assigned to You: {instance.name}',
+                            content_html=(
+                                f'<p>An API key has been assigned to you by <strong>{assigned_by}</strong>.</p>'
+                                f'<ul>'
+                                f'<li><strong>Key Name:</strong> {instance.name}</li>'
+                                f'<li><strong>Key Prefix:</strong> {instance.key_prefix}…</li>'
+                                f'<li><strong>Page Access:</strong> {scope_labels}</li>'
+                                f'<li><strong>Permissions:</strong> {perm_str}</li>'
+                                f'</ul>'
+                                f'<p>Contact your administrator for the full API key value.</p>'
+                            ),
+                        )
+            except Exception:
+                pass  # Non-fatal — key creation succeeds regardless
+
         out = APIKeyListSerializer(instance).data
         out['raw_key'] = raw_key  # shown once only
         return api_success(out, message='API key created. Copy the raw_key now — it will not be shown again.', status_code=201)

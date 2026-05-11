@@ -26,7 +26,10 @@ class WorkforceMemberViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 	audit_sheet = 'workforce'
 	queryset = WorkforceMember.objects.all().order_by('-created_at')
 	serializer_class = WorkforceMemberSerializer
-	filterset_fields = ['active']
+	filterset_fields = {
+		'active': ['exact'],
+		'department': ['exact', 'icontains'],
+	}
 	search_fields = ['full_name', 'phone', 'email', 'department']
 
 	def perform_create(self, serializer):

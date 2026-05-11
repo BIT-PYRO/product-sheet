@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -11,6 +11,9 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from '@/components/ui/command';
+import { Check, ChevronDown } from 'lucide-react';
 import APIKeyCopyOnce from './APIKeyCopyOnce';
 
 const ALL_SCOPES = [
@@ -31,7 +34,8 @@ const ALL_SCOPES = [
 
 export default function CreateAPIKeyModal({ open, onOpenChange, onCreated }) {
   const [name, setName] = useState('');
-  const [givenTo, setGivenTo] = useState('');
+  const [givenToId, setGivenToId] = useState(null);
+  const [givenToName, setGivenToName] = useState('');
   const [description, setDescription] = useState('');
   const [selectedScopes, setSelectedScopes] = useState([]);
   const [canRead, setCanRead] = useState(true);
@@ -41,10 +45,38 @@ export default function CreateAPIKeyModal({ open, onOpenChange, onCreated }) {
   const [error, setError] = useState('');
   const [rawKey, setRawKey] = useState(null);
 
+  // Workforce dropdown state
+  const [comboOpen, setComboOpen] = useState(false);
+  const [workforceOptions, setWorkforceOptions] = useState([]);
+  const [workforceLoading, setWorkforceLoading] = useState(false);
+
+  // Fetch tech-dept workforce members when modal opens
+  useEffect(() => {
+    if (!open) return;
+    setWorkforceLoading(true);
+    fetch('/frontend/api/workforce?department__icontains=tech&active=true', { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((data) => {
+        const list = Array.isArray(data?.data)
+          ? data.data
+          : Array.isArray(data?.data?.results)
+          ? data.data.results
+          : Array.isArray(data?.results)
+          ? data.results
+          : Array.isArray(data)
+          ? data
+          : [];
+        setWorkforceOptions(list);
+      })
+      .catch(() => setWorkforceOptions([]))
+      .finally(() => setWorkforceLoading(false));
+  }, [open]);
+
   function reset() {
-    setName(''); setGivenTo(''); setDescription('');
+    setName(''); setGivenToId(null); setGivenToName(''); setDescription('');
     setSelectedScopes([]); setCanRead(true); setCanWrite(false); setCanComment(false);
     setSaving(false); setError(''); setRawKey(null);
+    setComboOpen(false);
   }
 
   function handleClose() {
@@ -84,7 +116,8 @@ export default function CreateAPIKeyModal({ open, onOpenChange, onCreated }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: name.trim(),
-          given_to: givenTo.trim(),
+          given_to: givenToName,
+          given_to_workforce_id: givenToId,
           description: description.trim(),
           page_scopes: selectedScopes,
           can_read: canRead,
@@ -136,11 +169,55 @@ export default function CreateAPIKeyModal({ open, onOpenChange, onCreated }) {
               </div>
               <div className="space-y-1.5">
                 <label className="text-sm font-medium text-midnight-ink">Given To</label>
-                <Input
-                  value={givenTo}
-                  onChange={(e) => setGivenTo(e.target.value)}
-                  placeholder="Person or organisation name"
-                />
+                <Popover open={comboOpen} onOpenChange={setComboOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={comboOpen}
+                      className="w-full justify-between font-normal text-left"
+                    >
+                      <span className={givenToName ? 'text-midnight-ink' : 'text-cool-gray'}>
+                        {givenToName || (workforceLoading ? 'Loading…' : 'Select tech team member…')}
+                      </span>
+                      <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-72 p-0" align="start">
+                    <Command>
+                      <CommandInput placeholder="Search by name or designation…" />
+                      <CommandEmpty>
+                        {workforceLoading ? 'Loading…' : 'No tech team members found.'}
+                      </CommandEmpty>
+                      <CommandGroup className="max-h-56 overflow-y-auto">
+                        {workforceOptions.map((m) => (
+                          <CommandItem
+                            key={m.id}
+                            value={`${m.full_name} ${m.designation || ''}`}
+                            onSelect={() => {
+                              setGivenToId(m.id);
+                              setGivenToName(m.full_name);
+                              setComboOpen(false);
+                            }}
+                          >
+                            <Check
+                              className={`mr-2 h-4 w-4 shrink-0 ${
+                                givenToId === m.id ? 'opacity-100' : 'opacity-0'
+                              }`}
+                            />
+                            <span className="font-medium">{m.full_name}</span>
+                            {m.designation && (
+                              <span className="ml-1.5 text-xs text-cool-gray truncate">
+                                · {m.designation}
+                              </span>
+                            )}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
               </div>
             </div>
 

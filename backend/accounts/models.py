@@ -107,7 +107,14 @@ class APIKey(models.Model):
     description = models.TextField(blank=True, default='')
     given_to = models.CharField(
         max_length=150, blank=True, default='',
-        help_text='Name or organisation of the key recipient.',
+        help_text='Display name of the key recipient.',
+    )
+    given_to_workforce = models.ForeignKey(
+        'workforce.WorkforceMember',
+        null=True, blank=True,
+        on_delete=models.SET_NULL,
+        related_name='api_keys',
+        help_text='The workforce member this key is assigned to (tech dept).',
     )
 
     # Stored key material — raw key is shown once and never persisted
@@ -142,7 +149,7 @@ class APIKey(models.Model):
 
     @classmethod
     def create_key(cls, name, page_scopes, can_read=True, can_write=False, can_comment=False,
-                   description='', given_to='', created_by=None):
+                   description='', given_to='', given_to_workforce_id=None, created_by=None):
         """Generate a new API key, persist the hash, and return (instance, raw_key)."""
         raw_key = generate_api_key()
         prefix = raw_key[:8]
@@ -151,6 +158,7 @@ class APIKey(models.Model):
             name=name,
             description=description,
             given_to=given_to,
+            given_to_workforce_id=given_to_workforce_id,
             key_prefix=prefix,
             key_hash=key_hash,
             page_scopes=page_scopes,

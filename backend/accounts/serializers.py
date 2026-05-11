@@ -27,7 +27,7 @@ class APIKeyListSerializer(serializers.ModelSerializer):
     class Meta:
         model = APIKey
         fields = (
-            'id', 'name', 'description', 'given_to',
+            'id', 'name', 'description', 'given_to', 'given_to_workforce_id',
             'key_prefix',
             'page_scopes', 'scope_labels',
             'can_read', 'can_write', 'can_comment',
@@ -50,6 +50,7 @@ class APIKeyCreateSerializer(serializers.Serializer):
     name = serializers.CharField(max_length=100)
     description = serializers.CharField(allow_blank=True, default='')
     given_to = serializers.CharField(max_length=150, allow_blank=True, default='')
+    given_to_workforce_id = serializers.IntegerField(allow_null=True, required=False, default=None)
     page_scopes = serializers.ListField(
         child=serializers.ChoiceField(choices=list(SCOPE_CHOICES.keys())),
         min_length=1,
