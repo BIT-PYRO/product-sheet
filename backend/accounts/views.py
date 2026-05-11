@@ -4,19 +4,25 @@ from django.contrib.auth import get_user_model
 from drf_spectacular.utils import OpenApiExample, extend_schema
 from google.auth.transport import requests as google_requests
 from google.oauth2 import id_token
-from rest_framework import status
+from rest_framework import status, viewsets
+from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
-from .models import RoleDefaultPermissions
-
+from .models import APIKey, RoleDefaultPermissions
+from .permissions import IsAdminOrManager
+from .serializers import (
+    APIKeyCreateSerializer,
+    APIKeyListSerializer,
+    APIKeyUpdateSerializer,
+    RoleDefaultPermissionsSerializer,
+    UserSerializer,
+)
 from common.api import api_success
 from workforce.models import WorkforceMember
-
-from .serializers import RoleDefaultPermissionsSerializer, UserSerializer
 
 
 class LoginView(TokenObtainPairView):
@@ -469,3 +475,86 @@ class MergeUsersView(APIView):
 			message=f'Merged {users_merged} duplicate user(s) and {members_merged} duplicate workforce record(s) for {email}.',
 		)
 
+
+# ---------------------------------------------------------------------------
+# API Key management views
+# ---------------------------------------------------------------------------
+
+class APIKeyViewSet(viewsets.ViewSet):
+    """
+    CRUD + regenerate for API keys.
+
+    Only admin/manager JWT-authenticated users can manage keys.
+    API key holders cannot call these endpoints.
+    """
+
+    permission_classes = [IsAuthenticated, IsAdminOrManager]
+
+    @extend_schema(summary='List all API keys', tags=['API Keys'])
+    def list(self, request):
+        qs = APIKey.objects.select_related('created_by').all()
+        serializer = APIKeyListSerializer(qs, many=True)
+        return api_success(serializer.data, message='API keys fetched successfully.')
+
+    @extend_schema(summary='Create a new API key', tags=['API Keys'])
+    def create(self, request):
+        serializer = APIKeyCreateSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response({'success': False, 'errors': serializer.errors}, status=400)
+
+        d = serializer.validated_data
+        instance, raw_key = APIKey.create_key(
+            name=d['name'],
+            description=d.get('description', ''),
+            given_to=d.get('given_to', ''),
+            page_scopes=d['page_scopes'],
+            can_read=d.get('can_read', True),
+            can_write=d.get('can_write', False),
+            can_comment=d.get('can_comment', False),
+            created_by=request.user,
+        )
+        out = APIKeyListSerializer(instance).data
+        out['raw_key'] = raw_key  # shown once only
+        return api_success(out, message='API key created. Copy the raw_key now — it will not be shown again.', status_code=201)
+
+    @extend_schema(summary='Retrieve a single API key', tags=['API Keys'])
+    def retrieve(self, request, pk=None):
+        try:
+            instance = APIKey.objects.select_related('created_by').get(pk=pk)
+        except APIKey.DoesNotExist:
+            return Response({'success': False, 'message': 'API key not found.'}, status=404)
+        return api_success(APIKeyListSerializer(instance).data, message='API key fetched.')
+
+    @extend_schema(summary='Update an API key (partial)', tags=['API Keys'])
+    def partial_update(self, request, pk=None):
+        try:
+            instance = APIKey.objects.get(pk=pk)
+        except APIKey.DoesNotExist:
+            return Response({'success': False, 'message': 'API key not found.'}, status=404)
+        serializer = APIKeyUpdateSerializer(instance, data=request.data, partial=True)
+        if not serializer.is_valid():
+            return Response({'success': False, 'errors': serializer.errors}, status=400)
+        serializer.save()
+        return api_success(APIKeyListSerializer(instance).data, message='API key updated.')
+
+    @extend_schema(summary='Delete an API key', tags=['API Keys'])
+    def destroy(self, request, pk=None):
+        try:
+            instance = APIKey.objects.get(pk=pk)
+        except APIKey.DoesNotExist:
+            return Response({'success': False, 'message': 'API key not found.'}, status=404)
+        name = instance.name
+        instance.delete()
+        return api_success({'id': pk}, message=f'API key "{name}" deleted.')
+
+    @extend_schema(summary='Regenerate an API key (invalidates old key)', tags=['API Keys'])
+    @action(detail=True, methods=['post'], url_path='regenerate')
+    def regenerate(self, request, pk=None):
+        try:
+            instance = APIKey.objects.get(pk=pk)
+        except APIKey.DoesNotExist:
+            return Response({'success': False, 'message': 'API key not found.'}, status=404)
+        raw_key = instance.regenerate()
+        out = APIKeyListSerializer(instance).data
+        out['raw_key'] = raw_key
+        return api_success(out, message='API key regenerated. Copy the raw_key now — it will not be shown again.')

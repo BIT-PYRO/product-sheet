@@ -1,8 +1,11 @@
-from django.urls import path
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
 
-from .views import ApproveUserView, DeleteUserView, GoogleLoginView, LoginView, MeView, MergeUsersView, RefreshTokenView, RoleDefaultPermissionsDetailView, RoleDefaultPermissionsListView, SetCredentialsView
+from .views import ApproveUserView, APIKeyViewSet, DeleteUserView, GoogleLoginView, LoginView, MeView, MergeUsersView, RefreshTokenView, RoleDefaultPermissionsDetailView, RoleDefaultPermissionsListView, SetCredentialsView
 from .views_roles import RoleListCreateView, RoleDetailView
 
+router = DefaultRouter()
+router.register('api-keys', APIKeyViewSet, basename='api-keys')
 
 urlpatterns = [
     path('login/', LoginView.as_view(), name='login'),
@@ -18,4 +21,5 @@ urlpatterns = [
     path('role-permissions/<str:role>/', RoleDefaultPermissionsDetailView.as_view(), name='role_permissions_detail_nodept'),
     path('roles/', RoleListCreateView.as_view(), name='roles_list_create'),
     path('roles/<int:pk>/', RoleDetailView.as_view(), name='roles_detail'),
+    path('', include(router.urls)),
 ]
