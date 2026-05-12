@@ -349,22 +349,98 @@ export function OrderSheetView({ embedded = false, defaultPicklistNum = null }) 
     setShowExportPicklistDialog(true);
   };
 
-  const handleExportPicklist = () => {
+  const handleExportPicklist = async () => {
     if (exportPicklistNums.size === 0) return;
     setIsExporting(true);
+
+    // ── Fetch ProductInventoryItem data for location lookup ──
+    // locationByFinalSku: normalized(final_sku) → location
+    // locationByMasterSku: normalized(master_sku) → location (when final_sku === master_sku)
+    const locationByFinalSku = {};
+    const locationByMasterSku = {};
+    try {
+      const invRes = await fetch('/frontend/api/product-inventory?page_size=10000', { cache: 'no-store' });
+      if (invRes.ok) {
+        const invData = await invRes.json().catch(() => null);
+        const invItems = Array.isArray(invData)
+          ? invData
+          : Array.isArray(invData?.results)
+            ? invData.results
+            : [];
+        invItems.forEach((inv) => {
+          const fSku = String(inv.final_sku || '').trim().toUpperCase();
+          const mSku = String(inv.master_sku || '').trim().toUpperCase();
+          const loc  = String(inv.location   || '').trim();
+          if (fSku && loc) locationByFinalSku[fSku.toLowerCase()] = loc;
+          if (mSku && fSku === mSku && loc) locationByMasterSku[mSku.toLowerCase()] = loc;
+        });
+      }
+    } catch { /* best-effort — location columns will show — if this fails */ }
 
     const exportDate = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
     const sortedNums = Array.from(exportPicklistNums).sort((a, b) => a - b);
 
-    // Build a helper to aggregate items for a single picklist number and return an HTML section
-    const buildPicklistSection = (num, isLast) => {
-      const picklistOrders = orders.filter(
-        (o) => o.order_source === 'picklist' && o.picklist_number === num
-      );
+    // ── Shared table header (5 columns — Final SKU + Location combined) ──
+    const tableHeader = `
+      <thead>
+        <tr>
+          <th style="width:80px;background:#f3f4f6;padding:6px 8px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#6b7280;border-bottom:2px solid #e5e7eb;">Image</th>
+          <th style="background:#f3f4f6;padding:6px 8px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#6b7280;border-bottom:2px solid #e5e7eb;">Master SKU &amp; Product Name</th>
+          <th style="width:120px;background:#f3f4f6;padding:6px 8px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#6b7280;border-bottom:2px solid #e5e7eb;">Master Location</th>
+          <th style="width:280px;background:#f3f4f6;padding:6px 8px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#6b7280;border-bottom:2px solid #e5e7eb;">Final SKU &amp; Location</th>
+          <th style="width:80px;background:#f3f4f6;padding:6px 8px;text-align:center;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#6b7280;border-bottom:2px solid #e5e7eb;">Qty Needed</th>
+        </tr>
+      </thead>`;
 
-      // masterMap: masterSku → { productName, totalQty, variations: Map<variationSku, qty> }
+    // ── Shared row renderer ──
+    const renderRow = (item) => {
+      const normalized = item.masterSku.toLowerCase();
+      const product = productsBySku[normalized] || null;
+      const imageList = Array.isArray(product?.images) ? product.images : [];
+      const firstImage = imageList[0] || null;
+      const displayName = item.productName || product?.listing_name || product?.name || '';
+
+      const imgHtml = firstImage
+        ? `<img src="${firstImage}" alt="${item.masterSku}" style="width:60px;height:60px;object-fit:cover;border-radius:6px;border:1px solid #e5e7eb;" />`
+        : `<div style="width:60px;height:60px;border-radius:6px;border:1px solid #e5e7eb;background:#f9fafb;display:flex;align-items:center;justify-content:center;color:#9ca3af;font-size:10px;">No image</div>`;
+
+      const variationEntries = Array.from(item.variations.entries());
+
+      // Master location: from ProductInventoryItem where final_sku == master_sku,
+      // falling back to the first variation that has a location.
+      const masterLoc = locationByMasterSku[normalized]
+        || variationEntries.map(([vSku]) => locationByFinalSku[vSku.toLowerCase()] || '').find(Boolean)
+        || '&mdash;';
+
+      // Each variation: SKU+qty on the left, location on the right — combined in one column
+      // so two Final SKUs are always paired with their locations, never misaligned.
+      const finalSkuAndLocHtml = variationEntries
+        .map(([vSku, vQty]) => {
+          const loc = locationByFinalSku[vSku.toLowerCase()] || '&mdash;';
+          return `<div style="display:flex;align-items:baseline;gap:8px;padding:1px 0;">
+            <span style="font-size:11px;font-family:monospace;color:#1d4ed8;white-space:nowrap;">${vSku} &times;${vQty}</span>
+            <span style="font-size:10px;color:#6b7280;">&#8594;</span>
+            <span style="font-size:11px;color:#374151;">${loc}</span>
+          </div>`;
+        }).join('');
+
+      return `
+        <tr>
+          <td style="padding:3px 6px;vertical-align:middle;border-bottom:1px solid #f3f4f6;">${imgHtml}</td>
+          <td style="padding:3px 6px;vertical-align:middle;border-bottom:1px solid #f3f4f6;">
+            <div style="font-weight:700;font-size:12px;color:#111827;">${item.masterSku}</div>
+            ${displayName ? `<div style="font-size:11px;color:#6b7280;margin-top:1px;">${displayName}</div>` : ''}
+          </td>
+          <td style="padding:3px 6px;vertical-align:middle;border-bottom:1px solid #f3f4f6;font-size:11px;color:#374151;">${masterLoc}</td>
+          <td style="padding:3px 6px;vertical-align:middle;border-bottom:1px solid #f3f4f6;">${finalSkuAndLocHtml}</td>
+          <td style="padding:3px 6px;vertical-align:middle;border-bottom:1px solid #f3f4f6;font-weight:700;font-size:14px;color:#2563eb;text-align:center;">${item.totalQty}</td>
+        </tr>`;
+    };
+
+    // ── Helper: aggregate orders for one picklist number into masterMap rows ──
+    const aggregateOrders = (orderList) => {
       const masterMap = new Map();
-      picklistOrders.forEach((order) => {
+      orderList.forEach((order) => {
         (order.items || []).forEach((item) => {
           const variationSku = String(item.sku || '').trim().toUpperCase();
           if (!variationSku) return;
@@ -373,7 +449,6 @@ export function OrderSheetView({ embedded = false, defaultPicklistNum = null }) 
             : variationSku;
           const qty = Number(item.quantity) || 0;
           const productName = String(item.name || '').trim();
-
           if (!masterMap.has(masterSku)) {
             masterMap.set(masterSku, { productName, totalQty: 0, variations: new Map() });
           }
@@ -383,61 +458,27 @@ export function OrderSheetView({ embedded = false, defaultPicklistNum = null }) 
           entry.variations.set(variationSku, (entry.variations.get(variationSku) || 0) + qty);
         });
       });
-
-      const rows = Array.from(masterMap.entries())
+      return Array.from(masterMap.entries())
         .sort(([a], [b]) => a.localeCompare(b))
         .map(([masterSku, entry]) => ({ masterSku, ...entry }));
+    };
 
+    // ── Build section for a single picklist number ──
+    const buildPicklistSection = (num, isLast) => {
+      const picklistOrders = orders.filter(
+        (o) => o.order_source === 'picklist' && o.picklist_number === num
+      );
+      const rows = aggregateOrders(picklistOrders);
       const picklistName = `PICKLIST-${num}`;
       const totalPiecesAll = rows.reduce((s, r) => s + r.totalQty, 0);
-
-      const rowsHtml = rows.map((item) => {
-        const normalized = item.masterSku.toLowerCase();
-        const product = productsBySku[normalized] || null;
-        const imageList = Array.isArray(product?.images) ? product.images : [];
-        const firstImage = imageList[0] || null;
-        const displayName = item.productName || product?.listing_name || product?.name || '';
-
-        const imgHtml = firstImage
-          ? `<img src="${firstImage}" alt="${item.masterSku}" style="width:100px;height:100px;object-fit:cover;border-radius:8px;border:1px solid #e5e7eb;" />`
-          : `<div style="width:100px;height:100px;border-radius:8px;border:1px solid #e5e7eb;background:#f9fafb;display:flex;align-items:center;justify-content:center;color:#9ca3af;font-size:11px;">No image</div>`;
-
-        const variationEntries = Array.from(item.variations.entries());
-        const showVariations = variationEntries.length > 0 && !(variationEntries.length === 1 && variationEntries[0][0] === item.masterSku);
-        const variationsHtml = showVariations
-          ? `<div style="margin-top:6px;display:flex;flex-direction:column;gap:3px;">
-              ${variationEntries.map(([vSku, vQty]) => `
-                <div style="display:flex;align-items:center;gap:8px;">
-                  <span style="font-size:11px;color:#6b7280;background:#f3f4f6;padding:1px 6px;border-radius:4px;font-family:monospace;">${vSku}</span>
-                  <span style="font-size:11px;font-weight:600;color:#374151;">×${vQty}</span>
-                </div>`).join('')}
-            </div>`
-          : '';
-
-        return `
-          <tr>
-            <td style="padding:10px 14px;vertical-align:middle;border-bottom:1px solid #f3f4f6;">${imgHtml}</td>
-            <td style="padding:10px 14px;vertical-align:top;border-bottom:1px solid #f3f4f6;">
-              <div style="font-weight:700;font-size:13px;color:#111827;">${item.masterSku}</div>
-              ${displayName ? `<div style="font-size:12px;color:#6b7280;margin-top:2px;">${displayName}</div>` : ''}
-              ${variationsHtml}
-            </td>
-            <td style="padding:10px 14px;vertical-align:middle;border-bottom:1px solid #f3f4f6;font-weight:700;font-size:15px;color:#2563eb;text-align:center;">${item.totalQty}</td>
-          </tr>`;
-      }).join('');
+      const rowsHtml = rows.map(renderRow).join('');
 
       return `
         <div style="${!isLast ? 'page-break-after:always;' : ''} margin-bottom:40px;">
           <h2 style="font-size:18px;font-weight:800;color:#111827;margin-bottom:4px;">${picklistName}</h2>
           <p style="font-size:12px;color:#6b7280;margin-bottom:16px;">${rows.length} SKU${rows.length !== 1 ? 's' : ''} &nbsp;·&nbsp; ${totalPiecesAll} pieces total</p>
           <table style="width:100%;border-collapse:collapse;">
-            <thead>
-              <tr>
-                <th style="width:124px;background:#f3f4f6;padding:10px 14px;text-align:left;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#6b7280;border-bottom:2px solid #e5e7eb;">Image</th>
-                <th style="background:#f3f4f6;padding:10px 14px;text-align:left;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#6b7280;border-bottom:2px solid #e5e7eb;">Master SKU &amp; Product Name</th>
-                <th style="width:100px;background:#f3f4f6;padding:10px 14px;text-align:center;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#6b7280;border-bottom:2px solid #e5e7eb;">Qty Needed</th>
-              </tr>
-            </thead>
+            ${tableHeader}
             <tbody>${rowsHtml}</tbody>
           </table>
         </div>`;
@@ -451,84 +492,20 @@ export function OrderSheetView({ embedded = false, defaultPicklistNum = null }) 
 
     // ── Merged mode: aggregate all selected picklists into one combined list ──
     const buildMergedSection = () => {
-      const masterMap = new Map();
-      sortedNums.forEach((num) => {
-        orders
-          .filter((o) => o.order_source === 'picklist' && o.picklist_number === num)
-          .forEach((order) => {
-            (order.items || []).forEach((item) => {
-              const variationSku = String(item.sku || '').trim().toUpperCase();
-              if (!variationSku) return;
-              const masterSku = variationSku.includes('/')
-                ? variationSku.substring(0, variationSku.lastIndexOf('/'))
-                : variationSku;
-              const qty = Number(item.quantity) || 0;
-              const productName = String(item.name || '').trim();
-              if (!masterMap.has(masterSku)) {
-                masterMap.set(masterSku, { productName, totalQty: 0, variations: new Map() });
-              }
-              const entry = masterMap.get(masterSku);
-              entry.totalQty += qty;
-              if (!entry.productName && productName) entry.productName = productName;
-              entry.variations.set(variationSku, (entry.variations.get(variationSku) || 0) + qty);
-            });
-          });
-      });
-
-      const rows = Array.from(masterMap.entries())
-        .sort(([a], [b]) => a.localeCompare(b))
-        .map(([masterSku, entry]) => ({ masterSku, ...entry }));
-
+      const allOrders = orders.filter(
+        (o) => o.order_source === 'picklist' && sortedNums.includes(o.picklist_number)
+      );
+      const rows = aggregateOrders(allOrders);
       const totalPiecesAll = rows.reduce((s, r) => s + r.totalQty, 0);
       const subtitle = sortedNums.map((n) => `PICKLIST-${n}`).join(' + ');
-
-      const rowsHtml = rows.map((item) => {
-        const normalized = item.masterSku.toLowerCase();
-        const product = productsBySku[normalized] || null;
-        const imageList = Array.isArray(product?.images) ? product.images : [];
-        const firstImage = imageList[0] || null;
-        const displayName = item.productName || product?.listing_name || product?.name || '';
-
-        const imgHtml = firstImage
-          ? `<img src="${firstImage}" alt="${item.masterSku}" style="width:100px;height:100px;object-fit:cover;border-radius:8px;border:1px solid #e5e7eb;" />`
-          : `<div style="width:100px;height:100px;border-radius:8px;border:1px solid #e5e7eb;background:#f9fafb;display:flex;align-items:center;justify-content:center;color:#9ca3af;font-size:11px;">No image</div>`;
-
-        const variationEntries = Array.from(item.variations.entries());
-        const showVariations = variationEntries.length > 0 && !(variationEntries.length === 1 && variationEntries[0][0] === item.masterSku);
-        const variationsHtml = showVariations
-          ? `<div style="margin-top:6px;display:flex;flex-direction:column;gap:3px;">
-              ${variationEntries.map(([vSku, vQty]) => `
-                <div style="display:flex;align-items:center;gap:8px;">
-                  <span style="font-size:11px;color:#6b7280;background:#f3f4f6;padding:1px 6px;border-radius:4px;font-family:monospace;">${vSku}</span>
-                  <span style="font-size:11px;font-weight:600;color:#374151;">×${vQty}</span>
-                </div>`).join('')}
-            </div>`
-          : '';
-
-        return `
-          <tr>
-            <td style="padding:10px 14px;vertical-align:middle;border-bottom:1px solid #f3f4f6;">${imgHtml}</td>
-            <td style="padding:10px 14px;vertical-align:top;border-bottom:1px solid #f3f4f6;">
-              <div style="font-weight:700;font-size:13px;color:#111827;">${item.masterSku}</div>
-              ${displayName ? `<div style="font-size:12px;color:#6b7280;margin-top:2px;">${displayName}</div>` : ''}
-              ${variationsHtml}
-            </td>
-            <td style="padding:10px 14px;vertical-align:middle;border-bottom:1px solid #f3f4f6;font-weight:700;font-size:15px;color:#2563eb;text-align:center;">${item.totalQty}</td>
-          </tr>`;
-      }).join('');
+      const rowsHtml = rows.map(renderRow).join('');
 
       return `
         <div style="margin-bottom:40px;">
           <p style="font-size:12px;color:#6b7280;margin-bottom:4px;">${subtitle}</p>
           <p style="font-size:12px;color:#6b7280;margin-bottom:16px;">${rows.length} SKU${rows.length !== 1 ? 's' : ''} &nbsp;·&nbsp; ${totalPiecesAll} pieces total</p>
           <table style="width:100%;border-collapse:collapse;">
-            <thead>
-              <tr>
-                <th style="width:124px;background:#f3f4f6;padding:10px 14px;text-align:left;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#6b7280;border-bottom:2px solid #e5e7eb;">Image</th>
-                <th style="background:#f3f4f6;padding:10px 14px;text-align:left;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#6b7280;border-bottom:2px solid #e5e7eb;">Master SKU &amp; Product Name</th>
-                <th style="width:100px;background:#f3f4f6;padding:10px 14px;text-align:center;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#6b7280;border-bottom:2px solid #e5e7eb;">Qty Needed</th>
-              </tr>
-            </thead>
+            ${tableHeader}
             <tbody>${rowsHtml}</tbody>
           </table>
         </div>`;
