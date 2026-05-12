@@ -357,43 +357,33 @@ export function OrderSheetView({ embedded = false, defaultPicklistNum = null }) 
     // This is the same source the Master Inventory Sheet uses: InventoryTransaction
     // records for the final_stock stage, aggregated per variation SKU.
     // locationByFinalSku: UPPER(final_sku) → location
-    // locationByMasterSku: UPPER(master_sku) → location (single-SKU products)
     const locationByFinalSku = {};
-    const locationByMasterSku = {};
     try {
       const invRes = await fetch('/frontend/api/inventory-summary', { cache: 'no-store' });
       if (invRes.ok) {
         const invData = await invRes.json().catch(() => null);
         const products = Array.isArray(invData?.products) ? invData.products : [];
         products.forEach((prod) => {
-          const mSku = String(prod.masterSku || prod.sku || '').trim().toUpperCase();
           const finalStock = Array.isArray(prod.finalStock) ? prod.finalStock : [];
           finalStock.forEach((fs) => {
             const fSku = String(fs.sku || '').trim().toUpperCase();
             const loc  = String(fs.location || '').trim();
             if (fSku && loc) locationByFinalSku[fSku] = loc;
           });
-          // For single-SKU products (finalStock[0].sku === masterSku) store master location too
-          if (finalStock.length === 1) {
-            const fSku = String(finalStock[0].sku || '').trim().toUpperCase();
-            const loc  = String(finalStock[0].location || '').trim();
-            if (mSku && fSku === mSku && loc) locationByMasterSku[mSku] = loc;
-          }
         });
       }
-    } catch { /* best-effort — location columns show — if this fails */ }
+    } catch { /* best-effort — location column shows — if this fails */ }
 
     const exportDate = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
     const sortedNums = Array.from(exportPicklistNums).sort((a, b) => a - b);
 
-    // ── Shared table header (5 columns — Final SKU + Location combined) ──
+    // ── Shared table header (4 columns) ──
     const tableHeader = `
       <thead>
         <tr>
           <th style="width:80px;background:#f3f4f6;padding:6px 8px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#6b7280;border-bottom:2px solid #e5e7eb;">Image</th>
           <th style="background:#f3f4f6;padding:6px 8px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#6b7280;border-bottom:2px solid #e5e7eb;">Master SKU &amp; Product Name</th>
-          <th style="width:120px;background:#f3f4f6;padding:6px 8px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#6b7280;border-bottom:2px solid #e5e7eb;">Master Location</th>
-          <th style="width:280px;background:#f3f4f6;padding:6px 8px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#6b7280;border-bottom:2px solid #e5e7eb;">Final SKU &amp; Location</th>
+          <th style="width:320px;background:#f3f4f6;padding:6px 8px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#6b7280;border-bottom:2px solid #e5e7eb;">Final SKU &amp; Location</th>
           <th style="width:80px;background:#f3f4f6;padding:6px 8px;text-align:center;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#6b7280;border-bottom:2px solid #e5e7eb;">Qty Needed</th>
         </tr>
       </thead>`;
@@ -413,14 +403,7 @@ export function OrderSheetView({ embedded = false, defaultPicklistNum = null }) 
       const variationEntries = Array.from(item.variations.entries());
 
       // Maps are keyed by UPPER-case SKU (matching how inventory-summary stores them).
-      // Master location: single-SKU product location, or first variation that has one.
-      const masterSkuUpper = item.masterSku.toUpperCase();
-      const masterLoc = locationByMasterSku[masterSkuUpper]
-        || variationEntries.map(([vSku]) => locationByFinalSku[vSku.toUpperCase()] || '').find(Boolean)
-        || '&mdash;';
-
-      // Each variation: SKU+qty on the left, location on the right — combined in one column
-      // so two Final SKUs are always paired with their locations, never misaligned.
+      // Each variation: SKU+qty on the left, location on the right — combined in one column.
       const finalSkuAndLocHtml = variationEntries
         .map(([vSku, vQty]) => {
           const loc = locationByFinalSku[vSku.toUpperCase()] || '&mdash;';
@@ -438,7 +421,6 @@ export function OrderSheetView({ embedded = false, defaultPicklistNum = null }) 
             <div style="font-weight:700;font-size:12px;color:#111827;">${item.masterSku}</div>
             ${displayName ? `<div style="font-size:11px;color:#6b7280;margin-top:1px;">${displayName}</div>` : ''}
           </td>
-          <td style="padding:3px 6px;vertical-align:middle;border-bottom:1px solid #f3f4f6;font-size:11px;color:#374151;">${masterLoc}</td>
           <td style="padding:3px 6px;vertical-align:middle;border-bottom:1px solid #f3f4f6;">${finalSkuAndLocHtml}</td>
           <td style="padding:3px 6px;vertical-align:middle;border-bottom:1px solid #f3f4f6;font-weight:700;font-size:14px;color:#2563eb;text-align:center;">${item.totalQty}</td>
         </tr>`;
