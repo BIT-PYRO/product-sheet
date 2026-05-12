@@ -353,29 +353,35 @@ export function OrderSheetView({ embedded = false, defaultPicklistNum = null }) 
     if (exportPicklistNums.size === 0) return;
     setIsExporting(true);
 
-    // ── Fetch ProductInventoryItem data for location lookup ──
-    // locationByFinalSku: normalized(final_sku) → location
-    // locationByMasterSku: normalized(master_sku) → location (when final_sku === master_sku)
+    // ── Fetch location data from inventory-summary ──
+    // This is the same source the Master Inventory Sheet uses: InventoryTransaction
+    // records for the final_stock stage, aggregated per variation SKU.
+    // locationByFinalSku: UPPER(final_sku) → location
+    // locationByMasterSku: UPPER(master_sku) → location (single-SKU products)
     const locationByFinalSku = {};
     const locationByMasterSku = {};
     try {
-      const invRes = await fetch('/frontend/api/product-inventory?page_size=10000', { cache: 'no-store' });
+      const invRes = await fetch('/frontend/api/inventory-summary', { cache: 'no-store' });
       if (invRes.ok) {
         const invData = await invRes.json().catch(() => null);
-        const invItems = Array.isArray(invData)
-          ? invData
-          : Array.isArray(invData?.results)
-            ? invData.results
-            : [];
-        invItems.forEach((inv) => {
-          const fSku = String(inv.final_sku || '').trim().toUpperCase();
-          const mSku = String(inv.master_sku || '').trim().toUpperCase();
-          const loc  = String(inv.location   || '').trim();
-          if (fSku && loc) locationByFinalSku[fSku.toLowerCase()] = loc;
-          if (mSku && fSku === mSku && loc) locationByMasterSku[mSku.toLowerCase()] = loc;
+        const products = Array.isArray(invData?.products) ? invData.products : [];
+        products.forEach((prod) => {
+          const mSku = String(prod.masterSku || prod.sku || '').trim().toUpperCase();
+          const finalStock = Array.isArray(prod.finalStock) ? prod.finalStock : [];
+          finalStock.forEach((fs) => {
+            const fSku = String(fs.sku || '').trim().toUpperCase();
+            const loc  = String(fs.location || '').trim();
+            if (fSku && loc) locationByFinalSku[fSku] = loc;
+          });
+          // For single-SKU products (finalStock[0].sku === masterSku) store master location too
+          if (finalStock.length === 1) {
+            const fSku = String(finalStock[0].sku || '').trim().toUpperCase();
+            const loc  = String(finalStock[0].location || '').trim();
+            if (mSku && fSku === mSku && loc) locationByMasterSku[mSku] = loc;
+          }
         });
       }
-    } catch { /* best-effort — location columns will show — if this fails */ }
+    } catch { /* best-effort — location columns show — if this fails */ }
 
     const exportDate = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
     const sortedNums = Array.from(exportPicklistNums).sort((a, b) => a - b);
@@ -406,17 +412,18 @@ export function OrderSheetView({ embedded = false, defaultPicklistNum = null }) 
 
       const variationEntries = Array.from(item.variations.entries());
 
-      // Master location: from ProductInventoryItem where final_sku == master_sku,
-      // falling back to the first variation that has a location.
-      const masterLoc = locationByMasterSku[normalized]
-        || variationEntries.map(([vSku]) => locationByFinalSku[vSku.toLowerCase()] || '').find(Boolean)
+      // Maps are keyed by UPPER-case SKU (matching how inventory-summary stores them).
+      // Master location: single-SKU product location, or first variation that has one.
+      const masterSkuUpper = item.masterSku.toUpperCase();
+      const masterLoc = locationByMasterSku[masterSkuUpper]
+        || variationEntries.map(([vSku]) => locationByFinalSku[vSku.toUpperCase()] || '').find(Boolean)
         || '&mdash;';
 
       // Each variation: SKU+qty on the left, location on the right — combined in one column
       // so two Final SKUs are always paired with their locations, never misaligned.
       const finalSkuAndLocHtml = variationEntries
         .map(([vSku, vQty]) => {
-          const loc = locationByFinalSku[vSku.toLowerCase()] || '&mdash;';
+          const loc = locationByFinalSku[vSku.toUpperCase()] || '&mdash;';
           return `<div style="display:flex;align-items:baseline;gap:8px;padding:1px 0;">
             <span style="font-size:11px;font-family:monospace;color:#1d4ed8;white-space:nowrap;">${vSku} &times;${vQty}</span>
             <span style="font-size:10px;color:#6b7280;">&#8594;</span>
