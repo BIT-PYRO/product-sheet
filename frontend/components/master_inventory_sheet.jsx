@@ -204,6 +204,7 @@ const STOCK_FILTER_OPTIONS = [
   { value: 'location', label: 'Location' },
   { value: 'wip-vs-current', label: 'WIP/Current Stock' },
   { value: 'final-stock', label: 'Final Stock Value' },
+  { value: 'final-stock-location', label: 'Final SKU Location' },
 ];
 
 const PRODUCT_SORT_FIELDS = [
@@ -1193,13 +1194,48 @@ export default function MasterInventorySheet() {
     return XLSX.utils.aoa_to_sheet([headers, ...rows]);
   };
 
+  // Build a location-specific export sheet that expands per-variation rows and shows
+  // stage locations in stage columns, per-variation Final Stock location in the
+  // "Final Stock Value" column (relabelled "Final Stock Location"), and die/findings
+  // location in the "Location" column (first variation row only).
+  const buildLocationExportSheet = () => {
+    const exportColumns = visibleColumnList.filter((col) => col.key !== '__select__');
+    const headers = exportColumns.map((col) => {
+      if (col.key === 'finalStockValue') return 'Final Stock Location';
+      return col.label;
+    });
+    const allRows = [];
+    for (const product of sortedProducts) {
+      const row = buildInventoryRow(product, 'location');
+      const variations = row.finalStockVariations;
+      variations.forEach((variation, varIdx) => {
+        const isFirst = varIdx === 0;
+        allRows.push(exportColumns.map((col) => {
+          if (VARIATION_COLUMN_KEYS.has(col.key)) {
+            if (col.key === 'finalStockSku') return variation.sku ?? '';
+            if (col.key === 'finalStockValue') return variation.location ?? ''; // per-variation Final Stock location
+            if (col.key === 'finalStockUnit') return variation.unit ?? '';
+            if (col.key === 'dieLocation') return isFirst ? (row.dieLocation ?? '') : '';
+            return '';
+          }
+          // Stage location columns — only on first variation row
+          if (!isFirst) return '';
+          const v = row[col.key];
+          if (v && typeof v === 'object' && v.isComposite) return `${v.wip ?? ''} / ${v.current ?? ''}`;
+          return v ?? '';
+        }));
+      });
+    }
+    return XLSX.utils.aoa_to_sheet([headers, ...allRows]);
+  };
+
   const exportToExcel = () => {
     if (!canExport) return;
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, buildExportSheet('current'), 'Current Stock');
     XLSX.utils.book_append_sheet(wb, buildExportSheet('wip'), 'WIP');
     XLSX.utils.book_append_sheet(wb, buildExportSheet('min'), 'Min Needed');
-    XLSX.utils.book_append_sheet(wb, buildExportSheet('location'), 'Location');
+    XLSX.utils.book_append_sheet(wb, buildLocationExportSheet(), 'Location');
     XLSX.writeFile(wb, 'master_inventory_sheet.xlsx');
     setExportMenuOpen(false);
   };
@@ -1220,12 +1256,44 @@ export default function MasterInventorySheet() {
     win.document.close();
   };
 
+  const openLocationPDF = () => {
+    const exportColumns = visibleColumnList.filter((col) => col.key !== '__select__');
+    const headers = exportColumns.map((col) => {
+      if (col.key === 'finalStockValue') return 'Final Stock Location';
+      return col.label;
+    });
+    const allRows = [];
+    for (const product of sortedProducts) {
+      const row = buildInventoryRow(product, 'location');
+      const variations = row.finalStockVariations;
+      variations.forEach((variation, varIdx) => {
+        const isFirst = varIdx === 0;
+        allRows.push(exportColumns.map((col) => {
+          if (VARIATION_COLUMN_KEYS.has(col.key)) {
+            if (col.key === 'finalStockSku') return variation.sku ?? '';
+            if (col.key === 'finalStockValue') return variation.location ?? '';
+            if (col.key === 'finalStockUnit') return variation.unit ?? '';
+            if (col.key === 'dieLocation') return isFirst ? (row.dieLocation ?? '') : '';
+            return '';
+          }
+          if (!isFirst) return '';
+          const v = row[col.key];
+          if (v && typeof v === 'object' && v.isComposite) return `${v.wip ?? ''} / ${v.current ?? ''}`;
+          return v ?? '';
+        }));
+      });
+    }
+    const win = window.open('', '_blank');
+    win.document.write(`<html><head><title>Location</title><style>body{font-family:sans-serif;font-size:11px;margin:16px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #ccc;padding:4px 6px;text-align:left}th{background:#dbeafe}</style></head><body><h2>Location</h2><table><thead><tr>${headers.map((h)=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${allRows.map((r)=>`<tr>${r.map((c)=>`<td>${c}</td>`).join('')}</tr>`).join('')}</tbody></table><script>window.onload=function(){window.print();}<\/script></body></html>`);
+    win.document.close();
+  };
+
   const exportToPDF = () => {
     if (!canExport) return;
     openInventoryPDF('current', 'Current Stock');
     openInventoryPDF('wip', 'WIP');
     openInventoryPDF('min', 'Min Needed');
-    openInventoryPDF('location', 'Location');
+    openLocationPDF();
     setExportMenuOpen(false);
   };
 
@@ -1355,6 +1423,16 @@ export default function MasterInventorySheet() {
         const entry = {};
         variations.forEach((v) => {
           entry[v.sku] = String(parseNumericValue(v.value) || '');
+        });
+        draft.set(p.id, entry);
+      });
+    } else if (fieldType === 'final-stock-location') {
+      // Initialize per-variation final stock location keyed as `loc__${v.sku}`
+      sortedProducts.forEach((p) => {
+        const variations = Array.isArray(p.finalStock) ? p.finalStock : [];
+        const entry = {};
+        variations.forEach((v) => {
+          if (v.sku) entry[`loc__${v.sku}`] = String(v.location || '');
         });
         draft.set(p.id, entry);
       });
@@ -1508,6 +1586,39 @@ export default function MasterInventorySheet() {
                 stage: stageKey,
                 stock_type: 'current',
                 remark: `Final Stock Value — ${varSku}`,
+              }),
+            }));
+          }
+        }
+      } else if (editFieldType === 'final-stock-location') {
+        // Save per-variation final stock location changes as qty=0 adjustment transactions
+        for (const [productId, editData] of editDraft.entries()) {
+          const product = sortedProducts.find((p) => p.id === productId);
+          if (!product) continue;
+          const variations = Array.isArray(product.finalStock) ? product.finalStock : [];
+
+          for (const [key, newLoc] of Object.entries(editData)) {
+            if (!key.startsWith('loc__')) continue;
+            const varSku = key.slice(5); // strip 'loc__'
+            const originalVariation = variations.find((v) => v.sku === varSku);
+            const oldLoc = String(originalVariation?.location || '').trim();
+            const newLocTrimmed = String(newLoc || '').trim();
+            if (newLocTrimmed === oldLoc) continue;
+
+            const isSingleSku = variations.length === 1 && varSku === product.masterSku;
+            const stageKey = isSingleSku ? 'final_stock' : `final_stock__${varSku.toLowerCase()}`;
+
+            allCalls.push(fetch('/api/inventory/', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                product: productId,
+                txn_type: 'adjust',
+                quantity: 0,
+                stage: stageKey,
+                stock_type: 'current',
+                location: newLocTrimmed,
+                remark: `Final Stock Location — ${varSku}`,
               }),
             }));
           }
@@ -2136,7 +2247,7 @@ export default function MasterInventorySheet() {
                           rowSpan={variationCount > 1 ? variationCount : undefined}
                           className={`border-b border-r border-soft-border px-2 h-9 text-center ${
                             column.key === '__select__' ? 'sticky left-0 z-10 bg-white border-l shadow-[2px_0_4px_-1px_rgba(0,0,0,0.08)]' : ''
-                          } ${isEditMode && !NON_EDITABLE_KEYS.has(column.key) && STOCK_STAGE_MAP[column.key] !== undefined && editFieldType !== 'wip-vs-current' && editFieldType !== 'final-stock' ? 'bg-blue-50/40' : ''}`}
+                          } ${isEditMode && !NON_EDITABLE_KEYS.has(column.key) && STOCK_STAGE_MAP[column.key] !== undefined && editFieldType !== 'wip-vs-current' && editFieldType !== 'final-stock' && editFieldType !== 'final-stock-location' ? 'bg-blue-50/40' : ''}`}
                         >
                           {column.key === '__select__' ? (
                             <Checkbox
@@ -2148,6 +2259,10 @@ export default function MasterInventorySheet() {
                               const isStockCol = STOCK_STAGE_MAP[column.key] !== undefined;
 
                               if (editFieldType === 'final-stock') {
+                                return <CompositeStockDisplay value={row[column.key]} />;
+                              }
+
+                              if (editFieldType === 'final-stock-location') {
                                 return <CompositeStockDisplay value={row[column.key]} />;
                               }
 
@@ -2223,12 +2338,14 @@ export default function MasterInventorySheet() {
                         const isVariationEditable = isRowEditing && !NON_EDITABLE_KEYS.has(column.key) && (() => {
                           if (editFieldType === 'final-stock') return column.key === 'finalStockValue';
                           if (editFieldType === 'location') return isFirst && column.key === 'dieLocation';
+                          if (editFieldType === 'final-stock-location') return column.key === 'dieLocation';
                           return isFirst && (column.key === 'finalStockValue' || column.key === 'dieLocation');
                         })();
 
                         const isVariationHighlighted = isEditMode && !NON_EDITABLE_KEYS.has(column.key) && (() => {
                           if (editFieldType === 'final-stock') return column.key === 'finalStockValue';
                           if (editFieldType === 'location') return isFirst && column.key === 'dieLocation';
+                          if (editFieldType === 'final-stock-location') return column.key === 'dieLocation';
                           if (editFieldType === 'wip-vs-current') return false;
                           return isFirst && (column.key === 'finalStockValue' || column.key === 'dieLocation');
                         })();
@@ -2250,9 +2367,10 @@ export default function MasterInventorySheet() {
                               ) : (
                                 <input
                                   type="text"
-                                  value={editData?.dieLocation ?? ''}
-                                  onChange={(e) => handleEditFieldChange(row.id, 'dieLocation', e.target.value)}
+                                  value={editFieldType === 'final-stock-location' ? (editData?.[`loc__${variation.sku}`] ?? '') : (editData?.dieLocation ?? '')}
+                                  onChange={(e) => handleEditFieldChange(row.id, editFieldType === 'final-stock-location' ? `loc__${variation.sku}` : 'dieLocation', e.target.value)}
                                   className="w-full min-w-[80px] border border-trust-blue/50 rounded px-1 py-0.5 text-xs text-center bg-blue-50 focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                                  placeholder="Location"
                                 />
                               )
                             ) : column.key === 'finalStockSku' ? (

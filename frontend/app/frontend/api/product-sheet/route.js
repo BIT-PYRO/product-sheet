@@ -347,9 +347,10 @@ async function syncAllInventoryStages(request, productId, sku, liveStock, finalS
       const delta = String(txn?.txn_type || '').toLowerCase() === 'out' ? -qty : qty;
       currentByKey.set(key, (currentByKey.get(key) || 0) + delta);
     }
-    // track latest non-empty location per stage
+    // track latest non-empty location per stage (backend returns newest first, so only
+    // store the first-seen value per stage to get the most recent location)
     const loc = String(txn?.location || '').trim();
-    if (loc) currentLocationByStage.set(stage, loc);
+    if (loc && !currentLocationByStage.has(stage)) currentLocationByStage.set(stage, loc);
   });
 
   const calls = [];
@@ -531,11 +532,13 @@ export async function GET(request) {
         const k = `${stage}__${stockType}`;
         inner.set(k, (inner.get(k) || 0) + delta);
       }
-      // Track latest non-empty location per stage
+      // Track latest non-empty location per stage (backend returns newest first, so only
+      // store the first-seen value per stage to get the most recent location)
       const loc = String(txn?.location || '').trim();
       if (loc) {
         if (!locationByProduct.has(pid)) locationByProduct.set(pid, new Map());
-        locationByProduct.get(pid).set(stage, loc);
+        const locMap = locationByProduct.get(pid);
+        if (!locMap.has(stage)) locMap.set(stage, loc);
       }
     });
 

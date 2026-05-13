@@ -677,9 +677,10 @@ function ProductSheetContent() {
                 const delta = String(txn?.txn_type || '').toLowerCase() === 'out' ? -qty : qty
                 totals.set(key, (totals.get(key) || 0) + delta)
               }
-              // Track latest non-empty location per stage
+              // Track latest non-empty location per stage (backend returns newest first, so only
+              // store the first-seen value per stage to get the most recent location)
               const loc = String(txn?.location || '').trim()
-              if (loc) locationByStage.set(stage, loc)
+              if (loc && !locationByStage.has(stage)) locationByStage.set(stage, loc)
             })
 
             const get = (stage, type) => {
