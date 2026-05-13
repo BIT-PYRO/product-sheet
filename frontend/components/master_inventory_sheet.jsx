@@ -1186,6 +1186,17 @@ export default function MasterInventorySheet() {
     const rows = sortedProducts.map((product) => {
       const row = buildInventoryRow(product, stockField);
       return exportColumns.map((col) => {
+        // For the Location column aggregate die/findings locations + per-variation
+        // Final Stock locations into a single readable cell (e.g. "AJE23/P: abcd | AJE23/B: gand")
+        if (col.key === 'dieLocation') {
+          const parts = [];
+          if (row.dieLocation) parts.push(row.dieLocation);
+          const varLocs = (row.finalStockVariations || [])
+            .filter((v) => v.location)
+            .map((v) => (v.sku ? `${v.sku}: ${v.location}` : v.location));
+          parts.push(...varLocs);
+          return parts.join(' | ');
+        }
         const v = row[col.key];
         if (v && typeof v === 'object' && v.isComposite) return `${v.wip ?? ''} / ${v.current ?? ''}`;
         return v ?? '';

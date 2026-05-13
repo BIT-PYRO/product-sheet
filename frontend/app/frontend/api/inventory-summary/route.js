@@ -80,11 +80,14 @@ function buildProductStockMap(products, transactions, wipBySkuAndStage = new Map
       keyMap.set(key, prev + delta);
     }
 
-    // Track the latest non-empty location set for this product+stage
+    // Track the latest non-empty location set for this product+stage.
+    // Transactions are returned newest-first (-created_at), so only store
+    // the first-seen value per stage to ensure the most recent location wins.
     const loc = String(txn?.location || '').trim();
     if (loc) {
       if (!locationByProductStage.has(productId)) locationByProductStage.set(productId, new Map());
-      locationByProductStage.get(productId).set(stage, loc);
+      const locMap = locationByProductStage.get(productId);
+      if (!locMap.has(stage)) locMap.set(stage, loc);
     }
   });
 
