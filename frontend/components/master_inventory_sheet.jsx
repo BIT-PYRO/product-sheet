@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronDown, Download, Upload, FileText } from 'lucide-react';
+import { ChevronDown, Download, Upload, FileText, Info } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
 import GlobalSearchBar from '@/components/global-search-bar';
@@ -125,10 +125,13 @@ const INVENTORY_COLUMNS_STATIC_PREFIX = [
   { key: 'sku', label: 'Master SKU' },
 ];
 const INVENTORY_COLUMNS_STATIC_SUFFIX = [
-  { key: 'finalStockSku', label: 'Final Stock SKU' },
+  { key: 'dieCode',         label: 'Die Code' },
+  { key: 'dieQty',          label: 'Qty' },
+  { key: 'dieLoc',          label: 'Die Location' },
+  { key: 'finalStockSku',   label: 'Final Stock SKU' },
   { key: 'finalStockValue', label: 'Final Stock Value' },
-  { key: 'finalStockUnit', label: 'Final Stock Unit' },
-  { key: 'dieLocation', label: 'Location' },
+  { key: 'finalStockUnit',  label: 'Final Stock Unit' },
+  { key: 'dieLocation',     label: 'Stock Location' },
 ];
 const DEFAULT_LIVE_STOCK_COLS = [
   { key: 'waxPiece', label: 'Wax Piece' },
@@ -192,7 +195,7 @@ const STOCK_FIELDS_MAP = {
   finalStockValue:'Final Stock',
 };
 
-const NON_EDITABLE_KEYS = new Set(['__select__', 'sku', 'finalStockSku']);
+const NON_EDITABLE_KEYS = new Set(['__select__', 'sku', 'finalStockSku', 'dieCode', 'dieQty', 'dieLoc']);
 
 // Columns that render once per variation row (not spanning)
 const VARIATION_COLUMN_KEYS = new Set(['finalStockSku', 'finalStockValue', 'finalStockUnit', 'dieLocation']);
@@ -326,10 +329,22 @@ function getLiveStockValue(liveStock, stockField, keys) {
   return '';
 }
 
+/** Split legacy combined die values like "bhang bhosda[5][chehere pr]" into separate fields. */
+function parseDieLegacyValue(item) {
+  if (!item || typeof item !== 'object') return item;
+  if (String(item.quantity || '').trim() || String(item.location || '').trim()) return item;
+  const value = String(item.value || '').trim();
+  const m3 = value.match(/^(.+?)\[([^\]]+)\]\[([^\]]*)\]$/);
+  if (m3) return { ...item, value: m3[1].trim(), quantity: m3[2].trim(), location: m3[3].trim() };
+  const m2 = value.match(/^(.+?)\[([^\]]+)\]$/);
+  if (m2) return { ...item, value: m2[1].trim(), quantity: m2[2].trim() };
+  return item;
+}
+
 function buildInventoryRow(product, stockField) {
   const liveStock = product?.liveStock || {};
   const finalStock = Array.isArray(product?.finalStock) ? product.finalStock : [];
-  const dieNumbersRaw = Array.isArray(product?.dieNumberFindings) ? product.dieNumberFindings : [];
+  const dieNumbersRaw = (Array.isArray(product?.dieNumberFindings) ? product.dieNumberFindings : []).map(parseDieLegacyValue);
 
   // Build a compact summary: "D: 1234 | F: clasp" and collect all locations
   const dieParts = dieNumbersRaw
@@ -363,6 +378,8 @@ function buildInventoryRow(product, stockField) {
     finalStockUnit: formatFinalStockColumn(finalStock, 'unit'),
     dieNumbers: dieParts.join(' | '),
     dieLocation: locationParts.join(' | '),
+    dieRefs: dieNumbersRaw.filter((item) => String(item?.type || '') !== 'findings' && String(item?.value || '').trim()),
+    allDieEntries: dieNumbersRaw.filter((item) => String(item?.value || '').trim()),
     finalStockVariations: finalStock.length > 0
       ? finalStock.map((item) => ({
           sku: String(item?.sku || '').trim(),
@@ -476,6 +493,30 @@ export default function MasterInventorySheet() {
   const [isEditFieldTypeDialogOpen, setIsEditFieldTypeDialogOpen] = useState(false);
   const [editFieldType, setEditFieldType] = useState('current');
   const [pendingEditFieldType, setPendingEditFieldType] = useState('current');
+
+  // Die breakdown popup state
+  const [diePopup, setDiePopup] = useState(null);
+  // { rowId, sku, stage, stageName, dieItems: DieInventoryItem[], loading: bool }
+
+  const DIE_STAGE_FIELDS = {
+    waxPiece: { cur: 'wax_piece_qty', min: 'wax_piece_min', wip: 'wax_piece_wip', loc: 'wax_piece_location' },
+    waxSetting: { cur: 'wax_setting_qty', min: 'wax_setting_min', wip: 'wax_setting_wip', loc: 'wax_setting_location' },
+    casting: { cur: 'casting_qty', min: 'casting_min', wip: 'casting_wip', loc: 'casting_location' },
+  };
+
+  const openDiePopup = useCallback(async (row, stage, stageName) => {
+    const dieCodes = (row.dieRefs || []).map((d) => d.value).filter(Boolean);
+    if (!dieCodes.length) return;
+    setDiePopup({ rowId: row.id, sku: row.sku, stage, stageName, totalInDemand: row.totalInDemand || 0, dieRefs: row.dieRefs || [], dieItems: [], loading: true });
+    try {
+      const res = await fetch(`/api/die-inventory/by-codes/?codes=${dieCodes.join(',')}`);
+      const json = await res.json();
+      const items = Array.isArray(json) ? json : (json?.results ?? json?.data ?? []);
+      setDiePopup((prev) => prev ? { ...prev, dieItems: items, loading: false } : null);
+    } catch {
+      setDiePopup((prev) => prev ? { ...prev, dieItems: [], loading: false } : null);
+    }
+  }, []);
 
   const readJsonSafe = useCallback(async (response) => {
     if (!response) return null;
@@ -1764,6 +1805,65 @@ export default function MasterInventorySheet() {
         </DialogContent>
       </Dialog>
 
+      {/* ── Die Breakdown Dialog ── */}
+      <Dialog open={!!diePopup} onOpenChange={(open) => { if (!open) setDiePopup(null); }}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle className="text-sm font-semibold text-midnight-ink">
+              {diePopup?.stageName} — Die Breakdown
+              <span className="ml-2 text-trust-blue font-bold">· {diePopup?.sku}</span>
+            </DialogTitle>
+          </DialogHeader>
+
+          {diePopup?.loading ? (
+            <div className="py-8 text-center text-sm text-cool-gray">Loading die data…</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full border-separate border-spacing-0 text-xs">
+                <thead>
+                  <tr>
+                    {['DIE CODE', 'MAIN LOC', 'QTY/UNIT', 'MIN', 'CURRENT', 'WIP', 'STAGE LOC'].map((h) => (
+                      <th
+                        key={h}
+                        className="border border-soft-border bg-[#dbeafe] px-3 py-2 text-center font-semibold text-midnight-ink whitespace-nowrap"
+                      >
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {(diePopup?.dieRefs ?? []).map((ref) => {
+                    const fields = DIE_STAGE_FIELDS[diePopup?.stage] ?? {};
+                    const item = diePopup?.dieItems?.find(
+                      (d) => String(d.die_code || '').toLowerCase() === String(ref.value || '').toLowerCase()
+                    );
+                    return (
+                      <tr key={ref.value} className="hover:bg-blue-50/30">
+                        <td className="border border-soft-border px-3 py-1.5 text-center font-medium text-midnight-ink">{ref.value}</td>
+                        <td className="border border-soft-border px-3 py-1.5 text-center text-cool-gray">{item?.location || ref.location || '—'}</td>
+                        <td className="border border-soft-border px-3 py-1.5 text-center text-midnight-ink">{ref.quantity || '—'}</td>
+                        <td className="border border-soft-border px-3 py-1.5 text-center text-cool-gray">{item?.[fields.min] || '—'}</td>
+                        <td className="border border-soft-border px-3 py-1.5 text-center text-midnight-ink font-medium">{((parseFloat(ref.quantity) || 0) * (diePopup?.totalInDemand || 0)) || '—'}</td>
+                        <td className="border border-soft-border px-3 py-1.5 text-center text-cool-gray">{((parseFloat(ref.quantity) || 0) * (diePopup?.totalInDemand || 0)) || '—'}</td>
+                        <td className="border border-soft-border px-3 py-1.5 text-center text-cool-gray">{item?.[fields.loc] || '—'}</td>
+                      </tr>
+                    );
+                  })}
+                  {(diePopup?.dieRefs ?? []).length === 0 && (
+                    <tr>
+                      <td colSpan={7} className="border border-soft-border px-3 py-4 text-center text-cool-gray">
+                        No die codes linked to this SKU.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={isManageColumnsOpen} onOpenChange={setIsManageColumnsOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
@@ -2120,7 +2220,7 @@ export default function MasterInventorySheet() {
 
         {/* Single unified table — all three sections share the same <tr> so rows are always pixel-perfect aligned.
             Spacer columns (w-3, no border) create the visual gap that makes the sections look separate. */}
-        <div className="overflow-x-auto">
+        <div className="overflow-auto max-h-[calc(100vh-270px)]">
           <table className="border-separate border-spacing-0 text-sm" style={{ minWidth: '1400px' }}>
             <thead>
               <tr>
@@ -2129,7 +2229,7 @@ export default function MasterInventorySheet() {
                   <th
                     key={column.key}
                     className={`border-t border-b border-r border-soft-border px-2 h-10 whitespace-nowrap text-center text-xs font-semibold text-black ${
-                      column.key === '__select__' ? 'sticky left-0 z-20 border-l bg-[#dbeafe]' : 'bg-[#dbeafe]'
+                      column.key === '__select__' ? 'sticky left-0 top-0 z-20 border-l bg-[#dbeafe]' : 'sticky top-0 z-[15] bg-[#dbeafe]'
                     }`}
                   >
                     {column.key === '__select__' ? (
@@ -2145,18 +2245,18 @@ export default function MasterInventorySheet() {
                 ))}
 
                 {/* ── Gap spacer ── */}
-                <th className="border-0 p-0" style={{ width: '32px', minWidth: '32px', position: 'sticky', right: '292px', backgroundColor: 'white', zIndex: 22 }} aria-hidden="true" />
+                <th className="border-0 p-0" style={{ width: '32px', minWidth: '32px', position: 'sticky', right: '292px', top: '0', backgroundColor: 'white', zIndex: 22 }} aria-hidden="true" />
 
                 {/* ── TOTAL IN DEMAND ── */}
-                <th className="border-t border-b border-l border-r border-soft-border px-2 h-10 whitespace-nowrap text-center text-xs font-semibold text-black bg-[#dbeafe]" style={{ minWidth: '100px', position: 'sticky', right: '192px', zIndex: 22, boxShadow: '-4px 0 6px -2px rgba(0,0,0,0.10)' }}>
+                <th className="border-t border-b border-l border-r border-soft-border px-2 h-10 whitespace-nowrap text-center text-xs font-semibold text-black bg-[#dbeafe]" style={{ minWidth: '100px', position: 'sticky', right: '192px', top: '0', zIndex: 22, boxShadow: '-4px 0 6px -2px rgba(0,0,0,0.10)' }}>
                   TOTAL IN DEMAND
                 </th>
 
                 {/* ── Gap spacer ── */}
-                <th className="border-0 p-0" style={{ width: '32px', minWidth: '32px', position: 'sticky', right: '160px', backgroundColor: 'white', zIndex: 22 }} aria-hidden="true" />
+                <th className="border-0 p-0" style={{ width: '32px', minWidth: '32px', position: 'sticky', right: '160px', top: '0', backgroundColor: 'white', zIndex: 22 }} aria-hidden="true" />
 
                 {/* ── ORDER PICK LIST (with dropdown) ── */}
-                <th className="border-t border-b border-l border-r border-soft-border px-2 h-10 text-xs font-semibold text-black bg-[#dbeafe] relative" style={{ minWidth: '160px', position: 'sticky', right: '0', zIndex: 22 }}>
+                <th className="border-t border-b border-l border-r border-soft-border px-2 h-10 text-xs font-semibold text-black bg-[#dbeafe] relative" style={{ minWidth: '160px', position: 'sticky', right: '0', top: '0', zIndex: 22 }}>
                   <div className="relative">
                     <button
                       onClick={() => setIsPicklistDropdownOpen(!isPicklistDropdownOpen)}
@@ -2256,7 +2356,9 @@ export default function MasterInventorySheet() {
                         <td
                           key={`${row.id}-${column.key}`}
                           rowSpan={variationCount > 1 ? variationCount : undefined}
-                          className={`border-b border-r border-soft-border px-2 h-9 text-center ${
+                          className={`border-b border-r border-soft-border ${
+                            ['dieCode', 'dieQty', 'dieLoc'].includes(column.key) ? 'p-0' : 'px-2 h-9 text-center'
+                          } ${
                             column.key === '__select__' ? 'sticky left-0 z-10 bg-white border-l shadow-[2px_0_4px_-1px_rgba(0,0,0,0.08)]' : ''
                           } ${isEditMode && !NON_EDITABLE_KEYS.has(column.key) && STOCK_STAGE_MAP[column.key] !== undefined && editFieldType !== 'wip-vs-current' && editFieldType !== 'final-stock' && editFieldType !== 'final-stock-location' ? 'bg-blue-50/40' : ''}`}
                         >
@@ -2332,6 +2434,37 @@ export default function MasterInventorySheet() {
                               <CompositeStockDisplay value={row[column.key]} />
                               <AlertBadge alertData={alertByProductId.get(row.id)} show="orange" />
                             </span>
+                          ) : (column.key === 'waxPiece' || column.key === 'waxSetting' || column.key === 'casting') && (row.dieRefs?.length > 0) ? (
+                            <span className="inline-flex items-center justify-center gap-1">
+                              <CompositeStockDisplay value={row[column.key]} />
+                              <button
+                                type="button"
+                                onClick={() => openDiePopup(row, column.key, column.label)}
+                                className="text-trust-blue/60 hover:text-trust-blue transition-colors flex-shrink-0"
+                                title={`View die breakdown for ${column.label}`}
+                              >
+                                <Info size={12} />
+                              </button>
+                            </span>
+                          ) : column.key === 'dieCode' || column.key === 'dieQty' || column.key === 'dieLoc' ? (
+                            <div className="flex flex-col divide-y divide-soft-border">
+                              {(row.allDieEntries || []).length === 0 ? (
+                                <div className="py-1.5 px-2 text-center text-xs text-cool-gray">—</div>
+                              ) : (row.allDieEntries || []).map((ref, i) => (
+                                <div key={i} className="py-1.5 px-2 text-center text-xs flex items-center justify-center gap-0.5">
+                                  {column.key === 'dieCode' ? (
+                                    <>
+                                      <span className="font-medium text-midnight-ink">{ref.value || '—'}</span>
+                                      {String(ref.type || '') === 'findings' && <span className="text-[9px] text-cool-gray">&nbsp;(F)</span>}
+                                    </>
+                                  ) : column.key === 'dieQty' ? (
+                                    <span className="text-midnight-ink">{ref.quantity || '—'}</span>
+                                  ) : (
+                                    <span className="text-cool-gray">{ref.location || '—'}</span>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
                           ) : (
                             <CompositeStockDisplay value={row[column.key]} />
                           )}
@@ -2344,7 +2477,7 @@ export default function MasterInventorySheet() {
                         if (column.key === 'finalStockSku') displayValue = variation.sku;
                         else if (column.key === 'finalStockValue') displayValue = variation.value;
                         else if (column.key === 'finalStockUnit') displayValue = variation.unit;
-                        else if (column.key === 'dieLocation') displayValue = variation.location || (isFirst ? row.dieLocation : '');
+                        else if (column.key === 'dieLocation') displayValue = variation.location || '';
 
                         const isVariationEditable = isRowEditing && !NON_EDITABLE_KEYS.has(column.key) && (() => {
                           if (editFieldType === 'final-stock') return column.key === 'finalStockValue';

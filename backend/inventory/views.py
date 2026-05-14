@@ -512,6 +512,17 @@ class DieInventoryItemViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 
 		return Response({'success': True, 'message': msg, 'created': created, 'updated': updated, 'errors': errors}, status=status.HTTP_201_CREATED)
 
+	@extend_schema(summary='Fetch die inventory items by a comma-separated list of die codes', tags=['Die Inventory'])
+	@action(detail=False, methods=['get'], url_path='by-codes')
+	def by_codes(self, request):
+		raw = request.query_params.get('codes', '')
+		codes = [c.strip() for c in raw.split(',') if c.strip()]
+		if not codes:
+			return Response([])
+		items = DieInventoryItem.objects.filter(die_code__in=codes)
+		serializer = self.get_serializer(items, many=True)
+		return Response(serializer.data)
+
 	@extend_schema(summary='Sync designer_skus and master_skus from Designer Sheet and Product Sheet', tags=['Die Inventory'])
 	@action(detail=False, methods=['post'], url_path='sync-from-sheets')
 	def sync_from_sheets(self, request):

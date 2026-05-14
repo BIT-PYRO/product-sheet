@@ -592,7 +592,8 @@ export default function DieInventoryPage() {
     try {
       const res = await fetch('/api/die-inventory/sync-from-sheets', { method: 'POST' });
       const data = await res.json();
-      if (!res.ok) throw new Error(data?.message || `Error ${res.status}`);
+      if (res.status === 401 || res.status === 403) throw new Error('Session expired. Please refresh the page and try again.');
+      if (!res.ok) throw new Error(data?.error?.message || data?.message || `Error ${res.status}`);
       setSyncMsg(data.message || 'Sync complete.');
       fetchDies();
     } catch (err) {

@@ -7,6 +7,18 @@ function asArray(data) {
   return [];
 }
 
+/** Split legacy combined values like "bhang bhosda[5][chehere pr]" into separate fields. */
+function parseDieLegacyValue(item) {
+  if (!item || typeof item !== 'object') return item;
+  if (String(item.quantity || '').trim() || String(item.location || '').trim()) return item;
+  const value = String(item.value || '').trim();
+  const m3 = value.match(/^(.+?)\[([^\]]+)\]\[([^\]]*)\]$/);
+  if (m3) return { ...item, value: m3[1].trim(), quantity: m3[2].trim(), location: m3[3].trim() };
+  const m2 = value.match(/^(.+?)\[([^\]]+)\]$/);
+  if (m2) return { ...item, value: m2[1].trim(), quantity: m2[2].trim() };
+  return item;
+}
+
 async function readJsonSafe(response) {
   if (!response) return null;
   if (response.status === 204 || response.status === 205) return null;
@@ -134,8 +146,8 @@ function buildProductStockMap(products, transactions, wipBySkuAndStage = new Map
       activeChannels: product.active_channels || '',
       shopifyStatus: product.is_active ? 'active' : 'inactive',
       dieNumberFindings: [
-        ...(Array.isArray(product?.die_numbers) ? product.die_numbers.map((item) => ({ ...item, type: 'die_number' })) : []),
-        ...(Array.isArray(product?.findings) ? product.findings.map((item) => ({ ...item, type: 'findings' })) : []),
+        ...(Array.isArray(product?.die_numbers) ? product.die_numbers.map((item) => parseDieLegacyValue({ ...item, type: 'die_number' })) : []),
+        ...(Array.isArray(product?.findings) ? product.findings.map((item) => parseDieLegacyValue({ ...item, type: 'findings' })) : []),
       ],
       color: product.color || '',
       enamel: product.enamel || '',
