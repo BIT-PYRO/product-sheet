@@ -77,11 +77,11 @@ function ProductSheetContent() {
 
   const [manufacturing, setManufacturing] = useState({
     dieNumbers: [
-      { id: 1, type: 'die_number', value: '', quantity: '', location: '' },
-      { id: 2, type: 'die_number', value: '', quantity: '', location: '' },
-      { id: 3, type: 'die_number', value: '', quantity: '', location: '' },
-      { id: 4, type: 'die_number', value: '', quantity: '', location: '' },
-      { id: 5, type: 'die_number', value: '', quantity: '', location: '' },
+      { id: 1, type: 'die_number', value: '', quantity: '', location: '', waxPiece: { min: '', current: '', wip: '', location: '' }, waxSetting: { min: '', current: '', wip: '', location: '' }, casting: { min: '', current: '', wip: '', location: '' } },
+      { id: 2, type: 'die_number', value: '', quantity: '', location: '', waxPiece: { min: '', current: '', wip: '', location: '' }, waxSetting: { min: '', current: '', wip: '', location: '' }, casting: { min: '', current: '', wip: '', location: '' } },
+      { id: 3, type: 'die_number', value: '', quantity: '', location: '', waxPiece: { min: '', current: '', wip: '', location: '' }, waxSetting: { min: '', current: '', wip: '', location: '' }, casting: { min: '', current: '', wip: '', location: '' } },
+      { id: 4, type: 'die_number', value: '', quantity: '', location: '', waxPiece: { min: '', current: '', wip: '', location: '' }, waxSetting: { min: '', current: '', wip: '', location: '' }, casting: { min: '', current: '', wip: '', location: '' } },
+      { id: 5, type: 'die_number', value: '', quantity: '', location: '', waxPiece: { min: '', current: '', wip: '', location: '' }, waxSetting: { min: '', current: '', wip: '', location: '' }, casting: { min: '', current: '', wip: '', location: '' } },
     ],
     images: [],
     notes: '',
@@ -611,12 +611,55 @@ function ProductSheetContent() {
         setActiveChannels(ch ? ch.split(',').map((c) => c.trim()).filter(Boolean) : [])
         const dieRows = Array.isArray(product.die_numbers) ? product.die_numbers : []
         const findingRows = Array.isArray(product.findings) ? product.findings : []
+        const emptyStage = () => ({ min: '', current: '', wip: '', location: '' })
         const combined = [
-          ...dieRows.map((d, i) => { const p = parseDieLegacyValue(d); return { id: i + 1, type: 'die_number', value: p.value || '', quantity: p.quantity || '', location: p.location || '' }; }),
-          ...findingRows.map((f, i) => { const p = parseDieLegacyValue(f); return { id: dieRows.length + i + 1, type: 'findings', value: p.value || '', quantity: p.quantity || '', location: p.location || '' }; }),
+          ...dieRows.map((d, i) => { const p = parseDieLegacyValue(d); return { id: i + 1, type: 'die_number', value: p.value || '', quantity: p.quantity || '', location: p.location || '', waxPiece: p.waxPiece || emptyStage(), waxSetting: p.waxSetting || emptyStage(), casting: p.casting || emptyStage() }; }),
+          ...findingRows.map((f, i) => { const p = parseDieLegacyValue(f); return { id: dieRows.length + i + 1, type: 'findings', value: p.value || '', quantity: p.quantity || '', location: p.location || '', waxPiece: p.waxPiece || emptyStage(), waxSetting: p.waxSetting || emptyStage(), casting: p.casting || emptyStage() }; }),
         ]
-        while (combined.length < 5) combined.push({ id: combined.length + 1, type: 'die_number', value: '', quantity: '', location: '' })
+        while (combined.length < 5) combined.push({ id: combined.length + 1, type: 'die_number', value: '', quantity: '', location: '', waxPiece: emptyStage(), waxSetting: emptyStage(), casting: emptyStage() })
         setManufacturing((prev) => ({ ...prev, dieNumbers: combined, notes: product.notes || '' }))
+        // Fetch die inventory to pre-fill stage data from the die inventory source of truth
+        const dieCodesToFetch = combined.filter(r => r.value?.trim()).map(r => r.value.trim())
+        if (dieCodesToFetch.length > 0) {
+          Promise.all(dieCodesToFetch.map(code =>
+            fetch(`/api/die-inventory?search=${encodeURIComponent(code)}`, { cache: 'no-store' })
+              .then(r => r.json())
+              .then(json => ({ code, item: Array.isArray(json?.results) ? json.results.find(r => r.die_code === code) : null }))
+              .catch(() => ({ code, item: null }))
+          )).then(results => {
+            if (cancelled) return
+            const itemMap = {}
+            let firstItem = null
+            for (const { code, item } of results) {
+              if (item) { itemMap[code] = item; if (!firstItem) firstItem = item }
+            }
+            if (Object.keys(itemMap).length === 0) return
+            setManufacturing(prev => ({
+              ...prev,
+              dieNumbers: prev.dieNumbers.map(row => {
+                const inv = itemMap[row.value?.trim()]
+                if (!inv) return row
+                return {
+                  ...row,
+                  location: inv.location || row.location,
+                  waxPiece: { min: inv.wax_piece_min || '', current: inv.wax_piece_qty || '', wip: inv.wax_piece_wip || '', location: inv.wax_piece_location || '' },
+                  waxSetting: { min: inv.wax_setting_min || '', current: inv.wax_setting_qty || '', wip: inv.wax_setting_wip || '', location: inv.wax_setting_location || '' },
+                  casting: { min: inv.casting_min || '', current: inv.casting_qty || '', wip: inv.casting_wip || '', location: inv.casting_location || '' },
+                }
+              }),
+            }))
+            if (firstItem) {
+              setLiveStock(prev => ({
+                ...prev,
+                filing: { min: firstItem.filling_min || '', current: firstItem.filling_current || '', wip: firstItem.filling_wip || '', location: firstItem.filling_location || '' },
+                packing: { min: firstItem.pre_polish_min || '', current: firstItem.pre_polish_current || '', wip: firstItem.pre_polish_wip || '', location: firstItem.pre_polish_location || '' },
+                setting: { min: firstItem.hand_setting_min || '', current: firstItem.hand_setting_current || '', wip: firstItem.hand_setting_wip || '', location: firstItem.hand_setting_location || '' },
+                finalPolish: { min: firstItem.final_polish_min || '', current: firstItem.final_polish_current || '', wip: firstItem.final_polish_wip || '', location: firstItem.final_polish_location || '' },
+                readyForPlacing: { min: firstItem.plating_min || '', current: firstItem.plating_current || '', wip: firstItem.plating_wip || '', location: firstItem.plating_location || '' },
+              }))
+            }
+          })
+        }
         if (Array.isArray(product.stone_entries) && product.stone_entries.length > 0) {
           setStoneInfo(
             product.stone_entries.map((s, i) => ({ id: i + 1, type: s.type || '', species: s.species || '', variety: s.variety || '', color: s.color || '', cut: s.cut || '', shape: s.shape || '', length: s.length || '', width: s.width || '', height: s.height || '', qty: s.qty || '' }))
@@ -962,18 +1005,59 @@ function ProductSheetContent() {
           designers.flatMap(d => Array.isArray(d.tracking_rows) ? d.tracking_rows.filter(r => r.dieCode) : []),
           r => String(r.dieCode || '').trim().toLowerCase(),
           r => r.moldDieQty,
-          (item) => ({ id: idCounter++, type: 'die_number', value: item.dieCode || '', quantity: item._qty, location: '' })
+          (item) => ({ id: idCounter++, type: 'die_number', value: item.dieCode || '', quantity: item._qty, location: '', waxPiece: { min: '', current: '', wip: '', location: '' }, waxSetting: { min: '', current: '', wip: '', location: '' }, casting: { min: '', current: '', wip: '', location: '' } })
         )
         const findingRows = mergeByKeySum(
           designers.flatMap(d => Array.isArray(d.findings_entries) ? d.findings_entries.filter(r => r.code) : []),
           r => String(r.code || '').trim().toLowerCase(),
           r => r.quantity,
-          (item) => ({ id: idCounter++, type: 'findings', value: item.code || '', quantity: item._qty, location: '' })
+          (item) => ({ id: idCounter++, type: 'findings', value: item.code || '', quantity: item._qty, location: '', waxPiece: { min: '', current: '', wip: '', location: '' }, waxSetting: { min: '', current: '', wip: '', location: '' }, casting: { min: '', current: '', wip: '', location: '' } })
         )
         const combined = [...dieRows, ...findingRows]
         if (combined.length > 0) {
-          while (combined.length < 5) combined.push({ id: combined.length + 1, type: 'die_number', value: '', quantity: '', location: '' })
+          while (combined.length < 5) combined.push({ id: combined.length + 1, type: 'die_number', value: '', quantity: '', location: '', waxPiece: { min: '', current: '', wip: '', location: '' }, waxSetting: { min: '', current: '', wip: '', location: '' }, casting: { min: '', current: '', wip: '', location: '' } })
           setManufacturing(prev => ({ ...prev, dieNumbers: combined }))
+          // Fetch die inventory to pre-fill stage data from the die inventory source of truth
+          const dieCodesToFetchDes = combined.filter(r => r.value?.trim()).map(r => r.value.trim())
+          if (dieCodesToFetchDes.length > 0) {
+            Promise.all(dieCodesToFetchDes.map(code =>
+              fetch(`/api/die-inventory?search=${encodeURIComponent(code)}`, { cache: 'no-store' })
+                .then(r => r.json())
+                .then(json => ({ code, item: Array.isArray(json?.results) ? json.results.find(r => r.die_code === code) : null }))
+                .catch(() => ({ code, item: null }))
+            )).then(results => {
+              const itemMapDes = {}
+              let firstItemDes = null
+              for (const { code, item } of results) {
+                if (item) { itemMapDes[code] = item; if (!firstItemDes) firstItemDes = item }
+              }
+              if (Object.keys(itemMapDes).length === 0) return
+              setManufacturing(prev => ({
+                ...prev,
+                dieNumbers: prev.dieNumbers.map(row => {
+                  const inv = itemMapDes[row.value?.trim()]
+                  if (!inv) return row
+                  return {
+                    ...row,
+                    location: inv.location || row.location,
+                    waxPiece: { min: inv.wax_piece_min || '', current: inv.wax_piece_qty || '', wip: inv.wax_piece_wip || '', location: inv.wax_piece_location || '' },
+                    waxSetting: { min: inv.wax_setting_min || '', current: inv.wax_setting_qty || '', wip: inv.wax_setting_wip || '', location: inv.wax_setting_location || '' },
+                    casting: { min: inv.casting_min || '', current: inv.casting_qty || '', wip: inv.casting_wip || '', location: inv.casting_location || '' },
+                  }
+                }),
+              }))
+              if (firstItemDes) {
+                setLiveStock(prev => ({
+                  ...prev,
+                  filing: { min: firstItemDes.filling_min || '', current: firstItemDes.filling_current || '', wip: firstItemDes.filling_wip || '', location: firstItemDes.filling_location || '' },
+                  packing: { min: firstItemDes.pre_polish_min || '', current: firstItemDes.pre_polish_current || '', wip: firstItemDes.pre_polish_wip || '', location: firstItemDes.pre_polish_location || '' },
+                  setting: { min: firstItemDes.hand_setting_min || '', current: firstItemDes.hand_setting_current || '', wip: firstItemDes.hand_setting_wip || '', location: firstItemDes.hand_setting_location || '' },
+                  finalPolish: { min: firstItemDes.final_polish_min || '', current: firstItemDes.final_polish_current || '', wip: firstItemDes.final_polish_wip || '', location: firstItemDes.final_polish_location || '' },
+                  readyForPlacing: { min: firstItemDes.plating_min || '', current: firstItemDes.plating_current || '', wip: firstItemDes.plating_wip || '', location: firstItemDes.plating_location || '' },
+                }))
+              }
+            })
+          }
         }
 
         // Setting type
@@ -1583,7 +1667,13 @@ function ProductSheetContent() {
         const newId = Math.max(...manufacturing.dieNumbers.map(r => r.id), 0) + 1;
         setManufacturing(prev => ({
             ...prev,
-            dieNumbers: [...prev.dieNumbers, { id: newId, type: 'die_number', value: '', quantity: '', location: '' }]
+            dieNumbers: [...prev.dieNumbers, { id: newId, type: 'die_number', value: '', quantity: '', location: '', waxPiece: { min: '', current: '', wip: '', location: '' }, waxSetting: { min: '', current: '', wip: '', location: '' }, casting: { min: '', current: '', wip: '', location: '' } }]
+        }));
+    };
+    const updateDieNumberStage = (id, stage, field, value) => {
+        setManufacturing(prev => ({
+            ...prev,
+            dieNumbers: prev.dieNumbers.map(row => row.id === id ? { ...row, [stage]: { ...(row[stage] || {}), [field]: value } } : row)
         }));
     };
     const deleteDieNumber = (id) => {
@@ -1689,6 +1779,72 @@ function ProductSheetContent() {
         setStoneInfo(stoneInfo.filter(row => row.id !== id));
     };
     
+    const syncDieInventoryItems = async (dieNumbers, liveStockData, masterSku) => {
+      const rows = dieNumbers.filter(r => r.value?.trim())
+      for (const row of rows) {
+        try {
+          const searchRes = await fetch(`/api/die-inventory?search=${encodeURIComponent(row.value.trim())}`, { cache: 'no-store' })
+          const searchJson = await searchRes.json()
+          const existing = Array.isArray(searchJson?.results)
+            ? searchJson.results.find(r => r.die_code === row.value.trim())
+            : null
+          const payload = {
+            die_code: row.value.trim(),
+            location: row.location || '',
+            quantity: row.quantity || '0',
+            master_skus: masterSku ? [masterSku] : [],
+            wax_piece_qty: row.waxPiece?.current || '',
+            wax_piece_min: row.waxPiece?.min || '',
+            wax_piece_wip: row.waxPiece?.wip || '',
+            wax_piece_location: row.waxPiece?.location || '',
+            wax_setting_qty: row.waxSetting?.current || '',
+            wax_setting_min: row.waxSetting?.min || '',
+            wax_setting_wip: row.waxSetting?.wip || '',
+            wax_setting_location: row.waxSetting?.location || '',
+            casting_qty: row.casting?.current || '',
+            casting_min: row.casting?.min || '',
+            casting_wip: row.casting?.wip || '',
+            casting_location: row.casting?.location || '',
+            filling_min: liveStockData.filing?.min || '',
+            filling_current: liveStockData.filing?.current || '',
+            filling_wip: liveStockData.filing?.wip || '',
+            filling_location: liveStockData.filing?.location || '',
+            pre_polish_min: liveStockData.packing?.min || '',
+            pre_polish_current: liveStockData.packing?.current || '',
+            pre_polish_wip: liveStockData.packing?.wip || '',
+            pre_polish_location: liveStockData.packing?.location || '',
+            hand_setting_min: liveStockData.setting?.min || '',
+            hand_setting_current: liveStockData.setting?.current || '',
+            hand_setting_wip: liveStockData.setting?.wip || '',
+            hand_setting_location: liveStockData.setting?.location || '',
+            final_polish_min: liveStockData.finalPolish?.min || '',
+            final_polish_current: liveStockData.finalPolish?.current || '',
+            final_polish_wip: liveStockData.finalPolish?.wip || '',
+            final_polish_location: liveStockData.finalPolish?.location || '',
+            plating_min: liveStockData.readyForPlacing?.min || '',
+            plating_current: liveStockData.readyForPlacing?.current || '',
+            plating_wip: liveStockData.readyForPlacing?.wip || '',
+            plating_location: liveStockData.readyForPlacing?.location || '',
+          }
+          if (existing) {
+            await fetch(`/api/die-inventory/${existing.id}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload),
+            })
+          } else {
+            await fetch('/api/die-inventory', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload),
+            })
+          }
+        } catch {
+          // non-blocking per-row: silently ignore
+        }
+      }
+    }
+
     const handleSaveProduct = async () => {
       setIsSaving(true);
       setSaveStatus(null);
@@ -1696,6 +1852,8 @@ function ProductSheetContent() {
       try {
         const productData = buildProductData()
         await saveProductData(productData)
+        // Non-blocking die inventory sync — does not affect save outcome
+        syncDieInventoryItems(manufacturing.dieNumbers, liveStock, sku).catch(() => {})
         // Ensure any new material / category / collection value is persisted to
         // the lookup table so it appears in every dropdown across the app.
         const ensureLookup = async (value, currentList, apiPath) => {
@@ -2211,49 +2369,38 @@ function ProductSheetContent() {
               </div>
             </div>
 
-            {/* Two Separate Spaces */}
-            <div className="flex gap-2">
-              <div className="flex-1 bg-white border-2 border-soft-border rounded-xl shadow-sm px-2 py-1">
-                <div className="font-semibold text-sm mb-2">SETTING TYPE</div>
-                <div className="flex gap-2">
-                  {[['wax', 'WAX SETTING'], ['hand', 'HAND SETTING']].map(([val, label]) => {
-                    const active = settingType.split(',').map(s => s.trim()).filter(Boolean).includes(val)
-                    return (
-                      <button key={val} onClick={() => setSettingType(prev => {
-                        const parts = prev.split(',').map(s => s.trim()).filter(Boolean)
-                        return active ? parts.filter(p => p !== val).join(',') : [...parts, val].join(',')
-                      })} className={`flex-1 px-2 py-1 text-sm font-semibold rounded border ${active ? 'bg-trust-blue text-white border-trust-blue' : 'bg-white text-slate-text border-soft-border'}`}>
-                        {label}
-                      </button>
-                    )
-                  })}
-                </div>
-              </div>
-              <div className="flex-1 bg-white border-2 border-soft-border rounded-xl shadow-sm px-2 py-1">
-                <div className="font-semibold text-sm mb-2">ENAMEL</div>
-                <div className="flex gap-2">
-                  <button onClick={() => setEnamelType('yes')} className={`flex-1 px-2 py-1 text-sm font-semibold rounded border ${
-                    enamelType === 'yes'
-                      ? 'bg-trust-blue text-white border-trust-blue'
-                      : 'bg-white text-slate-text border-soft-border'
-                  }`}>
-                    YES
-                  </button>
-                  <button onClick={() => setEnamelType('no')} className={`flex-1 px-2 py-1 text-sm font-semibold rounded border ${
-                    enamelType === 'no'
-                      ? 'bg-trust-blue text-white border-trust-blue'
-                      : 'bg-white text-slate-text border-soft-border'
-                  }`}>
-                    NO
-                  </button>
-                </div>
-              </div>
-            </div>
-
             {/* DIE NUMBERS AND MASTER SKU ROW */}
             <div className="flex gap-2">
               {/* Die Numbers Panel - Left 50% */}
               <div className="flex-1 flex flex-col">
+                {/* Setting Type + Enamel Combined Panel */}
+                <div className="mb-2 bg-white border-2 border-soft-border rounded-xl shadow-sm px-2 py-1">
+                  <div className="flex gap-4">
+                    <div className="flex-1">
+                      <div className="font-semibold text-sm mb-2">SETTING TYPE</div>
+                      <div className="flex gap-2">
+                        {[['wax', 'WAX SETTING'], ['hand', 'HAND SETTING']].map(([val, label]) => {
+                          const active = settingType.split(',').map(s => s.trim()).filter(Boolean).includes(val)
+                          return (
+                            <button key={val} onClick={() => setSettingType(prev => {
+                              const parts = prev.split(',').map(s => s.trim()).filter(Boolean)
+                              return active ? parts.filter(p => p !== val).join(',') : [...parts, val].join(',')
+                            })} className={`flex-1 px-2 py-1 text-sm font-semibold rounded border ${active ? 'bg-trust-blue text-white border-trust-blue' : 'bg-white text-slate-text border-soft-border'}`}>
+                              {label}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+                    <div className="flex-1">
+                      <div className="font-semibold text-sm mb-2">ENAMEL</div>
+                      <div className="flex gap-2">
+                        <button onClick={() => setEnamelType('yes')} className={`flex-1 px-2 py-1 text-sm font-semibold rounded border ${enamelType === 'yes' ? 'bg-trust-blue text-white border-trust-blue' : 'bg-white text-slate-text border-soft-border'}`}>YES</button>
+                        <button onClick={() => setEnamelType('no')} className={`flex-1 px-2 py-1 text-sm font-semibold rounded border ${enamelType === 'no' ? 'bg-trust-blue text-white border-trust-blue' : 'bg-white text-slate-text border-soft-border'}`}>NO</button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
                 {/* Active Channels Multi-Select */}
                 <div className="mb-2">
                   <div className="font-semibold text-sm mb-1">Active Channels</div>
@@ -2330,53 +2477,11 @@ function ProductSheetContent() {
                   </div>
                 </div>
 
-                <div className="bg-white border-2 border-soft-border rounded-xl shadow-sm flex flex-col overflow-hidden" style={{height:'8.75rem'}}>
-                  {/* Column headers */}
-                  <div className="flex items-stretch divide-x-2 divide-soft-border bg-trust-blue/10 border-b-2 border-soft-border flex-shrink-0">
-                    <div className="w-32 flex-shrink-0 px-2 py-0.5 text-xs font-bold text-midnight-ink uppercase tracking-wide">Type</div>
-                    <div className="flex-1 px-2 py-0.5 text-xs font-bold text-midnight-ink uppercase tracking-wide">Die Code</div>
-                    <div className="w-24 flex-shrink-0 px-2 py-0.5 text-xs font-bold text-midnight-ink uppercase tracking-wide">Location</div>
-                    <div className="w-16 flex-shrink-0 px-2 py-0.5 text-xs font-bold text-midnight-ink uppercase tracking-wide">Qty</div>
-                    <div className="w-8 flex-shrink-0"></div>
-                  </div>
-                  {/* Data rows */}
-                  <div className="flex flex-col overflow-y-auto flex-1">
-                    {manufacturing.dieNumbers.map((row, index) => (
-                      <div key={row.id} className={`flex items-stretch divide-x-2 divide-soft-border ${index > 0 ? 'border-t border-soft-border' : ''}`}>
-                        <div className="w-32 flex-shrink-0 px-2 py-1 font-semibold text-sm flex items-center">
-                          <select value={row.type} onChange={(e) => updateDieNumber(row.id, 'type', e.target.value)} className="w-full bg-transparent outline-none text-sm">
-                            <option value="die_number">DIE NUMBER</option>
-                            <option value="findings">FINDINGS</option>
-                          </select>
-                        </div>
-                        <div className="flex-1 px-2 py-1 flex items-center">
-                          <input type="text" value={row.value} onChange={(e) => updateDieNumber(row.id, 'value', e.target.value)} className="w-full bg-transparent outline-none text-sm"/>
-                        </div>
-                        <div className="w-24 flex-shrink-0 px-2 py-1 flex items-center">
-                          <input type="text" placeholder="—" value={row.location} onChange={(e) => updateDieNumber(row.id, 'location', e.target.value)} className="w-full bg-transparent outline-none text-sm placeholder-cool-gray"/>
-                        </div>
-                        <div className="w-16 flex-shrink-0 px-2 py-1 flex items-center">
-                          <input type="text" placeholder="—" value={row.quantity} onChange={(e) => updateDieNumber(row.id, 'quantity', e.target.value)} className="w-full bg-transparent outline-none text-sm placeholder-cool-gray"/>
-                        </div>
-                        <button type="button" onClick={() => deleteDieNumber(row.id)} className="w-8 flex-shrink-0 px-2 py-1 text-danger hover:text-danger-dark transition-colors flex items-center justify-center">
-                          <Trash2 className="h-3 w-3" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <button onClick={addDieNumberRow} className="w-fit px-2 py-1 mt-2 text-sm bg-trust-blue text-white font-semibold rounded hover:bg-deep-blue">
-                  + Add Rows
-                </button>
-              </div>
-
-              {/* Variations Panel - Right 50% */}
-              <div className="flex-1 flex flex-col">
                 {/* Shopify Status */}
                 <div className="mb-2">
                   <div className="font-semibold text-sm mb-1">Shopify Status</div>
                   <div className="relative">
-                    <div 
+                    <div
                       onClick={() => setIsStatusDropdownOpen(!isStatusDropdownOpen)}
                       className="bg-white border-2 border-soft-border rounded px-2 py-1 text-sm min-h-[2rem] flex items-center justify-between cursor-pointer"
                     >
@@ -2390,44 +2495,27 @@ function ProductSheetContent() {
                     {isStatusDropdownOpen && (
                       <div className="absolute z-10 mt-1 w-full bg-white border border-soft-border rounded shadow-lg max-h-40 overflow-y-auto">
                         <div
-                          onClick={() => {
-                            setShopifyStatus('active')
-                            setIsStatusDropdownOpen(false)
-                          }}
-                          className={`px-2 py-1 text-sm cursor-pointer hover:bg-cloud-gray ${
-                            shopifyStatus === 'active' ? 'bg-trust-blue/10' : ''
-                          }`}
-                        >
-                          Active
-                        </div>
+                          onClick={() => { setShopifyStatus('active'); setIsStatusDropdownOpen(false) }}
+                          className={`px-2 py-1 text-sm cursor-pointer hover:bg-cloud-gray ${shopifyStatus === 'active' ? 'bg-trust-blue/10' : ''}`}
+                        >Active</div>
                         <div
-                          onClick={() => {
-                            setShopifyStatus('draft')
-                            setIsStatusDropdownOpen(false)
-                          }}
-                          className={`px-2 py-1 text-sm cursor-pointer hover:bg-cloud-gray ${
-                            shopifyStatus === 'draft' ? 'bg-trust-blue/10' : ''
-                          }`}
-                        >
-                          Draft
-                        </div>
+                          onClick={() => { setShopifyStatus('draft'); setIsStatusDropdownOpen(false) }}
+                          className={`px-2 py-1 text-sm cursor-pointer hover:bg-cloud-gray ${shopifyStatus === 'draft' ? 'bg-trust-blue/10' : ''}`}
+                        >Draft</div>
                         <div
-                          onClick={() => {
-                            setShopifyStatus('unlisted')
-                            setIsStatusDropdownOpen(false)
-                          }}
-                          className={`px-2 py-1 text-sm cursor-pointer hover:bg-cloud-gray ${
-                            shopifyStatus === 'unlisted' ? 'bg-trust-blue/10' : ''
-                          }`}
-                        >
-                          Unlisted
-                        </div>
+                          onClick={() => { setShopifyStatus('unlisted'); setIsStatusDropdownOpen(false) }}
+                          className={`px-2 py-1 text-sm cursor-pointer hover:bg-cloud-gray ${shopifyStatus === 'unlisted' ? 'bg-trust-blue/10' : ''}`}
+                        >Unlisted</div>
                       </div>
                     )}
                   </div>
                 </div>
 
-                <div className="bg-white border-2 border-soft-border rounded-xl shadow-sm h-[8.75rem] flex flex-col">
+              </div>
+
+              {/* Variations Panel - Right 50% */}
+              <div className="flex-1 flex flex-col self-start">
+                <div className="bg-white border-2 border-soft-border rounded-xl shadow-sm flex flex-col overflow-hidden">
                   <div className="flex divide-x-2 divide-soft-border border-b border-soft-border flex-shrink-0">
                     <div className="w-32 px-2 py-1 font-semibold text-sm flex items-center flex-shrink-0">
                       MASTER SKU
@@ -2500,6 +2588,93 @@ function ProductSheetContent() {
               </div>
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Die Numbers & Live Stock Situation */}
+      <div className="bg-white border-2 border-soft-border rounded-xl shadow-sm mb-2 flex flex-col overflow-hidden">
+        <div className="flex items-center justify-between px-3 py-1.5 bg-trust-blue/10 border-b-2 border-soft-border flex-shrink-0">
+          <h3 className="text-xs font-bold text-midnight-ink uppercase tracking-wide">Die Numbers &amp; Live Stock Situation</h3>
+          <button type="button" onClick={addDieNumberRow} className="px-2 py-0.5 text-xs bg-trust-blue text-white font-semibold rounded hover:bg-deep-blue">+ Add Rows</button>
+        </div>
+        <div className="overflow-x-auto flex-1 overflow-y-auto">
+          <table className="border-collapse text-xs w-full table-fixed">
+            <thead>
+              <tr className="bg-trust-blue/10 border-b border-soft-border">
+                <th rowSpan={2} className="px-1 py-1 font-bold text-midnight-ink uppercase tracking-wide border-r-2 border-soft-border text-left" style={{width:'5%'}}>Type</th>
+                <th rowSpan={2} className="px-1 py-1 font-bold text-midnight-ink uppercase tracking-wide border-r-2 border-soft-border text-left" style={{width:'6%'}}>Die Code</th>
+                <th rowSpan={2} className="px-1 py-1 font-bold text-midnight-ink uppercase tracking-wide border-r-2 border-soft-border text-left" style={{width:'5%'}}>Loc</th>
+                <th rowSpan={2} className="px-1 py-1 font-bold text-midnight-ink uppercase tracking-wide border-r-2 border-soft-border text-center" style={{width:'2.5%'}}>Qty</th>
+                <th colSpan={4} className="px-1 py-0.5 font-bold text-midnight-ink uppercase tracking-wide border-r border-soft-border text-center bg-trust-blue/10 text-[10px]">Wax Piece</th>
+                <th colSpan={4} className="px-1 py-0.5 font-bold text-midnight-ink uppercase tracking-wide border-r border-soft-border text-center bg-trust-blue/10 text-[10px]">Wax Setting</th>
+                <th colSpan={4} className="px-1 py-0.5 font-bold text-midnight-ink uppercase tracking-wide border-r-2 border-midnight-ink/20 text-center bg-trust-blue/10 text-[10px]">Casting</th>
+                <th colSpan={4} className="px-1 py-0.5 font-bold text-midnight-ink uppercase tracking-wide border-r border-soft-border text-center bg-amber-50 text-[10px]">Filling</th>
+                <th colSpan={4} className="px-1 py-0.5 font-bold text-midnight-ink uppercase tracking-wide border-r border-soft-border text-center bg-amber-50 text-[10px]">Pre Polish</th>
+                <th colSpan={4} className="px-1 py-0.5 font-bold text-midnight-ink uppercase tracking-wide border-r border-soft-border text-center bg-amber-50 text-[10px]">Hand Setting</th>
+                <th colSpan={4} className="px-1 py-0.5 font-bold text-midnight-ink uppercase tracking-wide border-r border-soft-border text-center bg-amber-50 text-[10px]">Final Polish</th>
+                <th colSpan={4} className="px-1 py-0.5 font-bold text-midnight-ink uppercase tracking-wide border-r-2 border-soft-border text-center bg-amber-50 text-[10px]">Plating</th>
+                <th rowSpan={2} className="border-l-2 border-soft-border" style={{width:'1.5%'}}></th>
+              </tr>
+              <tr className="bg-trust-blue/5 border-b-2 border-soft-border">
+                {[0,1,2].map(si => (
+                  <React.Fragment key={`pre-hdr-${si}`}>
+                    <th className="px-0.5 py-px font-semibold text-center border-r border-soft-border text-[9px] text-cool-gray bg-trust-blue/5">Min</th>
+                    <th className="px-0.5 py-px font-semibold text-center border-r border-soft-border text-[9px] text-cool-gray bg-trust-blue/5">Cur</th>
+                    <th className="px-0.5 py-px font-semibold text-center border-r border-soft-border text-[9px] text-cool-gray bg-trust-blue/5">WIP</th>
+                    <th className={`px-0.5 py-px font-semibold text-center text-[9px] text-cool-gray bg-trust-blue/5 ${si < 2 ? 'border-r border-soft-border' : 'border-r-2 border-midnight-ink/20'}`}>Loc</th>
+                  </React.Fragment>
+                ))}
+                {[0,1,2,3,4].map(si => (
+                  <React.Fragment key={`post-hdr-${si}`}>
+                    <th className="px-0.5 py-px font-semibold text-center border-r border-soft-border text-[9px] text-cool-gray bg-amber-50/60">Min</th>
+                    <th className="px-0.5 py-px font-semibold text-center border-r border-soft-border text-[9px] text-cool-gray bg-amber-50/60">Cur</th>
+                    <th className="px-0.5 py-px font-semibold text-center border-r border-soft-border text-[9px] text-cool-gray bg-amber-50/60">WIP</th>
+                    <th className={`px-0.5 py-px font-semibold text-center text-[9px] text-cool-gray bg-amber-50/60 ${si < 4 ? 'border-r border-soft-border' : 'border-r-2 border-soft-border'}`}>Loc</th>
+                  </React.Fragment>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {manufacturing.dieNumbers.map((row, index) => (
+                <tr key={row.id} className={`border-b border-soft-border ${index % 2 === 1 ? 'bg-cloud-gray/30' : ''}`}>
+                  <td className="border-r-2 border-soft-border px-0 py-0.5">
+                    <select value={row.type} onChange={(e) => updateDieNumber(row.id, 'type', e.target.value)} className="w-full bg-transparent outline-none text-[9px]">
+                      <option value="die_number">DIE NUMBER</option>
+                      <option value="findings">FINDINGS</option>
+                    </select>
+                  </td>
+                  <td className="border-r-2 border-soft-border px-1 py-0.5">
+                    <input type="text" value={row.value} onChange={(e) => updateDieNumber(row.id, 'value', e.target.value)} className="w-full bg-transparent outline-none text-xs" placeholder="Code..."/>
+                  </td>
+                  <td className="border-r-2 border-soft-border px-1 py-0.5">
+                    <input type="text" value={row.location||''} onChange={(e) => updateDieNumber(row.id, 'location', e.target.value)} className="w-full bg-transparent outline-none text-xs" placeholder="—"/>
+                  </td>
+                  <td className="border-r-2 border-soft-border px-1 py-0.5 text-center">
+                    <input type="text" value={row.quantity} onChange={(e) => updateDieNumber(row.id, 'quantity', e.target.value)} className="w-full bg-transparent outline-none text-xs text-center" placeholder="—"/>
+                  </td>
+                  {['waxPiece','waxSetting','casting'].map((stageKey, si) => (
+                    <React.Fragment key={stageKey}>
+                      <td className="border-r border-soft-border px-1 py-0.5"><input type="text" value={(row[stageKey]||{}).min||''} onChange={(e) => updateDieNumberStage(row.id, stageKey, 'min', e.target.value)} className="w-full bg-transparent outline-none text-xs text-center" placeholder="—"/></td>
+                      <td className="border-r border-soft-border px-1 py-0.5"><input type="text" value={(row[stageKey]||{}).current||''} onChange={(e) => updateDieNumberStage(row.id, stageKey, 'current', e.target.value)} className="w-full bg-transparent outline-none text-xs text-center" placeholder="—"/></td>
+                      <td className="border-r border-soft-border px-1 py-0.5"><input type="text" value={(row[stageKey]||{}).wip||''} onChange={(e) => updateDieNumberStage(row.id, stageKey, 'wip', e.target.value)} className="w-full bg-transparent outline-none text-xs text-center" placeholder="—"/></td>
+                      <td className={`${si < 2 ? 'border-r border-soft-border' : 'border-r-2 border-midnight-ink/20'} px-1 py-0.5`}><input type="text" value={(row[stageKey]||{}).location||''} onChange={(e) => updateDieNumberStage(row.id, stageKey, 'location', e.target.value)} className="w-full bg-transparent outline-none text-xs text-center" placeholder="—"/></td>
+                    </React.Fragment>
+                  ))}
+                  {index === 0 && ['filing','packing','setting','finalPolish','readyForPlacing'].map((stateKey, si) => (
+                    <React.Fragment key={stateKey}>
+                      <td rowSpan={manufacturing.dieNumbers.length} className="border-r border-soft-border px-1 py-0.5 bg-amber-50/40"><input type="text" value={(liveStock[stateKey]||{}).min||''} onChange={(e) => updateLiveStock(stateKey, 'min', e.target.value)} className="w-full bg-transparent outline-none text-xs text-center" placeholder="—"/></td>
+                      <td rowSpan={manufacturing.dieNumbers.length} className="border-r border-soft-border px-1 py-0.5 bg-amber-50/40"><input type="text" value={(liveStock[stateKey]||{}).current||''} onChange={(e) => updateLiveStock(stateKey, 'current', e.target.value)} className="w-full bg-transparent outline-none text-xs text-center" placeholder="—"/></td>
+                      <td rowSpan={manufacturing.dieNumbers.length} className="border-r border-soft-border px-1 py-0.5 bg-amber-50/40"><input type="text" value={(liveStock[stateKey]||{}).wip||''} onChange={(e) => updateLiveStock(stateKey, 'wip', e.target.value)} className="w-full bg-transparent outline-none text-xs text-center" placeholder="—"/></td>
+                      <td rowSpan={manufacturing.dieNumbers.length} className={`${si < 4 ? 'border-r border-soft-border' : 'border-r-2 border-soft-border'} px-1 py-0.5 bg-amber-50/40`}><input type="text" value={(liveStock[stateKey]||{}).location||''} onChange={(e) => updateLiveStock(stateKey, 'location', e.target.value)} className="w-full bg-transparent outline-none text-xs text-center" placeholder="—"/></td>
+                    </React.Fragment>
+                  ))}
+                  <td className="border-l-2 border-soft-border px-1 py-0.5 text-center">
+                    <button type="button" onClick={() => deleteDieNumber(row.id)} className="text-danger hover:text-danger-dark flex items-center justify-center mx-auto"><Trash2 className="h-3 w-3" /></button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
 
@@ -3392,49 +3567,38 @@ function ProductSheetContent() {
                       </div>
                     </div>
 
-                    {/* Two Separate Spaces */}
-                    <div className="flex gap-2">
-                      <div className="flex-1 bg-white border-2 border-soft-border px-2 py-1">
-                        <div className="font-semibold text-sm mb-2">SETTING TYPE</div>
-                        <div className="flex gap-2">
-                          {[['wax', 'WAX SETTING'], ['hand', 'HAND SETTING']].map(([val, lbl]) => {
-                            const active = settingType.split(',').map(s => s.trim()).filter(Boolean).includes(val)
-                            return (
-                              <button key={val} onClick={() => setSettingType(prev => {
-                                const parts = prev.split(',').map(s => s.trim()).filter(Boolean)
-                                return active ? parts.filter(p => p !== val).join(',') : [...parts, val].join(',')
-                              })} className={`flex-1 px-2 py-1 text-sm font-semibold rounded border ${active ? 'bg-trust-blue text-white border-trust-blue' : 'bg-white text-slate-text border-soft-border'}`}>
-                                {lbl}
-                              </button>
-                            )
-                          })}
-                        </div>
-                      </div>
-                      <div className="flex-1 bg-white border-2 border-soft-border px-2 py-1">
-                        <div className="font-semibold text-sm mb-2">ENAMEL</div>
-                        <div className="flex gap-2">
-                          <button onClick={() => setEnamelType('yes')} className={`flex-1 px-2 py-1 text-sm font-semibold rounded border ${
-                            enamelType === 'yes'
-                              ? 'bg-trust-blue text-white border-trust-blue'
-                              : 'bg-white text-slate-text border-soft-border'
-                          }`}>
-                            YES
-                          </button>
-                          <button onClick={() => setEnamelType('no')} className={`flex-1 px-2 py-1 text-sm font-semibold rounded border ${
-                            enamelType === 'no'
-                              ? 'bg-trust-blue text-white border-trust-blue'
-                              : 'bg-white text-slate-text border-soft-border'
-                          }`}>
-                            NO
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-
                     {/* DIE NUMBERS AND MASTER SKU ROW */}
                     <div className="flex gap-2">
                       {/* Die Numbers Panel - Left 50% */}
                       <div className="flex-1 flex flex-col">
+                        {/* Setting Type + Enamel Combined Panel */}
+                        <div className="mb-2 bg-white border-2 border-soft-border px-2 py-1">
+                          <div className="flex gap-4">
+                            <div className="flex-1">
+                              <div className="font-semibold text-sm mb-2">SETTING TYPE</div>
+                              <div className="flex gap-2">
+                                {[['wax', 'WAX SETTING'], ['hand', 'HAND SETTING']].map(([val, lbl]) => {
+                                  const active = settingType.split(',').map(s => s.trim()).filter(Boolean).includes(val)
+                                  return (
+                                    <button key={val} onClick={() => setSettingType(prev => {
+                                      const parts = prev.split(',').map(s => s.trim()).filter(Boolean)
+                                      return active ? parts.filter(p => p !== val).join(',') : [...parts, val].join(',')
+                                    })} className={`flex-1 px-2 py-1 text-sm font-semibold rounded border ${active ? 'bg-trust-blue text-white border-trust-blue' : 'bg-white text-slate-text border-soft-border'}`}>
+                                      {lbl}
+                                    </button>
+                                  )
+                                })}
+                              </div>
+                            </div>
+                            <div className="flex-1">
+                              <div className="font-semibold text-sm mb-2">ENAMEL</div>
+                              <div className="flex gap-2">
+                                <button onClick={() => setEnamelType('yes')} className={`flex-1 px-2 py-1 text-sm font-semibold rounded border ${enamelType === 'yes' ? 'bg-trust-blue text-white border-trust-blue' : 'bg-white text-slate-text border-soft-border'}`}>YES</button>
+                                <button onClick={() => setEnamelType('no')} className={`flex-1 px-2 py-1 text-sm font-semibold rounded border ${enamelType === 'no' ? 'bg-trust-blue text-white border-trust-blue' : 'bg-white text-slate-text border-soft-border'}`}>NO</button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
                         {/* Active Channels Multi-Select */}
                         <div className="mb-2">
                           <div className="font-semibold text-sm mb-1">Active Channels</div>
@@ -3511,53 +3675,11 @@ function ProductSheetContent() {
                           </div>
                         </div>
 
-                        <div className="bg-white border-2 border-soft-border flex flex-col overflow-hidden" style={{height:'8.75rem'}}>
-                          {/* Column headers */}
-                          <div className="flex items-stretch divide-x-2 divide-soft-border bg-trust-blue/10 border-b-2 border-soft-border flex-shrink-0">
-                            <div className="w-32 flex-shrink-0 px-2 py-0.5 text-xs font-bold text-midnight-ink uppercase tracking-wide">Type</div>
-                            <div className="flex-1 px-2 py-0.5 text-xs font-bold text-midnight-ink uppercase tracking-wide">Die Code</div>
-                            <div className="w-24 flex-shrink-0 px-2 py-0.5 text-xs font-bold text-midnight-ink uppercase tracking-wide">Location</div>
-                            <div className="w-16 flex-shrink-0 px-2 py-0.5 text-xs font-bold text-midnight-ink uppercase tracking-wide">Qty</div>
-                            <div className="w-8 flex-shrink-0"></div>
-                          </div>
-                          {/* Data rows */}
-                          <div className="flex flex-col overflow-y-auto flex-1">
-                            {manufacturing.dieNumbers.map((row, index) => (
-                              <div key={row.id} className={`flex items-stretch divide-x-2 divide-soft-border ${index > 0 ? 'border-t border-soft-border' : ''}`}>
-                                <div className="w-32 flex-shrink-0 px-2 py-1 font-semibold text-sm flex items-center">
-                                  <select value={row.type} onChange={(e) => updateDieNumber(row.id, 'type', e.target.value)} className="w-full bg-transparent outline-none text-sm">
-                                    <option value="die_number">DIE NUMBER</option>
-                                    <option value="findings">FINDINGS</option>
-                                  </select>
-                                </div>
-                                <div className="flex-1 px-2 py-1 flex items-center">
-                                  <input type="text" value={row.value} onChange={(e) => updateDieNumber(row.id, 'value', e.target.value)} className="w-full bg-transparent outline-none text-sm"/>
-                                </div>
-                                <div className="w-24 flex-shrink-0 px-2 py-1 flex items-center">
-                                  <input type="text" placeholder="—" value={row.location} onChange={(e) => updateDieNumber(row.id, 'location', e.target.value)} className="w-full bg-transparent outline-none text-sm placeholder-cool-gray"/>
-                                </div>
-                                <div className="w-16 flex-shrink-0 px-2 py-1 flex items-center">
-                                  <input type="text" placeholder="—" value={row.quantity} onChange={(e) => updateDieNumber(row.id, 'quantity', e.target.value)} className="w-full bg-transparent outline-none text-sm placeholder-cool-gray"/>
-                                </div>
-                                <button type="button" onClick={() => deleteDieNumber(row.id)} className="w-8 flex-shrink-0 px-2 py-1 text-danger hover:text-danger-dark transition-colors flex items-center justify-center">
-                                  <Trash2 className="h-3 w-3" />
-                                </button>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                        <button onClick={addDieNumberRow} className="w-fit px-2 py-1 mt-2 text-sm bg-trust-blue text-white font-semibold rounded hover:bg-deep-blue">
-                          + Add Rows
-                        </button>
-                      </div>
-
-                      {/* Variations Panel - Right 50% */}
-                      <div className="flex-1 flex flex-col">
                         {/* Shopify Status */}
                         <div className="mb-2">
                           <div className="font-semibold text-sm mb-1">Shopify Status</div>
                           <div className="relative">
-                            <div 
+                            <div
                               onClick={() => setIsStatusDropdownOpen(!isStatusDropdownOpen)}
                               className="bg-white border-2 border-soft-border rounded px-2 py-1 text-sm min-h-[2rem] flex items-center justify-between cursor-pointer"
                             >
@@ -3571,44 +3693,27 @@ function ProductSheetContent() {
                             {isStatusDropdownOpen && (
                               <div className="absolute z-10 mt-1 w-full bg-white border border-soft-border rounded shadow-lg max-h-40 overflow-y-auto">
                                 <div
-                                  onClick={() => {
-                                    setShopifyStatus('active')
-                                    setIsStatusDropdownOpen(false)
-                                  }}
-                                  className={`px-2 py-1 text-sm cursor-pointer hover:bg-cloud-gray ${
-                                    shopifyStatus === 'active' ? 'bg-trust-blue/10' : ''
-                                  }`}
-                                >
-                                  Active
-                                </div>
+                                  onClick={() => { setShopifyStatus('active'); setIsStatusDropdownOpen(false) }}
+                                  className={`px-2 py-1 text-sm cursor-pointer hover:bg-cloud-gray ${shopifyStatus === 'active' ? 'bg-trust-blue/10' : ''}`}
+                                >Active</div>
                                 <div
-                                  onClick={() => {
-                                    setShopifyStatus('draft')
-                                    setIsStatusDropdownOpen(false)
-                                  }}
-                                  className={`px-2 py-1 text-sm cursor-pointer hover:bg-cloud-gray ${
-                                    shopifyStatus === 'draft' ? 'bg-trust-blue/10' : ''
-                                  }`}
-                                >
-                                  Draft
-                                </div>
+                                  onClick={() => { setShopifyStatus('draft'); setIsStatusDropdownOpen(false) }}
+                                  className={`px-2 py-1 text-sm cursor-pointer hover:bg-cloud-gray ${shopifyStatus === 'draft' ? 'bg-trust-blue/10' : ''}`}
+                                >Draft</div>
                                 <div
-                                  onClick={() => {
-                                    setShopifyStatus('unlisted')
-                                    setIsStatusDropdownOpen(false)
-                                  }}
-                                  className={`px-2 py-1 text-sm cursor-pointer hover:bg-cloud-gray ${
-                                    shopifyStatus === 'unlisted' ? 'bg-trust-blue/10' : ''
-                                  }`}
-                                >
-                                  Unlisted
-                                </div>
+                                  onClick={() => { setShopifyStatus('unlisted'); setIsStatusDropdownOpen(false) }}
+                                  className={`px-2 py-1 text-sm cursor-pointer hover:bg-cloud-gray ${shopifyStatus === 'unlisted' ? 'bg-trust-blue/10' : ''}`}
+                                >Unlisted</div>
                               </div>
                             )}
                           </div>
                         </div>
 
-                        <div className="bg-white border-2 border-soft-border h-[8.75rem] flex flex-col">
+                      </div>
+
+                      {/* Variations Panel - Right 50% */}
+                      <div className="flex-1 flex flex-col self-start">
+                        <div className="bg-white border-2 border-soft-border flex flex-col overflow-hidden">
                           <div className="flex divide-x-2 divide-soft-border border-b border-soft-border flex-shrink-0">
                             <div className="w-32 px-2 py-1 font-semibold text-sm flex items-center flex-shrink-0">
                               MASTER SKU
@@ -3682,6 +3787,93 @@ function ProductSheetContent() {
                       </div>
                     </div>
                   </div>
+                </div>
+              </div>
+
+              {/* Die Numbers & Live Stock Situation */}
+              <div className="bg-white border-2 border-soft-border rounded-xl shadow-sm mb-2 flex flex-col overflow-hidden" style={{ minHeight: '20rem' }}>
+                <div className="flex items-center justify-between px-3 py-1.5 bg-trust-blue/10 border-b-2 border-soft-border flex-shrink-0">
+                  <h3 className="text-xs font-bold text-midnight-ink uppercase tracking-wide">Die Numbers &amp; Live Stock Situation</h3>
+                  <button type="button" onClick={addDieNumberRow} className="px-2 py-0.5 text-xs bg-trust-blue text-white font-semibold rounded hover:bg-deep-blue">+ Add Rows</button>
+                </div>
+                <div className="overflow-x-auto flex-1 overflow-y-auto">
+                  <table className="border-collapse text-xs w-full table-fixed">
+                    <thead>
+                      <tr className="bg-trust-blue/10 border-b border-soft-border">
+                        <th rowSpan={2} className="px-1 py-1 font-bold text-midnight-ink uppercase tracking-wide border-r-2 border-soft-border text-left" style={{width:'5%'}}>Type</th>
+                        <th rowSpan={2} className="px-1 py-1 font-bold text-midnight-ink uppercase tracking-wide border-r-2 border-soft-border text-left" style={{width:'6%'}}>Die Code</th>
+                        <th rowSpan={2} className="px-1 py-1 font-bold text-midnight-ink uppercase tracking-wide border-r-2 border-soft-border text-left" style={{width:'5%'}}>Loc</th>
+                        <th rowSpan={2} className="px-1 py-1 font-bold text-midnight-ink uppercase tracking-wide border-r-2 border-soft-border text-center" style={{width:'2.5%'}}>Qty</th>
+                        <th colSpan={4} className="px-1 py-0.5 font-bold text-midnight-ink uppercase tracking-wide border-r border-soft-border text-center bg-trust-blue/10 text-[10px]">Wax Piece</th>
+                        <th colSpan={4} className="px-1 py-0.5 font-bold text-midnight-ink uppercase tracking-wide border-r border-soft-border text-center bg-trust-blue/10 text-[10px]">Wax Setting</th>
+                        <th colSpan={4} className="px-1 py-0.5 font-bold text-midnight-ink uppercase tracking-wide border-r-2 border-midnight-ink/20 text-center bg-trust-blue/10 text-[10px]">Casting</th>
+                        <th colSpan={4} className="px-1 py-0.5 font-bold text-midnight-ink uppercase tracking-wide border-r border-soft-border text-center bg-amber-50 text-[10px]">Filling</th>
+                        <th colSpan={4} className="px-1 py-0.5 font-bold text-midnight-ink uppercase tracking-wide border-r border-soft-border text-center bg-amber-50 text-[10px]">Pre Polish</th>
+                        <th colSpan={4} className="px-1 py-0.5 font-bold text-midnight-ink uppercase tracking-wide border-r border-soft-border text-center bg-amber-50 text-[10px]">Hand Setting</th>
+                        <th colSpan={4} className="px-1 py-0.5 font-bold text-midnight-ink uppercase tracking-wide border-r border-soft-border text-center bg-amber-50 text-[10px]">Final Polish</th>
+                        <th colSpan={4} className="px-1 py-0.5 font-bold text-midnight-ink uppercase tracking-wide border-r-2 border-soft-border text-center bg-amber-50 text-[10px]">Plating</th>
+                        <th rowSpan={2} className="border-l-2 border-soft-border" style={{width:'1.5%'}}></th>
+                      </tr>
+                      <tr className="bg-trust-blue/5 border-b-2 border-soft-border">
+                        {[0,1,2].map(si => (
+                          <React.Fragment key={`mpre-hdr-${si}`}>
+                            <th className="px-0.5 py-px font-semibold text-center border-r border-soft-border text-[9px] text-cool-gray bg-trust-blue/5">Min</th>
+                            <th className="px-0.5 py-px font-semibold text-center border-r border-soft-border text-[9px] text-cool-gray bg-trust-blue/5">Cur</th>
+                            <th className="px-0.5 py-px font-semibold text-center border-r border-soft-border text-[9px] text-cool-gray bg-trust-blue/5">WIP</th>
+                            <th className={`px-0.5 py-px font-semibold text-center text-[9px] text-cool-gray bg-trust-blue/5 ${si < 2 ? 'border-r border-soft-border' : 'border-r-2 border-midnight-ink/20'}`}>Loc</th>
+                          </React.Fragment>
+                        ))}
+                        {[0,1,2,3,4].map(si => (
+                          <React.Fragment key={`mpost-hdr-${si}`}>
+                            <th className="px-0.5 py-px font-semibold text-center border-r border-soft-border text-[9px] text-cool-gray bg-amber-50/60">Min</th>
+                            <th className="px-0.5 py-px font-semibold text-center border-r border-soft-border text-[9px] text-cool-gray bg-amber-50/60">Cur</th>
+                            <th className="px-0.5 py-px font-semibold text-center border-r border-soft-border text-[9px] text-cool-gray bg-amber-50/60">WIP</th>
+                            <th className={`px-0.5 py-px font-semibold text-center text-[9px] text-cool-gray bg-amber-50/60 ${si < 4 ? 'border-r border-soft-border' : 'border-r-2 border-soft-border'}`}>Loc</th>
+                          </React.Fragment>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {manufacturing.dieNumbers.map((row, index) => (
+                        <tr key={row.id} className={`border-b border-soft-border ${index % 2 === 1 ? 'bg-cloud-gray/30' : ''}`}>
+                          <td className="border-r-2 border-soft-border px-0 py-0.5">
+                            <select value={row.type} onChange={(e) => updateDieNumber(row.id, 'type', e.target.value)} className="w-full bg-transparent outline-none text-[9px]">
+                              <option value="die_number">DIE NUMBER</option>
+                              <option value="findings">FINDINGS</option>
+                            </select>
+                          </td>
+                          <td className="border-r-2 border-soft-border px-1 py-0.5">
+                            <input type="text" value={row.value} onChange={(e) => updateDieNumber(row.id, 'value', e.target.value)} className="w-full bg-transparent outline-none text-xs" placeholder="Code..."/>
+                          </td>
+                          <td className="border-r-2 border-soft-border px-1 py-0.5">
+                            <input type="text" value={row.location||''} onChange={(e) => updateDieNumber(row.id, 'location', e.target.value)} className="w-full bg-transparent outline-none text-xs" placeholder="—"/>
+                          </td>
+                          <td className="border-r-2 border-soft-border px-1 py-0.5 text-center">
+                            <input type="text" value={row.quantity} onChange={(e) => updateDieNumber(row.id, 'quantity', e.target.value)} className="w-full bg-transparent outline-none text-xs text-center" placeholder="—"/>
+                          </td>
+                          {['waxPiece','waxSetting','casting'].map((stageKey, si) => (
+                            <React.Fragment key={stageKey}>
+                              <td className="border-r border-soft-border px-1 py-0.5"><input type="text" value={(row[stageKey]||{}).min||''} onChange={(e) => updateDieNumberStage(row.id, stageKey, 'min', e.target.value)} className="w-full bg-transparent outline-none text-xs text-center" placeholder="—"/></td>
+                              <td className="border-r border-soft-border px-1 py-0.5"><input type="text" value={(row[stageKey]||{}).current||''} onChange={(e) => updateDieNumberStage(row.id, stageKey, 'current', e.target.value)} className="w-full bg-transparent outline-none text-xs text-center" placeholder="—"/></td>
+                              <td className="border-r border-soft-border px-1 py-0.5"><input type="text" value={(row[stageKey]||{}).wip||''} onChange={(e) => updateDieNumberStage(row.id, stageKey, 'wip', e.target.value)} className="w-full bg-transparent outline-none text-xs text-center" placeholder="—"/></td>
+                              <td className={`${si < 2 ? 'border-r border-soft-border' : 'border-r-2 border-midnight-ink/20'} px-1 py-0.5`}><input type="text" value={(row[stageKey]||{}).location||''} onChange={(e) => updateDieNumberStage(row.id, stageKey, 'location', e.target.value)} className="w-full bg-transparent outline-none text-xs text-center" placeholder="—"/></td>
+                            </React.Fragment>
+                          ))}
+                          {index === 0 && ['filing','packing','setting','finalPolish','readyForPlacing'].map((stateKey, si) => (
+                            <React.Fragment key={stateKey}>
+                              <td rowSpan={manufacturing.dieNumbers.length} className="border-r border-soft-border px-1 py-0.5 bg-amber-50/40"><input type="text" value={(liveStock[stateKey]||{}).min||''} onChange={(e) => updateLiveStock(stateKey, 'min', e.target.value)} className="w-full bg-transparent outline-none text-xs text-center" placeholder="—"/></td>
+                              <td rowSpan={manufacturing.dieNumbers.length} className="border-r border-soft-border px-1 py-0.5 bg-amber-50/40"><input type="text" value={(liveStock[stateKey]||{}).current||''} onChange={(e) => updateLiveStock(stateKey, 'current', e.target.value)} className="w-full bg-transparent outline-none text-xs text-center" placeholder="—"/></td>
+                              <td rowSpan={manufacturing.dieNumbers.length} className="border-r border-soft-border px-1 py-0.5 bg-amber-50/40"><input type="text" value={(liveStock[stateKey]||{}).wip||''} onChange={(e) => updateLiveStock(stateKey, 'wip', e.target.value)} className="w-full bg-transparent outline-none text-xs text-center" placeholder="—"/></td>
+                              <td rowSpan={manufacturing.dieNumbers.length} className={`${si < 4 ? 'border-r border-soft-border' : 'border-r-2 border-soft-border'} px-1 py-0.5 bg-amber-50/40`}><input type="text" value={(liveStock[stateKey]||{}).location||''} onChange={(e) => updateLiveStock(stateKey, 'location', e.target.value)} className="w-full bg-transparent outline-none text-xs text-center" placeholder="—"/></td>
+                            </React.Fragment>
+                          ))}
+                          <td className="border-l-2 border-soft-border px-1 py-0.5 text-center">
+                            <button type="button" onClick={() => deleteDieNumber(row.id)} className="text-danger hover:text-danger-dark flex items-center justify-center mx-auto"><Trash2 className="h-3 w-3" /></button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               </div>
 

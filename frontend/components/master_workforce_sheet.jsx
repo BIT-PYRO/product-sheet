@@ -1191,8 +1191,8 @@ export default function MasterWorkforceSheet() {
 
       {/* Table Section */}
       <div className="border border-soft-border rounded-lg bg-white overflow-hidden">
-        {/* Table wrapper with vertical scrolling only */}
-        <div className="overflow-y-auto max-h-[500px]">
+        {/* Table wrapper with vertical and horizontal scrolling */}
+        <div className="overflow-auto max-h-[500px]">
           <table className="w-full border-separate border-spacing-0 text-sm">
             <thead className="sticky top-0 z-40 bg-[#dbeafe]">
               <tr className="text-midnight-ink font-bold border-b-2 border-soft-border">
