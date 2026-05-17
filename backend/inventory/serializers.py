@@ -296,6 +296,7 @@ class DieInventoryItemSerializer(serializers.ModelSerializer):
         model = DieInventoryItem
         fields = [
             'id', 'die_code', 'image', 'designer_images', 'master_skus', 'designer_skus',
+            'sku_qty_per_piece',
             'location', 'quantity',
             'wax_piece_qty', 'wax_piece_location',
             'wax_piece_min', 'wax_piece_wip',

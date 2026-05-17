@@ -496,10 +496,21 @@ class DieInventoryItemViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 			designer_skus = item.get('designer_skus', [])
 			if isinstance(designer_skus, str):
 				designer_skus = [s.strip() for s in designer_skus.split(',') if s.strip()]
+			# sku_qty_per_piece: accept dict {"SKU": qty} or list of [{sku, qty_per_piece}]
+			raw_sqpp = item.get('sku_qty_per_piece', {})
+			if isinstance(raw_sqpp, list):
+				sku_qty_per_piece = {
+					str(e.get('sku', '')).strip().upper(): int(e.get('qty_per_piece', 1) or 1)
+					for e in raw_sqpp if isinstance(e, dict) and e.get('sku')
+				}
+			elif isinstance(raw_sqpp, dict):
+				sku_qty_per_piece = {str(k).strip().upper(): int(v or 1) for k, v in raw_sqpp.items() if k}
+			else:
+				sku_qty_per_piece = {}
 
 			obj, was_created = DieInventoryItem.objects.update_or_create(
 				die_code=die_code,
-				defaults={**defaults, 'master_skus': master_skus, 'designer_skus': designer_skus},
+				defaults={**defaults, 'master_skus': master_skus, 'designer_skus': designer_skus, 'sku_qty_per_piece': sku_qty_per_piece},
 			)
 			if was_created:
 				created += 1
@@ -522,6 +533,40 @@ class DieInventoryItemViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 		items = DieInventoryItem.objects.filter(die_code__in=codes)
 		serializer = self.get_serializer(items, many=True)
 		return Response(serializer.data)
+
+	@extend_schema(summary='Fetch die inventory items linked to a master SKU', tags=['Die Inventory'])
+	@action(detail=False, methods=['get'], url_path='by-sku')
+	def by_sku(self, request):
+		"""
+		GET /api/die-inventory/by-sku/?sku=AJE23
+		Returns all DieInventoryItems that list the given master SKU, augmented
+		with qty_per_piece from their sku_qty_per_piece map.
+		"""
+		sku = request.query_params.get('sku', '').strip()
+		if not sku:
+			return Response([])
+		sku_upper = sku.upper()
+		# Use icontains as a cheap pre-filter; Python validates exact match
+		candidates = DieInventoryItem.objects.filter(master_skus__icontains=sku)
+		result = []
+		for item in candidates:
+			skus_list = item.master_skus if isinstance(item.master_skus, list) else []
+			if not any(str(s).strip().upper() == sku_upper for s in skus_list):
+				continue
+			qty_map = item.sku_qty_per_piece if isinstance(item.sku_qty_per_piece, dict) else {}
+			# Try exact upper key, then case-insensitive scan
+			qty_per_piece = qty_map.get(sku_upper, None)
+			if qty_per_piece is None:
+				for k, v in qty_map.items():
+					if k.upper() == sku_upper:
+						qty_per_piece = v
+						break
+			if qty_per_piece is None:
+				qty_per_piece = 1
+			data = self.get_serializer(item).data
+			data['qty_per_piece'] = int(qty_per_piece) if qty_per_piece else 1
+			result.append(data)
+		return Response(result)
 
 	@extend_schema(summary='Sync designer_skus and master_skus from Designer Sheet and Product Sheet', tags=['Die Inventory'])
 	@action(detail=False, methods=['post'], url_path='sync-from-sheets')

@@ -125,9 +125,6 @@ const INVENTORY_COLUMNS_STATIC_PREFIX = [
   { key: 'sku', label: 'Master SKU' },
 ];
 const INVENTORY_COLUMNS_STATIC_SUFFIX = [
-  { key: 'dieCode',         label: 'Die Code' },
-  { key: 'dieQty',          label: 'Qty' },
-  { key: 'dieLoc',          label: 'Die Location' },
   { key: 'finalStockSku',   label: 'Final Stock SKU' },
   { key: 'finalStockValue', label: 'Final Stock Value' },
   { key: 'finalStockUnit',  label: 'Final Stock Unit' },
@@ -195,7 +192,7 @@ const STOCK_FIELDS_MAP = {
   finalStockValue:'Final Stock',
 };
 
-const NON_EDITABLE_KEYS = new Set(['__select__', 'sku', 'finalStockSku', 'dieCode', 'dieQty', 'dieLoc']);
+const NON_EDITABLE_KEYS = new Set(['__select__', 'sku', 'finalStockSku']);
 
 // Columns that render once per variation row (not spanning)
 const VARIATION_COLUMN_KEYS = new Set(['finalStockSku', 'finalStockValue', 'finalStockUnit', 'dieLocation']);

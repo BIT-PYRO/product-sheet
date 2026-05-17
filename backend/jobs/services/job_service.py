@@ -25,6 +25,22 @@ DEPARTMENT_PIPELINE = [
     ('final-stock', 'Final Stock'),
 ]
 
+# Pre-casting stages: inventory tracked at die level (DieTransaction)
+PRE_CASTING_DEPT_TOS = frozenset({'wax-pieces', 'wax-setting', 'casting'})
+
+# Which DieInventoryItem qty field to update for each pre-casting stage
+PRE_CASTING_STAGE_QTY_FIELD = {
+    'wax-pieces': 'wax_piece_qty',
+    'wax-setting': 'wax_setting_qty',
+    'casting': 'casting_qty',
+}
+
+PRE_CASTING_STAGE_LOCATION_FIELD = {
+    'wax-pieces': 'wax_piece_location',
+    'wax-setting': 'wax_setting_location',
+    'casting': 'casting_location',
+}
+
 # Maps pipeline dept keys to inventory stage keys
 DEPT_TO_STOCK_STAGE = {
     'die': 'die',

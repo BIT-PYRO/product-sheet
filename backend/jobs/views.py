@@ -15,7 +15,10 @@ from inventory.models import InventoryTransaction, PicklistGroup, PicklistItem
 
 from .models import Job, VoucherApprovalStatus
 from .serializers import JobSerializer, BulkVoucherRequestSerializer, ApproveVouchersSerializer
-from .services.job_service import can_transition, DEPARTMENT_PIPELINE, DEPT_TO_STOCK_STAGE
+from .services.job_service import (
+	can_transition, DEPARTMENT_PIPELINE, DEPT_TO_STOCK_STAGE,
+	PRE_CASTING_DEPT_TOS, PRE_CASTING_STAGE_QTY_FIELD,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -188,6 +191,10 @@ def _deduct_source_current_stock(voucher):
 	When a voucher becomes in_process, deduct issued_qty from the Current Stock
 	of its dept_from stage.  This represents pieces leaving the source department
 	to be processed by the destination department.
+
+	For pre-casting stages (wax-pieces, wax-setting, casting) the die_rows are
+	also processed: a DieTransaction(issued) is created per die code row and the
+	relevant stage qty on DieInventoryItem is decremented.
 	"""
 	from products.models import Product as _Product
 
@@ -195,6 +202,37 @@ def _deduct_source_current_stock(voucher):
 	if not from_stage:
 		return
 
+	# ── Die-level deduction for pre-casting stages ─────────────────────────────
+	if voucher.dept_to in PRE_CASTING_DEPT_TOS:
+		from inventory.models import DieInventoryItem, DieTransaction
+		stage_qty_field = PRE_CASTING_STAGE_QTY_FIELD.get(voucher.dept_to, '')
+		for row in (voucher.die_rows or []):
+			qty = int(float(row.get('issued_qty', 0) or 0))
+			if qty <= 0:
+				continue
+			die_code = str(row.get('die_code', '') or '').strip()
+			if not die_code:
+				continue
+			try:
+				die_item = DieInventoryItem.objects.get(die_code=die_code)
+				DieTransaction.objects.create(
+					txn_date=timezone.now().date(),
+					die=die_item,
+					die_code=die_code,
+					txn_type='issued',
+					master_sku=str(row.get('master_sku', '') or ''),
+					qty=qty,
+					remark=f'Issued to {voucher.dept_to}: {voucher.voucher_no}',
+					activity_status='issued',
+				)
+				if stage_qty_field:
+					current = float(getattr(die_item, stage_qty_field, 0) or 0)
+					setattr(die_item, stage_qty_field, max(0, current - qty))
+					die_item.save(update_fields=[stage_qty_field])
+			except DieInventoryItem.DoesNotExist:
+				pass
+
+	# ── Master-SKU level deduction (all stages) ─────────────────────────────────
 	for row in (voucher.material_rows or []):
 		qty = int(float(row.get('issued_qty', 0) or 0))
 		if qty <= 0:
@@ -526,6 +564,30 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 				to_label = bucket['to_label']
 				title = f'{voucher_no} - {from_label} to {to_label}'
 
+				# ── Build die_rows for pre-casting stages ─────────────────────
+				die_rows = []
+				if bucket['to_key'] in PRE_CASTING_DEPT_TOS:
+					from inventory.models import DieInventoryItem as _DieItem
+					for entry in bucket['items']:
+						sku_upper = entry['master_sku'].strip().upper()
+						pieces_needed = entry['qty']
+						# Find all dies linked to this master SKU
+						die_candidates = _DieItem.objects.filter(master_skus__icontains=entry['master_sku'])
+						for die in die_candidates:
+							skus_list = die.master_skus if isinstance(die.master_skus, list) else []
+							if not any(str(s).strip().upper() == sku_upper for s in skus_list):
+								continue
+							qty_map = die.sku_qty_per_piece if isinstance(die.sku_qty_per_piece, dict) else {}
+							qpp = qty_map.get(sku_upper) or next(
+								(v for k, v in qty_map.items() if k.upper() == sku_upper), 1
+							)
+							die_rows.append({
+								'master_sku': entry['master_sku'],
+								'die_code': die.die_code,
+								'qty_per_piece': int(qpp) if qpp else 1,
+								'issued_qty': str(pieces_needed * (int(qpp) if qpp else 1)),
+							})
+
 				voucher = Job.objects.create(
 					title=title,
 					product=products_in_voucher[0]['product'],  # primary product
@@ -541,7 +603,8 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 					department_order=step_idx,
 					material_rows=material_rows,
 					stone_rows=[],
-					notes=f'Step {step_idx + 1}: {from_label} ΓåÆ {to_label}',
+					die_rows=die_rows,
+					notes=f'Step {step_idx + 1}: {from_label} \u2192 {to_label}',
 				)
 				created_vouchers.append(voucher)
 
@@ -745,7 +808,168 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 			if not rows:
 				raise ValidationError({'rows': 'At least one row with a received quantity is required.'})
 
-			# ΓöÇΓöÇ Build already-received totals per SKU (from previous partial events) ΓöÇΓöÇ
+			to_stage = DEPT_TO_STOCK_STAGE.get(voucher.dept_to, '')
+			warnings = []
+			total_received_this_batch = 0
+
+			# ── Pre-casting (die-level) receive logic ──────────────────────────────
+			if voucher.dept_to in PRE_CASTING_DEPT_TOS:
+				from inventory.models import DieInventoryItem, DieTransaction
+
+				stage_qty_field = PRE_CASTING_STAGE_QTY_FIELD.get(voucher.dept_to, '')
+
+				# Build die issued map from die_rows
+				die_issued_map: dict = {}
+				die_info_map: dict = {}  # die_code_upper -> {master_sku, qty_per_piece}
+				for dr in (voucher.die_rows or []):
+					dc = str(dr.get('die_code', '') or '').strip().upper()
+					if dc:
+						die_issued_map[dc] = die_issued_map.get(dc, 0) + int(float(dr.get('issued_qty', 0) or 0))
+						die_info_map[dc] = {
+							'master_sku': str(dr.get('master_sku', '') or '').strip(),
+							'qty_per_piece': float(dr.get('qty_per_piece', 1) or 1) or 1.0,
+						}
+
+				# Build already-received totals from prior die events
+				die_already_received: dict = {}
+				for event in (voucher.received_rows or []):
+					for prev_row in (event.get('rows') or []):
+						dc = str(prev_row.get('die_code', '') or prev_row.get('sku', '') or '').strip().upper()
+						if dc:
+							die_already_received[dc] = (
+								die_already_received.get(dc, 0)
+								+ int(float(prev_row.get('received_qty', 0) or 0))
+							)
+
+				master_sku_received: dict = {}  # master_sku_upper -> master pieces received this batch
+				die_receive_log_rows: list = []
+				any_loss_die = False
+
+				for row_data in rows:
+					die_code_raw = str(row_data.get('die_code', '') or row_data.get('sku', '') or '').strip()
+					if not die_code_raw:
+						continue
+					dc_upper = die_code_raw.upper()
+					received_qty = max(0, int(float(row_data.get('received_qty', 0) or 0)))
+					loss_qty = max(0, int(float(row_data.get('loss_qty', 0) or 0)))
+					if received_qty <= 0 and loss_qty <= 0:
+						continue
+
+					info = die_info_map.get(dc_upper, {})
+					master_sku = info.get('master_sku', '')
+					qty_per_piece = info.get('qty_per_piece', 1) or 1.0
+
+					if loss_qty > 0:
+						any_loss_die = True
+
+					# DieTransaction + DieInventoryItem stage qty update
+					try:
+						die_item = DieInventoryItem.objects.get(die_code__iexact=die_code_raw)
+						if received_qty > 0:
+							DieTransaction.objects.create(
+								txn_date=timezone.now().date(),
+								die=die_item,
+								die_code=die_item.die_code,
+								txn_type='received',
+								master_sku=master_sku,
+								qty=received_qty,
+								remark=f'Received from {voucher.dept_from}: {voucher.voucher_no}',
+								activity_status='received',
+							)
+						if stage_qty_field and received_qty > 0:
+							current_qty = float(getattr(die_item, stage_qty_field, 0) or 0)
+							setattr(die_item, stage_qty_field, current_qty + received_qty)
+							die_item.save(update_fields=[stage_qty_field])
+					except DieInventoryItem.DoesNotExist:
+						warnings.append(f'Die {die_code_raw}: not found in die inventory — DieTransaction skipped.')
+
+					# Convert die qty to master SKU pieces for InventoryTransaction
+					master_pieces = round(received_qty / qty_per_piece)
+					if master_sku and master_pieces > 0:
+						key = master_sku.upper()
+						master_sku_received[key] = master_sku_received.get(key, 0) + master_pieces
+
+					die_receive_log_rows.append({
+						'die_code': die_code_raw,
+						'master_sku': master_sku,
+						'sku': master_sku,  # backward-compat for downstream propagation
+						'received_qty': str(received_qty),
+						'loss_qty': str(loss_qty),
+					})
+
+				# Create InventoryTransactions per master SKU
+				for sku_upper, master_pieces in master_sku_received.items():
+					product = Product.objects.filter(
+						Q(master_sku__iexact=sku_upper)
+					).first() or voucher.product
+					if not product:
+						warnings.append(f'Master SKU {sku_upper}: product not found — inventory not updated.')
+						continue
+					if to_stage:
+						InventoryTransaction.objects.create(
+							product=product,
+							txn_type='adjust',
+							quantity=master_pieces,
+							stage=to_stage,
+							stock_type='current',
+							remark=f'Received {master_pieces} pcs — {voucher.voucher_no} ({voucher.dept_from} \u2192 {voucher.dept_to})',
+						)
+					total_received_this_batch += master_pieces
+
+				if total_received_this_batch == 0 and not warnings:
+					raise ValidationError({'rows': 'No valid received quantities provided.'})
+
+				# Check all-accounted at die level
+				all_die_accounted = True
+				for dr in (voucher.die_rows or []):
+					dc = str(dr.get('die_code', '') or '').strip().upper()
+					issued = int(float(dr.get('issued_qty', 0) or 0))
+					already = die_already_received.get(dc, 0)
+					batch_recv = sum(
+						int(float(r.get('received_qty', 0) or 0))
+						for r in die_receive_log_rows
+						if str(r.get('die_code', '') or '').upper() == dc
+					)
+					batch_loss = sum(
+						int(float(r.get('loss_qty', 0) or 0))
+						for r in die_receive_log_rows
+						if str(r.get('die_code', '') or '').upper() == dc
+					)
+					if already + batch_recv + batch_loss < issued:
+						all_die_accounted = False
+
+				receive_log = list(voucher.received_rows or [])
+				receive_log.append({
+					'timestamp': timezone.now().isoformat(),
+					'received_by': received_by,
+					'is_partial': is_partial or not all_die_accounted or any_loss_die,
+					'total_received': total_received_this_batch,
+					'rows': die_receive_log_rows,
+				})
+				voucher.received_rows = receive_log
+				voucher.received_by = received_by
+
+				if not any_loss_die and all_die_accounted and not is_partial:
+					voucher.approval_status = VoucherApprovalStatus.COMPLETED
+					voucher.status = 'completed'
+					voucher.save(update_fields=['approval_status', 'status', 'received_rows', 'received_by'])
+				else:
+					voucher.approval_status = VoucherApprovalStatus.PARTIALLY_COMPLETED
+					voucher.save(update_fields=['approval_status', 'received_rows', 'received_by'])
+
+				if voucher.batch_id:
+					_activate_ready_batch_vouchers(voucher.batch_id)
+					_propagate_qty_to_active_downstream(voucher.batch_id, voucher)
+
+				serializer = JobSerializer(voucher)
+				response_data = {**serializer.data}
+				if warnings:
+					response_data['warnings'] = warnings
+				return Response({'success': True, 'data': response_data})
+
+			# ── Standard (master-SKU level) receive logic ──────────────────────────
+
+			# ── Build already-received totals per SKU (from previous partial events) ──
 			already_received: dict = {}
 			for event in (voucher.received_rows or []):
 				for prev_row in (event.get('rows') or []):
@@ -755,16 +979,11 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 						+ int(float(prev_row.get('received_qty', 0) or 0))
 					)
 
-			# ΓöÇΓöÇ Build issued totals per SKU from material_rows ΓöÇΓöÇ
+			# ── Build issued totals per SKU from material_rows ──
 			issued_map: dict = {}
 			for mr in (voucher.material_rows or []):
 				key = str(mr.get('sku', '') or '').strip().upper()
 				issued_map[key] = issued_map.get(key, 0) + int(float(mr.get('issued_qty', 0) or 0))
-
-			to_stage = DEPT_TO_STOCK_STAGE.get(voucher.dept_to, '')
-
-			warnings = []
-			total_received_this_batch = 0
 
 			for row_data in rows:
 				sku = str(row_data.get('sku', '') or '').strip()
@@ -784,7 +1003,7 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 				if received_qty > remaining:
 					warnings.append(
 						f'SKU {sku}: received qty ({received_qty}) exceeds remaining '
-						f'({remaining} = issued {issued} ΓêÆ already received {already}). Capped to {remaining}.'
+						f'({remaining} = issued {issued} \u2192 already received {already}). Capped to {remaining}.'
 					)
 					received_qty = remaining
 					if received_qty <= 0:
@@ -797,7 +1016,7 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 
 				if not product:
 					warnings.append(
-						f'SKU {sku}: no matching product found in database ΓÇö '
+						f'SKU {sku}: no matching product found in database \u2014 '
 						'inventory NOT updated for this row.'
 					)
 					continue
@@ -917,6 +1136,79 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 			if not rows_data:
 				raise ValidationError({'rows': 'At least one row is required.'})
 
+			# ── Pre-casting: die-level tracking pre-processing ──────────────────
+			# For pre-casting stages the frontend sends rows with die_code as 'sku'
+			# plus master_sku and qty_per_piece.  We create DieTransactions here,
+			# then convert the die quantities to master-SKU aggregates so the
+			# downstream reissue pipeline logic (which works on master SKUs) is
+			# unchanged.
+			if voucher.dept_to in PRE_CASTING_DEPT_TOS:
+				from inventory.models import DieInventoryItem, DieTransaction as _DieTransaction
+
+				stage_qty_field = PRE_CASTING_STAGE_QTY_FIELD.get(voucher.dept_to, '')
+				die_info_map_pre: dict = {}  # die_code_upper → {master_sku, qty_per_piece}
+				for dr in (voucher.die_rows or []):
+					dc = str(dr.get('die_code', '') or '').strip().upper()
+					if dc:
+						die_info_map_pre[dc] = {
+							'master_sku': str(dr.get('master_sku', '') or '').strip(),
+							'qty_per_piece': float(dr.get('qty_per_piece', 1) or 1) or 1.0,
+						}
+
+				master_sku_received_pre: dict = {}  # master_sku_upper → received pieces
+				master_sku_loss_pre: dict = {}       # master_sku_upper → loss pieces
+				warnings_list = []
+
+				for row_data in rows_data:
+					die_code_raw = str(row_data.get('die_code', '') or row_data.get('sku', '') or '').strip()
+					if not die_code_raw:
+						continue
+					dc_upper = die_code_raw.upper()
+					recv = max(0, int(float(row_data.get('received_qty', 0) or 0)))
+					loss = max(0, int(float(row_data.get('loss_qty', 0) or 0)))
+					if recv <= 0 and loss <= 0:
+						continue
+
+					info = die_info_map_pre.get(dc_upper, {})
+					master_sku = info.get('master_sku', '')
+					qpp = info.get('qty_per_piece', 1) or 1.0
+
+					try:
+						die_item = DieInventoryItem.objects.get(die_code__iexact=die_code_raw)
+						if recv > 0:
+							_DieTransaction.objects.create(
+								txn_date=timezone.now().date(),
+								die=die_item,
+								die_code=die_item.die_code,
+								txn_type='received',
+								master_sku=master_sku,
+								qty=recv,
+								remark=f'Received from {voucher.dept_from}: {voucher.voucher_no}',
+								activity_status='received',
+							)
+						if stage_qty_field and recv > 0:
+							cur = float(getattr(die_item, stage_qty_field, 0) or 0)
+							setattr(die_item, stage_qty_field, cur + recv)
+							die_item.save(update_fields=[stage_qty_field])
+					except DieInventoryItem.DoesNotExist:
+						warnings_list.append(f'Die {die_code_raw}: not found — DieTransaction skipped.')
+
+					if master_sku:
+						mku = master_sku.upper()
+						master_sku_received_pre[mku] = master_sku_received_pre.get(mku, 0) + round(recv / qpp)
+						master_sku_loss_pre[mku] = master_sku_loss_pre.get(mku, 0) + round(loss / qpp)
+
+				# Replace rows_data with master-SKU form so the existing pipeline logic works
+				rows_data = [
+					{
+						'sku': mku,
+						'received_qty': master_sku_received_pre.get(mku, 0),
+						'loss_qty': master_sku_loss_pre.get(mku, 0),
+					}
+					for mku in set(list(master_sku_received_pre.keys()) + list(master_sku_loss_pre.keys()))
+					if master_sku_received_pre.get(mku, 0) + master_sku_loss_pre.get(mku, 0) > 0
+				]
+
 			# ── Build existing received totals ──────────────────────────────────
 			# Count both received_qty AND loss_qty from prior events — lost pieces
 			# are accounted for and must not be counted as still-remaining.
@@ -939,7 +1231,8 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 			# ── Parse & validate incoming rows ──────────────────────────────────
 			parsed: list = []
 			any_loss = False
-			warnings_list: list = []
+			if voucher.dept_to not in PRE_CASTING_DEPT_TOS:
+				warnings_list = []
 
 			for row_data in rows_data:
 				sku = str(row_data.get('sku', '') or '').strip()

@@ -57,6 +57,7 @@ function emptyDie() {
     casting_location: '',
     notes: '',
     min_level: '',
+    sku_qty_per_piece: {},
   };
 }
 
@@ -362,6 +363,7 @@ export default function DieInventoryPage() {
       casting_location: d.casting_location || '',
       notes: d.notes || '',
       min_level: d.min_level ?? '',
+      sku_qty_per_piece: (typeof d.sku_qty_per_piece === 'object' && d.sku_qty_per_piece !== null && !Array.isArray(d.sku_qty_per_piece)) ? d.sku_qty_per_piece : {},
     });
     setStatusMsg('');
     setAddOpen(true);
@@ -430,6 +432,7 @@ export default function DieInventoryPage() {
           : form.designer_skus,
         quantity: form.quantity || 0,
         min_level: form.min_level || 0,
+        sku_qty_per_piece: typeof form.sku_qty_per_piece === 'object' ? form.sku_qty_per_piece : {},
       };
       const isEditing = editingDieId !== null;
       const res = await fetch(
@@ -1224,6 +1227,42 @@ export default function DieInventoryPage() {
             <div className="col-span-2">
               <Field label="Master SKUs (comma-separated)" value={form.master_skus} onChange={ff('master_skus')} />
             </div>
+            {/* Qty Per Piece per Master SKU */}
+            {skuList(form.master_skus).length > 0 && (
+              <div className="col-span-2 flex flex-col gap-1">
+                <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Dies Needed Per Piece (per Master SKU)</label>
+                <div className="rounded-md border border-soft-border overflow-hidden">
+                  <div className="grid grid-cols-[1fr_100px] bg-trust-blue text-white text-[9px] font-bold uppercase tracking-wider">
+                    <div className="px-2 py-1.5">Master SKU</div>
+                    <div className="px-2 py-1.5">Qty / Piece</div>
+                  </div>
+                  {skuList(form.master_skus).map((sku) => {
+                    const key = sku.toUpperCase()
+                    return (
+                      <div key={sku} className="grid grid-cols-[1fr_100px] border-t border-soft-border items-center">
+                        <div className="px-2 py-1 text-sm font-medium text-midnight-ink">{sku}</div>
+                        <div className="px-1 py-0.5">
+                          <input
+                            type="number"
+                            min="1"
+                            className="w-full rounded border border-soft-border px-2 py-0.5 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue bg-white"
+                            value={form.sku_qty_per_piece?.[key] ?? ''}
+                            placeholder="1"
+                            onChange={(e) => {
+                              const val = parseInt(e.target.value) || 0
+                              setForm((prev) => ({
+                                ...prev,
+                                sku_qty_per_piece: { ...prev.sku_qty_per_piece, [key]: val || 1 },
+                              }))
+                            }}
+                          />
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
             <div className="col-span-2">
               <Field label="Designer SKUs (comma-separated)" value={form.designer_skus} onChange={ff('designer_skus')} />
             </div>

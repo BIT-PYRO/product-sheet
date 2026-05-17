@@ -78,6 +78,11 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
   const [dieWeightRows, setDieWeightRows] = useState([
     { id: 1, dieNumber: "", quantity: "", weight: "", unit: "" },
   ])
+  // Die rows for pre-casting stages (wax-pieces, wax-setting, casting)
+  const [dieRows, setDieRows] = useState([])
+  // [{id, masterSku, dieCode, qtyPerPiece, issuedQty}]
+  const [dieCodesTab, setDieCodesTab] = useState([])
+  // [{id, dieCode, dieQty, dieLocation}] — reference tab
 
   async function loadWorkforceMembers() {
     try {
@@ -259,6 +264,53 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
 
   // Derived key from SKU values only — changes when SKUs change, NOT when category/metal fill
   const skuKey = rows.map(r => String(r.sku || '').trim()).join('|')
+
+  // Pre-casting stages that show die sub-rows
+  const PRE_CASTING_STAGES = ['wax-pieces', 'wax-setting', 'casting']
+  const isPreCasting = PRE_CASTING_STAGES.includes(deptTo)
+
+  // Key that changes when SKU or issued qty changes (for die rows auto-fetch)
+  const skuIssuedKey = rows.map(r => `${String(r.sku || '').trim()}:${String(r.issuedQty || '').trim()}`).join('|')
+
+  // Auto-fetch die codes when dept is pre-casting and SKU/qty changes
+  useEffect(() => {
+    if (!isPreCasting) { setDieRows([]); setDieCodesTab([]); return }
+    const skuEntries = rows.filter(r => String(r.sku || '').trim() && String(r.issuedQty || '').trim())
+    if (!skuEntries.length) { setDieRows([]); setDieCodesTab([]); return }
+    const timer = setTimeout(async () => {
+      const allDieRows = []
+      const dieCodesRef = []
+      for (const row of skuEntries) {
+        const sku = String(row.sku).trim()
+        const qty = parseInt(row.issuedQty) || 0
+        try {
+          const res = await fetch(`/api/die-inventory/by-sku?sku=${encodeURIComponent(sku)}`, { cache: 'no-store' })
+          const result = await res.json().catch(() => null)
+          const dies = Array.isArray(result?.data) ? result.data : (Array.isArray(result) ? result : [])
+          for (const die of dies) {
+            const qpp = parseInt(die.qty_per_piece) || 1
+            allDieRows.push({
+              id: `${sku}-${die.die_code}`,
+              masterSku: sku,
+              dieCode: die.die_code,
+              qtyPerPiece: qpp,
+              issuedQty: qty * qpp,
+            })
+            dieCodesRef.push({
+              id: die.id,
+              dieCode: die.die_code,
+              dieQty: die.quantity,
+              dieLocation: die.location || '',
+            })
+          }
+        } catch {}
+      }
+      setDieRows(allDieRows)
+      setDieCodesTab(dieCodesRef)
+    }, 600)
+    return () => clearTimeout(timer)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isPreCasting, skuIssuedKey])
 
   // Auto-fill category, metal, and stone rows from product when a Master SKU is entered
   useEffect(() => {
@@ -600,6 +652,12 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
           material_rows: rows.map(({ sku, category, metal, issuedQty, unit1, issuedWeight, unit2 }) => ({ sku, category, metal, issued_qty: issuedQty, unit1, issued_weight: issuedWeight, unit2 })),
           stone_rows: stoneRows.map(({ variety, color, cut, shape, length, width, height, qty }) => ({ variety, color, cut, shape, length, width, height, qty })),
           die_weight_rows: dieWeightRows.map(({ dieNumber, quantity, weight, unit }) => ({ die_number: dieNumber, quantity, weight, unit })),
+          die_rows: isPreCasting ? dieRows.map(r => ({
+            master_sku: r.masterSku,
+            die_code: r.dieCode,
+            qty_per_piece: r.qtyPerPiece,
+            issued_qty: String(r.issuedQty),
+          })) : [],
         }),
       })
 
@@ -957,11 +1015,65 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
             </div>
           </div>
 
+          {/* DIE SUB-ROWS — visible only for pre-casting stages */}
+          {isPreCasting && (
+            <div className="rounded-md overflow-hidden border border-blue-400/40">
+              <div className="px-2.5 py-1.5 bg-blue-50 dark:bg-blue-950/30 border-b border-blue-400/40">
+                <p className="text-xs font-bold text-blue-700 dark:text-blue-300 uppercase tracking-wide">
+                  Die Codes — Auto-calculated from Die Inventory
+                </p>
+              </div>
+              {dieRows.length === 0 ? (
+                <p className="px-3 py-2 text-xs text-muted-foreground">
+                  {rows.some(r => String(r.sku || '').trim()) ? 'No die codes linked to entered SKUs. Configure them in Die Inventory.' : 'Enter a Master SKU and Qty above to auto-populate die rows.'}
+                </p>
+              ) : (
+                <>
+                  <div className="grid grid-cols-[1.2fr_1.2fr_0.7fr_0.9fr_32px] gap-0 bg-blue-600 text-white text-[9px] font-bold uppercase tracking-wider">
+                    <div className="px-1.5 py-2">Master SKU</div>
+                    <div className="px-1.5 py-2">Die Code</div>
+                    <div className="px-1.5 py-2">Qty/Piece</div>
+                    <div className="px-1.5 py-2">Issued Qty</div>
+                    <div className="px-1.5 py-2" />
+                  </div>
+                  {dieRows.map((dr) => (
+                    <div key={dr.id} className="grid grid-cols-[1.2fr_1.2fr_0.7fr_0.9fr_32px] gap-0 border-t border-border items-center bg-background">
+                      <div className="px-1.5 py-0.5 text-xs font-medium text-muted-foreground">{dr.masterSku}</div>
+                      <div className="px-1.5 py-0.5 text-xs font-semibold">{dr.dieCode}</div>
+                      <div className="px-0.5 py-0.5">
+                        <input
+                          type="number"
+                          className="h-6 w-full text-xs border border-border rounded px-1 bg-background"
+                          value={dr.qtyPerPiece}
+                          onChange={(e) => setDieRows(prev => prev.map(r => r.id === dr.id ? { ...r, qtyPerPiece: parseInt(e.target.value) || 1, issuedQty: (parseInt(rows.find(mr => mr.sku === r.masterSku)?.issuedQty) || 0) * (parseInt(e.target.value) || 1) } : r))}
+                        />
+                      </div>
+                      <div className="px-0.5 py-0.5">
+                        <input
+                          type="number"
+                          className="h-6 w-full text-xs border border-border rounded px-1 bg-background font-semibold"
+                          value={dr.issuedQty}
+                          onChange={(e) => setDieRows(prev => prev.map(r => r.id === dr.id ? { ...r, issuedQty: parseInt(e.target.value) || 0 } : r))}
+                        />
+                      </div>
+                      <div className="flex items-center justify-center">
+                        <button type="button" onClick={() => setDieRows(prev => prev.filter(r => r.id !== dr.id))} className="text-muted-foreground hover:text-destructive transition-colors" aria-label="Remove">
+                          <Trash2 className="h-3 w-3" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </>
+              )}
+            </div>
+          )}
+
           {/* STONE & FINDINGS TABS */}
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-2 bg-trust-blue/10">
+            <TabsList className="grid w-full grid-cols-3 bg-trust-blue/10">
               <TabsTrigger value="stone" className="text-sm font-semibold">Stone</TabsTrigger>
               <TabsTrigger value="die" className="text-sm font-semibold">Findings</TabsTrigger>
+              <TabsTrigger value="die-codes" className="text-sm font-semibold">Die Codes</TabsTrigger>
             </TabsList>
 
             {/* STONE AND FINDINGS TAB */}
@@ -1076,6 +1188,40 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
                       + Add Row
                     </button>
                   </div>
+                </div>
+              </div>
+            </TabsContent>
+
+            {/* DIE CODES REFERENCE TAB */}
+            <TabsContent value="die-codes" className="mt-2">
+              <div className="flex flex-col gap-1">
+                <div className="rounded-md overflow-hidden border border-border">
+                  <div className="grid grid-cols-[1.5fr_0.8fr_1fr] gap-0 bg-trust-blue text-white text-[9px] font-bold uppercase tracking-wider">
+                    <div className="px-1.5 py-2">Die Code</div>
+                    <div className="px-1.5 py-2">Die Qty</div>
+                    <div className="px-1.5 py-2">Die Location</div>
+                  </div>
+                  {dieCodesTab.length === 0 ? (
+                    <div className="px-3 py-2 text-xs text-muted-foreground">
+                      {isPreCasting ? 'No die inventory linked to entered SKUs.' : 'Select a pre-casting stage (Wax Pieces, Wax Setting, Casting) to see die codes.'}
+                    </div>
+                  ) : (
+                    dieCodesTab.map((dc) => (
+                      <div key={dc.id} className="grid grid-cols-[1.5fr_0.8fr_1fr] gap-0 border-t border-border items-center bg-background">
+                        <div className="px-1.5 py-1 text-xs font-semibold">{dc.dieCode}</div>
+                        <div className="px-1.5 py-1 text-xs">{dc.dieQty || '—'}</div>
+                        <div className="px-0.5 py-0.5">
+                          <input
+                            type="text"
+                            className="h-6 w-full text-xs border border-border rounded px-1 bg-background"
+                            placeholder="Location"
+                            value={dc.dieLocation}
+                            onChange={(e) => setDieCodesTab(prev => prev.map(r => r.id === dc.id ? { ...r, dieLocation: e.target.value } : r))}
+                          />
+                        </div>
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
             </TabsContent>

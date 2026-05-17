@@ -75,6 +75,9 @@ class Job(AuditModel):
 	stone_rows = models.JSONField(default=list, blank=True, help_text='Stone issuance rows')
 	# Each entry: {die_number, quantity, weight, unit}
 	die_weight_rows = models.JSONField(default=list, blank=True, help_text='Die/findings rows')
+	# Each entry: {master_sku, die_code, qty_per_piece, issued_qty}
+	# Only populated for pre-casting stages (wax-pieces, wax-setting, casting)
+	die_rows = models.JSONField(default=list, blank=True, help_text='Die code rows for pre-casting stages [{master_sku, die_code, qty_per_piece, issued_qty}]')
 
 	status = models.CharField(max_length=30, choices=JobStatus.choices, default=JobStatus.CREATED)
 

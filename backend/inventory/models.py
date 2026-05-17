@@ -450,6 +450,8 @@ class DieInventoryItem(AuditModel):
 	image = models.TextField(blank=True, default='')          # URL or base64
 	master_skus = models.JSONField(default=list, blank=True)  # list of master SKU strings
 	designer_skus = models.JSONField(default=list, blank=True)  # list of designer SKU strings
+	# Maps UPPERCASE master_sku → qty_per_piece (how many of this die per piece of that SKU)
+	sku_qty_per_piece = models.JSONField(default=dict, blank=True, help_text='{"SKU1": 2, "SKU2": 4} — dies needed per piece of each master SKU')
 	location = models.CharField(max_length=255, blank=True, default='')
 	quantity = models.DecimalField(max_digits=12, decimal_places=3, default=0)
 	wax_piece_qty = models.DecimalField(max_digits=12, decimal_places=3, default=0)

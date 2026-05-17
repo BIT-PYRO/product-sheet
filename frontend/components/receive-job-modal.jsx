@@ -93,7 +93,38 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
 
       // Populate rows from materialRows (multi-SKU voucher)
       const materialRows = Array.isArray(voucherData.materialRows) ? voucherData.materialRows : []
-      if (materialRows.length > 0) {
+      const deptTo = voucherData.deptTo || voucherData.dept_to || ''
+      const isPreCastingStage = ['wax-pieces', 'wax-setting', 'casting'].includes(deptTo)
+      const dieRowsData = Array.isArray(voucherData.dieRows) ? voucherData.dieRows
+        : Array.isArray(voucherData.die_rows) ? voucherData.die_rows : []
+
+      if (isPreCastingStage && dieRowsData.length > 0) {
+        // Pre-casting: show die code rows
+        setRows(dieRowsData.map((dr, idx) => ({
+          id: idx + 1,
+          sku: dr.die_code || '',
+          masterSku: dr.master_sku || '',
+          qtyPerPiece: dr.qty_per_piece || 1,
+          category: '',
+          metal: '',
+          issuedQty: dr.issued_qty || '',
+          unit1: 'Pcs',
+          issuedWeight: '',
+          unit2: 'Kg',
+          receivedQty: '',
+          unit3: 'Pcs',
+          receivedWeight: '',
+          unit4: 'Kg',
+          lossQty: '',
+          unit5: 'Pcs',
+          lossWeight: '',
+          unit6: 'Kg',
+          reissueQty: '',
+          unit7: 'Pcs',
+          reissueWeight: '',
+          unit8: 'Kg',
+        })))
+      } else if (materialRows.length > 0) {
         setRows(materialRows.map((mr, idx) => ({
           id: idx + 1,
           sku: mr.sku || '',
@@ -286,10 +317,12 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
       setSubmitError(`This voucher cannot be received (status: ${voucherData?.approvalStatus}). Only in-process or partially complete vouchers can be received.`)
       return
     }
+    const isPreCasting = ['wax-pieces', 'wax-setting', 'casting'].includes(deptFrom)
     const receivedRows = rows
       .filter(r => String(r.receivedQty || '').trim() !== '')
       .map(r => ({
         sku: r.sku,
+        ...(isPreCasting && r.masterSku ? { die_code: r.sku, master_sku: r.masterSku, qty_per_piece: r.qtyPerPiece || 1 } : {}),
         received_qty: parseFloat(r.receivedQty) || 0,
         received_weight: parseFloat(r.receivedWeight) || 0,
         loss_qty: parseFloat(r.lossQty) || 0,
@@ -346,10 +379,12 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
       setSubmitError(`Cannot process a voucher with status: "${voucherData?.approvalStatus}". Only in-process or partially complete vouchers can be sent for the next stage.`)
       return
     }
+    const isPreCastingSend = ['wax-pieces', 'wax-setting', 'casting'].includes(deptFrom)
     const payloadRows = rows
       .filter(r => r.sku)
       .map(r => ({
         sku: r.sku,
+        ...(isPreCastingSend && r.masterSku ? { die_code: r.sku, master_sku: r.masterSku, qty_per_piece: r.qtyPerPiece || 1 } : {}),
         received_qty: parseFloat(r.receivedQty) || 0,
         loss_qty: parseFloat(r.lossQty) || 0,
       }))
@@ -950,6 +985,29 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
               </tfoot>
             </table>
           </div>
+
+          {/* Stone/Findings Reference — shown when voucher has stone rows */}
+          {Array.isArray(voucherData?.stoneRows) && voucherData.stoneRows.some(r => r.variety || r.qty) && (
+            <div className="rounded-md overflow-hidden border border-amber-400/40">
+              <div className="px-2.5 py-1.5 bg-amber-50 dark:bg-amber-950/30 border-b border-amber-400/40">
+                <p className="text-xs font-bold text-amber-700 dark:text-amber-300 uppercase tracking-wide">
+                  Stones / Findings (Reference Only)
+                </p>
+              </div>
+              <div className="grid grid-cols-[1.2fr_0.8fr_0.7fr_0.7fr_0.5fr_0.5fr_0.5fr_0.6fr] gap-0 bg-amber-600 text-white text-[9px] font-bold uppercase tracking-wider">
+                {['Variety', 'Color', 'Cut', 'Shape', 'L', 'W', 'H', 'Qty'].map(h => (
+                  <div key={h} className="px-1.5 py-1.5">{h}</div>
+                ))}
+              </div>
+              {voucherData.stoneRows.filter(r => r.variety || r.qty).map((sr, idx) => (
+                <div key={idx} className="grid grid-cols-[1.2fr_0.8fr_0.7fr_0.7fr_0.5fr_0.5fr_0.5fr_0.6fr] gap-0 border-t border-border bg-background items-center">
+                  {[sr.variety, sr.color, sr.cut, sr.shape, sr.length, sr.width, sr.height, sr.qty].map((val, vi) => (
+                    <div key={vi} className="px-1.5 py-0.5 text-xs">{val || '—'}</div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          )}
 
           {/* Error / Warning Display */}
           {submitError && (
