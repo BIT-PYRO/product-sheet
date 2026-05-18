@@ -85,6 +85,8 @@ export default function MasterProductSheet() {
     { id: 'activeChannels', label: 'Active Channels' },
     { id: 'shopifyStatus', label: 'Shopify Status' },
     { id: 'dieNumber', label: 'Die Number' },
+    { id: 'dieLocation', label: 'Die Location' },
+    { id: 'dieQty', label: 'Die Qty' },
     { id: 'findings', label: 'Findings' },
     { id: 'masterSku', label: 'Master SKU' },
     { id: 'color', label: 'Color' },
@@ -120,6 +122,8 @@ export default function MasterProductSheet() {
     activeChannels: { minWidth: 'min-w-[100px]', headerBg: 'bg-[#dbeafe]' },
     shopifyStatus: { minWidth: 'min-w-[90px]', headerBg: 'bg-[#dbeafe]' },
     dieNumber: { minWidth: 'min-w-[100px]', headerBg: 'bg-[#dbeafe]' },
+    dieLocation: { minWidth: 'min-w-[100px]', headerBg: 'bg-[#dbeafe]' },
+    dieQty: { minWidth: 'min-w-[70px]', headerBg: 'bg-[#dbeafe]' },
     findings: { minWidth: 'min-w-[100px]', headerBg: 'bg-[#dbeafe]' },
     masterSku: { minWidth: 'min-w-[85px]', headerBg: 'bg-[#dbeafe]' },
     color: { minWidth: 'min-w-[70px]', headerBg: 'bg-[#dbeafe]' },
@@ -346,9 +350,7 @@ export default function MasterProductSheet() {
         enamelType: product.enamel_type || '',
         activeChannels: product.active_channels || '',
         shopifyStatus: product.is_active ? 'active' : 'inactive',
-        dieNumber: Array.isArray(product.die_numbers) && product.die_numbers.length > 0
-          ? product.die_numbers.filter(d => d.value).map((d) => { const p = [d.value]; if (d.quantity) p.push(`[${d.quantity}]`); if (d.location) p.push(`[${d.location}]`); return p.join(''); }).filter(Boolean).join(', ')
-          : '',
+        dieNumber: Array.isArray(product.die_numbers) ? product.die_numbers : [],
         findings: Array.isArray(product.findings) && product.findings.length > 0
           ? product.findings.filter(f => f.value).map((f) => { const p = [f.value]; if (f.quantity) p.push(`[${f.quantity}]`); if (f.location) p.push(`[${f.location}]`); return p.join(''); }).filter(Boolean).join(', ')
           : '',
@@ -494,7 +496,7 @@ export default function MasterProductSheet() {
             // Die/Findings from designer
             const dieInfo = designer.total_die_code != null ? String(designer.total_die_code) : '';
             const findingsInfo = Array.isArray(designer.findings_entries) && designer.findings_entries[0];
-            if (dieInfo && !row.dieNumber) updates.dieNumber = dieInfo;
+            if (dieInfo && !(Array.isArray(row.dieNumber) && row.dieNumber.length > 0)) updates.dieNumber = [{ value: dieInfo, quantity: '', location: '' }];
             if (findingsInfo?.code && !row.findings) updates.findings = findingsInfo.code;
           }
 
@@ -553,7 +555,7 @@ export default function MasterProductSheet() {
           if (row.id !== rowId) return row;
           const updates = {};
           // Auto-fill dieNumber from finding's die_number if currently empty
-          if (finding.die_number && !row.dieNumber) updates.dieNumber = finding.die_number;
+          if (finding.die_number && !(Array.isArray(row.dieNumber) && row.dieNumber.length > 0)) updates.dieNumber = [{ value: finding.die_number, quantity: '', location: '' }];
           // Auto-fill weight from finding if currently empty
           if (finding.weight && !row.weight) updates.weight = finding.weight;
           return Object.keys(updates).length > 0 ? { ...row, ...updates } : row;
@@ -586,16 +588,23 @@ export default function MasterProductSheet() {
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
   const EXPORT_FIELDS = columns.filter((c) => c.id !== 'images').map((c) => c.id);
   const EXPORT_LABELS = columns.filter((c) => c.id !== 'images').map((c) => c.label);
+  const formatExportCell = (f, r) => {
+    const dies = Array.isArray(r.dieNumber) ? r.dieNumber : [];
+    if (f === 'dieNumber') return dies.map((d) => d.value || '').filter(Boolean).join(', ');
+    if (f === 'dieLocation') return dies.map((d) => d.location || '').filter(Boolean).join(', ');
+    if (f === 'dieQty') return dies.map((d) => d.quantity || '').filter(Boolean).join(', ');
+    return r[f] ?? '';
+  };
   const exportToExcel = () => {
     if (!canExport) return;
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([EXPORT_LABELS, ...sortedDisplayData.map((r) => EXPORT_FIELDS.map((f) => r[f] ?? ''))]), 'Products');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([EXPORT_LABELS, ...sortedDisplayData.map((r) => EXPORT_FIELDS.map((f) => formatExportCell(f, r)))]), 'Products');
     XLSX.writeFile(wb, 'master_product_sheet.xlsx');
     setExportMenuOpen(false);
   };
   const exportToPDF = () => {
     if (!canExport) return;
-    const rows = sortedDisplayData.map((r) => EXPORT_FIELDS.map((f) => r[f] ?? ''));
+    const rows = sortedDisplayData.map((r) => EXPORT_FIELDS.map((f) => formatExportCell(f, r)));
     const win = window.open('', '_blank');
     win.document.write(`<html><head><title>Master Product Sheet</title><style>body{font-family:sans-serif;font-size:11px;margin:16px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #ccc;padding:4px 6px;text-align:left}th{background:#dbeafe}</style></head><body><h2>Master Product Sheet</h2><table><thead><tr>${EXPORT_LABELS.map((l)=>`<th>${l}</th>`).join('')}</tr></thead><tbody>${rows.map((r)=>`<tr>${r.map((c)=>`<td>${c}</td>`).join('')}</tr>`).join('')}</tbody></table><script>window.onload=function(){window.print();}<\/script></body></html>`);
     win.document.close();
@@ -629,7 +638,7 @@ export default function MasterProductSheet() {
       enamelType: '',
       activeChannels: '',
       shopifyStatus: 'active',
-      dieNumber: '',
+      dieNumber: [],
       findings: '',
       masterSku: '',
       designerSku: '',
@@ -701,9 +710,7 @@ export default function MasterProductSheet() {
           notes: row.notes,
           invoice_price: parseFloat(row.invoicePrice) || 0,
           selling_price: parseFloat(row.invoicePrice) || 0,
-          die_numbers: row.dieNumber
-            ? row.dieNumber.split(',').map((v) => ({ value: v.trim(), quantity: '', location: '' })).filter((d) => d.value)
-            : [],
+          die_numbers: Array.isArray(row.dieNumber) ? row.dieNumber.filter((d) => d.value) : [],
           findings: row.findings
             ? row.findings.split(',').map((v) => ({ value: v.trim(), quantity: '', location: '' })).filter((f) => f.value)
             : [],
@@ -1637,33 +1644,68 @@ export default function MasterProductSheet() {
                 </tr>
               )}
 
-              {paginatedData.map((row, idx) => {
+              {paginatedData.flatMap((row, idx) => {
                 const isEditing = editingRowIds.has(row.id);
                 const isAnyRowEditing = editingRowIds.size > 0;
                 const canEdit = !isArchivedView && isEditing;
-                
-                return (
-                  <tr 
-                    key={row.id} 
+                const dies = Array.isArray(row.dieNumber) && row.dieNumber.length > 0
+                  ? row.dieNumber
+                  : [{ value: '', quantity: '', location: '' }];
+                const dieSpan = dies.length;
+
+                return dies.map((die, dieIdx) => (
+                  <tr
+                    key={`${row.id}-${dieIdx}`}
                     className={`border-b border-soft-border ${
-                      isEditing 
-                        ? 'bg-trust-blue/10 hover:bg-trust-blue/10' 
+                      isEditing
+                        ? 'bg-trust-blue/10 hover:bg-trust-blue/10'
                         : 'hover:bg-cloud-gray'
                     }`}
                   >
-                    <td className={`border border-soft-border p-2 text-center sticky left-0 z-10 shadow-[2px_0_4px_-1px_rgba(0,0,0,0.08)] ${
-                      isEditing ? 'bg-[#eff6ff]' : 'bg-white'
-                    }`}>
-                      <Checkbox
-                        checked={selectedRows.has(row.id)}
-                        onCheckedChange={() => toggleRowSelection(row.id)}
-                        className="cursor-pointer"
-                        disabled={isAnyRowEditing}
-                      />
-                    </td>
-                    {columns.map((column) =>
-                      visibleColumns.has(column.id) && (
-                        <td key={column.id} className={`border border-soft-border p-1 ${columnConfig[column.id].cellBg || ''}`} style={isEditing ? {backgroundColor: '#eff6ff'} : {}}>
+                    {dieIdx === 0 && (
+                      <td rowSpan={dieSpan} className={`border border-soft-border p-2 text-center sticky left-0 z-10 shadow-[2px_0_4px_-1px_rgba(0,0,0,0.08)] ${
+                        isEditing ? 'bg-[#eff6ff]' : 'bg-white'
+                      }`}>
+                        <Checkbox
+                          checked={selectedRows.has(row.id)}
+                          onCheckedChange={() => toggleRowSelection(row.id)}
+                          className="cursor-pointer"
+                          disabled={isAnyRowEditing}
+                        />
+                      </td>
+                    )}
+                    {columns.map((column) => {
+                      if (!visibleColumns.has(column.id)) return null;
+                      const isDieCol = column.id === 'dieNumber' || column.id === 'dieLocation' || column.id === 'dieQty';
+                      if (isDieCol) {
+                        const dieFieldMap = { dieNumber: 'value', dieLocation: 'location', dieQty: 'quantity' };
+                        const field = dieFieldMap[column.id];
+                        const cellValue = die[field] || '';
+                        return (
+                          <td key={column.id} className={`border border-soft-border p-1 ${columnConfig[column.id].cellBg || ''}`} style={isEditing ? {backgroundColor: '#eff6ff'} : {}}>
+                            {canEdit ? (
+                              <Input
+                                type="text"
+                                value={cellValue}
+                                onChange={(e) => {
+                                  const newDies = (Array.isArray(row.dieNumber) ? row.dieNumber : []).map((d, i) =>
+                                    i === dieIdx ? { ...d, [field]: e.target.value } : d
+                                  );
+                                  handleCellChange(row.id, 'dieNumber', newDies);
+                                }}
+                                className="border-0 p-1 text-sm h-8"
+                              />
+                            ) : (
+                              <div className="min-h-8 px-1 py-1 text-sm whitespace-pre-wrap break-words leading-4">
+                                {cellValue}
+                              </div>
+                            )}
+                          </td>
+                        );
+                      }
+                      if (dieIdx !== 0) return null;
+                      return (
+                        <td key={column.id} rowSpan={dieSpan} className={`border border-soft-border p-1 ${columnConfig[column.id].cellBg || ''}`} style={isEditing ? {backgroundColor: '#eff6ff'} : {}}>
                           {column.id === 'images' ? (
                             <ImageCell
                               images={row.images}
@@ -1710,10 +1752,10 @@ export default function MasterProductSheet() {
                             </div>
                           )}
                         </td>
-                      )
-                    )}
+                      );
+                    })}
                   </tr>
-                );
+                ));
               })}
             </tbody>
           </table>
