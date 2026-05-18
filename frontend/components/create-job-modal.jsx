@@ -272,41 +272,36 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
   // Key that changes when SKU or issued qty changes (for die rows auto-fetch)
   const skuIssuedKey = rows.map(r => `${String(r.sku || '').trim()}:${String(r.issuedQty || '').trim()}`).join('|')
 
-  // Auto-fetch die codes when dept is pre-casting and SKU/qty changes
+  // Auto-fetch die codes from product.die_numbers when dept is pre-casting and SKU/qty changes
   useEffect(() => {
-    if (!isPreCasting) { setDieRows([]); setDieCodesTab([]); return }
+    if (!isPreCasting) { setDieRows([]); return }
     const skuEntries = rows.filter(r => String(r.sku || '').trim() && String(r.issuedQty || '').trim())
-    if (!skuEntries.length) { setDieRows([]); setDieCodesTab([]); return }
+    if (!skuEntries.length) { setDieRows([]); return }
     const timer = setTimeout(async () => {
       const allDieRows = []
-      const dieCodesRef = []
       for (const row of skuEntries) {
         const sku = String(row.sku).trim()
         const qty = parseInt(row.issuedQty) || 0
         try {
-          const res = await fetch(`/api/die-inventory/by-sku?sku=${encodeURIComponent(sku)}`, { cache: 'no-store' })
+          const res = await fetch(`/api/products?master_sku=${encodeURIComponent(sku)}`, { cache: 'no-store' })
           const result = await res.json().catch(() => null)
-          const dies = Array.isArray(result?.data) ? result.data : (Array.isArray(result) ? result : [])
+          const items = Array.isArray(result?.data) ? result.data : (result?.data?.results || [])
+          const product = items.find(p => String(p.master_sku || '').toLowerCase() === sku.toLowerCase()) || items[0]
+          const dies = Array.isArray(product?.die_numbers) ? product.die_numbers.filter(d => d.value) : []
           for (const die of dies) {
-            const qpp = parseInt(die.qty_per_piece) || 1
+            const qpp = parseInt(die.quantity) || 1
             allDieRows.push({
-              id: `${sku}-${die.die_code}`,
+              id: `${sku}-${die.value}`,
               masterSku: sku,
-              dieCode: die.die_code,
+              dieCode: die.value,
               qtyPerPiece: qpp,
               issuedQty: qty * qpp,
-            })
-            dieCodesRef.push({
-              id: die.id,
-              dieCode: die.die_code,
-              dieQty: die.quantity,
-              dieLocation: die.location || '',
+              location: die.location || '',
             })
           }
         } catch {}
       }
       setDieRows(allDieRows)
-      setDieCodesTab(dieCodesRef)
     }, 600)
     return () => clearTimeout(timer)
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -521,7 +516,8 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
         })
 
         // Filter to only transitions within the user-selected From→To range
-        const filteredTransitions = (deptFrom && deptTo)
+        // In 'all' mode always create the full pipeline regardless of the selector values
+        const filteredTransitions = (mode !== 'all' && deptFrom && deptTo)
           ? sortedTransitions.filter(t =>
               (deptOrder[t.fromDept.key] ?? 99) >= (deptOrder[deptFrom] ?? 99) &&
               (deptOrder[t.toDept.key] ?? 99) <= (deptOrder[deptTo] ?? 99)
@@ -535,6 +531,42 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
         for (let i = 0; i < filteredTransitions.length; i++) {
           const { fromDept, toDept, materialRows, productId } = filteredTransitions[i]
           const totalQty = materialRows.reduce((sum, r) => sum + (parseInt(r.issued_qty) || 0), 0)
+
+          // Compute die_rows for pre-casting stages from product.die_numbers
+          const PRE_CASTING_KEYS = new Set(['wax-pieces', 'wax-setting', 'casting'])
+          const isPreCastingTransition = PRE_CASTING_KEYS.has(toDept.key)
+          const dieRowsForVoucher = []
+          if (isPreCastingTransition) {
+            for (const materialRow of materialRows) {
+              const sku = String(materialRow.sku || '').trim()
+              const product = productMap.get(sku)
+              const dies = Array.isArray(product?.die_numbers) ? product.die_numbers.filter(d => d.value) : []
+              const skuQty = parseInt(materialRow.issued_qty) || 0
+              for (const die of dies) {
+                const qpp = parseInt(die.quantity) || 1
+                dieRowsForVoucher.push({
+                  master_sku: sku,
+                  die_code: die.value,
+                  qty_per_piece: qpp,
+                  issued_qty: String(skuQty * qpp),
+                })
+              }
+            }
+          }
+
+          // For pre-casting stages, use die code aggregate rows as material_rows
+          const dieCodeAgg = {}
+          if (isPreCastingTransition) {
+            for (const dr of dieRowsForVoucher) {
+              if (!dieCodeAgg[dr.die_code]) {
+                dieCodeAgg[dr.die_code] = { sku: dr.die_code, category: 'Die', metal: '', issued_qty: 0, unit1: 'Pcs', issued_weight: '', unit2: '' }
+              }
+              dieCodeAgg[dr.die_code].issued_qty += parseInt(dr.issued_qty) || 0
+            }
+          }
+          const effectiveMaterialRows = isPreCastingTransition && Object.keys(dieCodeAgg).length > 0
+            ? Object.values(dieCodeAgg).map(r => ({ ...r, issued_qty: String(r.issued_qty) }))
+            : materialRows
 
           localCounter++
           const vNo = `JJ-${String(localCounter).padStart(2, '0')}`
@@ -560,9 +592,10 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
                 batch_id: batchId,
                 department_order: i,
                 notes: noteByIssuer || `Step ${i + 1}: ${fromDept.label} → ${toDept.label}`,
-                material_rows: materialRows,
+                material_rows: effectiveMaterialRows,
                 stone_rows: stoneRows.map(({ variety, color, cut, shape, length, width, height, qty }) => ({ variety, color, cut, shape, length, width, height, qty })),
                 die_weight_rows: dieWeightRows.map(({ dieNumber, quantity, weight, unit }) => ({ die_number: dieNumber, quantity, weight, unit })),
+                die_rows: dieRowsForVoucher,
                 ...(picklistGroupDbId ? { picklist_group: picklistGroupDbId } : {}),
               }),
             })
@@ -649,7 +682,18 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
           dept_from: deptFrom,
           dept_to: deptTo,
           notes: noteByIssuer,
-          material_rows: rows.map(({ sku, category, metal, issuedQty, unit1, issuedWeight, unit2 }) => ({ sku, category, metal, issued_qty: issuedQty, unit1, issued_weight: issuedWeight, unit2 })),
+          material_rows: isPreCasting && dieRows.length > 0
+            ? (() => {
+                const agg = {}
+                for (const r of dieRows) {
+                  if (!agg[r.dieCode]) {
+                    agg[r.dieCode] = { sku: r.dieCode, category: 'Die', metal: '', issued_qty: 0, unit1: 'Pcs', issued_weight: '', unit2: '' }
+                  }
+                  agg[r.dieCode].issued_qty += parseInt(r.issuedQty) || 0
+                }
+                return Object.values(agg).map(r => ({ ...r, issued_qty: String(r.issued_qty) }))
+              })()
+            : rows.map(({ sku, category, metal, issuedQty, unit1, issuedWeight, unit2 }) => ({ sku, category, metal, issued_qty: issuedQty, unit1, issued_weight: issuedWeight, unit2 })),
           stone_rows: stoneRows.map(({ variety, color, cut, shape, length, width, height, qty }) => ({ variety, color, cut, shape, length, width, height, qty })),
           die_weight_rows: dieWeightRows.map(({ dieNumber, quantity, weight, unit }) => ({ die_number: dieNumber, quantity, weight, unit })),
           die_rows: isPreCasting ? dieRows.map(r => ({
@@ -722,6 +766,20 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
     { value: "final-packaging", label: "Final Packaging" },
     { value: "final-stock", label: "Final Stock" },
   ]
+
+  // Group dieRows by die code for bifurcated display
+  const dieCodeGroups = (() => {
+    const map = {}
+    for (const dr of dieRows) {
+      if (!map[dr.dieCode]) {
+        map[dr.dieCode] = { dieCode: dr.dieCode, location: dr.location || '', entries: [], total: 0 }
+      }
+      const qty = parseInt(dr.issuedQty) || 0
+      map[dr.dieCode].entries.push({ masterSku: dr.masterSku, qtyPerPiece: dr.qtyPerPiece, totalQty: qty })
+      map[dr.dieCode].total += qty
+    }
+    return Object.values(map)
+  })()
 
   return (
     <>
@@ -1020,50 +1078,42 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
             <div className="rounded-md overflow-hidden border border-blue-400/40">
               <div className="px-2.5 py-1.5 bg-blue-50 dark:bg-blue-950/30 border-b border-blue-400/40">
                 <p className="text-xs font-bold text-blue-700 dark:text-blue-300 uppercase tracking-wide">
-                  Die Codes — Auto-calculated from Die Inventory
+                  Die Codes — Auto-calculated from Product Die Numbers
                 </p>
               </div>
-              {dieRows.length === 0 ? (
+              {dieCodeGroups.length === 0 ? (
                 <p className="px-3 py-2 text-xs text-muted-foreground">
-                  {rows.some(r => String(r.sku || '').trim()) ? 'No die codes linked to entered SKUs. Configure them in Die Inventory.' : 'Enter a Master SKU and Qty above to auto-populate die rows.'}
+                  {rows.some(r => String(r.sku || '').trim()) ? 'No die numbers configured on the entered SKUs. Add them in the Master Product Sheet.' : 'Enter a Master SKU and Qty above to auto-populate die rows.'}
                 </p>
               ) : (
-                <>
-                  <div className="grid grid-cols-[1.2fr_1.2fr_0.7fr_0.9fr_32px] gap-0 bg-blue-600 text-white text-[9px] font-bold uppercase tracking-wider">
-                    <div className="px-1.5 py-2">Master SKU</div>
-                    <div className="px-1.5 py-2">Die Code</div>
-                    <div className="px-1.5 py-2">Qty/Piece</div>
-                    <div className="px-1.5 py-2">Issued Qty</div>
-                    <div className="px-1.5 py-2" />
-                  </div>
-                  {dieRows.map((dr) => (
-                    <div key={dr.id} className="grid grid-cols-[1.2fr_1.2fr_0.7fr_0.9fr_32px] gap-0 border-t border-border items-center bg-background">
-                      <div className="px-1.5 py-0.5 text-xs font-medium text-muted-foreground">{dr.masterSku}</div>
-                      <div className="px-1.5 py-0.5 text-xs font-semibold">{dr.dieCode}</div>
-                      <div className="px-0.5 py-0.5">
-                        <input
-                          type="number"
-                          className="h-6 w-full text-xs border border-border rounded px-1 bg-background"
-                          value={dr.qtyPerPiece}
-                          onChange={(e) => setDieRows(prev => prev.map(r => r.id === dr.id ? { ...r, qtyPerPiece: parseInt(e.target.value) || 1, issuedQty: (parseInt(rows.find(mr => mr.sku === r.masterSku)?.issuedQty) || 0) * (parseInt(e.target.value) || 1) } : r))}
-                        />
-                      </div>
-                      <div className="px-0.5 py-0.5">
-                        <input
-                          type="number"
-                          className="h-6 w-full text-xs border border-border rounded px-1 bg-background font-semibold"
-                          value={dr.issuedQty}
-                          onChange={(e) => setDieRows(prev => prev.map(r => r.id === dr.id ? { ...r, issuedQty: parseInt(e.target.value) || 0 } : r))}
-                        />
-                      </div>
-                      <div className="flex items-center justify-center">
-                        <button type="button" onClick={() => setDieRows(prev => prev.filter(r => r.id !== dr.id))} className="text-muted-foreground hover:text-destructive transition-colors" aria-label="Remove">
-                          <Trash2 className="h-3 w-3" />
-                        </button>
-                      </div>
-                    </div>
+                <table className="w-full text-xs border-collapse">
+                  <thead>
+                    <tr className="bg-blue-600 text-white">
+                      <th className="border border-blue-500 px-1.5 py-2 text-left text-[9px] font-bold uppercase tracking-wider w-[30%]">Die Code</th>
+                      <th className="border border-blue-500 px-1.5 py-2 text-left text-[9px] font-bold uppercase tracking-wider w-[30%]">Master SKU</th>
+                      <th className="border border-blue-500 px-1.5 py-2 text-right text-[9px] font-bold uppercase tracking-wider w-[40%]">Qty</th>
+                    </tr>
+                  </thead>
+                  {dieCodeGroups.map((group) => (
+                    <tbody key={group.dieCode}>
+                      {group.entries.map((entry, idx) => (
+                        <tr key={`${group.dieCode}-${entry.masterSku}`} className="bg-background">
+                          <td className="border border-border px-1.5 py-1 font-bold text-foreground align-middle">{idx === 0 ? group.dieCode : ''}</td>
+                          <td className="border border-border px-1.5 py-1 text-muted-foreground align-middle">{entry.masterSku}</td>
+                          <td className="border border-border px-1.5 py-1 text-right align-middle">
+                            <span className="text-muted-foreground">{entry.qtyPerPiece}/pc × {Math.round(entry.totalQty / (entry.qtyPerPiece || 1))} =</span>{' '}
+                            <span className="font-bold text-foreground">{entry.totalQty} pcs</span>
+                          </td>
+                        </tr>
+                      ))}
+                      <tr className="bg-blue-50/50 dark:bg-blue-950/20">
+                        <td className="border border-border px-1.5 py-1" />
+                        <td className="border border-border px-1.5 py-1 font-bold text-blue-700 dark:text-blue-300">Total</td>
+                        <td className="border border-border px-1.5 py-1 text-right font-bold text-blue-700 dark:text-blue-300">{group.total} pcs</td>
+                      </tr>
+                    </tbody>
                   ))}
-                </>
+                </table>
               )}
             </div>
           )}
@@ -1195,34 +1245,47 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
             {/* DIE CODES REFERENCE TAB */}
             <TabsContent value="die-codes" className="mt-2">
               <div className="flex flex-col gap-1">
-                <div className="rounded-md overflow-hidden border border-border">
-                  <div className="grid grid-cols-[1.5fr_0.8fr_1fr] gap-0 bg-trust-blue text-white text-[9px] font-bold uppercase tracking-wider">
-                    <div className="px-1.5 py-2">Die Code</div>
-                    <div className="px-1.5 py-2">Die Qty</div>
-                    <div className="px-1.5 py-2">Die Location</div>
+                {!isPreCasting ? (
+                  <p className="px-3 py-2 text-xs text-muted-foreground">Select a pre-casting stage (Wax Pieces, Wax Setting, Casting) to see die codes.</p>
+                ) : dieCodeGroups.length === 0 ? (
+                  <p className="px-3 py-2 text-xs text-muted-foreground">No die numbers configured on the entered SKUs. Add them in the Master Product Sheet.</p>
+                ) : (
+                  <div className="rounded-md overflow-hidden border border-blue-400/40">
+                    <table className="w-full text-xs border-collapse">
+                      <thead>
+                        <tr className="bg-blue-600 text-white">
+                          <th className="border border-blue-500 px-1.5 py-2 text-left text-[9px] font-bold uppercase tracking-wider w-[30%]">Die Code</th>
+                          <th className="border border-blue-500 px-1.5 py-2 text-left text-[9px] font-bold uppercase tracking-wider w-[30%]">Master SKU</th>
+                          <th className="border border-blue-500 px-1.5 py-2 text-right text-[9px] font-bold uppercase tracking-wider w-[40%]">Qty</th>
+                        </tr>
+                      </thead>
+                      {dieCodeGroups.map((group) => (
+                        <tbody key={group.dieCode}>
+                          {group.entries.map((entry, idx) => (
+                            <tr key={`${group.dieCode}-${entry.masterSku}`} className="bg-background">
+                              <td className="border border-border px-1.5 py-1 font-bold text-foreground align-middle">{idx === 0 ? group.dieCode : ''}</td>
+                              <td className="border border-border px-1.5 py-1 text-muted-foreground align-middle">{entry.masterSku}</td>
+                              <td className="border border-border px-1.5 py-1 text-right align-middle">
+                                <span className="text-muted-foreground">{entry.qtyPerPiece}/pc × {Math.round(entry.totalQty / (entry.qtyPerPiece || 1))} =</span>{' '}
+                                <span className="font-bold text-foreground">{entry.totalQty} pcs</span>
+                              </td>
+                            </tr>
+                          ))}
+                          <tr className="bg-blue-50/50 dark:bg-blue-950/20">
+                            <td className="border border-border px-1.5 py-1" />
+                            <td className="border border-border px-1.5 py-1 font-bold text-blue-700 dark:text-blue-300">Total</td>
+                            <td className="border border-border px-1.5 py-1 text-right font-bold text-blue-700 dark:text-blue-300">{group.total} pcs</td>
+                          </tr>
+                          <tr className="bg-background">
+                            <td className="border border-border px-1.5 py-1" />
+                            <td className="border border-border px-1.5 py-1 text-muted-foreground">📍 Location</td>
+                            <td className="border border-border px-1.5 py-1 text-right text-muted-foreground">{group.location || '—'}</td>
+                          </tr>
+                        </tbody>
+                      ))}
+                    </table>
                   </div>
-                  {dieCodesTab.length === 0 ? (
-                    <div className="px-3 py-2 text-xs text-muted-foreground">
-                      {isPreCasting ? 'No die inventory linked to entered SKUs.' : 'Select a pre-casting stage (Wax Pieces, Wax Setting, Casting) to see die codes.'}
-                    </div>
-                  ) : (
-                    dieCodesTab.map((dc) => (
-                      <div key={dc.id} className="grid grid-cols-[1.5fr_0.8fr_1fr] gap-0 border-t border-border items-center bg-background">
-                        <div className="px-1.5 py-1 text-xs font-semibold">{dc.dieCode}</div>
-                        <div className="px-1.5 py-1 text-xs">{dc.dieQty || '—'}</div>
-                        <div className="px-0.5 py-0.5">
-                          <input
-                            type="text"
-                            className="h-6 w-full text-xs border border-border rounded px-1 bg-background"
-                            placeholder="Location"
-                            value={dc.dieLocation}
-                            onChange={(e) => setDieCodesTab(prev => prev.map(r => r.id === dc.id ? { ...r, dieLocation: e.target.value } : r))}
-                          />
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
+                )}
               </div>
             </TabsContent>
           </Tabs>

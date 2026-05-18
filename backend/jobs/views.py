@@ -232,28 +232,32 @@ def _deduct_source_current_stock(voucher):
 			except DieInventoryItem.DoesNotExist:
 				pass
 
-	# ── Master-SKU level deduction (all stages) ─────────────────────────────────
-	for row in (voucher.material_rows or []):
-		qty = int(float(row.get('issued_qty', 0) or 0))
-		if qty <= 0:
-			continue
-		sku = str(row.get('sku', '') or '').strip()
-		if not sku:
-			continue
-		product = _Product.objects.filter(
-			Q(master_sku__iexact=sku)
-		).first() or voucher.product
-		if not product:
-			continue
+	# ── Master-SKU level deduction (non-pre-casting stages only) ─────────────────
+	# For pre-casting stages the die_rows block above already handles all physical
+	# deductions via DieInventoryItem, so material_rows (now die code rows) must
+	# not be processed here to avoid corrupting master-SKU inventory records.
+	if voucher.dept_to not in PRE_CASTING_DEPT_TOS:
+		for row in (voucher.material_rows or []):
+			qty = int(float(row.get('issued_qty', 0) or 0))
+			if qty <= 0:
+				continue
+			sku = str(row.get('sku', '') or '').strip()
+			if not sku:
+				continue
+			product = _Product.objects.filter(
+				Q(master_sku__iexact=sku)
+			).first() or voucher.product
+			if not product:
+				continue
 
-		InventoryTransaction.objects.create(
-			product=product,
-			txn_type='adjust',
-			quantity=-qty,
-			stage=from_stage,
-			stock_type='current',
-			remark=f'Issued to {voucher.dept_to}: {voucher.voucher_no}',
-		)
+			InventoryTransaction.objects.create(
+				product=product,
+				txn_type='adjust',
+				quantity=-qty,
+				stage=from_stage,
+				stock_type='current',
+				remark=f'Issued to {voucher.dept_to}: {voucher.voucher_no}',
+			)
 
 
 @extend_schema_view(
@@ -357,7 +361,7 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 		}
 		active_jobs = Job.objects.filter(
 			approval_status__in=active_statuses
-		).only('dept_to', 'material_rows', 'received_rows')
+		).only('dept_to', 'material_rows', 'die_rows', 'received_rows')
 
 		# Pre-load known master SKUs so we can distinguish master SKUs that contain
 		# a slash (e.g. "AJE15/4") from variant suffixes (e.g. "KARTIK/G").
@@ -398,20 +402,43 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 					already_rcvd[s] = already_rcvd.get(s, 0) + qty
 					already_lost[s] = already_lost.get(s, 0) + loss
 
-			for row in (job.material_rows or []):
-				raw_sku = str(row.get('sku', '') or '').strip()
-				if not raw_sku:
-					continue
-				master_sku = resolve_sku(raw_sku)
-				issued = int(float(row.get('issued_qty', 0) or 0))
-				received = already_rcvd.get(master_sku, 0)
-				lost = already_lost.get(master_sku, 0)
-				# WIP = issued − received − lost  (lost pieces are handled by Re-Issue chain)
-				remaining = max(0, issued - received - lost)
-				if remaining == 0:
-					continue
-				wip.setdefault(master_sku, {})
-				wip[master_sku][dept_to] = wip[master_sku].get(dept_to, 0) + remaining
+			# For pre-casting stages (wax-pieces, wax-setting, casting) material_rows
+			# now contains die code rows, not master SKUs.  Derive master-SKU WIP from
+			# die_rows instead so the inventory sheet WIP columns remain accurate.
+			# received_rows for these stages use die codes as sku, already in already_rcvd.
+			if dept_to in PRE_CASTING_DEPT_TOS and (job.die_rows or []):
+				for die_row in (job.die_rows or []):
+					master_sku = str(die_row.get('master_sku', '') or '').strip().upper()
+					die_code = str(die_row.get('die_code', '') or '').strip().upper()
+					die_issued = int(float(die_row.get('issued_qty', 0) or 0))
+					qty_per_piece = int(float(die_row.get('qty_per_piece', 1) or 1)) or 1
+					if not master_sku or not die_code:
+						continue
+					master_issued = die_issued // qty_per_piece
+					# already_rcvd keyed by die_code (resolve_sku just uppercases non-product strings)
+					die_received = already_rcvd.get(die_code, 0)
+					die_lost = already_lost.get(die_code, 0)
+					master_received = (die_received + die_lost) // qty_per_piece
+					remaining = max(0, master_issued - master_received)
+					if remaining == 0:
+						continue
+					wip.setdefault(master_sku, {})
+					wip[master_sku][dept_to] = wip[master_sku].get(dept_to, 0) + remaining
+			else:
+				for row in (job.material_rows or []):
+					raw_sku = str(row.get('sku', '') or '').strip()
+					if not raw_sku:
+						continue
+					master_sku = resolve_sku(raw_sku)
+					issued = int(float(row.get('issued_qty', 0) or 0))
+					received = already_rcvd.get(master_sku, 0)
+					lost = already_lost.get(master_sku, 0)
+					# WIP = issued − received − lost  (lost pieces are handled by Re-Issue chain)
+					remaining = max(0, issued - received - lost)
+					if remaining == 0:
+						continue
+					wip.setdefault(master_sku, {})
+					wip[master_sku][dept_to] = wip[master_sku].get(dept_to, 0) + remaining
 
 		return Response({'success': True, 'data': wip})
 

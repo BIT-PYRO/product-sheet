@@ -504,14 +504,35 @@ export default function MasterInventorySheet() {
   const openDiePopup = useCallback(async (row, stage, stageName) => {
     const dieCodes = (row.dieRefs || []).map((d) => d.value).filter(Boolean);
     if (!dieCodes.length) return;
-    setDiePopup({ rowId: row.id, sku: row.sku, stage, stageName, totalInDemand: row.totalInDemand || 0, dieRefs: row.dieRefs || [], dieItems: [], loading: true });
+    const STAGE_TO_DEPT = { waxPiece: 'wax-pieces', waxSetting: 'wax-setting', casting: 'casting' };
+    const deptKey = STAGE_TO_DEPT[stage];
+
+    setDiePopup({ rowId: row.id, sku: row.sku, stage, stageName, totalInDemand: row.totalInDemand || 0, dieRefs: row.dieRefs || [], dieItems: [], wipByCode: {}, loading: true });
     try {
-      const res = await fetch(`/api/die-inventory/by-codes/?codes=${dieCodes.join(',')}`);
-      const json = await res.json();
-      const items = Array.isArray(json) ? json : (json?.results ?? json?.data ?? []);
-      setDiePopup((prev) => prev ? { ...prev, dieItems: items, loading: false } : null);
+      const [dieRes, jobsRes] = await Promise.all([
+        fetch(`/api/die-inventory/by-codes/?codes=${dieCodes.join(',')}`),
+        fetch(`/api/jobs/?product=${row.id}&approval_status=in_process&page_size=200`),
+      ]);
+      const dieJson = await dieRes.json().catch(() => []);
+      const jobsJson = await jobsRes.json().catch(() => ({}));
+      const items = Array.isArray(dieJson) ? dieJson : (dieJson?.results ?? dieJson?.data ?? []);
+      const jobs = Array.isArray(jobsJson?.data)
+        ? jobsJson.data
+        : (jobsJson?.data?.results ?? []);
+
+      const wipByCode = {};
+      for (const job of jobs) {
+        if (job.dept_to !== deptKey) continue;
+        for (const dr of (job.die_rows || [])) {
+          const code = String(dr.die_code || '').trim();
+          if (!code) continue;
+          wipByCode[code] = (wipByCode[code] || 0) + (parseInt(dr.issued_qty) || 0);
+        }
+      }
+
+      setDiePopup((prev) => prev ? { ...prev, dieItems: items, wipByCode, loading: false } : null);
     } catch {
-      setDiePopup((prev) => prev ? { ...prev, dieItems: [], loading: false } : null);
+      setDiePopup((prev) => prev ? { ...prev, dieItems: [], wipByCode: {}, loading: false } : null);
     }
   }, []);
 
@@ -1842,7 +1863,7 @@ export default function MasterInventorySheet() {
                         <td className="border border-soft-border px-3 py-1.5 text-center text-midnight-ink">{ref.quantity || '—'}</td>
                         <td className="border border-soft-border px-3 py-1.5 text-center text-cool-gray">{item?.[fields.min] || '—'}</td>
                         <td className="border border-soft-border px-3 py-1.5 text-center text-midnight-ink font-medium">{((parseFloat(ref.quantity) || 0) * (diePopup?.totalInDemand || 0)) || '—'}</td>
-                        <td className="border border-soft-border px-3 py-1.5 text-center text-cool-gray">{((parseFloat(ref.quantity) || 0) * (diePopup?.totalInDemand || 0)) || '—'}</td>
+                        <td className="border border-soft-border px-3 py-1.5 text-center text-trust-blue font-medium">{diePopup?.wipByCode?.[ref.value] || '—'}</td>
                         <td className="border border-soft-border px-3 py-1.5 text-center text-cool-gray">{item?.[fields.loc] || '—'}</td>
                       </tr>
                     );
