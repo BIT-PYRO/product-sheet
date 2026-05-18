@@ -1,4 +1,10 @@
 services:
+  - type: redis
+    name: product-sheet-redis
+    region: oregon
+    plan: free
+    maxmemoryPolicy: noeviction
+
   - type: web
     name: product-sheet-backend
     env: python
@@ -31,6 +37,34 @@ services:
         value: "https://product-sheet-frontend.onrender.com"
       - key: PRODUCTION_SOFTWARE_API_URL
         value: "https://product-sheet-backend.onrender.com"
+      - key: CELERY_BROKER_URL
+        fromService:
+          name: product-sheet-redis
+          type: redis
+          property: connectionString
+
+  - type: worker
+    name: product-sheet-celery
+    env: python
+    region: oregon
+    buildCommand: cd backend && pip install -r requirements/prod.txt
+    startCommand: cd backend && celery -A config worker --beat --loglevel=info
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11
+      - key: DJANGO_SETTINGS_MODULE
+        value: config.settings.prod
+      - key: DEBUG
+        value: "False"
+      - key: CELERY_BROKER_URL
+        fromService:
+          name: product-sheet-redis
+          type: redis
+          property: connectionString
+      - key: DATABASE_URL
+        sync: false
+      - key: SECRET_KEY
+        sync: false
 
   - type: web
     name: product-sheet-frontend
