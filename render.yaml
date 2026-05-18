@@ -5,7 +5,7 @@ services:
     region: oregon
     buildCommand: cd backend && pip install -r requirements/prod.txt && python manage.py collectstatic --noinput
     preDeployCommand: cd backend && python manage.py migrate --noinput
-    startCommand: cd backend && gunicorn config.wsgi:application --bind 0.0.0.0:$PORT
+    startCommand: cd backend && gunicorn config.wsgi:application --bind 0.0.0.0:$PORT --timeout 120 --workers 2 --preload
     disk:
       name: media-storage
       mountPath: /opt/render/project/src/backend/media
