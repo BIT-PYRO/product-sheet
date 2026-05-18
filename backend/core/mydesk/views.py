@@ -1903,7 +1903,7 @@ def _build_bank_transfer_rows(org_id, month_start):
     department_map = _build_workforce_department_map(org_id, users)
 
     from workforce.models import WorkforceMember
-    wf_list = list(WorkforceMember.objects.all())
+    wf_list = list(WorkforceMember.objects.only('id', 'email', 'full_name'))
     wf_by_email = {wf.email.lower(): wf for wf in wf_list if wf.email}
     wf_by_name = {wf.full_name.lower(): wf for wf in wf_list if wf.full_name}
 

@@ -181,21 +181,35 @@ class FinanceDashboardView(APIView):
         total_income = float(income_qs.aggregate(t=Sum('amount'))['t'] or 0)
         net = round(total_income - total_expense, 2)
 
-        # Account-wise breakdown: all accounts that have any income or expense
-        account_breakdown = []
-        all_accounts = Account.objects.all()
-        for acc in all_accounts:
-            inc_total = float(income_qs.filter(account=acc).aggregate(t=Sum('amount'))['t'] or 0)
-            exp_total = float(expense_qs.filter(account=acc).aggregate(t=Sum('amount'))['t'] or 0)
-            if inc_total > 0 or exp_total > 0:
-                account_breakdown.append({
-                    'account_id': acc.pk,
-                    'account_name': acc.name,
-                    'account_type': acc.type,
-                    'income_total': round(inc_total, 2),
-                    'expense_total': round(exp_total, 2),
-                    'net': round(inc_total - exp_total, 2),
-                })
+        # Account-wise breakdown — 2 aggregate queries instead of N*2
+        income_by_account = dict(
+            income_qs.values('account').annotate(t=Sum('amount')).values_list('account', 't')
+        )
+        expense_by_account = dict(
+            expense_qs.values('account').annotate(t=Sum('amount')).values_list('account', 't')
+        )
+        all_account_ids = set(income_by_account) | set(expense_by_account)
+        account_map = {
+            acc.pk: acc
+            for acc in Account.objects.filter(pk__in=all_account_ids).only('id', 'name', 'type')
+        }
+        account_breakdown = sorted(
+            [
+                {
+                    'account_id': pk,
+                    'account_name': account_map[pk].name,
+                    'account_type': account_map[pk].type,
+                    'income_total': round(float(income_by_account.get(pk, 0) or 0), 2),
+                    'expense_total': round(float(expense_by_account.get(pk, 0) or 0), 2),
+                    'net': round(
+                        float(income_by_account.get(pk, 0) or 0) - float(expense_by_account.get(pk, 0) or 0), 2
+                    ),
+                }
+                for pk in all_account_ids
+                if pk in account_map
+            ],
+            key=lambda x: x['account_id'],
+        )
 
         return api_success({
             'total_income': round(total_income, 2),
@@ -683,8 +697,18 @@ class DepartmentDashboardView(APIView):
                 }
             return departments[name]
 
-        # 1. Posted Journal Items
-        items = JournalItem.objects.select_related('entry', 'ledger').all()
+        # 1. Posted Journal Items — use iterator() + only() to avoid loading full
+        # model instances for the entire table into memory at once.
+        items = (
+            JournalItem.objects
+            .select_related('entry', 'ledger')
+            .only(
+                'department', 'debit', 'credit', 'notes', 'ref_id',
+                'ledger__name', 'ledger__type',
+                'entry__date', 'entry__description',
+            )
+            .iterator(chunk_size=500)
+        )
         for item in items:
             if item.ledger.type not in ('income', 'expense'):
                 continue
