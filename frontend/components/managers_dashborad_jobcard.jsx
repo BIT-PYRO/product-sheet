@@ -308,38 +308,6 @@ export default function ManagersDashboard() {
 
   useEffect(() => { loadStoneRequests(); }, [loadStoneRequests]);
 
-  const loadStoneRequests = useCallback(async () => {
-    try {
-      const res = await fetch('/api/issue-requests?inventory_type=stone&status=pending&page_size=100', { cache: 'no-store' });
-      const data = await res.json().catch(() => ({}));
-      const items = data?.data?.results ?? data?.data ?? [];
-      setStoneRequests(Array.isArray(items) ? items : []);
-    } catch { /* silent */ }
-  }, []);
-
-  const handleStoneReview = async (id, action) => {
-    setIsReviewingStone(id);
-    try {
-      const res = await fetch(`/api/issue-requests/${id}/review/`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action }),
-      });
-      if (res.ok) {
-        await loadStoneRequests();
-      } else {
-        const d = await res.json().catch(() => ({}));
-        alert(d?.message || 'Review failed.');
-      }
-    } catch (e) {
-      alert('Error: ' + (e.message || 'Unknown'));
-    } finally {
-      setIsReviewingStone(null);
-    }
-  };
-
-  useEffect(() => { loadStoneRequests(); }, [loadStoneRequests]);
-
   const loadJobs = useCallback(async () => {
     setIsLoadingJobs(true);
     setJobsError('');
