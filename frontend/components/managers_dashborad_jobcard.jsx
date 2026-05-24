@@ -59,8 +59,6 @@ export default function ManagersDashboard() {
   const [isPendingVouchersOpen, setIsPendingVouchersOpen] = useState(false);
   const [stoneRequests, setStoneRequests] = useState([]);
   const [isReviewingStone, setIsReviewingStone] = useState(null);
-  const [stoneRequests, setStoneRequests] = useState([]);
-  const [isReviewingStone, setIsReviewingStone] = useState(null); // id being reviewed
   const [isKYCModalOpen, setIsKYCModalOpen] = useState(false);
   const [selectedForPrint, setSelectedForPrint] = useState(new Set());
   const [selectedVoucher, setSelectedVoucher] = useState(null);
