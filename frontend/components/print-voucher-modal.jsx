@@ -94,6 +94,48 @@ export function PrintVoucherModal({ open, onOpenChange, onEdit, onOpenReceiveMod
             </tbody>
           </table>
 
+          {/* Stone / Findings Reference */}
+          {Array.isArray(data.stoneRows) && data.stoneRows.some(r => r.variety || r.qty || r.shape) && (
+            <div className="mt-3 rounded-md overflow-hidden border border-amber-400/40">
+              <div className="px-2.5 py-1.5 bg-amber-50 border-b border-amber-400/40">
+                <p className="text-xs font-bold text-amber-700 uppercase tracking-wide">
+                  Stones / Findings
+                </p>
+              </div>
+              <table className="w-full border-collapse text-[11px]">
+                <thead>
+                  <tr className="bg-amber-600 text-white font-bold uppercase tracking-wider">
+                    {['Variety', 'Color', 'Cut', 'Shape', 'L', 'W', 'H', 'Qty', 'Master SKUs'].map(h => (
+                      <th key={h} className="px-2 py-1 text-left font-bold">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.stoneRows.filter(r => r.variety || r.qty || r.shape).map((sr, idx) => (
+                    <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-amber-50/30'}>
+                      <td className="px-2 py-0.5 border-t border-amber-100">{sr.variety || '—'}</td>
+                      <td className="px-2 py-0.5 border-t border-amber-100">{sr.color || '—'}</td>
+                      <td className="px-2 py-0.5 border-t border-amber-100">{sr.cut || '—'}</td>
+                      <td className="px-2 py-0.5 border-t border-amber-100">{sr.shape || '—'}</td>
+                      <td className="px-2 py-0.5 border-t border-amber-100">{sr.length || '—'}</td>
+                      <td className="px-2 py-0.5 border-t border-amber-100">{sr.width || '—'}</td>
+                      <td className="px-2 py-0.5 border-t border-amber-100">{sr.height || '—'}</td>
+                      <td className="px-2 py-0.5 border-t border-amber-100 font-semibold">{sr.qty ?? '—'}</td>
+                      <td className="px-2 py-0.5 border-t border-amber-100">
+                        {Array.isArray(sr.master_sku_breakdown) && sr.master_sku_breakdown.length > 0
+                          ? sr.master_sku_breakdown.map((b, bi) => (
+                              <span key={bi} className="mr-1 font-semibold">{b.master_sku}[{b.qty}]</span>
+                            ))
+                          : '—'
+                        }
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
           {/* Action Buttons */}
           <div className="grid grid-cols-3 gap-2 mt-3 print-hide">
             <Button

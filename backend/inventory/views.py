@@ -107,6 +107,48 @@ class StoneItemViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 	filterset_fields = ['stone_type', 'species', 'variety', 'color', 'quality', 'shape', 'wax_setting']
 	search_fields = ['stone_type', 'species', 'variety', 'color', 'quality', 'shape']
 
+	def perform_update(self, serializer):
+		"""After saving a StoneItem, push catalog changes back to all sheets."""
+		instance = serializer.save()
+		try:
+			from inventory.services.stone_sync import sync_stone_to_sheets
+			sync_stone_to_sheets(instance)
+		except Exception:
+			pass
+
+	@extend_schema(summary='Sync stones from all sheets into Stone Inventory', tags=['Stone Inventory'])
+	@action(detail=False, methods=['post'], url_path='sync-from-sheets')
+	def sync_from_sheets(self, request):
+		"""Pull unique stone entries from Product Sheet and Designer Sheet into StoneItem inventory."""
+		from inventory.services.stone_sync import sync_stones_from_sheets
+		result = sync_stones_from_sheets()
+		return Response({
+			'success': True,
+			'message': (
+				f"Sync complete. {result['created']} stone(s) created, "
+				f"{result['updated']} updated, {result['skipped']} unchanged."
+			),
+			'data': result,
+		})
+
+	@extend_schema(summary='Sync Stone Inventory catalog fields back to all sheets', tags=['Stone Inventory'])
+	@action(detail=False, methods=['post'], url_path='sync-to-sheets')
+	def sync_to_sheets(self, request):
+		"""Push catalog field updates from every StoneItem back to matching Product / DesignerSheet entries."""
+		from inventory.services.stone_sync import sync_stone_to_sheets
+		stones = StoneItem.objects.all()
+		total_products = 0
+		total_designers = 0
+		for stone in stones:
+			result = sync_stone_to_sheets(stone)
+			total_products += result.get('products_updated', 0)
+			total_designers += result.get('designers_updated', 0)
+		return Response({
+			'success': True,
+			'message': f"Sync complete. {total_products} product sheet(s) updated, {total_designers} designer sheet(s) updated.",
+			'data': {'products_updated': total_products, 'designers_updated': total_designers},
+		})
+
 
 @extend_schema_view(
 	list=extend_schema(summary='List stone stock entries', tags=['Stone Inventory']),
@@ -331,7 +373,7 @@ class IssueRequestViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 	audit_sheet = 'inventory'
 	queryset = IssueRequest.objects.all().order_by('-requested_at')
 	serializer_class = IssueRequestSerializer
-	filterset_fields = ['inventory_type', 'status']
+	filterset_fields = ['inventory_type', 'status', 'reference_id']
 	search_fields = ['item_name', 'issued_to', 'issued_by', 'reason', 'reference_id']
 
 	@extend_schema(summary='Review an issue request (approve/reject)', tags=['Issue Requests'])
@@ -431,6 +473,27 @@ class IssueRequestViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 		if request.data.get('remark'):
 			obj.remark = str(request.data['remark'])[:255]
 		obj.save(update_fields=['status', 'reviewed_at', 'remark'])
+		# Log stone issue request approvals/rejections to activity log
+		try:
+			from common.audit import log_activity
+			from common.models import ActivityLog
+			log_activity(
+				request,
+				ActivityLog.ACTION_UPDATE,
+				'inventory',
+				obj,
+				extra={
+					'action_detail': f'Stone issue request {new_status}',
+					'item_name': obj.item_name,
+					'quantity': float(obj.quantity),
+					'issued_to': obj.issued_to,
+					'inventory_type': obj.inventory_type,
+					'reference_id': obj.reference_id,
+					'new_status': new_status,
+				},
+			)
+		except Exception:
+			pass
 		return Response({'success': True, 'message': f'Request {new_status}.', 'data': IssueRequestSerializer(obj).data})
 
 

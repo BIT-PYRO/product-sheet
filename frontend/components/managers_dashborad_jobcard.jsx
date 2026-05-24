@@ -57,6 +57,10 @@ export default function ManagersDashboard() {
   const [isSuggestedVouchersOpen, setIsSuggestedVouchersOpen] = useState(false);
   const [isNeededVouchersOpen, setIsNeededVouchersOpen] = useState(false);
   const [isPendingVouchersOpen, setIsPendingVouchersOpen] = useState(false);
+  const [stoneRequests, setStoneRequests] = useState([]);
+  const [isReviewingStone, setIsReviewingStone] = useState(null);
+  const [stoneRequests, setStoneRequests] = useState([]);
+  const [isReviewingStone, setIsReviewingStone] = useState(null); // id being reviewed
   const [isKYCModalOpen, setIsKYCModalOpen] = useState(false);
   const [selectedForPrint, setSelectedForPrint] = useState(new Set());
   const [selectedVoucher, setSelectedVoucher] = useState(null);
@@ -273,6 +277,70 @@ export default function ManagersDashboard() {
   useEffect(() => {
     fetch('/api/auth/session').then(r => r.json()).then(d => { if (d?.user?.username) setCurrentUsername(d.user.username); }).catch(() => {});
   }, []);
+
+  const loadStoneRequests = useCallback(async () => {
+    try {
+      const res = await fetch('/api/issue-requests?inventory_type=stone&status=pending&page_size=100', { cache: 'no-store' });
+      const data = await res.json().catch(() => ({}));
+      const items = data?.data?.results ?? data?.data ?? [];
+      setStoneRequests(Array.isArray(items) ? items : []);
+    } catch { /* silent */ }
+  }, []);
+
+  const handleStoneReview = async (id, action, remark = '') => {
+    setIsReviewingStone(id);
+    try {
+      const res = await fetch(`/api/issue-requests/${id}/review/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, remark }),
+      });
+      if (res.ok) {
+        await loadStoneRequests();
+      } else {
+        const d = await res.json().catch(() => ({}));
+        alert(d?.message || 'Review failed.');
+      }
+    } catch (e) {
+      alert('Error: ' + (e.message || 'Unknown'));
+    } finally {
+      setIsReviewingStone(null);
+    }
+  };
+
+  useEffect(() => { loadStoneRequests(); }, [loadStoneRequests]);
+
+  const loadStoneRequests = useCallback(async () => {
+    try {
+      const res = await fetch('/api/issue-requests?inventory_type=stone&status=pending&page_size=100', { cache: 'no-store' });
+      const data = await res.json().catch(() => ({}));
+      const items = data?.data?.results ?? data?.data ?? [];
+      setStoneRequests(Array.isArray(items) ? items : []);
+    } catch { /* silent */ }
+  }, []);
+
+  const handleStoneReview = async (id, action) => {
+    setIsReviewingStone(id);
+    try {
+      const res = await fetch(`/api/issue-requests/${id}/review/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action }),
+      });
+      if (res.ok) {
+        await loadStoneRequests();
+      } else {
+        const d = await res.json().catch(() => ({}));
+        alert(d?.message || 'Review failed.');
+      }
+    } catch (e) {
+      alert('Error: ' + (e.message || 'Unknown'));
+    } finally {
+      setIsReviewingStone(null);
+    }
+  };
+
+  useEffect(() => { loadStoneRequests(); }, [loadStoneRequests]);
 
   const loadJobs = useCallback(async () => {
     setIsLoadingJobs(true);
@@ -1030,6 +1098,63 @@ export default function ManagersDashboard() {
         </div>
         {isLoadingJobs && <p className="text-sm text-cool-gray mb-3">Loading live jobs...</p>}
         {jobsError && <p className="text-sm text-danger-dark mb-3">{jobsError}</p>}
+
+        {/* Stone Issue Requests Panel */}
+        {stoneRequests.length > 0 && (
+          <div className="mb-5 rounded-lg border border-amber-400/60 overflow-hidden">
+            <div className="px-3 py-2 bg-amber-50 border-b border-amber-200 flex items-center justify-between">
+              <p className="text-sm font-bold text-amber-700 uppercase tracking-wide">
+                Stone Issue Requests ({stoneRequests.length} pending)
+              </p>
+              <button type="button" onClick={loadStoneRequests} className="text-xs text-amber-600 hover:underline">Refresh</button>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs border-collapse">
+                <thead>
+                  <tr className="bg-amber-600 text-white font-bold uppercase">
+                    <th className="px-3 py-1.5 text-left">Stone</th>
+                    <th className="px-3 py-1.5 text-left">Qty</th>
+                    <th className="px-3 py-1.5 text-left">Issued To</th>
+                    <th className="px-3 py-1.5 text-left">Voucher No</th>
+                    <th className="px-3 py-1.5 text-left">Requested At</th>
+                    <th className="px-3 py-1.5 text-center">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {stoneRequests.map((req, ri) => (
+                    <tr key={req.id} className={ri % 2 === 0 ? 'bg-white' : 'bg-amber-50/30'}>
+                      <td className="px-3 py-1.5 font-medium">{req.item_name || '—'}</td>
+                      <td className="px-3 py-1.5">{req.quantity}</td>
+                      <td className="px-3 py-1.5">{req.issued_to || '—'}</td>
+                      <td className="px-3 py-1.5 font-mono text-[11px]">{req.reference_id || '—'}</td>
+                      <td className="px-3 py-1.5 text-muted-foreground">{req.requested_at ? new Date(req.requested_at).toLocaleDateString() : '—'}</td>
+                      <td className="px-3 py-1.5 text-center">
+                        <div className="flex justify-center gap-1.5">
+                          <button
+                            type="button"
+                            disabled={isReviewingStone === req.id}
+                            onClick={() => handleStoneReview(req.id, 'approve')}
+                            className="px-2 py-0.5 rounded text-[10px] font-bold bg-green-600 text-white hover:bg-green-700 disabled:opacity-50"
+                          >
+                            Accept
+                          </button>
+                          <button
+                            type="button"
+                            disabled={isReviewingStone === req.id}
+                            onClick={() => handleStoneReview(req.id, 'reject')}
+                            className="px-2 py-0.5 rounded text-[10px] font-bold bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
+                          >
+                            Reject
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
 
         {/* Filter Row */}
         <div className="border border-soft-border rounded-lg mb-6 bg-[#dbeafe] p-4">

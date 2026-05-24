@@ -66,6 +66,7 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState('')
   const [submitWarnings, setSubmitWarnings] = useState([])
+  const [stoneIssueRequests, setStoneIssueRequests] = useState([])
 
   // Pre-populate form with voucher data when it's selected
   useEffect(() => {
@@ -228,6 +229,18 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
       })
       .catch(() => {})
   }, [open, voucherData?.id])
+
+  // Fetch stone issue requests linked to this voucher
+  useEffect(() => {
+    if (!open || !voucherNo) return
+    fetch(`/api/issue-requests?inventory_type=stone&reference_id=${encodeURIComponent(voucherNo)}&page_size=100`, { cache: 'no-store' })
+      .then(r => r.json())
+      .then(result => {
+        const items = result?.data?.results ?? result?.data ?? []
+        setStoneIssueRequests(Array.isArray(items) ? items : [])
+      })
+      .catch(() => {})
+  }, [open, voucherNo])
 
   // Load workforce members + auto-fill session user when modal opens
   useEffect(() => {
@@ -987,25 +1000,71 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
           </div>
 
           {/* Stone/Findings Reference — shown when voucher has stone rows */}
-          {Array.isArray(voucherData?.stoneRows) && voucherData.stoneRows.some(r => r.variety || r.qty) && (
+          {Array.isArray(voucherData?.stoneRows) && voucherData.stoneRows.some(r => r.variety || r.qty || r.shape) && (
             <div className="rounded-md overflow-hidden border border-amber-400/40">
-              <div className="px-2.5 py-1.5 bg-amber-50 dark:bg-amber-950/30 border-b border-amber-400/40">
+              <div className="px-2.5 py-1.5 bg-amber-50 dark:bg-amber-950/30 border-b border-amber-400/40 flex items-center justify-between">
                 <p className="text-xs font-bold text-amber-700 dark:text-amber-300 uppercase tracking-wide">
                   Stones / Findings (Reference Only)
                 </p>
+                {stoneIssueRequests.length > 0 && (
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[9px] font-semibold text-amber-700 uppercase tracking-wider">Stone Issue:</span>
+                    {stoneIssueRequests.map((req, ri) => {
+                      const statusColor = req.status === 'approved'
+                        ? 'bg-green-100 text-green-700 border-green-300'
+                        : req.status === 'rejected'
+                        ? 'bg-red-100 text-red-700 border-red-300'
+                        : 'bg-yellow-100 text-yellow-700 border-yellow-300'
+                      const statusLabel = req.status === 'approved' ? 'Accepted' : req.status === 'rejected' ? 'Rejected' : 'Pending'
+                      return (
+                        <span key={ri} className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${statusColor} uppercase`}>
+                          {req.item_name ? `${req.item_name}: ` : ''}{statusLabel}
+                        </span>
+                      )
+                    })}
+                  </div>
+                )}
               </div>
-              <div className="grid grid-cols-[1.2fr_0.8fr_0.7fr_0.7fr_0.5fr_0.5fr_0.5fr_0.6fr] gap-0 bg-amber-600 text-white text-[9px] font-bold uppercase tracking-wider">
-                {['Variety', 'Color', 'Cut', 'Shape', 'L', 'W', 'H', 'Qty'].map(h => (
+              <div className="grid grid-cols-[1.2fr_0.8fr_0.7fr_0.7fr_0.5fr_0.5fr_0.5fr_0.6fr_1.6fr] gap-0 bg-amber-600 text-white text-[9px] font-bold uppercase tracking-wider">
+                {['Variety', 'Color', 'Cut', 'Shape', 'L', 'W', 'H', 'Qty', 'Master SKUs'].map(h => (
                   <div key={h} className="px-1.5 py-1.5">{h}</div>
                 ))}
               </div>
-              {voucherData.stoneRows.filter(r => r.variety || r.qty).map((sr, idx) => (
-                <div key={idx} className="grid grid-cols-[1.2fr_0.8fr_0.7fr_0.7fr_0.5fr_0.5fr_0.5fr_0.6fr] gap-0 border-t border-border bg-background items-center">
+              {voucherData.stoneRows.filter(r => r.variety || r.qty || r.shape).map((sr, idx) => (
+                <div key={idx} className="grid grid-cols-[1.2fr_0.8fr_0.7fr_0.7fr_0.5fr_0.5fr_0.5fr_0.6fr_1.6fr] gap-0 border-t border-border bg-background items-start">
                   {[sr.variety, sr.color, sr.cut, sr.shape, sr.length, sr.width, sr.height, sr.qty].map((val, vi) => (
-                    <div key={vi} className="px-1.5 py-0.5 text-xs">{val || '—'}</div>
+                    <div key={vi} className="px-1.5 py-1 text-xs">{val || '—'}</div>
                   ))}
+                  <div className="px-1.5 py-1">
+                    {Array.isArray(sr.master_sku_breakdown) && sr.master_sku_breakdown.length > 0
+                      ? sr.master_sku_breakdown.map((b, bi) => (
+                          <div key={bi} className="text-[10px] font-semibold text-midnight-ink leading-tight">
+                            {b.master_sku}[{b.qty}]
+                          </div>
+                        ))
+                      : <span className="text-xs text-muted-foreground">—</span>
+                    }
+                  </div>
                 </div>
               ))}
+              {/* Stone issue request status row */}
+              {stoneIssueRequests.length > 0 && (
+                <div className="px-2.5 py-1.5 bg-amber-50/50 border-t border-amber-200 flex flex-wrap gap-2">
+                  {stoneIssueRequests.map((req, ri) => {
+                    const statusColor = req.status === 'approved'
+                      ? 'text-green-700'
+                      : req.status === 'rejected'
+                      ? 'text-red-600'
+                      : 'text-yellow-700'
+                    const statusIcon = req.status === 'approved' ? '✓' : req.status === 'rejected' ? '✗' : '⏳'
+                    return (
+                      <span key={ri} className={`text-[10px] font-medium ${statusColor}`}>
+                        {statusIcon} {req.item_name || 'Stone'} ×{req.quantity} → {req.status === 'approved' ? 'Accepted' : req.status === 'rejected' ? 'Rejected' : 'Pending approval'}
+                      </span>
+                    )
+                  })}
+                </div>
+              )}
             </div>
           )}
 

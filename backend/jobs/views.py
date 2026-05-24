@@ -615,6 +615,93 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 								'issued_qty': str(pieces_needed * (int(qpp) if qpp else 1)),
 							})
 
+				# ── Build stone_rows aggregated across all master SKUs in this voucher ──
+				from designers.models import DesignerSheet as _DesignerSheet
+				stone_agg: dict = {}  # fingerprint -> aggregated stone data
+
+				for entry in bucket['items']:
+					product = entry['product']
+					master_sku = entry['master_sku']
+					pieces = entry['qty']
+
+					# Collect stone entries from the product itself
+					all_stone_sources = list(product.stone_entries or []) if isinstance(product.stone_entries, list) else []
+
+					# Also pull from any linked designer sheets
+					d_skus = []
+					if product.designer_sku:
+						d_skus.append(product.designer_sku.strip())
+					for ds in (product.designer_skus or []):
+						if ds and str(ds).strip():
+							d_skus.append(str(ds).strip())
+					if d_skus:
+						for designer in _DesignerSheet.objects.filter(sku__in=d_skus).only('stone_entries'):
+							if isinstance(designer.stone_entries, list):
+								all_stone_sources.extend(designer.stone_entries)
+
+					for se in all_stone_sources:
+						s_type = str(se.get('type', '') or '').strip()
+						s_species = str(se.get('species', '') or '').strip()
+						s_variety = str(se.get('variety', '') or '').strip()
+						s_color = str(se.get('color', '') or '').strip()
+						s_cut = str(se.get('cut', '') or '').strip()
+						s_shape = str(se.get('shape', '') or '').strip()
+						s_length = str(se.get('length', '') or '').strip()
+						s_width = str(se.get('width', '') or '').strip()
+						s_height = str(se.get('height', '') or '').strip()
+						try:
+							s_qty_per_piece = float(se.get('qty', 0) or 0)
+						except (TypeError, ValueError):
+							s_qty_per_piece = 0
+
+						# Skip completely empty rows
+						if s_qty_per_piece <= 0 and not (s_variety or s_type or s_shape):
+							continue
+
+						fingerprint = (
+							s_type.lower(), s_variety.lower(), s_color.lower(),
+							s_cut.lower(), s_shape.lower(), s_length, s_width, s_height,
+						)
+						# Total stones for this master SKU = qty-per-piece × pieces-to-make
+						stones_for_sku = s_qty_per_piece * pieces
+
+						if fingerprint not in stone_agg:
+							stone_agg[fingerprint] = {
+								'type': s_type,
+								'species': s_species,
+								'variety': s_variety,
+								'color': s_color,
+								'cut': s_cut,
+								'shape': s_shape,
+								'length': s_length,
+								'width': s_width,
+								'height': s_height,
+								'qty': 0,
+								'master_sku_breakdown': [],
+							}
+						stone_agg[fingerprint]['qty'] += stones_for_sku
+						stone_agg[fingerprint]['master_sku_breakdown'].append({
+							'master_sku': master_sku,
+							'qty': stones_for_sku,
+						})
+
+				stone_rows = [
+					{
+						'type': d['type'],
+						'species': d['species'],
+						'variety': d['variety'],
+						'color': d['color'],
+						'cut': d['cut'],
+						'shape': d['shape'],
+						'length': d['length'],
+						'width': d['width'],
+						'height': d['height'],
+						'qty': d['qty'],
+						'master_sku_breakdown': d['master_sku_breakdown'],
+					}
+					for d in stone_agg.values()
+				]
+
 				voucher = Job.objects.create(
 					title=title,
 					product=products_in_voucher[0]['product'],  # primary product
@@ -629,7 +716,7 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 					batch_id=batch_id,
 					department_order=step_idx,
 					material_rows=material_rows,
-					stone_rows=[],
+					stone_rows=stone_rows,
 					die_rows=die_rows,
 					notes=f'Step {step_idx + 1}: {from_label} \u2192 {to_label}',
 				)

@@ -61,6 +61,7 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
   const [selectedPicklistId, setSelectedPicklistId] = useState("")
   const [isPicklistLoading, setIsPicklistLoading] = useState(false)
   const [isBulkCreating, setIsBulkCreating] = useState(false)
+  const [isIssueStoneLoading, setIsIssueStoneLoading] = useState(false)
   const [date, setDate] = useState(new Date().toISOString().split("T")[0])
   const [scheduleFuture, setScheduleFuture] = useState("")
   const [voucherType, setVoucherType] = useState("New")
@@ -1346,43 +1347,75 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
               Save as Draft
             </Button>
             <Button
-              className="flex-1 h-7 bg-amber-500 hover:bg-amber-600 text-white font-bold text-sm rounded"
-              onClick={() => {
+              className="flex-1 h-7 bg-amber-500 hover:bg-amber-600 text-white font-bold text-sm rounded disabled:opacity-60"
+              disabled={isIssueStoneLoading}
+              onClick={async () => {
                 if (activeTab === 'stone') {
-                  // Prepare request object for each stone row
-                  const requests = stoneRows.map(row => ({
-                    nameOfStone: row.variety,
-                    variety: row.variety,
-                    color: row.color,
-                    cut: row.cut,
-                    shape: row.shape,
-                    length: row.length,
-                    width: row.width,
-                    height: row.height,
-                    quantity: row.qty,
-                    issuedBy: issuedByName,
-                    contact: issuedByContact,
-                    date,
-                    voucherNo,
-                    issuedTo,
-                    workType,
-                    deptFrom,
-                    deptTo,
-                    reason: `From voucher no ${voucherNo}`,
-                    note: noteByIssuer,
-                    status: 'pending',
-                    requestedAt: new Date().toISOString(),
-                  }));
+                  const validRows = stoneRows.filter(r => r.variety || r.shape || r.qty)
+                  if (validRows.length === 0) {
+                    alert('No stone rows to issue.')
+                    return
+                  }
+                  setIsIssueStoneLoading(true)
                   try {
-                    const key = 'stone_issue_requests_v1';
-                    const prev = JSON.parse(localStorage.getItem(key) || '[]');
-                    localStorage.setItem(key, JSON.stringify([...requests, ...prev]));
-                    alert('Stone issue request(s) sent!');
-                  } catch (e) {
-                    alert('Failed to save stone request.');
+                    // Fetch stone inventory to match rows by fingerprint
+                    const invRes = await fetch('/api/inventory/stone-items/?page_size=500', { cache: 'no-store' })
+                    const invData = await invRes.json().catch(() => ({}))
+                    const stoneItems = Array.isArray(invData?.data?.results)
+                      ? invData.data.results
+                      : Array.isArray(invData?.data) ? invData.data : []
+
+                    function matchStoneItem(row) {
+                      return stoneItems.find(si => {
+                        const matches = [
+                          !row.variety || (si.variety || '').toLowerCase() === (row.variety || '').toLowerCase(),
+                          !row.color   || (si.color   || '').toLowerCase() === (row.color   || '').toLowerCase(),
+                          !row.cut     || (si.cut     || '').toLowerCase() === (row.cut     || '').toLowerCase(),
+                          !row.shape   || (si.shape   || '').toLowerCase() === (row.shape   || '').toLowerCase(),
+                        ]
+                        return matches.every(Boolean)
+                      }) || null
+                    }
+
+                    let successCount = 0
+                    let errorMessages = []
+                    for (const row of validRows) {
+                      const matched = matchStoneItem(row)
+                      const payload = {
+                        inventory_type: 'stone',
+                        item_id: matched ? matched.id : null,
+                        item_name: row.variety || row.shape || 'Stone',
+                        quantity: parseFloat(row.qty) || 1,
+                        issued_to: issuedTo || 'Unknown',
+                        issued_by: issuedByName || '',
+                        reason: `From voucher no ${voucherNo}`,
+                        reference_id: voucherNo,
+                      }
+                      const res = await fetch('/api/issue-requests', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload),
+                      })
+                      if (res.ok) {
+                        successCount++
+                      } else {
+                        const d = await res.json().catch(() => ({}))
+                        errorMessages.push(d?.message || `Error for ${row.variety || 'stone'}`)
+                      }
+                    }
+
+                    if (errorMessages.length > 0) {
+                      alert(`${successCount} request(s) sent. Errors:\n${errorMessages.join('\n')}`)
+                    } else {
+                      alert(`${successCount} stone issue request(s) sent to inventory for manager approval.`)
+                    }
+                  } catch (err) {
+                    alert('Failed to send stone issue request: ' + (err.message || 'Unknown error'))
+                  } finally {
+                    setIsIssueStoneLoading(false)
                   }
                 } else if (activeTab === 'die') {
-                  // Prepare request object for each finding row
+                  // Finding issue — keep existing localStorage behaviour for now
                   const requests = dieWeightRows.map(row => ({
                     findingName: row.finding_code || row.dieNumber,
                     finding_code: row.finding_code || row.dieNumber,
@@ -1402,20 +1435,20 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
                     note: noteByIssuer,
                     status: 'pending',
                     requestedAt: new Date().toISOString(),
-                  }));
+                  }))
                   try {
-                    const key = 'finding_issue_requests_v1';
-                    const prev = JSON.parse(localStorage.getItem(key) || '[]');
-                    localStorage.setItem(key, JSON.stringify([...requests, ...prev]));
-                    alert('Finding issue request(s) sent!');
+                    const key = 'finding_issue_requests_v1'
+                    const prev = JSON.parse(localStorage.getItem(key) || '[]')
+                    localStorage.setItem(key, JSON.stringify([...requests, ...prev]))
+                    alert('Finding issue request(s) sent!')
                   } catch (e) {
-                    alert('Failed to save finding request.');
+                    alert('Failed to save finding request.')
                   }
                 }
               }}
               type="button"
             >
-              {activeTab === 'die' ? 'Issue Finding' : 'Issue Stone'}
+              {isIssueStoneLoading ? 'Sending...' : (activeTab === 'die' ? 'Issue Finding' : 'Issue Stone')}
             </Button>
             <Button
               className="flex-1 h-7 bg-success hover:bg-success text-white font-bold text-sm rounded"

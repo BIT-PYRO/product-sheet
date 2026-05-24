@@ -130,6 +130,37 @@ export default function StoneInventoryPage() {
   const [stones, setStones] = useState([]);
   const [loading, setLoading] = useState(false);
   const [statusMsg, setStatusMsg] = useState('');
+  const [isSyncLoading, setIsSyncLoading] = useState(false);
+
+  const handleSyncFromSheets = async () => {
+    setIsSyncLoading(true);
+    try {
+      const res = await fetch('/api/inventory/stone-items/sync-from-sheets/', { method: 'POST' });
+      const data = await res.json().catch(() => ({}));
+      const msg = data?.message || data?.data
+        ? `${data.message || `Created: ${data.data?.created ?? 0}, Updated: ${data.data?.updated ?? 0}, Unchanged: ${data.data?.skipped ?? 0}`}`
+        : 'Sync complete.';
+      alert(msg);
+      await loadStones();
+    } catch (e) {
+      alert('Sync failed: ' + (e.message || 'Unknown error'));
+    } finally {
+      setIsSyncLoading(false);
+    }
+  };
+
+  const handleSyncToSheets = async () => {
+    setIsSyncLoading(true);
+    try {
+      const res = await fetch('/api/inventory/stone-items/sync-to-sheets/', { method: 'POST' });
+      const data = await res.json().catch(() => ({}));
+      alert(data?.message || 'Sync to sheets complete.');
+    } catch (e) {
+      alert('Sync failed: ' + (e.message || 'Unknown error'));
+    } finally {
+      setIsSyncLoading(false);
+    }
+  };
 
   // Row selection (main table checkboxes)
   const [selectedIds, setSelectedIds] = useState(new Set());
@@ -832,6 +863,14 @@ export default function StoneInventoryPage() {
           <Button onClick={loadStones} variant="outline" disabled={loading} className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8">
             <RefreshCw size={14} className={`mr-1.5 ${loading ? 'animate-spin' : ''}`} />
             Refresh
+          </Button>
+          <Button onClick={handleSyncFromSheets} variant="outline" disabled={isSyncLoading} className="border-blue-600 text-blue-700 hover:bg-blue-50 rounded-full px-4 text-sm h-8">
+            <RefreshCw size={14} className={`mr-1.5 ${isSyncLoading ? 'animate-spin' : ''}`} />
+            Sync from Sheets
+          </Button>
+          <Button onClick={handleSyncToSheets} variant="outline" disabled={isSyncLoading} className="border-purple-600 text-purple-700 hover:bg-purple-50 rounded-full px-4 text-sm h-8">
+            <RefreshCw size={14} className={`mr-1.5 ${isSyncLoading ? 'animate-spin' : ''}`} />
+            Sync to Sheets
           </Button>
           <Button onClick={handlePrintTable} variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8">
             <Printer size={14} className="mr-1.5" />
