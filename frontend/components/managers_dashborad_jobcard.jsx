@@ -590,6 +590,38 @@ export default function ManagersDashboard() {
         }).join('')
         : `<tr><td colspan="11" style="text-align:center;padding:6px;color:#aaa;">No material rows</td></tr>`;
 
+      const stoneRows = Array.isArray(card.stoneRows) ? card.stoneRows.filter(r => r.variety || r.qty || r.shape) : [];
+      const stoneSection = stoneRows.length > 0 ? `
+  <!-- STONE / FINDINGS -->
+  <div class="stone-header">Stones / Findings</div>
+  <table class="stone-tbl">
+    <thead>
+      <tr>
+        <th class="left">Variety</th><th class="left">Color</th><th class="left">Cut</th>
+        <th class="left">Shape</th><th>L</th><th>W</th><th>H</th><th>Qty</th>
+        <th class="left">Master SKUs</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${stoneRows.map(sr => {
+        const breakdown = Array.isArray(sr.master_sku_breakdown) && sr.master_sku_breakdown.length > 0
+          ? sr.master_sku_breakdown.map(b => `${b.master_sku}[${b.qty}]`).join(' ')
+          : '\u2014';
+        return `<tr>
+          <td class="left">${sr.variety || '\u2014'}</td>
+          <td class="left">${sr.color || '\u2014'}</td>
+          <td class="left">${sr.cut || '\u2014'}</td>
+          <td class="left">${sr.shape || '\u2014'}</td>
+          <td>${sr.length || '\u2014'}</td>
+          <td>${sr.width || '\u2014'}</td>
+          <td>${sr.height || '\u2014'}</td>
+          <td style="font-weight:600">${sr.qty ?? '\u2014'}</td>
+          <td class="left" style="font-size:8px">${breakdown}</td>
+        </tr>`;
+      }).join('')}
+    </tbody>
+  </table>` : '';
+
       return `<div class="page${pageIdx > 0 ? ' page-break' : ''}">
   <!-- TOP ROW -->
   <div class="top-row">
@@ -657,6 +689,7 @@ export default function ManagersDashboard() {
     </thead>
     <tbody>${tableRows}</tbody>
   </table>
+  ${stoneSection}
 
   <!-- FOOTER -->
   <div class="footer-row">
@@ -751,6 +784,14 @@ export default function ManagersDashboard() {
 
     .sig-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 30px; margin-top: 16px; }
     .sig-box { border-top: 1px solid #333; padding-top: 3px; text-align: center; font-size: 7px; font-weight: 700; text-transform: uppercase; color: #555; }
+
+    .stone-header { font-size: 7.5px; font-weight: 700; text-transform: uppercase; color: #92400e; letter-spacing: 0.5px; background: #fef3c7; border: 1px solid #fcd34d; border-bottom: none; padding: 3px 6px; margin-top: 6px; border-radius: 3px 3px 0 0; }
+    .stone-tbl { border-collapse: collapse; margin-bottom: 6px; font-size: 7.5px; width: 100%; table-layout: fixed; border: 1px solid #fcd34d; }
+    .stone-tbl th { background: #d97706; color: white; font-weight: 600; padding: 2px 4px; border: 1px solid #b45309; text-align: center; white-space: nowrap; }
+    .stone-tbl th.left { text-align: left; padding-left: 5px; }
+    .stone-tbl td { padding: 2px 4px; border: 1px solid #fde68a; text-align: center; }
+    .stone-tbl td.left { text-align: left; padding-left: 5px; }
+    .stone-tbl tr:nth-child(even) td { background: #fffbeb; }
   </style>
 </head>
 <body>${voucherPages}</body>
