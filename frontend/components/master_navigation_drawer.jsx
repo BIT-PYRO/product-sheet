@@ -119,7 +119,7 @@ function NavItem({ item, canAccess, onClose }) {
         ) : (
           <div
             title="You don't have access to this module. Contact your admin."
-            className="px-4 py-2.5 text-sm font-medium rounded flex items-center justify-between bg-gray-50 border border-gray-200 text-gray-400 cursor-not-allowed select-none opacity-60"
+            className="px-4 py-2.5 text-sm font-medium rounded flex items-center justify-between bg-cloud-gray border border-soft-border text-cool-gray cursor-not-allowed select-none opacity-60"
           >
             <span>{item.label}</span>
             <ChevronRight className="h-3.5 w-3.5 shrink-0" />
@@ -151,7 +151,7 @@ function NavItem({ item, canAccess, onClose }) {
     return (
       <div
         title="You don't have access to this module. Contact your admin."
-        className="px-4 py-2.5 text-sm font-medium rounded block text-center bg-gray-50 border border-gray-200 text-gray-400 cursor-not-allowed select-none opacity-60"
+        className="px-4 py-2.5 text-sm font-medium rounded block text-center bg-cloud-gray border border-soft-border text-cool-gray cursor-not-allowed select-none opacity-60"
       >
         {item.label}
       </div>
@@ -250,8 +250,8 @@ export default function MasterNavigationDrawer({ inHeader = false }) {
   }, []);
 
   const dashboardButtonClass = inHeader
-    ? 'h-11 w-11 border-2 border-midnight-ink bg-white rounded hover:bg-cloud-gray transition-colors shadow-sm inline-flex items-center justify-center'
-    : 'fixed top-4 left-4 z-50 p-2 border-2 border-midnight-ink bg-white rounded hover:bg-cloud-gray transition-colors';
+    ? 'h-11 w-11 border border-soft-border bg-background rounded hover:bg-cloud-gray transition-colors shadow-sm inline-flex items-center justify-center'
+    : 'fixed top-4 left-4 z-50 p-2 border border-soft-border bg-background rounded hover:bg-cloud-gray transition-colors';
 
   return (
     <>
@@ -267,7 +267,7 @@ export default function MasterNavigationDrawer({ inHeader = false }) {
         {inHeader && (
           <Link
             href="/home"
-            className="h-11 w-11 border-2 border-midnight-ink bg-white rounded hover:bg-cloud-gray transition-colors shadow-sm inline-flex items-center justify-center"
+            className="h-11 w-11 border border-soft-border bg-background rounded hover:bg-cloud-gray transition-colors shadow-sm inline-flex items-center justify-center"
             aria-label="Go to home"
           >
             <House className="h-5 w-5 text-midnight-ink" />
@@ -285,7 +285,7 @@ export default function MasterNavigationDrawer({ inHeader = false }) {
           )}
 
           <div
-            className={`fixed top-[60px] left-0 h-[calc(100vh-60px)] w-80 bg-white border-r-2 border-soft-border transform transition-transform duration-300 z-50 overflow-y-auto ${
+            className={`fixed top-[60px] left-0 h-[calc(100vh-60px)] w-80 bg-background border-r border-soft-border transform transition-transform duration-300 z-50 overflow-y-auto ${
               isOpen
                 ? 'translate-x-0 shadow-lg pointer-events-auto'
                 : '-translate-x-[110%] shadow-none pointer-events-none'

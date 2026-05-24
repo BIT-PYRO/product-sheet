@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
@@ -413,7 +413,7 @@ export default function ProductInventoryPage() {
 
       <div className="flex-1 pt-16 px-3 md:px-4 pb-16">
         {/* Fixed Header */}
-        <div className="fixed top-0 left-0 right-0 z-[60] bg-white/95 py-2 border-b border-soft-border shadow-sm backdrop-blur px-3 md:px-4">
+        <div className="fixed top-0 left-0 right-0 z-[60] bg-background/95 py-2 border-b border-soft-border shadow-sm backdrop-blur px-3 md:px-4">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3 shrink-0">
               <MasterNavigationDrawer inHeader />
@@ -505,12 +505,12 @@ export default function ProductInventoryPage() {
         )}
 
         {/* Table */}
-        <div className="border border-soft-border rounded-lg bg-white overflow-hidden">
+        <div className="border border-soft-border rounded-lg bg-background overflow-hidden">
           <div className="overflow-auto max-h-[calc(100vh-220px)]">
             <table className="w-full border-separate border-spacing-0 text-sm">
-              <thead className="sticky top-0 z-20 bg-[#dbeafe]">
+              <thead className="sticky top-0 z-20 bg-blue-100 dark:bg-blue-900/20">
                 <tr className="text-midnight-ink font-bold border-b-2 border-soft-border">
-                  <th className="border border-soft-border p-2 w-8 sticky left-0 bg-[#dbeafe] z-30 shadow-[2px_0_4px_-1px_rgba(0,0,0,0.08)]">
+                  <th className="border border-soft-border p-2 w-8 sticky left-0 bg-blue-100 dark:bg-blue-900/20 z-30 shadow-[2px_0_4px_-1px_rgba(0,0,0,0.08)]">
                     <Checkbox
                       checked={allPageSelected}
                       onCheckedChange={toggleSelectAll}
@@ -518,16 +518,16 @@ export default function ProductInventoryPage() {
                       disabled={filteredData.length === 0 || editingRowIds.size > 0}
                     />
                   </th>
-                  <th className="border border-soft-border p-2 w-8 bg-[#dbeafe]"></th>
-                  <th className="border border-soft-border p-2 min-w-[80px] bg-[#dbeafe]">IMAGE</th>
-                  <th className="border border-soft-border p-2 min-w-[120px] bg-[#dbeafe]">MASTER SKU</th>
-                  <th className="border border-soft-border p-2 min-w-[120px] bg-[#dbeafe]">DESIGNER SKU</th>
-                  <th className="border border-soft-border p-2 min-w-[140px] bg-[#dbeafe]">FINAL STOCK SKU</th>
-                  <th className="border border-soft-border p-2 min-w-[90px] bg-[#dbeafe]">VALUE</th>
-                  <th className="border border-soft-border p-2 min-w-[70px] bg-[#dbeafe]">UNIT</th>
-                  <th className="border border-soft-border p-2 min-w-[120px] bg-[#dbeafe]">LOCATION</th>
-                  <th className="border border-soft-border p-2 min-w-[80px] bg-[#dbeafe]">WIP</th>
-                  <th className="border border-soft-border p-2 min-w-[110px] bg-[#dbeafe]">TOTAL IN DEMAND</th>
+                  <th className="border border-soft-border p-2 w-8 bg-blue-100 dark:bg-blue-900/20"></th>
+                  <th className="border border-soft-border p-2 min-w-[80px] bg-blue-100 dark:bg-blue-900/20">IMAGE</th>
+                  <th className="border border-soft-border p-2 min-w-[120px] bg-blue-100 dark:bg-blue-900/20">MASTER SKU</th>
+                  <th className="border border-soft-border p-2 min-w-[120px] bg-blue-100 dark:bg-blue-900/20">DESIGNER SKU</th>
+                  <th className="border border-soft-border p-2 min-w-[140px] bg-blue-100 dark:bg-blue-900/20">FINAL STOCK SKU</th>
+                  <th className="border border-soft-border p-2 min-w-[90px] bg-blue-100 dark:bg-blue-900/20">VALUE</th>
+                  <th className="border border-soft-border p-2 min-w-[70px] bg-blue-100 dark:bg-blue-900/20">UNIT</th>
+                  <th className="border border-soft-border p-2 min-w-[120px] bg-blue-100 dark:bg-blue-900/20">LOCATION</th>
+                  <th className="border border-soft-border p-2 min-w-[80px] bg-blue-100 dark:bg-blue-900/20">WIP</th>
+                  <th className="border border-soft-border p-2 min-w-[110px] bg-blue-100 dark:bg-blue-900/20">TOTAL IN DEMAND</th>
                 </tr>
               </thead>
               <tbody>
@@ -593,13 +593,13 @@ export default function ProductInventoryPage() {
       </div>
 
       {/* Fixed Footer */}
-      <div className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-soft-border shadow-lg px-4 py-2 flex flex-wrap items-center justify-between gap-3 text-sm text-cool-gray">
+      <div className="fixed bottom-0 left-0 right-0 z-50 bg-background border-t border-soft-border shadow-lg px-4 py-2 flex flex-wrap items-center justify-between gap-3 text-sm text-cool-gray">
         <div className="flex items-center gap-2">
           <span>Rows per page:</span>
           <select
             value={rowsPerPage}
             onChange={(e) => { setRowsPerPage(Number(e.target.value)); setCurrentPage(1); }}
-            className="border border-soft-border rounded px-2 py-1 text-sm text-midnight-ink bg-white"
+            className="border border-soft-border rounded px-2 py-1 text-sm text-midnight-ink bg-background"
           >
             {[25, 50, 75, 100].map(n => <option key={n} value={n}>{n}</option>)}
           </select>
@@ -676,7 +676,7 @@ function ProductRow({ row, firstSub, hasMultipleSubs, isExpanded, isSelected, is
   if (!firstSub) {
     return (
       <tr className="hover:bg-cloud-gray">
-        <td className="border border-soft-border p-2 text-center sticky left-0 z-10 bg-white shadow-[2px_0_4px_-1px_rgba(0,0,0,0.08)]">
+        <td className="border border-soft-border p-2 text-center sticky left-0 z-10 bg-background shadow-[2px_0_4px_-1px_rgba(0,0,0,0.08)]">
           <Checkbox checked={isSelected} onCheckedChange={onToggleSelect} className="cursor-pointer" />
         </td>
         <td className="border border-soft-border p-2"></td>
@@ -700,7 +700,7 @@ function ProductRow({ row, firstSub, hasMultipleSubs, isExpanded, isSelected, is
     <>
       {/* Main row (with first sub-row inline) */}
       <tr className={`border-b border-soft-border ${bgClass}`}>
-        <td className={`border border-soft-border p-2 text-center sticky left-0 z-10 shadow-[2px_0_4px_-1px_rgba(0,0,0,0.08)] ${isEditing ? 'bg-[#eff6ff]' : 'bg-white'}`}>
+        <td className={`border border-soft-border p-2 text-center sticky left-0 z-10 shadow-[2px_0_4px_-1px_rgba(0,0,0,0.08)] ${isEditing ? 'bg-blue-50 dark:bg-blue-900/20' : 'bg-background'}`}>
           <Checkbox checked={isSelected} onCheckedChange={onToggleSelect} className="cursor-pointer" disabled={isEditing} />
         </td>
         <td className="border border-soft-border p-1 text-center">
@@ -734,7 +734,7 @@ function ProductRow({ row, firstSub, hasMultipleSubs, isExpanded, isSelected, is
       {/* Expanded sub-rows */}
       {isExpanded && row.subRows.slice(1).map((sub) => (
         <tr key={sub.id} className={`border-b border-soft-border ${isEditing ? 'bg-trust-blue/5' : 'bg-cloud-gray/40'}`}>
-          <td className={`border border-soft-border p-2 sticky left-0 z-10 shadow-[2px_0_4px_-1px_rgba(0,0,0,0.08)] ${isEditing ? 'bg-[#eff6ff]' : 'bg-cloud-gray/40'}`}></td>
+          <td className={`border border-soft-border p-2 sticky left-0 z-10 shadow-[2px_0_4px_-1px_rgba(0,0,0,0.08)] ${isEditing ? 'bg-blue-50 dark:bg-blue-900/20' : 'bg-cloud-gray/40'}`}></td>
           <td className="border border-soft-border p-1"></td>
           <td className="border border-soft-border p-1.5"></td>
           <td className="border border-soft-border p-1.5"></td>

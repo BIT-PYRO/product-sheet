@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
@@ -599,7 +599,7 @@ export default function MachinesInventoryPage() {
 
   return (
     <main className="min-h-screen bg-cloud-gray">
-      <div className="transition-[left,width] duration-300 ease-in-out fixed top-0 left-0 right-0 z-[60] bg-white/95 py-2 border-b border-soft-border shadow-sm backdrop-blur px-3 md:px-4">
+      <div className="transition-[left,width] duration-300 ease-in-out fixed top-0 left-0 right-0 z-[60]  "bg-background$($args[0].Groups[1].Value)"  py-2 border-b border-soft-border shadow-sm backdrop-blur px-3 md:px-4">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 shrink-0">
             <MasterNavigationDrawer inHeader />
@@ -614,7 +614,7 @@ export default function MachinesInventoryPage() {
         <div className="mb-4 flex justify-end">
           <Link
             href="/inventory"
-            className="inline-flex items-center gap-2 rounded-lg border border-soft-border bg-white px-3 py-2 text-sm font-medium text-midnight-ink hover:border-trust-blue transition"
+            className="inline-flex items-center gap-2 rounded-lg border border-soft-border  "bg-background$($args[0].Groups[1].Value)"  px-3 py-2 text-sm font-medium text-midnight-ink hover:border-trust-blue transition"
           >
             <ArrowLeft className="h-4 w-4" />
             Back
@@ -625,7 +625,7 @@ export default function MachinesInventoryPage() {
               type="button"
               onClick={loadRows}
               disabled={loading}
-              className="inline-flex items-center gap-2 rounded-full border border-midnight-ink bg-white px-4 h-8 text-sm font-medium text-midnight-ink disabled:opacity-50"
+              className="inline-flex items-center gap-2 rounded-full border border-midnight-ink  "bg-background$($args[0].Groups[1].Value)"  px-4 h-8 text-sm font-medium text-midnight-ink disabled:opacity-50"
             >
               <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
               Refresh
@@ -633,7 +633,7 @@ export default function MachinesInventoryPage() {
             <button
               type="button"
               onClick={handlePrintTable}
-              className="inline-flex items-center gap-2 rounded-full border border-midnight-ink bg-white px-4 h-8 text-sm font-medium text-midnight-ink"
+              className="inline-flex items-center gap-2 rounded-full border border-midnight-ink  "bg-background$($args[0].Groups[1].Value)"  px-4 h-8 text-sm font-medium text-midnight-ink"
             >
               <Printer className="h-4 w-4" />
               Print
@@ -655,7 +655,7 @@ export default function MachinesInventoryPage() {
             <button
               type="button"
               onClick={() => setIsManageColumnsOpen(true)}
-              className="inline-flex items-center gap-2 rounded-full border border-midnight-ink bg-white px-4 h-8 text-sm font-medium text-midnight-ink"
+              className="inline-flex items-center gap-2 rounded-full border border-midnight-ink  "bg-background$($args[0].Groups[1].Value)"  px-4 h-8 text-sm font-medium text-midnight-ink"
             >
               Manage Columns
             </button>
@@ -663,7 +663,7 @@ export default function MachinesInventoryPage() {
               type="button"
               onClick={handleEditRows}
               disabled={editingRowIds.size > 0}
-              className="inline-flex items-center gap-2 rounded-full border border-trust-blue bg-white px-4 h-8 text-sm font-medium text-trust-blue disabled:opacity-40"
+              className="inline-flex items-center gap-2 rounded-full border border-trust-blue  "bg-background$($args[0].Groups[1].Value)"  px-4 h-8 text-sm font-medium text-trust-blue disabled:opacity-40"
             >
               <Pencil className="h-4 w-4" />
               Edit Row
@@ -674,7 +674,7 @@ export default function MachinesInventoryPage() {
                 setNewMachine({ machineName: '', particulars: '', department: '', minRequiredStock: '' });
                 setIsAddMachineOpen(true);
               }}
-              className="inline-flex items-center gap-2 rounded-full border border-trust-blue bg-white px-4 h-8 text-sm font-medium text-trust-blue"
+              className="inline-flex items-center gap-2 rounded-full border border-trust-blue  "bg-background$($args[0].Groups[1].Value)"  px-4 h-8 text-sm font-medium text-trust-blue"
             >
               + New Machine
             </button>
@@ -684,7 +684,7 @@ export default function MachinesInventoryPage() {
                 setAddStockForm({ machineId: '', stateKey: 'running', qty: '', location: '' });
                 setIsAddMachineStockOpen(true);
               }}
-              className="inline-flex items-center gap-2 rounded-full border border-midnight-ink bg-white px-4 h-8 text-sm font-medium text-midnight-ink"
+              className="inline-flex items-center gap-2 rounded-full border border-midnight-ink  "bg-background$($args[0].Groups[1].Value)"  px-4 h-8 text-sm font-medium text-midnight-ink"
             >
               Add Machine Stock
             </button>
@@ -694,7 +694,7 @@ export default function MachinesInventoryPage() {
                 setUpdateStockForm({ machineId: '', fromState: 'idle', toState: 'running', qty: '' });
                 setIsUpdateMachineStockOpen(true);
               }}
-              className="inline-flex items-center gap-2 rounded-full border border-midnight-ink bg-white px-4 h-8 text-sm font-medium text-midnight-ink"
+              className="inline-flex items-center gap-2 rounded-full border border-midnight-ink  "bg-background$($args[0].Groups[1].Value)"  px-4 h-8 text-sm font-medium text-midnight-ink"
             >
               Update Machine Stock
             </button>
@@ -704,14 +704,14 @@ export default function MachinesInventoryPage() {
                 setAddStockForm({ machineId: '', stateKey: 'running', qty: '', location: '' });
                 setIsAddMachineStockOpen(true);
               }}
-              className="inline-flex items-center gap-2 rounded-full border border-emerald-500 bg-white px-4 h-8 text-sm font-medium text-emerald-600"
+              className="inline-flex items-center gap-2 rounded-full border border-emerald-500  "bg-background$($args[0].Groups[1].Value)"  px-4 h-8 text-sm font-medium text-emerald-600"
             >
               Add Machine
             </button>
             <button
               type="button"
               onClick={openIssuePopup}
-              className="inline-flex items-center gap-2 rounded-full border border-orange-400 bg-white px-4 h-8 text-sm font-medium text-orange-500"
+              className="inline-flex items-center gap-2 rounded-full border border-orange-400  "bg-background$($args[0].Groups[1].Value)"  px-4 h-8 text-sm font-medium text-orange-500"
             >
               Issue Machine
             </button>
@@ -720,7 +720,7 @@ export default function MachinesInventoryPage() {
               <button
                 type="button"
                 onClick={() => setExportMenuOpen((v) => !v)}
-                className="inline-flex items-center gap-1 rounded-full border border-emerald-600 bg-white px-4 h-8 text-sm font-medium text-emerald-700 hover:bg-emerald-50"
+                className="inline-flex items-center gap-1 rounded-full border border-emerald-600  "bg-background$($args[0].Groups[1].Value)"  px-4 h-8 text-sm font-medium text-emerald-700 hover:bg-emerald-50"
               >
                 <Download className="w-3.5 h-3.5" />
                 Export
@@ -729,9 +729,9 @@ export default function MachinesInventoryPage() {
               {exportMenuOpen && (
                 <>
                   <div className="fixed inset-0 z-10" onClick={() => setExportMenuOpen(false)} />
-                  <div className="absolute right-0 z-20 mt-1 w-44 rounded-lg border border-soft-border bg-white shadow-lg py-1">
-                    <button type="button" onClick={exportToExcel} className="w-full px-4 py-2 text-left text-sm hover:bg-[#F3F4F6]">Export as Excel (.xlsx)</button>
-                    <button type="button" onClick={exportToPDF} className="w-full px-4 py-2 text-left text-sm hover:bg-[#F3F4F6]">Export as PDF</button>
+                  <div className="absolute right-0 z-20 mt-1 w-44 rounded-lg border border-soft-border  "bg-background$($args[0].Groups[1].Value)"  shadow-lg py-1">
+                    <button type="button" onClick={exportToExcel} className="w-full px-4 py-2 text-left text-sm hover:bg-muted">Export as Excel (.xlsx)</button>
+                    <button type="button" onClick={exportToPDF} className="w-full px-4 py-2 text-left text-sm hover:bg-muted">Export as PDF</button>
                   </div>
                 </>
               )}
@@ -739,7 +739,7 @@ export default function MachinesInventoryPage() {
             <button
               type="button"
               onClick={() => setRequestsPanelOpen((prev) => !prev)}
-              className="inline-flex items-center gap-2 rounded-full border border-midnight-ink bg-white px-4 h-8 text-sm font-medium text-midnight-ink"
+              className="inline-flex items-center gap-2 rounded-full border border-midnight-ink  "bg-background$($args[0].Groups[1].Value)"  px-4 h-8 text-sm font-medium text-midnight-ink"
             >
               Requests
               {pendingIssueRequests.length > 0 && (
@@ -763,14 +763,14 @@ export default function MachinesInventoryPage() {
           </div>
         )}
 
-        <section className="border border-soft-border rounded-lg mb-4 bg-[#dbeafe] p-3">
+        <section className="border border-soft-border rounded-lg mb-4 bg-blue-100 dark:bg-blue-900/20 p-3">
           <div className="flex flex-wrap gap-2 items-center">
             <input
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Search"
-              className="h-8 text-sm w-36 bg-white rounded-md border border-trust-blue/40 px-3"
+              className="h-8 text-sm w-36  "bg-background$($args[0].Groups[1].Value)"  rounded-md border border-trust-blue/40 px-3"
             />
             <MultiselectFilterPopover
               label="Department"
@@ -800,11 +800,11 @@ export default function MachinesInventoryPage() {
           </div>
         </section>
 
-        <section className="rounded-xl border border-soft-border bg-white shadow-sm">
+        <section className="rounded-xl border border-soft-border  "bg-background$($args[0].Groups[1].Value)"  shadow-sm">
           <div className="overflow-x-auto">
             <table className="w-full min-w-[2000px] border-collapse text-sm">
               <thead>
-                <tr className="border-b border-soft-border bg-[#dbeafe]">
+                <tr className="border-b border-soft-border bg-blue-100 dark:bg-blue-900/20">
                   <th rowSpan={2} className="border border-soft-border px-3 py-3">
                     <input
                       type="checkbox"
@@ -815,30 +815,30 @@ export default function MachinesInventoryPage() {
                       className="h-4 w-4 cursor-pointer rounded border-soft-border accent-trust-blue"
                     />
                   </th>
-                  {visibleColumns.has('sno') && <th rowSpan={2} className="border border-soft-border px-3 py-3 text-left text-xs font-normal text-black w-20">S. No.</th>}
-                  {visibleColumns.has('machineName') && <th rowSpan={2} className="border border-soft-border px-4 py-3 text-left text-xs font-normal text-black min-w-[170px]">Machine Name</th>}
-                  {visibleColumns.has('particulars') && <th rowSpan={2} className="border border-soft-border px-4 py-3 text-left text-xs font-normal text-black min-w-[170px]">Particulars</th>}
-                  {visibleColumns.has('department') && <th rowSpan={2} className="border border-soft-border px-4 py-3 text-left text-xs font-normal text-black min-w-[170px]">Department</th>}
-                  {runningVisibleCount > 0 && <th colSpan={runningVisibleCount} className="border border-soft-border bg-emerald-50 px-4 py-3 text-left text-xs font-normal text-black">Running</th>}
-                  {idleVisibleCount > 0 && <th colSpan={idleVisibleCount} className="border border-soft-border bg-yellow-100 px-4 py-3 text-left text-xs font-normal text-black">Idle</th>}
-                  {breakdownVisibleCount > 0 && <th colSpan={breakdownVisibleCount} className="border border-soft-border bg-red-50 px-4 py-3 text-left text-xs font-normal text-black">Breakdown</th>}
-                  {maintenanceVisibleCount > 0 && <th colSpan={maintenanceVisibleCount} className="border border-soft-border bg-orange-200 px-4 py-3 text-left text-xs font-normal text-black">Under Maintenance</th>}
-                  {visibleColumns.has('minRequiredStock') && <th rowSpan={2} className="border border-soft-border px-4 py-3 text-left text-xs font-normal text-black min-w-[210px]">Minimum Required in Stock</th>}
-                  {visibleColumns.has('action') && <th rowSpan={2} className="border border-soft-border px-4 py-3 text-left text-xs font-normal text-black w-24">Action</th>}
+                  {visibleColumns.has('sno') && <th rowSpan={2} className="border border-soft-border px-3 py-3 text-left text-xs font-normal text-foreground w-20">S. No.</th>}
+                  {visibleColumns.has('machineName') && <th rowSpan={2} className="border border-soft-border px-4 py-3 text-left text-xs font-normal text-foreground min-w-[170px]">Machine Name</th>}
+                  {visibleColumns.has('particulars') && <th rowSpan={2} className="border border-soft-border px-4 py-3 text-left text-xs font-normal text-foreground min-w-[170px]">Particulars</th>}
+                  {visibleColumns.has('department') && <th rowSpan={2} className="border border-soft-border px-4 py-3 text-left text-xs font-normal text-foreground min-w-[170px]">Department</th>}
+                  {runningVisibleCount > 0 && <th colSpan={runningVisibleCount} className="border border-soft-border bg-emerald-50 px-4 py-3 text-left text-xs font-normal text-foreground">Running</th>}
+                  {idleVisibleCount > 0 && <th colSpan={idleVisibleCount} className="border border-soft-border bg-yellow-100 px-4 py-3 text-left text-xs font-normal text-foreground">Idle</th>}
+                  {breakdownVisibleCount > 0 && <th colSpan={breakdownVisibleCount} className="border border-soft-border bg-red-50 px-4 py-3 text-left text-xs font-normal text-foreground">Breakdown</th>}
+                  {maintenanceVisibleCount > 0 && <th colSpan={maintenanceVisibleCount} className="border border-soft-border bg-orange-200 px-4 py-3 text-left text-xs font-normal text-foreground">Under Maintenance</th>}
+                  {visibleColumns.has('minRequiredStock') && <th rowSpan={2} className="border border-soft-border px-4 py-3 text-left text-xs font-normal text-foreground min-w-[210px]">Minimum Required in Stock</th>}
+                  {visibleColumns.has('action') && <th rowSpan={2} className="border border-soft-border px-4 py-3 text-left text-xs font-normal text-foreground w-24">Action</th>}
                 </tr>
                 {hasSubHeaders && (
-                  <tr className="border-b border-soft-border bg-[#F8F9FA]">
-                    {visibleColumns.has('runningQty') && <th className="border border-soft-border bg-emerald-50 px-4 py-3 text-left text-xs font-normal text-black min-w-[90px]">Qty</th>}
-                    {visibleColumns.has('runningLocation') && <th className="border border-soft-border bg-emerald-50 px-4 py-3 text-left text-xs font-normal text-black min-w-[140px]">Location</th>}
+                  <tr className="border-b border-soft-border bg-muted">
+                    {visibleColumns.has('runningQty') && <th className="border border-soft-border bg-emerald-50 px-4 py-3 text-left text-xs font-normal text-foreground min-w-[90px]">Qty</th>}
+                    {visibleColumns.has('runningLocation') && <th className="border border-soft-border bg-emerald-50 px-4 py-3 text-left text-xs font-normal text-foreground min-w-[140px]">Location</th>}
 
-                    {visibleColumns.has('idleQty') && <th className="border border-soft-border bg-yellow-100 px-4 py-3 text-left text-xs font-normal text-black min-w-[90px]">Qty</th>}
-                    {visibleColumns.has('idleLocation') && <th className="border border-soft-border bg-yellow-100 px-4 py-3 text-left text-xs font-normal text-black min-w-[140px]">Location</th>}
+                    {visibleColumns.has('idleQty') && <th className="border border-soft-border bg-yellow-100 px-4 py-3 text-left text-xs font-normal text-foreground min-w-[90px]">Qty</th>}
+                    {visibleColumns.has('idleLocation') && <th className="border border-soft-border bg-yellow-100 px-4 py-3 text-left text-xs font-normal text-foreground min-w-[140px]">Location</th>}
 
-                    {visibleColumns.has('breakdownQty') && <th className="border border-soft-border bg-red-50 px-4 py-3 text-left text-xs font-normal text-black min-w-[90px]">Qty</th>}
-                    {visibleColumns.has('breakdownLocation') && <th className="border border-soft-border bg-red-50 px-4 py-3 text-left text-xs font-normal text-black min-w-[140px]">Location</th>}
+                    {visibleColumns.has('breakdownQty') && <th className="border border-soft-border bg-red-50 px-4 py-3 text-left text-xs font-normal text-foreground min-w-[90px]">Qty</th>}
+                    {visibleColumns.has('breakdownLocation') && <th className="border border-soft-border bg-red-50 px-4 py-3 text-left text-xs font-normal text-foreground min-w-[140px]">Location</th>}
 
-                    {visibleColumns.has('maintenanceQty') && <th className="border border-soft-border bg-orange-200 px-4 py-3 text-left text-xs font-normal text-black min-w-[90px]">Qty</th>}
-                    {visibleColumns.has('maintenanceLocation') && <th className="border border-soft-border bg-orange-200 px-4 py-3 text-left text-xs font-normal text-black min-w-[140px]">Location</th>}
+                    {visibleColumns.has('maintenanceQty') && <th className="border border-soft-border bg-orange-200 px-4 py-3 text-left text-xs font-normal text-foreground min-w-[90px]">Qty</th>}
+                    {visibleColumns.has('maintenanceLocation') && <th className="border border-soft-border bg-orange-200 px-4 py-3 text-left text-xs font-normal text-foreground min-w-[140px]">Location</th>}
                   </tr>
                 )}
               </thead>
@@ -850,7 +850,7 @@ export default function MachinesInventoryPage() {
                     </td>
                   </tr>
                 ) : pagedRows.map((row) => (
-                  <tr key={row.id} className="border-b border-soft-border last:border-0 transition hover:bg-[#F8F9FA]">
+                  <tr key={row.id} className="border-b border-soft-border last:border-0 transition hover:bg-muted">
                     <td className="border border-soft-border px-3 py-2.5">
                       <input
                         type="checkbox"
@@ -920,14 +920,14 @@ export default function MachinesInventoryPage() {
       {requestsPanelOpen && (
         <>
           <div className="fixed inset-0 z-[75] bg-black/20" onClick={() => setRequestsPanelOpen(false)} />
-          <aside className="fixed right-2 top-[64px] z-[80] h-[calc(100vh-72px)] w-full max-w-[390px] rounded-2xl border border-soft-border bg-white shadow-2xl">
+          <aside className="fixed right-2 top-[64px] z-[80] h-[calc(100vh-72px)] w-full max-w-[390px] rounded-2xl border border-soft-border  "bg-background$($args[0].Groups[1].Value)"  shadow-2xl">
             <div className="flex h-full flex-col">
               <div className="flex items-center justify-between border-b border-soft-border px-4 py-3">
                 <div>
                   <h3 className="text-base font-semibold text-midnight-ink">Notifications</h3>
                   <p className="text-xs text-cool-gray">Issue requests for machines</p>
                 </div>
-                <button onClick={() => setRequestsPanelOpen(false)} className="rounded-md p-1 text-cool-gray hover:bg-[#F3F4F6] hover:text-midnight-ink">
+                <button onClick={() => setRequestsPanelOpen(false)} className="rounded-md p-1 text-cool-gray hover:bg-muted hover:text-midnight-ink">
                   <X size={16} />
                 </button>
               </div>
@@ -942,7 +942,7 @@ export default function MachinesInventoryPage() {
                         <button
                           key={req.id}
                           onClick={() => { setActiveRequestId(req.id); setRequestDetailsOpen(true); }}
-                          className="w-full rounded-xl px-4 py-3 text-left transition hover:bg-[#F9FAFB]"
+                          className="w-full rounded-xl px-4 py-3 text-left transition hover:bg-muted"
                         >
                           <p className="truncate text-sm text-midnight-ink">
                             <span className="font-semibold">{req.issued_to || req.issuedTo}</span> requested <span className="font-semibold">{req.quantity}</span> of {req.item_name || req.machineName}
@@ -984,7 +984,7 @@ export default function MachinesInventoryPage() {
               <select
                 value={issueForm.machineId}
                 onChange={(e) => setIssueForm((prev) => ({ ...prev, machineId: e.target.value }))}
-                className="w-full rounded-md border border-soft-border bg-white px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                className="w-full rounded-md border border-soft-border  "bg-background$($args[0].Groups[1].Value)"  px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
               >
                 <option value="">Select machine</option>
                 {rows.map((r) => (
@@ -1016,7 +1016,7 @@ export default function MachinesInventoryPage() {
                 <select
                   value={issueForm.issuedTo}
                   onChange={(e) => setIssueForm((prev) => ({ ...prev, issuedTo: e.target.value }))}
-                  className="w-full rounded-md border border-soft-border bg-white px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                  className="w-full rounded-md border border-soft-border  "bg-background$($args[0].Groups[1].Value)"  px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
                 >
                   <option value="">Select person</option>
                   {workforceMembers.map((m) => (
@@ -1029,7 +1029,7 @@ export default function MachinesInventoryPage() {
                 <select
                   value={issueForm.issuedBy}
                   onChange={(e) => setIssueForm((prev) => ({ ...prev, issuedBy: e.target.value }))}
-                  className="w-full rounded-md border border-soft-border bg-white px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                  className="w-full rounded-md border border-soft-border  "bg-background$($args[0].Groups[1].Value)"  px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
                 >
                   <option value="">Select person</option>
                   {workforceMembers.map((m) => (
@@ -1127,7 +1127,7 @@ export default function MachinesInventoryPage() {
               <select
                 value={addStockForm.machineId}
                 onChange={(e) => setAddStockForm((prev) => ({ ...prev, machineId: e.target.value }))}
-                className="w-full rounded-md border border-soft-border bg-white px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                className="w-full rounded-md border border-soft-border  "bg-background$($args[0].Groups[1].Value)"  px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
               >
                 <option value="">Select Machine</option>
                 {rows.map((row) => (
@@ -1142,7 +1142,7 @@ export default function MachinesInventoryPage() {
                 <select
                   value={addStockForm.stateKey}
                   onChange={(e) => setAddStockForm((prev) => ({ ...prev, stateKey: e.target.value }))}
-                  className="w-full rounded-md border border-soft-border bg-white px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                  className="w-full rounded-md border border-soft-border  "bg-background$($args[0].Groups[1].Value)"  px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
                 >
                   {STATE_OPTIONS.map((option) => (
                     <option key={option.key} value={option.key}>{option.label}</option>
@@ -1189,7 +1189,7 @@ export default function MachinesInventoryPage() {
               <select
                 value={updateStockForm.machineId}
                 onChange={(e) => setUpdateStockForm((prev) => ({ ...prev, machineId: e.target.value }))}
-                className="w-full rounded-md border border-soft-border bg-white px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                className="w-full rounded-md border border-soft-border  "bg-background$($args[0].Groups[1].Value)"  px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
               >
                 <option value="">Select Machine</option>
                 {rows.map((row) => (
@@ -1204,7 +1204,7 @@ export default function MachinesInventoryPage() {
                 <select
                   value={updateStockForm.fromState}
                   onChange={(e) => setUpdateStockForm((prev) => ({ ...prev, fromState: e.target.value }))}
-                  className="w-full rounded-md border border-soft-border bg-white px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                  className="w-full rounded-md border border-soft-border  "bg-background$($args[0].Groups[1].Value)"  px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
                 >
                   {STATE_OPTIONS.map((option) => (
                     <option key={option.key} value={option.key}>{option.label}</option>
@@ -1216,7 +1216,7 @@ export default function MachinesInventoryPage() {
                 <select
                   value={updateStockForm.toState}
                   onChange={(e) => setUpdateStockForm((prev) => ({ ...prev, toState: e.target.value }))}
-                  className="w-full rounded-md border border-soft-border bg-white px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                  className="w-full rounded-md border border-soft-border  "bg-background$($args[0].Groups[1].Value)"  px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
                 >
                   {STATE_OPTIONS.map((option) => (
                     <option key={option.key} value={option.key}>{option.label}</option>
@@ -1340,10 +1340,10 @@ export default function MachinesInventoryPage() {
         const _tp = totalPages;
         const _sp = safePage;
         return (
-          <div className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-soft-border shadow-lg px-4 py-2 flex flex-wrap items-center justify-between gap-3 text-sm text-cool-gray">
+          <div className="fixed bottom-0 left-0 right-0 z-50  "bg-background$($args[0].Groups[1].Value)"  border-t border-soft-border shadow-lg px-4 py-2 flex flex-wrap items-center justify-between gap-3 text-sm text-cool-gray">
             <div className="flex items-center gap-2">
               <span>Rows per page:</span>
-              <select value={rowsPerPage} onChange={(e) => { setRowsPerPage(Number(e.target.value)); setCurrentPage(1); }} className="border border-soft-border rounded px-2 py-1 text-sm text-midnight-ink bg-white">
+              <select value={rowsPerPage} onChange={(e) => { setRowsPerPage(Number(e.target.value)); setCurrentPage(1); }} className="border border-soft-border rounded px-2 py-1 text-sm text-midnight-ink  "bg-background$($args[0].Groups[1].Value)" ">
                 {[25, 50, 75, 100].map(n => <option key={n} value={n}>{n}</option>)}
               </select>
             </div>

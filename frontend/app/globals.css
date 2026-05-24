@@ -86,6 +86,13 @@
     --sidebar-accent-foreground: 222.2 47.4% 11.2%;
     --sidebar-border: 220 13% 91%;
     --sidebar-ring: 217.2 91.2% 59.8%;
+
+    /* ── Named semantic tokens (light) ── */
+    --color-midnight-ink: 222.2 47.4% 11.2%;  /* #111827 */
+    --color-slate-text:   217 19% 27%;         /* #374151 */
+    --color-cool-gray:    220 8.9% 46.1%;      /* #6B7280 */
+    --color-cloud-gray:   210 20% 98%;         /* #F9FAFB */
+    --color-soft-border:  220 13% 91%;         /* #E5E7EB */
   }
 
   .dark {
@@ -121,6 +128,13 @@
     --sidebar-accent-foreground: 210 20% 98%;
     --sidebar-border: 215.3 16.2% 26.7%;
     --sidebar-ring: 217.2 91.2% 59.8%;
+
+    /* ── Named semantic tokens (dark) ── */
+    --color-midnight-ink: 210 20% 98%;    /* #F9FAFB — inverted: light text */
+    --color-slate-text:   213 27% 84%;    /* #D1D5DB */
+    --color-cool-gray:    218 11% 65%;    /* #9CA3AF */
+    --color-cloud-gray:   215 28% 17%;    /* #1F2937 — elevated dark surface */
+    --color-soft-border:  217 19% 27%;    /* #374151 */
   }
 }
 
@@ -130,5 +144,75 @@
   }
   body {
     @apply bg-background text-foreground text-base leading-normal;
+  }
+}
+
+/* ── Fix autofill background ── */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0 1000px hsl(var(--background)) inset !important;
+  -webkit-text-fill-color: hsl(var(--foreground)) !important;
+  transition: background-color 5000s ease-in-out 0s;
+}
+
+/* ── Disabled inputs ── */
+input:disabled,
+textarea:disabled,
+select:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+  background-color: hsl(var(--muted)) !important;
+  border-color: hsl(var(--border)) !important;
+  color: hsl(var(--muted-foreground)) !important;
+}
+
+/* ── Hide number spinners ── */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+/* ── Global input / button sizing (UI Guidelines 44px min) ── */
+@layer components {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([role]),
+  textarea,
+  select,
+  .min-h-touch {
+    min-height: 44px;
+  }
+}
+
+/* ── Table header utility classes for consistent dark/light theming ── */
+@layer components {
+  .th-header-row {
+    @apply bg-blue-100 dark:bg-blue-900/20 border-b border-soft-border;
+  }
+  .th-header-cell {
+    @apply border border-soft-border px-4 py-3 text-left text-xs font-semibold text-foreground;
+  }
+  .filter-bar {
+    @apply border border-soft-border rounded-lg mb-4 bg-blue-50 dark:bg-blue-900/10 p-3;
+  }
+}
+
+/* ── Print: show only ID cards, hide everything else ── */
+@media print {
+  body * { visibility: hidden; }
+  #id-cards-print-area,
+  #id-cards-print-area * { visibility: visible; }
+  #id-cards-print-area {
+    position: fixed;
+    top: 0;
+    left: 0;
+    display: flex !important;
+    flex-wrap: wrap;
+    gap: 16px;
+    padding: 16px;
+    background: white;
   }
 }

@@ -38,7 +38,7 @@ export default function AccountancyPage() {
     <main className="min-h-screen bg-cloud-gray">
 
       {/* Fixed header — same pattern as Orders, Master Sheets */}
-      <div className="transition-[left,width] duration-300 ease-in-out fixed top-0 left-0 right-0 z-[60] bg-white/95 py-2 border-b border-soft-border shadow-sm backdrop-blur px-3 md:px-4">
+      <div className="transition-[left,width] duration-300 ease-in-out fixed top-0 left-0 right-0 z-[60] bg-background/95 py-2 border-b border-soft-border shadow-sm backdrop-blur px-3 md:px-4">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <MasterNavigationDrawer inHeader />
@@ -85,7 +85,7 @@ export default function AccountancyPage() {
                 onClick={() => setJournalMode('manual')}
                 className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
                   journalMode === 'manual'
-                    ? 'bg-white text-midnight-ink shadow-sm'
+                    ? 'bg-background text-foreground shadow-sm'
                     : 'text-cool-gray hover:text-midnight-ink'
                 }`}
               >
@@ -97,7 +97,7 @@ export default function AccountancyPage() {
                 onClick={() => setJournalMode('import')}
                 className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
                   journalMode === 'import'
-                    ? 'bg-white text-midnight-ink shadow-sm'
+                    ? 'bg-background text-foreground shadow-sm'
                     : 'text-cool-gray hover:text-midnight-ink'
                 }`}
               >

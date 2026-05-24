@@ -1124,16 +1124,16 @@ export default function MasterProductSheet() {
           {selectedProductForPrint && (
             <div className="space-y-6 py-4">
               {/* Product Header */}
-              <div className="border-2 border-midnight-ink p-6 bg-white">
+              <div className="border border-soft-border p-6 bg-background">
                 <h2 className="text-2xl font-bold text-center mb-6">PRODUCT DETAILS</h2>
                 
                 {/* Top Section */}
-                <div className="grid grid-cols-3 gap-4 mb-6 border-b-2 border-midnight-ink pb-4">
-                  <div className="border-r-2 border-midnight-ink pr-4">
+                <div className="grid grid-cols-3 gap-4 mb-6 border-b border-soft-border pb-4">
+                  <div className="border-r border-soft-border pr-4">
                     <p className="text-sm font-bold text-slate-text mb-1">SKU</p>
                     <p className="text-sm">{selectedProductForPrint.sku || '—'}</p>
                   </div>
-                  <div className="border-r-2 border-midnight-ink pr-4">
+                  <div className="border-r border-soft-border pr-4">
                     <p className="text-sm font-bold text-slate-text mb-1">LISTING NAME</p>
                     <p className="text-sm">{selectedProductForPrint.listingName || '—'}</p>
                   </div>
@@ -1144,7 +1144,7 @@ export default function MasterProductSheet() {
                 </div>
 
                 {/* Details Section */}
-                <div className="grid grid-cols-2 gap-4 mb-6 border-b-2 border-midnight-ink pb-4">
+                <div className="grid grid-cols-2 gap-4 mb-6 border-b border-soft-border pb-4">
                   <div>
                     <p className="text-sm font-bold text-slate-text mb-1">MATERIAL</p>
                     <p className="text-sm">{selectedProductForPrint.material || '—'}</p>
@@ -1165,21 +1165,21 @@ export default function MasterProductSheet() {
 
                 {/* Product Information */}
                 <div className="mb-6">
-                  <table className="w-full border-collapse border-2 border-midnight-ink break-words">
+                  <table className="w-full border-collapse border border-soft-border break-words">
                     <thead>
-                      <tr className="bg-gray-900 text-white">
-                        <th className="border-2 border-midnight-ink p-2 text-sm font-bold text-left break-words">SETTING TYPE</th>
-                        <th className="border-2 border-midnight-ink p-2 text-sm font-bold text-left break-words">ENAMEL TYPE</th>
-                        <th className="border-2 border-midnight-ink p-2 text-sm font-bold text-left break-words">ACTIVE CHANNELS</th>
-                        <th className="border-2 border-midnight-ink p-2 text-sm font-bold text-left break-words">MASTER SKU</th>
+                      <tr className="bg-slate-600 text-white">
+                        <th className="border border-soft-border p-2 text-sm font-bold text-left break-words">SETTING TYPE</th>
+                        <th className="border border-soft-border p-2 text-sm font-bold text-left break-words">ENAMEL TYPE</th>
+                        <th className="border border-soft-border p-2 text-sm font-bold text-left break-words">ACTIVE CHANNELS</th>
+                        <th className="border border-soft-border p-2 text-sm font-bold text-left break-words">MASTER SKU</th>
                       </tr>
                     </thead>
                     <tbody>
                       <tr>
-                        <td className="border-2 border-midnight-ink p-2 text-sm break-words">{selectedProductForPrint.settingType || '—'}</td>
-                        <td className="border-2 border-midnight-ink p-2 text-sm break-words">{selectedProductForPrint.enamelType || '—'}</td>
-                        <td className="border-2 border-midnight-ink p-2 text-sm break-words">{selectedProductForPrint.activeChannels || '—'}</td>
-                        <td className="border-2 border-midnight-ink p-2 text-sm break-words">{selectedProductForPrint.masterSku || '—'}</td>
+                        <td className="border border-soft-border p-2 text-sm break-words">{selectedProductForPrint.settingType || '—'}</td>
+                        <td className="border border-soft-border p-2 text-sm break-words">{selectedProductForPrint.enamelType || '—'}</td>
+                        <td className="border border-soft-border p-2 text-sm break-words">{selectedProductForPrint.activeChannels || '—'}</td>
+                        <td className="border border-soft-border p-2 text-sm break-words">{selectedProductForPrint.masterSku || '—'}</td>
                       </tr>
                     </tbody>
                   </table>
@@ -1189,7 +1189,7 @@ export default function MasterProductSheet() {
                 <div className="grid grid-cols-2 gap-8 pt-4">
                   <div>
                     <p className="text-sm font-bold text-slate-text mb-8">Verified By</p>
-                    <div className="border-t-2 border-midnight-ink w-24"></div>
+                    <div className="border-t border-soft-border w-24"></div>
                   </div>
                   <div>
                     <p className="text-sm font-bold text-slate-text mb-8">Date</p>
@@ -1227,7 +1227,7 @@ export default function MasterProductSheet() {
           
           <div className="space-y-4 py-4">
             {/* Sheet Header */}
-            <div className="text-center border-b-2 border-midnight-ink pb-4 mb-6">
+            <div className="text-center border-b border-soft-border pb-4 mb-6">
               <h2 className="text-2xl font-bold mb-2">MASTER PRODUCT SHEET</h2>
               <p className="text-sm text-cool-gray">Date: {new Date().toISOString().split('T')[0]}</p>
             </div>
@@ -1253,10 +1253,10 @@ export default function MasterProductSheet() {
             </div>
 
             {/* Data Table */}
-            <div className="border-2 border-midnight-ink rounded overflow-x-auto">
+            <div className="border border-soft-border rounded overflow-x-auto">
               <table className="w-full border-collapse text-sm break-words">
                 <thead>
-                  <tr className="bg-gray-900 text-white">
+                  <tr className="bg-slate-600 text-white">
                     <th className="border border-soft-border p-2 text-left break-words">SKU</th>
                     <th className="border border-soft-border p-2 text-left break-words">Listing Name</th>
                     <th className="border border-soft-border p-2 text-left break-words">Material</th>
@@ -1271,7 +1271,7 @@ export default function MasterProductSheet() {
                 </thead>
                 <tbody>
                   {filteredData.map((row, index) => (
-                    <tr key={row.id} className={index % 2 === 0 ? 'bg-white' : 'bg-cloud-gray'}>
+                    <tr key={row.id} className={index % 2 === 0 ? 'bg-background' : 'bg-cloud-gray'}>
                       <td className="border border-soft-border p-2 break-words">{row.sku || '—'}</td>
                       <td className="border border-soft-border p-2 break-words">{row.listingName || '—'}</td>
                       <td className="border border-soft-border p-2 break-words">{row.material || '—'}</td>
@@ -1355,7 +1355,7 @@ export default function MasterProductSheet() {
 
       <div className="flex-1 pt-16 px-3 md:px-4 pb-16">
         {/* Header Section */}
-        <div className="transition-[left,width] duration-300 ease-in-out fixed top-0 left-0 right-0 z-[60] bg-white/95 py-2 border-b border-soft-border shadow-sm backdrop-blur px-3 md:px-4">
+        <div className="transition-[left,width] duration-300 ease-in-out fixed top-0 left-0 right-0 z-[60] bg-background/95 py-2 border-b border-soft-border shadow-sm backdrop-blur px-3 md:px-4">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3 shrink-0">
               <MasterNavigationDrawer inHeader />
@@ -1480,7 +1480,7 @@ export default function MasterProductSheet() {
               <Download className="w-3.5 h-3.5" /> Export <ChevronDown className="w-3.5 h-3.5" />
             </Button>
             {exportMenuOpen && canExport && (
-              <div className="absolute right-0 top-9 z-30 w-52 rounded-lg bg-white shadow-lg border border-soft-border py-1">
+              <div className="absolute right-0 top-9 z-30 w-52 rounded-lg bg-background shadow-lg border border-soft-border py-1">
                 <button type="button" onClick={exportToExcel} className="w-full px-4 py-2 text-sm text-midnight-ink hover:bg-cloud-gray text-left">Export as Excel (.xlsx)</button>
                 <button type="button" onClick={exportToPDF} className="w-full px-4 py-2 text-sm text-midnight-ink hover:bg-cloud-gray text-left">Export as PDF</button>
               </div>
@@ -1511,7 +1511,7 @@ export default function MasterProductSheet() {
         </div>
 
       {/* Filter Row */}
-      <div className="border border-soft-border rounded-lg mb-4 bg-[#dbeafe] p-3">
+      <div className="border border-soft-border rounded-lg mb-4 bg-blue-50 dark:bg-blue-950/30 p-3">
         <div className="flex flex-wrap gap-2 items-center">
           {/* SKU text filter */}
           <Input
@@ -1519,7 +1519,7 @@ export default function MasterProductSheet() {
             placeholder="Enter SKU"
             value={skuFilter}
             onChange={(e) => setSKUFilter(e.target.value)}
-            className="h-8 text-sm w-36 bg-white"
+            className="h-8 text-sm w-36 bg-background"
           />
 
           {/* Multi-select dropdown for each filter field */}
@@ -1528,7 +1528,7 @@ export default function MasterProductSheet() {
               <DropdownMenuTrigger asChild>
                 <button
                   type="button"
-                  className="flex items-center gap-1.5 px-3 py-1 text-sm border rounded bg-white text-midnight-ink border-trust-blue/40"
+                  className="flex items-center gap-1.5 px-3 py-1 text-sm border rounded bg-background text-midnight-ink border-trust-blue/40"
                 >
                   <span>
                     {field.label}
@@ -1608,7 +1608,7 @@ export default function MasterProductSheet() {
       )}
 
       {/* Table Section */}
-      <div className="border border-soft-border rounded-lg bg-white overflow-hidden">
+      <div className="border border-soft-border rounded-lg bg-background overflow-hidden">
         {/* Table wrapper with scroll */}
         <div className="overflow-auto max-h-[500px]">
           <table className="w-full border-separate border-spacing-0 text-sm">
@@ -1664,7 +1664,7 @@ export default function MasterProductSheet() {
                   >
                     {dieIdx === 0 && (
                       <td rowSpan={dieSpan} className={`border border-soft-border p-2 text-center sticky left-0 z-10 shadow-[2px_0_4px_-1px_rgba(0,0,0,0.08)] ${
-                        isEditing ? 'bg-[#eff6ff]' : 'bg-white'
+                        isEditing ? 'bg-[#eff6ff] dark:bg-trust-blue/20' : 'bg-background'
                       }`}>
                         <Checkbox
                           checked={selectedRows.has(row.id)}
@@ -1813,13 +1813,13 @@ export default function MasterProductSheet() {
       </div>
 
       {/* Fixed Footer */}
-      <div className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-soft-border shadow-lg px-4 py-2 flex flex-wrap items-center justify-between gap-3 text-sm text-cool-gray">
+      <div className="fixed bottom-0 left-0 right-0 z-50 bg-background border-t border-soft-border shadow-lg px-4 py-2 flex flex-wrap items-center justify-between gap-3 text-sm text-cool-gray">
         <div className="flex items-center gap-2">
           <span>Rows per page:</span>
           <select
             value={rowsPerPage}
             onChange={(e) => { setRowsPerPage(Number(e.target.value)); setCurrentPage(1); }}
-            className="border border-soft-border rounded px-2 py-1 text-sm text-midnight-ink bg-white"
+            className="border border-soft-border rounded px-2 py-1 text-sm text-midnight-ink bg-background"
           >
             {[25, 50, 75, 100].map((n) => <option key={n} value={n}>{n}</option>)}
           </select>
@@ -1932,7 +1932,7 @@ function ImageCell({ images, rowId, isNew, isEditing, onImagesChange }) {
 
 function DetailCard({ label, value }) {
   return (
-    <div className="border border-soft-border rounded-lg bg-white overflow-hidden">
+    <div className="border border-soft-border rounded-lg bg-background overflow-hidden">
       <div className="px-2 py-1 bg-cloud-gray font-semibold text-xs text-slate-text border-b border-soft-border">{label}</div>
       <div className="px-2 py-2 text-sm min-h-[36px] whitespace-pre-wrap break-words">{value || '—'}</div>
     </div>

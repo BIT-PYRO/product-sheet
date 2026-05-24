@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
@@ -520,7 +520,7 @@ export default function LowStockPage() {
   return (
     <main className="min-h-screen bg-cloud-gray">
       {/* Header */}
-      <div className="transition-[left,width] duration-300 ease-in-out fixed top-0 left-0 right-0 z-[60] bg-white/95 py-2 border-b border-soft-border shadow-sm backdrop-blur px-3 md:px-4">
+      <div className="transition-[left,width] duration-300 ease-in-out fixed top-0 left-0 right-0 z-[60] bg-background/95 py-2 border-b border-soft-border shadow-sm backdrop-blur px-3 md:px-4">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 shrink-0">
             <MasterNavigationDrawer inHeader />
@@ -539,7 +539,7 @@ export default function LowStockPage() {
         <div className="mb-4 flex justify-end">
           <Link
             href="/inventory"
-            className="inline-flex items-center gap-2 rounded-lg border border-soft-border bg-white px-3 py-2 text-sm font-medium text-midnight-ink hover:border-trust-blue transition"
+            className="inline-flex items-center gap-2 rounded-lg border border-soft-border bg-background px-3 py-2 text-sm font-medium text-midnight-ink hover:border-trust-blue transition"
           >
             <ArrowLeft className="h-4 w-4" />
             Back
@@ -549,14 +549,14 @@ export default function LowStockPage() {
             <button
               onClick={fetchAll}
               disabled={loading}
-              className="inline-flex items-center gap-2 rounded-lg border border-soft-border bg-white px-3 py-2 text-sm font-medium text-midnight-ink hover:border-trust-blue transition disabled:opacity-50"
+              className="inline-flex items-center gap-2 rounded-lg border border-soft-border bg-background px-3 py-2 text-sm font-medium text-midnight-ink hover:border-trust-blue transition disabled:opacity-50"
             >
               <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
               Refresh
             </button>
             <button
               onClick={tab === 'log' ? printLog : printLowStock}
-              className="inline-flex items-center gap-2 rounded-lg border border-soft-border bg-white px-3 py-2 text-sm font-medium text-midnight-ink hover:border-trust-blue transition"
+              className="inline-flex items-center gap-2 rounded-lg border border-soft-border bg-background px-3 py-2 text-sm font-medium text-midnight-ink hover:border-trust-blue transition"
             >
               <Printer className="h-4 w-4" />
               Print
@@ -621,7 +621,7 @@ export default function LowStockPage() {
                   className={`px-3 py-1 rounded-full text-xs font-medium border transition ${
                     filterSource === s.key
                       ? 'bg-trust-blue text-white border-trust-blue'
-                      : 'bg-white text-midnight-ink border-soft-border hover:border-trust-blue'
+                      : 'bg-background text-midnight-ink border-soft-border hover:border-trust-blue'
                   }`}
                 >
                   {s.label}
@@ -637,22 +637,22 @@ export default function LowStockPage() {
             {loading ? (
               <div className="text-sm text-cool-gray py-8 text-center">Loading inventory data…</div>
             ) : filteredItems.length === 0 ? (
-              <div className="rounded-xl border border-soft-border bg-white px-6 py-12 text-center text-cool-gray text-sm">
+              <div className="rounded-xl border border-soft-border bg-background px-6 py-12 text-center text-cool-gray text-sm">
                 No low-stock items found{filterSource !== 'all' ? ` in ${srcConfig[filterSource]?.label}` : ''}.
               </div>
             ) : (
-              <div className="overflow-x-auto rounded-xl border border-soft-border bg-white">
+              <div className="overflow-x-auto rounded-xl border border-soft-border bg-background">
                 <table className="w-full border-collapse text-sm">
                   <thead>
-                    <tr className="border-b border-soft-border bg-[#F8F9FA]">
-                      <th className="border border-soft-border px-4 py-3 text-left font-normal text-black">Source</th>
-                      <th className="border border-soft-border px-4 py-3 text-left font-normal text-black">Item</th>
-                      <th className="border border-soft-border px-4 py-3 text-left font-normal text-black">Details</th>
-                      <th className="border border-soft-border px-4 py-3 text-left font-normal text-black">Reason</th>
-                      <th className="border border-soft-border px-4 py-3 text-right font-normal text-black">Current Stock</th>
-                      <th className="border border-soft-border px-4 py-3 text-right font-normal text-black">Min Level</th>
-                      <th className="border border-soft-border px-4 py-3 text-right font-normal text-black">Needed</th>
-                      <th className="border border-soft-border px-4 py-3 text-center font-normal text-black">Action</th>
+                    <tr className="border-b border-soft-border bg-muted">
+                      <th className="border border-soft-border px-4 py-3 text-left font-normal text-foreground">Source</th>
+                      <th className="border border-soft-border px-4 py-3 text-left font-normal text-foreground">Item</th>
+                      <th className="border border-soft-border px-4 py-3 text-left font-normal text-foreground">Details</th>
+                      <th className="border border-soft-border px-4 py-3 text-left font-normal text-foreground">Reason</th>
+                      <th className="border border-soft-border px-4 py-3 text-right font-normal text-foreground">Current Stock</th>
+                      <th className="border border-soft-border px-4 py-3 text-right font-normal text-foreground">Min Level</th>
+                      <th className="border border-soft-border px-4 py-3 text-right font-normal text-foreground">Needed</th>
+                      <th className="border border-soft-border px-4 py-3 text-center font-normal text-foreground">Action</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -755,7 +755,7 @@ export default function LowStockPage() {
                     className={`px-3 py-1 rounded-full text-xs font-medium border transition ${
                       filterLogSource === s.key
                         ? 'bg-trust-blue text-white border-trust-blue'
-                        : 'bg-white text-midnight-ink border-soft-border hover:border-trust-blue'
+                        : 'bg-background text-midnight-ink border-soft-border hover:border-trust-blue'
                     }`}
                   >
                     {s.label}
@@ -773,32 +773,32 @@ export default function LowStockPage() {
             </div>
 
             {filteredLog.length === 0 ? (
-              <div className="rounded-xl border border-soft-border bg-white px-6 py-12 text-center text-cool-gray text-sm">
+              <div className="rounded-xl border border-soft-border bg-background px-6 py-12 text-center text-cool-gray text-sm">
                 {fulfillLog.length === 0
                   ? 'No fulfillments recorded yet. Use the "Fulfill" button on a low-stock item to get started.'
                   : 'No log entries match the current filters.'}
               </div>
             ) : (
-              <div className="overflow-x-auto rounded-xl border border-soft-border bg-white">
+              <div className="overflow-x-auto rounded-xl border border-soft-border bg-background">
                 <table className="w-full border-collapse text-sm">
                   <thead>
-                    <tr className="border-b border-soft-border bg-[#F8F9FA]">
-                      <th className="border border-soft-border px-4 py-3 text-left font-normal text-black">Date</th>
-                      <th className="border border-soft-border px-4 py-3 text-left font-normal text-black">Source</th>
-                      <th className="border border-soft-border px-4 py-3 text-left font-normal text-black">Item</th>
-                      <th className="border border-soft-border px-4 py-3 text-left font-normal text-black">Vendor / Employee</th>
-                      <th className="border border-soft-border px-4 py-3 text-right font-normal text-black">Qty</th>
-                      <th className="border border-soft-border px-4 py-3 text-right font-normal text-black">Price / Unit</th>
-                      <th className="border border-soft-border px-4 py-3 text-right font-normal text-black">Total</th>
-                      <th className="border border-soft-border px-4 py-3 text-left font-normal text-black">Ref ID</th>
-                      <th className="border border-soft-border px-4 py-3 text-left font-normal text-black">Note</th>
+                    <tr className="border-b border-soft-border bg-muted">
+                      <th className="border border-soft-border px-4 py-3 text-left font-normal text-foreground">Date</th>
+                      <th className="border border-soft-border px-4 py-3 text-left font-normal text-foreground">Source</th>
+                      <th className="border border-soft-border px-4 py-3 text-left font-normal text-foreground">Item</th>
+                      <th className="border border-soft-border px-4 py-3 text-left font-normal text-foreground">Vendor / Employee</th>
+                      <th className="border border-soft-border px-4 py-3 text-right font-normal text-foreground">Qty</th>
+                      <th className="border border-soft-border px-4 py-3 text-right font-normal text-foreground">Price / Unit</th>
+                      <th className="border border-soft-border px-4 py-3 text-right font-normal text-foreground">Total</th>
+                      <th className="border border-soft-border px-4 py-3 text-left font-normal text-foreground">Ref ID</th>
+                      <th className="border border-soft-border px-4 py-3 text-left font-normal text-foreground">Note</th>
                     </tr>
                   </thead>
                   <tbody>
                     {filteredLog.map((entry) => {
                       const src = srcConfig[entry.source];
                       return (
-                        <tr key={entry.id} className="border-b border-soft-border/60 last:border-b-0 hover:bg-[#F9FAFB]">
+                        <tr key={entry.id} className="border-b border-soft-border/60 last:border-b-0 hover:bg-muted">
                           <td className="border border-soft-border px-4 py-3 text-cool-gray whitespace-nowrap">
                             {new Date(entry.fulfilledAt).toLocaleDateString()}{' '}
                             <span className="text-xs opacity-70">{new Date(entry.fulfilledAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
@@ -810,7 +810,7 @@ export default function LowStockPage() {
                           </td>
                           <td className="border border-soft-border px-4 py-3 font-medium text-midnight-ink max-w-[160px] truncate">{entry.itemName}</td>
                           <td className="border border-soft-border px-4 py-3 text-midnight-ink">{entry.vendorEmployee}</td>
-                          <td className="border border-soft-border px-4 py-3 text-right font-normal text-black">{fmtNum(entry.quantity) || '—'}</td>
+                          <td className="border border-soft-border px-4 py-3 text-right font-normal text-foreground">{fmtNum(entry.quantity) || '—'}</td>
                           <td className="border border-soft-border px-4 py-3 text-right text-midnight-ink">₹{Number(entry.pricePerUnit).toLocaleString('en-IN')}</td>
                           <td className="border border-soft-border px-4 py-3 text-right font-semibold text-trust-blue">₹{Number(entry.totalPrice).toLocaleString('en-IN')}</td>
                           <td className="border border-soft-border px-4 py-3 text-cool-gray">{entry.referenceId || '—'}</td>
@@ -837,7 +837,7 @@ export default function LowStockPage() {
           </DialogHeader>
 
           {fulfillItem && (
-            <div className="mt-1 rounded-lg border border-soft-border bg-[#F8F9FA] px-4 py-3 mb-2">
+            <div className="mt-1 rounded-lg border border-soft-border bg-muted px-4 py-3 mb-2">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-xs text-cool-gray uppercase tracking-wide font-medium">{srcConfig[fulfillItem._source]?.label ?? fulfillItem._source}</p>
@@ -912,7 +912,7 @@ export default function LowStockPage() {
             </div>
 
             {/* Total price display */}
-            <div className={`rounded-lg border px-4 py-3 flex items-center justify-between ${totalPrice !== null ? 'border-trust-blue/30 bg-blue-50' : 'border-soft-border bg-[#F8F9FA]'}`}>
+            <div className={`rounded-lg border px-4 py-3 flex items-center justify-between ${totalPrice !== null ? 'border-trust-blue/30 bg-blue-50' : 'border-soft-border bg-muted'}`}>
               <span className="text-sm text-cool-gray font-medium">Total Amount</span>
               <span className={`text-xl font-bold ${totalPrice !== null ? 'text-trust-blue' : 'text-cool-gray/50'}`}>
                 {totalPrice !== null ? `₹${Number(totalPrice).toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '—'}

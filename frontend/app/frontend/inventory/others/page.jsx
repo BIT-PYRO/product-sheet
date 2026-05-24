@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
@@ -540,7 +540,7 @@ export default function OthersInventoryPage() {
   return (
     <main className="min-h-screen bg-cloud-gray">
       {/* Header */}
-      <div className="transition-[left,width] duration-300 ease-in-out fixed top-0 left-0 right-0 z-[60] bg-white/95 py-2 border-b border-soft-border shadow-sm backdrop-blur px-3 md:px-4">
+      <div className="transition-[left,width] duration-300 ease-in-out fixed top-0 left-0 right-0 z-[60] bg-background/95 py-2 border-b border-soft-border shadow-sm backdrop-blur px-3 md:px-4">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <MasterNavigationDrawer inHeader />
@@ -560,7 +560,7 @@ export default function OthersInventoryPage() {
 
         {/* Back + buttons row */}
         <div className="mb-4 flex justify-end">
-          <Link href="/inventory" className="inline-flex items-center gap-2 rounded-lg border border-soft-border bg-white px-3 py-2 text-sm font-medium text-midnight-ink hover:border-trust-blue transition">
+          <Link href="/inventory" className="inline-flex items-center gap-2 rounded-lg border border-soft-border bg-background px-3 py-2 text-sm font-medium text-midnight-ink hover:border-trust-blue transition">
             <ArrowLeft className="h-4 w-4" /> Back
           </Link>
         </div>
@@ -612,7 +612,7 @@ export default function OthersInventoryPage() {
               <Download className="w-3.5 h-3.5" /> Export <ChevronDown className="w-3.5 h-3.5" />
             </Button>
             {exportMenuOpen && (
-              <div className="absolute right-0 top-9 z-30 w-52 rounded-lg bg-white shadow-lg border border-soft-border py-1">
+              <div className="absolute right-0 top-9 z-30 w-52 rounded-lg bg-background shadow-lg border border-soft-border py-1">
                 <button type="button" onClick={exportToExcel} className="w-full px-4 py-2 text-sm text-midnight-ink hover:bg-cloud-gray text-left">Export as Excel (.xlsx)</button>
                 <button type="button" onClick={exportToPDF} className="w-full px-4 py-2 text-sm text-midnight-ink hover:bg-cloud-gray text-left">Export as PDF</button>
               </div>
@@ -640,14 +640,14 @@ export default function OthersInventoryPage() {
         )}
 
         {/* Filters */}
-        <section className="border border-soft-border rounded-lg mb-4 bg-[#dbeafe] p-3">
+        <section className="border border-soft-border rounded-lg mb-4 bg-blue-100 dark:bg-blue-900/20 p-3">
           <div className="flex flex-wrap gap-2 items-center">
             <input
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Search"
-              className="h-8 text-sm w-36 bg-white rounded-md border border-trust-blue/40 px-3"
+              className="h-8 text-sm w-36 bg-background rounded-md border border-trust-blue/40 px-3"
             />
             <MultiselectFilterPopover
               label="Category"
@@ -673,15 +673,15 @@ export default function OthersInventoryPage() {
           </div>
         </section>
 
-        <section className="rounded-xl border border-soft-border bg-white p-4 md:p-6 shadow-sm mb-6">
+        <section className="rounded-xl border border-soft-border bg-background p-4 md:p-6 shadow-sm mb-6">
           {loading ? (
             <p className="py-10 text-center text-sm text-cool-gray">Loading…</p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full min-w-[1040px] border-collapse text-sm">
                 <thead>
-                  <tr className="bg-[#dbeafe] border-b border-soft-border">
-                    <th className="border border-soft-border px-3 py-2 text-left text-xs font-normal text-black w-12">
+                  <tr className="bg-blue-100 dark:bg-blue-900/20 border-b border-soft-border">
+                    <th className="border border-soft-border px-3 py-2 text-left text-xs font-normal text-foreground w-12">
                       <input
                         type="checkbox"
                         checked={allSelected}
@@ -691,15 +691,15 @@ export default function OthersInventoryPage() {
                         className="h-4 w-4 cursor-pointer rounded border-soft-border accent-trust-blue"
                       />
                     </th>
-                    {visibleColumns.has('sno') && <th className="border border-soft-border px-3 py-2 text-left text-xs font-normal text-black w-14">#</th>}
-                    {visibleColumns.has('item_name') && <th className="border border-soft-border px-3 py-2 text-left text-xs font-normal text-black">Item Name</th>}
-                    {visibleColumns.has('category') && <th className="border border-soft-border px-3 py-2 text-left text-xs font-normal text-black">Category</th>}
-                    {visibleColumns.has('quantity') && <th className="border border-soft-border px-3 py-2 text-left text-xs font-normal text-black">Quantity</th>}
-                    {visibleColumns.has('used_qty') && <th className="border border-soft-border px-3 py-2 text-left text-xs font-normal text-black">Used Qty</th>}
-                    {visibleColumns.has('unit') && <th className="border border-soft-border px-3 py-2 text-left text-xs font-normal text-black">Unit</th>}
-                    {visibleColumns.has('min_level') && <th className="border border-soft-border px-3 py-2 text-left text-xs font-normal text-black">Min Level</th>}
-                    {visibleColumns.has('notes') && <th className="border border-soft-border px-3 py-2 text-left text-xs font-normal text-black">Notes</th>}
-                    {visibleColumns.has('action') && <th className="border border-soft-border px-3 py-2 text-left text-xs font-normal text-black w-20">Action</th>}
+                    {visibleColumns.has('sno') && <th className="border border-soft-border px-3 py-2 text-left text-xs font-normal text-foreground w-14">#</th>}
+                    {visibleColumns.has('item_name') && <th className="border border-soft-border px-3 py-2 text-left text-xs font-normal text-foreground">Item Name</th>}
+                    {visibleColumns.has('category') && <th className="border border-soft-border px-3 py-2 text-left text-xs font-normal text-foreground">Category</th>}
+                    {visibleColumns.has('quantity') && <th className="border border-soft-border px-3 py-2 text-left text-xs font-normal text-foreground">Quantity</th>}
+                    {visibleColumns.has('used_qty') && <th className="border border-soft-border px-3 py-2 text-left text-xs font-normal text-foreground">Used Qty</th>}
+                    {visibleColumns.has('unit') && <th className="border border-soft-border px-3 py-2 text-left text-xs font-normal text-foreground">Unit</th>}
+                    {visibleColumns.has('min_level') && <th className="border border-soft-border px-3 py-2 text-left text-xs font-normal text-foreground">Min Level</th>}
+                    {visibleColumns.has('notes') && <th className="border border-soft-border px-3 py-2 text-left text-xs font-normal text-foreground">Notes</th>}
+                    {visibleColumns.has('action') && <th className="border border-soft-border px-3 py-2 text-left text-xs font-normal text-foreground w-20">Action</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -721,7 +721,7 @@ export default function OthersInventoryPage() {
                         {visibleColumns.has('sno') && <td className="border border-soft-border px-3 py-2 text-midnight-ink">{(safePage - 1) * rowsPerPage + index + 1}</td>}
                         {visibleColumns.has('item_name') && <td className="border border-soft-border px-3 py-2"><input type="text" value={getField(row, 'item_name')} onChange={(e) => setField(row.id, 'item_name', e.target.value)} readOnly={!editingRowIds.has(row.id)} placeholder="Coffee powder" className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue read-only:bg-gray-50 read-only:text-cool-gray" /></td>}
                         {visibleColumns.has('category') && <td className="border border-soft-border px-3 py-2">
-                          <select value={getField(row, 'category')} onChange={(e) => setField(row.id, 'category', e.target.value)} disabled={!editingRowIds.has(row.id)} className="h-9 w-full rounded-lg border border-soft-border bg-white px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue disabled:bg-gray-50 disabled:text-cool-gray">
+                          <select value={getField(row, 'category')} onChange={(e) => setField(row.id, 'category', e.target.value)} disabled={!editingRowIds.has(row.id)} className="h-9 w-full rounded-lg border border-soft-border bg-background px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue disabled:bg-gray-50 disabled:text-cool-gray">
                             <option value="">Select category</option>
                             {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
                           </select>
@@ -729,7 +729,7 @@ export default function OthersInventoryPage() {
                         {visibleColumns.has('quantity') && <td className="border border-soft-border px-3 py-2"><input type="number" value={getField(row, 'quantity')} onChange={(e) => setField(row.id, 'quantity', e.target.value)} readOnly={!editingRowIds.has(row.id)} placeholder="0" className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue read-only:bg-gray-50 read-only:text-cool-gray" /></td>}
                         {visibleColumns.has('used_qty') && <td className="border border-soft-border px-3 py-2"><input type="number" value={getField(row, 'used_qty')} onChange={(e) => setField(row.id, 'used_qty', e.target.value)} readOnly={!editingRowIds.has(row.id)} placeholder="0" className="h-9 w-full rounded-lg border border-soft-border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue read-only:bg-gray-50 read-only:text-cool-gray" /></td>}
                         {visibleColumns.has('unit') && <td className="border border-soft-border px-3 py-2">
-                          <select value={getField(row, 'unit')} onChange={(e) => setField(row.id, 'unit', e.target.value)} disabled={!editingRowIds.has(row.id)} className="h-9 w-full rounded-lg border border-soft-border bg-white px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue disabled:bg-gray-50 disabled:text-cool-gray">
+                          <select value={getField(row, 'unit')} onChange={(e) => setField(row.id, 'unit', e.target.value)} disabled={!editingRowIds.has(row.id)} className="h-9 w-full rounded-lg border border-soft-border bg-background px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue disabled:bg-gray-50 disabled:text-cool-gray">
                             {UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
                           </select>
                         </td>}
@@ -749,14 +749,14 @@ export default function OthersInventoryPage() {
                       {visibleColumns.has('sno') && <td className="border border-soft-border px-3 py-2 text-midnight-ink">{rows.length + index + 1}</td>}
                       {visibleColumns.has('item_name') && <td className="border border-soft-border px-3 py-2"><input type="text" value={row.item_name} onChange={(e) => setNewField(row._localId, 'item_name', e.target.value)} placeholder="Coffee powder" className="h-9 w-full rounded-lg border border-trust-blue/40 px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue" /></td>}
                       {visibleColumns.has('category') && <td className="border border-soft-border px-3 py-2">
-                        <select value={row.category} onChange={(e) => setNewField(row._localId, 'category', e.target.value)} className="h-9 w-full rounded-lg border border-trust-blue/40 bg-white px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue">
+                        <select value={row.category} onChange={(e) => setNewField(row._localId, 'category', e.target.value)} className="h-9 w-full rounded-lg border border-trust-blue/40 bg-background px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue">
                           <option value="">Select category</option>
                           {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
                         </select>
                       </td>}
                       {visibleColumns.has('quantity') && <td className="border border-soft-border px-3 py-2"><input type="number" value={row.quantity} onChange={(e) => setNewField(row._localId, 'quantity', e.target.value)} placeholder="0" className="h-9 w-full rounded-lg border border-trust-blue/40 px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue" /></td>}
                       {visibleColumns.has('unit') && <td className="border border-soft-border px-3 py-2">
-                        <select value={row.unit} onChange={(e) => setNewField(row._localId, 'unit', e.target.value)} className="h-9 w-full rounded-lg border border-trust-blue/40 bg-white px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue">
+                        <select value={row.unit} onChange={(e) => setNewField(row._localId, 'unit', e.target.value)} className="h-9 w-full rounded-lg border border-trust-blue/40 bg-background px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue">
                           {UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
                         </select>
                       </td>}
@@ -813,7 +813,7 @@ export default function OthersInventoryPage() {
                 <select
                   value={addItemForm.unit}
                   onChange={(e) => setAddItemForm((prev) => ({ ...prev, unit: e.target.value }))}
-                  className="w-full rounded-md border border-soft-border bg-white px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                  className="w-full rounded-md border border-soft-border bg-background px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
                 >
                   {UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
                 </select>
@@ -854,7 +854,7 @@ export default function OthersInventoryPage() {
             </div>
           </div>
           <div className="mt-5 flex justify-end gap-3">
-            <button type="button" onClick={() => setIsAddItemOpen(false)} className="inline-flex items-center gap-2 rounded-lg border border-soft-border bg-white px-3 py-2 text-sm font-medium text-midnight-ink hover:border-trust-blue transition">
+            <button type="button" onClick={() => setIsAddItemOpen(false)} className="inline-flex items-center gap-2 rounded-lg border border-soft-border bg-background px-3 py-2 text-sm font-medium text-midnight-ink hover:border-trust-blue transition">
               Cancel
             </button>
             <button type="button" onClick={handleAddItem} className="rounded-lg border border-trust-blue bg-trust-blue px-3 py-2 text-sm font-semibold text-white hover:opacity-95 transition">
@@ -921,7 +921,7 @@ export default function OthersInventoryPage() {
               <select
                 value={receiveForm.itemId}
                 onChange={(e) => setReceiveForm((prev) => ({ ...prev, itemId: e.target.value }))}
-                className="w-full rounded-md border border-soft-border bg-white px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                className="w-full rounded-md border border-soft-border bg-background px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
               >
                 <option value="">Select item</option>
                 {rows.map((r) => (
@@ -943,7 +943,7 @@ export default function OthersInventoryPage() {
               <select
                 value={receiveForm.employeeVendorName}
                 onChange={(e) => setReceiveForm((prev) => ({ ...prev, employeeVendorName: e.target.value }))}
-                className="w-full rounded-md border border-soft-border bg-white px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                className="w-full rounded-md border border-soft-border bg-background px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
               >
                 <option value="">Select person</option>
                 {workforceMembers.map((m) => (
@@ -994,7 +994,7 @@ export default function OthersInventoryPage() {
               <select
                 value={receiveForm.usage}
                 onChange={(e) => setReceiveForm((prev) => ({ ...prev, usage: e.target.value }))}
-                className="w-full rounded-md border border-soft-border bg-white px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                className="w-full rounded-md border border-soft-border bg-background px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
               >
                 <option value="new">New</option>
                 <option value="used">Used</option>
@@ -1002,7 +1002,7 @@ export default function OthersInventoryPage() {
             </div>
           </div>
           <div className="mt-5 flex justify-end gap-3">
-            <button type="button" onClick={() => setReceiveOpen(false)} className="inline-flex items-center gap-2 rounded-lg border border-soft-border bg-white px-3 py-2 text-sm font-medium text-midnight-ink hover:border-trust-blue transition">
+            <button type="button" onClick={() => setReceiveOpen(false)} className="inline-flex items-center gap-2 rounded-lg border border-soft-border bg-background px-3 py-2 text-sm font-medium text-midnight-ink hover:border-trust-blue transition">
               Cancel
             </button>
             <button type="button" onClick={createReceiveRequest} className="rounded-lg border border-trust-blue bg-trust-blue px-3 py-2 text-sm font-semibold text-white hover:opacity-95 transition">
@@ -1023,7 +1023,7 @@ export default function OthersInventoryPage() {
               <select
                 value={issueForm.itemId}
                 onChange={(e) => setIssueForm((prev) => ({ ...prev, itemId: e.target.value }))}
-                className="w-full rounded-md border border-soft-border bg-white px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                className="w-full rounded-md border border-soft-border bg-background px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
               >
                 <option value="">Select item</option>
                 {rows.map((r) => (
@@ -1043,7 +1043,7 @@ export default function OthersInventoryPage() {
                     const num = Number(val);
                     setIssueForm((prev) => ({ ...prev, quantity: String(Number.isFinite(num) ? Math.max(0, num) : 0) }));
                   }}
-                  className="w-full rounded-md border border-soft-border bg-white px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                  className="w-full rounded-md border border-soft-border bg-background px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
                 />
               </div>
               <div className="flex flex-col gap-1">
@@ -1051,7 +1051,7 @@ export default function OthersInventoryPage() {
                 <select
                   value={issueForm.issuedTo}
                   onChange={(e) => setIssueForm((prev) => ({ ...prev, issuedTo: e.target.value }))}
-                  className="w-full rounded-md border border-soft-border bg-white px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                  className="w-full rounded-md border border-soft-border bg-background px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
                 >
                   <option value="">Select person</option>
                   {workforceMembers.map((m) => (
@@ -1064,7 +1064,7 @@ export default function OthersInventoryPage() {
                 <select
                   value={issueForm.issuedBy}
                   onChange={(e) => setIssueForm((prev) => ({ ...prev, issuedBy: e.target.value }))}
-                  className="w-full rounded-md border border-soft-border bg-white px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                  className="w-full rounded-md border border-soft-border bg-background px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
                 >
                   <option value="">Select person</option>
                   {workforceMembers.map((m) => (
@@ -1082,12 +1082,12 @@ export default function OthersInventoryPage() {
                 type="text"
                 value={issueForm.reason}
                 onChange={(e) => setIssueForm((prev) => ({ ...prev, reason: e.target.value }))}
-                className="w-full rounded-md border border-soft-border bg-white px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                className="w-full rounded-md border border-soft-border bg-background px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
               />
             </div>
           </div>
           <div className="mt-5 flex justify-end gap-3">
-            <button type="button" onClick={() => setIssueOpen(false)} className="inline-flex items-center gap-2 rounded-lg border border-soft-border bg-white px-3 py-2 text-sm font-medium text-midnight-ink hover:border-trust-blue transition">
+            <button type="button" onClick={() => setIssueOpen(false)} className="inline-flex items-center gap-2 rounded-lg border border-soft-border bg-background px-3 py-2 text-sm font-medium text-midnight-ink hover:border-trust-blue transition">
               Cancel
             </button>
             <button type="button" onClick={createIssueRequest} className="rounded-lg border border-trust-blue bg-trust-blue px-3 py-2 text-sm font-semibold text-white hover:opacity-95 transition">
@@ -1108,14 +1108,14 @@ export default function OthersInventoryPage() {
       {requestsPanelOpen && (
         <>
           <div className="fixed inset-0 z-[75] bg-black/20" onClick={() => setRequestsPanelOpen(false)} />
-          <aside className="fixed right-2 top-[64px] z-[80] h-[calc(100vh-72px)] w-full max-w-[390px] rounded-2xl border border-soft-border bg-white shadow-2xl">
+          <aside className="fixed right-2 top-[64px] z-[80] h-[calc(100vh-72px)] w-full max-w-[390px] rounded-2xl border border-soft-border bg-background shadow-2xl">
             <div className="flex h-full flex-col">
               <div className="flex items-center justify-between border-b border-soft-border px-4 py-3">
                 <div>
                   <h3 className="text-base font-semibold text-midnight-ink">Notifications</h3>
                   <p className="text-xs text-cool-gray">Issue requests for items</p>
                 </div>
-                <button onClick={() => setRequestsPanelOpen(false)} className="rounded-md p-1 text-cool-gray hover:bg-[#F3F4F6] hover:text-midnight-ink">
+                <button onClick={() => setRequestsPanelOpen(false)} className="rounded-md p-1 text-cool-gray hover:bg-muted hover:text-midnight-ink">
                   <X size={16} />
                 </button>
               </div>
@@ -1127,9 +1127,9 @@ export default function OthersInventoryPage() {
                     {sortedIssueRequests.map((req, idx) => {
                       const statusClass = req.status === 'approved' ? 'bg-emerald-100 text-emerald-800' : req.status === 'declined' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-800';
                       return (
-                        <button key={req.id ?? idx} onClick={() => openRequestDetails(req.id)} className="w-full rounded-xl px-4 py-3 text-left transition hover:bg-[#F9FAFB]">
+                        <button key={req.id ?? idx} onClick={() => openRequestDetails(req.id)} className="w-full rounded-xl px-4 py-3 text-left transition hover:bg-muted">
                           <div className="flex items-start gap-3">
-                            <div className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-full bg-[#EEF2FF] text-xs font-semibold text-trust-blue">
+                            <div className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/20 text-xs font-semibold text-trust-blue">
                               {String(req.itemName || 'I').charAt(0).toUpperCase()}
                             </div>
                             <div className="min-w-0 flex-1">
@@ -1193,10 +1193,10 @@ export default function OthersInventoryPage() {
         const _tp = totalPages;
         const _sp = safePage;
         return (
-          <div className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-soft-border shadow-lg px-4 py-2 flex flex-wrap items-center justify-between gap-3 text-sm text-cool-gray">
+          <div className="fixed bottom-0 left-0 right-0 z-50 bg-background border-t border-soft-border shadow-lg px-4 py-2 flex flex-wrap items-center justify-between gap-3 text-sm text-cool-gray">
             <div className="flex items-center gap-2">
               <span>Rows per page:</span>
-              <select value={rowsPerPage} onChange={(e) => { setRowsPerPage(Number(e.target.value)); setCurrentPage(1); }} className="border border-soft-border rounded px-2 py-1 text-sm text-midnight-ink bg-white">
+              <select value={rowsPerPage} onChange={(e) => { setRowsPerPage(Number(e.target.value)); setCurrentPage(1); }} className="border border-soft-border rounded px-2 py-1 text-sm text-midnight-ink bg-background">
                 {[25, 50, 75, 100].map(n => <option key={n} value={n}>{n}</option>)}
               </select>
             </div>

@@ -809,8 +809,8 @@ function DesignerSheetContent() {
   const isLoaded = !!designerRecordId
 
   return (
-    <div className="min-h-screen bg-white">
-      <div className="sticky top-0 z-30 bg-white border-b border-soft-border shadow-sm px-3 py-2 flex items-center justify-between gap-2">
+    <div className="min-h-screen bg-background">
+      <div className="sticky top-0 z-30 bg-background/95 border-b border-soft-border shadow-sm px-3 py-2 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <MasterNavigationDrawer inHeader />
           <span className="text-sm font-bold text-midnight-ink tracking-wide">DESIGNER SHEET</span>
@@ -842,7 +842,7 @@ function DesignerSheetContent() {
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
               placeholder="Enter motive SKU…"
-              className="flex-1 border border-soft-border rounded px-3 py-1.5 text-sm outline-none focus:border-trust-blue bg-white"
+              className="flex-1 border border-soft-border rounded px-3 py-1.5 text-sm outline-none focus:border-trust-blue bg-background"
             />
             <button type="submit" disabled={isSearching} className="px-4 py-1.5 text-xs bg-trust-blue text-white font-semibold rounded-full hover:bg-deep-blue disabled:opacity-50 flex items-center gap-1">
               <Search className="h-3.5 w-3.5" />
@@ -916,7 +916,7 @@ function DesignerSheetContent() {
               onBlur={handleSkuBlur}
               placeholder="e.g. RING-001 (leave blank to auto-generate)"
               disabled={isLoaded && !isEditing}
-              className={`w-full border rounded px-3 py-1.5 text-sm outline-none focus:border-trust-blue bg-white disabled:bg-cloud-gray disabled:text-cool-gray disabled:cursor-default ${skuError ? 'border-danger' : 'border-soft-border'}`}
+              className={`w-full border rounded px-3 py-1.5 text-sm outline-none focus:border-trust-blue bg-background disabled:bg-cloud-gray disabled:text-cool-gray disabled:cursor-default ${skuError ? 'border-danger' : 'border-soft-border'}`}
             />
             {skuError && (
               <p className="mt-1 text-xs text-red-600 bg-red-50 border border-red-200 rounded px-2 py-1">{skuError}</p>
@@ -929,7 +929,7 @@ function DesignerSheetContent() {
                 <input ref={ref} type="file" accept="image/*" onChange={handleImageUpload(slot)} className="hidden" />
                 <div className="text-center text-xs font-semibold text-trust-blue py-0.5 bg-trust-blue/10 rounded-t-lg border border-soft-border border-b-0">{label}</div>
                 <div
-                  className="bg-white border border-soft-border rounded-b-xl overflow-hidden flex items-center justify-center cursor-pointer hover:bg-cloud-gray"
+                  className="bg-background border border-soft-border rounded-b-xl overflow-hidden flex items-center justify-center cursor-pointer hover:bg-cloud-gray"
                   style={{ minHeight: '12rem' }}
                   onClick={() => ref.current?.click()}
                 >
@@ -947,11 +947,11 @@ function DesignerSheetContent() {
             ))}
           </div>
 
-          <div className="mb-3 bg-white border border-soft-border rounded-xl overflow-hidden">
+          <div className="mb-3 bg-background border border-soft-border rounded-xl overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-xs border-collapse">
                 <thead>
-                  <tr className="bg-[#dce8f5]">
+                  <tr className="bg-blue-100 dark:bg-blue-900/30">
                     <th className="border border-soft-border px-2 py-1.5 font-semibold text-midnight-ink text-left">3DM</th>
                     <th className="border border-soft-border px-2 py-1.5 font-semibold text-midnight-ink text-left">STL</th>
                     <th className="border border-soft-border px-2 py-1.5 font-semibold text-midnight-ink text-left">Motive Code</th>
@@ -1015,8 +1015,8 @@ function DesignerSheetContent() {
 
           <div className="mb-3 grid gap-3" style={{ gridTemplateColumns: '3fr 2fr' }}>
             {/* STONE INFO */}
-            <div className="bg-white border border-soft-border rounded-xl overflow-hidden">
-              <div className="text-xs font-bold text-midnight-ink px-3 py-2 bg-[#dce8f5] border-b border-soft-border">STONE INFO</div>
+            <div className="bg-background border border-soft-border rounded-xl overflow-hidden">
+              <div className="text-xs font-bold text-midnight-ink px-3 py-2 bg-blue-100 dark:bg-blue-900/30 border-b border-soft-border">STONE INFO</div>
               <div className="overflow-x-auto">
                 <table className="w-full text-xs border-collapse">
                   <thead>
@@ -1047,8 +1047,8 @@ function DesignerSheetContent() {
             </div>
 
             {/* PLATING INFO */}
-            <div className="bg-white border border-soft-border rounded-xl overflow-hidden">
-              <div className="text-xs font-bold text-midnight-ink px-3 py-2 bg-[#dce8f5] border-b border-soft-border">PLATING INFO</div>
+            <div className="bg-background border border-soft-border rounded-xl overflow-hidden">
+              <div className="text-xs font-bold text-midnight-ink px-3 py-2 bg-blue-100 dark:bg-blue-900/30 border-b border-soft-border">PLATING INFO</div>
               <div className="overflow-x-auto">
                 <table className="w-full text-xs border-collapse">
                   <thead>
@@ -1080,7 +1080,7 @@ function DesignerSheetContent() {
           </div>
 
           <div className="mb-3 grid grid-cols-2 gap-3">
-            <div className="bg-white border border-soft-border rounded-xl p-3">
+            <div className="bg-background border border-soft-border rounded-xl p-3">
               <div className="text-xs font-semibold text-midnight-ink mb-2">SETTING TYPE</div>
               <div className="flex gap-2">
                 {['WAX SETTING', 'HAND SETTING'].map((opt) => (
@@ -1096,7 +1096,7 @@ function DesignerSheetContent() {
                     className={`flex-1 px-3 py-1.5 text-xs font-semibold rounded-full border transition-colors ${
                       (designer.settingType || '').split(',').map(s => s.trim()).includes(opt)
                         ? 'bg-trust-blue text-white border-trust-blue shadow-sm'
-                        : 'bg-white text-midnight-ink border-soft-border hover:bg-cloud-gray'
+                        : 'bg-background text-foreground border-soft-border hover:bg-cloud-gray'
                     }`}
                   >
                     {opt}
@@ -1104,7 +1104,7 @@ function DesignerSheetContent() {
                 ))}
               </div>
             </div>
-            <div className="bg-white border border-soft-border rounded-xl p-3">
+            <div className="bg-background border border-soft-border rounded-xl p-3">
               <div className="text-xs font-semibold text-midnight-ink mb-2">ENAMEL</div>
               <div className="flex gap-2">
                 {['YES', 'NO'].map((opt) => (
@@ -1115,7 +1115,7 @@ function DesignerSheetContent() {
                     className={`flex-1 px-3 py-1.5 text-xs font-semibold rounded-full border transition-colors ${
                       designer.enamel === opt
                         ? 'bg-trust-blue text-white border-trust-blue shadow-sm'
-                        : 'bg-white text-midnight-ink border-soft-border hover:bg-cloud-gray'
+                        : 'bg-background text-foreground border-soft-border hover:bg-cloud-gray'
                     }`}
                   >
                     {opt}
@@ -1125,7 +1125,7 @@ function DesignerSheetContent() {
             </div>
           </div>
 
-          <div className="mb-3 bg-white border border-soft-border rounded-xl p-3">
+          <div className="mb-3 bg-background border border-soft-border rounded-xl p-3">
             <div className="text-xs font-semibold text-midnight-ink mb-2">DESIGN STAGE</div>
             <div className="flex flex-wrap gap-2">
               {['3DM', 'STL', 'RENDER', '3D PRINT', 'COMPLETE'].map((stage) => (
@@ -1133,7 +1133,7 @@ function DesignerSheetContent() {
                   key={stage}
                   type="button"
                   onClick={() => setDesigner((prev) => ({ ...prev, designStage: prev.designStage === stage ? '' : stage }))}
-                  className={`px-4 py-1.5 text-xs font-semibold rounded-full border transition-colors ${designer.designStage === stage ? 'bg-trust-blue text-white border-trust-blue shadow-sm' : 'bg-white text-midnight-ink border-soft-border hover:bg-cloud-gray'}`}
+                  className={`px-4 py-1.5 text-xs font-semibold rounded-full border transition-colors ${designer.designStage === stage ? 'bg-trust-blue text-white border-trust-blue shadow-sm' : 'bg-background text-foreground border-soft-border hover:bg-cloud-gray'}`}
                 >
                   {stage}
                 </button>
@@ -1143,8 +1143,8 @@ function DesignerSheetContent() {
 
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-3">
-              <div className="bg-white border border-soft-border rounded-xl overflow-hidden">
-                <div className="text-xs font-semibold text-midnight-ink px-3 py-2 bg-[#dce8f5] border-b border-soft-border">Total Design Measurements (Approx)</div>
+              <div className="bg-background border border-soft-border rounded-xl overflow-hidden">
+                <div className="text-xs font-semibold text-midnight-ink px-3 py-2 bg-blue-100 dark:bg-blue-900/30 border-b border-soft-border">Total Design Measurements (Approx)</div>
                 <table className="w-full text-xs border-collapse">
                   <thead>
                     <tr className="bg-cloud-gray">
@@ -1168,7 +1168,7 @@ function DesignerSheetContent() {
                   </tbody>
                 </table>
               </div>
-              <div className="flex-1 bg-white border border-soft-border rounded-xl p-3 flex flex-col gap-2">
+              <div className="flex-1 bg-background border border-soft-border rounded-xl p-3 flex flex-col gap-2">
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-semibold text-midnight-ink">Notes</label>
                   <button
@@ -1227,8 +1227,8 @@ function DesignerSheetContent() {
               </div>
 
               {/* FINDINGS TABLE */}
-              <div className="bg-white border border-soft-border rounded-xl overflow-hidden">
-                <div className="text-xs font-bold text-midnight-ink px-3 py-2 bg-[#dce8f5] border-b border-soft-border">FINDINGS</div>
+              <div className="bg-background border border-soft-border rounded-xl overflow-hidden">
+                <div className="text-xs font-bold text-midnight-ink px-3 py-2 bg-blue-100 dark:bg-blue-900/30 border-b border-soft-border">FINDINGS</div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-xs border-collapse">
                     <thead>
@@ -1263,7 +1263,7 @@ function DesignerSheetContent() {
               </div>
             </div>
             <div className="flex flex-col gap-3">
-              <div className="bg-white border border-soft-border rounded-xl p-3">
+              <div className="bg-background border border-soft-border rounded-xl p-3">
                 <div className="text-xs font-semibold text-midnight-ink mb-2">Total Die Code, Mold Qty &amp; CPX Dead Weight</div>
                 <div className="flex flex-col gap-2">
                   <div>
@@ -1280,14 +1280,14 @@ function DesignerSheetContent() {
                   </div>
                 </div>
               </div>
-              <div className="flex-1 bg-white border border-soft-border rounded-xl p-3 flex flex-col">
+              <div className="flex-1 bg-background border border-soft-border rounded-xl p-3 flex flex-col">
                 <label className="text-xs font-semibold text-midnight-ink mb-1 block">Mechanism</label>
                 <textarea value={designer.mechanism} onChange={(e) => setDesigner((prev) => ({ ...prev, mechanism: e.target.value }))} placeholder="Describe the mechanism used" rows={5} className="flex-1 w-full border border-soft-border rounded px-2 py-1.5 text-sm outline-none focus:border-trust-blue bg-transparent resize-none" />
               </div>
             </div>
           </div>
 
-          <div className="mt-3 bg-white border border-soft-border rounded-xl p-3">
+          <div className="mt-3 bg-background border border-soft-border rounded-xl p-3">
             <div className="flex items-center justify-between mb-2">
               <div className="text-xs font-semibold text-midnight-ink">DESIGN MATERIAL</div>
               <div className="flex items-center gap-2">
@@ -1306,7 +1306,7 @@ function DesignerSheetContent() {
                     className={`px-1.5 py-0.5 rounded border text-[11px] font-semibold transition-colors ${
                       globalWeightUnit === u.id && Object.keys(rowWeightUnits).length === 0
                         ? 'bg-midnight-ink text-white border-midnight-ink'
-                        : 'bg-white text-cool-gray border-soft-border hover:bg-cloud-gray'
+                        : 'bg-background text-foreground border-soft-border hover:bg-cloud-gray'
                     }`}
                   >{u.label}</button>
                 ))}

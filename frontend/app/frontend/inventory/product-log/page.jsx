@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
@@ -474,10 +474,10 @@ export default function ProductFindingLogPage() {
 
   const inputCls = (editing) =>
     `h-9 w-full rounded-lg border px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue ${
-      editing ? 'border-trust-blue/60 bg-white' : 'border-soft-border read-only:bg-gray-50 read-only:text-cool-gray'
+      editing ? 'border-trust-blue/60 bg-background' : 'border-soft-border read-only:bg-gray-50 read-only:text-cool-gray'
     }`;
   const selectCls = (editing) =>
-    `h-9 w-full rounded-lg border bg-white px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue ${
+    `h-9 w-full rounded-lg border bg-background px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue ${
       editing ? 'border-trust-blue/60' : 'border-soft-border disabled:bg-gray-50 disabled:text-cool-gray'
     }`;
 
@@ -495,7 +495,7 @@ export default function ProductFindingLogPage() {
   return (
     <main className="min-h-screen bg-cloud-gray">
       {/* Header */}
-      <div className="transition-[left,width] duration-300 ease-in-out fixed top-0 left-0 right-0 z-[60] bg-white/95 py-2 border-b border-soft-border shadow-sm backdrop-blur px-3 md:px-4">
+      <div className="transition-[left,width] duration-300 ease-in-out fixed top-0 left-0 right-0 z-[60] bg-background/95 py-2 border-b border-soft-border shadow-sm backdrop-blur px-3 md:px-4">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 shrink-0">
             <MasterNavigationDrawer inHeader />
@@ -510,23 +510,23 @@ export default function ProductFindingLogPage() {
         {/* Back */}
         <div className="mb-4 flex justify-end">
           <Link href="/inventory"
-            className="inline-flex items-center gap-2 rounded-full border border-midnight-ink bg-white px-4 h-8 text-sm font-medium text-midnight-ink hover:border-trust-blue transition">
+            className="inline-flex items-center gap-2 rounded-full border border-midnight-ink bg-background px-4 h-8 text-sm font-medium text-midnight-ink hover:border-trust-blue transition">
             <ArrowLeft className="h-4 w-4" /> Back
           </Link>
         </div>
         <div className="mb-4 flex flex-wrap gap-2 md:gap-3 justify-end items-center">
             <button type="button" onClick={handlePrint}
-              className="inline-flex items-center gap-2 rounded-full border border-midnight-ink bg-white px-4 h-8 text-sm font-medium text-midnight-ink">
+              className="inline-flex items-center gap-2 rounded-full border border-midnight-ink bg-background px-4 h-8 text-sm font-medium text-midnight-ink">
               <Printer className="h-4 w-4" /> Print
             </button>
             <div className="relative">
               {exportMenuOpen && <div className="fixed inset-0 z-10" onClick={() => setExportMenuOpen(false)} />}
               <button type="button" onClick={() => setExportMenuOpen((p) => !p)}
-                className="relative z-20 inline-flex items-center gap-1.5 rounded-full border border-emerald-500 bg-white px-4 h-8 text-sm font-medium text-emerald-600 hover:bg-emerald-50">
+                className="relative z-20 inline-flex items-center gap-1.5 rounded-full border border-emerald-500 bg-background px-4 h-8 text-sm font-medium text-emerald-600 hover:bg-emerald-50">
                 <Download className="h-3.5 w-3.5" /> Export <ChevronDown className="h-3.5 w-3.5" />
               </button>
               {exportMenuOpen && (
-                <div className="absolute right-0 top-9 z-30 w-52 rounded-lg bg-white shadow-lg border border-soft-border py-1">
+                <div className="absolute right-0 top-9 z-30 w-52 rounded-lg bg-background shadow-lg border border-soft-border py-1">
                   <button type="button" onClick={exportToExcel} className="w-full px-4 py-2 text-sm text-midnight-ink hover:bg-cloud-gray text-left">Export as Excel (.xlsx)</button>
                   <button type="button" onClick={exportToPDF} className="w-full px-4 py-2 text-sm text-midnight-ink hover:bg-cloud-gray text-left">Export as PDF</button>
                 </div>
@@ -558,22 +558,22 @@ export default function ProductFindingLogPage() {
               onClear={() => { setSortField(''); setSortDir('asc'); }}
             />
             <button type="button" onClick={() => { setSelColsForAction(new Set()); setIsManageColumnsOpen(true); }}
-              className="inline-flex items-center gap-2 rounded-full border border-midnight-ink bg-white px-4 h-8 text-sm font-medium text-midnight-ink">
+              className="inline-flex items-center gap-2 rounded-full border border-midnight-ink bg-background px-4 h-8 text-sm font-medium text-midnight-ink">
               Manage Columns
             </button>
             <button type="button" onClick={startEdit} disabled={editingIds.size > 0}
-              className="inline-flex items-center gap-2 rounded-full border border-trust-blue bg-white px-4 h-8 text-sm font-medium text-trust-blue disabled:opacity-40">
+              className="inline-flex items-center gap-2 rounded-full border border-trust-blue bg-background px-4 h-8 text-sm font-medium text-trust-blue disabled:opacity-40">
               <Pencil className="h-4 w-4" /> Edit Row
             </button>
             {selectedIds.size > 0 && editingIds.size === 0 && (
               <button type="button" onClick={deleteSelected}
-                className="inline-flex items-center gap-2 rounded-full border border-rose-400 bg-white px-4 h-8 text-sm font-medium text-rose-600">
+                className="inline-flex items-center gap-2 rounded-full border border-rose-400 bg-background px-4 h-8 text-sm font-medium text-rose-600">
                 <Trash2 className="h-4 w-4" /> Delete ({selectedIds.size})
               </button>
             )}
             <button type="button"
               onClick={() => { setAddForm(activeTab === 'product' ? productEmpty() : activeTab === 'finding' ? findingEmpty() : dieLogEmpty()); setAddOpen(true); }}
-              className="inline-flex items-center gap-2 rounded-full border border-trust-blue bg-white px-4 h-8 text-sm font-medium text-trust-blue">
+              className="inline-flex items-center gap-2 rounded-full border border-trust-blue bg-background px-4 h-8 text-sm font-medium text-trust-blue">
               <Plus className="h-4 w-4" /> Add Entry
             </button>
             <button type="button"
@@ -589,7 +589,7 @@ export default function ProductFindingLogPage() {
             className={`rounded-full px-5 h-9 text-sm font-semibold transition border ${
               activeTab === 'product'
                 ? 'bg-trust-blue text-white border-trust-blue'
-                : 'bg-white text-midnight-ink border-midnight-ink hover:border-trust-blue'
+                : 'bg-background text-midnight-ink border-midnight-ink hover:border-trust-blue'
             }`}>
             Product Log
           </button>
@@ -597,7 +597,7 @@ export default function ProductFindingLogPage() {
             className={`rounded-full px-5 h-9 text-sm font-semibold transition border ${
               activeTab === 'finding'
                 ? 'bg-trust-blue text-white border-trust-blue'
-                : 'bg-white text-midnight-ink border-midnight-ink hover:border-trust-blue'
+                : 'bg-background text-midnight-ink border-midnight-ink hover:border-trust-blue'
             }`}>
             Finding Log
           </button>
@@ -605,7 +605,7 @@ export default function ProductFindingLogPage() {
             className={`rounded-full px-5 h-9 text-sm font-semibold transition border ${
               activeTab === 'die'
                 ? 'bg-trust-blue text-white border-trust-blue'
-                : 'bg-white text-midnight-ink border-midnight-ink hover:border-trust-blue'
+                : 'bg-background text-midnight-ink border-midnight-ink hover:border-trust-blue'
             }`}>
             Die Log
           </button>
@@ -626,38 +626,38 @@ export default function ProductFindingLogPage() {
         )}
 
         {/* Filter bar */}
-        <section className="border border-soft-border rounded-lg mb-4 bg-[#dbeafe] p-3">
+        <section className="border border-soft-border rounded-lg mb-4 bg-blue-100 dark:bg-blue-900/20 p-3">
           <div className="flex flex-wrap gap-2 items-center">
             <input type="text" value={filters.search} onChange={(e) => setF_('search', e.target.value)}
-              placeholder="Search" className="h-8 text-sm w-32 bg-white rounded-md border border-trust-blue/40 px-3" />
+              placeholder="Search" className="h-8 text-sm w-32 bg-background rounded-md border border-trust-blue/40 px-3" />
             <input type="text" value={filters.receivedFrom} onChange={(e) => setF_('receivedFrom', e.target.value)}
-              placeholder="Received From" className="h-8 text-sm w-36 bg-white rounded-md border border-trust-blue/40 px-3" />
+              placeholder="Received From" className="h-8 text-sm w-36 bg-background rounded-md border border-trust-blue/40 px-3" />
             <input type="text" value={filters.issuedTo} onChange={(e) => setF_('issuedTo', e.target.value)}
-              placeholder="Issued To" className="h-8 text-sm w-32 bg-white rounded-md border border-trust-blue/40 px-3" />
+              placeholder="Issued To" className="h-8 text-sm w-32 bg-background rounded-md border border-trust-blue/40 px-3" />
             <select value={filters.metal} onChange={(e) => setF_('metal', e.target.value)}
-              className="h-8 text-sm w-28 bg-white rounded-md border border-trust-blue/40 px-2">
+              className="h-8 text-sm w-28 bg-background rounded-md border border-trust-blue/40 px-2">
               <option value="">Metal</option>
               {METAL_OPTIONS.map((m) => <option key={m} value={m}>{m}</option>)}
             </select>
             <select value={filters.invType} onChange={(e) => setF_('invType', e.target.value)}
-              className="h-8 text-sm w-40 bg-white rounded-md border border-trust-blue/40 px-2">
+              className="h-8 text-sm w-40 bg-background rounded-md border border-trust-blue/40 px-2">
               <option value="">Inventory Type</option>
               {INVENTORY_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
             </select>
             <select value={filters.status} onChange={(e) => setF_('status', e.target.value)}
-              className="h-8 text-sm w-36 bg-white rounded-md border border-trust-blue/40 px-2">
+              className="h-8 text-sm w-36 bg-background rounded-md border border-trust-blue/40 px-2">
               <option value="">Activity Status</option>
               {ACTIVITY_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
             </select>
             <select value={filters.ri} onChange={(e) => setF_('ri', e.target.value)}
-              className="h-8 text-sm w-32 bg-white rounded-md border border-trust-blue/40 px-2">
+              className="h-8 text-sm w-32 bg-background rounded-md border border-trust-blue/40 px-2">
               <option value="">Rcvd / Issued</option>
               {RECEIVED_ISSUED_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
             </select>
             <input type="date" value={filters.dateFrom} onChange={(e) => setF_('dateFrom', e.target.value)}
-              title="Date From" className="h-8 text-sm bg-white rounded-md border border-trust-blue/40 px-2" />
+              title="Date From" className="h-8 text-sm bg-background rounded-md border border-trust-blue/40 px-2" />
             <input type="date" value={filters.dateTo} onChange={(e) => setF_('dateTo', e.target.value)}
-              title="Date To" className="h-8 text-sm bg-white rounded-md border border-trust-blue/40 px-2" />
+              title="Date To" className="h-8 text-sm bg-background rounded-md border border-trust-blue/40 px-2" />
             <button type="button" onClick={clearFilters}
               className="h-8 px-3 text-sm border rounded bg-trust-blue text-white border-trust-blue font-medium">
               Clear
@@ -666,12 +666,12 @@ export default function ProductFindingLogPage() {
         </section>
 
         {/* Table */}
-        <section className="rounded-xl border border-soft-border bg-white shadow-sm mb-6">
+        <section className="rounded-xl border border-soft-border bg-background shadow-sm mb-6">
           <div className="overflow-x-auto">
             <table className="w-full border-collapse text-sm" style={{ minWidth: '2000px' }}>
               <thead>
-                <tr className="bg-[#dbeafe] border-b border-soft-border">
-                  <th className="border border-soft-border px-3 py-2 text-left text-xs font-normal text-black w-10">
+                <tr className="bg-blue-100 dark:bg-blue-900/20 border-b border-soft-border">
+                  <th className="border border-soft-border px-3 py-2 text-left text-xs font-normal text-foreground w-10">
                     <input type="checkbox" checked={allSelected}
                       ref={(el) => { if (el) el.indeterminate = someSelected; }}
                       onChange={(e) => toggleSelectAll(e.target.checked)}
@@ -679,7 +679,7 @@ export default function ProductFindingLogPage() {
                       className="h-4 w-4 cursor-pointer rounded border-soft-border accent-trust-blue" />
                   </th>
                   {COLUMNS.filter((c) => visibleColumns.has(c.id)).map((col) => (
-                    <th key={col.id} className="border border-soft-border px-3 py-2 text-left text-xs font-normal text-black whitespace-nowrap">
+                    <th key={col.id} className="border border-soft-border px-3 py-2 text-left text-xs font-normal text-foreground whitespace-nowrap">
                       {col.label}
                     </th>
                   ))}
@@ -830,7 +830,7 @@ export default function ProductFindingLogPage() {
             <div className="flex flex-col gap-1">
               <label className="text-xs font-semibold text-cool-gray uppercase tracking-wide">Received / Issued</label>
               <select value={addForm.receivedIssued} onChange={(e) => setAddForm((p) => ({ ...p, receivedIssued: e.target.value }))}
-                className="h-9 rounded-lg border border-soft-border bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue">
+                className="h-9 rounded-lg border border-soft-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue">
                 <option value="">Select</option>
                 {RECEIVED_ISSUED_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
               </select>
@@ -838,7 +838,7 @@ export default function ProductFindingLogPage() {
             <div className="flex flex-col gap-1">
               <label className="text-xs font-semibold text-cool-gray uppercase tracking-wide">Inventory Type</label>
               <select value={addForm.inventoryType} onChange={(e) => setAddForm((p) => ({ ...p, inventoryType: e.target.value }))}
-                className="h-9 rounded-lg border border-soft-border bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue">
+                className="h-9 rounded-lg border border-soft-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue">
                 <option value="">Select type</option>
                 {INVENTORY_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
               </select>
@@ -846,7 +846,7 @@ export default function ProductFindingLogPage() {
             <div className="flex flex-col gap-1">
               <label className="text-xs font-semibold text-cool-gray uppercase tracking-wide">Metal</label>
               <select value={addForm.metal} onChange={(e) => setAddForm((p) => ({ ...p, metal: e.target.value }))}
-                className="h-9 rounded-lg border border-soft-border bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue">
+                className="h-9 rounded-lg border border-soft-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue">
                 <option value="">Select metal</option>
                 {METAL_OPTIONS.map((m) => <option key={m} value={m}>{m}</option>)}
               </select>
@@ -881,7 +881,7 @@ export default function ProductFindingLogPage() {
               <div className="flex flex-col gap-1">
                 <label className="text-xs font-semibold text-cool-gray uppercase tracking-wide">Unit</label>
                 <select value={pAddForm.unit} onChange={(e) => setPAddForm((p) => ({ ...p, unit: e.target.value }))}
-                  className="h-9 rounded-lg border border-soft-border bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue">
+                  className="h-9 rounded-lg border border-soft-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue">
                   {P_UNIT_OPTIONS.map((u) => <option key={u} value={u}>{u}</option>)}
                 </select>
               </div>
@@ -928,7 +928,7 @@ export default function ProductFindingLogPage() {
               <div className="flex flex-col gap-1">
                 <label className="text-xs font-semibold text-cool-gray uppercase tracking-wide">Stage</label>
                 <select value={fAddForm.stage} onChange={(e) => setFAddForm((p) => ({ ...p, stage: e.target.value }))}
-                  className="h-9 rounded-lg border border-soft-border bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue">
+                  className="h-9 rounded-lg border border-soft-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue">
                   <option value="">Select stage</option>
                   {F_STAGE_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
                 </select>
@@ -976,7 +976,7 @@ export default function ProductFindingLogPage() {
               <div className="flex flex-col gap-1">
                 <label className="text-xs font-semibold text-cool-gray uppercase tracking-wide">Txn Type</label>
                 <select value={dAddForm.txn_type} onChange={(e) => setDAddForm((p) => ({ ...p, txn_type: e.target.value }))}
-                  className="h-9 rounded-lg border border-soft-border bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue">
+                  className="h-9 rounded-lg border border-soft-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue">
                   <option value="">Select</option>
                   <option value="received">Received</option>
                   <option value="issued">Issued</option>
@@ -1072,12 +1072,12 @@ export default function ProductFindingLogPage() {
             {activeTab !== 'die' && <div className="flex flex-col gap-1">
               <label className="text-xs font-semibold text-cool-gray uppercase tracking-wide">Activity Status</label>
               <select value={addForm.activityStatus} onChange={(e) => setAddForm((p) => ({ ...p, activityStatus: e.target.value }))}
-                className="h-9 rounded-lg border border-soft-border bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue">
+                className="h-9 rounded-lg border border-soft-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue">
                 <option value="">Select status</option>
                 {ACTIVITY_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
               </select>
             </div>}
-            {activeTab !== 'die' && <div className={`col-span-2 rounded-lg border px-4 py-3 flex items-center justify-between ${addFormAmount ? 'border-trust-blue/30 bg-blue-50' : 'border-soft-border bg-[#F8F9FA]'}`}>
+            {activeTab !== 'die' && <div className={`col-span-2 rounded-lg border px-4 py-3 flex items-center justify-between ${addFormAmount ? 'border-trust-blue/30 bg-blue-50' : 'border-soft-border bg-muted'}`}>
               <span className="text-sm text-cool-gray font-medium">
                 Total Amount — Price × {activeTab === 'product' ? 'Value/Qty' : 'Quantity'} (auto)
               </span>

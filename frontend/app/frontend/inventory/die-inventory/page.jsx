@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
@@ -63,7 +63,7 @@ function emptyDie() {
 
 function Field({ label, value, onChange, type = 'text', textarea = false }) {
   const base =
-    'w-full rounded-md border border-soft-border px-3 py-1.5 text-sm text-midnight-ink placeholder:text-cool-gray focus:outline-none focus:ring-1 focus:ring-trust-blue bg-white';
+    'w-full rounded-md border border-soft-border px-3 py-1.5 text-sm text-midnight-ink placeholder:text-cool-gray focus:outline-none focus:ring-1 focus:ring-trust-blue  "bg-background$($args[0].Groups[1].Value)" ';
   return (
     <div className="flex flex-col gap-1">
       <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">{label}</label>
@@ -615,7 +615,7 @@ export default function DieInventoryPage() {
   return (
     <main className="min-h-screen bg-cloud-gray">
       {/* Header */}
-      <div className="transition-[left,width] duration-300 ease-in-out fixed top-0 left-0 right-0 z-[60] bg-white/95 py-2 border-b border-soft-border shadow-sm backdrop-blur px-3 md:px-4">
+      <div className="transition-[left,width] duration-300 ease-in-out fixed top-0 left-0 right-0 z-[60]  "bg-background$($args[0].Groups[1].Value)"  py-2 border-b border-soft-border shadow-sm backdrop-blur px-3 md:px-4">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <MasterNavigationDrawer inHeader />
@@ -629,7 +629,7 @@ export default function DieInventoryPage() {
       <div className="w-full px-3 md:px-4 pt-16 pb-16">
         {/* Status toast */}
         {statusMsg && (
-          <div className="fixed top-16 right-4 z-50 flex items-center justify-between gap-3 rounded-lg border border-soft-border bg-white px-4 py-2 text-sm text-midnight-ink shadow-md">
+          <div className="fixed top-16 right-4 z-50 flex items-center justify-between gap-3 rounded-lg border border-soft-border  "bg-background$($args[0].Groups[1].Value)"  px-4 py-2 text-sm text-midnight-ink shadow-md">
             <span>{statusMsg}</span>
             <button onClick={() => setStatusMsg('')}><X className="h-3.5 w-3.5 text-cool-gray hover:text-midnight-ink" /></button>
           </div>
@@ -639,7 +639,7 @@ export default function DieInventoryPage() {
         <div className="mb-4 flex justify-end">
           <Link
             href="/inventory"
-            className="inline-flex items-center gap-2 rounded-lg border border-soft-border bg-white px-3 py-2 text-sm font-medium text-midnight-ink hover:border-trust-blue transition"
+            className="inline-flex items-center gap-2 rounded-lg border border-soft-border  "bg-background$($args[0].Groups[1].Value)"  px-3 py-2 text-sm font-medium text-midnight-ink hover:border-trust-blue transition"
           >
             <ArrowLeft className="h-4 w-4" />
             Back
@@ -712,7 +712,7 @@ export default function DieInventoryPage() {
               <Download className="w-3.5 h-3.5" /> Export <ChevronDown className="w-3.5 h-3.5" />
             </Button>
             {exportMenuOpen && (
-              <div className="absolute right-0 top-9 z-30 w-52 rounded-lg bg-white shadow-lg border border-soft-border py-1">
+              <div className="absolute right-0 top-9 z-30 w-52 rounded-lg  "bg-background$($args[0].Groups[1].Value)"  shadow-lg border border-soft-border py-1">
                 <button type="button" onClick={exportToExcel} className="w-full px-4 py-2 text-sm text-midnight-ink hover:bg-cloud-gray text-left">Export as Excel (.xlsx)</button>
                 <button type="button" onClick={exportToPDF} className="w-full px-4 py-2 text-sm text-midnight-ink hover:bg-cloud-gray text-left">Export as PDF</button>
               </div>
@@ -766,7 +766,7 @@ export default function DieInventoryPage() {
         )}
 
         {/* Filters */}
-        <section className="border border-soft-border rounded-lg mb-4 bg-[#dbeafe] p-3">
+        <section className="border border-soft-border rounded-lg mb-4 bg-blue-100 dark:bg-blue-900/20 p-3">
           <div className="flex flex-wrap gap-2 items-center">
             <div className="relative">
               <input
@@ -774,7 +774,7 @@ export default function DieInventoryPage() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search die code / SKU"
-                className="h-8 text-sm w-56 bg-white rounded-md border border-trust-blue/40 px-3"
+                className="h-8 text-sm w-56  "bg-background$($args[0].Groups[1].Value)"  rounded-md border border-trust-blue/40 px-3"
               />
             </div>
             <MultiselectFilterPopover
@@ -830,11 +830,11 @@ export default function DieInventoryPage() {
         )}
 
         {/* Table */}
-        <section className="rounded-xl border border-soft-border bg-white shadow-sm overflow-hidden">
+        <section className="rounded-xl border border-soft-border  "bg-background$($args[0].Groups[1].Value)"  shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full min-w-[900px] border-collapse text-sm">
               <thead>
-                <tr className="bg-[#dbeafe] border-b border-soft-border">
+                <tr className="bg-blue-100 dark:bg-blue-900/20 border-b border-soft-border">
                   <th className="border border-soft-border px-3 py-2.5 text-left">
                     <input
                       type="checkbox"
@@ -845,20 +845,20 @@ export default function DieInventoryPage() {
                       className="h-4 w-4 cursor-pointer rounded border-soft-border accent-trust-blue"
                     />
                   </th>
-                  {visibleColumns.has('sno') && <th className="border border-soft-border px-3 py-2.5 text-center text-xs font-normal text-black w-10">#</th>}
-                  {visibleColumns.has('image') && <th className="border border-soft-border px-3 py-2.5 text-center text-xs font-normal text-black">Image</th>}
-                  {visibleColumns.has('die_code') && <th className="border border-soft-border px-3 py-2.5 text-center text-xs font-normal text-black">Die Code</th>}
-                  {visibleColumns.has('master_skus') && <th className="border border-soft-border px-3 py-2.5 text-center text-xs font-normal text-black">Master SKU</th>}
-                  {visibleColumns.has('designer_skus') && <th className="border border-soft-border px-3 py-2.5 text-center text-xs font-normal text-black">Designer SKU</th>}
-                  {visibleColumns.has('location') && <th className="border border-soft-border px-3 py-2.5 text-center text-xs font-normal text-black">Location</th>}
-                  {visibleColumns.has('quantity') && <th className="border border-soft-border px-3 py-2.5 text-center text-xs font-normal text-black">Quantity</th>}
-                  {visibleColumns.has('wax_piece_qty') && <th className="border border-soft-border px-3 py-2.5 text-center text-xs font-normal text-black">Wax Piece Qty</th>}
-                  {visibleColumns.has('wax_piece_location') && <th className="border border-soft-border px-3 py-2.5 text-center text-xs font-normal text-black">Wax Piece Location</th>}
-                  {visibleColumns.has('wax_setting_qty') && <th className="border border-soft-border px-3 py-2.5 text-center text-xs font-normal text-black">Wax Setting Qty</th>}
-                  {visibleColumns.has('wax_setting_location') && <th className="border border-soft-border px-3 py-2.5 text-center text-xs font-normal text-black">Wax Setting Location</th>}
-                  {visibleColumns.has('casting_qty') && <th className="border border-soft-border px-3 py-2.5 text-center text-xs font-normal text-black">Casting Qty</th>}
-                  {visibleColumns.has('casting_location') && <th className="border border-soft-border px-3 py-2.5 text-center text-xs font-normal text-black">Casting Location</th>}
-                  {visibleColumns.has('notes') && <th className="border border-soft-border px-3 py-2.5 text-center text-xs font-normal text-black">Notes</th>}
+                  {visibleColumns.has('sno') && <th className="border border-soft-border px-3 py-2.5 text-center text-xs font-normal text-foreground w-10">#</th>}
+                  {visibleColumns.has('image') && <th className="border border-soft-border px-3 py-2.5 text-center text-xs font-normal text-foreground">Image</th>}
+                  {visibleColumns.has('die_code') && <th className="border border-soft-border px-3 py-2.5 text-center text-xs font-normal text-foreground">Die Code</th>}
+                  {visibleColumns.has('master_skus') && <th className="border border-soft-border px-3 py-2.5 text-center text-xs font-normal text-foreground">Master SKU</th>}
+                  {visibleColumns.has('designer_skus') && <th className="border border-soft-border px-3 py-2.5 text-center text-xs font-normal text-foreground">Designer SKU</th>}
+                  {visibleColumns.has('location') && <th className="border border-soft-border px-3 py-2.5 text-center text-xs font-normal text-foreground">Location</th>}
+                  {visibleColumns.has('quantity') && <th className="border border-soft-border px-3 py-2.5 text-center text-xs font-normal text-foreground">Quantity</th>}
+                  {visibleColumns.has('wax_piece_qty') && <th className="border border-soft-border px-3 py-2.5 text-center text-xs font-normal text-foreground">Wax Piece Qty</th>}
+                  {visibleColumns.has('wax_piece_location') && <th className="border border-soft-border px-3 py-2.5 text-center text-xs font-normal text-foreground">Wax Piece Location</th>}
+                  {visibleColumns.has('wax_setting_qty') && <th className="border border-soft-border px-3 py-2.5 text-center text-xs font-normal text-foreground">Wax Setting Qty</th>}
+                  {visibleColumns.has('wax_setting_location') && <th className="border border-soft-border px-3 py-2.5 text-center text-xs font-normal text-foreground">Wax Setting Location</th>}
+                  {visibleColumns.has('casting_qty') && <th className="border border-soft-border px-3 py-2.5 text-center text-xs font-normal text-foreground">Casting Qty</th>}
+                  {visibleColumns.has('casting_location') && <th className="border border-soft-border px-3 py-2.5 text-center text-xs font-normal text-foreground">Casting Location</th>}
+                  {visibleColumns.has('notes') && <th className="border border-soft-border px-3 py-2.5 text-center text-xs font-normal text-foreground">Notes</th>}
                 </tr>
               </thead>
               <tbody>
@@ -1071,7 +1071,7 @@ export default function DieInventoryPage() {
       {requestsPanelOpen && (
         <>
           <div className="fixed inset-0 z-[75] bg-black/20" onClick={() => setRequestsPanelOpen(false)} />
-          <aside className="fixed right-2 top-[64px] z-[80] h-[calc(100vh-72px)] w-full max-w-[390px] rounded-2xl border border-soft-border bg-white shadow-2xl">
+          <aside className="fixed right-2 top-[64px] z-[80] h-[calc(100vh-72px)] w-full max-w-[390px] rounded-2xl border border-soft-border  "bg-background$($args[0].Groups[1].Value)"  shadow-2xl">
             <div className="flex h-full flex-col">
               <div className="flex items-center justify-between border-b border-soft-border px-4 py-3">
                 <div>
@@ -1101,7 +1101,7 @@ export default function DieInventoryPage() {
                           className="w-full rounded-xl px-4 py-3 text-left transition hover:bg-cloud-gray"
                         >
                           <div className="flex items-start gap-3">
-                            <div className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-full bg-[#EEF2FF] text-xs font-semibold text-trust-blue">
+                            <div className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/20 text-xs font-semibold text-trust-blue">
                               {String(req.issued_to || '').slice(0, 2).toUpperCase() || 'RQ'}
                             </div>
                             <div className="flex-1 min-w-0">
@@ -1172,7 +1172,7 @@ export default function DieInventoryPage() {
             <div className="flex flex-col gap-1">
               <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Die</label>
               <select
-                className="w-full rounded-md border border-soft-border px-3 py-1.5 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                className="w-full rounded-md border border-soft-border px-3 py-1.5 text-sm  "bg-background$($args[0].Groups[1].Value)"  focus:outline-none focus:ring-1 focus:ring-trust-blue"
                 value={issueForm.dieId}
                 onChange={(e) => setIssueForm((p) => ({ ...p, dieId: e.target.value }))}
               >
@@ -1187,7 +1187,7 @@ export default function DieInventoryPage() {
               <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Issued To</label>
               <input
                 list="workforce-list-issue"
-                className="w-full rounded-md border border-soft-border px-3 py-1.5 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                className="w-full rounded-md border border-soft-border px-3 py-1.5 text-sm  "bg-background$($args[0].Groups[1].Value)"  focus:outline-none focus:ring-1 focus:ring-trust-blue"
                 value={issueForm.issuedTo}
                 onChange={(e) => setIssueForm((p) => ({ ...p, issuedTo: e.target.value }))}
                 placeholder="Enter name or select…"
@@ -1245,7 +1245,7 @@ export default function DieInventoryPage() {
                           <input
                             type="number"
                             min="1"
-                            className="w-full rounded border border-soft-border px-2 py-0.5 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue bg-white"
+                            className="w-full rounded border border-soft-border px-2 py-0.5 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue  "bg-background$($args[0].Groups[1].Value)" "
                             value={form.sku_qty_per_piece?.[key] ?? ''}
                             placeholder="1"
                             onChange={(e) => {
@@ -1290,7 +1290,7 @@ export default function DieInventoryPage() {
                     <button
                       type="button"
                       onClick={(e) => { e.stopPropagation(); ff('image')(''); }}
-                      className="absolute top-1 right-1 rounded-full bg-white/80 p-0.5 text-rose-500 hover:bg-rose-50 shadow"
+                      className="absolute top-1 right-1 rounded-full  "bg-background$($args[0].Groups[1].Value)"  p-0.5 text-rose-500 hover:bg-rose-50 shadow"
                       title="Remove image"
                     >
                       <X className="h-3.5 w-3.5" />
@@ -1365,10 +1365,10 @@ export default function DieInventoryPage() {
       {/* Fixed Footer */}
       {(() => {
         return (
-          <div className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-soft-border shadow-lg px-4 py-2 flex flex-wrap items-center justify-between gap-3 text-sm text-cool-gray">
+          <div className="fixed bottom-0 left-0 right-0 z-50  "bg-background$($args[0].Groups[1].Value)"  border-t border-soft-border shadow-lg px-4 py-2 flex flex-wrap items-center justify-between gap-3 text-sm text-cool-gray">
             <div className="flex items-center gap-2">
               <span>Rows per page:</span>
-              <select value={rowsPerPage} onChange={(e) => { setRowsPerPage(Number(e.target.value)); setCurrentPage(1); }} className="border border-soft-border rounded px-2 py-1 text-sm text-midnight-ink bg-white">
+              <select value={rowsPerPage} onChange={(e) => { setRowsPerPage(Number(e.target.value)); setCurrentPage(1); }} className="border border-soft-border rounded px-2 py-1 text-sm text-midnight-ink  "bg-background$($args[0].Groups[1].Value)" ">
                 {[25, 50, 75, 100].map(n => <option key={n} value={n}>{n}</option>)}
               </select>
             </div>

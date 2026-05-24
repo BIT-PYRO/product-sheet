@@ -8,6 +8,7 @@ import { EnrolWorkforceForm } from '@/app/frontend/enrol-workforce/page';
 import { GenericJobModal } from '@/components/generic-job-modal';
 import DateTimeStamp from '@/components/date-time-stamp';
 import { Search, X, ArrowRight, User, Users, Settings, ChevronRight, KeyRound, ShieldCheck } from 'lucide-react';
+import { ThemeToggle } from '@/components/theme-toggle';
 
 const SHEET_BLOCKS = [
   { href: '/product-sheet', permKey: 'product-sheet', title: 'Product Sheet', subtitle: 'Product entry and live stock form', keywords: ['sku', 'product', 'stock', 'listing', 'material', 'weight', 'variation', 'stone', 'image', 'live stock', 'final stock', 'entry'] },
@@ -281,6 +282,7 @@ export default function HomePage() {
           </div>
           <div className="flex items-center gap-3">
             <DateTimeStamp />
+            <ThemeToggle />
             {/* User avatar — opens profile dropdown */}
             <div className="relative" ref={profileDropdownRef}>
               <button
@@ -298,7 +300,7 @@ export default function HomePage() {
 
               {/* Dropdown */}
               {isProfileDropdownOpen && (
-                <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl border border-soft-border shadow-lg z-50 py-1 overflow-hidden">
+                <div className="absolute right-0 mt-2 w-56 bg-background rounded-xl border border-soft-border shadow-lg z-50 py-1 overflow-hidden">
                   <Link
                     href="/profile"
                     onClick={() => setIsProfileDropdownOpen(false)}
@@ -373,7 +375,7 @@ export default function HomePage() {
               onChange={(e) => { setSearchQuery(e.target.value); setIsSearchOpen(true); }}
               onFocus={() => { setIsSearchOpen(true); fetchLiveData(); }}
               placeholder="Search by name, SKU, customer, workforce, product…"
-              className="w-full h-11 pl-10 pr-9 text-sm rounded-xl border border-soft-border bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-trust-blue focus:border-transparent placeholder-slate-400 transition"
+              className="w-full h-11 pl-10 pr-9 text-sm rounded-xl border border-soft-border bg-background text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-trust-blue focus:border-transparent placeholder-slate-400 transition"
               suppressHydrationWarning
             />
             {searchQuery && (
@@ -391,7 +393,7 @@ export default function HomePage() {
 
           {/* Dropdown results */}
           {isSearchOpen && searchQuery.trim() && (
-            <div className="absolute top-full left-0 right-0 mt-1.5 bg-white rounded-xl border border-soft-border shadow-2xl z-50 overflow-hidden">
+            <div className="absolute top-full left-0 right-0 mt-1.5 bg-background rounded-xl border border-soft-border shadow-2xl z-50 overflow-hidden">
               {totalResults === 0 ? (
                 <div className="px-4 py-6 text-center text-sm text-cool-gray">
                   No results for <span className="font-semibold text-midnight-ink">&ldquo;{searchQuery}&rdquo;</span>
@@ -532,7 +534,7 @@ export default function HomePage() {
                   key={block.permKey}
                   type="button"
                   onClick={() => alert(`You don't have access to "${block.title}". Contact your admin to request permissions.`)}
-                  className="block text-left rounded-xl border border-soft-border bg-white p-6 opacity-50 cursor-not-allowed select-none"
+                  className="block text-left rounded-xl border border-soft-border bg-background p-6 opacity-50 cursor-not-allowed select-none"
                   suppressHydrationWarning
                 >
                   {num}
@@ -549,7 +551,7 @@ export default function HomePage() {
                   key={block.href}
                   type="button"
                   onClick={() => setIsEnrollWorkforceOpen(true)}
-                  className="block text-left rounded-xl border border-soft-border bg-white p-6 hover:border-trust-blue hover:shadow-md transition"
+                  className="block text-left rounded-xl border border-soft-border bg-background p-6 hover:border-trust-blue hover:shadow-md transition"
                   suppressHydrationWarning
                 >
                   {num}
@@ -565,7 +567,7 @@ export default function HomePage() {
                   key={block.href}
                   type="button"
                   onClick={() => setIsGenericJobModalOpen(true)}
-                  className="block text-left rounded-xl border border-soft-border bg-white p-6 hover:border-trust-blue hover:shadow-md transition"
+                  className="block text-left rounded-xl border border-soft-border bg-background p-6 hover:border-trust-blue hover:shadow-md transition"
                   suppressHydrationWarning
                 >
                   {num}
@@ -579,7 +581,7 @@ export default function HomePage() {
               <Link
                 key={block.href}
                 href={block.href}
-                className="block rounded-xl border border-soft-border bg-white p-6 hover:border-trust-blue hover:shadow-md transition"
+                className="block rounded-xl border border-soft-border bg-background p-6 hover:border-trust-blue hover:shadow-md transition"
               >
                 {num}
                 <h2 className="text-lg font-semibold text-midnight-ink">{block.title}</h2>

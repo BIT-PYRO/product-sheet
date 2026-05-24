@@ -270,7 +270,7 @@ export default function DraftsPage() {
               <button
                 key={section}
                 onClick={() => setActiveSection(section)}
-                className={`text-left rounded-xl border bg-white p-5 transition ${
+                className={`text-left rounded-xl border bg-background p-5 transition ${
                   isActive
                     ? 'border-soft-border shadow-sm'
                     : 'border-soft-border hover:border-soft-border hover:shadow-md'
@@ -311,7 +311,7 @@ export default function DraftsPage() {
         )}
 
         {activeSection && (
-          <section className="rounded-xl border border-soft-border bg-white p-5">
+          <section className="rounded-xl border border-soft-border bg-background p-5">
             <h3 className="text-base font-semibold text-midnight-ink mb-4">{activeSection} Drafts</h3>
 
             {activeDrafts.length === 0 ? (

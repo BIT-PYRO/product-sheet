@@ -65,7 +65,7 @@ function OrdersPageInner() {
 
   return (
     <main className="min-h-screen bg-cloud-gray">
-      <div className="transition-[left,width] duration-300 ease-in-out fixed top-0 left-0 right-0 z-[60] bg-white/95 py-2 border-b border-soft-border shadow-sm backdrop-blur px-3 md:px-4">
+      <div className="transition-[left,width] duration-300 ease-in-out fixed top-0 left-0 right-0 z-[60] bg-background/95 py-2 border-b border-soft-border shadow-sm backdrop-blur px-3 md:px-4">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <MasterNavigationDrawer inHeader />
@@ -89,7 +89,7 @@ function OrdersPageInner() {
                 setShowOrderSheet(false);
                 setShowOrderProgressSheet(false);
               }}
-              className="block text-left rounded-xl border border-soft-border bg-white p-6 hover:border-slate-text hover:shadow-md transition"
+              className="block text-left rounded-xl border border-soft-border bg-background p-6 hover:border-slate-text hover:shadow-md transition"
             >
               <h2 className="text-lg font-semibold text-midnight-ink">Create Order</h2>
               <p className="text-sm text-cool-gray mt-2">
@@ -105,7 +105,7 @@ function OrdersPageInner() {
               setShowCreateOrderForm(false);
               setShowOrderProgressSheet(false);
             }}
-            className="block text-left rounded-xl border border-soft-border bg-white p-6 hover:border-slate-text hover:shadow-md transition"
+            className="block text-left rounded-xl border border-soft-border bg-background p-6 hover:border-slate-text hover:shadow-md transition"
           >
             <h2 className="text-lg font-semibold text-midnight-ink">Order Sheet</h2>
             <p className="text-sm text-cool-gray mt-2">
@@ -120,7 +120,7 @@ function OrdersPageInner() {
               setShowCreateOrderForm(false);
               setShowOrderSheet(false);
             }}
-            className="block text-left rounded-xl border border-soft-border bg-white p-6 hover:border-slate-text hover:shadow-md transition"
+            className="block text-left rounded-xl border border-soft-border bg-background p-6 hover:border-slate-text hover:shadow-md transition"
           >
             <h2 className="text-lg font-semibold text-midnight-ink">Order Progress Sheet</h2>
             <p className="text-sm text-cool-gray mt-2">
@@ -133,7 +133,7 @@ function OrdersPageInner() {
         {showCreateOrderForm && (
           <section
             ref={createOrderSectionRef}
-            className="mt-6 mx-4 md:mx-6 rounded-xl border border-soft-border bg-white p-4 md:p-6"
+            className="mt-6 mx-4 md:mx-6 rounded-xl border border-soft-border bg-background p-4 md:p-6"
           >
             <CreateOrderForm embedded />
           </section>
@@ -142,7 +142,7 @@ function OrdersPageInner() {
         {showOrderSheet && (
           <section
             ref={orderSheetSectionRef}
-            className="mt-6 rounded-none border-y border-soft-border bg-white p-0"
+            className="mt-6 rounded-none border-y border-soft-border bg-background p-0"
           >
             <OrderSheetView embedded defaultPicklistNum={autoPicklist} />
           </section>
@@ -151,7 +151,7 @@ function OrdersPageInner() {
         {showOrderProgressSheet && (
           <section
             ref={orderProgressSectionRef}
-            className="mt-6 rounded-none border-y border-soft-border bg-white p-0"
+            className="mt-6 rounded-none border-y border-soft-border bg-background p-0"
           >
             <OrderProgressSheetView embedded />
           </section>

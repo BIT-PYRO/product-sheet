@@ -2088,7 +2088,7 @@ function ProductSheetContent() {
     }
     
     return (<div className="relative min-h-screen bg-cloud-gray flex flex-col text-midnight-ink overflow-x-hidden">
-      <div className="sheet-fixed-header fixed top-0 left-0 right-0 z-[70] flex justify-between items-center bg-white/95 backdrop-blur py-2 px-3 md:px-4 border-b border-soft-border shadow-sm transition-all duration-300">
+      <div className="sheet-fixed-header fixed top-0 left-0 right-0 z-[70] flex justify-between items-center bg-background/95 backdrop-blur py-2 px-3 md:px-4 border-b border-soft-border shadow-sm transition-all duration-300">
         <div className="flex items-center gap-2">
           <MasterNavigationDrawer inHeader />
           <h1 className="text-xl font-bold tracking-tight text-midnight-ink">PRODUCT SHEET</h1>
@@ -2156,7 +2156,7 @@ function ProductSheetContent() {
       {/* Edit Product Search Dialog */}
       {isEditDialogOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 max-h-[80vh] flex flex-col">
+          <div className="bg-background rounded-2xl shadow-2xl w-full max-w-lg mx-4 max-h-[80vh] flex flex-col">
             <div className="flex items-center justify-between px-5 py-4 border-b border-soft-border">
               <h2 className="text-lg font-bold text-midnight-ink">Edit Product</h2>
               <button onClick={() => setIsEditDialogOpen(false)} className="p-1 rounded-full hover:bg-cloud-gray">
@@ -2235,7 +2235,7 @@ function ProductSheetContent() {
             <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={handleImageUpload} className="hidden"/>
             {/* Primary image */}
             <div
-              className="flex-1 min-h-0 bg-white border-2 border-soft-border rounded-xl shadow-sm ring-1 ring-soft-border flex items-center justify-center cursor-pointer hover:bg-cloud-gray relative overflow-hidden"
+              className="flex-1 min-h-0 bg-background border border-soft-border rounded-xl shadow-sm ring-1 ring-soft-border flex items-center justify-center cursor-pointer hover:bg-cloud-gray relative overflow-hidden"
               onClick={() => fileInputRef.current?.click()}
             >
               {productImages.length > 0 ? (
@@ -2286,11 +2286,11 @@ function ProductSheetContent() {
           <div className="w-4/5 flex flex-col gap-1.5">
             {/* SKU Table */}
             <div className="flex gap-2 h-auto">
-              <div className="flex-1 bg-white border-2 border-soft-border rounded-xl shadow-sm px-2 py-1">
+              <div className="flex-1 bg-background border border-soft-border rounded-xl shadow-sm px-2 py-1">
                 <div className="font-semibold text-sm mb-0.5">MASTER SKU</div>
                 <input type="text" value={sku} onChange={(e) => setSku(e.target.value)} className="w-full bg-transparent outline-none text-sm border border-soft-border rounded px-2 py-0"/>
               </div>
-              <div className="flex-1 bg-white border-2 border-soft-border rounded-xl shadow-sm px-2 py-1">
+              <div className="flex-1 bg-background border border-soft-border rounded-xl shadow-sm px-2 py-1">
                 <div className="font-semibold text-sm mb-0.5">DESIGNER SKU</div>
                 {designerSkus.map((dsku, idx) => (
                   <div key={idx} className="flex items-center gap-1 mt-0.5">
@@ -2308,7 +2308,7 @@ function ProductSheetContent() {
                 ))}
                 <button type="button" onClick={() => setDesignerSkus(prev => [...prev, ''])} className="mt-1 text-xs text-trust-blue hover:underline">+ Add SKU</button>
               </div>
-              <div className="flex-1 bg-white border-2 border-soft-border rounded-xl shadow-sm px-2 py-1">
+              <div className="flex-1 bg-background border border-soft-border rounded-xl shadow-sm px-2 py-1">
                 <div className="font-semibold text-sm mb-0.5">LISTING NAME</div>
                 <input type="text" value={listingName} onChange={(e) => setListingName(e.target.value)} className="w-full bg-transparent outline-none text-sm border border-soft-border rounded px-2 py-0"/>
               </div>
@@ -2318,7 +2318,7 @@ function ProductSheetContent() {
             <div className="flex gap-2">
               {/* Left half: Material + Weight (under SKU) */}
               <div className="flex-1 flex gap-2">
-                <div className="flex-1 bg-white border-2 border-soft-border rounded-xl shadow-sm px-2 py-1">
+                <div className="flex-1 bg-background border border-soft-border rounded-xl shadow-sm px-2 py-1">
                   <div className="font-semibold text-sm mb-1">Material</div>
                   <select value={dropdown1} onChange={(e) => setDropdown1(e.target.value)} className="w-full bg-transparent outline-none text-sm border border-soft-border rounded px-2 py-1">
                     <option value="">Select...</option>
@@ -2326,7 +2326,7 @@ function ProductSheetContent() {
                   </select>
                   <button type="button" onClick={() => { setIsAddMaterialOpen(true); setNewMaterialName(''); setAddMaterialError('') }} className="mt-1 text-xs text-trust-blue underline">+ Add Material</button>
                 </div>
-                <div className="flex-1 bg-white border-2 border-soft-border rounded-xl shadow-sm px-2 py-1">
+                <div className="flex-1 bg-background border border-soft-border rounded-xl shadow-sm px-2 py-1">
                   <div className="font-semibold text-sm mb-1">Weight</div>
                   <div className="flex gap-1">
                     <input type="text" placeholder="Value" value={weightValue} onChange={(e) => setWeightValue(e.target.value)} className="flex-1 bg-transparent outline-none text-sm border border-soft-border rounded px-2 py-1"/>
@@ -2342,7 +2342,7 @@ function ProductSheetContent() {
               </div>
               {/* Right half: Category + Collection (under Listing Name) */}
               <div className="flex-1 flex gap-2">
-                <div className="flex-1 bg-white border-2 border-soft-border rounded-xl shadow-sm px-2 py-1">
+                <div className="flex-1 bg-background border border-soft-border rounded-xl shadow-sm px-2 py-1">
                   <div className="font-semibold text-sm mb-1">Category</div>
                   <select value={dropdown2} onChange={(e) => setDropdown2(e.target.value)} className="w-full bg-transparent outline-none text-sm border border-soft-border rounded px-2 py-1">
                     <option value="">Select...</option>
@@ -2350,7 +2350,7 @@ function ProductSheetContent() {
                   </select>
                   <button type="button" onClick={() => { setIsAddCategoryOpen(true); setNewCategoryName(''); setAddCategoryError('') }} className="mt-1 text-xs text-trust-blue underline">+ Add Category</button>
                 </div>
-                <div className="flex-1 bg-white border-2 border-soft-border rounded-xl shadow-sm px-2 py-1">
+                <div className="flex-1 bg-background border border-soft-border rounded-xl shadow-sm px-2 py-1">
                   <div className="font-semibold text-sm mb-1">Collection</div>
                   <select value={dropdown3} onChange={(e) => setDropdown3(e.target.value)} className="w-full bg-transparent outline-none text-sm border border-soft-border rounded px-2 py-1">
                     <option value="">Select...</option>
@@ -2374,7 +2374,7 @@ function ProductSheetContent() {
               {/* Die Numbers Panel - Left 50% */}
               <div className="flex-1 flex flex-col">
                 {/* Setting Type + Enamel Combined Panel */}
-                <div className="mb-2 bg-white border-2 border-soft-border rounded-xl shadow-sm px-2 py-1">
+                <div className="mb-2 bg-background border border-soft-border rounded-xl shadow-sm px-2 py-1">
                   <div className="flex gap-4">
                     <div className="flex-1">
                       <div className="font-semibold text-sm mb-2">SETTING TYPE</div>
@@ -2385,7 +2385,7 @@ function ProductSheetContent() {
                             <button key={val} onClick={() => setSettingType(prev => {
                               const parts = prev.split(',').map(s => s.trim()).filter(Boolean)
                               return active ? parts.filter(p => p !== val).join(',') : [...parts, val].join(',')
-                            })} className={`flex-1 px-2 py-1 text-sm font-semibold rounded border ${active ? 'bg-trust-blue text-white border-trust-blue' : 'bg-white text-slate-text border-soft-border'}`}>
+                            })} className={`flex-1 px-2 py-1 text-sm font-semibold rounded border ${active ? 'bg-trust-blue text-white border-trust-blue' : 'bg-background text-foreground border-soft-border'}`}>
                               {label}
                             </button>
                           )
@@ -2395,8 +2395,8 @@ function ProductSheetContent() {
                     <div className="flex-1">
                       <div className="font-semibold text-sm mb-2">ENAMEL</div>
                       <div className="flex gap-2">
-                        <button onClick={() => setEnamelType('yes')} className={`flex-1 px-2 py-1 text-sm font-semibold rounded border ${enamelType === 'yes' ? 'bg-trust-blue text-white border-trust-blue' : 'bg-white text-slate-text border-soft-border'}`}>YES</button>
-                        <button onClick={() => setEnamelType('no')} className={`flex-1 px-2 py-1 text-sm font-semibold rounded border ${enamelType === 'no' ? 'bg-trust-blue text-white border-trust-blue' : 'bg-white text-slate-text border-soft-border'}`}>NO</button>
+                        <button onClick={() => setEnamelType('yes')} className={`flex-1 px-2 py-1 text-sm font-semibold rounded border ${enamelType === 'yes' ? 'bg-trust-blue text-white border-trust-blue' : 'bg-background text-foreground border-soft-border'}`}>YES</button>
+                        <button onClick={() => setEnamelType('no')} className={`flex-1 px-2 py-1 text-sm font-semibold rounded border ${enamelType === 'no' ? 'bg-trust-blue text-white border-trust-blue' : 'bg-background text-foreground border-soft-border'}`}>NO</button>
                       </div>
                     </div>
                   </div>
@@ -2407,7 +2407,7 @@ function ProductSheetContent() {
                   <div className="relative">
                     <div 
                       onClick={() => setIsChannelDropdownOpen(!isChannelDropdownOpen)}
-                      className="bg-white border-2 border-soft-border rounded px-2 py-1 text-sm min-h-[2rem] flex items-center justify-between cursor-pointer"
+                      className="bg-background border border-soft-border rounded px-2 py-1 text-sm min-h-[2rem] flex items-center justify-between cursor-pointer"
                     >
                       <div className="flex flex-wrap gap-1 flex-1">
                         {activeChannels.length > 0 ? (
@@ -2430,7 +2430,7 @@ function ProductSheetContent() {
                       </svg>
                     </div>
                     {isChannelDropdownOpen && (
-                      <div className="absolute z-10 mt-1 w-full bg-white border border-soft-border rounded shadow-lg max-h-52 overflow-y-auto">
+                      <div className="absolute z-10 mt-1 w-full bg-background border border-soft-border rounded shadow-lg max-h-52 overflow-y-auto">
                         {channelOptions.map(channel => (
                           <div
                             key={channel}
@@ -2483,7 +2483,7 @@ function ProductSheetContent() {
                   <div className="relative">
                     <div
                       onClick={() => setIsStatusDropdownOpen(!isStatusDropdownOpen)}
-                      className="bg-white border-2 border-soft-border rounded px-2 py-1 text-sm min-h-[2rem] flex items-center justify-between cursor-pointer"
+                      className="bg-background border border-soft-border rounded px-2 py-1 text-sm min-h-[2rem] flex items-center justify-between cursor-pointer"
                     >
                       <span className="text-sm">
                         {shopifyStatus === 'active' ? 'Active' : shopifyStatus === 'draft' ? 'Draft' : 'Unlisted'}
@@ -2493,7 +2493,7 @@ function ProductSheetContent() {
                       </svg>
                     </div>
                     {isStatusDropdownOpen && (
-                      <div className="absolute z-10 mt-1 w-full bg-white border border-soft-border rounded shadow-lg max-h-40 overflow-y-auto">
+                      <div className="absolute z-10 mt-1 w-full bg-background border border-soft-border rounded shadow-lg max-h-40 overflow-y-auto">
                         <div
                           onClick={() => { setShopifyStatus('active'); setIsStatusDropdownOpen(false) }}
                           className={`px-2 py-1 text-sm cursor-pointer hover:bg-cloud-gray ${shopifyStatus === 'active' ? 'bg-trust-blue/10' : ''}`}
@@ -2515,7 +2515,7 @@ function ProductSheetContent() {
 
               {/* Variations Panel - Right 50% */}
               <div className="flex-1 flex flex-col self-start">
-                <div className="bg-white border-2 border-soft-border rounded-xl shadow-sm flex flex-col overflow-hidden">
+                <div className="bg-background border border-soft-border rounded-xl shadow-sm flex flex-col overflow-hidden">
                   <div className="flex divide-x-2 divide-soft-border border-b border-soft-border flex-shrink-0">
                     <div className="w-32 px-2 py-1 font-semibold text-sm flex items-center flex-shrink-0">
                       MASTER SKU
@@ -2592,7 +2592,7 @@ function ProductSheetContent() {
       </div>
 
       {/* Die Numbers & Live Stock Situation */}
-      <div className="bg-white border-2 border-soft-border rounded-xl shadow-sm mb-2 flex flex-col overflow-hidden">
+      <div className="bg-background border border-soft-border rounded-xl shadow-sm mb-2 flex flex-col overflow-hidden">
         <div className="flex items-center justify-between px-3 py-1.5 bg-trust-blue/10 border-b-2 border-soft-border flex-shrink-0">
           <h3 className="text-xs font-bold text-midnight-ink uppercase tracking-wide">Die Numbers &amp; Live Stock Situation</h3>
           <button type="button" onClick={addDieNumberRow} className="px-2 py-0.5 text-xs bg-trust-blue text-white font-semibold rounded hover:bg-deep-blue">+ Add Rows</button>
@@ -2683,10 +2683,10 @@ function ProductSheetContent() {
         <h2 className="text-sm font-semibold mb-1.5 text-center text-warning">LIVE STOCK SITUATION</h2>
         <div className="flex gap-2 items-start">
           {/* Main Live Stock Table - 70% */}
-          <div className="flex-shrink-0 bg-white border border-soft-border rounded-xl" style={{width: '70%'}}>
+          <div className="flex-shrink-0 bg-background border border-soft-border rounded-xl" style={{width: '70%'}}>
             <table className="w-full table-fixed text-sm border-collapse text-center">
               <thead>
-                <tr className="bg-[#dce8f5]">
+                <tr className="bg-blue-100 dark:bg-blue-900/30">
                   <th className="border border-soft-border px-1 py-1 text-left font-semibold text-midnight-ink w-36 whitespace-nowrap rounded-tl-xl"></th>
                   {liveStockCols.map((col, colIdx) => {
                     const menuOpen = colMgmtAnchor?.tableType === 'live_stock' && colMgmtAnchor?.colKey === col.key
@@ -2705,8 +2705,8 @@ function ProductSheetContent() {
                       {menuOpen && (
                         <>
                           <div className="fixed inset-0 z-40" onClick={() => setColMgmtAnchor(null)} />
-                          <div className="absolute right-0 top-full z-50 mt-1 w-44 bg-white border border-slate-200 rounded-lg shadow-xl py-1 text-left" onClick={(e) => e.stopPropagation()}>
-                            <button type="button" className="flex items-center gap-2 w-full px-3 py-2 text-xs hover:bg-slate-50 text-midnight-ink" onClick={() => { setAddColTableType('live_stock'); setAddColAnchorKey(col.key); setAddColDir('before'); setColMgmtAnchor(null); setIsAddColOpen(true) }}>
+                          <div className="absolute right-0 top-full z-50 mt-1 w-44 bg-background border border-soft-border rounded-lg shadow-xl py-1 text-left" onClick={(e) => e.stopPropagation()}>
+                            <button type="button" className="flex items-center gap-2 w-full px-3 py-2 text-xs hover:bg-cloud-gray text-midnight-ink" onClick={() => { setAddColTableType('live_stock'); setAddColAnchorKey(col.key); setAddColDir('before'); setColMgmtAnchor(null); setIsAddColOpen(true) }}>
                               <span className="text-base">←</span> Insert column left
                             </button>
                             <button type="button" className="flex items-center gap-2 w-full px-3 py-2 text-xs hover:bg-slate-50 text-midnight-ink" onClick={() => { setAddColTableType('live_stock'); setAddColAnchorKey(col.key); setAddColDir('after'); setColMgmtAnchor(null); setIsAddColOpen(true) }}>
@@ -2729,7 +2729,7 @@ function ProductSheetContent() {
                   const STAGE_TO_KEY = { wax_piece:'rawMaterial', wax_setting:'rawSetting', casting:'wipLiquidCasting', filling:'filing', pre_polish:'packing', setting:'setting', final_polish:'finalPolish', ready_for_plating:'readyForPlacing' }
                   return (
                     <tr key={rowLabel}>
-                      <td className="border border-soft-border px-1 py-1 font-semibold text-left text-midnight-ink bg-[#f5f8fc] whitespace-nowrap">{rowLabel}</td>
+                      <td className="border border-soft-border px-1 py-1 font-semibold text-left text-midnight-ink bg-blue-50/70 dark:bg-slate-700/30 whitespace-nowrap">{rowLabel}</td>
                       {liveStockCols.map((col) => {
                         const legacyKey = STAGE_TO_KEY[col.key]
                         const val = legacyKey ? (liveStock[legacyKey]?.[rowField] ?? '') : (liveStock[col.key]?.[rowField] ?? '')
@@ -2751,7 +2751,7 @@ function ProductSheetContent() {
           {/* Final Stock Table - 30% */}
           <div className="flex-shrink-0 border border-soft-border rounded-xl overflow-hidden flex flex-col max-h-[170px]" style={{width: '30%'}}>
             {/* Fixed header */}
-            <div className="flex flex-shrink-0 bg-[#dce8f5] border-b border-soft-border">
+            <div className="flex flex-shrink-0 bg-blue-100 dark:bg-blue-900/30 border-b border-soft-border">
               <div className="flex-1 border-r border-soft-border px-1 py-1 text-center text-sm font-semibold text-midnight-ink">SKU</div>
               <div className="flex-1 border-r border-soft-border px-1 py-1 text-center text-sm font-semibold text-midnight-ink">Value</div>
               <div className="flex-1 border-r border-soft-border px-1 py-1 text-center text-sm font-semibold text-midnight-ink">Unit</div>
@@ -2812,7 +2812,7 @@ function ProductSheetContent() {
       <div className="flex gap-2 mb-2 items-stretch">
         <div className="w-[65%] bg-cloud-gray p-1.5 rounded-xl border border-soft-border shadow-sm flex flex-col h-full min-h-[240px]">
           <h2 className="text-sm font-semibold mb-1">STONE INFO</h2>
-          <div className="bg-white flex-1 flex flex-col">
+          <div className="bg-background flex-1 flex flex-col">
             <div className="max-h-36 overflow-y-auto">
               <table className="w-full border-2 border-soft-border table-fixed break-words">
               <thead>
@@ -2820,7 +2820,7 @@ function ProductSheetContent() {
                   {stoneInfoCols.map((col) => {
                     const menuOpen = colMgmtAnchor?.tableType === 'stone_info' && colMgmtAnchor?.colKey === col.key
                     return (
-                    <th key={col.key} className="px-2 py-1 text-center font-semibold text-sm border-r-2 border-soft-border bg-white whitespace-nowrap relative">
+                    <th key={col.key} className="px-2 py-1 text-center font-semibold text-sm border-r-2 border-soft-border bg-background whitespace-nowrap relative">
                       <span className="block pr-5 text-center">{col.label.toUpperCase()}</span>
                       <button
                         type="button"
@@ -2831,8 +2831,8 @@ function ProductSheetContent() {
                       {menuOpen && (
                         <>
                           <div className="fixed inset-0 z-40" onClick={() => setColMgmtAnchor(null)} />
-                          <div className="absolute right-0 top-full z-50 mt-1 w-44 bg-white border border-slate-200 rounded-lg shadow-xl py-1 text-left" onClick={(e) => e.stopPropagation()}>
-                            <button type="button" className="flex items-center gap-2 w-full px-3 py-2 text-xs hover:bg-slate-50 text-midnight-ink" onClick={() => { setAddColTableType('stone_info'); setAddColAnchorKey(col.key); setAddColDir('before'); setColMgmtAnchor(null); setIsAddColOpen(true) }}>
+                          <div className="absolute right-0 top-full z-50 mt-1 w-44 bg-background border border-soft-border rounded-lg shadow-xl py-1 text-left" onClick={(e) => e.stopPropagation()}>
+                            <button type="button" className="flex items-center gap-2 w-full px-3 py-2 text-xs hover:bg-cloud-gray text-midnight-ink" onClick={() => { setAddColTableType('stone_info'); setAddColAnchorKey(col.key); setAddColDir('before'); setColMgmtAnchor(null); setIsAddColOpen(true) }}>
                               <span className="text-base">←</span> Insert column left
                             </button>
                             <button type="button" className="flex items-center gap-2 w-full px-3 py-2 text-xs hover:bg-slate-50 text-midnight-ink" onClick={() => { setAddColTableType('stone_info'); setAddColAnchorKey(col.key); setAddColDir('after'); setColMgmtAnchor(null); setIsAddColOpen(true) }}>
@@ -2847,18 +2847,18 @@ function ProductSheetContent() {
                       )}
                     </th>
                   )})}
-                  <th className="w-6 bg-white"></th>
+                  <th className="w-6 bg-background"></th>
                 </tr>
               </thead>
               <tbody>
                 {stoneInfo.map((stone, index) => (
                   <tr key={stone.id} className={index < stoneInfo.length - 1 ? 'border-b-2 border-soft-border' : ''}>
                     {stoneInfoCols.map((col) => (
-                      <td key={col.key} className="px-2 py-1 border-r-2 border-soft-border bg-white">
+                      <td key={col.key} className="px-2 py-1 border-r-2 border-soft-border bg-background">
                         <input type="text" value={stone[col.key] ?? ''} onChange={(e) => updateStoneInfo(stone.id, col.key, e.target.value)} className="w-full bg-transparent outline-none text-sm min-w-[60px]"/>
                       </td>
                     ))}
-                    <td className="w-4 px-2 py-1 bg-white text-center" style={{maxWidth: '1.5rem'}}>
+                    <td className="w-4 px-2 py-1 bg-background text-center" style={{maxWidth: '1.5rem'}}>
                       <button type="button" onClick={() => deleteStoneInfo(stone.id)} className="text-danger hover:text-danger-dark transition-colors">
                         <Trash2 className="h-3 w-3" />
                       </button>
@@ -2876,7 +2876,7 @@ function ProductSheetContent() {
 
         <div className="w-[35%] bg-cloud-gray p-1.5 rounded-xl border border-soft-border shadow-sm flex flex-col h-full min-h-[240px]">
           <h2 className="text-sm font-semibold mb-1">PLATING INFO</h2>
-          <div className="bg-white flex-1 flex flex-col">
+          <div className="bg-background flex-1 flex flex-col">
             <div className="max-h-36 overflow-y-auto">
               <table className="w-full border-2 border-soft-border table-fixed break-words">
               <thead>
@@ -2884,7 +2884,7 @@ function ProductSheetContent() {
                   {platingInfoCols.map((col) => {
                     const menuOpen = colMgmtAnchor?.tableType === 'plating_info' && colMgmtAnchor?.colKey === col.key
                     return (
-                    <th key={col.key} className="w-32 px-2 py-1 text-center font-semibold text-sm border-r-2 border-soft-border bg-white relative">
+                    <th key={col.key} className="w-32 px-2 py-1 text-center font-semibold text-sm border-r-2 border-soft-border bg-background relative">
                       <span className="block pr-5 text-center">{col.label.toUpperCase()}</span>
                       <button
                         type="button"
@@ -2895,8 +2895,8 @@ function ProductSheetContent() {
                       {menuOpen && (
                         <>
                           <div className="fixed inset-0 z-40" onClick={() => setColMgmtAnchor(null)} />
-                          <div className="absolute right-0 top-full z-50 mt-1 w-44 bg-white border border-slate-200 rounded-lg shadow-xl py-1 text-left" onClick={(e) => e.stopPropagation()}>
-                            <button type="button" className="flex items-center gap-2 w-full px-3 py-2 text-xs hover:bg-slate-50 text-midnight-ink" onClick={() => { setAddColTableType('plating_info'); setAddColAnchorKey(col.key); setAddColDir('before'); setColMgmtAnchor(null); setIsAddColOpen(true) }}>
+                          <div className="absolute right-0 top-full z-50 mt-1 w-44 bg-background border border-soft-border rounded-lg shadow-xl py-1 text-left" onClick={(e) => e.stopPropagation()}>
+                            <button type="button" className="flex items-center gap-2 w-full px-3 py-2 text-xs hover:bg-cloud-gray text-midnight-ink" onClick={() => { setAddColTableType('plating_info'); setAddColAnchorKey(col.key); setAddColDir('before'); setColMgmtAnchor(null); setIsAddColOpen(true) }}>
                               <span className="text-base">←</span> Insert column left
                             </button>
                             <button type="button" className="flex items-center gap-2 w-full px-3 py-2 text-xs hover:bg-slate-50 text-midnight-ink" onClick={() => { setAddColTableType('plating_info'); setAddColAnchorKey(col.key); setAddColDir('after'); setColMgmtAnchor(null); setIsAddColOpen(true) }}>
@@ -2911,18 +2911,18 @@ function ProductSheetContent() {
                       )}
                     </th>
                   )})}
-                  <th className="w-6 px-2 py-1 text-center font-semibold text-sm bg-white"></th>
+                  <th className="w-6 px-2 py-1 text-center font-semibold text-sm bg-background"></th>
                 </tr>
               </thead>
               <tbody>
                 {platingType.map((row, index) => (
                   <tr key={row.id} className={index < platingType.length - 1 ? 'border-b-2 border-soft-border' : ''}>
                     {platingInfoCols.map((col, ci) => (
-                      <td key={col.key} className="w-32 px-2 py-1 border-r-2 border-soft-border bg-white break-words">
+                      <td key={col.key} className="w-32 px-2 py-1 border-r-2 border-soft-border bg-background break-words">
                         <input type="text" value={row[col.key] ?? row[`col${ci+1}`] ?? ''} onChange={(e) => updatePlatingType(row.id, col.key, e.target.value)} className="w-full bg-transparent outline-none text-sm"/>
                       </td>
                     ))}
-                    <td className="w-6 px-2 py-1 bg-white text-center">
+                    <td className="w-6 px-2 py-1 bg-background text-center">
                       <button type="button" onClick={() => deletePlatingType(row.id)} className="text-danger hover:text-danger-dark transition-colors">
                         <Trash2 className="h-3 w-3" />
                       </button>
@@ -2942,22 +2942,22 @@ function ProductSheetContent() {
       {/* Manufacturing Section */}
       <div className="bg-cloud-gray p-2 rounded-xl mb-2 border border-soft-border shadow-sm">
         <h2 className="text-sm font-semibold mb-1.5">MANUFACTURING</h2>
-        <div className="bg-white rounded-xl">
+        <div className="bg-background rounded-xl">
           <div className="border-2 border-soft-border rounded-xl shadow-sm">
             <div className="flex border-b-2 border-soft-border">
-              <div className="w-20 p-2 border-r-2 border-soft-border font-semibold text-sm bg-white flex-shrink-0">
+              <div className="w-20 p-2 border-r-2 border-soft-border font-semibold text-sm bg-background flex-shrink-0">
                 NOTES
               </div>
-              <div className="flex-1 p-2 bg-white">
+              <div className="flex-1 p-2 bg-background">
                 <input type="text" value={manufacturing.notes ?? ''} onChange={(e) => setManufacturing({ ...manufacturing, notes: e.target.value })} className="w-full bg-transparent outline-none text-sm"/>
               </div>
             </div>
 
             <div className="flex">
-              <div className="w-20 p-2 border-r-2 border-soft-border font-semibold text-sm bg-white flex-shrink-0">
+              <div className="w-20 p-2 border-r-2 border-soft-border font-semibold text-sm bg-background flex-shrink-0">
                 IMAGES
               </div>
-              <div className="flex-1 p-3 bg-white">
+              <div className="flex-1 p-3 bg-background">
                 <div className="flex flex-wrap gap-2">
                   {manufacturing.images.length > 0 ? (
                     manufacturing.images.map((src, index) => (
@@ -3012,7 +3012,7 @@ function ProductSheetContent() {
               <div key={slot} className="flex flex-col gap-1">
                 <div className="text-center text-xs font-semibold text-trust-blue py-0.5 bg-trust-blue/10 rounded-t-lg border border-soft-border border-b-0">{label}</div>
                 <div
-                  className="bg-white border border-soft-border rounded-b-xl overflow-hidden flex items-center justify-center cursor-pointer hover:bg-cloud-gray"
+                  className="bg-background border border-soft-border rounded-b-xl overflow-hidden flex items-center justify-center cursor-pointer hover:bg-cloud-gray"
                   style={{minHeight: '9rem'}}
                   onClick={() => ref.current?.click()}
                 >
@@ -3036,11 +3036,11 @@ function ProductSheetContent() {
         </div>
 
         {/* Tracking Table */}
-        <div className="mt-2 bg-white border border-soft-border rounded-xl overflow-hidden">
+        <div className="mt-2 bg-background border border-soft-border rounded-xl overflow-hidden">
           <div className="max-h-48 overflow-y-auto">
             <table className="w-full text-xs border-collapse">
               <thead className="sticky top-0 z-10">
-                <tr className="bg-[#dce8f5]">
+                <tr className="bg-blue-100 dark:bg-blue-900/30">
                   <th className="border border-soft-border px-2 py-1 font-semibold text-midnight-ink text-left">3DM</th>
                   <th className="border border-soft-border px-2 py-1 font-semibold text-midnight-ink text-left">STL</th>
                   <th className="border border-soft-border px-2 py-1 font-semibold text-midnight-ink text-left">Motive Code</th>
@@ -3097,8 +3097,8 @@ function ProductSheetContent() {
         {/* Stone Info + Plating Info (Designer Sheet data) */}
         <div className="mt-2 grid gap-2" style={{ gridTemplateColumns: '3fr 2fr' }}>
           {/* Stone Info */}
-          <div className="bg-white border border-soft-border rounded-xl overflow-hidden">
-            <div className="text-xs font-bold text-midnight-ink px-3 py-1.5 bg-[#dce8f5] border-b border-soft-border">STONE INFO</div>
+          <div className="bg-background border border-soft-border rounded-xl overflow-hidden">
+            <div className="text-xs font-bold text-midnight-ink px-3 py-1.5 bg-blue-100 dark:bg-blue-900/30 border-b border-soft-border">STONE INFO</div>
             <div className="overflow-x-auto">
               <table className="w-full text-xs border-collapse">
                 <thead>
@@ -3128,8 +3128,8 @@ function ProductSheetContent() {
             <button type="button" onClick={addDesignerStoneRow} className="w-full text-left px-3 py-1.5 text-xs text-trust-blue font-semibold hover:bg-cloud-gray border-t border-soft-border">+ ADD ROW</button>
           </div>
           {/* Plating Info */}
-          <div className="bg-white border border-soft-border rounded-xl overflow-hidden">
-            <div className="text-xs font-bold text-midnight-ink px-3 py-1.5 bg-[#dce8f5] border-b border-soft-border">PLATING INFO</div>
+          <div className="bg-background border border-soft-border rounded-xl overflow-hidden">
+            <div className="text-xs font-bold text-midnight-ink px-3 py-1.5 bg-blue-100 dark:bg-blue-900/30 border-b border-soft-border">PLATING INFO</div>
             <div className="overflow-x-auto">
               <table className="w-full text-xs border-collapse">
                 <thead>
@@ -3162,7 +3162,7 @@ function ProductSheetContent() {
 
         {/* Setting Type + Enamel */}
         <div className="mt-2 grid grid-cols-2 gap-2">
-          <div className="bg-white border border-soft-border rounded-xl p-2">
+          <div className="bg-background border border-soft-border rounded-xl p-2">
             <div className="text-xs font-semibold text-midnight-ink mb-1.5">SETTING TYPE</div>
             <div className="flex gap-2">
               {['WAX SETTING', 'HAND SETTING'].map((opt) => (
@@ -3172,18 +3172,18 @@ function ProductSheetContent() {
                   const next = active ? parts.filter(p => p !== opt) : [...parts, opt]
                   return { ...prev, settingType: next.join(',') }
                 })}
-                  className={`flex-1 px-3 py-1.5 text-xs font-semibold rounded-full border transition-colors ${(designer.settingType || '').split(',').map(s => s.trim()).includes(opt) ? 'bg-trust-blue text-white border-trust-blue shadow-sm' : 'bg-white text-midnight-ink border-soft-border hover:bg-cloud-gray'}`}>
+                  className={`flex-1 px-3 py-1.5 text-xs font-semibold rounded-full border transition-colors ${(designer.settingType || '').split(',').map(s => s.trim()).includes(opt) ? 'bg-trust-blue text-white border-trust-blue shadow-sm' : 'bg-background text-foreground border-soft-border hover:bg-cloud-gray'}`}>
                   {opt}
                 </button>
               ))}
             </div>
           </div>
-          <div className="bg-white border border-soft-border rounded-xl p-2">
+          <div className="bg-background border border-soft-border rounded-xl p-2">
             <div className="text-xs font-semibold text-midnight-ink mb-1.5">ENAMEL</div>
             <div className="flex gap-2">
               {['YES', 'NO'].map((opt) => (
                 <button key={opt} type="button" onClick={() => setDesigner((prev) => ({ ...prev, enamel: prev.enamel === opt ? '' : opt }))}
-                  className={`flex-1 px-3 py-1.5 text-xs font-semibold rounded-full border transition-colors ${designer.enamel === opt ? 'bg-trust-blue text-white border-trust-blue shadow-sm' : 'bg-white text-midnight-ink border-soft-border hover:bg-cloud-gray'}`}>
+                  className={`flex-1 px-3 py-1.5 text-xs font-semibold rounded-full border transition-colors ${designer.enamel === opt ? 'bg-trust-blue text-white border-trust-blue shadow-sm' : 'bg-background text-foreground border-soft-border hover:bg-cloud-gray'}`}>
                   {opt}
                 </button>
               ))}
@@ -3192,7 +3192,7 @@ function ProductSheetContent() {
         </div>
 
         {/* Design Stage Buttons */}
-        <div className="mt-2 bg-white border border-soft-border rounded-xl p-2">
+        <div className="mt-2 bg-background border border-soft-border rounded-xl p-2">
           <div className="text-xs font-semibold text-midnight-ink mb-1.5">DESIGN STAGE</div>
           <div className="flex flex-wrap gap-2">
             {['3DM', 'STL', 'RENDER', '3D PRINT', 'COMPLETE'].map((stage) => (
@@ -3203,7 +3203,7 @@ function ProductSheetContent() {
                 className={`px-3 py-1.5 text-xs font-semibold rounded-full border transition-colors ${
                   designer.designStage === stage
                     ? 'bg-trust-blue text-white border-trust-blue shadow-sm'
-                    : 'bg-white text-midnight-ink border-soft-border hover:bg-cloud-gray'
+                    : 'bg-background text-foreground border-soft-border hover:bg-cloud-gray'
                 }`}
               >
                 {stage}
@@ -3216,8 +3216,8 @@ function ProductSheetContent() {
         <div className="mt-2 flex gap-2 items-stretch">
           {/* Left 50%: Measurements, Material, Notes */}
           <div className="flex flex-col gap-2" style={{width:'50%'}}>
-            <div className="bg-white border border-soft-border rounded-xl overflow-hidden">
-              <div className="text-xs font-semibold text-midnight-ink px-2 py-1.5 bg-[#dce8f5] border-b border-soft-border">Total Design Measurements (Approx)</div>
+            <div className="bg-background border border-soft-border rounded-xl overflow-hidden">
+              <div className="text-xs font-semibold text-midnight-ink px-2 py-1.5 bg-blue-100 dark:bg-blue-900/30 border-b border-soft-border">Total Design Measurements (Approx)</div>
               <table className="w-full text-xs border-collapse">
                 <thead>
                   <tr className="bg-cloud-gray">
@@ -3235,17 +3235,17 @@ function ProductSheetContent() {
                 </tbody>
               </table>
             </div>
-            <div className="bg-white border border-soft-border rounded-xl p-2">
+            <div className="bg-background border border-soft-border rounded-xl p-2">
               <label className="text-xs font-semibold text-midnight-ink mb-1 block">Design Material</label>
               <input type="text" value={designer.designMaterial} onChange={(e) => setDesigner((prev) => ({ ...prev, designMaterial: e.target.value }))} placeholder="e.g. Silver 925" className="w-full bg-transparent outline-none text-sm border border-soft-border rounded px-2 py-1"/>
             </div>
-            <div className="flex-1 bg-white border border-soft-border rounded-xl p-2 flex flex-col">
+            <div className="flex-1 bg-background border border-soft-border rounded-xl p-2 flex flex-col">
               <label className="text-xs font-semibold text-midnight-ink mb-1 block">Notes</label>
               <textarea value={designer.notes} onChange={(e) => setDesigner((prev) => ({ ...prev, notes: e.target.value }))} placeholder="Add notes about this design..." className="flex-1 w-full bg-transparent outline-none text-xs border border-soft-border rounded px-2 py-1 resize-none min-h-[4rem]"/>
             </div>
             {/* Findings Table */}
-            <div className="bg-white border border-soft-border rounded-xl overflow-hidden">
-              <div className="text-xs font-bold text-midnight-ink px-2 py-1.5 bg-[#dce8f5] border-b border-soft-border">FINDINGS</div>
+            <div className="bg-background border border-soft-border rounded-xl overflow-hidden">
+              <div className="text-xs font-bold text-midnight-ink px-2 py-1.5 bg-blue-100 dark:bg-blue-900/30 border-b border-soft-border">FINDINGS</div>
               <table className="w-full text-xs border-collapse">
                 <thead>
                   <tr className="bg-cloud-gray">
@@ -3275,7 +3275,7 @@ function ProductSheetContent() {
           {/* Right 50%: Total Die info + Mechanism */}
           <div className="flex flex-col gap-2" style={{width:'50%'}}>
             {/* Total Die Code / Total Mold Qty / Total CPX Dead Weight */}
-            <div className="bg-white border border-soft-border rounded-xl p-2">
+            <div className="bg-background border border-soft-border rounded-xl p-2">
               <div className="text-xs font-semibold text-midnight-ink mb-1">Total Die Code, Mold Qty &amp; CPX Dead Weight</div>
               <div className="flex flex-col gap-1">
                 <div>
@@ -3294,7 +3294,7 @@ function ProductSheetContent() {
             </div>
 
             {/* Mechanism */}
-            <div className="flex-1 bg-white border border-soft-border rounded-xl p-2 flex flex-col">
+            <div className="flex-1 bg-background border border-soft-border rounded-xl p-2 flex flex-col">
               <label className="text-xs font-semibold text-midnight-ink mb-1 block">Mechanism</label>
               <textarea value={designer.mechanism} onChange={(e) => setDesigner((prev) => ({ ...prev, mechanism: e.target.value }))} placeholder="Describe the mechanism used" className="flex-1 w-full bg-transparent outline-none text-xs border border-soft-border rounded px-2 py-0.5 resize-none"/>
             </div>
@@ -3305,7 +3305,7 @@ function ProductSheetContent() {
       {/* Add Collection Dialog */}
       {isAddCollectionOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-[200] flex items-center justify-center">
-          <div className="bg-white rounded-lg p-6 w-80 shadow-xl">
+          <div className="bg-background rounded-lg p-6 w-80 shadow-xl">
             <h3 className="text-lg font-bold mb-3">Add New Collection</h3>
             <input
               type="text"
@@ -3334,7 +3334,7 @@ function ProductSheetContent() {
       {/* Add Material Dialog */}
       {isAddMaterialOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-[200] flex items-center justify-center">
-          <div className="bg-white rounded-lg p-6 w-80 shadow-xl">
+          <div className="bg-background rounded-lg p-6 w-80 shadow-xl">
             <h3 className="text-lg font-bold mb-3">Add New Material</h3>
             <input
               type="text"
@@ -3357,7 +3357,7 @@ function ProductSheetContent() {
       {/* Add Category Dialog */}
       {isAddCategoryOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-[200] flex items-center justify-center">
-          <div className="bg-white rounded-lg p-6 w-80 shadow-xl">
+          <div className="bg-background rounded-lg p-6 w-80 shadow-xl">
             <h3 className="text-lg font-bold mb-3">Add New Category</h3>
             <input
               type="text"
@@ -3385,7 +3385,7 @@ function ProductSheetContent() {
 
       {isAddColOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-40 z-[200] flex items-center justify-center">
-          <div className="bg-white rounded-xl p-6 w-80 shadow-2xl border border-soft-border">
+          <div className="bg-background rounded-xl p-6 w-80 shadow-2xl border border-soft-border">
             <h3 className="text-base font-bold text-midnight-ink mb-1">Add Column</h3>
             <p className="text-xs text-cool-gray mb-4 flex items-center gap-1">
               <span className="inline-flex items-center gap-1 bg-slate-100 rounded px-2 py-0.5 font-medium text-midnight-ink">
@@ -3414,14 +3414,14 @@ function ProductSheetContent() {
       {/* Modal Overlay */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-[100] flex items-center justify-center overflow-y-auto">
-          <div className="bg-white p-6 rounded-lg w-11/12 my-8">
+          <div className="bg-background p-6 rounded-lg w-11/12 my-8">
             <div className="flex justify-between items-center mb-2">
               <h2 className="text-2xl font-bold">ADD NEW PRODUCT</h2>
               <button onClick={() => setIsModalOpen(false)} className="text-2xl font-bold cursor-pointer">×</button>
             </div>
             
             {/* Same Product Sheet Form in Modal */}
-            <div className="max-h-[80vh] bg-white p-2 overflow-y-auto">
+            <div className="max-h-[80vh] bg-background p-2 overflow-y-auto">
               <div className="flex justify-between items-center mb-2">
                 <h1 className="text-xl font-bold">PRODUCT SHEET</h1>
               </div>
@@ -3433,7 +3433,7 @@ function ProductSheetContent() {
                   <div className="w-1/4 h-[20rem] flex flex-col gap-1 flex-shrink-0">
                     {/* Primary image */}
                     <div
-                      className="flex-1 min-h-0 bg-white border-2 border-soft-border flex items-center justify-center cursor-pointer hover:bg-cloud-gray relative overflow-hidden"
+                      className="flex-1 min-h-0 bg-background border border-soft-border flex items-center justify-center cursor-pointer hover:bg-cloud-gray relative overflow-hidden"
                       onClick={() => fileInputRef.current?.click()}
                     >
                       {productImages.length > 0 ? (
@@ -3484,11 +3484,11 @@ function ProductSheetContent() {
                   <div className="w-3/4 flex flex-col gap-2">
                     {/* SKU Table */}
                     <div className="flex gap-2">
-                      <div className="flex-1 bg-white border-2 border-soft-border px-2 py-1">
+                      <div className="flex-1 bg-background border border-soft-border px-2 py-1">
                         <div className="font-semibold text-sm mb-0.5">MASTER SKU</div>
                         <input type="text" value={sku} onChange={(e) => setSku(e.target.value)} className="w-full bg-transparent outline-none text-sm border border-soft-border rounded px-2 py-0"/>
                       </div>
-                      <div className="flex-1 bg-white border-2 border-soft-border px-2 py-1">
+                      <div className="flex-1 bg-background border border-soft-border px-2 py-1">
                         <div className="font-semibold text-sm mb-0.5">DESIGNER SKU</div>
                         {designerSkus.map((dsku, idx) => (
                           <div key={idx} className="flex items-center gap-1 mt-0.5">
@@ -3506,7 +3506,7 @@ function ProductSheetContent() {
                         ))}
                         <button type="button" onClick={() => setDesignerSkus(prev => [...prev, ''])} className="mt-1 text-xs text-trust-blue hover:underline">+ Add SKU</button>
                       </div>
-                      <div className="flex-1 bg-white border-2 border-soft-border px-2 py-1">
+                      <div className="flex-1 bg-background border border-soft-border px-2 py-1">
                         <div className="font-semibold text-sm mb-0.5">LISTING NAME</div>
                         <input type="text" value={listingName} onChange={(e) => setListingName(e.target.value)} className="w-full bg-transparent outline-none text-sm border border-soft-border rounded px-2 py-0"/>
                       </div>
@@ -3516,7 +3516,7 @@ function ProductSheetContent() {
                     <div className="flex gap-2">
                       {/* Left half: Material + Weight (under SKU) */}
                       <div className="flex-1 flex gap-2">
-                        <div className="flex-1 bg-white border-2 border-soft-border px-2 py-1">
+                        <div className="flex-1 bg-background border border-soft-border px-2 py-1">
                           <div className="font-semibold text-sm mb-1">Material</div>
                           <select value={dropdown1} onChange={(e) => setDropdown1(e.target.value)} className="w-full bg-transparent outline-none text-sm border border-soft-border rounded px-2 py-1">
                             <option value="">Select...</option>
@@ -3524,7 +3524,7 @@ function ProductSheetContent() {
                           </select>
                           <button type="button" onClick={() => { setIsAddMaterialOpen(true); setNewMaterialName(''); setAddMaterialError('') }} className="mt-1 text-xs text-trust-blue underline">+ Add Material</button>
                         </div>
-                        <div className="flex-1 bg-white border-2 border-soft-border px-2 py-1">
+                        <div className="flex-1 bg-background border border-soft-border px-2 py-1">
                           <div className="font-semibold text-sm mb-1">Weight</div>
                           <div className="flex gap-1">
                             <input type="text" placeholder="Value" value={weightValue} onChange={(e) => setWeightValue(e.target.value)} className="flex-1 bg-transparent outline-none text-sm border border-soft-border rounded px-2 py-1"/>
@@ -3540,7 +3540,7 @@ function ProductSheetContent() {
                       </div>
                       {/* Right half: Category + Collection (under Listing Name) */}
                       <div className="flex-1 flex gap-2">
-                        <div className="flex-1 bg-white border-2 border-soft-border px-2 py-1">
+                        <div className="flex-1 bg-background border border-soft-border px-2 py-1">
                           <div className="font-semibold text-sm mb-1">Category</div>
                           <select value={dropdown2} onChange={(e) => setDropdown2(e.target.value)} className="w-full bg-transparent outline-none text-sm border border-soft-border rounded px-2 py-1">
                             <option value="">Select...</option>
@@ -3548,7 +3548,7 @@ function ProductSheetContent() {
                           </select>
                           <button type="button" onClick={() => { setIsAddCategoryOpen(true); setNewCategoryName(''); setAddCategoryError('') }} className="mt-1 text-xs text-trust-blue underline">+ Add Category</button>
                         </div>
-                        <div className="flex-1 bg-white border-2 border-soft-border px-2 py-1">
+                        <div className="flex-1 bg-background border border-soft-border px-2 py-1">
                           <div className="font-semibold text-sm mb-1">Collection</div>
                           <select value={dropdown3} onChange={(e) => setDropdown3(e.target.value)} className="w-full bg-transparent outline-none text-sm border border-soft-border rounded px-2 py-1">
                             <option value="">Select...</option>
@@ -3572,7 +3572,7 @@ function ProductSheetContent() {
                       {/* Die Numbers Panel - Left 50% */}
                       <div className="flex-1 flex flex-col">
                         {/* Setting Type + Enamel Combined Panel */}
-                        <div className="mb-2 bg-white border-2 border-soft-border px-2 py-1">
+                        <div className="mb-2 bg-background border border-soft-border px-2 py-1">
                           <div className="flex gap-4">
                             <div className="flex-1">
                               <div className="font-semibold text-sm mb-2">SETTING TYPE</div>
@@ -3583,7 +3583,7 @@ function ProductSheetContent() {
                                     <button key={val} onClick={() => setSettingType(prev => {
                                       const parts = prev.split(',').map(s => s.trim()).filter(Boolean)
                                       return active ? parts.filter(p => p !== val).join(',') : [...parts, val].join(',')
-                                    })} className={`flex-1 px-2 py-1 text-sm font-semibold rounded border ${active ? 'bg-trust-blue text-white border-trust-blue' : 'bg-white text-slate-text border-soft-border'}`}>
+                                    })} className={`flex-1 px-2 py-1 text-sm font-semibold rounded border ${active ? 'bg-trust-blue text-white border-trust-blue' : 'bg-background text-foreground border-soft-border'}`}>
                                       {lbl}
                                     </button>
                                   )
@@ -3593,8 +3593,8 @@ function ProductSheetContent() {
                             <div className="flex-1">
                               <div className="font-semibold text-sm mb-2">ENAMEL</div>
                               <div className="flex gap-2">
-                                <button onClick={() => setEnamelType('yes')} className={`flex-1 px-2 py-1 text-sm font-semibold rounded border ${enamelType === 'yes' ? 'bg-trust-blue text-white border-trust-blue' : 'bg-white text-slate-text border-soft-border'}`}>YES</button>
-                                <button onClick={() => setEnamelType('no')} className={`flex-1 px-2 py-1 text-sm font-semibold rounded border ${enamelType === 'no' ? 'bg-trust-blue text-white border-trust-blue' : 'bg-white text-slate-text border-soft-border'}`}>NO</button>
+                                <button onClick={() => setEnamelType('yes')} className={`flex-1 px-2 py-1 text-sm font-semibold rounded border ${enamelType === 'yes' ? 'bg-trust-blue text-white border-trust-blue' : 'bg-background text-foreground border-soft-border'}`}>YES</button>
+                                <button onClick={() => setEnamelType('no')} className={`flex-1 px-2 py-1 text-sm font-semibold rounded border ${enamelType === 'no' ? 'bg-trust-blue text-white border-trust-blue' : 'bg-background text-foreground border-soft-border'}`}>NO</button>
                               </div>
                             </div>
                           </div>
@@ -3605,7 +3605,7 @@ function ProductSheetContent() {
                           <div className="relative">
                             <div 
                               onClick={() => setIsChannelDropdownOpen(!isChannelDropdownOpen)}
-                              className="bg-white border-2 border-soft-border rounded px-2 py-1 text-sm min-h-[2rem] flex items-center justify-between cursor-pointer"
+                              className="bg-background border border-soft-border rounded px-2 py-1 text-sm min-h-[2rem] flex items-center justify-between cursor-pointer"
                             >
                               <div className="flex flex-wrap gap-1 flex-1">
                                 {activeChannels.length > 0 ? (
@@ -3628,7 +3628,7 @@ function ProductSheetContent() {
                               </svg>
                             </div>
                             {isChannelDropdownOpen && (
-                              <div className="absolute z-10 mt-1 w-full bg-white border border-soft-border rounded shadow-lg max-h-52 overflow-y-auto">
+                              <div className="absolute z-10 mt-1 w-full bg-background border border-soft-border rounded shadow-lg max-h-52 overflow-y-auto">
                                 {channelOptions.map(channel => (
                                   <div
                                     key={channel}
@@ -3681,7 +3681,7 @@ function ProductSheetContent() {
                           <div className="relative">
                             <div
                               onClick={() => setIsStatusDropdownOpen(!isStatusDropdownOpen)}
-                              className="bg-white border-2 border-soft-border rounded px-2 py-1 text-sm min-h-[2rem] flex items-center justify-between cursor-pointer"
+                              className="bg-background border border-soft-border rounded px-2 py-1 text-sm min-h-[2rem] flex items-center justify-between cursor-pointer"
                             >
                               <span className="text-sm">
                                 {shopifyStatus === 'active' ? 'Active' : shopifyStatus === 'draft' ? 'Draft' : 'Unlisted'}
@@ -3691,7 +3691,7 @@ function ProductSheetContent() {
                               </svg>
                             </div>
                             {isStatusDropdownOpen && (
-                              <div className="absolute z-10 mt-1 w-full bg-white border border-soft-border rounded shadow-lg max-h-40 overflow-y-auto">
+                              <div className="absolute z-10 mt-1 w-full bg-background border border-soft-border rounded shadow-lg max-h-40 overflow-y-auto">
                                 <div
                                   onClick={() => { setShopifyStatus('active'); setIsStatusDropdownOpen(false) }}
                                   className={`px-2 py-1 text-sm cursor-pointer hover:bg-cloud-gray ${shopifyStatus === 'active' ? 'bg-trust-blue/10' : ''}`}
@@ -3713,7 +3713,7 @@ function ProductSheetContent() {
 
                       {/* Variations Panel - Right 50% */}
                       <div className="flex-1 flex flex-col self-start">
-                        <div className="bg-white border-2 border-soft-border flex flex-col overflow-hidden">
+                        <div className="bg-background border border-soft-border flex flex-col overflow-hidden">
                           <div className="flex divide-x-2 divide-soft-border border-b border-soft-border flex-shrink-0">
                             <div className="w-32 px-2 py-1 font-semibold text-sm flex items-center flex-shrink-0">
                               MASTER SKU
@@ -3791,7 +3791,7 @@ function ProductSheetContent() {
               </div>
 
               {/* Die Numbers & Live Stock Situation */}
-              <div className="bg-white border-2 border-soft-border rounded-xl shadow-sm mb-2 flex flex-col overflow-hidden" style={{ minHeight: '20rem' }}>
+              <div className="bg-background border border-soft-border rounded-xl shadow-sm mb-2 flex flex-col overflow-hidden" style={{ minHeight: '20rem' }}>
                 <div className="flex items-center justify-between px-3 py-1.5 bg-trust-blue/10 border-b-2 border-soft-border flex-shrink-0">
                   <h3 className="text-xs font-bold text-midnight-ink uppercase tracking-wide">Die Numbers &amp; Live Stock Situation</h3>
                   <button type="button" onClick={addDieNumberRow} className="px-2 py-0.5 text-xs bg-trust-blue text-white font-semibold rounded hover:bg-deep-blue">+ Add Rows</button>
@@ -3882,7 +3882,7 @@ function ProductSheetContent() {
                 <h2 className="text-sm font-semibold mb-2 text-center text-warning">LIVE STOCK SITUATION ON PRODUCT SHEET</h2>
                 <div className="flex gap-2">
                   {/* Main Live Stock Table - 80% */}
-                  <div className="flex-shrink-0 bg-white border-2 border-soft-border p-2 overflow-auto" style={{width: '80%'}}>
+                  <div className="flex-shrink-0 bg-background border border-soft-border p-2 overflow-auto" style={{width: '80%'}}>
                     <div className="w-full overflow-hidden">
                       <table className="w-full table-fixed text-sm border-collapse text-center">
                         <thead>
@@ -3949,7 +3949,7 @@ function ProductSheetContent() {
                   </div>
 
                   {/* Final Stock Table - 20% */}
-                  <div className="flex-shrink-0 bg-white border-2 border-soft-border p-1 flex flex-col" style={{width: '20%'}}>
+                  <div className="flex-shrink-0 bg-background border border-soft-border p-1 flex flex-col" style={{width: '20%'}}>
                     <h3 className="text-sm font-semibold mb-1 text-center flex-shrink-0">FINAL STOCK</h3>
                     <div className="flex-1 overflow-auto">
                       <table className="w-full table-fixed text-sm border-collapse">
@@ -4013,26 +4013,26 @@ function ProductSheetContent() {
               <div className="flex gap-2 mb-2 items-stretch">
                 <div className="w-[65%] bg-cloud-gray p-2 rounded-lg flex flex-col h-full">
                   <h2 className="text-sm font-semibold mb-2">STONE INFO</h2>
-                  <div className="bg-white flex-1 flex flex-col">
+                  <div className="bg-background flex-1 flex flex-col">
                     <div className="max-h-36 overflow-y-auto">
                       <table className="w-full border-2 border-soft-border table-fixed">
                       <thead>
                         <tr className="border-b-2 border-soft-border">
                           {['TYPE','SPECIES','VARIETY','COLOR','CUT','SHAPE','LENGTH','WIDTH','HEIGHT','QTY'].map((h) => (
-                            <th key={h} className="px-2 py-1 text-left font-semibold text-sm border-r-2 border-soft-border bg-white whitespace-nowrap">{h}</th>
+                            <th key={h} className="px-2 py-1 text-left font-semibold text-sm border-r-2 border-soft-border bg-background whitespace-nowrap">{h}</th>
                           ))}
-                          <th className="w-6 bg-white"></th>
+                          <th className="w-6 bg-background"></th>
                         </tr>
                       </thead>
                       <tbody>
                         {stoneInfo.map((stone, index) => (
                           <tr key={stone.id} className={index < stoneInfo.length - 1 ? 'border-b-2 border-soft-border' : ''}>
                             {['type','species','variety','color','cut','shape','length','width','height','qty'].map((f) => (
-                              <td key={f} className="px-2 py-1 border-r-2 border-soft-border bg-white">
+                              <td key={f} className="px-2 py-1 border-r-2 border-soft-border bg-background">
                                 <input type="text" value={stone[f]} onChange={(e) => updateStoneInfo(stone.id, f, e.target.value)} className="w-full bg-transparent outline-none text-sm min-w-[55px]"/>
                               </td>
                             ))}
-                            <td className="w-6 px-0.5 py-0.5 bg-white text-center" style={{maxWidth: '1.5rem'}}>
+                            <td className="w-6 px-0.5 py-0.5 bg-background text-center" style={{maxWidth: '1.5rem'}}>
                               <button type="button" onClick={() => deleteStoneInfo(stone.id)} className="text-danger hover:text-danger-dark transition-colors">
                                 <Trash2 className="h-3 w-3" />
                               </button>
@@ -4050,18 +4050,18 @@ function ProductSheetContent() {
 
                 <div className="w-[35%] bg-cloud-gray p-2 rounded-xl border border-soft-border shadow-sm flex flex-col h-full">
                   <h2 className="text-sm font-semibold mb-2">PLATING INFO</h2>
-                  <div className="bg-white flex-1 flex flex-col">
+                  <div className="bg-background flex-1 flex flex-col">
                     <div className="max-h-36 overflow-y-auto">
                       <table className="w-full border-2 border-soft-border table-fixed">
                       <thead>
                         <tr className="border-b-2 border-soft-border">
-                          <th className="w-1/3 px-2 py-1 text-left font-semibold text-sm border-r-2 border-soft-border bg-white">
+                          <th className="w-1/3 px-2 py-1 text-left font-semibold text-sm border-r-2 border-soft-border bg-background">
                             PLATING TYPE
                           </th>
-                          <th className="w-1/3 px-2 py-1 text-left font-semibold text-sm border-r-2 border-soft-border bg-white">
+                          <th className="w-1/3 px-2 py-1 text-left font-semibold text-sm border-r-2 border-soft-border bg-background">
                             PLATING COLOR
                           </th>
-                          <th className="w-1/3 px-2 py-1 text-center font-semibold text-sm bg-white">
+                          <th className="w-1/3 px-2 py-1 text-center font-semibold text-sm bg-background">
                             ACTION
                           </th>
                         </tr>
@@ -4069,13 +4069,13 @@ function ProductSheetContent() {
                       <tbody>
                         {platingType.map((row, index) => (
                           <tr key={row.id} className={index < platingType.length - 1 ? 'border-b-2 border-soft-border' : ''}>
-                            <td className="w-1/3 px-2 py-1 border-r-2 border-soft-border bg-white">
+                            <td className="w-1/3 px-2 py-1 border-r-2 border-soft-border bg-background">
                               <input type="text" value={row.col1} onChange={(e) => updatePlatingType(row.id, 'col1', e.target.value)} className="w-full bg-transparent outline-none text-sm"/>
                             </td>
-                            <td className="w-1/3 px-2 py-1 border-r-2 border-soft-border bg-white">
+                            <td className="w-1/3 px-2 py-1 border-r-2 border-soft-border bg-background">
                               <input type="text" value={row.col2} onChange={(e) => updatePlatingType(row.id, 'col2', e.target.value)} className="w-full bg-transparent outline-none text-sm"/>
                             </td>
-                            <td className="w-1/3 px-2 py-1 bg-white text-center">
+                            <td className="w-1/3 px-2 py-1 bg-background text-center">
                               <button type="button" onClick={() => deletePlatingType(row.id)} className="text-danger hover:text-danger-dark transition-colors">
                                 <Trash2 className="h-3 w-3" />
                               </button>
@@ -4095,22 +4095,22 @@ function ProductSheetContent() {
               {/* Manufacturing Section */}
               <div className="bg-cloud-gray p-3 rounded-xl mb-2 border border-soft-border shadow-sm">
                 <h2 className="text-sm font-semibold mb-2">MANUFACTURING</h2>
-                <div className="bg-white rounded-xl">
+                <div className="bg-background rounded-xl">
                   <div className="border-2 border-soft-border rounded-xl shadow-sm">
                     <div className="flex border-b-2 border-soft-border">
-                      <div className="w-24 p-3 border-r-2 border-soft-border font-semibold text-sm bg-white flex-shrink-0">
+                      <div className="w-24 p-3 border-r-2 border-soft-border font-semibold text-sm bg-background flex-shrink-0">
                         NOTES
                       </div>
-                      <div className="flex-1 p-3 bg-white">
+                      <div className="flex-1 p-3 bg-background">
                         <input type="text" value={manufacturing.notes ?? ''} onChange={(e) => setManufacturing({ ...manufacturing, notes: e.target.value })} className="w-full bg-transparent outline-none text-sm"/>
                       </div>
                     </div>
 
                     <div className="flex">
-                      <div className="w-24 p-3 border-r-2 border-soft-border font-semibold text-sm bg-white flex-shrink-0">
+                      <div className="w-24 p-3 border-r-2 border-soft-border font-semibold text-sm bg-background flex-shrink-0">
                         IMAGES
                       </div>
-                      <div className="flex-1 p-3 bg-white">
+                      <div className="flex-1 p-3 bg-background">
                         <div className="flex flex-wrap gap-2">
                           {manufacturing.images.length > 0 ? (
                             manufacturing.images.map((src, index) => (
@@ -4159,7 +4159,7 @@ function ProductSheetContent() {
                       <div key={slot} className="flex flex-col gap-1">
                         <div className="text-center text-xs font-semibold text-trust-blue py-0.5 bg-trust-blue/10 rounded-t-lg border border-soft-border border-b-0">{label}</div>
                         <div
-                          className="bg-white border border-soft-border rounded-b-xl overflow-hidden flex items-center justify-center cursor-pointer hover:bg-cloud-gray"
+                          className="bg-background border border-soft-border rounded-b-xl overflow-hidden flex items-center justify-center cursor-pointer hover:bg-cloud-gray"
                           style={{minHeight: '9rem'}}
                           onClick={() => ref.current?.click()}
                         >
@@ -4182,11 +4182,11 @@ function ProductSheetContent() {
                   </div>
                 </div>
                 {/* Tracking Table (Modal) */}
-                <div className="mt-2 bg-white border border-soft-border rounded-xl overflow-hidden">
+                <div className="mt-2 bg-background border border-soft-border rounded-xl overflow-hidden">
                   <div className="max-h-48 overflow-y-auto">
                     <table className="w-full text-xs border-collapse">
                       <thead className="sticky top-0 z-10">
-                        <tr className="bg-[#dce8f5]">
+                        <tr className="bg-blue-100 dark:bg-blue-900/30">
                           <th className="border border-soft-border px-2 py-1 font-semibold text-midnight-ink text-left">3DM</th>
                           <th className="border border-soft-border px-2 py-1 font-semibold text-midnight-ink text-left">STL</th>
                           <th className="border border-soft-border px-2 py-1 font-semibold text-midnight-ink text-left">Motive Code</th>
@@ -4235,7 +4235,7 @@ function ProductSheetContent() {
                 </div>
 
                 {/* Design Stage Buttons */}
-                <div className="mt-2 bg-white border border-soft-border rounded-xl p-2">
+                <div className="mt-2 bg-background border border-soft-border rounded-xl p-2">
                   <div className="text-xs font-semibold text-midnight-ink mb-1.5">DESIGN STAGE</div>
                   <div className="flex flex-wrap gap-2">
                     {['3DM', 'STL', 'RENDER', '3D PRINT', 'COMPLETE'].map((stage) => (
@@ -4246,7 +4246,7 @@ function ProductSheetContent() {
                         className={`px-3 py-1.5 text-xs font-semibold rounded-full border transition-colors ${
                           designer.designStage === stage
                             ? 'bg-trust-blue text-white border-trust-blue shadow-sm'
-                            : 'bg-white text-midnight-ink border-soft-border hover:bg-cloud-gray'
+                            : 'bg-background text-foreground border-soft-border hover:bg-cloud-gray'
                         }`}
                       >
                         {stage}
@@ -4258,8 +4258,8 @@ function ProductSheetContent() {
                 <div className="mt-2 flex gap-2 items-stretch">
                   {/* Left 50% */}
                   <div className="flex flex-col gap-2" style={{width:'50%'}}>
-                    <div className="bg-white border border-soft-border rounded-xl overflow-hidden">
-                      <div className="text-xs font-semibold text-midnight-ink px-2 py-1.5 bg-[#dce8f5] border-b border-soft-border">Total Design Measurements (Approx)</div>
+                    <div className="bg-background border border-soft-border rounded-xl overflow-hidden">
+                      <div className="text-xs font-semibold text-midnight-ink px-2 py-1.5 bg-blue-100 dark:bg-blue-900/30 border-b border-soft-border">Total Design Measurements (Approx)</div>
                       <table className="w-full text-xs border-collapse">
                         <thead>
                           <tr className="bg-cloud-gray">
@@ -4277,13 +4277,13 @@ function ProductSheetContent() {
                         </tbody>
                       </table>
                     </div>
-                    <div className="flex-1 bg-white border border-soft-border rounded-xl p-2">
+                    <div className="flex-1 bg-background border border-soft-border rounded-xl p-2">
                       <label className="text-xs font-semibold text-midnight-ink mb-1 block">Design Material</label>
                       <input type="text" value={designer.designMaterial} onChange={(e) => setDesigner((prev) => ({ ...prev, designMaterial: e.target.value }))} placeholder="e.g. Silver 925" className="w-full bg-transparent outline-none text-sm border border-soft-border rounded px-2 py-1"/>
                     </div>
                     {/* Findings Table */}
-                    <div className="bg-white border border-soft-border rounded-xl overflow-hidden">
-                      <div className="text-xs font-bold text-midnight-ink px-2 py-1.5 bg-[#dce8f5] border-b border-soft-border">FINDINGS</div>
+                    <div className="bg-background border border-soft-border rounded-xl overflow-hidden">
+                      <div className="text-xs font-bold text-midnight-ink px-2 py-1.5 bg-blue-100 dark:bg-blue-900/30 border-b border-soft-border">FINDINGS</div>
                       <table className="w-full text-xs border-collapse">
                         <thead>
                           <tr className="bg-cloud-gray">
@@ -4311,7 +4311,7 @@ function ProductSheetContent() {
                   </div>
                   {/* Right 50% */}
                   <div className="flex flex-col gap-2" style={{width:'50%'}}>
-                    <div className="bg-white border border-soft-border rounded-xl p-2">
+                    <div className="bg-background border border-soft-border rounded-xl p-2">
                       <div className="text-xs font-semibold text-midnight-ink mb-1">Die Code / Mold Qty &amp; CPX Dead Weight</div>
                       <div className="flex flex-col gap-1">
                         <div><label className="text-[11px] text-cool-gray block">Die Code</label><input type="text" value={designer.dieCode} onChange={(e) => setDesigner((prev) => ({ ...prev, dieCode: e.target.value }))} placeholder="Die Code" className="w-full bg-transparent outline-none text-xs border border-soft-border rounded px-2 py-0.5"/></div>
@@ -4319,7 +4319,7 @@ function ProductSheetContent() {
                         <div><label className="text-[11px] text-cool-gray block">CPX Dead Weight</label><input type="text" value={designer.cpxDeadWeight} onChange={(e) => setDesigner((prev) => ({ ...prev, cpxDeadWeight: e.target.value }))} placeholder="CPX Dead Weight" className="w-full bg-transparent outline-none text-xs border border-soft-border rounded px-2 py-0.5"/></div>
                       </div>
                     </div>
-                    <div className="flex-1 bg-white border border-soft-border rounded-xl p-2 flex flex-col">
+                    <div className="flex-1 bg-background border border-soft-border rounded-xl p-2 flex flex-col">
                       <label className="text-xs font-semibold text-midnight-ink mb-1 block">Mechanism</label>
                       <textarea value={designer.mechanism} onChange={(e) => setDesigner((prev) => ({ ...prev, mechanism: e.target.value }))} placeholder="Describe the mechanism used" className="flex-1 w-full bg-transparent outline-none text-xs border border-soft-border rounded px-2 py-0.5 resize-none"/>
                     </div>

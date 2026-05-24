@@ -555,7 +555,7 @@ export default function FindingSheet() {
                 </thead>
                 <tbody>
                   {filteredRows.map((row, index) => (
-                    <tr key={row.id} className={index % 2 === 0 ? 'bg-white' : 'bg-cloud-gray'}>
+                    <tr key={row.id} className={index % 2 === 0 ? 'bg-background' : 'bg-cloud-gray'}>
                       <td className="border border-soft-border p-2 break-words">{row.findingCode || 'ΓÇö'}</td>
                       <td className="border border-soft-border p-2 break-words">{row.dieNumber || 'ΓÇö'}</td>
                       <td className="border border-soft-border p-2 break-words">{row.size || 'ΓÇö'}</td>
@@ -579,7 +579,7 @@ export default function FindingSheet() {
       </Dialog>
 
       <div className="flex-1 pt-16 px-3 md:px-4 pb-3 md:pb-4">
-        <div className="transition-[left,width] duration-300 ease-in-out fixed top-0 left-0 right-0 z-[60] bg-white/95 py-2 border-b border-soft-border shadow-sm backdrop-blur px-3 md:px-4">
+        <div className="transition-[left,width] duration-300 ease-in-out fixed top-0 left-0 right-0 z-[60] bg-background/95 py-2 border-b border-soft-border shadow-sm backdrop-blur px-3 md:px-4">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3 shrink-0">
               <MasterNavigationDrawer inHeader />
@@ -681,7 +681,7 @@ export default function FindingSheet() {
           </DropdownMenu>}
         </div>
 
-        <div className="mb-4 border border-soft-border rounded-lg bg-white overflow-hidden">
+        <div className="mb-4 border border-soft-border rounded-lg bg-background overflow-hidden">
           <div className="px-3 py-2 bg-trust-blue/40 font-bold text-sm text-midnight-ink border-b border-soft-border">
             FINDING DETAILS
           </div>
@@ -761,7 +761,7 @@ export default function FindingSheet() {
           </div>
         )}
 
-        <div className="border border-soft-border rounded-lg bg-white overflow-hidden">
+        <div className="border border-soft-border rounded-lg bg-background overflow-hidden">
           <div className="overflow-auto max-h-[500px]">
             <table className="w-full border-separate border-spacing-0 text-sm">
               <thead className="sticky top-0 z-20 bg-[#dbeafe]">
@@ -810,7 +810,7 @@ export default function FindingSheet() {
                     >
                       <td
                         className={`border border-soft-border p-2 text-center sticky left-0 z-10 shadow-[2px_0_4px_-1px_rgba(0,0,0,0.08)] ${
-                          isEditing ? 'bg-[#eff6ff]' : 'bg-white'
+                          isEditing ? 'bg-[#eff6ff] dark:bg-blue-900/30' : 'bg-background'
                         }`}
                       >
                         <Checkbox
@@ -878,13 +878,13 @@ export default function FindingSheet() {
         </div>
 
         {/* Fixed Pagination Footer */}
-        <div className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-soft-border shadow-lg px-4 py-2 flex flex-wrap items-center justify-between gap-3 text-sm text-cool-gray">
+        <div className="fixed bottom-0 left-0 right-0 z-50 bg-background border-t border-soft-border shadow-lg px-4 py-2 flex flex-wrap items-center justify-between gap-3 text-sm text-cool-gray">
           <div className="flex items-center gap-2">
             <span>Rows per page:</span>
             <select
               value={rowsPerPage}
               onChange={(e) => { setRowsPerPage(Number(e.target.value)); setCurrentPage(1); }}
-              className="border border-soft-border rounded px-2 py-1 text-sm text-midnight-ink bg-white"
+              className="border border-soft-border rounded px-2 py-1 text-sm text-midnight-ink bg-background"
             >
               {[25, 50, 75, 100].map((n) => <option key={n} value={n}>{n}</option>)}
             </select>
@@ -915,7 +915,7 @@ export default function FindingSheet() {
 
 function DetailCard({ label, value }) {
   return (
-    <div className="border border-soft-border rounded-lg bg-white overflow-hidden">
+    <div className="border border-soft-border rounded-lg bg-background overflow-hidden">
       <div className="px-2 py-1 bg-cloud-gray font-semibold text-xs text-slate-text border-b border-soft-border">{label}</div>
       <div className="px-2 py-2 text-sm min-h-[36px] whitespace-pre-wrap break-words">{value || 'ΓÇö'}</div>
     </div>

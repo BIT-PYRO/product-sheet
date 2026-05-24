@@ -78,7 +78,7 @@ function calcAmount(price, qty, weight, priceBy) {
 function Field({ label, value, onChange, textarea = false, type = 'text', disabled = false }) {
   const base =
     'w-full rounded-md border border-soft-border px-3 py-1.5 text-sm text-midnight-ink placeholder:text-cool-gray focus:outline-none focus:ring-1 focus:ring-trust-blue';
-  const cls = `${base} ${disabled ? 'bg-[#F8F9FA] cursor-not-allowed text-cool-gray' : 'bg-white'}`;
+  const cls = `${base} ${disabled ? 'bg-muted cursor-not-allowed text-cool-gray' : 'bg-background'}`;
   return (
     <div className="flex flex-col gap-1">
       <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">{label}</label>
@@ -116,8 +116,8 @@ function CellInput({ value, onChange, type = 'text', disabled = false, placehold
       onChange={(e) => onChange && onChange(e.target.value)}
       className={`w-full min-w-[80px] rounded border px-2 py-1 text-xs text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue ${
         disabled
-          ? 'border-transparent bg-[#F8F9FA] text-cool-gray cursor-default'
-          : 'border-soft-border bg-white'
+          ? 'border-transparent bg-muted text-cool-gray cursor-default'
+          : 'border-soft-border bg-background'
       }`}
     />
   );
@@ -135,7 +135,7 @@ export default function StoneInventoryPage() {
   const handleSyncFromSheets = async () => {
     setIsSyncLoading(true);
     try {
-      const res = await fetch('/api/inventory/stone-items/sync-from-sheets/', { method: 'POST' });
+      const res = await fetch('/api/stone-inventory/sync-from-sheets', { method: 'POST' });
       const data = await res.json().catch(() => ({}));
       const msg = data?.message || data?.data
         ? `${data.message || `Created: ${data.data?.created ?? 0}, Updated: ${data.data?.updated ?? 0}, Unchanged: ${data.data?.skipped ?? 0}`}`
@@ -152,7 +152,7 @@ export default function StoneInventoryPage() {
   const handleSyncToSheets = async () => {
     setIsSyncLoading(true);
     try {
-      const res = await fetch('/api/inventory/stone-items/sync-to-sheets/', { method: 'POST' });
+      const res = await fetch('/api/stone-inventory/sync-to-sheets', { method: 'POST' });
       const data = await res.json().catch(() => ({}));
       alert(data?.message || 'Sync to sheets complete.');
     } catch (e) {
@@ -836,7 +836,7 @@ export default function StoneInventoryPage() {
   return (
     <main className="min-h-screen bg-cloud-gray">
       {/* â”€â”€ header â”€â”€ */}
-      <div className="transition-[left,width] duration-300 ease-in-out fixed top-0 left-0 right-0 z-[60] bg-white/95 py-2 border-b border-soft-border shadow-sm backdrop-blur px-3 md:px-4">
+      <div className="transition-[left,width] duration-300 ease-in-out fixed top-0 left-0 right-0 z-[60] bg-background/95 py-2 border-b border-soft-border shadow-sm backdrop-blur px-3 md:px-4">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <MasterNavigationDrawer inHeader />
@@ -852,7 +852,7 @@ export default function StoneInventoryPage() {
         <div className="mb-4 flex justify-end">
           <Link
             href="/inventory"
-            className="inline-flex items-center gap-2 rounded-lg border border-soft-border bg-white px-3 py-2 text-sm font-medium text-midnight-ink hover:border-trust-blue transition"
+            className="inline-flex items-center gap-2 rounded-lg border border-soft-border bg-background px-3 py-2 text-sm font-medium text-midnight-ink hover:border-trust-blue transition"
           >
             <ArrowLeft size={16} />
             Back
@@ -883,7 +883,7 @@ export default function StoneInventoryPage() {
               <Download className="w-3.5 h-3.5" /> Export <ChevronDown className="w-3.5 h-3.5" />
             </Button>
             {exportMenuOpen && (
-              <div className="absolute right-0 top-9 z-30 w-52 rounded-lg bg-white shadow-lg border border-soft-border py-1">
+              <div className="absolute right-0 top-9 z-30 w-52 rounded-lg bg-background shadow-lg border border-soft-border py-1">
                 <button type="button" onClick={exportToExcel} className="w-full px-4 py-2 text-sm text-midnight-ink hover:bg-cloud-gray text-left">Export as Excel (.xlsx)</button>
                 <button type="button" onClick={exportToPDF} className="w-full px-4 py-2 text-sm text-midnight-ink hover:bg-cloud-gray text-left">Export as PDF</button>
               </div>
@@ -936,7 +936,7 @@ export default function StoneInventoryPage() {
 
         {/* â”€â”€ status â”€â”€ */}
         {statusMsg && (
-          <div className="mb-3 flex items-center justify-between rounded-lg border border-soft-border bg-white px-4 py-2 text-sm text-midnight-ink shadow-sm">
+          <div className="mb-3 flex items-center justify-between rounded-lg border border-soft-border bg-background px-4 py-2 text-sm text-midnight-ink shadow-sm">
             <span>{statusMsg}</span>
             <button onClick={() => setStatusMsg('')}>
               <X size={14} className="text-cool-gray hover:text-midnight-ink" />
@@ -944,14 +944,14 @@ export default function StoneInventoryPage() {
           </div>
         )}
 
-        <section className="border border-soft-border rounded-lg mb-4 bg-[#dbeafe] p-3">
+        <section className="border border-soft-border rounded-lg mb-4 bg-blue-100 dark:bg-blue-900/10 p-3">
           <div className="flex flex-wrap gap-2 items-center">
             <input
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Search"
-              className="h-8 text-sm w-36 bg-white rounded-md border border-trust-blue/40 px-3"
+              className="h-8 text-sm w-36 bg-background rounded-md border border-trust-blue/40 px-3"
             />
             <MultiselectFilterPopover
               label="Type"
@@ -997,10 +997,10 @@ export default function StoneInventoryPage() {
         )}
 
         {/* â”€â”€ main table â”€â”€ */}
-        <div className="overflow-x-auto rounded-xl border border-soft-border bg-white shadow-sm">
+        <div className="overflow-x-auto rounded-xl border border-soft-border bg-background shadow-sm">
           <table className="min-w-full border-collapse text-sm">
             <thead>
-              <tr className="border-b border-soft-border bg-[#dbeafe]">
+              <tr className="border-b border-soft-border bg-blue-100 dark:bg-blue-900/20">
                 <th className="border border-soft-border px-3 py-3">
                   <input
                     type="checkbox"
@@ -1013,12 +1013,12 @@ export default function StoneInventoryPage() {
                 {COLS.filter((c) => visibleColumns.has(c.key)).map((c) => (
                   <th
                     key={c.key}
-                    className="border border-soft-border whitespace-nowrap px-4 py-3 text-left text-xs font-normal text-black"
+                    className="border border-soft-border whitespace-nowrap px-4 py-3 text-left text-xs font-semibold text-foreground"
                   >
                     {c.label}
                   </th>
                 ))}
-                {visibleColumns.has('actions') && <th className="border border-soft-border px-4 py-3 text-left text-xs font-normal text-black">
+                {visibleColumns.has('actions') && <th className="border border-soft-border px-4 py-3 text-left text-xs font-semibold text-foreground">
                   Actions
                 </th>}
               </tr>
@@ -1045,7 +1045,7 @@ export default function StoneInventoryPage() {
                     <tr
                       key={stone.id}
                       className={`border-b border-soft-border last:border-0 transition ${
-                        isSelected ? 'bg-blue-50' : 'hover:bg-[#F8F9FA]'
+                        isSelected ? 'bg-blue-50 dark:bg-blue-900/20' : 'hover:bg-muted'
                       }`}
                     >
                       <td className="border border-soft-border px-3 py-2.5">
@@ -1152,7 +1152,7 @@ export default function StoneInventoryPage() {
                     className={`rounded-md border px-4 py-1.5 text-sm font-medium transition ${
                       stoneForm.wax_setting === (opt === 'Yes')
                         ? 'border-trust-blue bg-trust-blue text-white'
-                        : 'border-soft-border bg-white text-midnight-ink hover:border-trust-blue'
+                        : 'border-soft-border bg-background text-midnight-ink hover:border-trust-blue'
                     }`}
                   >
                     {opt}
@@ -1186,7 +1186,7 @@ export default function StoneInventoryPage() {
             className="fixed inset-0 z-[75] bg-black/20"
             onClick={() => setRequestsPanelOpen(false)}
           />
-          <aside className="fixed right-2 top-[64px] z-[80] h-[calc(100vh-72px)] w-full max-w-[390px] rounded-2xl border border-soft-border bg-white shadow-2xl">
+          <aside className="fixed right-2 top-[64px] z-[80] h-[calc(100vh-72px)] w-full max-w-[390px] rounded-2xl border border-soft-border bg-background shadow-2xl">
             <div className="flex h-full flex-col">
               <div className="flex items-center justify-between border-b border-soft-border px-4 py-3">
                 <div>
@@ -1195,7 +1195,7 @@ export default function StoneInventoryPage() {
                 </div>
                 <button
                   onClick={() => setRequestsPanelOpen(false)}
-                  className="rounded-md p-1 text-cool-gray hover:bg-[#F3F4F6] hover:text-midnight-ink"
+                  className="rounded-md p-1 text-cool-gray hover:bg-muted hover:text-midnight-ink"
                 >
                   <X size={16} />
                 </button>
@@ -1217,10 +1217,10 @@ export default function StoneInventoryPage() {
                         <button
                           key={req.id ?? idx}
                           onClick={() => openRequestDetails(req.id)}
-                          className="w-full rounded-xl px-4 py-3 text-left transition hover:bg-[#F9FAFB]"
+                          className="w-full rounded-xl px-4 py-3 text-left transition hover:bg-muted"
                         >
                           <div className="flex items-start gap-3">
-                            <div className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-full bg-[#EEF2FF] text-xs font-semibold text-trust-blue">
+                            <div className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/20 text-xs font-semibold text-trust-blue">
                               {String(req.stoneName || 'S').charAt(0).toUpperCase()}
                             </div>
                             <div className="min-w-0 flex-1">
@@ -1282,53 +1282,53 @@ export default function StoneInventoryPage() {
             <table className="min-w-full border-collapse text-xs">
               <thead className="sticky top-0 z-10">
                 {/* â”€â”€ row 1: section spans â”€â”€ */}
-                <tr className="bg-[#EEF2F7]">
+                <tr className="bg-muted dark:bg-muted">
                   <th
                     colSpan={LOCKED_KEYS.length}
-                    className="border border-soft-border px-3 py-1.5 text-center text-[11px] font-normal text-black"
+                    className="border border-soft-border px-3 py-1.5 text-center text-xs font-normal text-foreground"
                   >
                     Pre-filled (locked)
                   </th>
                   <th
                     colSpan={EDITABLE_STONE_KEYS.length}
-                    className="border border-soft-border px-3 py-1.5 text-center text-[11px] font-semibold text-midnight-ink uppercase tracking-wide bg-amber-50"
+                    className="border border-soft-border px-3 py-1.5 text-center text-xs font-semibold text-midnight-ink uppercase tracking-wide bg-amber-50 dark:bg-amber-900/20"
                   >
                     Editable
                   </th>
-                  <th className="border border-soft-border px-3 py-1.5 text-center text-[11px] font-normal text-black">
+                  <th className="border border-soft-border px-3 py-1.5 text-center text-xs font-normal text-foreground">
                     Qty
                   </th>
-                  <th className="border border-soft-border px-3 py-1.5 text-center text-[11px] font-normal text-black">
+                  <th className="border border-soft-border px-3 py-1.5 text-center text-xs font-normal text-foreground">
                     Weight (cts)
                   </th>
                   {canAmount && (
                     <th
                       colSpan={2}
-                      className="border border-soft-border px-3 py-1.5 text-center text-[11px] font-normal text-black"
+                      className="border border-soft-border px-3 py-1.5 text-center text-xs font-normal text-foreground"
                     >
                       Price by (check one)
                     </th>
                   )}
                   {canAmount && (
-                    <th className="border border-soft-border px-3 py-1.5 text-center text-[11px] font-normal text-black">
+                    <th className="border border-soft-border px-3 py-1.5 text-center text-xs font-normal text-foreground">
                       Price
                     </th>
                   )}
                   {canAmount && (
-                    <th className="border border-soft-border px-3 py-1.5 text-center text-[11px] font-normal text-black bg-green-50">
+                    <th className="border border-soft-border px-3 py-1.5 text-center text-xs font-normal text-foreground bg-green-50 dark:bg-green-900/20">
                       Amount
                     </th>
                   )}
-                  <th className="border border-soft-border px-3 py-1.5 text-center text-[11px] font-normal text-black">
+                  <th className="border border-soft-border px-3 py-1.5 text-center text-xs font-normal text-foreground">
                     Remark
                   </th>
                 </tr>
                 {/* â”€â”€ row 2: column labels â”€â”€ */}
-                <tr className="bg-[#F8F9FA]">
+                <tr className="bg-muted">
                   {LOCKED_KEYS.map((c) => (
                     <th
                       key={c.key}
-                      className={`border border-soft-border px-3 py-2 text-left text-[11px] font-normal text-black ${c.minW}`}
+                      className={`border border-soft-border px-3 py-2 text-left text-xs font-normal text-foreground ${c.minW}`}
                     >
                       {c.label}
                     </th>
@@ -1336,38 +1336,38 @@ export default function StoneInventoryPage() {
                   {EDITABLE_STONE_KEYS.map((c) => (
                     <th
                       key={c.key}
-                      className={`border border-soft-border px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-midnight-ink bg-amber-50 ${c.minW}`}
+                      className={`border border-soft-border px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-midnight-ink bg-amber-50 dark:bg-amber-900/20 ${c.minW}`}
                     >
                       {c.label}
                     </th>
                   ))}
-                  <th className="border border-soft-border px-3 py-2 text-left text-[11px] font-normal text-black min-w-[90px]">
+                  <th className="border border-soft-border px-3 py-2 text-left text-xs font-normal text-foreground min-w-[90px]">
                     Qty
                   </th>
-                  <th className="border border-soft-border px-3 py-2 text-left text-[11px] font-normal text-black min-w-[100px]">
+                  <th className="border border-soft-border px-3 py-2 text-left text-xs font-normal text-foreground min-w-[100px]">
                     Weight (cts)
                   </th>
                   {canAmount && (
-                    <th className="border border-soft-border px-3 py-2 text-center text-[11px] font-normal text-black min-w-[50px]">
+                    <th className="border border-soft-border px-3 py-2 text-center text-xs font-normal text-foreground min-w-[50px]">
                       Pcs
                     </th>
                   )}
                   {canAmount && (
-                    <th className="border border-soft-border px-3 py-2 text-center text-[11px] font-normal text-black min-w-[60px]">
+                    <th className="border border-soft-border px-3 py-2 text-center text-xs font-normal text-foreground min-w-[60px]">
                       Weight
                     </th>
                   )}
                   {canAmount && (
-                    <th className="border border-soft-border px-3 py-2 text-left text-[11px] font-normal text-black min-w-[90px]">
+                    <th className="border border-soft-border px-3 py-2 text-left text-xs font-normal text-foreground min-w-[90px]">
                       Price
                     </th>
                   )}
                   {canAmount && (
-                    <th className="border border-soft-border px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-[#0d7a3e] min-w-[90px] bg-green-50">
+                    <th className="border border-soft-border px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-success-dark min-w-[90px] bg-green-50 dark:bg-green-900/20">
                       Amount
                     </th>
                   )}
-                  <th className="border border-soft-border px-3 py-2 text-left text-[11px] font-normal text-black min-w-[120px]">
+                  <th className="border border-soft-border px-3 py-2 text-left text-xs font-normal text-foreground min-w-[120px]">
                     Remark
                   </th>
                 </tr>
@@ -1382,14 +1382,14 @@ export default function StoneInventoryPage() {
                       {LOCKED_KEYS.map((c) => (
                         <td
                           key={c.key}
-                          className="border border-soft-border px-3 py-1.5 text-cool-gray bg-[#F8F9FA] whitespace-nowrap"
+                          className="border border-soft-border px-3 py-1.5 text-cool-gray bg-muted whitespace-nowrap"
                         >
                           {c.render ? c.render(stone[c.key]) : (stone[c.key] || 'â€”')}
                         </td>
                       ))}
                       {/* editable stone property cells */}
                       {EDITABLE_STONE_KEYS.map((c) => (
-                        <td key={c.key} className="border border-soft-border px-2 py-1 bg-amber-50">
+                        <td key={c.key} className="border border-soft-border px-2 py-1 bg-amber-50 dark:bg-amber-900/20">
                           <CellInput
                             value={row[c.key]}
                             onChange={(v) => updateStockRow(row.stoneId, c.key, v)}
@@ -1456,7 +1456,7 @@ export default function StoneInventoryPage() {
 
                       {/* amount (auto-calculated, read-only) */}
                       {canAmount && (
-  <td className="border border-soft-border px-3 py-1.5 bg-green-50 font-semibold text-[#0d7a3e] whitespace-nowrap text-right">
+  <td className="border border-soft-border px-3 py-1.5 bg-green-50 dark:bg-green-900/20 font-semibold text-success-dark whitespace-nowrap text-right">
                           {row.amount !== '' ? row.amount : 'â€”'}
                         </td>
                       )}
@@ -1537,7 +1537,7 @@ export default function StoneInventoryPage() {
                     height: String(selectedStone?.height || ''),
                   }));
                 }}
-                className="w-full rounded-md border border-soft-border bg-white px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                className="w-full rounded-md border border-soft-border bg-background px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
               >
                 <option value="">Select stone</option>
                 {stones.map((stone) => (
@@ -1566,7 +1566,7 @@ export default function StoneInventoryPage() {
                 <select
                   value={issueForm.issuedTo}
                   onChange={(e) => setIssueForm((prev) => ({ ...prev, issuedTo: e.target.value }))}
-                  className="w-full rounded-md border border-soft-border bg-white px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                  className="w-full rounded-md border border-soft-border bg-background px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
                 >
                   <option value="">Select person</option>
                   {workforceMembers.map((m) => (
@@ -1579,7 +1579,7 @@ export default function StoneInventoryPage() {
                 <select
                   value={issueForm.issuedBy}
                   onChange={(e) => setIssueForm((prev) => ({ ...prev, issuedBy: e.target.value }))}
-                  className="w-full rounded-md border border-soft-border bg-white px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                  className="w-full rounded-md border border-soft-border bg-background px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
                 >
                   <option value="">Select person</option>
                   {workforceMembers.map((m) => (
@@ -1645,7 +1645,7 @@ export default function StoneInventoryPage() {
               <select
                 value={receiveForm.stoneId}
                 onChange={(e) => setReceiveForm((prev) => ({ ...prev, stoneId: e.target.value }))}
-                className="w-full rounded-md border border-soft-border bg-white px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                className="w-full rounded-md border border-soft-border bg-background px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
               >
                 <option value="">Select stone</option>
                 {stones.map((s) => (
@@ -1667,7 +1667,7 @@ export default function StoneInventoryPage() {
               <select
                 value={receiveForm.employeeVendorName}
                 onChange={(e) => setReceiveForm((prev) => ({ ...prev, employeeVendorName: e.target.value }))}
-                className="w-full rounded-md border border-soft-border bg-white px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                className="w-full rounded-md border border-soft-border bg-background px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
               >
                 <option value="">Select person</option>
                 {workforceMembers.map((m) => (
@@ -1718,7 +1718,7 @@ export default function StoneInventoryPage() {
               <select
                 value={receiveForm.usage}
                 onChange={(e) => setReceiveForm((prev) => ({ ...prev, usage: e.target.value }))}
-                className="w-full rounded-md border border-soft-border bg-white px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                className="w-full rounded-md border border-soft-border bg-background px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
               >
                 <option value="new">New</option>
                 <option value="used">Used</option>
@@ -1805,10 +1805,10 @@ export default function StoneInventoryPage() {
         const _tp = totalPages;
         const _sp = safePage;
         return (
-          <div className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-soft-border shadow-lg px-4 py-2 flex flex-wrap items-center justify-between gap-3 text-sm text-cool-gray">
+          <div className="fixed bottom-0 left-0 right-0 z-50 bg-background border-t border-soft-border shadow-lg px-4 py-2 flex flex-wrap items-center justify-between gap-3 text-sm text-cool-gray">
             <div className="flex items-center gap-2">
               <span>Rows per page:</span>
-              <select value={rowsPerPage} onChange={(e) => { setRowsPerPage(Number(e.target.value)); setCurrentPage(1); }} className="border border-soft-border rounded px-2 py-1 text-sm text-midnight-ink bg-white">
+              <select value={rowsPerPage} onChange={(e) => { setRowsPerPage(Number(e.target.value)); setCurrentPage(1); }} className="border border-soft-border rounded px-2 py-1 text-sm text-midnight-ink bg-background">
                 {[25, 50, 75, 100].map(n => <option key={n} value={n}>{n}</option>)}
               </select>
             </div>

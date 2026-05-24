@@ -67,6 +67,7 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
   const [submitError, setSubmitError] = useState('')
   const [submitWarnings, setSubmitWarnings] = useState([])
   const [stoneIssueRequests, setStoneIssueRequests] = useState([])
+  const [isRecalcStone, setIsRecalcStone] = useState(false)
 
   // Pre-populate form with voucher data when it's selected
   useEffect(() => {
@@ -1006,24 +1007,50 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
                 <p className="text-xs font-bold text-amber-700 dark:text-amber-300 uppercase tracking-wide">
                   Stones / Findings (Reference Only)
                 </p>
-                {stoneIssueRequests.length > 0 && (
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[9px] font-semibold text-amber-700 uppercase tracking-wider">Stone Issue:</span>
-                    {stoneIssueRequests.map((req, ri) => {
-                      const statusColor = req.status === 'approved'
-                        ? 'bg-green-100 text-green-700 border-green-300'
-                        : req.status === 'rejected'
-                        ? 'bg-red-100 text-red-700 border-red-300'
-                        : 'bg-yellow-100 text-yellow-700 border-yellow-300'
-                      const statusLabel = req.status === 'approved' ? 'Accepted' : req.status === 'rejected' ? 'Rejected' : 'Pending'
-                      return (
-                        <span key={ri} className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${statusColor} uppercase`}>
-                          {req.item_name ? `${req.item_name}: ` : ''}{statusLabel}
-                        </span>
-                      )
-                    })}
-                  </div>
-                )}
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    disabled={isRecalcStone}
+                    onClick={async () => {
+                      if (!voucherData?.id) return;
+                      setIsRecalcStone(true);
+                      try {
+                        const res = await fetch(`/api/jobs/${voucherData.id}/recalculate-stone-rows`, { method: 'POST' });
+                        const data = await res.json().catch(() => ({}));
+                        if (res.ok && data.success) {
+                          window.location.reload();
+                        } else {
+                          alert(data.message || 'Recalculation failed');
+                        }
+                      } catch (e) {
+                        alert('Error: ' + e.message);
+                      } finally {
+                        setIsRecalcStone(false);
+                      }
+                    }}
+                    className="text-[9px] font-semibold text-amber-700 border border-amber-400 rounded px-1.5 py-0.5 hover:bg-amber-100 disabled:opacity-50"
+                  >
+                    {isRecalcStone ? 'Refreshing…' : '↻ Refresh Stone Data'}
+                  </button>
+                  {stoneIssueRequests.length > 0 && (
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[9px] font-semibold text-amber-700 uppercase tracking-wider">Stone Issue:</span>
+                      {stoneIssueRequests.map((req, ri) => {
+                        const statusColor = req.status === 'approved'
+                          ? 'bg-green-100 text-green-700 border-green-300'
+                          : req.status === 'rejected'
+                          ? 'bg-red-100 text-red-700 border-red-300'
+                          : 'bg-yellow-100 text-yellow-700 border-yellow-300'
+                        const statusLabel = req.status === 'approved' ? 'Accepted' : req.status === 'rejected' ? 'Rejected' : 'Pending'
+                        return (
+                          <span key={ri} className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${statusColor} uppercase`}>
+                            {req.item_name ? `${req.item_name}: ` : ''}{statusLabel}
+                          </span>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
               </div>
               <div className="grid grid-cols-[1.2fr_0.8fr_0.7fr_0.7fr_0.5fr_0.5fr_0.5fr_0.6fr_1.6fr] gap-0 bg-amber-600 text-white text-[9px] font-bold uppercase tracking-wider">
                 {['Variety', 'Color', 'Cut', 'Shape', 'L', 'W', 'H', 'Qty', 'Master SKUs'].map(h => (
@@ -1039,7 +1066,7 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
                     {Array.isArray(sr.master_sku_breakdown) && sr.master_sku_breakdown.length > 0
                       ? sr.master_sku_breakdown.map((b, bi) => (
                           <div key={bi} className="text-[10px] font-semibold text-midnight-ink leading-tight">
-                            {b.master_sku}[{b.qty}]
+                            {b.master_sku ? `${b.master_sku}` : ''}[{Math.round((b.qty || 0) * 100) / 100}]
                           </div>
                         ))
                       : <span className="text-xs text-muted-foreground">—</span>

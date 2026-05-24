@@ -333,17 +333,17 @@ export default function StockLogPage() {
   // ── Input class helpers ──────────────────────────────────────────────────
   const inputCls = (editing) =>
     editing
-      ? 'h-9 w-full rounded-lg border border-trust-blue/60 bg-white px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue'
+      ? 'h-9 w-full rounded-lg border border-trust-blue/60  "bg-background$($args[0].Groups[1].Value)"  px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue'
       : 'w-full bg-transparent border-0 outline-none px-0 text-sm text-midnight-ink cursor-default';
   const selectCls = (editing) =>
     editing
-      ? 'h-9 w-full rounded-lg border border-trust-blue/60 bg-white px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue'
+      ? 'h-9 w-full rounded-lg border border-trust-blue/60  "bg-background$($args[0].Groups[1].Value)"  px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue'
       : 'w-full bg-transparent border-0 outline-none px-0 text-sm text-midnight-ink cursor-default appearance-none';
 
   return (
     <main className="min-h-screen bg-cloud-gray">
       {/* Header */}
-      <div className="transition-[left,width] duration-300 ease-in-out fixed top-0 left-0 right-0 z-[60] bg-white/95 py-2 border-b border-soft-border shadow-sm backdrop-blur px-3 md:px-4">
+      <div className="transition-[left,width] duration-300 ease-in-out fixed top-0 left-0 right-0 z-[60]  "bg-background$($args[0].Groups[1].Value)"  py-2 border-b border-soft-border shadow-sm backdrop-blur px-3 md:px-4">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 shrink-0">
             <MasterNavigationDrawer inHeader />
@@ -359,7 +359,7 @@ export default function StockLogPage() {
         <div className="mb-4 flex justify-end">
           <Link
             href="/inventory"
-            className="inline-flex items-center gap-2 rounded-lg border border-soft-border bg-white px-3 py-2 text-sm font-medium text-midnight-ink hover:border-trust-blue transition"
+            className="inline-flex items-center gap-2 rounded-lg border border-soft-border  "bg-background$($args[0].Groups[1].Value)"  px-3 py-2 text-sm font-medium text-midnight-ink hover:border-trust-blue transition"
           >
             <ArrowLeft className="h-4 w-4" />
             Back
@@ -367,17 +367,17 @@ export default function StockLogPage() {
         </div>
         <div className="mb-4 flex flex-wrap gap-2 md:gap-3 justify-end items-center">
             <button type="button" onClick={handlePrint}
-              className="inline-flex items-center gap-2 rounded-full border border-midnight-ink bg-white px-4 h-8 text-sm font-medium text-midnight-ink">
+              className="inline-flex items-center gap-2 rounded-full border border-midnight-ink  "bg-background$($args[0].Groups[1].Value)"  px-4 h-8 text-sm font-medium text-midnight-ink">
               <Printer className="h-4 w-4" /> Print
             </button>
             <div className="relative">
               {exportMenuOpen && <div className="fixed inset-0 z-10" onClick={() => setExportMenuOpen(false)} />}
               <button type="button" onClick={() => setExportMenuOpen((p) => !p)}
-                className="relative z-20 inline-flex items-center gap-1.5 rounded-full border border-emerald-500 bg-white px-4 h-8 text-sm font-medium text-emerald-600 hover:bg-emerald-50">
+                className="relative z-20 inline-flex items-center gap-1.5 rounded-full border border-emerald-500  "bg-background$($args[0].Groups[1].Value)"  px-4 h-8 text-sm font-medium text-emerald-600 hover:bg-emerald-50">
                 <Download className="h-3.5 w-3.5" /> Export <ChevronDown className="h-3.5 w-3.5" />
               </button>
               {exportMenuOpen && (
-                <div className="absolute right-0 top-9 z-30 w-52 rounded-lg bg-white shadow-lg border border-soft-border py-1">
+                <div className="absolute right-0 top-9 z-30 w-52 rounded-lg  "bg-background$($args[0].Groups[1].Value)"  shadow-lg border border-soft-border py-1">
                   <button type="button" onClick={exportToExcel} className="w-full px-4 py-2 text-sm text-midnight-ink hover:bg-cloud-gray text-left">Export as Excel (.xlsx)</button>
                   <button type="button" onClick={exportToPDF} className="w-full px-4 py-2 text-sm text-midnight-ink hover:bg-cloud-gray text-left">Export as PDF</button>
                 </div>
@@ -399,21 +399,21 @@ export default function StockLogPage() {
               onClear={() => { setSortField(''); setSortDir('asc'); }}
             />
             <button type="button" onClick={() => setIsManageColumnsOpen(true)}
-              className="inline-flex items-center gap-2 rounded-full border border-midnight-ink bg-white px-4 h-8 text-sm font-medium text-midnight-ink">
+              className="inline-flex items-center gap-2 rounded-full border border-midnight-ink  "bg-background$($args[0].Groups[1].Value)"  px-4 h-8 text-sm font-medium text-midnight-ink">
               Manage Columns
             </button>
             <button type="button" onClick={startEdit} disabled={editingIds.size > 0}
-              className="inline-flex items-center gap-2 rounded-full border border-trust-blue bg-white px-4 h-8 text-sm font-medium text-trust-blue disabled:opacity-40">
+              className="inline-flex items-center gap-2 rounded-full border border-trust-blue  "bg-background$($args[0].Groups[1].Value)"  px-4 h-8 text-sm font-medium text-trust-blue disabled:opacity-40">
               <Pencil className="h-4 w-4" /> Edit Row
             </button>
             {selectedIds.size > 0 && editingIds.size === 0 && (
               <button type="button" onClick={deleteSelected}
-                className="inline-flex items-center gap-2 rounded-full border border-rose-400 bg-white px-4 h-8 text-sm font-medium text-rose-600">
+                className="inline-flex items-center gap-2 rounded-full border border-rose-400  "bg-background$($args[0].Groups[1].Value)"  px-4 h-8 text-sm font-medium text-rose-600">
                 <Trash2 className="h-4 w-4" /> Delete ({selectedIds.size})
               </button>
             )}
             <button type="button" onClick={() => { setAddForm(emptyEntry()); setAddOpen(true); }}
-              className="inline-flex items-center gap-2 rounded-full border border-trust-blue bg-white px-4 h-8 text-sm font-medium text-trust-blue">
+              className="inline-flex items-center gap-2 rounded-full border border-trust-blue  "bg-background$($args[0].Groups[1].Value)"  px-4 h-8 text-sm font-medium text-trust-blue">
               <Plus className="h-4 w-4" /> Add Entry
             </button>
             <button type="button" onClick={() => { writeLS(rows); showStatus('Stock log saved.'); }}
@@ -439,33 +439,33 @@ export default function StockLogPage() {
         )}
 
         {/* ── Filter bar ───────────────────────────────────────────────────── */}
-        <section className="border border-soft-border rounded-lg mb-4 bg-[#dbeafe] p-3">
+        <section className="border border-soft-border rounded-lg mb-4 bg-blue-100 dark:bg-blue-900/20 p-3">
           <div className="flex flex-wrap gap-2 items-center">
             <input
               type="text"
               value={fSearch}
               onChange={(e) => setFSearch(e.target.value)}
               placeholder="Search"
-              className="h-8 text-sm w-36 bg-white rounded-md border border-trust-blue/40 px-3"
+              className="h-8 text-sm w-36  "bg-background$($args[0].Groups[1].Value)"  rounded-md border border-trust-blue/40 px-3"
             />
             <input
               type="text"
               value={fReceivedFrom}
               onChange={(e) => setFReceivedFrom(e.target.value)}
               placeholder="Received From"
-              className="h-8 text-sm w-36 bg-white rounded-md border border-trust-blue/40 px-3"
+              className="h-8 text-sm w-36  "bg-background$($args[0].Groups[1].Value)"  rounded-md border border-trust-blue/40 px-3"
             />
             <input
               type="text"
               value={fIssuedTo}
               onChange={(e) => setFIssuedTo(e.target.value)}
               placeholder="Issued To"
-              className="h-8 text-sm w-32 bg-white rounded-md border border-trust-blue/40 px-3"
+              className="h-8 text-sm w-32  "bg-background$($args[0].Groups[1].Value)"  rounded-md border border-trust-blue/40 px-3"
             />
             <select
               value={fType}
               onChange={(e) => setFType(e.target.value)}
-              className="h-8 text-sm w-32 bg-white rounded-md border border-trust-blue/40 px-2"
+              className="h-8 text-sm w-32  "bg-background$($args[0].Groups[1].Value)"  rounded-md border border-trust-blue/40 px-2"
             >
               <option value="">Inv. Type</option>
               {INVENTORY_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
@@ -473,7 +473,7 @@ export default function StockLogPage() {
             <select
               value={fStatus}
               onChange={(e) => setFStatus(e.target.value)}
-              className="h-8 text-sm w-40 bg-white rounded-md border border-trust-blue/40 px-2"
+              className="h-8 text-sm w-40  "bg-background$($args[0].Groups[1].Value)"  rounded-md border border-trust-blue/40 px-2"
             >
               <option value="">Activity Status</option>
               {ACTIVITY_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
@@ -481,7 +481,7 @@ export default function StockLogPage() {
             <select
               value={fRI}
               onChange={(e) => setFRI(e.target.value)}
-              className="h-8 text-sm w-32 bg-white rounded-md border border-trust-blue/40 px-2"
+              className="h-8 text-sm w-32  "bg-background$($args[0].Groups[1].Value)"  rounded-md border border-trust-blue/40 px-2"
             >
               <option value="">Rcvd / Issued</option>
               {RECEIVED_ISSUED_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
@@ -491,14 +491,14 @@ export default function StockLogPage() {
               value={fDateFrom}
               onChange={(e) => setFDateFrom(e.target.value)}
               title="Date From"
-              className="h-8 text-sm bg-white rounded-md border border-trust-blue/40 px-2"
+              className="h-8 text-sm  "bg-background$($args[0].Groups[1].Value)"  rounded-md border border-trust-blue/40 px-2"
             />
             <input
               type="date"
               value={fDateTo}
               onChange={(e) => setFDateTo(e.target.value)}
               title="Date To"
-              className="h-8 text-sm bg-white rounded-md border border-trust-blue/40 px-2"
+              className="h-8 text-sm  "bg-background$($args[0].Groups[1].Value)"  rounded-md border border-trust-blue/40 px-2"
             />
             <button
               type="button"
@@ -511,13 +511,13 @@ export default function StockLogPage() {
         </section>
 
         {/* ── Table section ────────────────────────────────────────────────── */}
-        <section className="rounded-xl border border-soft-border bg-white shadow-sm mb-6">
+        <section className="rounded-xl border border-soft-border  "bg-background$($args[0].Groups[1].Value)"  shadow-sm mb-6">
           {/* Table */}
           <div className="overflow-x-auto">
             <table className="w-full border-collapse text-sm" style={{ minWidth: '1600px' }}>
               <thead>
-                <tr className="bg-[#dbeafe]">
-                  <th className="border border-soft-border px-3 py-2 text-left text-xs font-normal text-black w-10">
+                <tr className="bg-blue-100 dark:bg-blue-900/20">
+                  <th className="border border-soft-border px-3 py-2 text-left text-xs font-normal text-foreground w-10">
                     <input
                       type="checkbox"
                       checked={allSelected}
@@ -527,23 +527,23 @@ export default function StockLogPage() {
                       className="h-4 w-4 cursor-pointer rounded border-soft-border accent-trust-blue"
                     />
                   </th>
-                  {visibleColumns.has('sno')            && <th className="border border-soft-border px-3 py-2 text-left text-xs font-normal text-black w-12">#</th>}
-                  {visibleColumns.has('date')           && <th className="border border-soft-border px-3 py-2 text-left text-xs font-normal text-black">Date</th>}
-                  {visibleColumns.has('inventoryType')  && <th className="border border-soft-border px-3 py-2 text-left text-xs font-normal text-black">Inventory Type</th>}
-                  {visibleColumns.has('receivedIssued') && <th className="border border-soft-border px-3 py-2 text-left text-xs font-normal text-black">Rcvd / Issued</th>}
-                  {visibleColumns.has('stockName')      && <th className="border border-soft-border px-3 py-2 text-left text-xs font-normal text-black">Stock Name</th>}
-                  {visibleColumns.has('particulars')    && <th className="border border-soft-border px-3 py-2 text-left text-xs font-normal text-black">Particulars</th>}
-                  {visibleColumns.has('qty')            && <th className="border border-soft-border px-3 py-2 text-left text-xs font-normal text-black">Qty</th>}
-                  {visibleColumns.has('qtyUnit')        && <th className="border border-soft-border px-3 py-2 text-left text-xs font-normal text-black">Units</th>}
-                  {visibleColumns.has('weight')         && <th className="border border-soft-border px-3 py-2 text-left text-xs font-normal text-black">Weight</th>}
-                  {visibleColumns.has('weightUnit')     && <th className="border border-soft-border px-3 py-2 text-left text-xs font-normal text-black">Units</th>}
-                  {visibleColumns.has('location')       && <th className="border border-soft-border px-3 py-2 text-left text-xs font-normal text-black">Location</th>}
-                  {visibleColumns.has('price')          && <th className="border border-soft-border px-3 py-2 text-left text-xs font-normal text-black">Price</th>}
-                  {visibleColumns.has('amount')         && <th className="border border-soft-border px-3 py-2 text-left text-xs font-normal text-black">Amount</th>}
-                  {visibleColumns.has('receivedFrom')   && <th className="border border-soft-border px-3 py-2 text-left text-xs font-normal text-black">Received From</th>}
-                  {visibleColumns.has('issuedTo')       && <th className="border border-soft-border px-3 py-2 text-left text-xs font-normal text-black">Issued To</th>}
-                  {visibleColumns.has('activityStatus') && <th className="border border-soft-border px-3 py-2 text-left text-xs font-normal text-black">Status</th>}
-                  {visibleColumns.has('action')         && <th className="border border-soft-border px-3 py-2 text-left text-xs font-normal text-black w-16">Action</th>}
+                  {visibleColumns.has('sno')            && <th className="border border-soft-border px-3 py-2 text-left text-xs font-normal text-foreground w-12">#</th>}
+                  {visibleColumns.has('date')           && <th className="border border-soft-border px-3 py-2 text-left text-xs font-normal text-foreground">Date</th>}
+                  {visibleColumns.has('inventoryType')  && <th className="border border-soft-border px-3 py-2 text-left text-xs font-normal text-foreground">Inventory Type</th>}
+                  {visibleColumns.has('receivedIssued') && <th className="border border-soft-border px-3 py-2 text-left text-xs font-normal text-foreground">Rcvd / Issued</th>}
+                  {visibleColumns.has('stockName')      && <th className="border border-soft-border px-3 py-2 text-left text-xs font-normal text-foreground">Stock Name</th>}
+                  {visibleColumns.has('particulars')    && <th className="border border-soft-border px-3 py-2 text-left text-xs font-normal text-foreground">Particulars</th>}
+                  {visibleColumns.has('qty')            && <th className="border border-soft-border px-3 py-2 text-left text-xs font-normal text-foreground">Qty</th>}
+                  {visibleColumns.has('qtyUnit')        && <th className="border border-soft-border px-3 py-2 text-left text-xs font-normal text-foreground">Units</th>}
+                  {visibleColumns.has('weight')         && <th className="border border-soft-border px-3 py-2 text-left text-xs font-normal text-foreground">Weight</th>}
+                  {visibleColumns.has('weightUnit')     && <th className="border border-soft-border px-3 py-2 text-left text-xs font-normal text-foreground">Units</th>}
+                  {visibleColumns.has('location')       && <th className="border border-soft-border px-3 py-2 text-left text-xs font-normal text-foreground">Location</th>}
+                  {visibleColumns.has('price')          && <th className="border border-soft-border px-3 py-2 text-left text-xs font-normal text-foreground">Price</th>}
+                  {visibleColumns.has('amount')         && <th className="border border-soft-border px-3 py-2 text-left text-xs font-normal text-foreground">Amount</th>}
+                  {visibleColumns.has('receivedFrom')   && <th className="border border-soft-border px-3 py-2 text-left text-xs font-normal text-foreground">Received From</th>}
+                  {visibleColumns.has('issuedTo')       && <th className="border border-soft-border px-3 py-2 text-left text-xs font-normal text-foreground">Issued To</th>}
+                  {visibleColumns.has('activityStatus') && <th className="border border-soft-border px-3 py-2 text-left text-xs font-normal text-foreground">Status</th>}
+                  {visibleColumns.has('action')         && <th className="border border-soft-border px-3 py-2 text-left text-xs font-normal text-foreground w-16">Action</th>}
                 </tr>
               </thead>
               <tbody>
@@ -640,7 +640,7 @@ export default function StockLogPage() {
             <div className="flex flex-col gap-1">
               <label className="text-xs font-semibold text-cool-gray uppercase tracking-wide">Inventory Type</label>
               <select value={addForm.inventoryType} onChange={(e) => setAddForm((p) => ({ ...p, inventoryType: e.target.value }))}
-                className="h-9 rounded-lg border border-soft-border bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue">
+                className="h-9 rounded-lg border border-soft-border  "bg-background$($args[0].Groups[1].Value)"  px-3 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue">
                 <option value="">Select type</option>
                 {INVENTORY_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
               </select>
@@ -650,7 +650,7 @@ export default function StockLogPage() {
             <div className="flex flex-col gap-1">
               <label className="text-xs font-semibold text-cool-gray uppercase tracking-wide">Received / Issued</label>
               <select value={addForm.receivedIssued} onChange={(e) => setAddForm((p) => ({ ...p, receivedIssued: e.target.value }))}
-                className="h-9 rounded-lg border border-soft-border bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue">
+                className="h-9 rounded-lg border border-soft-border  "bg-background$($args[0].Groups[1].Value)"  px-3 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue">
                 <option value="">Select</option>
                 {RECEIVED_ISSUED_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
               </select>
@@ -660,7 +660,7 @@ export default function StockLogPage() {
             <div className="flex flex-col gap-1">
               <label className="text-xs font-semibold text-cool-gray uppercase tracking-wide">Activity Status</label>
               <select value={addForm.activityStatus} onChange={(e) => setAddForm((p) => ({ ...p, activityStatus: e.target.value }))}
-                className="h-9 rounded-lg border border-soft-border bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue">
+                className="h-9 rounded-lg border border-soft-border  "bg-background$($args[0].Groups[1].Value)"  px-3 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue">
                 <option value="">Select status</option>
                 {ACTIVITY_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
               </select>
@@ -692,7 +692,7 @@ export default function StockLogPage() {
             <div className="flex flex-col gap-1">
               <label className="text-xs font-semibold text-cool-gray uppercase tracking-wide">Qty Unit</label>
               <select value={addForm.qtyUnit} onChange={(e) => setAddForm((p) => ({ ...p, qtyUnit: e.target.value }))}
-                className="h-9 rounded-lg border border-soft-border bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue">
+                className="h-9 rounded-lg border border-soft-border  "bg-background$($args[0].Groups[1].Value)"  px-3 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue">
                 {QTY_UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
               </select>
             </div>
@@ -707,7 +707,7 @@ export default function StockLogPage() {
             <div className="flex flex-col gap-1">
               <label className="text-xs font-semibold text-cool-gray uppercase tracking-wide">Weight Unit</label>
               <select value={addForm.weightUnit} onChange={(e) => setAddForm((p) => ({ ...p, weightUnit: e.target.value }))}
-                className="h-9 rounded-lg border border-soft-border bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue">
+                className="h-9 rounded-lg border border-soft-border  "bg-background$($args[0].Groups[1].Value)"  px-3 text-sm focus:outline-none focus:ring-2 focus:ring-trust-blue">
                 {WEIGHT_UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
               </select>
             </div>
@@ -729,7 +729,7 @@ export default function StockLogPage() {
             </div>
 
             {/* Amount (auto-calculated) */}
-            <div className={`col-span-2 rounded-lg border px-4 py-3 flex items-center justify-between ${addFormAmount ? 'border-trust-blue/30 bg-blue-50' : 'border-soft-border bg-[#F8F9FA]'}`}>
+            <div className={`col-span-2 rounded-lg border px-4 py-3 flex items-center justify-between ${addFormAmount ? 'border-trust-blue/30 bg-blue-50' : 'border-soft-border bg-muted'}`}>
               <span className="text-sm text-cool-gray font-medium">Total Amount (auto)</span>
               <span className={`text-xl font-bold ${addFormAmount ? 'text-trust-blue' : 'text-cool-gray/50'}`}>
                 {addFormAmount ? `₹${Number(addFormAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '—'}

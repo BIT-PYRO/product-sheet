@@ -605,7 +605,9 @@ export default function ManagersDashboard() {
     <tbody>
       ${stoneRows.map(sr => {
         const breakdown = Array.isArray(sr.master_sku_breakdown) && sr.master_sku_breakdown.length > 0
-          ? sr.master_sku_breakdown.map(b => `${b.master_sku}[${b.qty}]`).join(' ')
+          ? sr.master_sku_breakdown
+              .map(b => b.master_sku ? `${b.master_sku}[${Math.round(b.qty * 100) / 100}]` : `[${Math.round(b.qty * 100) / 100}]`)
+              .join(', ')
           : '\u2014';
         return `<tr>
           <td class="left">${sr.variety || '\u2014'}</td>

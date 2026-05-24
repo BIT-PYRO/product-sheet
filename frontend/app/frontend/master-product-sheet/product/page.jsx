@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { Suspense, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
@@ -259,7 +259,7 @@ function ProductDetailContent() {
     <div className="w-full min-h-screen bg-cloud-gray">
       <div className="pt-16 px-3 md:px-4 pb-3 md:pb-4">
         {/* Header */}
-        <div className="transition-[left,width] duration-300 ease-in-out fixed top-0 left-0 right-0 z-[60] bg-white/95 py-2 border-b border-soft-border shadow-sm backdrop-blur px-3 md:px-4">
+        <div className="transition-[left,width] duration-300 ease-in-out fixed top-0 left-0 right-0 z-[60] bg-background/95 py-2 border-b border-soft-border shadow-sm backdrop-blur px-3 md:px-4">
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <div className="flex items-center gap-3">
               <MasterNavigationDrawer inHeader />
@@ -313,7 +313,7 @@ function ProductDetailContent() {
         {/* Delete confirmation dialog */}
         {showDeleteConfirm && (
           <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 backdrop-blur-sm">
-            <div className="bg-white rounded-xl shadow-xl p-6 max-w-sm w-full mx-4">
+            <div className="bg-background rounded-xl shadow-xl p-6 max-w-sm w-full mx-4">
               <h2 className="text-base font-bold text-midnight-ink mb-2">Delete Product</h2>
               <p className="text-sm text-slate-text mb-5">
                 Are you sure you want to delete <span className="font-semibold">{product?.sku}</span>? This cannot be undone.
@@ -386,7 +386,7 @@ function ProductDetailContent() {
               <EditableCard label="ENAMEL TYPE" field="enamelType" editData={editData} isEditing={isEditing} onChange={handleFieldChange} />
               <EditableCard label="ACTIVE CHANNELS" field="activeChannels" editData={editData} isEditing={isEditing} onChange={handleFieldChange} />
               {/* Die Number / Findings – structured table */}
-              <div className="rounded-lg border border-soft-border bg-white overflow-hidden">
+              <div className="rounded-lg border border-soft-border bg-background overflow-hidden">
                 <div className="px-3 py-1.5 bg-trust-blue/10 text-xs font-bold text-midnight-ink uppercase tracking-wide border-b border-soft-border">
                   DIE NUMBER / FINDINGS
                 </div>
@@ -429,7 +429,7 @@ function ProductDetailContent() {
             </div>
 
             {/* Stone Info */}
-            <div className="mb-4 border border-soft-border rounded-lg bg-white overflow-hidden">
+            <div className="mb-4 border border-soft-border rounded-lg bg-background overflow-hidden">
               <div className={`px-3 py-2 font-bold text-sm text-midnight-ink border-b border-soft-border ${isEditing ? 'bg-amber-50' : 'bg-trust-blue/40'}`}>
                 STONE INFO {isEditing && <span className="text-xs font-normal text-amber-700 ml-1">(editable)</span>}
               </div>
@@ -480,7 +480,7 @@ function ProductDetailContent() {
             </div>
 
             {/* Notes */}
-            <div className="mb-4 border border-soft-border rounded-lg bg-white overflow-hidden">
+            <div className="mb-4 border border-soft-border rounded-lg bg-background overflow-hidden">
               <div className={`px-3 py-2 font-bold text-sm text-midnight-ink border-b border-soft-border ${isEditing ? 'bg-amber-50' : 'bg-trust-blue/40'}`}>
                 NOTES {isEditing && <span className="text-xs font-normal text-amber-700 ml-1">(editable)</span>}
               </div>
@@ -497,7 +497,7 @@ function ProductDetailContent() {
             </div>
 
             {/* Live Stock — always read-only (derived from inventory transactions) */}
-            <div className="mb-4 border border-soft-border rounded-lg bg-white overflow-hidden">
+            <div className="mb-4 border border-soft-border rounded-lg bg-background overflow-hidden">
               <div className="px-3 py-2 bg-trust-blue/40 font-bold text-sm text-midnight-ink border-b border-soft-border">
                 LIVE STOCK SITUATION
               </div>
@@ -528,7 +528,7 @@ function ProductDetailContent() {
             </div>
 
             {/* Final Stock — always read-only */}
-            <div className="border border-soft-border rounded-lg bg-white overflow-hidden">
+            <div className="border border-soft-border rounded-lg bg-background overflow-hidden">
               <div className="px-3 py-2 bg-trust-blue/40 font-bold text-sm text-midnight-ink border-b border-soft-border">
                 FINAL STOCK DATA
               </div>
@@ -579,7 +579,7 @@ export default function ProductDetailPage() {
 
 function InfoCard({ label, value }) {
   return (
-    <div className="border border-soft-border rounded-lg bg-white overflow-hidden">
+    <div className="border border-soft-border rounded-lg bg-background overflow-hidden">
       <div className="px-3 py-2 bg-trust-blue/40 font-bold text-sm text-midnight-ink border-b border-soft-border">{label}</div>
       <div className="px-3 py-2 text-sm min-h-[44px] whitespace-pre-wrap break-words">{value || '—'}</div>
     </div>
@@ -589,7 +589,7 @@ function InfoCard({ label, value }) {
 function EditableCard({ label, field, editData, isEditing, onChange, hint }) {
   const value = editData?.[field] || '';
   return (
-    <div className={`border rounded-lg overflow-hidden ${isEditing ? 'border-amber-300 bg-amber-50' : 'border-soft-border bg-white'}`}>
+    <div className={`border rounded-lg overflow-hidden ${isEditing ? 'border-amber-300 bg-amber-50' : 'border-soft-border bg-background'}`}>
       <div className={`px-3 py-2 font-bold text-sm border-b ${isEditing ? 'bg-amber-100 border-amber-300 text-amber-900' : 'bg-trust-blue/40 border-soft-border text-midnight-ink'}`}>
         {label}
       </div>

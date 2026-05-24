@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
@@ -46,7 +46,7 @@ export default function HRSectionPage() {
   return (
     <main className="h-screen w-full flex flex-col bg-cloud-gray overflow-hidden">
       {/* Fixed header (Top Navigation) */}
-      <div className="shrink-0 z-[60] bg-white/95 py-2 border-b border-soft-border shadow-sm backdrop-blur px-3 md:px-4 flex items-center justify-between gap-3">
+      <div className="shrink-0 z-[60] bg-background/95 py-2 border-b border-soft-border shadow-sm backdrop-blur px-3 md:px-4 flex items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <MasterNavigationDrawer inHeader />
           <h1 className="text-xl font-bold tracking-tight text-midnight-ink">Human Resources</h1>
@@ -58,7 +58,7 @@ export default function HRSectionPage() {
       <div className="flex-1 flex overflow-hidden">
         {/* Sidebar */}
         <div 
-          className={`flex-shrink-0 transition-all duration-200 ease-in-out border-r border-soft-border bg-white flex flex-col overflow-hidden ${
+          className={`flex-shrink-0 transition-all duration-200 ease-in-out border-r border-soft-border bg-background flex flex-col overflow-hidden ${
             collapsed ? 'w-12' : 'w-[220px]'
           }`}
         >
@@ -102,7 +102,7 @@ export default function HRSectionPage() {
         </div>
 
         {/* Content Area */}
-        <div className="flex-1 overflow-auto relative bg-[#F3F4F6]">
+        <div className="flex-1 overflow-auto relative bg-muted">
           {isMounted && ActiveComponent ? (
             <ActiveComponent />
           ) : isMounted && !ActiveComponent ? (
