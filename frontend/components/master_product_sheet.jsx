@@ -1612,9 +1612,9 @@ export default function MasterProductSheet() {
         {/* Table wrapper with scroll */}
         <div className="overflow-auto max-h-[500px]">
           <table className="w-full border-separate border-spacing-0 text-sm">
-            <thead className="sticky top-0 z-20 bg-[#dbeafe]">
+            <thead className="sticky top-0 z-20 bg-blue-100 dark:bg-blue-900/20">
               <tr className="text-midnight-ink font-bold border-b-2 border-soft-border">
-                <th className="border border-soft-border p-2 w-8 sticky left-0 bg-[#dbeafe] z-30 shadow-[2px_0_4px_-1px_rgba(0,0,0,0.08)]">
+                <th className="border border-soft-border p-2 w-8 sticky left-0 bg-blue-100 dark:bg-blue-900/20 z-30 shadow-[2px_0_4px_-1px_rgba(0,0,0,0.08)]">
                   <Checkbox
                     checked={allDisplayedRowsSelected}
                     onCheckedChange={toggleSelectAllRows}

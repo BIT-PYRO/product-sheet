@@ -8,6 +8,7 @@ import {
     Snackbar,
     Typography,
 } from '@mui/material';
+import { ThemeProvider, createTheme } from '@mui/material/styles';
 import Sidebar from './Sidebar';
 import CalendarPopover from './CalendarPopover';
 import ScheduleModal from './ScheduleModal';
@@ -98,6 +99,19 @@ export default function TaskManager() {
     const [scheduleError, setScheduleError] = useState('');
 
     const [members, setMembers] = useState([]);
+
+    // Sync Tailwind dark mode class to MUI theme
+    const [muiMode, setMuiMode] = useState('light');
+    useEffect(() => {
+        const update = () => setMuiMode(
+            document.documentElement.classList.contains('dark') ? 'dark' : 'light'
+        );
+        update();
+        const observer = new MutationObserver(update);
+        observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+        return () => observer.disconnect();
+    }, []);
+    const muiTheme = useMemo(() => createTheme({ palette: { mode: muiMode } }), [muiMode]);
     const [toast, setToast] = useState({ open: false, message: '', severity: 'success' });
 
     const eventsByDate = useMemo(() => groupEventsByDate(calendarEvents), [calendarEvents]);
@@ -238,6 +252,7 @@ export default function TaskManager() {
     };
 
     return (
+        <ThemeProvider theme={muiTheme}>
         <>
         <div className="transition-[left,width] duration-300 ease-in-out fixed top-0 left-0 right-0 z-[60] bg-white/95 py-2 border-b border-soft-border shadow-sm backdrop-blur px-3 md:px-4">
             <div className="flex items-center justify-between gap-3">
@@ -357,5 +372,6 @@ export default function TaskManager() {
             </Snackbar>
         </Box>
         </>
+        </ThemeProvider>
     );
 }

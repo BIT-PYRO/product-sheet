@@ -819,26 +819,26 @@ export default function MachinesInventoryPage() {
                   {visibleColumns.has('machineName') && <th rowSpan={2} className="border border-soft-border px-4 py-3 text-left text-xs font-normal text-foreground min-w-[170px]">Machine Name</th>}
                   {visibleColumns.has('particulars') && <th rowSpan={2} className="border border-soft-border px-4 py-3 text-left text-xs font-normal text-foreground min-w-[170px]">Particulars</th>}
                   {visibleColumns.has('department') && <th rowSpan={2} className="border border-soft-border px-4 py-3 text-left text-xs font-normal text-foreground min-w-[170px]">Department</th>}
-                  {runningVisibleCount > 0 && <th colSpan={runningVisibleCount} className="border border-soft-border bg-emerald-50 px-4 py-3 text-left text-xs font-normal text-foreground">Running</th>}
-                  {idleVisibleCount > 0 && <th colSpan={idleVisibleCount} className="border border-soft-border bg-yellow-100 px-4 py-3 text-left text-xs font-normal text-foreground">Idle</th>}
-                  {breakdownVisibleCount > 0 && <th colSpan={breakdownVisibleCount} className="border border-soft-border bg-red-50 px-4 py-3 text-left text-xs font-normal text-foreground">Breakdown</th>}
-                  {maintenanceVisibleCount > 0 && <th colSpan={maintenanceVisibleCount} className="border border-soft-border bg-orange-200 px-4 py-3 text-left text-xs font-normal text-foreground">Under Maintenance</th>}
+                  {runningVisibleCount > 0 && <th colSpan={runningVisibleCount} className="border border-soft-border bg-emerald-50 dark:bg-emerald-900/20 px-4 py-3 text-left text-xs font-normal text-foreground">Running</th>}
+                  {idleVisibleCount > 0 && <th colSpan={idleVisibleCount} className="border border-soft-border bg-yellow-100 dark:bg-yellow-900/20 px-4 py-3 text-left text-xs font-normal text-foreground">Idle</th>}
+                  {breakdownVisibleCount > 0 && <th colSpan={breakdownVisibleCount} className="border border-soft-border bg-red-50 dark:bg-red-900/20 px-4 py-3 text-left text-xs font-normal text-foreground">Breakdown</th>}
+                  {maintenanceVisibleCount > 0 && <th colSpan={maintenanceVisibleCount} className="border border-soft-border bg-orange-200 dark:bg-orange-900/30 px-4 py-3 text-left text-xs font-normal text-foreground">Under Maintenance</th>}
                   {visibleColumns.has('minRequiredStock') && <th rowSpan={2} className="border border-soft-border px-4 py-3 text-left text-xs font-normal text-foreground min-w-[210px]">Minimum Required in Stock</th>}
                   {visibleColumns.has('action') && <th rowSpan={2} className="border border-soft-border px-4 py-3 text-left text-xs font-normal text-foreground w-24">Action</th>}
                 </tr>
                 {hasSubHeaders && (
                   <tr className="border-b border-soft-border bg-muted">
-                    {visibleColumns.has('runningQty') && <th className="border border-soft-border bg-emerald-50 px-4 py-3 text-left text-xs font-normal text-foreground min-w-[90px]">Qty</th>}
-                    {visibleColumns.has('runningLocation') && <th className="border border-soft-border bg-emerald-50 px-4 py-3 text-left text-xs font-normal text-foreground min-w-[140px]">Location</th>}
+                    {visibleColumns.has('runningQty') && <th className="border border-soft-border bg-emerald-50 dark:bg-emerald-900/20 px-4 py-3 text-left text-xs font-normal text-foreground min-w-[90px]">Qty</th>}
+                    {visibleColumns.has('runningLocation') && <th className="border border-soft-border bg-emerald-50 dark:bg-emerald-900/20 px-4 py-3 text-left text-xs font-normal text-foreground min-w-[140px]">Location</th>}
 
-                    {visibleColumns.has('idleQty') && <th className="border border-soft-border bg-yellow-100 px-4 py-3 text-left text-xs font-normal text-foreground min-w-[90px]">Qty</th>}
-                    {visibleColumns.has('idleLocation') && <th className="border border-soft-border bg-yellow-100 px-4 py-3 text-left text-xs font-normal text-foreground min-w-[140px]">Location</th>}
+                    {visibleColumns.has('idleQty') && <th className="border border-soft-border bg-yellow-100 dark:bg-yellow-900/20 px-4 py-3 text-left text-xs font-normal text-foreground min-w-[90px]">Qty</th>}
+                    {visibleColumns.has('idleLocation') && <th className="border border-soft-border bg-yellow-100 dark:bg-yellow-900/20 px-4 py-3 text-left text-xs font-normal text-foreground min-w-[140px]">Location</th>}
 
-                    {visibleColumns.has('breakdownQty') && <th className="border border-soft-border bg-red-50 px-4 py-3 text-left text-xs font-normal text-foreground min-w-[90px]">Qty</th>}
-                    {visibleColumns.has('breakdownLocation') && <th className="border border-soft-border bg-red-50 px-4 py-3 text-left text-xs font-normal text-foreground min-w-[140px]">Location</th>}
+                    {visibleColumns.has('breakdownQty') && <th className="border border-soft-border bg-red-50 dark:bg-red-900/20 px-4 py-3 text-left text-xs font-normal text-foreground min-w-[90px]">Qty</th>}
+                    {visibleColumns.has('breakdownLocation') && <th className="border border-soft-border bg-red-50 dark:bg-red-900/20 px-4 py-3 text-left text-xs font-normal text-foreground min-w-[140px]">Location</th>}
 
-                    {visibleColumns.has('maintenanceQty') && <th className="border border-soft-border bg-orange-200 px-4 py-3 text-left text-xs font-normal text-foreground min-w-[90px]">Qty</th>}
-                    {visibleColumns.has('maintenanceLocation') && <th className="border border-soft-border bg-orange-200 px-4 py-3 text-left text-xs font-normal text-foreground min-w-[140px]">Location</th>}
+                    {visibleColumns.has('maintenanceQty') && <th className="border border-soft-border bg-orange-200 dark:bg-orange-900/30 px-4 py-3 text-left text-xs font-normal text-foreground min-w-[90px]">Qty</th>}
+                    {visibleColumns.has('maintenanceLocation') && <th className="border border-soft-border bg-orange-200 dark:bg-orange-900/30 px-4 py-3 text-left text-xs font-normal text-foreground min-w-[140px]">Location</th>}
                   </tr>
                 )}
               </thead>

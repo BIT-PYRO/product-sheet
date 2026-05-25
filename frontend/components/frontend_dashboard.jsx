@@ -2608,11 +2608,11 @@ function ProductSheetContent() {
                 <th colSpan={4} className="px-1 py-0.5 font-bold text-midnight-ink uppercase tracking-wide border-r border-soft-border text-center bg-trust-blue/10 text-[10px]">Wax Piece</th>
                 <th colSpan={4} className="px-1 py-0.5 font-bold text-midnight-ink uppercase tracking-wide border-r border-soft-border text-center bg-trust-blue/10 text-[10px]">Wax Setting</th>
                 <th colSpan={4} className="px-1 py-0.5 font-bold text-midnight-ink uppercase tracking-wide border-r-2 border-midnight-ink/20 text-center bg-trust-blue/10 text-[10px]">Casting</th>
-                <th colSpan={4} className="px-1 py-0.5 font-bold text-midnight-ink uppercase tracking-wide border-r border-soft-border text-center bg-amber-50 text-[10px]">Filling</th>
-                <th colSpan={4} className="px-1 py-0.5 font-bold text-midnight-ink uppercase tracking-wide border-r border-soft-border text-center bg-amber-50 text-[10px]">Pre Polish</th>
-                <th colSpan={4} className="px-1 py-0.5 font-bold text-midnight-ink uppercase tracking-wide border-r border-soft-border text-center bg-amber-50 text-[10px]">Hand Setting</th>
-                <th colSpan={4} className="px-1 py-0.5 font-bold text-midnight-ink uppercase tracking-wide border-r border-soft-border text-center bg-amber-50 text-[10px]">Final Polish</th>
-                <th colSpan={4} className="px-1 py-0.5 font-bold text-midnight-ink uppercase tracking-wide border-r-2 border-soft-border text-center bg-amber-50 text-[10px]">Plating</th>
+                <th colSpan={4} className="px-1 py-0.5 font-bold text-midnight-ink uppercase tracking-wide border-r border-soft-border text-center bg-amber-50 dark:bg-amber-900/20 text-[10px]">Filling</th>
+                <th colSpan={4} className="px-1 py-0.5 font-bold text-midnight-ink uppercase tracking-wide border-r border-soft-border text-center bg-amber-50 dark:bg-amber-900/20 text-[10px]">Pre Polish</th>
+                <th colSpan={4} className="px-1 py-0.5 font-bold text-midnight-ink uppercase tracking-wide border-r border-soft-border text-center bg-amber-50 dark:bg-amber-900/20 text-[10px]">Hand Setting</th>
+                <th colSpan={4} className="px-1 py-0.5 font-bold text-midnight-ink uppercase tracking-wide border-r border-soft-border text-center bg-amber-50 dark:bg-amber-900/20 text-[10px]">Final Polish</th>
+                <th colSpan={4} className="px-1 py-0.5 font-bold text-midnight-ink uppercase tracking-wide border-r-2 border-soft-border text-center bg-amber-50 dark:bg-amber-900/20 text-[10px]">Plating</th>
                 <th rowSpan={2} className="border-l-2 border-soft-border" style={{width:'1.5%'}}></th>
               </tr>
               <tr className="bg-trust-blue/5 border-b-2 border-soft-border">
@@ -2626,10 +2626,10 @@ function ProductSheetContent() {
                 ))}
                 {[0,1,2,3,4].map(si => (
                   <React.Fragment key={`post-hdr-${si}`}>
-                    <th className="px-0.5 py-px font-semibold text-center border-r border-soft-border text-[9px] text-cool-gray bg-amber-50/60">Min</th>
-                    <th className="px-0.5 py-px font-semibold text-center border-r border-soft-border text-[9px] text-cool-gray bg-amber-50/60">Cur</th>
-                    <th className="px-0.5 py-px font-semibold text-center border-r border-soft-border text-[9px] text-cool-gray bg-amber-50/60">WIP</th>
-                    <th className={`px-0.5 py-px font-semibold text-center text-[9px] text-cool-gray bg-amber-50/60 ${si < 4 ? 'border-r border-soft-border' : 'border-r-2 border-soft-border'}`}>Loc</th>
+                    <th className="px-0.5 py-px font-semibold text-center border-r border-soft-border text-[9px] text-cool-gray bg-amber-50/60 dark:bg-amber-900/15">Min</th>
+                    <th className="px-0.5 py-px font-semibold text-center border-r border-soft-border text-[9px] text-cool-gray bg-amber-50/60 dark:bg-amber-900/15">Cur</th>
+                    <th className="px-0.5 py-px font-semibold text-center border-r border-soft-border text-[9px] text-cool-gray bg-amber-50/60 dark:bg-amber-900/15">WIP</th>
+                    <th className={`px-0.5 py-px font-semibold text-center text-[9px] text-cool-gray bg-amber-50/60 dark:bg-amber-900/15 ${si < 4 ? 'border-r border-soft-border' : 'border-r-2 border-soft-border'}`}>Loc</th>
                   </React.Fragment>
                 ))}
               </tr>
@@ -2662,10 +2662,10 @@ function ProductSheetContent() {
                   ))}
                   {index === 0 && ['filing','packing','setting','finalPolish','readyForPlacing'].map((stateKey, si) => (
                     <React.Fragment key={stateKey}>
-                      <td rowSpan={manufacturing.dieNumbers.length} className="border-r border-soft-border px-1 py-0.5 bg-amber-50/40"><input type="text" value={(liveStock[stateKey]||{}).min||''} onChange={(e) => updateLiveStock(stateKey, 'min', e.target.value)} className="w-full bg-transparent outline-none text-xs text-center" placeholder="—"/></td>
-                      <td rowSpan={manufacturing.dieNumbers.length} className="border-r border-soft-border px-1 py-0.5 bg-amber-50/40"><input type="text" value={(liveStock[stateKey]||{}).current||''} onChange={(e) => updateLiveStock(stateKey, 'current', e.target.value)} className="w-full bg-transparent outline-none text-xs text-center" placeholder="—"/></td>
-                      <td rowSpan={manufacturing.dieNumbers.length} className="border-r border-soft-border px-1 py-0.5 bg-amber-50/40"><input type="text" value={(liveStock[stateKey]||{}).wip||''} onChange={(e) => updateLiveStock(stateKey, 'wip', e.target.value)} className="w-full bg-transparent outline-none text-xs text-center" placeholder="—"/></td>
-                      <td rowSpan={manufacturing.dieNumbers.length} className={`${si < 4 ? 'border-r border-soft-border' : 'border-r-2 border-soft-border'} px-1 py-0.5 bg-amber-50/40`}><input type="text" value={(liveStock[stateKey]||{}).location||''} onChange={(e) => updateLiveStock(stateKey, 'location', e.target.value)} className="w-full bg-transparent outline-none text-xs text-center" placeholder="—"/></td>
+                      <td rowSpan={manufacturing.dieNumbers.length} className="border-r border-soft-border px-1 py-0.5 bg-amber-50/40 dark:bg-amber-900/10"><input type="text" value={(liveStock[stateKey]||{}).min||''} onChange={(e) => updateLiveStock(stateKey, 'min', e.target.value)} className="w-full bg-transparent outline-none text-xs text-center" placeholder="—"/></td>
+                      <td rowSpan={manufacturing.dieNumbers.length} className="border-r border-soft-border px-1 py-0.5 bg-amber-50/40 dark:bg-amber-900/10"><input type="text" value={(liveStock[stateKey]||{}).current||''} onChange={(e) => updateLiveStock(stateKey, 'current', e.target.value)} className="w-full bg-transparent outline-none text-xs text-center" placeholder="—"/></td>
+                      <td rowSpan={manufacturing.dieNumbers.length} className="border-r border-soft-border px-1 py-0.5 bg-amber-50/40 dark:bg-amber-900/10"><input type="text" value={(liveStock[stateKey]||{}).wip||''} onChange={(e) => updateLiveStock(stateKey, 'wip', e.target.value)} className="w-full bg-transparent outline-none text-xs text-center" placeholder="—"/></td>
+                      <td rowSpan={manufacturing.dieNumbers.length} className={`${si < 4 ? 'border-r border-soft-border' : 'border-r-2 border-soft-border'} px-1 py-0.5 bg-amber-50/40 dark:bg-amber-900/10`}><input type="text" value={(liveStock[stateKey]||{}).location||''} onChange={(e) => updateLiveStock(stateKey, 'location', e.target.value)} className="w-full bg-transparent outline-none text-xs text-center" placeholder="—"/></td>
                     </React.Fragment>
                   ))}
                   <td className="border-l-2 border-soft-border px-1 py-0.5 text-center">
@@ -2762,7 +2762,7 @@ function ProductSheetContent() {
             <div className="flex-1 overflow-y-auto min-h-0">
               {finalStock.map((row) => (
                 <div key={row.id} className="flex border-b border-soft-border">
-                  <input className={`flex-1 min-w-0 px-1 py-1 text-sm outline-none text-center border-r border-soft-border ${row.fromVariation ? 'bg-blue-50 text-trust-blue font-medium cursor-default' : 'bg-transparent'}`} placeholder="SKU" value={row.sku} onChange={(e) => !row.fromVariation && updateFinalStock(row.id, 'sku', e.target.value)} readOnly={!!row.fromVariation} />
+                  <input className={`flex-1 min-w-0 px-1 py-1 text-sm outline-none text-center border-r border-soft-border ${row.fromVariation ? 'bg-blue-50 dark:bg-trust-blue/20 text-trust-blue font-medium cursor-default' : 'bg-transparent'}`} placeholder="SKU" value={row.sku} onChange={(e) => !row.fromVariation && updateFinalStock(row.id, 'sku', e.target.value)} readOnly={!!row.fromVariation} />
                   <input className="flex-1 min-w-0 px-1 py-1 text-sm bg-transparent outline-none text-center border-r border-soft-border" placeholder="Value" value={row.value} onChange={(e) => updateFinalStock(row.id, 'value', e.target.value)} />
                   <input className="flex-1 min-w-0 px-1 py-1 text-sm bg-transparent outline-none text-center border-r border-soft-border" placeholder="Unit" value={row.unit} onChange={(e) => updateFinalStock(row.id, 'unit', e.target.value)} />
                   <input className="flex-1 min-w-0 px-1 py-1 text-sm bg-transparent outline-none text-center border-r border-soft-border" placeholder="Location" value={row.location || ''} onChange={(e) => updateFinalStock(row.id, 'location', e.target.value)} />
@@ -3963,7 +3963,7 @@ function ProductSheetContent() {
                         <tbody>
                           {finalStock.map((row) => (
                             <tr key={row.id} className="border-b">
-                              <td className="px-0.5 py-0.5"><input className={`w-full text-sm px-0.5 py-0.5 border rounded ${row.fromVariation ? 'bg-blue-50 text-trust-blue font-medium cursor-default' : ''}`} placeholder="SKU" value={row.sku} onChange={(e) => !row.fromVariation && updateFinalStock(row.id, 'sku', e.target.value)} readOnly={!!row.fromVariation} /></td>
+                              <td className="px-0.5 py-0.5"><input className={`w-full text-sm px-0.5 py-0.5 border rounded ${row.fromVariation ? 'bg-blue-50 dark:bg-trust-blue/20 text-trust-blue font-medium cursor-default' : ''}`} placeholder="SKU" value={row.sku} onChange={(e) => !row.fromVariation && updateFinalStock(row.id, 'sku', e.target.value)} readOnly={!!row.fromVariation} /></td>
                               <td className="px-0.5 py-0.5"><input className="w-full text-sm px-0.5 py-0.5 border rounded" placeholder="Value" value={row.value} onChange={(e) => updateFinalStock(row.id, 'value', e.target.value)} /></td>
                               <td className="px-0.5 py-0.5"><input className="w-full text-sm px-0.5 py-0.5 border rounded" placeholder="Unit" value={row.unit} onChange={(e) => updateFinalStock(row.id, 'unit', e.target.value)} /></td>
                               <td className="px-0.5 py-0.5 text-center">

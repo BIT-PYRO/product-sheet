@@ -216,3 +216,170 @@ input[type="number"] {
     background: white;
   }
 }
+
+/* ── Dark mode: fix hardcoded light-mode colors ── */
+@media not print {
+  /* White backgrounds — sheet headers, footers, rows, containers, dropdowns */
+  .dark .bg-white {
+    background-color: hsl(var(--background)) !important;
+  }
+  .dark .bg-white\/95 {
+    background-color: hsl(var(--background) / 0.95) !important;
+  }
+  .dark .hover\:bg-white:hover {
+    background-color: hsl(var(--muted)) !important;
+  }
+
+  /* Light gray backgrounds */
+  .dark .bg-gray-50,
+  .dark .bg-gray-100,
+  .dark .bg-gray-200 {
+    background-color: hsl(var(--muted)) !important;
+  }
+  .dark .hover\:bg-gray-50:hover,
+  .dark .hover\:bg-gray-100:hover,
+  .dark .hover\:bg-gray-200:hover {
+    background-color: hsl(var(--muted)) !important;
+  }
+  .dark .text-gray-600 {
+    color: hsl(var(--muted-foreground)) !important;
+  }
+
+  /* Light blue backgrounds (e.g. bg-blue-50 info rows) */
+  .dark .bg-blue-50 {
+    background-color: hsl(var(--primary) / 0.12) !important;
+  }
+  .dark .hover\:bg-blue-50:hover {
+    background-color: hsl(var(--primary) / 0.15) !important;
+  }
+
+  /* Light hover states used in dropdowns and action buttons */
+  .dark .hover\:bg-indigo-50:hover {
+    background-color: hsl(var(--primary) / 0.15) !important;
+  }
+  .dark .hover\:bg-red-50:hover {
+    background-color: hsl(var(--destructive) / 0.12) !important;
+  }
+  .dark .hover\:bg-emerald-50:hover {
+    background-color: hsl(142 76% 36% / 0.12) !important;
+  }
+  .dark .hover\:bg-slate-50:hover,
+  .dark .hover\:bg-slate-200:hover {
+    background-color: hsl(var(--muted)) !important;
+  }
+
+  /* Light border overrides */
+  .dark .border-slate-200 {
+    border-color: hsl(var(--border)) !important;
+  }
+
+  /* Gray borders/dividers — managers dashboard cards */
+  .dark .border-gray-200 {
+    border-color: hsl(var(--border)) !important;
+  }
+  .dark .divide-gray-200 > :not([hidden]) ~ :not([hidden]) {
+    border-color: hsl(var(--border)) !important;
+  }
+
+  /* Arbitrary blue-100 header backgrounds — workforce, job, inventory, designer sheet headers */
+  .dark .bg-\[\#dbeafe\] {
+    background-color: hsl(var(--primary) / 0.15) !important;
+  }
+  .dark .bg-\[\#bfdbfe\] {
+    background-color: hsl(var(--primary) / 0.20) !important;
+  }
+
+  /* text-black on table headers — inventory sheet header cells */
+  .dark .text-black {
+    color: hsl(var(--foreground)) !important;
+  }
+
+  /* even:bg-white — alternating table rows (e.g. order sheet) stay white in dark mode */
+  .dark .even\:bg-white:nth-child(even) {
+    background-color: hsl(var(--muted) / 0.35) !important;
+  }
+
+  /* hover:bg-white/80 — toolbar buttons with white hover */
+  .dark .hover\:bg-white\/80:hover {
+    background-color: hsl(var(--muted)) !important;
+  }
+
+  /* bg-midnight-ink filled buttons — inverts to near-white in dark mode; keep them dark */
+  .dark .bg-midnight-ink {
+    background-color: hsl(215 28% 17%) !important;
+  }
+  .dark .hover\:bg-midnight-ink\/90:hover,
+  .dark .hover\:bg-midnight-ink\/80:hover {
+    background-color: hsl(215 28% 22%) !important;
+  }
+
+  /* gradient buttons using from-midnight-ink / to-midnight-ink (e.g. Enroll Customer) */
+  .dark .from-midnight-ink {
+    --tw-gradient-from: hsl(215 28% 17%) !important;
+    --tw-gradient-to: hsl(215 28% 17% / 0) !important;
+  }
+  .dark .to-midnight-ink\/90 {
+    --tw-gradient-to: hsl(215 28% 17% / 0.9) !important;
+  }
+  .dark .hover\:from-midnight-ink:hover {
+    --tw-gradient-from: hsl(215 28% 17%) !important;
+    --tw-gradient-to: hsl(215 28% 17% / 0) !important;
+  }
+  .dark .hover\:to-midnight-ink:hover {
+    --tw-gradient-to: hsl(215 28% 17%) !important;
+  }
+
+  /* ── MUI Material UI component overrides for dark mode ── */
+  .dark .MuiPaper-root {
+    background-color: hsl(var(--background)) !important;
+    color: hsl(var(--foreground)) !important;
+  }
+  .dark .MuiPaper-root.MuiPaper-outlined {
+    border-color: hsl(var(--border)) !important;
+  }
+  .dark .MuiInputBase-root {
+    background-color: hsl(var(--muted)) !important;
+    color: hsl(var(--foreground)) !important;
+  }
+  .dark .MuiInputBase-input {
+    color: hsl(var(--foreground)) !important;
+  }
+  .dark .MuiOutlinedInput-notchedOutline {
+    border-color: hsl(var(--border)) !important;
+  }
+  .dark .MuiTypography-root {
+    color: hsl(var(--foreground)) !important;
+  }
+  .dark .MuiFormLabel-root,
+  .dark .MuiInputLabel-root {
+    color: hsl(var(--muted-foreground)) !important;
+  }
+  .dark .MuiSelect-select {
+    color: hsl(var(--foreground)) !important;
+  }
+  .dark .MuiMenuItem-root {
+    color: hsl(var(--foreground)) !important;
+  }
+  .dark .MuiMenuItem-root:hover {
+    background-color: hsl(var(--muted)) !important;
+  }
+  .dark .MuiChip-root {
+    background-color: hsl(var(--muted)) !important;
+    color: hsl(var(--foreground)) !important;
+  }
+  .dark .MuiDivider-root {
+    border-color: hsl(var(--border)) !important;
+  }
+  .dark .MuiList-root {
+    background-color: transparent !important;
+  }
+  .dark .MuiListItemButton-root:hover {
+    background-color: hsl(var(--muted)) !important;
+  }
+  .dark .MuiListItemText-primary {
+    color: hsl(var(--foreground)) !important;
+  }
+  .dark .MuiIconButton-root {
+    color: hsl(var(--foreground)) !important;
+  }
+}

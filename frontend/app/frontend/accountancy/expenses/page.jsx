@@ -30,61 +30,58 @@ export default function ExpensesListPage() {
   }, []);
 
   return (
-    <div style={{ maxWidth: 1000, margin: '0 auto', fontFamily: 'Inter, system-ui, sans-serif', padding: '20px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+    <div className="max-w-5xl mx-auto px-5 py-5 font-sans">
+      <div className="flex justify-between items-center mb-5">
         <div>
-          <h2 style={{ margin: 0, fontSize: 24, fontWeight: 700, color: '#111827' }}>Expenses</h2>
-          <p style={{ margin: '4px 0 0 0', fontSize: 14, color: '#6b7280' }}>Track and manage all business expenses.</p>
+          <h2 className="m-0 text-2xl font-bold text-midnight-ink">Expenses</h2>
+          <p className="mt-1 text-sm text-cool-gray">Track and manage all business expenses.</p>
         </div>
-        <Link 
+        <Link
           href="/accountancy/expenses/add"
-          style={{
-            background: '#2563eb', color: '#fff', padding: '10px 18px', 
-            borderRadius: 8, fontSize: 14, fontWeight: 600, textDecoration: 'none'
-          }}
+          className="px-4 py-2.5 bg-trust-blue hover:bg-deep-blue text-white rounded-lg text-sm font-semibold no-underline transition"
         >
           ＋ Add Expense
         </Link>
       </div>
 
       {error && (
-        <div style={{ padding: 12, background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 8, color: '#dc2626', marginBottom: 20, fontSize: 14 }}>
+        <div className="p-3 bg-red-50 dark:bg-red-900/15 border border-red-200 dark:border-red-800 rounded-lg text-danger mb-5 text-sm">
           {error}
         </div>
       )}
 
-      <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #e5e7eb', overflow: 'hidden' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+      <div className="bg-background border border-soft-border rounded-xl overflow-hidden">
+        <table className="w-full border-collapse text-left">
           <thead>
-            <tr style={{ background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
-              <th style={{ padding: '12px 16px', fontSize: 12, fontWeight: 600, color: '#6b7280', textTransform: 'uppercase' }}>Date</th>
-              <th style={{ padding: '12px 16px', fontSize: 12, fontWeight: 600, color: '#6b7280', textTransform: 'uppercase' }}>Category</th>
-              <th style={{ padding: '12px 16px', fontSize: 12, fontWeight: 600, color: '#6b7280', textTransform: 'uppercase' }}>Account</th>
-              <th style={{ padding: '12px 16px', fontSize: 12, fontWeight: 600, color: '#6b7280', textTransform: 'uppercase' }}>Description</th>
-              <th style={{ padding: '12px 16px', fontSize: 12, fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', textAlign: 'right' }}>Amount</th>
+            <tr className="bg-cloud-gray border-b border-soft-border">
+              <th className="px-4 py-3 text-xs font-semibold text-cool-gray uppercase">Date</th>
+              <th className="px-4 py-3 text-xs font-semibold text-cool-gray uppercase">Category</th>
+              <th className="px-4 py-3 text-xs font-semibold text-cool-gray uppercase">Account</th>
+              <th className="px-4 py-3 text-xs font-semibold text-cool-gray uppercase">Description</th>
+              <th className="px-4 py-3 text-xs font-semibold text-cool-gray uppercase text-right">Amount</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan="5" style={{ padding: '24px', textAlign: 'center', color: '#6b7280', fontSize: 14 }}>Loading expenses...</td>
+                <td colSpan="5" className="px-4 py-6 text-center text-cool-gray text-sm">Loading expenses...</td>
               </tr>
             ) : expenses.length === 0 ? (
               <tr>
-                <td colSpan="5" style={{ padding: '24px', textAlign: 'center', color: '#6b7280', fontSize: 14 }}>No expenses found. Click 'Add Expense' to create one.</td>
+                <td colSpan="5" className="px-4 py-6 text-center text-cool-gray text-sm">No expenses found. Click &apos;Add Expense&apos; to create one.</td>
               </tr>
             ) : (
               expenses.map((exp) => (
-                <tr key={exp.id} style={{ borderBottom: '1px solid #e5e7eb' }}>
-                  <td style={{ padding: '14px 16px', fontSize: 14, color: '#111827' }}>{exp.date}</td>
-                  <td style={{ padding: '14px 16px', fontSize: 14, color: '#111827', fontWeight: 500 }}>
-                    <span style={{ display: 'inline-block', padding: '2px 8px', background: '#e0e7ff', color: '#4338ca', borderRadius: 12, fontSize: 12 }}>
+                <tr key={exp.id} className="border-b border-soft-border last:border-0 hover:bg-muted transition">
+                  <td className="px-4 py-3.5 text-sm text-midnight-ink">{exp.date}</td>
+                  <td className="px-4 py-3.5 text-sm text-midnight-ink font-medium">
+                    <span className="inline-block px-2 py-0.5 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 rounded-full text-xs">
                       {exp.category_name}
                     </span>
                   </td>
-                  <td style={{ padding: '14px 16px', fontSize: 14, color: '#374151' }}>{exp.account_name}</td>
-                  <td style={{ padding: '14px 16px', fontSize: 14, color: '#4b5563' }}>{exp.description}</td>
-                  <td style={{ padding: '14px 16px', fontSize: 15, color: '#111827', fontWeight: 700, textAlign: 'right' }}>
+                  <td className="px-4 py-3.5 text-sm text-slate-text">{exp.account_name}</td>
+                  <td className="px-4 py-3.5 text-sm text-cool-gray">{exp.description}</td>
+                  <td className="px-4 py-3.5 text-[15px] text-midnight-ink font-bold text-right">
                     ₹{Number(exp.amount).toFixed(2)}
                   </td>
                 </tr>
