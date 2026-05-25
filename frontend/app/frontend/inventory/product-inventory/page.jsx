@@ -859,7 +859,7 @@ export default function ProductInventoryPage() {
               <select
                 value={receiveForm.productId}
                 onChange={(e) => setReceiveForm((prev) => ({ ...prev, productId: e.target.value }))}
-                className="w-full rounded-md border border-soft-border  "bg-background$($args[0].Groups[1].Value)"  px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                className="w-full rounded-md border border-soft-border bg-background px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
               >
                 <option value="">Select product</option>
                 {data.map((r) => (
@@ -872,7 +872,7 @@ export default function ProductInventoryPage() {
               <select
                 value={receiveForm.employeeVendorName}
                 onChange={(e) => setReceiveForm((prev) => ({ ...prev, employeeVendorName: e.target.value }))}
-                className="w-full rounded-md border border-soft-border  "bg-background$($args[0].Groups[1].Value)"  px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                className="w-full rounded-md border border-soft-border bg-background px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
               >
                 <option value="">Select person</option>
                 {workforceMembers.map((m) => (
@@ -923,7 +923,7 @@ export default function ProductInventoryPage() {
               <select
                 value={receiveForm.usage}
                 onChange={(e) => setReceiveForm((prev) => ({ ...prev, usage: e.target.value }))}
-                className="w-full rounded-md border border-soft-border  "bg-background$($args[0].Groups[1].Value)"  px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                className="w-full rounded-md border border-soft-border bg-background px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
               >
                 <option value="new">New</option>
                 <option value="used">Used</option>
@@ -949,7 +949,7 @@ export default function ProductInventoryPage() {
               <select
                 value={issueForm.productId}
                 onChange={(e) => setIssueForm((prev) => ({ ...prev, productId: e.target.value }))}
-                className="w-full rounded-md border border-soft-border  "bg-background$($args[0].Groups[1].Value)"  px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                className="w-full rounded-md border border-soft-border bg-background px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
               >
                 <option value="">Select product</option>
                 {data.map((r) => (
@@ -969,7 +969,7 @@ export default function ProductInventoryPage() {
                     const num = Number(val);
                     setIssueForm((prev) => ({ ...prev, quantity: String(Number.isFinite(num) ? Math.max(0, num) : 0) }));
                   }}
-                  className="w-full rounded-md border border-soft-border  "bg-background$($args[0].Groups[1].Value)"  px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                  className="w-full rounded-md border border-soft-border bg-background px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
                 />
               </div>
               <div className="flex flex-col gap-1">
@@ -977,7 +977,7 @@ export default function ProductInventoryPage() {
                 <select
                   value={issueForm.issuedTo}
                   onChange={(e) => setIssueForm((prev) => ({ ...prev, issuedTo: e.target.value }))}
-                  className="w-full rounded-md border border-soft-border  "bg-background$($args[0].Groups[1].Value)"  px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                  className="w-full rounded-md border border-soft-border bg-background px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
                 >
                   <option value="">Select person</option>
                   {workforceMembers.map((m) => (
@@ -990,7 +990,7 @@ export default function ProductInventoryPage() {
                 <select
                   value={issueForm.issuedBy}
                   onChange={(e) => setIssueForm((prev) => ({ ...prev, issuedBy: e.target.value }))}
-                  className="w-full rounded-md border border-soft-border  "bg-background$($args[0].Groups[1].Value)"  px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                  className="w-full rounded-md border border-soft-border bg-background px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
                 >
                   <option value="">Select person</option>
                   {workforceMembers.map((m) => (
@@ -1008,12 +1008,12 @@ export default function ProductInventoryPage() {
                 type="text"
                 value={issueForm.reason}
                 onChange={(e) => setIssueForm((prev) => ({ ...prev, reason: e.target.value }))}
-                className="w-full rounded-md border border-soft-border  "bg-background$($args[0].Groups[1].Value)"  px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                className="w-full rounded-md border border-soft-border bg-background px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
               />
             </div>
           </div>
           <div className="mt-5 flex justify-end gap-3">
-            <button type="button" onClick={() => setIssueOpen(false)} className="inline-flex items-center gap-2 rounded-lg border border-soft-border  "bg-background$($args[0].Groups[1].Value)"  px-3 py-2 text-sm font-medium text-midnight-ink hover:border-trust-blue transition">
+            <button type="button" onClick={() => setIssueOpen(false)} className="inline-flex items-center gap-2 rounded-lg border border-soft-border bg-background px-3 py-2 text-sm font-medium text-midnight-ink hover:border-trust-blue transition">
               Cancel
             </button>
             <button type="button" onClick={createIssueRequest} className="rounded-lg border border-trust-blue bg-trust-blue px-3 py-2 text-sm font-semibold text-white hover:opacity-95 transition">
@@ -1072,7 +1072,7 @@ export default function ProductInventoryPage() {
       {requestsPanelOpen && (
         <>
           <div className="fixed inset-0 z-[75] bg-black/20" onClick={() => setRequestsPanelOpen(false)} />
-          <aside className="fixed right-2 top-[64px] z-[80] h-[calc(100vh-72px)] w-full max-w-[390px] rounded-2xl border border-soft-border  "bg-background$($args[0].Groups[1].Value)"  shadow-2xl">
+          <aside className="fixed right-2 top-[64px] z-[80] h-[calc(100vh-72px)] w-full max-w-[390px] rounded-2xl border border-soft-border bg-background shadow-2xl">
             <div className="flex h-full flex-col">
               <div className="flex items-center justify-between border-b border-soft-border px-4 py-3">
                 <div>
@@ -1124,7 +1124,7 @@ export default function ProductInventoryPage() {
         <div className="mb-4 flex justify-end">
           <Link
             href="/inventory"
-            className="inline-flex items-center gap-2 rounded-lg border border-soft-border  "bg-background$($args[0].Groups[1].Value)"  px-3 py-2 text-sm font-medium text-midnight-ink hover:border-trust-blue transition"
+            className="inline-flex items-center gap-2 rounded-lg border border-soft-border bg-background px-3 py-2 text-sm font-medium text-midnight-ink hover:border-trust-blue transition"
           >
             <ArrowLeft className="h-4 w-4" />
             Back
@@ -1132,7 +1132,7 @@ export default function ProductInventoryPage() {
         </div>
 
         {/* Fixed Header */}
-        <div className="fixed top-0 left-0 right-0 z-[60]  "bg-background$($args[0].Groups[1].Value)"  py-2 border-b border-soft-border shadow-sm backdrop-blur px-3 md:px-4">
+        <div className="fixed top-0 left-0 right-0 z-[60] bg-background/95 py-2 border-b border-soft-border shadow-sm backdrop-blur px-3 md:px-4">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3 shrink-0">
               <MasterNavigationDrawer inHeader />
@@ -1203,7 +1203,7 @@ export default function ProductInventoryPage() {
               <Download className="w-3.5 h-3.5" /> Export <ChevronDown className="w-3.5 h-3.5" />
             </Button>
             {exportMenuOpen && (
-              <div className="absolute right-0 top-9 z-30 w-52 rounded-lg  "bg-background$($args[0].Groups[1].Value)"  shadow-lg border border-soft-border py-1">
+              <div className="absolute right-0 top-9 z-30 w-52 rounded-lg bg-background shadow-lg border border-soft-border py-1">
                 <button type="button" onClick={exportToExcel} className="w-full px-4 py-2 text-sm text-midnight-ink hover:bg-cloud-gray text-left">Export as Excel (.xlsx)</button>
                 <button type="button" onClick={exportToPDF} className="w-full px-4 py-2 text-sm text-midnight-ink hover:bg-cloud-gray text-left">Export as PDF</button>
               </div>
@@ -1259,7 +1259,7 @@ export default function ProductInventoryPage() {
               placeholder="Search"
               value={searchTerm}
               onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
-              className="h-8 text-sm w-36  "bg-background$($args[0].Groups[1].Value)"  rounded-md border border-trust-blue/40 px-3"
+              className="h-8 text-sm w-36 bg-background rounded-md border border-trust-blue/40 px-3"
             />
             <MultiselectFilterPopover
               label="Unit"
@@ -1317,7 +1317,7 @@ export default function ProductInventoryPage() {
         )}
 
         {/* Table */}
-        <div className="border border-soft-border rounded-lg  "bg-background$($args[0].Groups[1].Value)"  overflow-hidden">
+        <div className="border border-soft-border rounded-lg bg-background overflow-hidden">
           <div className="overflow-auto max-h-[calc(100vh-220px)]">
             <table className="w-full border-separate border-spacing-0 text-sm">
               <thead className="sticky top-0 z-20 bg-blue-100 dark:bg-blue-900/20">
@@ -1395,13 +1395,13 @@ export default function ProductInventoryPage() {
       </div>
 
       {/* Fixed Footer */}
-      <div className="fixed bottom-0 left-0 right-0 z-50  "bg-background$($args[0].Groups[1].Value)"  border-t border-soft-border shadow-lg px-4 py-2 flex flex-wrap items-center justify-between gap-3 text-sm text-cool-gray">
+      <div className="fixed bottom-0 left-0 right-0 z-50 bg-background border-t border-soft-border shadow-lg px-4 py-2 flex flex-wrap items-center justify-between gap-3 text-sm text-cool-gray">
         <div className="flex items-center gap-2">
           <span>Rows per page:</span>
           <select
             value={rowsPerPage}
             onChange={(e) => { setRowsPerPage(Number(e.target.value)); setCurrentPage(1); }}
-            className="border border-soft-border rounded px-2 py-1 text-sm text-midnight-ink  "bg-background$($args[0].Groups[1].Value)" "
+            className="border border-soft-border rounded px-2 py-1 text-sm text-midnight-ink  bg-background "
           >
             {[25, 50, 75, 100].map(n => <option key={n} value={n}>{n}</option>)}
           </select>
@@ -1487,7 +1487,7 @@ function ProductRow({ row, isSelected, isEditing, editBuffer, visibleColumns, on
     const noStockSpan = ['finalSku', 'value', 'unit', 'location'].filter((key) => visibleColumns.has(key)).length;
     return (
       <tr className="hover:bg-cloud-gray">
-        <td className="border border-soft-border p-2 text-center sticky left-0 z-10  "bg-background$($args[0].Groups[1].Value)"  shadow-[2px_0_4px_-1px_rgba(0,0,0,0.08)]">
+        <td className="border border-soft-border p-2 text-center sticky left-0 z-10 bg-background shadow-[2px_0_4px_-1px_rgba(0,0,0,0.08)]">
           <Checkbox checked={isSelected} onCheckedChange={onToggleSelect} className="cursor-pointer" />
         </td>
         {visibleColumns.has('image') && <td className="border border-soft-border p-1.5"><span className="text-xs text-cool-gray">—</span></td>}
@@ -1510,7 +1510,7 @@ function ProductRow({ row, isSelected, isEditing, editBuffer, visibleColumns, on
           {/* Shared cells — only rendered once, spanning all sub-rows */}
           {idx === 0 && (
             <>
-              <td rowSpan={span} className={`border border-soft-border p-2 text-center align-middle sticky left-0 z-10 shadow-[2px_0_4px_-1px_rgba(0,0,0,0.08)] ${isEditing ? 'bg-blue-50 dark:bg-blue-900/20' : ' "bg-background$($args[0].Groups[1].Value)" '}`}>
+              <td rowSpan={span} className={`border border-soft-border p-2 text-center align-middle sticky left-0 z-10 shadow-[2px_0_4px_-1px_rgba(0,0,0,0.08)] ${isEditing ? 'bg-blue-50 dark:bg-blue-900/20' : ' bg-background '}`}>
                 <Checkbox checked={isSelected} onCheckedChange={onToggleSelect} className="cursor-pointer" disabled={isEditing} />
               </td>
               {visibleColumns.has('image') && <td rowSpan={span} className={`border border-soft-border p-1.5 align-middle ${isEditing ? 'bg-trust-blue/5' : ''}`}>

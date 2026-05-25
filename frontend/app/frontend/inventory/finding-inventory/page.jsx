@@ -61,7 +61,7 @@ function emptyFinding() {
 }
 
 function Field({ label, value, onChange, textarea = false, type = 'text', children }) {
-  const base = 'w-full rounded-md border border-soft-border px-3 py-1.5 text-sm text-midnight-ink placeholder:text-cool-gray focus:outline-none focus:ring-1 focus:ring-trust-blue  "bg-background$($args[0].Groups[1].Value)" ';
+  const base = 'w-full rounded-md border border-soft-border px-3 py-1.5 text-sm text-midnight-ink placeholder:text-cool-gray focus:outline-none focus:ring-1 focus:ring-trust-blue  bg-background ';
   return (
     <div className="flex flex-col gap-1">
       <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">{label}</label>
@@ -623,7 +623,7 @@ export default function FindingInventoryPage() {
   return (
     <main className="min-h-screen bg-cloud-gray">
       {/* Header */}
-      <div className="transition-[left,width] duration-300 ease-in-out fixed top-0 left-0 right-0 z-[60]  "bg-background$($args[0].Groups[1].Value)"  py-2 border-b border-soft-border shadow-sm backdrop-blur px-3 md:px-4">
+      <div className="transition-[left,width] duration-300 ease-in-out fixed top-0 left-0 right-0 z-[60] bg-background/95 py-2 border-b border-soft-border shadow-sm backdrop-blur px-3 md:px-4">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <MasterNavigationDrawer inHeader />
@@ -637,7 +637,7 @@ export default function FindingInventoryPage() {
       <div className="w-full px-3 md:px-4 pt-16 pb-16">
         {/* Status message */}
         {statusMsg && (
-          <div className="fixed top-16 right-4 z-50 flex items-center justify-between gap-3 rounded-lg border border-soft-border  "bg-background$($args[0].Groups[1].Value)"  px-4 py-2 text-sm text-midnight-ink shadow-md">
+          <div className="fixed top-16 right-4 z-50 flex items-center justify-between gap-3 rounded-lg border border-soft-border bg-background px-4 py-2 text-sm text-midnight-ink shadow-md">
             <span>{statusMsg}</span>
             <button onClick={() => setStatusMsg('')}><X className="h-3.5 w-3.5 text-cool-gray hover:text-midnight-ink" /></button>
           </div>
@@ -647,7 +647,7 @@ export default function FindingInventoryPage() {
         <div className="mb-4 flex justify-end">
           <Link
             href="/inventory"
-            className="inline-flex items-center gap-2 rounded-lg border border-soft-border  "bg-background$($args[0].Groups[1].Value)"  px-3 py-2 text-sm font-medium text-midnight-ink hover:border-trust-blue transition"
+            className="inline-flex items-center gap-2 rounded-lg border border-soft-border bg-background px-3 py-2 text-sm font-medium text-midnight-ink hover:border-trust-blue transition"
           >
             <ArrowLeft className="h-4 w-4" />
             Back
@@ -702,7 +702,7 @@ export default function FindingInventoryPage() {
               <Download className="w-3.5 h-3.5" /> Export <ChevronDown className="w-3.5 h-3.5" />
             </Button>
             {exportMenuOpen && (
-              <div className="absolute right-0 top-9 z-30 w-52 rounded-lg  "bg-background$($args[0].Groups[1].Value)"  shadow-lg border border-soft-border py-1">
+              <div className="absolute right-0 top-9 z-30 w-52 rounded-lg bg-background shadow-lg border border-soft-border py-1">
                 <button type="button" onClick={exportToExcel} className="w-full px-4 py-2 text-sm text-midnight-ink hover:bg-cloud-gray text-left">Export as Excel (.xlsx)</button>
                 <button type="button" onClick={exportToPDF} className="w-full px-4 py-2 text-sm text-midnight-ink hover:bg-cloud-gray text-left">Export as PDF</button>
               </div>
@@ -739,7 +739,7 @@ export default function FindingInventoryPage() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search"
-                className="h-8 text-sm w-36  "bg-background$($args[0].Groups[1].Value)"  rounded-md border border-trust-blue/40 px-3"
+                className="h-8 text-sm w-36 bg-background rounded-md border border-trust-blue/40 px-3"
               />
             </div>
 
@@ -789,7 +789,7 @@ export default function FindingInventoryPage() {
         )}
 
         {/* Table */}
-        <section className="rounded-xl border border-soft-border  "bg-background$($args[0].Groups[1].Value)"  shadow-sm overflow-hidden">
+        <section className="rounded-xl border border-soft-border bg-background shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full min-w-[900px] border-collapse text-sm">
               <thead>
@@ -857,13 +857,13 @@ export default function FindingInventoryPage() {
                           {visibleColumns.has('die_number') && <td className="border border-soft-border px-3 py-2.5"><input type="text" value={editBuffer[f.id]?.die_number ?? ''} onChange={(e) => updateEditBuffer(f.id, 'die_number', e.target.value)} className="h-8 w-full rounded border border-soft-border px-2 text-sm" /></td>}
                           {visibleColumns.has('size') && <td className="border border-soft-border px-3 py-2.5"><input type="text" value={editBuffer[f.id]?.size ?? ''} onChange={(e) => updateEditBuffer(f.id, 'size', e.target.value)} className="h-8 w-full rounded border border-soft-border px-2 text-sm" /></td>}
                           {visibleColumns.has('material') && <td className="border border-soft-border px-3 py-2.5">
-                            <select value={editBuffer[f.id]?.material ?? ''} onChange={(e) => updateEditBuffer(f.id, 'material', e.target.value)} className="h-8 w-full rounded border border-soft-border  "bg-background$($args[0].Groups[1].Value)"  px-2 text-sm">
+                            <select value={editBuffer[f.id]?.material ?? ''} onChange={(e) => updateEditBuffer(f.id, 'material', e.target.value)} className="h-8 w-full rounded border border-soft-border bg-background px-2 text-sm">
                               <option value="">Select</option>
                               {MATERIAL_OPTIONS.map((m) => <option key={m} value={m}>{m}</option>)}
                             </select>
                           </td>}
                           {visibleColumns.has('finding_stage') && <td className="border border-soft-border px-3 py-2.5">
-                            <select value={editBuffer[f.id]?.finding_stage ?? ''} onChange={(e) => updateEditBuffer(f.id, 'finding_stage', e.target.value)} className="h-8 w-full rounded border border-soft-border  "bg-background$($args[0].Groups[1].Value)"  px-2 text-sm">
+                            <select value={editBuffer[f.id]?.finding_stage ?? ''} onChange={(e) => updateEditBuffer(f.id, 'finding_stage', e.target.value)} className="h-8 w-full rounded border border-soft-border bg-background px-2 text-sm">
                               <option value="">Select</option>
                               {STAGE_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
                             </select>
@@ -940,7 +940,7 @@ export default function FindingInventoryPage() {
       {requestsPanelOpen && (
         <>
           <div className="fixed inset-0 z-[75] bg-black/20" onClick={() => setRequestsPanelOpen(false)} />
-          <aside className="fixed right-2 top-[64px] z-[80] h-[calc(100vh-72px)] w-full max-w-[390px] rounded-2xl border border-soft-border  "bg-background$($args[0].Groups[1].Value)"  shadow-2xl">
+          <aside className="fixed right-2 top-[64px] z-[80] h-[calc(100vh-72px)] w-full max-w-[390px] rounded-2xl border border-soft-border bg-background shadow-2xl">
             <div className="flex h-full flex-col">
               <div className="flex items-center justify-between border-b border-soft-border px-4 py-3">
                 <div>
@@ -1026,7 +1026,7 @@ export default function FindingInventoryPage() {
               <select
                 value={form.material}
                 onChange={(e) => ff('material')(e.target.value)}
-                className="w-full rounded-md border border-soft-border  "bg-background$($args[0].Groups[1].Value)"  px-3 py-1.5 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                className="w-full rounded-md border border-soft-border bg-background px-3 py-1.5 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
               >
                 <option value="">Select material</option>
                 {MATERIAL_OPTIONS.map((m) => <option key={m} value={m}>{m}</option>)}
@@ -1037,7 +1037,7 @@ export default function FindingInventoryPage() {
               <select
                 value={form.finding_stage}
                 onChange={(e) => ff('finding_stage')(e.target.value)}
-                className="w-full rounded-md border border-soft-border  "bg-background$($args[0].Groups[1].Value)"  px-3 py-1.5 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                className="w-full rounded-md border border-soft-border bg-background px-3 py-1.5 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
               >
                 <option value="">Select stage</option>
                 {STAGE_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
@@ -1082,7 +1082,7 @@ export default function FindingInventoryPage() {
               <select
                 value={issueForm.findingId}
                 onChange={(e) => setIssueForm((prev) => ({ ...prev, findingId: e.target.value }))}
-                className="w-full rounded-md border border-soft-border  "bg-background$($args[0].Groups[1].Value)"  px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                className="w-full rounded-md border border-soft-border bg-background px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
               >
                 <option value="">Select finding</option>
                 {findings.map((finding) => (
@@ -1110,7 +1110,7 @@ export default function FindingInventoryPage() {
                 <select
                   value={issueForm.issuedTo}
                   onChange={(e) => setIssueForm((prev) => ({ ...prev, issuedTo: e.target.value }))}
-                  className="w-full rounded-md border border-soft-border  "bg-background$($args[0].Groups[1].Value)"  px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                  className="w-full rounded-md border border-soft-border bg-background px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
                 >
                   <option value="">Select person</option>
                   {workforceMembers.map((m) => (
@@ -1123,7 +1123,7 @@ export default function FindingInventoryPage() {
                 <select
                   value={issueForm.issuedBy}
                   onChange={(e) => setIssueForm((prev) => ({ ...prev, issuedBy: e.target.value }))}
-                  className="w-full rounded-md border border-soft-border  "bg-background$($args[0].Groups[1].Value)"  px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                  className="w-full rounded-md border border-soft-border bg-background px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
                 >
                   <option value="">Select person</option>
                   {workforceMembers.map((m) => (
@@ -1161,7 +1161,7 @@ export default function FindingInventoryPage() {
               <select
                 value={receiveForm.findingId}
                 onChange={(e) => setReceiveForm((prev) => ({ ...prev, findingId: e.target.value }))}
-                className="w-full rounded-md border border-soft-border  "bg-background$($args[0].Groups[1].Value)"  px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                className="w-full rounded-md border border-soft-border bg-background px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
               >
                 <option value="">Select finding</option>
                 {findings.map((f) => (
@@ -1183,7 +1183,7 @@ export default function FindingInventoryPage() {
               <select
                 value={receiveForm.employeeVendorName}
                 onChange={(e) => setReceiveForm((prev) => ({ ...prev, employeeVendorName: e.target.value }))}
-                className="w-full rounded-md border border-soft-border  "bg-background$($args[0].Groups[1].Value)"  px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                className="w-full rounded-md border border-soft-border bg-background px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
               >
                 <option value="">Select person</option>
                 {workforceMembers.map((m) => (
@@ -1234,7 +1234,7 @@ export default function FindingInventoryPage() {
               <select
                 value={receiveForm.usage}
                 onChange={(e) => setReceiveForm((prev) => ({ ...prev, usage: e.target.value }))}
-                className="w-full rounded-md border border-soft-border  "bg-background$($args[0].Groups[1].Value)"  px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                className="w-full rounded-md border border-soft-border bg-background px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
               >
                 <option value="new">New</option>
                 <option value="used">Used</option>
@@ -1350,10 +1350,10 @@ export default function FindingInventoryPage() {
         const _tp = totalPages;
         const _sp = safePage;
         return (
-          <div className="fixed bottom-0 left-0 right-0 z-50  "bg-background$($args[0].Groups[1].Value)"  border-t border-soft-border shadow-lg px-4 py-2 flex flex-wrap items-center justify-between gap-3 text-sm text-cool-gray">
+          <div className="fixed bottom-0 left-0 right-0 z-50 bg-background border-t border-soft-border shadow-lg px-4 py-2 flex flex-wrap items-center justify-between gap-3 text-sm text-cool-gray">
             <div className="flex items-center gap-2">
               <span>Rows per page:</span>
-              <select value={rowsPerPage} onChange={(e) => { setRowsPerPage(Number(e.target.value)); setCurrentPage(1); }} className="border border-soft-border rounded px-2 py-1 text-sm text-midnight-ink  "bg-background$($args[0].Groups[1].Value)" ">
+              <select value={rowsPerPage} onChange={(e) => { setRowsPerPage(Number(e.target.value)); setCurrentPage(1); }} className="border border-soft-border rounded px-2 py-1 text-sm text-midnight-ink  bg-background ">
                 {[25, 50, 75, 100].map(n => <option key={n} value={n}>{n}</option>)}
               </select>
             </div>

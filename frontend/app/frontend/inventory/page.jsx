@@ -40,7 +40,7 @@ export default function InventoryPage() {
 
   return (
     <main className="min-h-screen bg-cloud-gray">
-      <div className="transition-[left,width] duration-300 ease-in-out fixed top-0 left-0 right-0 z-[60]  "bg-background$($args[0].Groups[1].Value)"  py-2 border-b border-soft-border shadow-sm backdrop-blur px-3 md:px-4">
+      <div className="transition-[left,width] duration-300 ease-in-out fixed top-0 left-0 right-0 z-[60] bg-background/95 py-2 border-b border-soft-border shadow-sm backdrop-blur px-3 md:px-4">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 shrink-0">
             <MasterNavigationDrawer inHeader />
@@ -61,7 +61,7 @@ export default function InventoryPage() {
             <Link
               key={item.title}
               href={item.href}
-              className="block text-left rounded-xl border border-soft-border  "bg-background$($args[0].Groups[1].Value)"  p-6 hover:border-trust-blue hover:shadow-md transition"
+              className="block text-left rounded-xl border border-soft-border bg-background p-6 hover:border-trust-blue hover:shadow-md transition"
             >
               <h2 className="text-lg font-semibold text-midnight-ink">{item.title}</h2>
               <p className="text-sm text-cool-gray mt-2">{item.subtitle}</p>
@@ -74,7 +74,7 @@ export default function InventoryPage() {
             className={`block text-left rounded-xl p-6 hover:shadow-md transition ${
               hasAlert
                 ? 'border-2 border-amber-400 bg-amber-50 hover:border-amber-500'
-                : 'border border-soft-border  "bg-background$($args[0].Groups[1].Value)"  hover:border-trust-blue'
+                : 'border border-soft-border bg-background hover:border-trust-blue'
             }`}
           >
             <div className="flex items-center gap-2 mb-1">

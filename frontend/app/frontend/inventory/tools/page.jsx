@@ -589,7 +589,7 @@ export default function ToolsInventoryPage() {
 
   return (
     <main className="min-h-screen bg-cloud-gray">
-      <div className="transition-[left,width] duration-300 ease-in-out fixed top-0 left-0 right-0 z-[60]  "bg-background$($args[0].Groups[1].Value)"  py-2 border-b border-soft-border shadow-sm backdrop-blur px-3 md:px-4">
+      <div className="transition-[left,width] duration-300 ease-in-out fixed top-0 left-0 right-0 z-[60] bg-background/95 py-2 border-b border-soft-border shadow-sm backdrop-blur px-3 md:px-4">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <MasterNavigationDrawer inHeader />
@@ -604,7 +604,7 @@ export default function ToolsInventoryPage() {
         <div className="mb-4 flex justify-end">
           <Link
             href="/inventory"
-            className="inline-flex items-center gap-2 rounded-lg border border-soft-border  "bg-background$($args[0].Groups[1].Value)"  px-3 py-2 text-sm font-medium text-midnight-ink hover:border-trust-blue transition"
+            className="inline-flex items-center gap-2 rounded-lg border border-soft-border bg-background px-3 py-2 text-sm font-medium text-midnight-ink hover:border-trust-blue transition"
           >
             <ArrowLeft className="h-4 w-4" />
             Back
@@ -665,7 +665,7 @@ export default function ToolsInventoryPage() {
             {exportMenuOpen && (
               <>
                 <div className="fixed inset-0 z-10" onClick={() => setExportMenuOpen(false)} />
-                <div className="absolute right-0 z-20 mt-1 w-44 rounded-lg border border-soft-border  "bg-background$($args[0].Groups[1].Value)"  shadow-lg py-1">
+                <div className="absolute right-0 z-20 mt-1 w-44 rounded-lg border border-soft-border bg-background shadow-lg py-1">
                   <button type="button" onClick={exportToExcel} className="w-full px-4 py-2 text-left text-sm hover:bg-muted">Export as Excel (.xlsx)</button>
                   <button type="button" onClick={exportToPDF} className="w-full px-4 py-2 text-left text-sm hover:bg-muted">Export as PDF</button>
                 </div>
@@ -702,7 +702,7 @@ export default function ToolsInventoryPage() {
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Search"
-              className="h-8 text-sm w-36  "bg-background$($args[0].Groups[1].Value)"  rounded-md border border-trust-blue/40 px-3"
+              className="h-8 text-sm w-36 bg-background rounded-md border border-trust-blue/40 px-3"
             />
             <MultiselectFilterPopover
               label="Department"
@@ -732,7 +732,7 @@ export default function ToolsInventoryPage() {
           </div>
         </section>
 
-        <section className="rounded-xl border border-soft-border  "bg-background$($args[0].Groups[1].Value)"  shadow-sm">
+        <section className="rounded-xl border border-soft-border bg-background shadow-sm">
           <div className="overflow-x-auto">
             <table className="w-full min-w-[1400px] border-collapse text-sm">
               <thead>
@@ -873,7 +873,7 @@ export default function ToolsInventoryPage() {
       {requestsPanelOpen && (
         <>
           <div className="fixed inset-0 z-[75] bg-black/20" onClick={() => setRequestsPanelOpen(false)} />
-          <aside className="fixed right-2 top-[64px] z-[80] h-[calc(100vh-72px)] w-full max-w-[390px] rounded-2xl border border-soft-border  "bg-background$($args[0].Groups[1].Value)"  shadow-2xl">
+          <aside className="fixed right-2 top-[64px] z-[80] h-[calc(100vh-72px)] w-full max-w-[390px] rounded-2xl border border-soft-border bg-background shadow-2xl">
             <div className="flex h-full flex-col">
               <div className="flex items-center justify-between border-b border-soft-border px-4 py-3">
                 <div>
@@ -956,7 +956,7 @@ export default function ToolsInventoryPage() {
               <select
                 value={issueForm.toolId}
                 onChange={(e) => setIssueForm((prev) => ({ ...prev, toolId: e.target.value }))}
-                className="w-full rounded-md border border-soft-border  "bg-background$($args[0].Groups[1].Value)"  px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                className="w-full rounded-md border border-soft-border bg-background px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
               >
                 <option value="">Select tool</option>
                 {rows.map((r) => (
@@ -1006,7 +1006,7 @@ export default function ToolsInventoryPage() {
                 <select
                   value={issueForm.issuedTo}
                   onChange={(e) => setIssueForm((prev) => ({ ...prev, issuedTo: e.target.value }))}
-                  className="w-full rounded-md border border-soft-border  "bg-background$($args[0].Groups[1].Value)"  px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                  className="w-full rounded-md border border-soft-border bg-background px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
                 >
                   <option value="">Select person</option>
                   {workforceMembers.map((m) => (
@@ -1019,7 +1019,7 @@ export default function ToolsInventoryPage() {
                 <select
                   value={issueForm.issuedBy}
                   onChange={(e) => setIssueForm((prev) => ({ ...prev, issuedBy: e.target.value }))}
-                  className="w-full rounded-md border border-soft-border  "bg-background$($args[0].Groups[1].Value)"  px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                  className="w-full rounded-md border border-soft-border bg-background px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
                 >
                   <option value="">Select person</option>
                   {workforceMembers.map((m) => (
@@ -1059,7 +1059,7 @@ export default function ToolsInventoryPage() {
               <select
                 value={receiveForm.toolId}
                 onChange={(e) => setReceiveForm((prev) => ({ ...prev, toolId: e.target.value }))}
-                className="w-full rounded-md border border-soft-border  "bg-background$($args[0].Groups[1].Value)"  px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                className="w-full rounded-md border border-soft-border bg-background px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
               >
                 <option value="">Select tool</option>
                 {rows.map((r) => (
@@ -1081,7 +1081,7 @@ export default function ToolsInventoryPage() {
               <select
                 value={receiveForm.employeeVendorName}
                 onChange={(e) => setReceiveForm((prev) => ({ ...prev, employeeVendorName: e.target.value }))}
-                className="w-full rounded-md border border-soft-border  "bg-background$($args[0].Groups[1].Value)"  px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                className="w-full rounded-md border border-soft-border bg-background px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
               >
                 <option value="">Select person</option>
                 {workforceMembers.map((m) => (
@@ -1132,7 +1132,7 @@ export default function ToolsInventoryPage() {
               <select
                 value={receiveForm.usage}
                 onChange={(e) => setReceiveForm((prev) => ({ ...prev, usage: e.target.value }))}
-                className="w-full rounded-md border border-soft-border  "bg-background$($args[0].Groups[1].Value)"  px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                className="w-full rounded-md border border-soft-border bg-background px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
               >
                 <option value="new">New</option>
                 <option value="used">Used</option>
@@ -1351,10 +1351,10 @@ export default function ToolsInventoryPage() {
         const _tp = totalPages;
         const _sp = safePage;
         return (
-          <div className="fixed bottom-0 left-0 right-0 z-50  "bg-background$($args[0].Groups[1].Value)"  border-t border-soft-border shadow-lg px-4 py-2 flex flex-wrap items-center justify-between gap-3 text-sm text-cool-gray">
+          <div className="fixed bottom-0 left-0 right-0 z-50 bg-background border-t border-soft-border shadow-lg px-4 py-2 flex flex-wrap items-center justify-between gap-3 text-sm text-cool-gray">
             <div className="flex items-center gap-2">
               <span>Rows per page:</span>
-              <select value={rowsPerPage} onChange={(e) => { setRowsPerPage(Number(e.target.value)); setCurrentPage(1); }} className="border border-soft-border rounded px-2 py-1 text-sm text-midnight-ink  "bg-background$($args[0].Groups[1].Value)" ">
+              <select value={rowsPerPage} onChange={(e) => { setRowsPerPage(Number(e.target.value)); setCurrentPage(1); }} className="border border-soft-border rounded px-2 py-1 text-sm text-midnight-ink  bg-background ">
                 {[25, 50, 75, 100].map(n => <option key={n} value={n}>{n}</option>)}
               </select>
             </div>
