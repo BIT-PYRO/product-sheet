@@ -1754,63 +1754,116 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 	@action(detail=True, methods=['get'], url_path='die-guide')
 	def die_guide(self, request, pk=None):
 		"""
-		Return die numbers for SKUs present in this job's material_rows only.
-		Each entry: { sku, die_numbers: [{ value, quantity, location }] }
+		Return a flat, deduplicated list of die codes for all SKUs in the picklist
+		this voucher belongs to (falls back to material_rows if no picklist linked).
+
+		qty_needed = sum(Product.die_numbers[i].quantity  ×  picklist_item.needed)
+		             for each product that uses that die code.
+
+		Image and location come from DieInventoryItem (looked up by die_code).
+		Each entry: { die_code, image, location, qty_needed }
 		"""
 		from products.models import Product as ProductModel
+		from inventory.models import DieInventoryItem, PicklistItem
 		from django.db.models.functions import Upper
 
 		job = self.get_object()
-		material_rows = job.material_rows or []
 
-		# Collect unique, non-empty SKUs while preserving order
-		seen = set()
-		ordered_skus = []
-		for row in material_rows:
-			sku = row.get('sku', '').strip()
-			if sku and sku.upper() not in seen:
-				seen.add(sku.upper())
-				ordered_skus.append(sku)
+		# ── 1. Build sku_needed_map: UPPER_SKU → qty needed ─────────────────
+		sku_needed_map = {}
+		if job.picklist_group_id:
+			for item in PicklistItem.objects.filter(group_id=job.picklist_group_id).only('sku', 'needed'):
+				sku = item.sku.strip()
+				if sku:
+					sku_needed_map[sku.upper()] = sku_needed_map.get(sku.upper(), 0) + (item.needed or 0)
 
-		upper_skus = [s.upper() for s in ordered_skus]
+		if not sku_needed_map:
+			# Fallback: collect from this voucher's material_rows
+			for row in (job.material_rows or []):
+				sku = row.get('sku', '').strip()
+				if sku:
+					try:
+						qty = int(row.get('issued_qty') or row.get('qty') or 1)
+					except (ValueError, TypeError):
+						qty = 1
+					sku_needed_map[sku.upper()] = sku_needed_map.get(sku.upper(), 0) + qty
 
-		# Primary lookup by master_sku
-		products_by_master = (
+		if not sku_needed_map:
+			return Response({'success': True, 'data': []})
+
+		upper_skus = list(sku_needed_map.keys())
+
+		# ── 2. Fetch Products (exact match, then variant-prefix fallback) ────
+		exact_prods = (
 			ProductModel.objects
 			.annotate(upper_sku=Upper('master_sku'))
 			.filter(upper_sku__in=upper_skus)
-			.only('master_sku', 'designer_sku', 'die_numbers')
+			.only('master_sku', 'die_numbers')
 		)
-		product_map = {p.master_sku.upper(): p for p in products_by_master}
+		products_map = {p.master_sku.upper(): p for p in exact_prods}
 
-		# Fallback: try designer_sku for unmatched
-		unmatched = [s for s in upper_skus if s not in product_map]
+		# e.g. picklist has "AJS1/G" but product master_sku is "AJS1"
+		unmatched = [s for s in upper_skus if s not in products_map and '/' in s]
 		if unmatched:
-			products_by_designer = (
+			prefix_to_variants: dict = {}
+			for s in unmatched:
+				prefix_to_variants.setdefault(s.split('/')[0], []).append(s)
+			prefix_prods = (
 				ProductModel.objects
-				.annotate(upper_designer=Upper('designer_sku'))
-				.filter(upper_designer__in=unmatched)
-				.only('master_sku', 'designer_sku', 'die_numbers')
+				.annotate(upper_sku=Upper('master_sku'))
+				.filter(upper_sku__in=prefix_to_variants.keys())
+				.only('master_sku', 'die_numbers')
 			)
-			for p in products_by_designer:
-				key = p.designer_sku.upper()
-				if key not in product_map:
-					product_map[key] = p
+			for p in prefix_prods:
+				for variant in prefix_to_variants.get(p.master_sku.upper(), []):
+					if variant not in products_map:
+						products_map[variant] = p
+
+		# ── 3. Aggregate die qty: die_code → total_qty_needed ───────────────
+		# Source of truth: Product.die_numbers[i].quantity = qty_per_piece for that SKU
+		die_qty_map: dict[str, float] = {}
+
+		for upper_sku, needed_qty in sku_needed_map.items():
+			if needed_qty <= 0:
+				continue
+			product = products_map.get(upper_sku)
+			if not product or not isinstance(product.die_numbers, list):
+				continue
+			for entry in product.die_numbers:
+				if not isinstance(entry, dict):
+					continue
+				die_code = str(entry.get('value') or '').strip()
+				if not die_code:
+					continue
+				try:
+					qty_per_piece = float(entry.get('quantity') or 0)
+				except (ValueError, TypeError):
+					qty_per_piece = 0.0
+				if qty_per_piece <= 0:
+					continue
+				die_qty_map[die_code] = die_qty_map.get(die_code, 0.0) + qty_per_piece * needed_qty
+
+		if not die_qty_map:
+			return Response({'success': True, 'data': []})
+
+		# ── 4. Fetch DieInventoryItem for image + location ───────────────────
+		die_inv_map = {
+			d.die_code: d
+			for d in DieInventoryItem.objects
+			.filter(die_code__in=die_qty_map.keys())
+			.only('die_code', 'image', 'location')
+		}
 
 		result = []
-		for sku in ordered_skus:
-			product = product_map.get(sku.upper())
-			die_numbers = []
-			if product and isinstance(product.die_numbers, list):
-				for entry in product.die_numbers:
-					if isinstance(entry, dict) and entry.get('value', '').strip():
-						die_numbers.append({
-							'value': entry.get('value', ''),
-							'quantity': entry.get('quantity', ''),
-							'location': entry.get('location', ''),
-						})
-			# Always include the SKU, even if no die numbers are recorded
-			result.append({'sku': sku, 'die_numbers': die_numbers})
+		for die_code, total_qty in die_qty_map.items():
+			inv = die_inv_map.get(die_code)
+			qty = int(total_qty) if total_qty == int(total_qty) else round(total_qty, 2)
+			result.append({
+				'die_code': die_code,
+				'image': (inv.image or '') if inv else '',
+				'location': (inv.location or '') if inv else '',
+				'qty_needed': qty,
+			})
 
 		return Response({'success': True, 'data': result})
 

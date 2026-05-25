@@ -5,8 +5,8 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
 import { Printer, X } from "lucide-react"
 
 export default function DieGuideModal({ open, onOpenChange, jobId, voucherNo = "" }) {
-  // Each entry: { sku, in_job, die_numbers: [{ value, quantity, location }] }
-  const [skuData, setSkuData] = useState([])
+  // Each entry: { die_code, image, location, quantity }
+  const [dies, setDies] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
@@ -15,13 +15,13 @@ export default function DieGuideModal({ open, onOpenChange, jobId, voucherNo = "
 
     setLoading(true)
     setError(null)
-    setSkuData([])
+    setDies([])
 
     fetch(`/frontend/api/jobs/${jobId}/die-guide/`)
       .then(r => r.json())
       .then(res => {
         if (res?.success && Array.isArray(res.data)) {
-          setSkuData(res.data)
+          setDies(res.data)
         } else {
           setError('Failed to load die guide data.')
         }
@@ -30,24 +30,15 @@ export default function DieGuideModal({ open, onOpenChange, jobId, voucherNo = "
       .finally(() => setLoading(false))
   }, [open, jobId])
 
-  const totalDies = skuData.reduce((sum, s) => sum + (s.die_numbers?.length || 0), 0)
-
   function handlePrint() {
-    const tableRows = skuData.flatMap((s) =>
-      s.die_numbers.length > 0
-        ? s.die_numbers.map((d, di) => `
-            <tr>
-              ${di === 0 ? `<td class="sku" rowspan="${s.die_numbers.length}">${s.sku}</td>` : ''}
-              <td class="center">${d.value || '—'}</td>
-              <td class="center">${d.location || '—'}</td>
-              <td class="center">${d.quantity || '—'}</td>
-            </tr>
-          `)
-        : [`<tr>
-              <td class="sku">${s.sku}</td>
-              <td colspan="3" class="center" style="color:#94a3b8;font-style:italic;">No die numbers recorded</td>
-            </tr>`]
-    ).join('')
+    const tableRows = dies.map((d, i) => `
+      <tr>
+        <td class="die-code">${d.die_code || '—'}</td>
+        <td class="center">${d.image ? `<img src="${d.image}" style="height:48px;width:48px;object-fit:contain;" />` : '—'}</td>
+        <td class="center">${d.location || '—'}</td>
+        <td class="center">${d.qty_needed != null ? d.qty_needed : '—'}</td>
+      </tr>
+    `).join('')
 
     const html = `<!DOCTYPE html>
 <html>
@@ -67,20 +58,21 @@ export default function DieGuideModal({ open, onOpenChange, jobId, voucherNo = "
     th.center { text-align: center; }
     td { padding: 4px 6px; border: 1px solid #d1d5db; vertical-align: middle; }
     td.center { text-align: center; }
-    td.sku { font-weight: 700; color: #92400e; }
+    td.die-code { font-weight: 700; color: #92400e; }
     tr:nth-child(even) td { background: #fefce8; }
+    img { display: block; margin: auto; }
   </style>
 </head>
 <body>
   <div class="page-title">Die Guide</div>
-  <div class="voucher-sub">Voucher: ${voucherNo || '—'} &nbsp;·&nbsp; ${skuData.length} SKU(s) · ${totalDies} die number(s)</div>
+  <div class="voucher-sub">Voucher: ${voucherNo || '—'} &nbsp;·&nbsp; ${dies.length} die(s)</div>
   <table>
     <thead>
       <tr>
-        <th>Master SKU</th>
-        <th class="center">Die Number</th>
+        <th>Die Code</th>
+        <th class="center" style="width:64px">Die Image</th>
         <th class="center">Location</th>
-        <th class="center" style="width:70px">Quantity</th>
+        <th class="center" style="width:70px">Qty Needed</th>
       </tr>
     </thead>
     <tbody>${tableRows}</tbody>
@@ -142,51 +134,38 @@ export default function DieGuideModal({ open, onOpenChange, jobId, voucherNo = "
             </div>
           ) : error ? (
             <p className="text-sm text-destructive text-center py-8">{error}</p>
-          ) : skuData.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-8">No products with die numbers found.</p>
+          ) : dies.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-8">No dies found for the products in this voucher.</p>
           ) : (
             <table className="w-full border-collapse text-sm">
               <thead>
                 <tr className="bg-amber-600 text-white text-xs">
-                  <th className="border border-amber-700 px-3 py-1.5 text-left">Master SKU</th>
-                  <th className="border border-amber-700 px-3 py-1.5 text-center w-40">Die Number</th>
+                  <th className="border border-amber-700 px-3 py-1.5 text-left">Die Code</th>
+                  <th className="border border-amber-700 px-3 py-1.5 text-center w-16">Die Image</th>
                   <th className="border border-amber-700 px-3 py-1.5 text-center w-40">Location</th>
-                  <th className="border border-amber-700 px-3 py-1.5 text-center w-24">Quantity</th>
+                  <th className="border border-amber-700 px-3 py-1.5 text-center w-24">Qty Needed</th>
                 </tr>
               </thead>
               <tbody>
-                {skuData.map((s, si) =>
-                  s.die_numbers.length > 0 ? (
-                    s.die_numbers.map((d, di) => (
-                      <tr key={`${s.sku}-${di}`} className={si % 2 === 0 ? 'bg-background' : 'bg-muted/30'}>
-                        {di === 0 && (
-                          <td
-                            className="border border-border px-3 py-1.5 font-bold text-amber-800 text-xs align-middle"
-                            rowSpan={s.die_numbers.length}
-                          >
-                            {s.sku}
-                          </td>
-                        )}
-                        <td className="border border-border px-3 py-1.5 text-center text-xs font-semibold">
-                          {d.value || <span className="text-muted-foreground/40">—</span>}
-                        </td>
-                        <td className="border border-border px-3 py-1.5 text-center text-xs text-gray-700">
-                          {d.location || <span className="text-muted-foreground/40">—</span>}
-                        </td>
-                        <td className="border border-border px-3 py-1.5 text-center text-xs">
-                          {d.quantity || <span className="text-muted-foreground/40">—</span>}
-                        </td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr key={s.sku} className={si % 2 === 0 ? 'bg-background' : 'bg-muted/30'}>
-                      <td className="border border-border px-3 py-1.5 font-bold text-amber-800 text-xs">{s.sku}</td>
-                      <td colSpan={3} className="border border-border px-3 py-1.5 text-center text-xs text-muted-foreground italic">
-                        No die numbers recorded
-                      </td>
-                    </tr>
-                  )
-                )}
+                {dies.map((d, i) => (
+                  <tr key={d.die_code || i} className={i % 2 === 0 ? 'bg-background' : 'bg-muted/30'}>
+                    <td className="border border-border px-3 py-1.5 font-bold text-amber-800 text-xs">
+                      {d.die_code || <span className="text-muted-foreground/40">—</span>}
+                    </td>
+                    <td className="border border-border px-1.5 py-1 text-center align-middle">
+                      {d.image
+                        ? <img src={d.image} alt={d.die_code} className="h-12 w-12 object-contain mx-auto rounded" />
+                        : <span className="text-muted-foreground/40 text-xs">—</span>
+                      }
+                    </td>
+                    <td className="border border-border px-3 py-1.5 text-center text-xs text-foreground">
+                      {d.location || <span className="text-muted-foreground/40">—</span>}
+                    </td>
+                    <td className="border border-border px-3 py-1.5 text-center text-xs font-semibold">
+                      {d.qty_needed != null ? d.qty_needed : <span className="text-muted-foreground/40">—</span>}
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           )}
