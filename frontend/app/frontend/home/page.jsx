@@ -336,16 +336,6 @@ export default function HomePage() {
                         <KeyRound className="h-3.5 w-3.5 text-cool-gray shrink-0" />
                         Account Settings
                       </a>
-                      {userInfo?.is_superuser && (
-                        <Link
-                          href="/frontend/settings/role-permissions"
-                          onClick={() => { setIsProfileDropdownOpen(false); setIsSettingsOpen(false); }}
-                          className="flex items-center gap-2.5 pl-4 pr-2 py-2 text-sm text-midnight-ink hover:bg-cloud-gray transition rounded-r-lg"
-                        >
-                          <ShieldCheck className="h-3.5 w-3.5 text-cool-gray shrink-0" />
-                          Default Role Permissions
-                        </Link>
-                      )}
                       {(userInfo?.is_superuser || ['ceo', 'chairman', 'director'].includes(myDesignation.toLowerCase().trim())) && (
                         <Link
                           href="/frontend/settings/api-keys"

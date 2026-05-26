@@ -18,9 +18,11 @@ const HRExpensesTracker = dynamic(() => import('@/components/hr/hr-expenses-trac
 const HRDiaryTracker = dynamic(() => import('@/components/hr/hr-diary-tracker'), { ssr: false });
 const HRDeptExpenses = dynamic(() => import('@/components/hr/hr-dept-expenses'), { ssr: false });
 const HROrgHierarchy = dynamic(() => import('@/components/hr/hr-org-hierarchy'), { ssr: false });
+const HRRolesPermissions = dynamic(() => import('@/components/hr/hr-roles-permissions'), { ssr: false });
 
 const SIDEBAR_ITEMS = [
   { path: 'team-directory', label: 'Team Directory', component: ManageMembersPage },
+  { path: 'roles-permissions', label: 'Roles & Permissions', component: HRRolesPermissions },
   { path: 'master-workforce-sheet', label: 'Master Workforce Sheet', component: MasterWorkforceSheet },
   { path: 'master-task-manager', label: 'Master Task Manager', component: HRMasterTaskTracker },
   { path: 'meeting-manager', label: 'Meeting Manager', component: HRMeetingManager },
