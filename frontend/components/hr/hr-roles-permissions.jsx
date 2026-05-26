@@ -43,7 +43,7 @@ function ToggleCell({ checked, onChange, color, disabled }) {
       disabled={disabled}
       onClick={() => !disabled && onChange(!checked)}
       className={`w-9 h-5 rounded-full transition-colors flex items-center px-0.5 ${
-        checked ? 'bg-trust-blue' : 'bg-[#334155]'
+        checked ? 'bg-trust-blue' : 'bg-muted-foreground/20'
       } ${disabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}
     >
       <span
@@ -64,8 +64,8 @@ function Toast({ message, type = 'success', onClose }) {
     <div
       className={`fixed bottom-6 right-6 z-[200] flex items-center gap-2.5 px-4 py-3 rounded-lg shadow-xl text-sm font-medium border ${
         type === 'success'
-          ? 'bg-[#0f2b1b] border-emerald-700 text-emerald-300'
-          : 'bg-[#2b0f0f] border-red-700 text-red-300'
+          ? 'bg-emerald-50 dark:bg-emerald-950/50 border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300'
+          : 'bg-red-50 dark:bg-red-950/50 border-red-300 dark:border-red-700 text-red-700 dark:text-red-300'
       }`}
     >
       {type === 'success'
@@ -110,19 +110,19 @@ function NewRoleModal({ departments, onClose, onCreated }) {
 
   return (
     <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div className="bg-[#0f172a] border border-[#1e3a5f] rounded-xl shadow-2xl w-full max-w-md p-6">
-        <h2 className="text-lg font-bold text-white mb-5 flex items-center gap-2">
+      <div className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-md p-6">
+        <h2 className="text-lg font-bold text-foreground mb-5 flex items-center gap-2">
           <Plus className="w-5 h-5 text-trust-blue" />
           New Custom Role
         </h2>
 
         <div className="space-y-4">
           <div>
-            <label className="block text-xs font-medium text-[#94a3b8] mb-1.5">Department *</label>
+            <label className="block text-xs font-medium text-muted-foreground mb-1.5">Department *</label>
             <select
               value={dept}
               onChange={e => setDept(e.target.value)}
-              className="w-full bg-[#1e293b] border border-[#334155] text-white text-sm rounded-lg px-3 py-2 focus:outline-none focus:border-trust-blue"
+              className="w-full bg-muted border border-border text-foreground text-sm rounded-lg px-3 py-2 focus:outline-none focus:border-trust-blue"
             >
               <option value="">Select department…</option>
               {departments.map(d => (
@@ -134,25 +134,25 @@ function NewRoleModal({ departments, onClose, onCreated }) {
 
           {dept === '__custom__' && (
             <div>
-              <label className="block text-xs font-medium text-[#94a3b8] mb-1.5">Custom Department Name *</label>
+              <label className="block text-xs font-medium text-muted-foreground mb-1.5">Custom Department Name *</label>
               <input
                 type="text"
                 placeholder="e.g. Quality Assurance"
                 value={dept === '__custom__' ? '' : dept}
                 onChange={e => setDept(e.target.value)}
-                className="w-full bg-[#1e293b] border border-[#334155] text-white text-sm rounded-lg px-3 py-2 focus:outline-none focus:border-trust-blue"
+                className="w-full bg-muted border border-border text-foreground text-sm rounded-lg px-3 py-2 focus:outline-none focus:border-trust-blue"
               />
             </div>
           )}
 
           <div>
-            <label className="block text-xs font-medium text-[#94a3b8] mb-1.5">Role / Designation Name *</label>
+            <label className="block text-xs font-medium text-muted-foreground mb-1.5">Role / Designation Name *</label>
             <input
               type="text"
               placeholder="e.g. Senior Wax Specialist"
               value={roleName}
               onChange={e => setRoleName(e.target.value)}
-              className="w-full bg-[#1e293b] border border-[#334155] text-white text-sm rounded-lg px-3 py-2 focus:outline-none focus:border-trust-blue"
+              className="w-full bg-muted border border-border text-foreground text-sm rounded-lg px-3 py-2 focus:outline-none focus:border-trust-blue"
             />
           </div>
 
@@ -166,7 +166,7 @@ function NewRoleModal({ departments, onClose, onCreated }) {
         <div className="flex gap-3 mt-6">
           <button
             onClick={onClose}
-            className="flex-1 py-2 rounded-lg border border-[#334155] text-[#94a3b8] text-sm hover:bg-[#1e293b] transition-colors"
+            className="flex-1 py-2 rounded-lg border border-border text-muted-foreground text-sm hover:bg-muted transition-colors"
           >
             Cancel
           </button>
@@ -189,13 +189,13 @@ function NewRoleModal({ departments, onClose, onCreated }) {
 function ApplyConfirmModal({ template, onClose, onConfirm, applying }) {
   return (
     <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div className="bg-[#0f172a] border border-[#1e3a5f] rounded-xl shadow-2xl w-full max-w-sm p-6">
+      <div className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-sm p-6">
         <div className="flex items-start gap-3 mb-4">
           <AlertCircle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
           <div>
-            <h3 className="text-base font-bold text-white">Apply to Members</h3>
-            <p className="text-sm text-[#94a3b8] mt-1">
-              This will overwrite individual permissions for <strong className="text-white">all active</strong>{' '}
+            <h3 className="text-base font-bold text-foreground">Apply to Members</h3>
+            <p className="text-sm text-muted-foreground mt-1">
+              This will overwrite individual permissions for <strong className="text-foreground">all active</strong>{' '}
               <span className="text-trust-blue">{template.role}</span>{template.department ? ` in ${template.department}` : ''} members.
             </p>
           </div>
@@ -204,7 +204,7 @@ function ApplyConfirmModal({ template, onClose, onConfirm, applying }) {
           <button
             onClick={onClose}
             disabled={applying}
-            className="flex-1 py-2 rounded-lg border border-[#334155] text-[#94a3b8] text-sm hover:bg-[#1e293b] transition-colors"
+            className="flex-1 py-2 rounded-lg border border-border text-muted-foreground text-sm hover:bg-muted transition-colors"
           >
             Cancel
           </button>
@@ -284,7 +284,7 @@ function PermissionMatrix({ template, modules, allModules, onSave, canEdit }) {
 
   if (!template) {
     return (
-      <div className="flex-1 flex items-center justify-center text-[#475569] text-sm">
+      <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm">
         <div className="text-center">
           <Shield className="w-12 h-12 mx-auto mb-3 opacity-20" />
           <p>Select a role from the left panel to edit its permissions.</p>
@@ -301,16 +301,16 @@ function PermissionMatrix({ template, modules, allModules, onSave, canEdit }) {
   return (
     <div className="flex-1 flex flex-col min-h-0">
       {/* Header */}
-      <div className="flex items-center justify-between px-5 py-3 border-b border-[#1e293b] shrink-0">
+      <div className="flex items-center justify-between px-5 py-3 border-b border-border shrink-0">
         <div>
-          <h3 className="text-base font-bold text-white flex items-center gap-2">
+          <h3 className="text-base font-bold text-foreground flex items-center gap-2">
             <Shield className="w-4 h-4 text-trust-blue" />
             {template.role}
             {template.department && (
-              <span className="text-xs font-normal text-[#94a3b8]">· {template.department}</span>
+              <span className="text-xs font-normal text-muted-foreground">· {template.department}</span>
             )}
           </h3>
-          <p className="text-xs text-[#64748b] mt-0.5">
+          <p className="text-xs text-muted-foreground mt-0.5">
             {modules.length} module{modules.length !== 1 ? 's' : ''} allocated to this department
           </p>
         </div>
@@ -327,10 +327,10 @@ function PermissionMatrix({ template, modules, allModules, onSave, canEdit }) {
       </div>
 
       {/* manage_members toggle */}
-      <div className="px-5 py-2.5 border-b border-[#1e293b] flex items-center justify-between shrink-0">
+      <div className="px-5 py-2.5 border-b border-border flex items-center justify-between shrink-0">
         <div>
-          <span className="text-sm font-medium text-[#e2e8f0]">Manage Members</span>
-          <p className="text-xs text-[#64748b]">Can assign/revoke permissions for team members</p>
+          <span className="text-sm font-medium text-foreground">Manage Members</span>
+          <p className="text-xs text-muted-foreground">Can assign/revoke permissions for team members</p>
         </div>
         <ToggleCell
           checked={!!template.permissions?.manage_members}
@@ -345,8 +345,8 @@ function PermissionMatrix({ template, modules, allModules, onSave, canEdit }) {
       <div className="flex-1 overflow-auto">
         <table className="w-full text-sm border-collapse">
           <thead className="sticky top-0 z-10">
-            <tr className="bg-[#0d1b2e]">
-              <th className="text-left px-5 py-2.5 text-xs font-semibold text-[#64748b] uppercase tracking-wider w-48">
+            <tr className="bg-muted">
+              <th className="text-left px-5 py-2.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider w-48">
                 Module
               </th>
               {PERM_COLS.map(c => (
@@ -354,7 +354,7 @@ function PermissionMatrix({ template, modules, allModules, onSave, canEdit }) {
                   <span className={c.color}>{c.label}</span>
                 </th>
               ))}
-              <th className="text-center px-3 py-2.5 text-xs font-semibold text-[#475569] uppercase tracking-wider w-16">
+              <th className="text-center px-3 py-2.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider w-16">
                 All
               </th>
             </tr>
@@ -368,11 +368,11 @@ function PermissionMatrix({ template, modules, allModules, onSave, canEdit }) {
               return (
                 <tr
                   key={mod.key}
-                  className={`border-b border-[#1e293b] transition-colors ${
-                    i % 2 === 0 ? 'bg-[#0f172a]' : 'bg-[#0d1521]'
-                  } hover:bg-[#142035]`}
+                  className={`border-b border-border transition-colors ${
+                    i % 2 === 0 ? 'bg-background' : 'bg-muted/20'
+                  } hover:bg-muted/40`}
                 >
-                  <td className="px-5 py-2.5 text-[#e2e8f0] font-medium">
+                  <td className="px-5 py-2.5 text-foreground font-medium">
                     <span className="flex items-center gap-1.5">
                       {isMyDesk && <span className="text-xs bg-emerald-900/50 text-emerald-400 px-1.5 py-0.5 rounded font-normal">Always</span>}
                       {mod.label}
@@ -396,7 +396,7 @@ function PermissionMatrix({ template, modules, allModules, onSave, canEdit }) {
                         onClick={() => toggleAll(mod.key)}
                         className={`text-xs px-2 py-0.5 rounded ${
                           allOn
-                            ? 'bg-[#1e293b] text-[#94a3b8] hover:bg-[#273549]'
+                            ? 'bg-muted text-muted-foreground hover:bg-muted'
                             : 'bg-trust-blue/20 text-trust-blue hover:bg-trust-blue/30'
                         } transition-colors`}
                       >
@@ -412,8 +412,8 @@ function PermissionMatrix({ template, modules, allModules, onSave, canEdit }) {
             {extraKeys.length > 0 && (
               <>
                 <tr>
-                  <td colSpan={PERM_COLS.length + 2} className="px-5 py-2 bg-[#0a1120]">
-                    <span className="text-xs text-[#475569] font-semibold uppercase tracking-wider">
+                  <td colSpan={PERM_COLS.length + 2} className="px-5 py-2 bg-muted/40">
+                    <span className="text-xs text-muted-foreground font-semibold uppercase tracking-wider">
                       Other Saved Modules
                     </span>
                   </td>
@@ -424,11 +424,11 @@ function PermissionMatrix({ template, modules, allModules, onSave, canEdit }) {
                   return (
                     <tr
                       key={key}
-                      className={`border-b border-[#1e293b] opacity-70 ${
-                        i % 2 === 0 ? 'bg-[#0f172a]' : 'bg-[#0d1521]'
+                      className={`border-b border-border opacity-70 ${
+                        i % 2 === 0 ? 'bg-background' : 'bg-muted/20'
                       }`}
                     >
-                      <td className="px-5 py-2 text-[#94a3b8] text-sm">
+                      <td className="px-5 py-2 text-muted-foreground text-sm">
                         {moduleMap[key] || key}
                       </td>
                       {PERM_COLS.map(c => (
@@ -447,7 +447,7 @@ function PermissionMatrix({ template, modules, allModules, onSave, canEdit }) {
                           <button
                             onClick={() => toggleAll(key)}
                             className={`text-xs px-2 py-0.5 rounded ${
-                              allOn ? 'bg-[#1e293b] text-[#94a3b8]' : 'bg-trust-blue/20 text-trust-blue'
+                              allOn ? 'bg-muted text-muted-foreground' : 'bg-trust-blue/20 text-trust-blue'
                             }`}
                           >
                             {allOn ? 'Off' : 'All'}
@@ -535,9 +535,11 @@ export default function HRRolesPermissions() {
       if (!match) return;
       const DES_ORDER = ['Intern','Associate','Manager','Department Head','Director','CEO','Chairman','Superuser'];
       const lvl = DES_ORDER.indexOf(match.designation || '');
+      const dept = (match.department || '').trim();
       setCurrentUserLevel(lvl);
-      // Department Head (idx=3) and above can manage roles
-      if (lvl >= 3 || match.permissions?.manage_members) setCanEdit(true);
+      // Department Head (idx=3) and above, OR HR Manager (idx=2) and above can manage roles
+      const isHrDept = dept === 'Human Resource' || dept === 'Human Resources';
+      if (lvl >= 3 || (isHrDept && lvl >= 2) || match.permissions?.manage_members) setCanEdit(true);
     } catch { /* ignore */ }
   }, []);
 
@@ -697,32 +699,32 @@ export default function HRRolesPermissions() {
   const deptKeys = Object.keys(filteredGrouped).sort();
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 bg-[#0a1120]">
+    <div className="flex-1 flex flex-col min-h-0 bg-background">
       {/* Top Bar */}
-      <div className="shrink-0 px-5 py-3 border-b border-[#1e293b] flex items-center justify-between gap-4 flex-wrap">
+      <div className="shrink-0 px-5 py-3 border-b border-border flex items-center justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-3">
           <Shield className="w-5 h-5 text-trust-blue" />
-          <h2 className="text-base font-bold text-white">Roles &amp; Permissions</h2>
-          <span className="text-xs bg-[#1e293b] text-[#64748b] px-2 py-0.5 rounded-full">
+          <h2 className="text-base font-bold text-foreground">Roles &amp; Permissions</h2>
+          <span className="text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded-full">
             {templates.length} role{templates.length !== 1 ? 's' : ''}
           </span>
         </div>
         <div className="flex items-center gap-2">
           {/* Search */}
           <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#475569]" />
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
             <input
               type="text"
               placeholder="Search roles…"
               value={searchQ}
               onChange={e => setSearchQ(e.target.value)}
-              className="pl-8 pr-3 py-1.5 bg-[#1e293b] border border-[#334155] text-white text-sm rounded-lg w-44 focus:outline-none focus:border-trust-blue placeholder-[#475569]"
+              className="pl-8 pr-3 py-1.5 bg-muted border border-border text-foreground text-sm rounded-lg w-44 focus:outline-none focus:border-trust-blue placeholder:text-muted-foreground"
             />
           </div>
           {/* Refresh */}
           <button
             onClick={() => { setLoading(true); Promise.all([loadMeta(), loadTemplates()]).finally(() => setLoading(false)); }}
-            className="p-1.5 rounded-lg border border-[#334155] text-[#64748b] hover:text-white hover:bg-[#1e293b] transition-colors"
+            className="p-1.5 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
           >
             <RefreshCw className="w-3.5 h-3.5" />
           </button>
@@ -731,7 +733,7 @@ export default function HRRolesPermissions() {
             <button
               onClick={handleSeed}
               disabled={saving}
-              className="px-3 py-1.5 rounded-lg border border-amber-700/50 text-amber-400 text-xs hover:bg-amber-900/20 transition-colors"
+              className="px-3 py-1.5 rounded-lg border border-amber-500/60 text-amber-600 dark:text-amber-400 text-xs hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors"
             >
               Seed Defaults
             </button>
@@ -751,13 +753,13 @@ export default function HRRolesPermissions() {
       {/* Body */}
       <div className="flex-1 flex min-h-0">
         {/* ── Left Panel: Saved Roles ── */}
-        <div className="w-64 shrink-0 border-r border-[#1e293b] flex flex-col min-h-0">
-          <div className="px-3 py-2 border-b border-[#1e293b]">
-            <p className="text-xs font-semibold text-[#475569] uppercase tracking-wider">Saved Roles</p>
+        <div className="w-64 shrink-0 border-r border-border flex flex-col min-h-0">
+          <div className="px-3 py-2 border-b border-border">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Saved Roles</p>
           </div>
           <div className="flex-1 overflow-y-auto py-1">
             {deptKeys.length === 0 && (
-              <p className="text-xs text-[#475569] text-center mt-8 px-4">
+              <p className="text-xs text-muted-foreground text-center mt-8 px-4">
                 {searchQ ? 'No roles match your search.' : 'No role templates yet. Click "New Custom Role" or seed defaults.'}
               </p>
             )}
@@ -778,10 +780,10 @@ export default function HRRolesPermissions() {
                   {/* Department header */}
                   <button
                     onClick={() => setExpandedDepts(p => ({ ...p, [dept]: !p[dept] }))}
-                    className="w-full flex items-center justify-between px-3 py-2 text-left hover:bg-[#0f1e30] transition-colors"
+                    className="w-full flex items-center justify-between px-3 py-2 text-left hover:bg-muted transition-colors"
                   >
-                    <span className="text-xs font-semibold text-[#94a3b8] truncate">{dept}</span>
-                    <span className="flex items-center gap-1 text-[#475569]">
+                    <span className="text-xs font-semibold text-muted-foreground truncate">{dept}</span>
+                    <span className="flex items-center gap-1 text-muted-foreground">
                       <span className="text-xs">{sorted.length}</span>
                       {isExpanded
                         ? <ChevronDown className="w-3 h-3" />
@@ -797,12 +799,12 @@ export default function HRRolesPermissions() {
                         className={`group flex items-center justify-between px-4 py-1.5 cursor-pointer transition-colors ${
                           isSelected
                             ? 'bg-trust-blue/15 border-r-2 border-trust-blue'
-                            : 'hover:bg-[#0f1e30]'
+                            : 'hover:bg-muted'
                         }`}
                         onClick={() => setSelectedTemplate(tmpl)}
                       >
                         <div className="min-w-0">
-                          <p className={`text-sm truncate ${isSelected ? 'text-white font-medium' : 'text-[#cbd5e1]'}`}>
+                          <p className={`text-sm truncate ${isSelected ? 'text-trust-blue font-medium' : 'text-foreground'}`}>
                             {tmpl.role}
                           </p>
                           {!tmpl.is_standard && (
@@ -813,7 +815,7 @@ export default function HRRolesPermissions() {
                           <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 ml-1">
                             <button
                               onClick={e => { e.stopPropagation(); handleClone(tmpl); }}
-                              className="p-1 rounded hover:bg-[#1e3a5f] text-[#64748b] hover:text-white"
+                              className="p-1 rounded hover:bg-trust-blue/10 text-muted-foreground hover:text-trust-blue"
                               title="Clone role"
                             >
                               <Copy className="w-3 h-3" />
@@ -821,7 +823,7 @@ export default function HRRolesPermissions() {
                             {!['CEO','Chairman','Superuser'].includes(tmpl.role) && (
                               <button
                                 onClick={e => { e.stopPropagation(); handleDelete(tmpl); }}
-                                className="p-1 rounded hover:bg-red-900/40 text-[#64748b] hover:text-red-400"
+                                className="p-1 rounded hover:bg-red-500/10 text-muted-foreground hover:text-red-500"
                                 title="Delete role"
                               >
                                 <Trash2 className="w-3 h-3" />
@@ -841,10 +843,10 @@ export default function HRRolesPermissions() {
         {/* ── Right Panel: Permissions ── */}
         <div className="flex-1 flex flex-col min-h-0">
           {selectedTemplate && canEdit && (
-            <div className="shrink-0 px-5 py-2 border-b border-[#1e293b] flex items-center justify-end gap-2">
+            <div className="shrink-0 px-5 py-2 border-b border-border flex items-center justify-end gap-2">
               <button
                 onClick={() => setApplyTarget(selectedTemplate)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-amber-700/50 text-amber-400 text-xs hover:bg-amber-900/20 transition-colors"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-amber-500/60 text-amber-600 dark:text-amber-400 text-xs hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors"
               >
                 <Users className="w-3.5 h-3.5" />
                 Apply to Members

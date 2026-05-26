@@ -117,7 +117,7 @@ function DeleteConfirmModal({ member, onClose, onRevoked }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
+      <div className="bg-background rounded-2xl shadow-xl w-full max-w-sm p-6">
         <h2 className="text-base font-bold text-midnight-ink mb-2">Revoke Access</h2>
         <p className="text-sm text-cool-gray mb-1">
           Are you sure you want to revoke access for <span className="font-semibold text-midnight-ink">{name}</span>?
@@ -174,7 +174,7 @@ function PermanentDeleteModal({ member, onClose, onDeleted }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
+      <div className="bg-background rounded-2xl shadow-xl w-full max-w-sm p-6">
         <h2 className="text-base font-bold text-red-600 mb-2">Permanently Delete User</h2>
         <p className="text-sm text-cool-gray mb-1">
           Are you sure you want to <span className="font-semibold text-red-600">permanently delete</span>{' '}
@@ -295,7 +295,7 @@ function PermissionsModal({ member, canEdit, isSelf, onClose, onSaved }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-3xl max-h-[90vh] flex flex-col">
+      <div className="bg-background rounded-2xl shadow-xl w-full max-w-3xl max-h-[90vh] flex flex-col">
 
         {/* Header */}
         <div className="flex items-center gap-3 px-6 py-4 border-b border-soft-border shrink-0">
@@ -619,7 +619,7 @@ export default function ManageMembersPage() {
   });
 
   return (
-    <main className="min-h-screen bg-[#F3F4F6] font-sans">
+    <main className="min-h-screen bg-muted font-sans">
       {/* Permissions modal */}
       {selectedMember && (
         <PermissionsModal
@@ -652,7 +652,7 @@ export default function ManageMembersPage() {
       {/* Enroll Workforce modal */}
       {enrollOpen && (
         <div className="fixed inset-0 z-50 flex items-start justify-center p-4 bg-black/40 backdrop-blur-sm overflow-y-auto">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-4xl my-6">
+          <div className="bg-background rounded-2xl shadow-xl w-full max-w-4xl my-6">
             <EnrolWorkforceForm
               onEnroll={handleEnrolled}
               onClose={() => setEnrollOpen(false)}
@@ -664,7 +664,7 @@ export default function ManageMembersPage() {
       {/* View / Edit member modal */}
       {viewMember && (
         <div className="fixed inset-0 z-50 flex items-start justify-center p-4 bg-black/40 backdrop-blur-sm overflow-y-auto">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-4xl my-6">
+          <div className="bg-background rounded-2xl shadow-xl w-full max-w-4xl my-6">
             <EnrolWorkforceForm
               editingId={viewMember.id}
               readOnly={true}
@@ -677,7 +677,7 @@ export default function ManageMembersPage() {
       )}
 
       {/* Top bar */}
-      <header className="bg-white border-b border-soft-border px-6 py-4 flex items-center gap-4">
+      <header className="bg-background border-b border-soft-border px-6 py-4 flex items-center gap-4">
         <Link href="/home" className="p-1.5 rounded-full hover:bg-cloud-gray transition" title="Back">
           <ArrowLeft className="h-5 w-5 text-midnight-ink" />
         </Link>
@@ -694,7 +694,7 @@ export default function ManageMembersPage() {
               placeholder="Search members"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 rounded-lg border border-soft-border bg-white text-sm text-midnight-ink placeholder-cool-gray focus:outline-none focus:ring-2 focus:ring-trust-blue"
+              className="w-full pl-9 pr-4 py-2 rounded-lg border border-soft-border bg-background text-sm text-midnight-ink placeholder-cool-gray focus:outline-none focus:ring-2 focus:ring-trust-blue"
             />
           </div>
           <div className="flex items-center gap-3">
@@ -717,7 +717,7 @@ export default function ManageMembersPage() {
                 <Download className="h-4 w-4" /> Export <ChevronDown className="h-4 w-4" />
               </button>
               {exportMenuOpen && (
-                <div className="absolute right-0 top-10 z-30 w-52 rounded-lg bg-white shadow-lg border border-soft-border py-1">
+                <div className="absolute right-0 top-10 z-30 w-52 rounded-lg bg-background shadow-lg border border-soft-border py-1">
                   <button type="button" onClick={exportToExcel} className="w-full px-4 py-2 text-sm text-midnight-ink hover:bg-cloud-gray text-left">Export as Excel (.xlsx)</button>
                   <button type="button" onClick={exportToPDF} className="w-full px-4 py-2 text-sm text-midnight-ink hover:bg-cloud-gray text-left">Export as PDF</button>
                 </div>
@@ -740,7 +740,7 @@ export default function ManageMembersPage() {
                     : val === 'active'
                     ? 'bg-emerald-500 text-white'
                     : 'bg-trust-blue text-white'
-                  : 'bg-white border border-soft-border text-cool-gray hover:bg-cloud-gray'
+                  : 'bg-background border border-soft-border text-cool-gray hover:bg-cloud-gray'
               }`}
             >
               {label}
@@ -767,7 +767,7 @@ export default function ManageMembersPage() {
         )}
 
         {/* Table card */}
-        <div className="bg-white rounded-xl border border-soft-border overflow-hidden shadow-sm">
+        <div className="bg-background rounded-xl border border-soft-border overflow-hidden shadow-sm">
           {/* Column header */}
           <div className="px-5 py-3 border-b border-soft-border">
             <span className="text-sm font-bold text-midnight-ink">Member</span>

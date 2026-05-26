@@ -85,7 +85,7 @@ DEPT_MODULE_MAP = {
         'managers-dashboard', 'drafts', 'my-desk', 'hr-section', 'accountancy',
     ],
     'Human Resource': [
-        'enrol-workforce', 'master-workforce-sheet', 'hr-section', 'my-desk',
+        'enrol-workforce', 'master-workforce-sheet', 'hr-section', 'managers-dashboard', 'my-desk',
     ],
     'Production': [
         'product-sheet', 'master-product-sheet', 'finding-entry', 'finding-sheet',
@@ -168,7 +168,12 @@ def build_default_permissions(designation, department):
             if m['key'] not in sheets:
                 sheets[m['key']] = perm_fn()
 
-    manage_members = lvl >= DESIGNATION_LEVEL.get('Department Head', 3)
+    # HR department: Manager and above can manage team members & role templates
+    is_hr_dept = department in ('Human Resource', 'Human Resources')
+    if is_hr_dept:
+        manage_members = lvl >= DESIGNATION_LEVEL.get('Manager', 2)
+    else:
+        manage_members = lvl >= DESIGNATION_LEVEL.get('Department Head', 3)
     return {'sheets': sheets, 'manage_members': manage_members}
 
 
@@ -185,7 +190,11 @@ def _can_manage_roles(request):
         member = WorkforceMember.objects.filter(email__iexact=request.user.email).first()
         if member:
             lvl = DESIGNATION_LEVEL.get((member.designation or '').strip(), -1)
+            dept = (member.department or '').strip()
             if lvl >= DESIGNATION_LEVEL.get('Department Head', 3):
+                return True
+            # HR Manager and above can manage roles and team directory
+            if dept in ('Human Resource', 'Human Resources') and lvl >= DESIGNATION_LEVEL.get('Manager', 2):
                 return True
             if member.permissions and member.permissions.get('manage_members'):
                 return True
