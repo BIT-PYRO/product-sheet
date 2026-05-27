@@ -25,6 +25,22 @@ class DesignerSheetViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
     filterset_fields = ['is_active', 'sku']
     search_fields = ['sku', 'motive_code', 'motive_sku']
 
+    def get_serializer_class(self):
+        if self.action == 'list':
+            from .serializers import DesignerSheetListSerializer
+            return DesignerSheetListSerializer
+        return DesignerSheetSerializer
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        if self.action == 'list':
+            qs = qs.defer(
+                'rendered_photo', 'technical_drawing', 'designer_image_2', 'designer_image_3',
+                'image', 'tdm_file', 'stl_file', 'tdm_status', 'stl_status',
+                'render_status', 'print_3d_status', 'die_entries',
+            )
+        return qs
+
     @extend_schema(summary='Upload photo for designer sheet', tags=['Designers'])
     @action(detail=True, methods=['post'], url_path='upload-photo', parser_classes=[MultiPartParser])
     def upload_photo(self, request, pk=None):

@@ -69,3 +69,21 @@ class DesignerSheetSerializer(serializers.ModelSerializer):
     class Meta:
         model = DesignerSheet
         fields = '__all__'
+
+
+class DesignerSheetListSerializer(serializers.ModelSerializer):
+    """Lean serializer for designer sheet list responses.
+
+    This avoids returning large raw image/base64 payloads and other
+    non-essential fields when loading the master designer sheet.
+    """
+    class Meta:
+        model = DesignerSheet
+        fields = [
+            'id', 'sku', 'design_stage', 'motive_code', 'motive_sku',
+            'total_die_code', 'total_mold_qty_per_die', 'total_cpx_dead_weight',
+            'total_design_measurements', 'design_material',
+            'stone_entries', 'mechanism', 'findings_entries', 'plating_entries',
+            'setting_type', 'enamel', 'tracking_rows', 'designer_notes',
+            'is_active',
+        ]
