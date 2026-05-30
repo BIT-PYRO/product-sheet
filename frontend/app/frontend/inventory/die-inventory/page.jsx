@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, ChevronDown, Download, Pencil, Plus, Printer, RefreshCw, Trash2, X } from 'lucide-react';
 import * as XLSX from 'xlsx';
-import SortPopover from '@/components/sort-popover';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
 import LastUpdatedFooter from '@/components/last-updated-footer';
 import DeletionHistoryDrawer from '@/components/deletion-history-drawer';
@@ -18,6 +17,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { fmtNum } from '@/lib/utils';
 import GlobalSearchBar from '@/components/global-search-bar';
@@ -728,20 +733,24 @@ export default function DieInventoryPage() {
             <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${syncing ? 'animate-spin' : ''}`} />
             {syncing ? 'Syncing…' : 'Sync from Sheets'}
           </Button>
-          <SortPopover
-            columns={[
-              { id: 'die_code', label: 'Die Code' },
-              { id: 'quantity', label: 'Quantity' },
-              { id: 'wax_piece_qty', label: 'Wax Piece Qty' },
-              { id: 'wax_setting_qty', label: 'Wax Setting Qty' },
-              { id: 'casting_qty', label: 'Casting Qty' },
-              { id: 'location', label: 'Location' },
-            ]}
-            sortField={sortField}
-            sortDir={sortDir}
-            onSort={handleSort}
-            onClear={() => { setSortField(''); setSortDir('asc'); }}
-          />
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8">
+                {sortField === '' ? 'Sort ▾' :
+                 sortField === 'die_code' && sortDir === 'asc' ? 'A → Z ▾' :
+                 sortField === 'die_code' && sortDir === 'desc' ? 'Z → A ▾' :
+                 sortField === 'id' && sortDir === 'desc' ? 'Newest ▾' :
+                 sortField === 'id' && sortDir === 'asc' ? 'Oldest ▾' : 'Sort ▾'}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => { setSortField('die_code'); setSortDir('asc'); setCurrentPage(1); }}>A → Z (Ascending)</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => { setSortField('die_code'); setSortDir('desc'); setCurrentPage(1); }}>Z → A (Descending)</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => { setSortField('id'); setSortDir('desc'); setCurrentPage(1); }}>Newest First</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => { setSortField('id'); setSortDir('asc'); setCurrentPage(1); }}>Oldest First</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => { setSortField(''); setSortDir('asc'); setCurrentPage(1); }}>Default Order</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
 
         {/* Inline edit action bar */}
