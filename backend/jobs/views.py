@@ -1,4 +1,4 @@
-﻿import uuid
+import uuid
 from django.db import transaction
 from django.db.models import Sum, Q
 from django.utils import timezone
@@ -1851,16 +1851,74 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 			d.die_code: d
 			for d in DieInventoryItem.objects
 			.filter(die_code__in=die_qty_map.keys())
-			.only('die_code', 'image', 'location')
+			.only('die_code', 'image', 'location', 'designer_skus')
 		}
+
+		def make_absolute(url):
+			"""Turn a relative /media/... path into an absolute URL."""
+			if not url:
+				return None
+			if isinstance(url, dict):
+				# Handle images stored as {url: "..."} objects
+				url = url.get('url') or url.get('src') or ''
+			url = str(url).strip()
+			if not url:
+				return None
+			if url.startswith('http://') or url.startswith('https://') or url.startswith('data:'):
+				return url
+			return request.build_absolute_uri(url)
 
 		result = []
 		for die_code, total_qty in die_qty_map.items():
 			inv = die_inv_map.get(die_code)
 			qty = int(total_qty) if total_qty == int(total_qty) else round(total_qty, 2)
+			
+			raw_img = (inv.image or '') if inv else ''
+			imgs = []
+			if raw_img:
+				if raw_img.startswith('['):
+					try:
+						import json
+						parsed = json.loads(raw_img)
+						if isinstance(parsed, list):
+							imgs = [str(x) for x in parsed]
+						else:
+							imgs = [str(parsed)]
+					except Exception:
+						imgs = [raw_img]
+				elif ',' in raw_img:
+					imgs = [x.strip() for x in raw_img.split(',') if x.strip()]
+				else:
+					imgs = [raw_img]
+
+			# Resolve image URLs to absolute URLs
+			resolved_imgs = []
+			for img in imgs:
+				abs_img = make_absolute(img)
+				if abs_img:
+					resolved_imgs.append(abs_img)
+
+			# If no custom photos uploaded, fetch from Master Designer Sheet (fallback)
+			if not resolved_imgs and inv:
+				from designers.models import DesignerSheet
+				skus = [s for s in (inv.designer_skus or []) if s]
+				if skus:
+					seen = set()
+					sheets = DesignerSheet.objects.filter(sku__in=skus).only(
+						'sku', 'rendered_photo', 'image', 'designer_image_2', 'designer_image_3', 'technical_drawing'
+					)
+					for sheet in sheets:
+						for url in (sheet.rendered_photo, sheet.image, sheet.designer_image_2, sheet.designer_image_3, sheet.technical_drawing):
+							if url:
+								abs_url = make_absolute(url)
+								if abs_url and abs_url not in seen:
+									seen.add(abs_url)
+									resolved_imgs.append(abs_url)
+
 			result.append({
 				'die_code': die_code,
-				'image': (inv.image or '') if inv else '',
+				'image': resolved_imgs[0] if resolved_imgs else '',
+				'images': resolved_imgs,
 				'location': (inv.location or '') if inv else '',
 				'qty_needed': qty,
 			})

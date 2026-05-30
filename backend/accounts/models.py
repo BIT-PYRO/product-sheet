@@ -34,14 +34,34 @@ def generate_api_key():
     return secrets.token_urlsafe(32)
 
 
-class UserRole(models.TextChoices):
-	ADMIN = 'admin', 'Admin'
-	MANAGER = 'manager', 'Manager'
-	STAFF = 'staff', 'Staff'
+from core_permissions.roles import UserRole
 
 
 class User(AbstractUser):
-	role = models.CharField(max_length=20, choices=UserRole.choices, default=UserRole.STAFF)
+	tenant = models.ForeignKey(
+		'core_tenants.Tenant',
+		on_delete=models.SET_NULL,
+		null=True,
+		blank=True,
+		related_name='users'
+	)
+	active_company = models.ForeignKey(
+		'core_tenants.Company',
+		on_delete=models.SET_NULL,
+		null=True,
+		blank=True,
+		related_name='+'
+	)
+	role = models.CharField(
+		max_length=50,
+		choices=UserRole.choices,
+		default=UserRole.STAFF
+	)
+	accessible_companies = models.ManyToManyField(
+		'core_tenants.Company',
+		related_name='accessible_users',
+		blank=True
+	)
 	is_approved = models.BooleanField(
 		default=False,
 		help_text='Approved users have full access. Unapproved users can only access their Profile page.',

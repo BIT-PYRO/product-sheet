@@ -520,11 +520,23 @@ class DieInventoryItemViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 		if getattr(self, 'action', None) == 'list':
 			try:
 				from designers.models import DesignerSheet
+				queryset = self.filter_queryset(self.get_queryset())
+				referenced_skus = set()
+				for item in queryset.only('designer_skus'):
+					if item.designer_skus:
+						for s in item.designer_skus:
+							if s:
+								referenced_skus.add(s)
+
 				sku_images: dict = {}
-				for sheet in DesignerSheet.objects.only('sku', 'image', 'designer_image_2', 'designer_image_3'):
-					urls = [u for u in (sheet.image, sheet.designer_image_2, sheet.designer_image_3) if u]
-					if urls:
-						sku_images[sheet.sku] = urls
+				if referenced_skus:
+					sheets = DesignerSheet.objects.filter(sku__in=referenced_skus).only(
+						'sku', 'rendered_photo', 'image', 'designer_image_2', 'designer_image_3', 'technical_drawing'
+					)
+					for sheet in sheets:
+						urls = [u for u in (sheet.rendered_photo, sheet.image, sheet.designer_image_2, sheet.designer_image_3, sheet.technical_drawing) if u]
+						if urls:
+							sku_images[sheet.sku] = urls
 				context['sku_images'] = sku_images
 			except Exception:
 				context['sku_images'] = {}

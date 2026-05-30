@@ -31,14 +31,34 @@ export default function DieGuideModal({ open, onOpenChange, jobId, voucherNo = "
   }, [open, jobId])
 
   function handlePrint() {
-    const tableRows = dies.map((d, i) => `
-      <tr>
-        <td class="die-code">${d.die_code || '—'}</td>
-        <td class="center">${d.image ? `<img src="${d.image}" style="height:48px;width:48px;object-fit:contain;" />` : '—'}</td>
-        <td class="center">${d.location || '—'}</td>
-        <td class="center">${d.qty_needed != null ? d.qty_needed : '—'}</td>
-      </tr>
-    `).join('')
+    const tableRows = dies.map((d, i) => {
+      let imgs = [];
+      if (d.images && d.images.length > 0) {
+        imgs = d.images;
+      } else if (d.image) {
+        if (d.image.startsWith('[')) {
+          try { imgs = JSON.parse(d.image); } catch(e) { imgs = [d.image]; }
+        } else if (d.image.includes(',')) {
+          imgs = d.image.split(',').map(s => s.trim()).filter(Boolean);
+        } else {
+          imgs = [d.image];
+        }
+      }
+      const imgsHtml = imgs.length > 0
+        ? `<div style="display:flex;flex-wrap:wrap;gap:4px;justify-content:center;">` +
+          imgs.map(src => `<img src="${src}" style="height:48px;width:48px;object-fit:contain;border:1px solid #e2e8f0;border-radius:4px;" />`).join('') +
+          `</div>`
+        : '—';
+
+      return `
+        <tr>
+          <td class="die-code">${d.die_code || '—'}</td>
+          <td class="center">${imgsHtml}</td>
+          <td class="center">${d.location || '—'}</td>
+          <td class="center">${d.qty_needed != null ? d.qty_needed : '—'}</td>
+        </tr>
+      `;
+    }).join('')
 
     const html = `<!DOCTYPE html>
 <html>
@@ -153,10 +173,30 @@ export default function DieGuideModal({ open, onOpenChange, jobId, voucherNo = "
                       {d.die_code || <span className="text-muted-foreground/40">—</span>}
                     </td>
                     <td className="border border-border px-1.5 py-1 text-center align-middle">
-                      {d.image
-                        ? <img src={d.image} alt={d.die_code} className="h-12 w-12 object-contain mx-auto rounded" />
-                        : <span className="text-muted-foreground/40 text-xs">—</span>
-                      }
+                      {(() => {
+                        let imgs = [];
+                        if (d.images && d.images.length > 0) {
+                          imgs = d.images;
+                        } else if (d.image) {
+                          if (d.image.startsWith('[')) {
+                            try { imgs = JSON.parse(d.image); } catch(e) { imgs = [d.image]; }
+                          } else if (d.image.includes(',')) {
+                            imgs = d.image.split(',').map(s => s.trim()).filter(Boolean);
+                          } else {
+                            imgs = [d.image];
+                          }
+                        }
+                        if (imgs.length === 0) {
+                          return <span className="text-muted-foreground/40 text-xs">—</span>;
+                        }
+                        return (
+                          <div className="flex flex-wrap gap-1 justify-center max-w-[120px] mx-auto">
+                            {imgs.map((src, idx) => (
+                              <img key={idx} src={src} alt={`${d.die_code} img ${idx + 1}`} className="h-12 w-12 object-contain rounded border border-amber-100 shadow-sm" />
+                            ))}
+                          </div>
+                        );
+                      })()}
                     </td>
                     <td className="border border-border px-3 py-1.5 text-center text-xs text-foreground">
                       {d.location || <span className="text-muted-foreground/40">—</span>}

@@ -7,9 +7,13 @@ from .models import APIKey, User
 @admin.register(User)
 class UserAdmin(DjangoUserAdmin):
 	fieldsets = DjangoUserAdmin.fieldsets + (
-		('Role', {'fields': ('role',)}),
+		('Role', {'fields': ('role', 'is_approved')}),
+		('SaaS Tenancy', {'fields': ('tenant', 'active_company', 'accessible_companies')}),
 	)
-	list_display = ('username', 'email', 'first_name', 'last_name', 'role', 'is_staff')
+	list_display = ('username', 'email', 'first_name', 'last_name', 'role', 'tenant', 'active_company', 'is_approved', 'is_staff')
+	list_filter = DjangoUserAdmin.list_filter + ('role', 'tenant', 'is_approved')
+	search_fields = DjangoUserAdmin.search_fields + ('tenant__name',)
+	filter_horizontal = DjangoUserAdmin.filter_horizontal + ('accessible_companies',)
 
 
 @admin.register(APIKey)

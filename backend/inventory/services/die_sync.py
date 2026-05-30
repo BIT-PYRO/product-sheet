@@ -80,17 +80,25 @@ def _build_mappings():
 
 def sync_all_dies_from_sheets() -> dict:
     """
-    Full reconcile.  Rebuilds `designer_skus` and `master_skus` on every
-    DieInventoryItem from the canonical data in DesignerSheet and Product.
+    Full reconcile.  Rebuilds `designer_skus`, `master_skus`, and merges/saves
+    design images on every DieInventoryItem from the canonical data in DesignerSheet and Product.
 
     Returns a summary dict with keys: created, updated, total_die_codes.
     """
     from inventory.models import DieInventoryItem
+    from designers.models import DesignerSheet
 
     die_to_designers, designer_to_masters, die_to_masters_direct = _build_mappings()
 
     # Union of all die codes from both sources
     all_die_codes = set(die_to_designers.keys()) | set(die_to_masters_direct.keys())
+
+    # Pre-fetch all designer sheet images to avoid N+1 queries during sync
+    designer_sku_images = {}
+    for sheet in DesignerSheet.objects.only('sku', 'rendered_photo', 'image', 'designer_image_2', 'designer_image_3', 'technical_drawing'):
+        urls = [u for u in (sheet.rendered_photo, sheet.image, sheet.designer_image_2, sheet.designer_image_3, sheet.technical_drawing) if u]
+        if urls:
+            designer_sku_images[sheet.sku] = urls
 
     created_count = updated_count = 0
 
@@ -109,20 +117,76 @@ def sync_all_dies_from_sheets() -> dict:
             new_d = sorted(d_skus)
             new_m = sorted(m_skus_from_designer | m_skus_direct)
 
-            obj, was_created = DieInventoryItem.objects.get_or_create(
-                die_code=die_code,
-                defaults={
-                    'designer_skus': new_d,
-                    'master_skus': new_m,
-                },
-            )
+            # Get or initialize the object
+            try:
+                obj = DieInventoryItem.objects.get(die_code=die_code)
+                was_created = False
+            except DieInventoryItem.DoesNotExist:
+                obj = DieInventoryItem(die_code=die_code)
+                was_created = True
+
+            # Calculate design sheet images for this die
+            design_imgs = []
+            seen = set()
+            for ds in new_d:
+                for url in designer_sku_images.get(ds, []):
+                    if url and url not in seen:
+                        seen.add(url)
+                        design_imgs.append(url)
+
+            # Parse existing image field values
+            existing_image = obj.image or ''
+            existing_imgs = []
+            if existing_image:
+                if existing_image.startswith('['):
+                    try:
+                        import json
+                        parsed = json.loads(existing_image)
+                        if isinstance(parsed, list):
+                            existing_imgs = [str(x) for x in parsed]
+                        else:
+                            existing_imgs = [str(parsed)]
+                    except Exception:
+                        existing_imgs = [existing_image]
+                elif ',' in existing_image:
+                    existing_imgs = [x.strip() for x in existing_image.split(',') if x.strip()]
+                else:
+                    existing_imgs = [existing_image]
+
+            # Merge lists, keeping existing first and appending new ones
+            merged_seen = set()
+            merged_imgs = []
+            for img in existing_imgs:
+                if img and img not in merged_seen:
+                    merged_seen.add(img)
+                    merged_imgs.append(img)
+            for img in design_imgs:
+                if img and img not in merged_seen:
+                    merged_seen.add(img)
+                    merged_imgs.append(img)
+
+            import json
+            new_image_val = json.dumps(merged_imgs) if merged_imgs else ''
+
             if was_created:
+                obj.designer_skus = new_d
+                obj.master_skus = new_m
+                obj.image = new_image_val
+                obj.save()
                 created_count += 1
             else:
-                if sorted(obj.designer_skus or []) != new_d or sorted(obj.master_skus or []) != new_m:
+                changed = False
+                if sorted(obj.designer_skus or []) != new_d:
                     obj.designer_skus = new_d
+                    changed = True
+                if sorted(obj.master_skus or []) != new_m:
                     obj.master_skus = new_m
-                    obj.save(update_fields=['designer_skus', 'master_skus', 'updated_at'])
+                    changed = True
+                if obj.image != new_image_val:
+                    obj.image = new_image_val
+                    changed = True
+                if changed:
+                    obj.save()
                     updated_count += 1
 
         # Clear auto-synced fields from items no longer referenced by any source.

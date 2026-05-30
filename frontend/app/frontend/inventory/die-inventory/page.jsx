@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
@@ -909,15 +909,26 @@ export default function DieInventoryPage() {
                             {visibleColumns.has('image') && (
                               <td className="border border-soft-border px-3 py-2" rowSpan={subRowCount}>
                                 {(() => {
-                                  const imgs = d.image ? [d.image] : (d.designer_images || []);
+                                  let imgs = [];
+                                  if (d.image) {
+                                    if (d.image.startsWith('[')) {
+                                      try { imgs = JSON.parse(d.image); } catch(e) { imgs = [d.image]; }
+                                    } else if (d.image.includes(',')) {
+                                      imgs = d.image.split(',').map(s => s.trim()).filter(Boolean);
+                                    } else {
+                                      imgs = [d.image];
+                                    }
+                                  } else {
+                                    imgs = d.designer_images || [];
+                                  }
                                   if (imgs.length === 0) {
                                     return <div className="h-10 w-10 rounded bg-cloud-gray flex items-center justify-center text-[10px] text-cool-gray">No img</div>;
                                   }
                                   return (
-                                    <div className="flex flex-wrap gap-1">
-                                      {imgs.slice(0, 3).map((src, i) => (
+                                    <div className="flex flex-wrap gap-1 max-w-[130px]">
+                                      {imgs.slice(0, 5).map((src, i) => (
                                         <a key={i} href={src} target="_blank" rel="noreferrer">
-                                          <img src={src} alt={`${d.die_code} img ${i + 1}`} className="h-10 w-10 object-cover rounded border border-soft-border hover:opacity-80 transition" />
+                                          <img src={src} alt={`${d.die_code} img ${i + 1}`} className="h-10 w-10 object-cover rounded border border-soft-border hover:opacity-80 transition shadow-sm" />
                                         </a>
                                       ))}
                                     </div>

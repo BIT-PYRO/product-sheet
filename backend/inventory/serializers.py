@@ -282,15 +282,72 @@ class DieInventoryItemSerializer(serializers.ModelSerializer):
                 return images
             # Fallback: single query (detail / other actions)
             from designers.models import DesignerSheet
-            sheets = DesignerSheet.objects.filter(sku__in=skus).only('sku', 'image', 'designer_image_2', 'designer_image_3')
+            sheets = DesignerSheet.objects.filter(sku__in=skus).only(
+                'sku', 'rendered_photo', 'image', 'designer_image_2', 'designer_image_3', 'technical_drawing'
+            )
             for sheet in sheets:
-                for url in (sheet.image, sheet.designer_image_2, sheet.designer_image_3):
+                for url in (sheet.rendered_photo, sheet.image, sheet.designer_image_2, sheet.designer_image_3, sheet.technical_drawing):
                     if url and url not in seen:
                         seen.add(url)
                         images.append(url)
             return images
         except Exception:
             return []
+
+    def _sync_images(self, instance):
+        try:
+            skus = [s for s in (instance.designer_skus or []) if s]
+            if not skus:
+                return
+            from designers.models import DesignerSheet
+            sheets = DesignerSheet.objects.filter(sku__in=skus).only(
+                'sku', 'rendered_photo', 'image', 'designer_image_2', 'designer_image_3', 'technical_drawing'
+            )
+            design_imgs = []
+            existing_image = instance.image or ''
+            existing_imgs = []
+            if existing_image:
+                if existing_image.startswith('['):
+                    try:
+                        import json
+                        parsed = json.loads(existing_image)
+                        if isinstance(parsed, list):
+                            existing_imgs = [str(x) for x in parsed]
+                        else:
+                            existing_imgs = [str(parsed)]
+                    except Exception:
+                        existing_imgs = [existing_image]
+                elif ',' in existing_image:
+                    existing_imgs = [x.strip() for x in existing_image.split(',') if x.strip()]
+                else:
+                    existing_imgs = [existing_image]
+
+            seen = set(existing_imgs)
+            for sheet in sheets:
+                for url in (sheet.rendered_photo, sheet.image, sheet.designer_image_2, sheet.designer_image_3, sheet.technical_drawing):
+                    if url and url not in seen:
+                        seen.add(url)
+                        design_imgs.append(url)
+
+            if design_imgs:
+                combined = existing_imgs + design_imgs
+                import json
+                instance.image = json.dumps(combined)
+                instance.save(update_fields=['image', 'updated_at'])
+        except Exception:
+            pass
+
+    @transaction.atomic
+    def create(self, validated_data):
+        instance = super().create(validated_data)
+        self._sync_images(instance)
+        return instance
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        instance = super().update(instance, validated_data)
+        self._sync_images(instance)
+        return instance
 
     class Meta:
         model = DieInventoryItem
