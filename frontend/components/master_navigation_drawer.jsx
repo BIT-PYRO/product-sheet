@@ -59,6 +59,7 @@ const NAV_GROUPS = [
           { href: '/inventory/stone-inventory',   label: 'Stone Inventory' },
           { href: '/inventory/finding-inventory', label: 'Finding Inventory' },
           { href: '/inventory/die-inventory',     label: 'Die Inventory' },
+          { href: '/inventory/repair-queue',      label: 'Repair Queue' },
           { href: '/inventory/others',            label: 'Others' },
           { href: '/inventory/tools',             label: 'Tools' },
           { href: '/inventory/machines',          label: 'Machines' },

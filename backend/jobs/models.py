@@ -1,4 +1,4 @@
-﻿from django.conf import settings
+from django.conf import settings
 from django.db import models
 
 from common.models import AuditModel
@@ -66,7 +66,7 @@ class Job(AuditModel):
 
 	# Voucher-specific fields
 	voucher_no = models.CharField(max_length=30, blank=True, default='', help_text='e.g. JJ-01')
-	voucher_type = models.CharField(max_length=20, blank=True, default='New', choices=[('New', 'New'), ('Re-Issue', 'Re-Issue')], help_text='New or Re-Issue voucher')
+	voucher_type = models.CharField(max_length=20, blank=True, default='New', choices=[('New', 'New'), ('Re-Issue', 'Re-Issue'), ('Repair', 'Repair')], help_text='New, Re-Issue or Repair voucher')
 	dept_from = models.CharField(max_length=100, blank=True, default='', help_text='Source department')
 	dept_to = models.CharField(max_length=100, blank=True, default='', help_text='Destination department')
 	# Each entry: {sku, category, metal, issued_qty, unit1, issued_weight, unit2}

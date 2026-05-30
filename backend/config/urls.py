@@ -60,6 +60,11 @@ urlpatterns = [
     path('api/v1/product-inventory/', include(_product_inventory_router.urls)),
     path('', include('core.mydesk.urls')),
     path('api/calendar/', include('calendar_integration.urls')),
+    # Mock external shop repair queue APIs for direct simulation
+    path('api/external/shops/<str:shop_id>/repair-queue/', include([
+        path('', lambda req, shop_id: __import__('inventory.views').views.mock_external_repair_queue(req, shop_id)),
+        path('complete/', lambda req, shop_id: __import__('inventory.views').views.mock_external_repair_queue(req, shop_id)),
+    ])),
     # Always serve media (static() is a no-op when DEBUG=False)
     re_path(r'^media/(?P<path>.*)$', media_serve, {'document_root': settings.MEDIA_ROOT}),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

@@ -6,6 +6,7 @@ from inventory.models import (
     FindingInventoryItem, FindingInventoryTransaction,
     ProductInventoryTransaction, IssueRequest,
     DieInventoryItem, DieTransaction,
+    RepairBatch, RepairItem,
 )
 
 
@@ -108,3 +109,20 @@ class DieTransactionAdmin(admin.ModelAdmin):
     list_filter = ("txn_type",)
     search_fields = ("die_code", "master_sku", "designer_sku", "issued_to", "received_from", "remark")
     date_hierarchy = "txn_date"
+
+
+@admin.register(RepairBatch)
+class RepairBatchAdmin(admin.ModelAdmin):
+    list_display = ("batch_no", "date", "confirmed", "confirmed_at", "voucher_created", "created_at")
+    list_filter = ("confirmed", "voucher_created")
+    search_fields = ("batch_no",)
+    date_hierarchy = "date"
+
+
+@admin.register(RepairItem)
+class RepairItemAdmin(admin.ModelAdmin):
+    list_display = ("repair_item_id", "product", "sku", "quantity", "repair_stage_label", "confirmed", "sent_to_repair", "batch")
+    list_filter = ("confirmed", "sent_to_repair", "repair_stage")
+    search_fields = ("product", "sku", "repair_item_id")
+    date_hierarchy = "scanned_at"
+

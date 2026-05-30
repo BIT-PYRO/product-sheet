@@ -8,6 +8,7 @@ from .models import (
     FindingInventoryItem, FindingInventoryTransaction,
     ProductInventoryTransaction, IssueRequest,
     DieInventoryItem, DieTransaction,
+    RepairBatch, RepairItem,
 )
 
 
@@ -386,3 +387,27 @@ class DieTransactionSerializer(serializers.ModelSerializer):
             'created_at', 'updated_at',
         ]
         read_only_fields = ['created_at', 'updated_at']
+
+
+class RepairBatchSerializer(serializers.ModelSerializer):
+    items_count = serializers.IntegerField(source='items.count', read_only=True)
+
+    class Meta:
+        model = RepairBatch
+        fields = ['id', 'batch_no', 'date', 'confirmed', 'confirmed_at', 'voucher_created', 'items_count', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'confirmed_at', 'created_at', 'updated_at']
+
+
+class RepairItemSerializer(serializers.ModelSerializer):
+	batch_no = serializers.CharField(source='batch.batch_no', read_only=True, default='')
+
+	class Meta:
+		model = RepairItem
+		fields = [
+			'id', 'repair_item_id', 'product', 'sku', 'variant', 'quantity',
+			'repair_stage', 'repair_stage_label', 'resolved_by', 'scanned_at',
+			'confirmed', 'confirmed_at', 'sent_to_repair', 'batch', 'batch_no',
+			'created_at', 'updated_at'
+		]
+		read_only_fields = ['id', 'confirmed_at', 'created_at', 'updated_at']
+

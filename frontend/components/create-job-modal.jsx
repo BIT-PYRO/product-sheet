@@ -148,11 +148,67 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
         })
         .catch(() => setPicklists([]))
         .finally(() => setIsPicklistLoading(false))
+    } else if (open && mode === 'repair') {
+      setIsPicklistLoading(true)
+      setSelectedPicklistId("")
+      fetch('/api/inventory/repair-batches/?confirmed=true&voucher_created=false', { cache: 'no-store' })
+        .then(r => r.json())
+        .then(result => {
+          const activeBatches = Array.isArray(result?.data) ? result.data : (result?.data?.results || [])
+          setPicklists(activeBatches.map(b => ({
+            id: b.batch_no,
+            number: b.batch_no,
+            name: `Batch Date: ${new Date(b.date).toLocaleDateString()}`,
+            items_count: b.items_count,
+            ...b
+          })))
+        })
+        .catch(() => setPicklists([]))
+        .finally(() => setIsPicklistLoading(false))
     }
   }, [open, mode])
 
   // Auto-populate SKU rows when a picklist is selected
   useEffect(() => {
+    if (mode === 'repair' && selectedPicklistId) {
+      const batch = picklists.find(b => String(b.id) === selectedPicklistId)
+      if (!batch) return
+
+      setIsPicklistLoading(true)
+      fetch(`/api/inventory/repair-queue/?batch=${batch.id}&confirmed=true`, { cache: 'no-store' })
+        .then(r => r.json())
+        .then(result => {
+          const items = Array.isArray(result?.data) ? result.data : (result?.data?.results || [])
+          const skuMap = new Map()
+          items.forEach(item => {
+            const sku = String(item.sku || '').trim()
+            if (!sku) return
+            if (skuMap.has(sku)) {
+              const existing = skuMap.get(sku)
+              existing.issuedQty = String(parseInt(existing.issuedQty) + (parseInt(item.quantity) || 1))
+            } else {
+              skuMap.set(sku, {
+                sku,
+                category: '',
+                metal: '',
+                issuedQty: String(item.quantity || 1),
+                unit1: 'Pcs',
+                issuedWeight: '',
+                unit2: ''
+              })
+            }
+          })
+          const newRows = Array.from(skuMap.values()).map((r, idx) => ({
+            id: idx + 1,
+            ...r
+          }))
+          setRows(newRows)
+        })
+        .catch(() => setRows([]))
+        .finally(() => setIsPicklistLoading(false))
+      return
+    }
+
     if ((mode !== 'all' && mode !== 'single') || !selectedPicklistId) return
     const pl = picklists.find(p => String(p.id) === selectedPicklistId)
     if (!pl || !Array.isArray(pl.items) || pl.items.length === 0) return
@@ -196,6 +252,13 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
       setDeptTo('wax-setting')
     }
   }, [selectedPicklistId, mode, picklists])
+
+  // Force voucherType to 'Repair' when in repair mode
+  useEffect(() => {
+    if (mode === 'repair') {
+      setVoucherType('Repair')
+    }
+  }, [mode])
 
   // Handle draft loading
   useEffect(() => {
@@ -407,6 +470,38 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
   ]
 
   async function handleSubmit() {
+    if (mode === 'repair') {
+      setIsBulkCreating(true)
+      try {
+        const res = await fetch('/api/jobs/create-repair-vouchers/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            batch_no: selectedPicklistId,
+            issued_to: issuedTo,
+            issued_by: issuedByName,
+            contact: issuedByContact,
+            work_type: workType,
+            schedule: scheduleFuture || null,
+            notes: noteByIssuer,
+          })
+        })
+        const result = await res.json().catch(() => null)
+        if (res.ok && result?.success) {
+          alert(result?.message || 'Successfully created repair vouchers!')
+          if (onJobCreated) onJobCreated()
+          onOpenChange(false)
+        } else {
+          alert(result?.error?.message || 'Failed to create repair vouchers.')
+        }
+      } catch {
+        alert('Network error. Failed to create repair vouchers.')
+      } finally {
+        setIsBulkCreating(false)
+      }
+      return
+    }
+
     // Bulk-create mode: one voucher per department step, ALL SKUs as material rows in each
     if (mode === 'all' || mode === 'single-pipeline') {
       const skuRows = rows.filter(r => String(r.sku || '').trim())
@@ -833,13 +928,19 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
               {/* TYPE */}
               <div className="flex flex-col gap-0.5">
                 <Label className="text-sm font-bold uppercase tracking-wide text-muted-foreground">Type</Label>
-                <Select value={voucherType} onValueChange={setVoucherType}>
+                <Select value={voucherType} onValueChange={setVoucherType} disabled={mode === 'repair'}>
                   <SelectTrigger className="h-8 px-2 py-1 text-sm bg-background border-border focus:ring-0 focus:outline-none">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="New">New</SelectItem>
-                    <SelectItem value="Re-Issue">Re-Issue</SelectItem>
+                    {mode === 'repair' ? (
+                      <SelectItem value="Repair">Repair</SelectItem>
+                    ) : (
+                      <>
+                        <SelectItem value="New">New</SelectItem>
+                        <SelectItem value="Re-Issue">Re-Issue</SelectItem>
+                      </>
+                    )}
                   </SelectContent>
                 </Select>
               </div>
@@ -861,6 +962,28 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
                       ))}
                       {picklists.length === 0 && !isPicklistLoading && (
                         <SelectItem value="__none" disabled>No picklists available</SelectItem>
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {/* REPAIR BATCH DROPDOWN - in "repair" mode */}
+              {mode === 'repair' && (
+                <div className="flex flex-col gap-0.5">
+                  <Label className="text-sm font-bold uppercase tracking-wide text-muted-foreground">Repair Batch</Label>
+                  <Select value={selectedPicklistId} onValueChange={setSelectedPicklistId}>
+                    <SelectTrigger className="h-8 px-2 py-1 text-sm bg-background border-border focus:ring-0 focus:outline-none min-w-[150px]">
+                      <SelectValue placeholder={isPicklistLoading ? "Loading..." : "Select Batch"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {picklists.map(pl => (
+                        <SelectItem key={pl.id} value={String(pl.id)}>
+                          #{pl.number} — {pl.name}
+                        </SelectItem>
+                      ))}
+                      {picklists.length === 0 && !isPicklistLoading && (
+                        <SelectItem value="__none" disabled>No active batches</SelectItem>
                       )}
                     </SelectContent>
                   </Select>
@@ -927,41 +1050,42 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
             </div>
           </div>
 
-          {/* DEPARTMENT TRANSFER — hidden for single-pipeline mode (auto-determined per SKU) */}
-          {/* DEPARTMENT TRANSFER */}
-          <div className="border border-border rounded-md px-2.5 py-1.5">
-            <div className="grid grid-cols-[1fr_auto_1fr] gap-1.5 items-end">
-              <div className="flex flex-col gap-0.5">
-                <Label className="text-sm font-medium text-muted-foreground">From</Label>
-                <Select value={deptFrom} onValueChange={setDeptFrom}>
-                  <SelectTrigger className="h-8 text-sm bg-background border-border focus:ring-0 focus:outline-none">
-                    <SelectValue placeholder="Select Department" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {jewelleryDepartments.map((dept) => (
-                      <SelectItem key={dept.value} value={dept.value}>{dept.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex items-center justify-center h-8 px-2">
-                <ArrowRight className="h-4 w-6 text-trust-blue" />
-              </div>
-              <div className="flex flex-col gap-0.5">
-                <Label className="text-sm font-medium text-muted-foreground">To</Label>
-                <Select value={deptTo} onValueChange={setDeptTo}>
-                  <SelectTrigger className="h-8 text-sm bg-background border-border focus:ring-0 focus:outline-none">
-                    <SelectValue placeholder="Select Department" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {jewelleryDepartments.map((dept) => (
-                      <SelectItem key={dept.value} value={dept.value}>{dept.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+          {/* DEPARTMENT TRANSFER — hidden for single-pipeline and repair mode */}
+          {mode !== 'repair' && (
+            <div className="border border-border rounded-md px-2.5 py-1.5">
+              <div className="grid grid-cols-[1fr_auto_1fr] gap-1.5 items-end">
+                <div className="flex flex-col gap-0.5">
+                  <Label className="text-sm font-medium text-muted-foreground">From</Label>
+                  <Select value={deptFrom} onValueChange={setDeptFrom}>
+                    <SelectTrigger className="h-8 text-sm bg-background border-border focus:ring-0 focus:outline-none">
+                      <SelectValue placeholder="Select Department" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {jewelleryDepartments.map((dept) => (
+                        <SelectItem key={dept.value} value={dept.value}>{dept.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex items-center justify-center h-8 px-2">
+                  <ArrowRight className="h-4 w-6 text-trust-blue" />
+                </div>
+                <div className="flex flex-col gap-0.5">
+                  <Label className="text-sm font-medium text-muted-foreground">To</Label>
+                  <Select value={deptTo} onValueChange={setDeptTo}>
+                    <SelectTrigger className="h-8 text-sm bg-background border-border focus:ring-0 focus:outline-none">
+                      <SelectValue placeholder="Select Department" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {jewelleryDepartments.map((dept) => (
+                        <SelectItem key={dept.value} value={dept.value}>{dept.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
           {/* SKU Table */}
           <div className="rounded-md overflow-hidden border border-border">

@@ -536,3 +536,49 @@ class DieTransaction(AuditModel):
 
 	def __str__(self):
 		return f'{self.txn_type} | {self.die_code} | {self.qty}'
+
+
+# ── Repair Queue & Repair Batches ─────────────────────────────────────────────
+
+class RepairBatch(AuditModel):
+	batch_no = models.CharField(max_length=120, unique=True, help_text="e.g. Repair-YYYY-MM-DD")
+	date = models.DateField(help_text="Confirmation/Creation date")
+	confirmed = models.BooleanField(default=False)
+	confirmed_at = models.DateTimeField(null=True, blank=True)
+	voucher_created = models.BooleanField(default=False)
+
+	class Meta:
+		ordering = ('-date', '-created_at')
+
+	def __str__(self):
+		return f'{self.batch_no} ({self.date})'
+
+
+class RepairItem(AuditModel):
+	STAGE_CHOICES = [
+		('hand_setting', 'Hand Setting'),
+		('final_polish', 'Final Polish'),
+		('plating', 'Plating'),
+	]
+
+	repair_item_id = models.IntegerField(unique=True)
+	product = models.CharField(max_length=255)
+	sku = models.CharField(max_length=60)
+	variant = models.CharField(max_length=255, blank=True, default='')
+	quantity = models.IntegerField(default=1)
+	repair_stage = models.CharField(max_length=60, choices=STAGE_CHOICES)
+	repair_stage_label = models.CharField(max_length=120)
+	resolved_by = models.CharField(max_length=255, blank=True, null=True)
+	scanned_at = models.DateTimeField(null=True, blank=True)
+
+	confirmed = models.BooleanField(default=False)
+	confirmed_at = models.DateTimeField(null=True, blank=True)
+	sent_to_repair = models.BooleanField(default=False)
+	batch = models.ForeignKey(RepairBatch, null=True, blank=True, on_delete=models.SET_NULL, related_name='items')
+
+	class Meta:
+		ordering = ('-scanned_at', '-created_at')
+
+	def __str__(self):
+		return f'{self.product} ({self.sku}) | Stage: {self.repair_stage_label} | Qty: {self.quantity}'
+

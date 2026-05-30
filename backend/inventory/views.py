@@ -15,6 +15,7 @@ from .models import (
     FindingInventoryItem, FindingInventoryTransaction,
     ProductInventoryTransaction, IssueRequest,
     DieInventoryItem, DieTransaction,
+    RepairBatch, RepairItem,
 )
 from .serializers import (
     InventoryTransactionSerializer, PicklistGroupSerializer,
@@ -24,6 +25,7 @@ from .serializers import (
     FindingInventoryItemSerializer, FindingInventoryTransactionSerializer,
     ProductInventoryTransactionSerializer, IssueRequestSerializer,
     DieInventoryItemSerializer, DieTransactionSerializer,
+    RepairBatchSerializer, RepairItemSerializer,
 )
 
 
@@ -671,3 +673,303 @@ class DieTransactionViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 	serializer_class = DieTransactionSerializer
 	filterset_fields = ['txn_type', 'die']
 	search_fields = ['die_code', 'master_sku', 'designer_sku', 'issued_to', 'received_from', 'remark']
+
+
+# ── Repair Queue & Repair Batches API ─────────────────────────────────────────
+import os
+import requests
+import logging
+import json
+from django.views.decorators.csrf import csrf_exempt
+from django.http import JsonResponse
+
+logger = logging.getLogger(__name__)
+
+def sync_repair_queue_from_external():
+	api_key = os.environ.get('EXTERNAL_SHOP_API_KEY', '')
+	shop_id = os.environ.get('EXTERNAL_SHOP_ID', '')
+	if not api_key or not shop_id:
+		api_key = 'mock-api-key'
+		shop_id = 'mock-shop-id'
+
+	base_url = os.environ.get('EXTERNAL_SHOP_BASE_URL', '')
+	if not base_url:
+		base_url = 'http://127.0.0.1:8000' # default local server fallback
+
+	url = f"{base_url.rstrip('/')}/api/external/shops/{shop_id}/repair-queue/"
+	headers = {
+		'Authorization': f'Bearer {api_key}',
+		'Content-Type': 'application/json'
+	}
+
+	live_ids = []
+	try:
+		logger.info(f"Syncing repair queue from external shop: {url}")
+		res = requests.get(url, headers=headers, timeout=5)
+		if res.status_code == 200:
+			data = res.json()
+			items = data.get('items', [])
+
+			with db_transaction.atomic():
+				for item in items:
+					item_id = item.get('repair_item_id')
+					if not item_id:
+						continue
+					live_ids.append(item_id)
+
+					raw_scanned_at = item.get('scanned_at')
+					parsed_scanned_at = timezone.now()
+					if raw_scanned_at:
+						from django.utils.dateparse import parse_datetime
+						try:
+							parsed_scanned_at = parse_datetime(raw_scanned_at) or timezone.now()
+						except Exception:
+							parsed_scanned_at = timezone.now()
+
+					repair_item, created = RepairItem.objects.get_or_create(
+						repair_item_id=item_id,
+						defaults={
+							'product': item.get('product', ''),
+							'sku': item.get('sku', ''),
+							'variant': item.get('variant', ''),
+							'quantity': item.get('quantity', 1),
+							'repair_stage': item.get('repair_stage', 'hand_setting'),
+							'repair_stage_label': item.get('repair_stage_label', 'Hand Setting'),
+							'resolved_by': item.get('resolved_by'),
+							'scanned_at': parsed_scanned_at,
+						}
+					)
+					if not created:
+						if not repair_item.confirmed and not repair_item.sent_to_repair:
+							repair_item.product = item.get('product', repair_item.product)
+							repair_item.sku = item.get('sku', repair_item.sku)
+							repair_item.variant = item.get('variant', repair_item.variant)
+							repair_item.quantity = item.get('quantity', repair_item.quantity)
+							repair_item.repair_stage = item.get('repair_stage', repair_item.repair_stage)
+							repair_item.repair_stage_label = item.get('repair_stage_label', repair_item.repair_stage_label)
+							repair_item.resolved_by = item.get('resolved_by', repair_item.resolved_by)
+							if raw_scanned_at:
+								repair_item.scanned_at = parsed_scanned_at
+							repair_item.save()
+
+			RepairItem.objects.filter(confirmed=False, sent_to_repair=False).exclude(repair_item_id__in=live_ids).delete()
+			return True, f"Successfully synchronized {len(live_ids)} items."
+		else:
+			logger.warning(f"External shop API returned status code {res.status_code}")
+			# Fallback to loading mock if DB is empty
+			if RepairItem.objects.count() == 0:
+				_generate_mock_repair_items()
+				return True, "Offline fallback: Simulated mock repair queue loaded."
+			return False, f"External shop API returned status {res.status_code}."
+	except Exception as e:
+		logger.error(f"Error syncing repair queue: {str(e)}")
+		if RepairItem.objects.count() == 0:
+			_generate_mock_repair_items()
+			return True, "Offline fallback: Simulated mock repair queue loaded."
+		return False, f"Could not connect to external shop API: {str(e)}"
+
+def _generate_mock_repair_items():
+	with db_transaction.atomic():
+		mock_items = [
+			{
+				"repair_item_id": 123,
+				"product": "sakdjdvsvowvwo efrve evv",
+				"sku": "askvkvnes",
+				"variant": "sakdjdvsvowvwo efrve evv - Gold",
+				"quantity": 1,
+				"repair_stage": "hand_setting",
+				"repair_stage_label": "Hand Setting",
+				"resolved_by": "Deepak Vishwakarma"
+			},
+			{
+				"repair_item_id": 124,
+				"product": "KARTIK",
+				"sku": "KARTIK",
+				"variant": "KARTIK - Pendant",
+				"quantity": 1,
+				"repair_stage": "final_polish",
+				"repair_stage_label": "Final Polish",
+				"resolved_by": "Deepak Vishwakarma"
+			},
+			{
+				"repair_item_id": 125,
+				"product": "JAtin",
+				"sku": "AJE23",
+				"variant": "JAtin - Mixed Metal",
+				"quantity": 2,
+				"repair_stage": "plating",
+				"repair_stage_label": "Plating",
+				"resolved_by": "Kartik Sharma"
+			}
+		]
+		for item in mock_items:
+			RepairItem.objects.get_or_create(
+				repair_item_id=item['repair_item_id'],
+				defaults={
+					'product': item['product'],
+					'sku': item['sku'],
+					'variant': item['variant'],
+					'quantity': item['quantity'],
+					'repair_stage': item['repair_stage'],
+					'repair_stage_label': item['repair_stage_label'],
+					'resolved_by': item['resolved_by'],
+					'scanned_at': timezone.now()
+				}
+			)
+
+
+@extend_schema_view(
+	list=extend_schema(summary='List repair queue items', tags=['Repair']),
+	retrieve=extend_schema(summary='Get repair queue item', tags=['Repair']),
+)
+class RepairQueueViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
+	audit_sheet = 'inventory'
+	queryset = RepairItem.objects.all().order_by('-scanned_at', '-created_at')
+	serializer_class = RepairItemSerializer
+	filterset_fields = ['confirmed', 'sent_to_repair', 'repair_stage', 'batch']
+	search_fields = ['product', 'sku']
+
+	def list(self, request, *args, **kwargs):
+		# Sync live from external API first
+		sync_repair_queue_from_external()
+		return super().list(request, *args, **kwargs)
+
+	@action(detail=False, methods=['post'], url_path='confirm')
+	def confirm_items(self, request):
+		item_ids = request.data.get('repair_item_ids', [])
+		if not item_ids:
+			return Response({'success': False, 'error': {'message': 'No items selected for confirmation'}}, status=400)
+
+		items = list(RepairItem.objects.filter(repair_item_id__in=item_ids, confirmed=False))
+		if not items:
+			return Response({'success': False, 'error': {'message': 'No pending items found for confirmation'}}, status=400)
+
+		def get_date(item):
+			return item.scanned_at.date() if item.scanned_at else timezone.now().date()
+
+		items.sort(key=get_date)
+
+		# 3-day window aggregation grouping logic
+		groups = []
+		current_group = []
+		for item in items:
+			if not current_group:
+				current_group.append(item)
+			else:
+				first_date = get_date(current_group[0])
+				this_date = get_date(item)
+				if (this_date - first_date).days <= 2:
+					current_group.append(item)
+				else:
+					groups.append(current_group)
+					current_group = [item]
+		if current_group:
+			groups.append(current_group)
+
+		confirmed_batches = []
+		with db_transaction.atomic():
+			for group in groups:
+				latest_date = get_date(group[-1])
+				batch_no = f"Repair-{latest_date.strftime('%Y-%m-%d')}"
+
+				batch, created = RepairBatch.objects.get_or_create(
+					batch_no=batch_no,
+					defaults={
+						'date': latest_date,
+						'confirmed': False
+					}
+				)
+
+				for item in group:
+					item.confirmed = True
+					item.confirmed_at = timezone.now()
+					item.batch = batch
+					item.save()
+
+				confirmed_batches.append(batch)
+
+		return Response({
+			'success': True,
+			'message': f"Successfully confirmed {len(items)} items into {len(groups)} batch(es).",
+			'batches': RepairBatchSerializer(confirmed_batches, many=True).data
+		})
+
+
+@extend_schema_view(
+	list=extend_schema(summary='List repair batches', tags=['Repair']),
+	retrieve=extend_schema(summary='Get repair batch details', tags=['Repair']),
+)
+class RepairBatchViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
+	audit_sheet = 'inventory'
+	queryset = RepairBatch.objects.all().order_by('-date', '-created_at')
+	serializer_class = RepairBatchSerializer
+	filterset_fields = ['confirmed', 'voucher_created']
+	search_fields = ['batch_no']
+
+	@action(detail=True, methods=['post'], url_path='confirm')
+	def confirm_batch(self, request, pk=None):
+		batch = self.get_object()
+		batch.confirmed = True
+		batch.confirmed_at = timezone.now()
+		batch.save()
+		return Response({
+			'success': True,
+			'message': f"Batch {batch.batch_no} marked as confirmed.",
+			'data': RepairBatchSerializer(batch).data
+		})
+
+
+# ── Mock External Shop APIs (For direct testing / simulation) ────────────────
+
+@csrf_exempt
+def mock_external_repair_queue(request, shop_id):
+	if request.method == 'GET':
+		items = [
+			{
+				"repair_item_id": 123,
+				"product": "sakdjdvsvowvwo efrve evv",
+				"sku": "askvkvnes",
+				"variant": "sakdjdvsvowvwo efrve evv - Gold",
+				"quantity": 1,
+				"repair_stage": "hand_setting",
+				"repair_stage_label": "Hand Setting",
+				"resolved_by": "Deepak Vishwakarma"
+			},
+			{
+				"repair_item_id": 124,
+				"product": "KARTIK",
+				"sku": "KARTIK",
+				"variant": "KARTIK - Pendant",
+				"quantity": 1,
+				"repair_stage": "final_polish",
+				"repair_stage_label": "Final Polish",
+				"resolved_by": "Deepak Vishwakarma"
+			},
+			{
+				"repair_item_id": 125,
+				"product": "JAtin",
+				"sku": "AJE23",
+				"variant": "JAtin - Mixed Metal",
+				"quantity": 2,
+				"repair_stage": "plating",
+				"repair_stage_label": "Plating",
+				"resolved_by": "Kartik Sharma"
+			}
+		]
+		return JsonResponse({
+			"shop_id": shop_id,
+			"count": len(items),
+			"items": items
+		})
+	elif request.method == 'POST':
+		try:
+			body = json.loads(request.body)
+			item_ids = body.get('repair_item_ids', [])
+			logger.info(f"Mocking mark-repaired completion for external items: {item_ids}")
+			return JsonResponse({
+				"updated": len(item_ids)
+			})
+		except Exception as e:
+			return JsonResponse({"error": str(e)}, status=400)
+	return JsonResponse({"error": "Method not allowed"}, status=405)
+

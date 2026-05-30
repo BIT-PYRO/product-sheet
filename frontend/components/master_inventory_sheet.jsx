@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronDown, Download, Upload, FileText, Info } from 'lucide-react';
+import { ChevronDown, Download, Upload, FileText, Info, Wrench } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
 import GlobalSearchBar from '@/components/global-search-bar';
@@ -2134,6 +2134,14 @@ export default function MasterInventorySheet() {
               )}
             </div>
             {canExport && <Button variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8" onClick={() => window.print()}>Print</Button>}
+            <Button
+              onClick={() => window.location.href = '/inventory/repair-queue'}
+              variant="outline"
+              className="border-amber-500 text-amber-600 rounded-full px-4 text-sm h-8 hover:bg-amber-50 gap-1.5"
+            >
+              <Wrench className="h-3.5 w-3.5" />
+              Repair Queue
+            </Button>
             <Button
               onClick={() => setIsPendingVouchersOpen(true)}
               variant="outline"

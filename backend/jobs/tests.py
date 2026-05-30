@@ -12,7 +12,7 @@ class JobApiTests(APITestCase):
 		self.user = user_model.objects.create_user(username='jobs_user', password='jobs_pass_123')
 		self.client.force_authenticate(user=self.user)
 		self.product = Product.objects.create(
-			sku='SKU-JOB-1',
+			master_sku='SKU-JOB-1',
 			name='Job Product',
 			category='General',
 			selling_price='300.00',

@@ -9,6 +9,7 @@ from .views import (
     FindingInventoryItemViewSet, FindingInventoryTransactionViewSet,
     ProductInventoryTransactionViewSet, IssueRequestViewSet,
     DieInventoryItemViewSet, DieTransactionViewSet,
+    RepairQueueViewSet, RepairBatchViewSet,
 )
 
 
@@ -32,6 +33,8 @@ router.register('issue-requests', IssueRequestViewSet, basename='issue-requests'
 # Die Inventory
 router.register('die-inventory', DieInventoryItemViewSet, basename='die-inventory')
 router.register('die-transactions', DieTransactionViewSet, basename='die-transactions')
+router.register('repair-queue', RepairQueueViewSet, basename='repair-queue')
+router.register('repair-batches', RepairBatchViewSet, basename='repair-batches')
 router.register('', InventoryTransactionViewSet, basename='inventory-transactions')
 
 urlpatterns = [

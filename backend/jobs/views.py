@@ -26,6 +26,63 @@ logger = logging.getLogger(__name__)
 _DONE_STATUSES = {VoucherApprovalStatus.COMPLETED, VoucherApprovalStatus.PARTIALLY_COMPLETED, VoucherApprovalStatus.REPLACED}
 
 
+def _sync_repair_completion(voucher):
+	"""
+	If a completed/received voucher is of voucher_type 'Repair',
+	synchronize completion of the corresponding repair items to the external shop.
+	"""
+	if voucher.voucher_type != 'Repair':
+		return
+
+	DEPT_TO_REPAIR_STAGE = {
+		'hand-setting': 'hand_setting',
+		'polishing': 'final_polish',
+		'plating': 'plating'
+	}
+
+	stage_key = DEPT_TO_REPAIR_STAGE.get(voucher.dept_to)
+	if not stage_key:
+		return
+
+	from inventory.models import RepairItem
+	items = list(RepairItem.objects.filter(batch__batch_no=voucher.batch_id, repair_stage=stage_key))
+	if not items:
+		return
+
+	item_ids = [item.repair_item_id for item in items]
+	import os
+	import requests
+
+	api_key = os.environ.get('EXTERNAL_SHOP_API_KEY', '')
+	shop_id = os.environ.get('EXTERNAL_SHOP_ID', '')
+	if not api_key or not shop_id:
+		api_key = 'mock-api-key'
+		shop_id = 'mock-shop-id'
+
+	base_url = os.environ.get('EXTERNAL_SHOP_BASE_URL', '')
+	if not base_url:
+		base_url = 'http://127.0.0.1:8000' # default local server fallback
+
+	url = f"{base_url.rstrip('/')}/api/external/shops/{shop_id}/repair-queue/complete/"
+	headers = {
+		'Authorization': f'Bearer {api_key}',
+		'Content-Type': 'application/json'
+	}
+
+	try:
+		logger.info(f"Syncing completion for repair items to external shop: {url} -> {item_ids}")
+		res = requests.post(url, headers=headers, json={"repair_item_ids": item_ids}, timeout=5)
+		if res.status_code == 200:
+			logger.info(f"Successfully completed external repair items: {item_ids}")
+			# Delete completed items from local database cache
+			RepairItem.objects.filter(repair_item_id__in=item_ids).delete()
+		else:
+			logger.warning(f"External complete API returned status {res.status_code}")
+	except Exception as ext_err:
+		logger.error(f"Failed to call external repair complete API: {str(ext_err)}")
+
+
+
 def _activate_ready_batch_vouchers(batch_id):
 	"""
 	Activate every AWAITING voucher in the batch whose direct predecessors
@@ -735,6 +792,221 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 			},
 		}, status=status.HTTP_201_CREATED)
 
+	@action(detail=False, methods=['post'], url_path='create-repair-vouchers')
+	def create_repair_vouchers(self, request):
+		"""
+		Create repair vouchers for all products in a confirmed Repair Batch,
+		grouped by their repair stage.
+		"""
+		batch_no = request.data.get('batch_no', '')
+		issued_to = request.data.get('issued_to', '')
+		issued_by = request.data.get('issued_by', '')
+		contact = request.data.get('contact', '')
+		work_type = request.data.get('work_type', 'In-House')
+		schedule = request.data.get('schedule', None)
+		notes = request.data.get('notes', '')
+
+		if not batch_no:
+			raise ValidationError({'batch_no': 'Batch number is required.'})
+
+		from inventory.models import RepairBatch, RepairItem
+		try:
+			batch = RepairBatch.objects.get(batch_no=batch_no)
+		except RepairBatch.DoesNotExist:
+			raise ValidationError({'batch_no': 'Repair batch not found.'})
+
+		if batch.voucher_created:
+			raise ValidationError({'batch_no': 'Vouchers have already been generated for this repair batch.'})
+
+		items = list(batch.items.all())
+		if not items:
+			raise ValidationError({'batch_no': 'This repair batch has no products.'})
+
+		from collections import defaultdict
+		stage_buckets = defaultdict(list)
+		for item in items:
+			stage_buckets[item.repair_stage].append(item)
+
+		STAGE_MAPPING = {
+			'hand_setting': {
+				'from_key': 'pre-polish',
+				'to_key': 'hand-setting',
+				'from_label': 'Pre-Polish',
+				'to_label': 'Hand Setting'
+			},
+			'final_polish': {
+				'from_key': 'hand-setting',
+				'to_key': 'polishing',
+				'from_label': 'Hand Setting',
+				'to_label': 'Final Polish'
+			},
+			'plating': {
+				'from_key': 'polishing',
+				'to_key': 'plating',
+				'from_label': 'Final Polish',
+				'to_label': 'Plating'
+			}
+		}
+
+		created_vouchers = []
+		from products.models import Product
+		from designers.models import DesignerSheet
+
+		with transaction.atomic():
+			# Stable voucher numbering counter
+			last_voucher = Job.objects.filter(voucher_no__startswith='JJ-').order_by('-id').first()
+			counter = 1
+			if last_voucher and last_voucher.voucher_no:
+				try:
+					counter = int(last_voucher.voucher_no.split('-')[1]) + 1
+				except (ValueError, IndexError):
+					counter = 1
+
+			for stage_key, bucket_items in stage_buckets.items():
+				mapping = STAGE_MAPPING.get(stage_key)
+				if not mapping:
+					logger.warning(f"Skipping unknown stage {stage_key} in repair batch.")
+					continue
+
+				material_rows = []
+				stone_agg = {}
+
+				for entry in bucket_items:
+					product = Product.objects.filter(master_sku__iexact=entry.sku).first()
+					
+					material_rows.append({
+						'sku': entry.sku,
+						'category': product.category if product else '',
+						'metal': product.material if product else '',
+						'issued_qty': str(entry.quantity),
+						'unit1': 'Pcs',
+						'issued_weight': '',
+						'unit2': ''
+					})
+
+					# Stone rows aggregation logic
+					if product:
+						all_stone_sources = list(product.stone_entries or []) if isinstance(product.stone_entries, list) else []
+						d_skus = []
+						if product.designer_sku:
+							d_skus.append(product.designer_sku.strip())
+						for ds in (product.designer_skus or []):
+							if ds and str(ds).strip():
+								d_skus.append(str(ds).strip())
+						if d_skus:
+							for designer in DesignerSheet.objects.filter(sku__in=d_skus).only('stone_entries'):
+								if isinstance(designer.stone_entries, list):
+									all_stone_sources.extend(designer.stone_entries)
+
+						for se in all_stone_sources:
+							s_type = str(se.get('type', '') or '').strip()
+							s_species = str(se.get('species', '') or '').strip()
+							s_variety = str(se.get('variety', '') or '').strip()
+							s_color = str(se.get('color', '') or '').strip()
+							s_cut = str(se.get('cut', '') or '').strip()
+							s_shape = str(se.get('shape', '') or '').strip()
+							s_length = str(se.get('length', '') or '').strip()
+							s_width = str(se.get('width', '') or '').strip()
+							s_height = str(se.get('height', '') or '').strip()
+							try:
+								s_qty_per_piece = float(se.get('qty', 0) or 0)
+							except (TypeError, ValueError):
+								s_qty_per_piece = 0
+
+							if s_qty_per_piece <= 0 and not (s_variety or s_type or s_shape):
+								continue
+
+							fingerprint = (
+								s_type.lower(), s_variety.lower(), s_color.lower(),
+								s_cut.lower(), s_shape.lower(), s_length, s_width, s_height
+							)
+							stones_for_sku = s_qty_per_piece * entry.quantity
+
+							if fingerprint not in stone_agg:
+								stone_agg[fingerprint] = {
+									'type': s_type,
+									'species': s_species,
+									'variety': s_variety,
+									'color': s_color,
+									'cut': s_cut,
+									'shape': s_shape,
+									'length': s_length,
+									'width': s_width,
+									'height': s_height,
+									'qty': 0,
+									'master_sku_breakdown': []
+								}
+							stone_agg[fingerprint]['qty'] += stones_for_sku
+							stone_agg[fingerprint]['master_sku_breakdown'].append({
+								'master_sku': entry.sku,
+								'qty': stones_for_sku
+							})
+
+				stone_rows = [
+					{
+						'type': d['type'],
+						'species': d['species'],
+						'variety': d['variety'],
+						'color': d['color'],
+						'cut': d['cut'],
+						'shape': d['shape'],
+						'length': d['length'],
+						'width': d['width'],
+						'height': d['height'],
+						'qty': d['qty'],
+						'master_sku_breakdown': d['master_sku_breakdown']
+					}
+					for d in stone_agg.values()
+				]
+
+				voucher_no = f'JJ-{str(counter).zfill(2)}'
+				counter += 1
+
+				title = f"{voucher_no} - Repair: {mapping['from_label']} to {mapping['to_label']}"
+
+				primary_product = Product.objects.filter(master_sku__iexact=bucket_items[0].sku).first()
+
+				voucher = Job.objects.create(
+					title=title,
+					product=primary_product,
+					status='created',
+					approval_status=VoucherApprovalStatus.IN_PROCESS, # Start in_process directly so it does deductions
+					voucher_no=voucher_no,
+					voucher_type='Repair',
+					dept_from=mapping['from_key'],
+					dept_to=mapping['to_key'],
+					issued_to=issued_to,
+					issued_by=issued_by,
+					contact=contact,
+					work_type=work_type,
+					schedule=schedule,
+					batch_id=batch.batch_no,
+					material_rows=material_rows,
+					stone_rows=stone_rows,
+					notes=notes or f"Repair batch: {batch.batch_no} — stage: {mapping['to_label']}"
+				)
+				created_vouchers.append(voucher)
+
+				# Single vouchers created directly in_process need their stock deducted immediately
+				_deduct_source_current_stock(voucher)
+
+				for entry in bucket_items:
+					entry.sent_to_repair = True
+					entry.save()
+
+			batch.voucher_created = True
+			batch.save()
+
+		serializer = JobSerializer(created_vouchers, many=True)
+		return Response({
+			'success': True,
+			'data': {
+				'batch_id': batch.batch_no,
+				'vouchers_created': len(created_vouchers),
+				'vouchers': serializer.data,
+			}
+		}, status=status.HTTP_201_CREATED)
+
 	@action(detail=False, methods=['post'], url_path='approve-vouchers')
 	def approve_vouchers(self, request):
 		"""Approve only the explicitly submitted pending vouchers.
@@ -821,6 +1093,7 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 			voucher.approval_status = VoucherApprovalStatus.COMPLETED
 			voucher.status = 'completed'
 			voucher.save(update_fields=['approval_status', 'status'])
+			_sync_repair_completion(voucher)
 
 			# Add remaining pieces (issued ΓêÆ already received) to Current Stock of
 			# the destination stage.  WIP is computed live so no WIP transaction needed.
@@ -1067,6 +1340,7 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 					voucher.approval_status = VoucherApprovalStatus.COMPLETED
 					voucher.status = 'completed'
 					voucher.save(update_fields=['approval_status', 'status', 'received_rows', 'received_by'])
+					_sync_repair_completion(voucher)
 				else:
 					voucher.approval_status = VoucherApprovalStatus.PARTIALLY_COMPLETED
 					voucher.save(update_fields=['approval_status', 'received_rows', 'received_by'])
@@ -1177,10 +1451,11 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 					# Update already-active next-stage vouchers with new total qty
 					_propagate_qty_to_active_downstream(voucher.batch_id, voucher)
 			else:
-				# Full receive ΓåÆ Completed
+				# Full receive → Completed
 				voucher.approval_status = VoucherApprovalStatus.COMPLETED
 				voucher.status = 'completed'
 				voucher.save(update_fields=['approval_status', 'status', 'received_rows', 'received_by'])
+				_sync_repair_completion(voucher)
 				if voucher.batch_id:
 					# Activate AWAITING next-stage vouchers
 					_activate_ready_batch_vouchers(voucher.batch_id)
