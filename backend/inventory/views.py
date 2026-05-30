@@ -920,9 +920,10 @@ class RepairBatchViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 	serializer_class = RepairBatchSerializer
 	filterset_fields = ['confirmed', 'voucher_created']
 	search_fields = ['batch_no']
+	lookup_field = 'batch_no'  # Use batch_no string (e.g. "Repair-2026-05-30") as URL identifier
 
 	@action(detail=True, methods=['post'], url_path='confirm')
-	def confirm_batch(self, request, pk=None):
+	def confirm_batch(self, request, batch_no=None):
 		batch = self.get_object()
 		batch.confirmed = True
 		batch.confirmed_at = timezone.now()
