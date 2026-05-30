@@ -473,7 +473,7 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
     if (mode === 'repair') {
       setIsBulkCreating(true)
       try {
-        const res = await fetch('/api/jobs/create-repair-vouchers/', {
+        const res = await fetch('/api/jobs/create-repair-vouchers', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

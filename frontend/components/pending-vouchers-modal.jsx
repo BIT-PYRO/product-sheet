@@ -15,24 +15,29 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { X, Loader2, Check, Clock, AlertCircle, ArrowRight, ChevronDown, ChevronRight, Trash2 } from "lucide-react"
+import { X, Loader2, Check, Clock, AlertCircle, ArrowRight, ChevronDown, ChevronRight, Trash2, Wrench } from "lucide-react"
 
 const APPROVAL_STATUS_LABELS = {
-  pending: { label: 'Pending', color: 'bg-amber-100 text-amber-800', icon: Clock },
-  approved: { label: 'Approved', color: 'bg-blue-100 text-blue-800', icon: Check },
-  in_process: { label: 'In Process', color: 'bg-orange-100 text-orange-800', icon: Loader2 },
-  awaiting: { label: 'Awaiting', color: 'bg-gray-100 text-gray-700', icon: Clock },
-  partially_complete: { label: 'Partial', color: 'bg-yellow-100 text-yellow-800', icon: Clock },
-  completed: { label: 'Completed', color: 'bg-green-100 text-green-800', icon: Check },
+  pending: { label: 'Pending', color: 'bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-400 dark:border dark:border-amber-500/20', icon: Clock },
+  approved: { label: 'Approved', color: 'bg-blue-100 text-blue-800 dark:bg-blue-950/40 dark:text-blue-400 dark:border dark:border-blue-500/20', icon: Check },
+  in_process: { label: 'In Process', color: 'bg-orange-100 text-orange-800 dark:bg-orange-950/40 dark:text-orange-400 dark:border dark:border-orange-500/20', icon: Loader2 },
+  awaiting: { label: 'Awaiting', color: 'bg-gray-100 text-gray-700 dark:bg-slate-800/40 dark:text-slate-300 dark:border dark:border-slate-500/20', icon: Clock },
+  partially_complete: { label: 'Partial', color: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-950/40 dark:text-yellow-400 dark:border dark:border-yellow-500/20', icon: Clock },
+  completed: { label: 'Completed', color: 'bg-green-100 text-green-800 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border dark:border-emerald-500/20', icon: Check },
 }
 
-function VoucherStatusBadge({ status }) {
+function VoucherStatusBadge({ status, type }) {
+  const isRepair = String(type || '').toLowerCase() === 'repair'
   const config = APPROVAL_STATUS_LABELS[status] || APPROVAL_STATUS_LABELS.pending
-  const Icon = config.icon
+  const Icon = isRepair ? Wrench : config.icon
+  const colorClass = isRepair
+    ? 'bg-purple-100 text-purple-800 dark:bg-purple-950/30 dark:text-purple-400 dark:border dark:border-purple-500/20'
+    : config.color
+
   return (
-    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${config.color}`}>
-      <Icon className="h-3 w-3" />
-      {config.label}
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${colorClass}`}>
+      <Icon className={`h-3 w-3 ${Icon === Loader2 ? 'animate-spin' : ''}`} />
+      {isRepair ? `Repair (${config.label})` : config.label}
     </span>
   )
 }
@@ -87,6 +92,7 @@ export function PendingVouchersModal({ open, onOpenChange, onVouchersApproved })
     if (filterStatus === 'all') return vouchers
     if (filterStatus === 'suggested') return vouchers.filter(v => String(v.batch_id || '').startsWith('suggested-'))
     if (filterStatus === 'needed') return vouchers.filter(v => String(v.batch_id || '').startsWith('needed-'))
+    if (filterStatus === 'repair') return vouchers.filter(v => String(v.voucher_type || '').toLowerCase() === 'repair')
     return vouchers.filter(v => v.approval_status === filterStatus)
   })()
 
@@ -99,6 +105,7 @@ export function PendingVouchersModal({ open, onOpenChange, onVouchersApproved })
     v.approval_status === 'awaiting'
   )
   const completedVouchers = vouchers.filter(v => v.approval_status === 'completed')
+  const repairVouchers = vouchers.filter(v => String(v.voucher_type || '').toLowerCase() === 'repair')
 
   const toggleSelection = (id) => {
     setSelectedIds(prev => {
@@ -232,21 +239,54 @@ export function PendingVouchersModal({ open, onOpenChange, onVouchersApproved })
         <div className="flex justify-between items-center px-4 pt-3 pb-2 border-b border-soft-border print-hide">
           <div className="flex items-center gap-4">
             <h2 className="text-lg font-bold text-midnight-ink">Vouchers</h2>
-            <div className="flex gap-2 text-xs">
-              <span className="px-2 py-1 rounded bg-amber-100 text-amber-800 font-semibold">
+            <div className="flex gap-2 text-xs flex-wrap">
+              <span
+                onClick={() => setFilterStatus(filterStatus === 'pending' ? 'all' : 'pending')}
+                className={`px-2 py-1 rounded bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-400 font-semibold cursor-pointer hover:opacity-80 transition-opacity border border-amber-200 dark:border-amber-800/30 ${
+                  filterStatus === 'pending' ? 'ring-2 ring-amber-500' : ''
+                }`}
+              >
                 Pending: {pendingVouchers.length}
               </span>
-              <span className="px-2 py-1 rounded bg-orange-100 text-orange-700 font-semibold">
+              <span
+                onClick={() => setFilterStatus(filterStatus === 'suggested' ? 'all' : 'suggested')}
+                className={`px-2 py-1 rounded bg-orange-100 text-orange-700 dark:bg-orange-950/40 dark:text-orange-400 font-semibold cursor-pointer hover:opacity-80 transition-opacity border border-orange-200 dark:border-orange-800/30 ${
+                  filterStatus === 'suggested' ? 'ring-2 ring-orange-500' : ''
+                }`}
+              >
                 Suggested: {suggestedVouchers.length}
               </span>
-              <span className="px-2 py-1 rounded bg-red-100 text-red-700 font-semibold">
+              <span
+                onClick={() => setFilterStatus(filterStatus === 'needed' ? 'all' : 'needed')}
+                className={`px-2 py-1 rounded bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-400 font-semibold cursor-pointer hover:opacity-80 transition-opacity border border-red-200 dark:border-red-800/30 ${
+                  filterStatus === 'needed' ? 'ring-2 ring-red-500' : ''
+                }`}
+              >
                 Needed: {neededVouchers.length}
               </span>
-              <span className="px-2 py-1 rounded bg-blue-100 text-blue-800 font-semibold">
+              <span
+                onClick={() => setFilterStatus(filterStatus === 'approved' ? 'all' : 'approved')}
+                className={`px-2 py-1 rounded bg-blue-100 text-blue-800 dark:bg-blue-950/40 dark:text-blue-400 font-semibold cursor-pointer hover:opacity-80 transition-opacity border border-blue-200 dark:border-blue-800/30 ${
+                  filterStatus === 'approved' ? 'ring-2 ring-blue-500' : ''
+                }`}
+              >
                 Approved: {approvedVouchers.length}
               </span>
-              <span className="px-2 py-1 rounded bg-green-100 text-green-800 font-semibold">
+              <span
+                onClick={() => setFilterStatus(filterStatus === 'completed' ? 'all' : 'completed')}
+                className={`px-2 py-1 rounded bg-green-100 text-green-800 dark:bg-emerald-950/40 dark:text-emerald-400 font-semibold cursor-pointer hover:opacity-80 transition-opacity border border-emerald-200 dark:border-emerald-800/30 ${
+                  filterStatus === 'completed' ? 'ring-2 ring-green-500' : ''
+                }`}
+              >
                 Completed: {completedVouchers.length}
+              </span>
+              <span
+                onClick={() => setFilterStatus(filterStatus === 'repair' ? 'all' : 'repair')}
+                className={`px-2 py-1 rounded bg-purple-100 text-purple-800 dark:bg-purple-950/40 dark:text-purple-400 font-semibold cursor-pointer hover:opacity-80 transition-opacity border border-purple-200 dark:border-purple-800/30 ${
+                  filterStatus === 'repair' ? 'ring-2 ring-purple-500' : ''
+                }`}
+              >
+                Repair: {repairVouchers.length}
               </span>
             </div>
           </div>
@@ -275,6 +315,7 @@ export function PendingVouchersModal({ open, onOpenChange, onVouchersApproved })
                 <SelectItem value="in_process">In Process</SelectItem>
                 <SelectItem value="awaiting">Awaiting</SelectItem>
                 <SelectItem value="completed">Completed</SelectItem>
+                <SelectItem value="repair">Repair</SelectItem>
               </SelectContent>
             </Select>
 
@@ -357,12 +398,18 @@ export function PendingVouchersModal({ open, onOpenChange, onVouchersApproved })
                   <div
                     key={voucher.id}
                     className={`border rounded-lg overflow-hidden transition-all ${
-                      isExpanded ? 'border-trust-blue shadow-md' : 'border-soft-border'
-                    } ${isPending ? 'bg-white' : 'bg-gray-50/50'}`}
+                      isExpanded
+                        ? 'border-blue-500 shadow-sm dark:border-blue-500/50 dark:shadow-[0_0_12px_rgba(59,130,246,0.1)]'
+                        : 'border-soft-border dark:border-slate-800/80 hover:border-slate-300 dark:hover:border-slate-700'
+                    } ${
+                      isPending
+                        ? 'bg-white dark:bg-[#0f172a]'
+                        : 'bg-slate-50/50 dark:bg-[#070d19]/40'
+                    }`}
                   >
                     {/* Clickable Header Row */}
                     <div
-                      className="flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-blue-50/30 transition-colors"
+                      className="flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-blue-50/30 dark:hover:bg-slate-800/40 transition-colors"
                       onClick={() => setExpandedVoucherId(prev => prev === voucher.id ? null : voucher.id)}
                     >
                       <div onClick={e => e.stopPropagation()}>
@@ -372,11 +419,11 @@ export function PendingVouchersModal({ open, onOpenChange, onVouchersApproved })
                         />
                       </div>
                       {isExpanded
-                        ? <ChevronDown className="h-4 w-4 text-trust-blue shrink-0" />
+                        ? <ChevronDown className="h-4 w-4 text-trust-blue dark:text-blue-400 shrink-0" />
                         : <ChevronRight className="h-4 w-4 text-cool-gray shrink-0" />
                       }
-                      <span className="text-sm font-bold text-midnight-ink">{voucher.voucher_no}</span>
-                      <VoucherStatusBadge status={voucher.approval_status} />
+                      <span className="text-sm font-bold text-midnight-ink dark:text-slate-200">{voucher.voucher_no}</span>
+                      <VoucherStatusBadge status={voucher.approval_status} type={voucher.voucher_type} />
                       <span className="text-xs text-cool-gray">
                         {getDeptLabel(voucher.dept_from)} → {getDeptLabel(voucher.dept_to)}
                       </span>

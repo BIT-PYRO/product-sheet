@@ -160,7 +160,7 @@ class RepairIntegrationTests(APITestCase):
         )
 
         response = self.client.post(
-            f'/api/v1/inventory/repair-batches/{batch.id}/confirm/',
+            f'/api/v1/inventory/repair-batches/{batch.batch_no}/confirm/',
             format='json'
         )
 

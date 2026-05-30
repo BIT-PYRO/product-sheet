@@ -149,7 +149,7 @@ export default function RepairQueuePage() {
     }
     setIsConfirming(true);
     try {
-      const res = await fetch('/api/inventory/repair-queue/confirm/', {
+      const res = await fetch('/api/inventory/repair-queue/confirm', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ repair_item_ids: Array.from(selectedItems) })
@@ -175,7 +175,7 @@ export default function RepairQueuePage() {
   const handleConfirmBatch = async (batchNo) => {
     setIsConfirmingBatch(prev => ({ ...prev, [batchNo]: true }));
     try {
-      const res = await fetch(`/api/inventory/repair-batches/${batchNo}/confirm/`, {
+      const res = await fetch(`/api/inventory/repair-batches/${batchNo}/confirm`, {
         method: 'POST'
       });
       const payload = await res.json().catch(() => null);
