@@ -77,8 +77,10 @@ def _sync_repair_completion(voucher):
 			api_key = 'mock-api-key'
 
 	url = f"{base_url.rstrip('/')}/api/external/shops/{shop_id}/repair-queue/complete/"
+	# Use the key directly — if the key already starts with 'Bearer ', don't double-prefix it
+	auth_value = api_key if api_key.lower().startswith('bearer ') else f'Bearer {api_key}'
 	headers = {
-		'Authorization': f'Bearer {api_key}',
+		'Authorization': auth_value,
 		'Content-Type': 'application/json'
 	}
 
