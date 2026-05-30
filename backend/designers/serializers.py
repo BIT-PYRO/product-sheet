@@ -81,6 +81,7 @@ class DesignerSheetListSerializer(serializers.ModelSerializer):
         model = DesignerSheet
         fields = [
             'id', 'sku', 'design_stage', 'motive_code', 'motive_sku',
+            'rendered_photo', 'image', 'technical_drawing', 'designer_image_2', 'designer_image_3',
             'total_die_code', 'total_mold_qty_per_die', 'total_cpx_dead_weight',
             'total_design_measurements', 'design_material',
             'stone_entries', 'mechanism', 'findings_entries', 'plating_entries',
