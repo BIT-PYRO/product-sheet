@@ -53,15 +53,28 @@ def _sync_repair_completion(voucher):
 	import os
 	import requests
 
+	from django.conf import settings
+
 	api_key = os.environ.get('EXTERNAL_SHOP_API_KEY', '')
 	shop_id = os.environ.get('EXTERNAL_SHOP_ID', '')
-	if not api_key or not shop_id:
-		api_key = 'mock-api-key'
-		shop_id = 'mock-shop-id'
-
 	base_url = os.environ.get('EXTERNAL_SHOP_BASE_URL', '')
-	if not base_url:
-		base_url = 'http://127.0.0.1:8000' # default local server fallback
+
+	is_production = not settings.DEBUG or os.environ.get('RENDER_EXTERNAL_HOSTNAME', '')
+
+	if is_production:
+		if not base_url:
+			base_url = 'https://unify-8ba1.onrender.com'
+		if not shop_id:
+			shop_id = 'janki-jewels'
+		if not api_key:
+			api_key = os.environ.get('EXTERNAL_PICKLIST_API_KEY', 'mock-api-key')
+	else:
+		if not base_url:
+			base_url = 'http://127.0.0.1:8000'
+		if not shop_id:
+			shop_id = 'mock-shop-id'
+		if not api_key:
+			api_key = 'mock-api-key'
 
 	url = f"{base_url.rstrip('/')}/api/external/shops/{shop_id}/repair-queue/complete/"
 	headers = {
