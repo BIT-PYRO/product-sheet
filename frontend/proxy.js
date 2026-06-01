@@ -24,7 +24,7 @@ export function proxy(request) {
 
   if (pathname === '/login' || pathname === '/') {
     if (isAuthenticated && pathname === '/login') {
-      return NextResponse.redirect(new URL('/home', request.url));
+      return NextResponse.redirect(new URL('/welcome', request.url));
     }
     return NextResponse.next();
   }
