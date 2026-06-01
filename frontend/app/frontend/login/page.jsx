@@ -2,6 +2,8 @@
 
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import Link from 'next/link';
+import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
@@ -186,7 +188,16 @@ function LoginContent() {
   }, [router, redirectPath]);
 
   return (
-    <main className="min-h-screen bg-cloud-gray flex items-center justify-center px-4">
+    <main className="min-h-screen bg-cloud-gray flex items-center justify-center px-4 relative">
+      {/* Back Button */}
+      <Link 
+        href="/" 
+        className="absolute top-6 left-6 sm:top-8 sm:left-8 inline-flex items-center gap-2 text-sm font-medium text-cool-gray hover:text-slate-text transition-colors bg-white px-3 py-2 rounded-lg shadow-sm border border-soft-border hover:shadow-md"
+      >
+        <ArrowLeft className="w-4 h-4" />
+        Back
+      </Link>
+
       <section className="w-full max-w-md bg-white border border-soft-border rounded-xl shadow-sm p-8">
         <h1 className="text-2xl font-bold text-midnight-ink text-center">Sign In</h1>
         <p className="text-base text-cool-gray text-center mt-1">Access your workspace</p>
