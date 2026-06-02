@@ -17,6 +17,12 @@ export function usePermissionRefresh() {
   const lastUpdatedAtRef = useRef(null);
   const initializedRef  = useRef(false);
 
+  // Skip polling entirely on the login page to avoid 401 console spam
+  const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
+  if (pathname === '/login') {
+    return;
+  }
+
   useEffect(() => {
     let cancelled = false;
     let pollTimer = null;

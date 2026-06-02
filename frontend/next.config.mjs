@@ -57,6 +57,19 @@ const nextConfig = {
       { source: '/media/:path*', destination: `${process.env.BACKEND_BASE_URL || 'https://product-sheet.onrender.com'}/media/:path*` },
     ]
   },
+  async headers() {
+    return [
+      {
+        source: '/(.*)',
+        headers: [
+          {
+            key: 'Cross-Origin-Opener-Policy',
+            value: 'same-origin-allow-popups',
+          },
+        ],
+      },
+    ]
+  },
 }
 
 export default nextConfig

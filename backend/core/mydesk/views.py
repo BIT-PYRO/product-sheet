@@ -1295,10 +1295,7 @@ def _status_payable_value(status_value):
 def _organization_users(org_id):
     if not org_id:
         return User.objects.filter(is_active=True).order_by('first_name', 'username', 'id')
-    return User.objects.filter(is_active=True).filter(
-        Q(team_settings__organization__organization_id=org_id)
-        | Q(shop_credentials__organization_id=org_id)
-    ).distinct().order_by('first_name', 'username', 'id')
+    return User.objects.filter(is_active=True, tenant_id=org_id).order_by('first_name', 'username', 'id')
 
 
 def _parse_date_value(raw_value):
