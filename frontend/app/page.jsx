@@ -1,245 +1,368 @@
 'use client';
+import { useState } from 'react';
+import { ThemeToggle } from '@/components/theme-toggle';
+import Link from 'next/link';
 
-import Link from "next/link";
-import { ArrowRight, BarChart3, Box, CheckCircle2, Layers, LogIn, Mail, Package, ShieldCheck, Zap, Moon, Sun } from "lucide-react";
-import { useTheme } from "@/contexts/ThemeContext";
+export default function Home() {
+  const [activeService, setActiveService] = useState(0);
 
-export default function LandingPage() {
-  const { theme, setTheme } = useTheme();
+  const interactiveServices = [
+    {
+      title: "MULTI-WAREHOUSE ROUTING",
+      desc: "Scale your logistics seamlessly. Automatically route incoming orders to the nearest fulfillment center to reduce shipping costs and delivery times.",
+      icon: "🏭",
+      stats: ["Smart order assignment", "Cross-location inventory transfer"]
+    },
+    {
+      title: "DEMAND FORECASTING",
+      desc: "Predict future sales trends using your historical data. Know exactly what to restock and when to prevent stockouts during peak seasons.",
+      icon: "🔮",
+      stats: ["Predictive restocking alerts", "Seasonality adjustments"]
+    },
+    {
+      title: "WORKFORCE & KYC TRACKING",
+      desc: "Manage your internal team and delivery partners. Monitor performance metrics, handle KYC verification, and assign tasks automatically.",
+      icon: "🧑‍💼",
+      stats: ["Real-time staff metrics", "Integrated KYC processing"]
+    },
+    {
+      title: "FINANCIAL RECONCILIATION",
+      desc: "Track every penny from revenue to expenses. Automatically reconcile payments, calculate true profit margins, and generate tax-ready reports.",
+      icon: "💰",
+      stats: ["Automated profit calculation", "One-click ledger sync"]
+    },
+  ];
 
-  const toggleTheme = () => {
-    setTheme(theme === 'dark' ? 'light' : 'dark');
-  };
+  const plans = [
+    { name: "STARTER", price: "$19" },
+    { name: "BUSINESS", price: "$49" },
+    { name: "ENTERPRISE", price: "$99" },
+  ];
+
+  const cards = [
+    {
+      icon: "📦",
+      title: "Inventory Control",
+      desc: "Track stock levels, warehouse inventory and replenishment in real-time.",
+    },
+    {
+      icon: "🛒",
+      title: "Order Management",
+      desc: "Seamlessly process orders, track shipments, and manage fulfillment across all channels.",
+    },
+    {
+      icon: "👥",
+      title: "Customer Hub",
+      desc: "Manage customer data, KYC verification, and interaction history in one unified CRM.",
+    },
+    {
+      icon: "⚡",
+      title: "Automated Workflows",
+      desc: "Eliminate manual tasks with zero-touch automated pipelines for order processing.",
+    },
+    {
+      icon: "📊",
+      title: "Real-Time Analytics",
+      desc: "Monitor sales, revenue trends, and overall business health from interactive live dashboards.",
+    },
+    {
+      icon: "🔗",
+      title: "Unified Platform",
+      desc: "Replace messy spreadsheets and disconnected software with a single command center.",
+    },
+  ];
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#0A0A0A] text-slate-900 dark:text-slate-200 font-sans selection:bg-blue-500/30 overflow-x-hidden transition-colors duration-300">
-      {/* Dynamic Background */}
-      <div className="fixed inset-0 -z-10 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(29,78,216,0.15),rgba(248,250,252,1))] dark:bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(29,78,216,0.3),rgba(0,0,0,1))] pointer-events-none transition-colors duration-500" />
+    <main
+      className="bg-gradient-to-b from-blue-200 via-blue-100 to-slate-50 dark:from-[#031B4E] dark:via-[#155EEF] dark:to-[#0A192F] min-h-screen text-slate-900 dark:text-white transition-colors duration-500 overflow-x-hidden"
+    >
 
-      {/* Navigation */}
-      <nav className="fixed top-0 z-50 w-full backdrop-blur-md bg-white/70 dark:bg-black/40 border-b border-slate-200 dark:border-white/10 transition-all duration-300">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-blue-600 to-cyan-400 flex items-center justify-center shadow-[0_0_15px_rgba(37,99,235,0.3)] dark:shadow-[0_0_20px_rgba(37,99,235,0.5)]">
-              <Layers className="w-4 h-4 text-white" />
-            </div>
-            <span className="font-bold text-xl tracking-tight text-slate-900 dark:text-white">JANKI PRODUCT</span>
-          </div>
-          <div className="flex items-center gap-6 md:gap-8">
-            <div className="hidden md:flex gap-8 text-sm font-medium text-slate-600 dark:text-slate-300">
-              <a href="#solutions" className="hover:text-blue-600 dark:hover:text-white transition-colors">Solutions</a>
+      {/* NAVBAR */}
+
+      <nav className="fixed top-0 w-full z-50">
+        <div className="max-w-7xl mx-auto px-6 py-6">
+          <div className="bg-white/70 dark:bg-white/10 backdrop-blur-xl border border-slate-200 dark:border-white/20 rounded-full px-8 py-4 flex justify-between items-center transition-colors">
+
+            <h1 className="text-slate-900 dark:text-white text-xl font-semibold">
+              JANKI
+            </h1>
+
+            <div className="hidden md:flex gap-5 lg:gap-6 text-slate-600 dark:text-white/80 font-medium text-sm lg:text-base">
+              <a href="#home" className="hover:text-blue-600 dark:hover:text-white transition-colors">Home</a>
+              <a href="#features" className="hover:text-blue-600 dark:hover:text-white transition-colors">Features</a>
+              <a href="#services" className="hover:text-blue-600 dark:hover:text-white transition-colors">Services</a>
               <a href="#pricing" className="hover:text-blue-600 dark:hover:text-white transition-colors">Pricing</a>
+              <a href="#contact" className="hover:text-blue-600 dark:hover:text-white transition-colors">Contact</a>
             </div>
+
             <div className="flex items-center gap-4">
-              <button 
-                onClick={toggleTheme} 
-                className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-white/10 text-slate-600 dark:text-slate-300 transition-colors"
-                aria-label="Toggle theme"
-              >
-                {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-              </button>
-              <Link 
-                href="/frontend/login" 
-                className="inline-flex items-center justify-center gap-2 px-5 py-2 text-sm font-medium text-slate-700 dark:text-white bg-slate-100 dark:bg-white/10 hover:bg-slate-200 dark:hover:bg-white/20 border border-slate-200 dark:border-white/10 rounded-full transition-all active:scale-95"
-              >
-                Sign In
-                <LogIn className="w-4 h-4" />
+              <ThemeToggle />
+              <Link href="/frontend/login" className="bg-blue-600 dark:bg-white text-white dark:text-blue-700 px-5 py-2 rounded-full font-medium hover:bg-blue-700 dark:hover:bg-slate-100 transition-colors">
+                Get Started
               </Link>
             </div>
+
           </div>
         </div>
       </nav>
 
-      <main className="pt-24 pb-16">
-        {/* Hero Section */}
-        <section className="relative pt-20 pb-32 px-4 sm:px-6 max-w-7xl mx-auto flex flex-col items-center text-center">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-100/50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 text-sm font-medium mb-8 border border-blue-200 dark:border-blue-500/20 backdrop-blur-sm">
-            <span className="flex h-2 w-2 rounded-full bg-blue-500 animate-pulse"></span>
-            The New Standard in Business Operations
-          </div>
-          
-          <h1 className="text-5xl md:text-7xl font-extrabold tracking-tighter mb-8 leading-[1.1] text-slate-900 dark:text-white transition-colors duration-300">
-            Manage your entire operation <br className="hidden md:block" />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 via-cyan-500 to-blue-600 dark:from-blue-400 dark:via-cyan-400 dark:to-blue-600">
-              from a single dashboard.
-            </span>
-          </h1>
-          
-          <p className="text-xl text-slate-600 dark:text-slate-400 mb-12 max-w-2xl mx-auto leading-relaxed transition-colors duration-300">
-            Eliminate disconnected tools and gain total visibility. Janki Product seamlessly integrates inventory, orders, and workforce management into one powerful platform.
-          </p>
-          
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 w-full sm:w-auto">
-            <Link 
-              href="/frontend/login" 
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-4 text-base font-semibold text-white bg-blue-600 rounded-full hover:bg-blue-500 shadow-[0_0_20px_rgba(37,99,235,0.3)] dark:hover:shadow-[0_0_30px_rgba(37,99,235,0.4)] transition-all active:scale-95"
-            >
-              Start Building Now
-              <ArrowRight className="w-5 h-5" />
-            </Link>
-            <a 
-              href="#demo" 
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-4 text-base font-semibold text-slate-700 dark:text-white bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-full hover:bg-slate-50 dark:hover:bg-white/10 transition-all active:scale-95 backdrop-blur-sm shadow-sm dark:shadow-none"
-            >
-              Book a Demo
-            </a>
+      {/* HERO */}
+
+      <section
+        id="home"
+        className="relative min-h-screen flex flex-col justify-center pt-32 pb-16"
+      >
+        <div className="absolute top-20 right-10 w-72 h-72 rounded-full bg-blue-400/20 blur-3xl"></div>
+        <div className="absolute bottom-10 left-10 w-60 h-60 rounded-full bg-cyan-300/20 blur-3xl"></div>
+
+        <div className="max-w-7xl mx-auto px-6 grid lg:grid-cols-2 gap-12 items-center z-10 relative">
+
+          <div className="backdrop-blur-lg bg-white/50 dark:bg-white/10 border border-slate-200 dark:border-white/20 rounded-[40px] p-10 shadow-xl dark:shadow-none transition-colors">
+
+            <p className="uppercase tracking-[6px] text-sm text-blue-600 dark:text-white/80 font-semibold">
+              E-COMMERCE OPERATIONS PLATFORM
+            </p>
+
+            <h1 className="text-5xl lg:text-7xl font-light text-slate-900 dark:text-white mt-6 leading-tight antialiased">
+              Run Your Entire
+              <br />
+              Business From
+              <br />
+              One Dashboard
+            </h1>
+
+            <p className="text-slate-600 dark:text-white/80 mt-6 text-lg">
+              Manage products, inventory, orders,
+              customers and analytics from one place.
+            </p>
+
+            <div className="flex gap-4 mt-8">
+              <Link href="/frontend/login" className="bg-blue-600 dark:bg-white text-white dark:text-blue-700 font-medium px-8 py-4 rounded-xl hover:bg-blue-700 dark:hover:bg-slate-100 transition-colors">
+                Book Demo
+              </Link>
+
+
+            </div>
+
           </div>
 
-          {/* Interactive Dashboard Mockup */}
-          <div className="w-full max-w-5xl mt-20 relative group">
-            <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 to-cyan-500 rounded-2xl blur opacity-15 dark:opacity-25 group-hover:opacity-30 dark:group-hover:opacity-40 transition duration-1000"></div>
-            <div className="relative rounded-2xl bg-white/80 dark:bg-black/60 border border-slate-200 dark:border-white/10 backdrop-blur-xl p-4 sm:p-6 shadow-2xl overflow-hidden transition-colors duration-300">
-              <div className="flex items-center gap-2 mb-6 border-b border-slate-100 dark:border-white/10 pb-4">
-                <div className="w-3 h-3 rounded-full bg-red-400 dark:bg-red-500/80"></div>
-                <div className="w-3 h-3 rounded-full bg-yellow-400 dark:bg-yellow-500/80"></div>
-                <div className="w-3 h-3 rounded-full bg-green-400 dark:bg-green-500/80"></div>
+          <div className="bg-white dark:bg-white/5 rounded-[40px] p-10 shadow-2xl border border-slate-100 dark:border-white/10 transition-colors">
+
+            <div className="grid grid-cols-2 gap-4">
+
+              <div className="bg-blue-100 rounded-2xl p-6">
+                <p className="text-slate-600 dark:text-slate-800">Total Orders</p>
+                <h3 className="text-3xl font-bold text-slate-900">12,450</h3>
               </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
-                {/* Metric Cards */}
-                {[
-                  { title: "Total Revenue", value: "$124,563.00", trend: "+14.5%", icon: BarChart3, color: "text-blue-600 dark:text-blue-400" },
-                  { title: "Active Orders", value: "1,204", trend: "+5.2%", icon: Box, color: "text-cyan-600 dark:text-cyan-400" },
-                  { title: "Inventory Status", value: "98.5%", trend: "Healthy", icon: Package, color: "text-green-600 dark:text-green-400" }
-                ].map((metric, i) => (
-                  <div key={i} className="bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 rounded-xl p-5 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors cursor-pointer shadow-sm dark:shadow-none">
-                    <div className="flex items-center justify-between mb-4">
-                      <metric.icon className={`w-5 h-5 ${metric.color}`} />
-                      <span className="text-xs font-medium px-2 py-1 bg-slate-200 dark:bg-white/10 rounded-md text-slate-700 dark:text-white">{metric.trend}</span>
+
+              <div className="bg-sky-100 rounded-2xl p-6">
+                <p className="text-slate-600 dark:text-slate-800">Revenue</p>
+                <h3 className="text-3xl font-bold text-slate-900">$84K</h3>
+              </div>
+
+              <div className="bg-indigo-100 rounded-2xl p-6">
+                <p className="text-slate-600 dark:text-slate-800">Customers</p>
+                <h3 className="text-3xl font-bold text-slate-900">2,340</h3>
+              </div>
+
+              <div className="bg-cyan-100 rounded-2xl p-6">
+                <p className="text-slate-600 dark:text-slate-800">Products</p>
+                <h3 className="text-3xl font-bold text-slate-900">890</h3>
+              </div>
+
+            </div>
+
+          </div>
+
+        </div>
+      </section>
+
+      {/* FEATURES */}
+
+      <section id="features" className="pt-24 pb-12 scroll-mt-16">
+        <div className="max-w-7xl mx-auto px-6">
+
+          <div className="text-center mb-10">
+            <h2 className="text-3xl md:text-4xl lg:text-5xl text-slate-900 dark:text-white font-light transition-colors">
+              E-Commerce Operations Shouldn't
+              <br className="hidden sm:block" />
+              Be Complicated
+            </h2>
+          </div>
+
+          <div className="grid lg:grid-cols-3 gap-6">
+
+            {cards.map((card, index) => (
+              <div
+                key={`${card.title}-${index}`}
+                className="backdrop-blur-xl bg-white dark:bg-white/5 border border-slate-200 dark:border-white/20 rounded-[24px] p-5 shadow-lg dark:shadow-none transition-colors"
+              >
+                <div className="w-12 h-12 mb-3 flex items-center justify-center rounded-xl bg-gradient-to-br from-cyan-300 to-blue-500 text-2xl">
+                  {card.icon}
+                </div>
+
+                <h3 className="text-slate-900 dark:text-white text-xl font-medium">
+                  {card.title}
+                </h3>
+
+                <p className="text-slate-600 dark:text-white/75 mt-2 text-sm">
+                  {card.desc}
+                </p>
+              </div>
+            ))}
+
+          </div>
+
+        </div>
+      </section>
+
+      {/* SERVICES */}
+
+      <section id="services" className="py-20">
+        <div className="max-w-7xl mx-auto px-6">
+
+          <div className="text-center text-slate-900 dark:text-white transition-colors mb-16">
+            <h2 className="text-5xl md:text-6xl lg:text-7xl font-light">
+              Grow Your
+              <br className="hidden sm:block" />
+              Business
+            </h2>
+          </div>
+
+          <div className="grid lg:grid-cols-2 gap-8 lg:gap-12 items-center">
+
+            <div className="space-y-4">
+              {interactiveServices.map((service, index) => (
+                <button
+                  key={service.title}
+                  onClick={() => setActiveService(index)}
+                  className={`w-full text-left rounded-2xl py-5 px-8 font-medium transition-all duration-300 ${activeService === index
+                      ? "bg-blue-600 text-white shadow-lg dark:shadow-[0_0_20px_rgba(37,99,235,0.3)] scale-[1.02]"
+                      : "bg-white dark:bg-white/5 border border-slate-200 dark:border-white/20 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/10"
+                    }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span>{service.title}</span>
+                    <span className="text-2xl">{service.icon}</span>
+                  </div>
+                </button>
+              ))}
+            </div>
+
+            <div className="bg-white dark:bg-white/5 border border-slate-200 dark:border-white/20 rounded-[40px] p-10 lg:p-12 shadow-2xl transition-all duration-500 min-h-[380px] flex flex-col justify-center">
+              <div className="text-5xl mb-6">{interactiveServices[activeService].icon}</div>
+              <h3 className="text-3xl lg:text-4xl text-slate-900 dark:text-white mb-4 font-semibold">
+                {interactiveServices[activeService].title}
+              </h3>
+              <p className="text-slate-600 dark:text-slate-300 text-lg leading-relaxed mb-8">
+                {interactiveServices[activeService].desc}
+              </p>
+
+              <div className="space-y-4">
+                {interactiveServices[activeService].stats.map((stat, i) => (
+                  <div key={i} className="flex items-center gap-3 text-slate-700 dark:text-slate-200">
+                    <div className="w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-500/20 flex items-center justify-center text-blue-600 dark:text-blue-400 text-sm font-bold">
+                      ✓
                     </div>
-                    <div className="text-slate-500 dark:text-slate-400 text-sm mb-1">{metric.title}</div>
-                    <div className="text-2xl font-bold text-slate-900 dark:text-white">{metric.value}</div>
+                    {stat}
                   </div>
                 ))}
               </div>
             </div>
+
           </div>
-        </section>
 
-        {/* Challenges & Solutions */}
-        <section id="solutions" className="py-24 relative">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6">
-            <div className="text-center max-w-3xl mx-auto mb-20">
-              <h2 className="text-3xl md:text-5xl font-bold mb-6 text-slate-900 dark:text-white tracking-tight transition-colors duration-300">The ultimate solution to operational chaos.</h2>
-              <p className="text-lg text-slate-600 dark:text-slate-400 transition-colors duration-300">Stop wasting time juggling disconnected tools, losing track of inventory, and lacking visibility into your team's performance.</p>
-            </div>
+        </div>
+      </section>
 
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {/* Feature Cards */}
-              <div className="p-8 rounded-3xl bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 shadow-sm dark:shadow-none backdrop-blur-md hover:bg-slate-50 dark:hover:bg-white/10 transition-all duration-300 group">
-                <div className="w-12 h-12 rounded-xl bg-blue-100 dark:bg-blue-500/20 flex items-center justify-center mb-6 border border-blue-200 dark:border-blue-500/30 group-hover:scale-110 transition-transform">
-                  <Package className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+      {/* PRICING */}
+
+      <section id="pricing" className="py-20">
+        <div className="max-w-7xl mx-auto px-6">
+
+          <h2 className="text-center text-7xl text-slate-900 dark:text-white font-light transition-colors">
+            Choose Your Plan
+          </h2>
+
+          <div className="grid lg:grid-cols-3 gap-8 mt-20">
+
+            {plans.map((plan) => (
+              <div
+                key={plan.name}
+                className="bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-[40px] p-10 shadow-xl transition-colors"
+              >
+                <h3 className="text-3xl font-semibold text-slate-900 dark:text-white">
+                  {plan.name}
+                </h3>
+
+                <div className="mt-6">
+                  <span className="text-6xl font-bold text-slate-900 dark:text-white">
+                    {plan.price}
+                  </span>
+                  <span className="text-slate-500 dark:text-slate-400">/month</span>
                 </div>
-                <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-3">Inventory Tracking</h3>
-                <p className="text-slate-600 dark:text-slate-400 leading-relaxed">Real-time sync across all your locations. Never over-sell or run out of stock with our predictive analytics engine.</p>
-              </div>
 
-              <div className="p-8 rounded-3xl bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 shadow-sm dark:shadow-none backdrop-blur-md hover:bg-slate-50 dark:hover:bg-white/10 transition-all duration-300 group">
-                <div className="w-12 h-12 rounded-xl bg-cyan-100 dark:bg-cyan-500/20 flex items-center justify-center mb-6 border border-cyan-200 dark:border-cyan-500/30 group-hover:scale-110 transition-transform">
-                  <Zap className="w-6 h-6 text-cyan-600 dark:text-cyan-400" />
-                </div>
-                <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-3">Automated Workflows</h3>
-                <p className="text-slate-600 dark:text-slate-400 leading-relaxed">Connect order processing, fulfillment, and accounting into one continuous, zero-touch automated pipeline.</p>
-              </div>
-
-              <div className="p-8 rounded-3xl bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 shadow-sm dark:shadow-none backdrop-blur-md hover:bg-slate-50 dark:hover:bg-white/10 transition-all duration-300 group">
-                <div className="w-12 h-12 rounded-xl bg-purple-100 dark:bg-purple-500/20 flex items-center justify-center mb-6 border border-purple-200 dark:border-purple-500/30 group-hover:scale-110 transition-transform">
-                  <ShieldCheck className="w-6 h-6 text-purple-600 dark:text-purple-400" />
-                </div>
-                <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-3">Complete Visibility</h3>
-                <p className="text-slate-600 dark:text-slate-400 leading-relaxed">Access beautiful, customizable dashboards to track workforce performance, KYC status, and revenue streams instantly.</p>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Pricing */}
-        <section id="pricing" className="py-24 relative border-t border-slate-200 dark:border-white/10 bg-slate-100/50 dark:bg-black/50 transition-colors duration-300">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6">
-            <div className="text-center max-w-3xl mx-auto mb-16">
-              <h2 className="text-3xl md:text-5xl font-bold mb-6 text-slate-900 dark:text-white tracking-tight">Scale without limits.</h2>
-              <p className="text-lg text-slate-600 dark:text-slate-400">Simple, transparent pricing tailored for modern companies.</p>
-            </div>
-
-            <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-              {/* Pro Plan */}
-              <div className="relative p-8 rounded-3xl bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 shadow-lg dark:shadow-none backdrop-blur-md">
-                <h3 className="text-2xl font-semibold text-slate-900 dark:text-white mb-2">Growth</h3>
-                <p className="text-slate-600 dark:text-slate-400 mb-6">For scaling startups and small teams.</p>
-                <div className="flex items-end gap-1 mb-8">
-                  <span className="text-5xl font-bold text-slate-900 dark:text-white">$99</span>
-                  <span className="text-slate-500 dark:text-slate-400 mb-1">/month</span>
-                </div>
-                <ul className="space-y-4 mb-8">
-                  {['Up to 20 users', 'Core inventory & orders', 'Standard analytics', 'Email support'].map((item, i) => (
-                    <li key={i} className="flex items-center gap-3 text-slate-700 dark:text-slate-300">
-                      <CheckCircle2 className="w-5 h-5 text-blue-600 dark:text-blue-400" /> {item}
-                    </li>
-                  ))}
-                </ul>
-                <Link href="/frontend/login" className="block w-full py-3 px-6 text-center rounded-xl bg-slate-100 dark:bg-white/10 hover:bg-slate-200 dark:hover:bg-white/20 text-slate-900 dark:text-white font-medium transition-colors border border-slate-200 dark:border-white/10">
-                  Start Free Trial
+                <Link href="/frontend/login" className="block text-center w-full mt-10 bg-blue-600 text-white hover:bg-blue-700 dark:bg-white dark:text-blue-700 dark:hover:bg-slate-100 py-4 rounded-2xl transition-colors font-medium">
+                  Get Started
                 </Link>
               </div>
+            ))}
 
-              {/* Enterprise Plan */}
-              <div className="relative p-8 rounded-3xl bg-gradient-to-b from-blue-50 to-white dark:from-blue-900/40 dark:to-black border border-blue-200 dark:border-blue-500/30 backdrop-blur-md shadow-xl dark:shadow-[0_0_40px_rgba(37,99,235,0.2)]">
-                <div className="absolute top-0 right-6 -translate-y-1/2 px-3 py-1 bg-blue-600 dark:bg-blue-500 text-white text-xs font-bold uppercase tracking-wide rounded-full">
-                  Most Popular
-                </div>
-                <h3 className="text-2xl font-semibold text-slate-900 dark:text-white mb-2">Scale</h3>
-                <p className="text-slate-600 dark:text-slate-400 mb-6">For large organizations requiring ultimate control.</p>
-                <div className="flex items-end gap-1 mb-8">
-                  <span className="text-5xl font-bold text-slate-900 dark:text-white">$299</span>
-                  <span className="text-slate-500 dark:text-slate-400 mb-1">/month</span>
-                </div>
-                <ul className="space-y-4 mb-8">
-                  {['Unlimited users', 'Advanced automation', 'Custom integrations', '24/7 Priority support'].map((item, i) => (
-                    <li key={i} className="flex items-center gap-3 text-slate-700 dark:text-slate-300">
-                      <CheckCircle2 className="w-5 h-5 text-blue-600 dark:text-blue-400" /> {item}
-                    </li>
-                  ))}
-                </ul>
-                <Link href="/frontend/login" className="block w-full py-3 px-6 text-center rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-medium transition-colors shadow-lg dark:shadow-[0_0_20px_rgba(37,99,235,0.3)]">
-                  Contact Sales
-                </Link>
-              </div>
-            </div>
           </div>
-        </section>
 
-        {/* Contact/CTA */}
-        <section className="py-24 relative">
-          <div className="absolute inset-0 bg-blue-50/50 dark:bg-blue-600/10 border-y border-slate-200 dark:border-white/10" />
-          <div className="max-w-4xl mx-auto px-4 sm:px-6 relative text-center">
-            <h2 className="text-3xl md:text-5xl font-bold mb-6 text-slate-900 dark:text-white tracking-tight">Ready to streamline your operations?</h2>
-            <p className="text-lg text-slate-600 dark:text-slate-400 mb-10 max-w-2xl mx-auto">
-              Join industry leaders who use JANKI PRODUCT to automate, track, and scale their businesses effectively.
-            </p>
-            <form className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto" onSubmit={(e) => e.preventDefault()}>
-              <input 
-                type="email" 
-                placeholder="name@company.com" 
-                className="flex-1 bg-white dark:bg-black/50 border border-slate-300 dark:border-white/20 rounded-xl px-4 py-3 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all backdrop-blur-md shadow-sm dark:shadow-none"
+        </div>
+      </section>
+
+      {/* CONTACT */}
+
+      <section id="contact" className="py-20">
+        <div className="max-w-7xl mx-auto px-6">
+
+          <div className="bg-white/80 dark:bg-white/5 backdrop-blur-xl border border-slate-200 dark:border-white/20 rounded-[50px] p-16 shadow-2xl dark:shadow-none transition-colors">
+
+            <h2 className="text-7xl text-slate-900 dark:text-white font-light transition-colors">
+              Let's Talk
+            </h2>
+
+            <form className="space-y-4 mt-10">
+
+              <input
+                type="text"
+                placeholder="Your Name"
+                className="w-full rounded-2xl p-4 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
               />
-              <button className="px-6 py-3 bg-slate-900 dark:bg-white text-white dark:text-black font-semibold rounded-xl hover:bg-slate-800 dark:hover:bg-slate-200 transition-colors flex items-center justify-center gap-2">
-                Book Demo <ArrowRight className="w-4 h-4" />
-              </button>
-            </form>
-          </div>
-        </section>
-      </main>
 
-      {/* Footer */}
-      <footer className="border-t border-slate-200 dark:border-white/10 py-12 bg-white dark:bg-black transition-colors duration-300">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 flex flex-col md:flex-row justify-between items-center gap-6">
-          <div className="flex items-center gap-2">
-            <Layers className="w-5 h-5 text-blue-600 dark:text-blue-500" />
-            <span className="font-bold text-slate-900 dark:text-white tracking-tight">JANKI PRODUCT</span>
+              <input
+                type="email"
+                placeholder="Your Email"
+                className="w-full rounded-2xl p-4 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
+              />
+
+              <textarea
+                rows={5}
+                placeholder="Your Message"
+                className="w-full rounded-2xl p-4 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
+              />
+
+              <button className="bg-blue-600 text-white hover:bg-blue-700 dark:bg-white dark:text-blue-700 dark:hover:bg-slate-100 font-medium px-8 py-4 rounded-2xl transition-colors">
+                Send Message
+              </button>
+
+            </form>
+
           </div>
-          <p className="text-slate-500 text-sm">© {new Date().getFullYear()} Janki Product. All rights reserved.</p>
+
+        </div>
+      </section>
+
+      {/* FOOTER */}
+
+      <footer className="bg-slate-100 dark:bg-slate-950 border-t border-slate-200 dark:border-white/10 transition-colors">
+        <div className="max-w-7xl mx-auto px-6 py-4 text-center text-slate-500 dark:text-white/50 transition-colors">
+          © 2026 JANKI. All Rights Reserved.
         </div>
       </footer>
-    </div>
+
+    </main>
   );
 }

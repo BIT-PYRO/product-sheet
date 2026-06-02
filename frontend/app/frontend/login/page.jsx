@@ -116,6 +116,7 @@ function PasswordLogin({ redirectPath }) {
       setError('Username and password are required.');
       return;
     }
+
     setIsSubmitting(true);
     try {
       const response = await fetch('/api/auth/login', {
@@ -180,18 +181,18 @@ function LoginContent() {
     fetch('/api/auth/session', { cache: 'no-store' })
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => { if (data?.success) router.replace(redirectPath); })
-      .catch(() => {});
+      .catch(() => { });
   }, [router, redirectPath]);
 
   return (
     <main className="min-h-screen flex items-center justify-center px-4 relative bg-slate-50 dark:bg-[#0A0A0A] transition-colors duration-300">
-      
+
       {/* Background Gradient to match other premium pages */}
       <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(29,78,216,0.15),rgba(248,250,252,1))] dark:bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(29,78,216,0.3),rgba(0,0,0,1))] pointer-events-none transition-colors duration-500" />
 
       {/* Back Button */}
-      <Link 
-        href="/" 
+      <Link
+        href="/"
         className="absolute top-6 left-6 sm:top-8 sm:left-8 inline-flex items-center gap-2 text-sm font-medium text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors bg-white/70 dark:bg-white/5 backdrop-blur-md px-3 py-2 rounded-lg shadow-sm dark:shadow-none border border-slate-200 dark:border-white/10 hover:shadow-md dark:hover:bg-white/10"
       >
         <ArrowLeft className="w-4 h-4" />
