@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { ArrowRight, Layers, Moon, Sun, User, Mail, Info, FileText, CheckCircle2, Shield, Zap, Package, ShoppingCart, Users } from "lucide-react";
 import { useTheme } from "@/contexts/ThemeContext";
+import { motion } from 'framer-motion';
 
 export default function WelcomePage() {
   const { theme, setTheme } = useTheme();
@@ -60,7 +61,12 @@ export default function WelcomePage() {
           <div className="absolute top-20 left-1/4 w-72 h-72 bg-blue-400/20 dark:bg-blue-600/20 rounded-full blur-3xl pointer-events-none animate-pulse"></div>
           <div className="absolute bottom-20 right-1/4 w-80 h-80 bg-cyan-400/20 dark:bg-cyan-600/20 rounded-full blur-3xl pointer-events-none animate-pulse" style={{ animationDelay: '1s' }}></div>
 
-          <div className="max-w-4xl mx-auto relative z-10 bg-white/40 dark:bg-white/5 backdrop-blur-2xl border border-white/50 dark:border-white/10 p-10 md:p-16 rounded-[40px] shadow-2xl">
+          <motion.div 
+            initial={{ opacity: 0, y: 50 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8 }}
+            className="max-w-4xl mx-auto relative z-10 bg-white/40 dark:bg-white/5 backdrop-blur-2xl border border-white/50 dark:border-white/10 p-10 md:p-16 rounded-[40px] shadow-2xl"
+          >
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-green-100 dark:bg-green-500/10 text-green-700 dark:text-green-400 text-sm font-medium mb-8 border border-green-200 dark:border-green-500/20 backdrop-blur-sm">
               <span className="flex h-2 w-2 rounded-full bg-green-500 animate-pulse"></span>
               Authentication Successful
@@ -91,50 +97,44 @@ export default function WelcomePage() {
                 <User className="w-5 h-5" />
               </Link>
             </div>
-          </div>
+          </motion.div>
         </section>
 
         {/* Features Section */}
         <section id="features" className="pt-8 pb-12 relative scroll-mt-24">
           <div className="max-w-7xl mx-auto px-4 sm:px-6">
-            <div className="text-center mb-10">
+            <motion.div 
+              initial={{ opacity: 0, y: 50 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: false, margin: "-50px" }}
+              transition={{ duration: 0.6 }}
+              className="text-center mb-10"
+            >
               <h2 className="text-3xl font-bold text-slate-900 dark:text-white mb-2">Workspace Features</h2>
               <p className="text-slate-600 dark:text-slate-400">Everything you have access to in your new workspace.</p>
-            </div>
+            </motion.div>
             <div className="grid md:grid-cols-3 gap-5">
-              <div className="p-5 rounded-3xl bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 shadow-sm dark:shadow-none backdrop-blur-md hover:bg-slate-50 dark:hover:bg-white/10 transition-all group">
-                <Shield className="w-8 h-8 text-blue-600 dark:text-blue-400 mb-3 group-hover:scale-110 transition-transform" />
-                <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-1">Secure Operations</h3>
-                <p className="text-slate-600 dark:text-slate-400 text-sm">Your data is securely isolated with enterprise-grade protection and role-based permissions.</p>
-              </div>
-              <div className="p-5 rounded-3xl bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 shadow-sm dark:shadow-none backdrop-blur-md hover:bg-slate-50 dark:hover:bg-white/10 transition-all group">
-                <Zap className="w-8 h-8 text-cyan-600 dark:text-cyan-400 mb-3 group-hover:scale-110 transition-transform" />
-                <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-1">Real-time Analytics</h3>
-                <p className="text-slate-600 dark:text-slate-400 text-sm">View real-time graphs and operational insights directly on your new personalized dashboard.</p>
-              </div>
-              <div className="p-5 rounded-3xl bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 shadow-sm dark:shadow-none backdrop-blur-md hover:bg-slate-50 dark:hover:bg-white/10 transition-all group">
-                <CheckCircle2 className="w-8 h-8 text-green-600 dark:text-green-400 mb-3 group-hover:scale-110 transition-transform" />
-                <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-1">Automated KYC</h3>
-                <p className="text-slate-600 dark:text-slate-400 text-sm">Seamlessly manage and verify your workforce and customers with our integrated KYC tools.</p>
-              </div>
-
-              <div className="p-5 rounded-3xl bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 shadow-sm dark:shadow-none backdrop-blur-md hover:bg-slate-50 dark:hover:bg-white/10 transition-all group">
-                <Package className="w-8 h-8 text-amber-500 dark:text-amber-400 mb-3 group-hover:scale-110 transition-transform" />
-                <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-1">Centralized Inventory</h3>
-                <p className="text-slate-600 dark:text-slate-400 text-sm">Track stock levels across multiple warehouses in real-time to completely eliminate stockouts.</p>
-              </div>
-
-              <div className="p-5 rounded-3xl bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 shadow-sm dark:shadow-none backdrop-blur-md hover:bg-slate-50 dark:hover:bg-white/10 transition-all group">
-                <ShoppingCart className="w-8 h-8 text-purple-600 dark:text-purple-400 mb-3 group-hover:scale-110 transition-transform" />
-                <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-1">Order Fulfillment</h3>
-                <p className="text-slate-600 dark:text-slate-400 text-sm">Seamlessly manage the entire lifecycle of an order from checkout to final delivery.</p>
-              </div>
-
-              <div className="p-5 rounded-3xl bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 shadow-sm dark:shadow-none backdrop-blur-md hover:bg-slate-50 dark:hover:bg-white/10 transition-all group">
-                <Users className="w-8 h-8 text-rose-500 dark:text-rose-400 mb-3 group-hover:scale-110 transition-transform" />
-                <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-1">Workforce Management</h3>
-                <p className="text-slate-600 dark:text-slate-400 text-sm">Monitor your internal team's performance, assign tasks, and automate daily HR operations.</p>
-              </div>
+              {[
+                { title: "Secure Operations", desc: "Your data is securely isolated with enterprise-grade protection and role-based permissions.", icon: <Shield className="w-8 h-8 text-blue-600 dark:text-blue-400 mb-3 group-hover:scale-110 transition-transform" /> },
+                { title: "Real-time Analytics", desc: "View real-time graphs and operational insights directly on your new personalized dashboard.", icon: <Zap className="w-8 h-8 text-cyan-600 dark:text-cyan-400 mb-3 group-hover:scale-110 transition-transform" /> },
+                { title: "Automated KYC", desc: "Seamlessly manage and verify your workforce and customers with our integrated KYC tools.", icon: <CheckCircle2 className="w-8 h-8 text-green-600 dark:text-green-400 mb-3 group-hover:scale-110 transition-transform" /> },
+                { title: "Centralized Inventory", desc: "Track stock levels across multiple warehouses in real-time to completely eliminate stockouts.", icon: <Package className="w-8 h-8 text-amber-500 dark:text-amber-400 mb-3 group-hover:scale-110 transition-transform" /> },
+                { title: "Order Fulfillment", desc: "Seamlessly manage the entire lifecycle of an order from checkout to final delivery.", icon: <ShoppingCart className="w-8 h-8 text-purple-600 dark:text-purple-400 mb-3 group-hover:scale-110 transition-transform" /> },
+                { title: "Workforce Management", desc: "Monitor your internal team's performance, assign tasks, and automate daily HR operations.", icon: <Users className="w-8 h-8 text-rose-500 dark:text-rose-400 mb-3 group-hover:scale-110 transition-transform" /> }
+              ].map((feature, index) => (
+                <motion.div 
+                  key={index}
+                  initial={{ opacity: 0, y: 50 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: false, margin: "-50px" }}
+                  transition={{ duration: 0.5, delay: index * 0.1 }}
+                  className="p-5 rounded-3xl bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 shadow-sm dark:shadow-none backdrop-blur-md hover:bg-slate-50 dark:hover:bg-white/10 transition-all group"
+                >
+                  {feature.icon}
+                  <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-1">{feature.title}</h3>
+                  <p className="text-slate-600 dark:text-slate-400 text-sm">{feature.desc}</p>
+                </motion.div>
+              ))}
             </div>
           </div>
         </section>
@@ -149,7 +149,12 @@ export default function WelcomePage() {
             <div className="grid lg:grid-cols-2 gap-12 lg:gap-8 items-center">
               
               {/* Text Side */}
-              <div>
+              <motion.div
+                initial={{ opacity: 0, x: -50 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                viewport={{ once: false, margin: "-50px" }}
+                transition={{ duration: 0.8 }}
+              >
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-100 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400 text-sm font-medium mb-6 border border-blue-200 dark:border-blue-500/20">
                   <Info className="w-4 h-4" /> Who We Are
                 </div>
@@ -173,10 +178,16 @@ export default function WelcomePage() {
                     <div className="text-sm font-medium text-slate-500 dark:text-slate-400">Expert Support</div>
                   </div>
                 </div>
-              </div>
+              </motion.div>
 
               {/* Visual Side */}
-              <div className="relative">
+              <motion.div 
+                initial={{ opacity: 0, x: 50 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                viewport={{ once: false, margin: "-50px" }}
+                transition={{ duration: 0.8, delay: 0.2 }}
+                className="relative"
+              >
                 <div className="absolute inset-0 bg-gradient-to-tr from-blue-600 to-cyan-400 rounded-3xl blur-2xl opacity-20 dark:opacity-30"></div>
                 <div className="relative bg-white/60 dark:bg-black/40 backdrop-blur-xl border border-slate-200 dark:border-white/10 rounded-3xl p-8 shadow-2xl">
                   <div className="flex items-center gap-4 mb-6">
@@ -201,7 +212,7 @@ export default function WelcomePage() {
                     </div>
                   </div>
                 </div>
-              </div>
+              </motion.div>
 
             </div>
           </div>
@@ -210,7 +221,13 @@ export default function WelcomePage() {
         {/* Contact Section */}
         <section id="contact" className="py-20 relative scroll-mt-32">
           <div className="max-w-4xl mx-auto px-4 sm:px-6">
-            <div className="bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-3xl p-8 sm:p-12 shadow-sm dark:shadow-none backdrop-blur-md">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 50 }}
+              whileInView={{ opacity: 1, scale: 1, y: 0 }}
+              viewport={{ once: false, margin: "-50px" }}
+              transition={{ duration: 0.6 }}
+              className="bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-3xl p-8 sm:p-12 shadow-sm dark:shadow-none backdrop-blur-md"
+            >
               <div className="text-center mb-10">
                 <h2 className="text-3xl font-bold text-slate-900 dark:text-white mb-4">Contact Support</h2>
                 <p className="text-slate-600 dark:text-slate-400">Need help getting started? Send us a message.</p>
@@ -235,7 +252,7 @@ export default function WelcomePage() {
                   Send Message
                 </button>
               </form>
-            </div>
+            </motion.div>
           </div>
         </section>
 

@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { ThemeToggle } from '@/components/theme-toggle';
 import Link from 'next/link';
+import { motion } from 'framer-motion';
 
 export default function Home() {
   const [activeService, setActiveService] = useState(0);
@@ -117,13 +118,18 @@ export default function Home() {
 
         <div className="max-w-7xl mx-auto px-6 grid lg:grid-cols-2 gap-12 items-center z-10 relative">
 
-          <div className="backdrop-blur-lg bg-white/50 dark:bg-white/10 border border-slate-200 dark:border-white/20 rounded-[40px] p-10 shadow-xl dark:shadow-none transition-colors">
+          <motion.div
+            initial={{ opacity: 0, x: -50 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.8 }}
+            className="backdrop-blur-lg bg-white/50 dark:bg-white/10 border border-slate-200 dark:border-white/20 rounded-[40px] p-10 shadow-xl dark:shadow-none transition-colors"
+          >
 
             <p className="uppercase tracking-[6px] text-sm text-blue-600 dark:text-white/80 font-semibold">
               E-COMMERCE OPERATIONS PLATFORM
             </p>
 
-            <h1 className="text-5xl lg:text-7xl font-light text-slate-900 dark:text-white mt-6 leading-tight antialiased">
+            <h1 className="text-5xl lg:text-7xl font-light text-slate-900 dark:text-white mt-6 leading-tight antialiased [text-rendering:optimizeLegibility] [transform:translateZ(0)] [-webkit-text-stroke:0.3px_currentColor] drop-shadow-sm">
               Run Your Entire
               <br />
               Business From
@@ -141,12 +147,16 @@ export default function Home() {
                 Book Demo
               </Link>
 
-
             </div>
 
-          </div>
+          </motion.div>
 
-          <div className="bg-white dark:bg-white/5 rounded-[40px] p-10 shadow-2xl border border-slate-100 dark:border-white/10 transition-colors">
+          <motion.div
+            initial={{ opacity: 0, x: 50 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.8, delay: 0.2 }}
+            className="bg-white dark:bg-white/5 rounded-[40px] p-10 shadow-2xl border border-slate-100 dark:border-white/10 transition-colors"
+          >
 
             <div className="grid grid-cols-2 gap-4">
 
@@ -172,7 +182,7 @@ export default function Home() {
 
             </div>
 
-          </div>
+          </motion.div>
 
         </div>
       </section>
@@ -182,19 +192,29 @@ export default function Home() {
       <section id="features" className="pt-24 pb-12 scroll-mt-16">
         <div className="max-w-7xl mx-auto px-6">
 
-          <div className="text-center mb-10">
+          <motion.div
+            initial={{ opacity: 0, y: 50 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: false, margin: "-50px" }}
+            transition={{ duration: 0.6 }}
+            className="text-center mb-10"
+          >
             <h2 className="text-3xl md:text-4xl lg:text-5xl text-slate-900 dark:text-white font-light transition-colors">
               E-Commerce Operations Shouldn't
               <br className="hidden sm:block" />
               Be Complicated
             </h2>
-          </div>
+          </motion.div>
 
           <div className="grid lg:grid-cols-3 gap-6">
 
             {cards.map((card, index) => (
-              <div
+              <motion.div
                 key={`${card.title}-${index}`}
+                initial={{ opacity: 0, y: 50 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: false, margin: "-50px" }}
+                transition={{ duration: 0.5, delay: index * 0.1 }}
                 className="backdrop-blur-xl bg-white dark:bg-white/5 border border-slate-200 dark:border-white/20 rounded-[24px] p-5 shadow-lg dark:shadow-none transition-colors"
               >
                 <div className="w-12 h-12 mb-3 flex items-center justify-center rounded-xl bg-gradient-to-br from-cyan-300 to-blue-500 text-2xl">
@@ -208,7 +228,7 @@ export default function Home() {
                 <p className="text-slate-600 dark:text-white/75 mt-2 text-sm">
                   {card.desc}
                 </p>
-              </div>
+              </motion.div>
             ))}
 
           </div>
@@ -221,17 +241,29 @@ export default function Home() {
       <section id="services" className="py-20">
         <div className="max-w-7xl mx-auto px-6">
 
-          <div className="text-center text-slate-900 dark:text-white transition-colors mb-16">
+          <motion.div
+            initial={{ opacity: 0, y: 50 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: false, margin: "-50px" }}
+            transition={{ duration: 0.6 }}
+            className="text-center text-slate-900 dark:text-white transition-colors mb-16"
+          >
             <h2 className="text-5xl md:text-6xl lg:text-7xl font-light">
               Grow Your
               <br className="hidden sm:block" />
               Business
             </h2>
-          </div>
+          </motion.div>
 
           <div className="grid lg:grid-cols-2 gap-8 lg:gap-12 items-center">
 
-            <div className="space-y-4">
+            <motion.div
+              initial={{ opacity: 0, x: -50 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: false, margin: "-50px" }}
+              transition={{ duration: 0.6 }}
+              className="space-y-4"
+            >
               {interactiveServices.map((service, index) => (
                 <button
                   key={service.title}
@@ -247,9 +279,15 @@ export default function Home() {
                   </div>
                 </button>
               ))}
-            </div>
+            </motion.div>
 
-            <div className="bg-white dark:bg-white/5 border border-slate-200 dark:border-white/20 rounded-[40px] p-10 lg:p-12 shadow-2xl transition-all duration-500 min-h-[380px] flex flex-col justify-center">
+            <motion.div
+              initial={{ opacity: 0, x: 50 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: false, margin: "-50px" }}
+              transition={{ duration: 0.6, delay: 0.2 }}
+              className="bg-white dark:bg-white/5 border border-slate-200 dark:border-white/20 rounded-[40px] p-10 lg:p-12 shadow-2xl transition-all duration-500 min-h-[380px] flex flex-col justify-center"
+            >
               <div className="text-5xl mb-6">{interactiveServices[activeService].icon}</div>
               <h3 className="text-3xl lg:text-4xl text-slate-900 dark:text-white mb-4 font-semibold">
                 {interactiveServices[activeService].title}
@@ -268,7 +306,7 @@ export default function Home() {
                   </div>
                 ))}
               </div>
-            </div>
+            </motion.div>
 
           </div>
 
@@ -280,15 +318,25 @@ export default function Home() {
       <section id="pricing" className="py-20">
         <div className="max-w-7xl mx-auto px-6">
 
-          <h2 className="text-center text-7xl text-slate-900 dark:text-white font-light transition-colors">
+          <motion.h2
+            initial={{ opacity: 0, y: 50 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: false, margin: "-50px" }}
+            transition={{ duration: 0.6 }}
+            className="text-center text-7xl text-slate-900 dark:text-white font-light transition-colors"
+          >
             Choose Your Plan
-          </h2>
+          </motion.h2>
 
           <div className="grid lg:grid-cols-3 gap-8 mt-20">
 
-            {plans.map((plan) => (
-              <div
+            {plans.map((plan, index) => (
+              <motion.div
                 key={plan.name}
+                initial={{ opacity: 0, y: 50 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: false, margin: "-50px" }}
+                transition={{ duration: 0.5, delay: index * 0.1 }}
                 className="bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-[40px] p-10 shadow-xl transition-colors"
               >
                 <h3 className="text-3xl font-semibold text-slate-900 dark:text-white">
@@ -305,7 +353,7 @@ export default function Home() {
                 <Link href="/frontend/login" className="block text-center w-full mt-10 bg-blue-600 text-white hover:bg-blue-700 dark:bg-white dark:text-blue-700 dark:hover:bg-slate-100 py-4 rounded-2xl transition-colors font-medium">
                   Get Started
                 </Link>
-              </div>
+              </motion.div>
             ))}
 
           </div>
@@ -318,7 +366,13 @@ export default function Home() {
       <section id="contact" className="py-20">
         <div className="max-w-7xl mx-auto px-6">
 
-          <div className="bg-white/80 dark:bg-white/5 backdrop-blur-xl border border-slate-200 dark:border-white/20 rounded-[50px] p-16 shadow-2xl dark:shadow-none transition-colors">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 50 }}
+            whileInView={{ opacity: 1, scale: 1, y: 0 }}
+            viewport={{ once: true, margin: "-50px" }}
+            transition={{ duration: 0.6 }}
+            className="bg-white/80 dark:bg-white/5 backdrop-blur-xl border border-slate-200 dark:border-white/20 rounded-[50px] p-16 shadow-2xl dark:shadow-none transition-colors"
+          >
 
             <h2 className="text-7xl text-slate-900 dark:text-white font-light transition-colors">
               Let's Talk
@@ -350,7 +404,7 @@ export default function Home() {
 
             </form>
 
-          </div>
+          </motion.div>
 
         </div>
       </section>
