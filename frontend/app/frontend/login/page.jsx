@@ -2,19 +2,18 @@
 
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import Link from 'next/link';
+import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 function safeRedirect(next) {
   if (next && next.startsWith('/') && !next.startsWith('//')) return next;
-  return '/home';
+  return '/welcome';
 }
 
 // ── Google Sign-In button ────────────────────────────────────────────────────
-// Uses Google Identity Services (GIS). Credential (ID token) comes back via
-// callback — no page redirect needed. The token is posted to /frontend/api/auth/google
-// which verifies it with Django and sets httpOnly JWT cookies.
 function GoogleLoginButton({ redirectPath }) {
   const router = useRouter();
   const btnRef = useRef(null);
@@ -88,15 +87,14 @@ function GoogleLoginButton({ redirectPath }) {
   return (
     <div className="space-y-2">
       {loading && (
-        <div className="flex items-center justify-center gap-2 text-sm text-cool-gray py-2">
-          <div className="h-4 w-4 animate-spin rounded-full border-2 border-gray-300 border-t-gray-600" />
+        <div className="flex items-center justify-center gap-2 text-sm text-slate-500 dark:text-slate-400 py-2">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-slate-600 dark:border-slate-600 dark:border-t-slate-300" />
           Signing in…
         </div>
       )}
-      {/* GIS renders its button inside this div */}
-      <div ref={btnRef} className="w-full" />
+      <div ref={btnRef} className="w-full flex justify-center" />
       {error && (
-        <p className="text-sm text-danger-dark bg-danger-soft px-3 py-2 rounded-md">{error}</p>
+        <p className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 px-3 py-2 rounded-md">{error}</p>
       )}
     </div>
   );
@@ -118,6 +116,7 @@ function PasswordLogin({ redirectPath }) {
       setError('Username and password are required.');
       return;
     }
+
     setIsSubmitting(true);
     try {
       const response = await fetch('/api/auth/login', {
@@ -141,30 +140,30 @@ function PasswordLogin({ redirectPath }) {
   return (
     <form onSubmit={handleSubmit} className="mt-6 space-y-5">
       <div className="space-y-2">
-        <label className="text-base font-semibold text-slate-text">User ID</label>
+        <label className="text-base font-semibold text-slate-700 dark:text-slate-300">User ID</label>
         <Input
           value={username}
           onChange={(e) => setUsername(e.target.value)}
           placeholder="Enter user ID"
           autoComplete="username"
-          className="h-11"
+          className="h-11 bg-slate-50 dark:bg-black/50 border-slate-300 dark:border-white/20 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:ring-blue-500"
         />
       </div>
       <div className="space-y-2">
-        <label className="text-base font-semibold text-slate-text">Password</label>
+        <label className="text-base font-semibold text-slate-700 dark:text-slate-300">Password</label>
         <Input
           type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           placeholder="Enter password"
           autoComplete="current-password"
-          className="h-11"
+          className="h-11 bg-slate-50 dark:bg-black/50 border-slate-300 dark:border-white/20 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:ring-blue-500"
         />
       </div>
       {error && (
-        <p className="text-sm text-danger-dark bg-danger-soft px-3 py-2 rounded-md">{error}</p>
+        <p className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 px-3 py-2 rounded-md">{error}</p>
       )}
-      <Button type="submit" className="w-full h-11 text-base font-semibold" disabled={isSubmitting}>
+      <Button type="submit" className="w-full h-11 text-base font-semibold bg-blue-600 hover:bg-blue-500 text-white border-0" disabled={isSubmitting}>
         {isSubmitting ? 'Signing In…' : 'Sign In'}
       </Button>
     </form>
@@ -182,14 +181,27 @@ function LoginContent() {
     fetch('/api/auth/session', { cache: 'no-store' })
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => { if (data?.success) router.replace(redirectPath); })
-      .catch(() => {});
+      .catch(() => { });
   }, [router, redirectPath]);
 
   return (
-    <main className="min-h-screen bg-cloud-gray flex items-center justify-center px-4">
-      <section className="w-full max-w-md bg-white border border-soft-border rounded-xl shadow-sm p-8">
-        <h1 className="text-2xl font-bold text-midnight-ink text-center">Sign In</h1>
-        <p className="text-base text-cool-gray text-center mt-1">Access your workspace</p>
+    <main className="min-h-screen flex items-center justify-center px-4 relative bg-slate-50 dark:bg-[#0A0A0A] transition-colors duration-300">
+
+      {/* Background Gradient to match other premium pages */}
+      <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(29,78,216,0.15),rgba(248,250,252,1))] dark:bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(29,78,216,0.3),rgba(0,0,0,1))] pointer-events-none transition-colors duration-500" />
+
+      {/* Back Button */}
+      <Link
+        href="/"
+        className="absolute top-6 left-6 sm:top-8 sm:left-8 inline-flex items-center gap-2 text-sm font-medium text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors bg-white/70 dark:bg-white/5 backdrop-blur-md px-3 py-2 rounded-lg shadow-sm dark:shadow-none border border-slate-200 dark:border-white/10 hover:shadow-md dark:hover:bg-white/10"
+      >
+        <ArrowLeft className="w-4 h-4" />
+        Back
+      </Link>
+
+      <section className="w-full max-w-md bg-white/80 dark:bg-black/60 backdrop-blur-xl border border-slate-200 dark:border-white/10 rounded-2xl shadow-xl dark:shadow-[0_0_40px_rgba(37,99,235,0.1)] p-8 transition-colors duration-300">
+        <h1 className="text-3xl font-bold text-slate-900 dark:text-white text-center tracking-tight">Sign In</h1>
+        <p className="text-base text-slate-500 dark:text-slate-400 text-center mt-2">Access your workspace</p>
 
         <PasswordLogin redirectPath={redirectPath} />
 
@@ -198,10 +210,10 @@ function LoginContent() {
           <>
             <div className="relative my-6">
               <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t border-soft-border" />
+                <span className="w-full border-t border-slate-200 dark:border-white/10" />
               </div>
               <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-white px-2 text-cool-gray font-medium">or continue with</span>
+                <span className="bg-white dark:bg-black px-2 text-slate-500 dark:text-slate-400 font-medium rounded-full transition-colors duration-300">or continue with</span>
               </div>
             </div>
             <GoogleLoginButton redirectPath={redirectPath} />
@@ -216,8 +228,8 @@ export default function LoginPage() {
   return (
     <Suspense
       fallback={
-        <main className="min-h-screen bg-cloud-gray flex items-center justify-center px-4">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-300 border-t-gray-700" />
+        <main className="min-h-screen bg-slate-50 dark:bg-[#0A0A0A] flex items-center justify-center px-4">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-300 border-t-blue-600 dark:border-white/10 dark:border-t-blue-500" />
         </main>
       }
     >

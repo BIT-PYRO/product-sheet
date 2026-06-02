@@ -12,7 +12,7 @@ class Migration(migrations.Migration):
     operations = [
         # Truncate any existing OTP values that exceed the new max_length of 4
         migrations.RunSQL(
-            sql="UPDATE accounts_emailotp SET otp = LEFT(otp, 4) WHERE LENGTH(otp) > 4;",
+            sql="UPDATE accounts_emailotp SET otp = SUBSTR(otp, 1, 4) WHERE LENGTH(otp) > 4;",
             reverse_sql=migrations.RunSQL.noop,
         ),
         migrations.AlterField(

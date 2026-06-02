@@ -22,13 +22,9 @@ export function proxy(request) {
     return NextResponse.next();
   }
 
-  if (pathname === '/') {
-    return NextResponse.redirect(new URL('/home', request.url));
-  }
-
-  if (pathname === '/login') {
-    if (isAuthenticated) {
-      return NextResponse.redirect(new URL('/home', request.url));
+  if (pathname === '/login' || pathname === '/') {
+    if (isAuthenticated && pathname === '/login') {
+      return NextResponse.redirect(new URL('/welcome', request.url));
     }
     return NextResponse.next();
   }

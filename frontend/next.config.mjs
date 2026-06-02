@@ -17,9 +17,9 @@ const nextConfig = {
   async rewrites() {
     return [
       { source: '/api/:path*', destination: '/frontend/api/:path*' },
-      { source: '/', destination: '/frontend' },
       { source: '/product-sheet', destination: '/frontend' },
       { source: '/home', destination: '/frontend/home' },
+      { source: '/welcome', destination: '/frontend/welcome' },
       { source: '/login', destination: '/frontend/login' },
       { source: '/auth/google', destination: '/frontend/auth/google' },
       { source: '/drafts', destination: '/frontend/drafts' },
