@@ -1,0 +1,165 @@
+Product / Inventory / Order System - Module Technical Summary
+
+Generated: 2026-06-01
+Source: product-sheet-design codebase (backend/*)
+
+1) High-level Tech Stack
+- Language: Python
+- Web framework: Django (models, ORM, admin)
+- REST API: Django REST Framework (viewsets, serializers, routers)
+- Filtering: django-filter
+- OpenAPI / schema: drf-spectacular (extend_schema, OpenApiExample)
+- Image/document storage: Cloudinary (optional via CLOUDINARY_URL) with local MEDIA_ROOT fallback
+- Concurrency/transactions: django.db.transaction
+- Background / scheduling: Celery is referenced in project structure (backend/celery.py)
+- DB: Django ORM (sqlite at backend/db.sqlite3 present; production likely uses Postgres or other RDBMS)
+- Auth / tenancy: custom `core_tenants` and `common` app utilities (TenantCompanyModel, AuditModel, ActivityLog)
+- Utilities: Python stdlib (base64, io, uuid), Pillow/Imaging indirectly via image handling
+
+2) Key Django apps (modules covered)
+- `products` : Product catalogue and related lookup models
+- `inventory` : Inventory transactions, stock models, picklists, stone/tool/other/machine inventories
+- `customers`: Customer master data
+- `orders`   : Order and OrderItem models and order lifecycle API
+- Supporting apps: `common`, `core_tenants`, `accounts`, `designers`, `jobs`, `accounting` (integration with orders)
+
+3) Notable third-party packages indicated by imports
+- django
+- djangorestframework
+- django-filter
+- drf-spectacular
+- cloudinary (optional runtime)
+- any logging/monitoring packages not enumerated explicitly (standard logging used)
+
+4) Image / document upload behavior
+- Central helpers in `common/image_upload.py`:
+  - `upload_image_file`, `upload_image_base64`, `upload_document_base64`, `upload_document_file`.
+  - If `CLOUDINARY_URL` env var set → attempt Cloudinary upload via `cloudinary.uploader.upload`.
+  - On Cloudinary failure or no env var → fallback to writing files under `settings.MEDIA_ROOT` and returning `settings.MEDIA_URL` path.
+  - Supported image MIME types: jpeg/jpg, png, gif, webp, bmp, tiff, avif, heic/heif, ico, svg+xml.
+
+5) Products module (backend/products)
+- Models:
+  - `Product` (master_sku, designer_sku(s), name, category, selling_price, cost_price, invoice_price, images (JSON), die_numbers, stone_entries, plating_entries, metadata fields like material, weight, collection)
+  - Lookup models: `Collection`, `Material`, `Category`, `Channel`, `TableColumnConfig`
+- Serializers: `ProductSerializer` (validates prices, trims names, handles base64 image uploads via `common.image_upload.upload_image_base64`), lookup serializers for catalog tables
+- Views / API behavior (`ProductViewSet`):
+  - CRUD operations (list, retrieve, create, update, partial_update, destroy)
+  - Extra action: `POST /<product_pk>/upload-image/` to upload a multipart image file (uses `MultiPartParser`), returns URL and updates `product.images`.
+  - Validations: prevents duplicate `master_sku` on create, removes related inventory transactions and detaches jobs on delete inside DB transaction.
+  - Filters: `master_sku`, `designer_sku`, `category`, search on `master_sku`, `name`, `designer_sku`.
+- Services: lightweight `calculate_margin` helper in `products/services/product_service.py`.
+
+6) Inventory module (backend/inventory)
+- Models (summary):
+  - `InventoryTransaction` (product FK to `Product`, txn_type IN/OUT/ADJUST/DEMAND, quantity, stage, location)
+  - `PicklistGroup`, `PicklistItem` (picklist upload groups)
+  - Stone inventory: `StoneItem`, `StoneStockEntry`, `StoneTransaction`
+  - Product inventory: `ProductInventoryItem`, `ProductInventoryTransaction`
+  - Tools/Machines/Others: `ToolItem`, `MachineItem`, `OtherItem`, `StockTransaction`
+  - Finding inventory and transactions, Die inventory (`DieInventoryItem`, `DieTransaction`), Repair (`RepairBatch`, `RepairItem`) and IssueRequest models
+- Serializers: many model serializers providing tenant/company read-only fields, custom create/update behaviors (e.g., PicklistGroup bulk create, StoneStockEntry updates StoneItem qty/weight)
+- Views / APIs (ViewSets):
+  - Inventory transactions CRUD (default router '')
+  - Picklist groups CRUD: `picklist-groups`
+  - Stone items: `stone-items` with extra actions:
+    - `POST /stone-items/sync-from-sheets/` — sync stones from product/designer sheets into StoneItem catalog
+    - `POST /stone-items/sync-to-sheets/` — push StoneItem catalog fields back to sheets
+  - Stone stock entries: `stone-stock-entries` (add stock)
+  - Product inventory: `product-inventory` with `POST /product-inventory/bulk-upload/` for bulk item creation from array of rows
+  - Stock/stone/finding/product transactions endpoints (logs)
+  - Issue requests: creation and `POST /issue-requests/{id}/review/` to approve/reject and perform stock adjustments (example: tools issuing updates `ToolItem.new_qty` inside a DB transaction)
+  - Die inventory and repair queues endpoints
+- Features:
+  - Uses DB transactions (`transaction.atomic`) for bulk operations and reviews
+  - Prefetch/select_related used in some ViewSets for performance
+  - Sync services in `inventory/services/stone_sync.py` and other services (die_sync.py, inventory_service.py)
+
+7) Customers module (backend/customers)
+- Model: `Customer` (company_name, business_type, gst_number, pan_number, status, address fields, authorized person, banking details)
+- Serializer: `CustomerSerializer` with basic trimming/validation
+- ViewSet: CRUD with search fields and filterable fields (`status`, `business_type`, `city`, `state`)
+
+8) Orders module (backend/orders)
+- Models:
+  - `Order` (customer info, status, subtotal/discount/shipping/tax/total, notes, order_type, units, picklist_number, order_source, created_by)
+  - `OrderItem` (FK to Order and optional FK to Product, name, sku, quantity, price, taxable, images (JSON/base64 allowed), total_price auto-calculated)
+  - Order sources/statuses enumerated via `TextChoices`.
+- Serializers:
+  - `OrderListSerializer` (read-only `items` list, total_items)
+  - `OrderDetailSerializer` (read/write `items`, custom `create`/`update` that creates/replace nested `OrderItem`s and recalculates totals)
+- ViewSet (`OrderViewSet`):
+  - CRUD endpoints
+  - Extra endpoints:
+    - `POST /from-picklist/` — idempotent create/replace an order from a picklist number
+    - `POST /{id}/confirm/` — change status from `draft` to `confirmed`
+    - `POST /{id}/cancel/` — cancel order (with simple status checks)
+    - `GET /{id}/summary/` — return subtotal/total/status/items_count
+  - Permissions: `AllowAny` in this module (open to public create — check if intended)
+
+9) API routing (module-level routers)
+- `backend/products/urls.py` registers: `collections`, `materials`, `categories`, `channels`, `table-columns`, and `''` (products)
+- `backend/inventory/urls.py` registers: `picklist-groups`, `stone-items`, `stone-stock-entries`, `tools`, `others`, `machines`, `product-inventory`, `stock-transactions`, `stone-log`, `finding-inventory`, `finding-transactions`, `product-transactions`, `issue-requests`, `die-inventory`, `die-transactions`, `repair-queue`, `repair-batches`, and `''` (inventory transactions)
+- `backend/customers/urls.py` registers `''` (customers)
+- `backend/orders/urls.py` registers `''` (orders)
+
+10) Integrations & cross-app behavior
+- `accounting.views.InvoiceFromOrdersView` reads `Order` objects to create invoices
+- `common.audit` functions log ActivityLog entries on create/update/delete for many models
+- `jobs` and `designers` apps referenced by `products` and `inventory` (e.g., `products` detach jobs on delete, `DieInventoryItem` syncs designer sheet images)
+
+11) Runtime / env considerations
+- `CLOUDINARY_URL` toggles Cloudinary uploads
+- `MEDIA_ROOT` and `MEDIA_URL` used for local uploads
+- `backend/.env` listed in `.gitignore` (local secrets)
+
+12) Files of interest to inspect further
+
+ For deeper details, inspect the files listed above.
+
+---
+**Additional Codebase Details**
+
+A. Admin registrations
+- `backend/products/admin.py`: registers `Collection`, `Material`, `Category`, `Channel`, `TableColumnConfig`, `Product` with admin list displays, search_fields and list_filters for quick admin lookup.
+
+B. Services (key helpers and sync logic)
+- `backend/products/services/product_service.py`: `calculate_margin(selling_price, cost_price)` — simple margin utility returning percentage as Decimal.
+- `backend/inventory/services/stone_sync.py`:
+  - `sync_stones_from_sheets()` — scans `Product.stone_entries` and `DesignerSheet.stone_entries` to create/update `StoneItem` catalog records (catalog-only, never overwrites qty fields). Returns summary `{created, updated, skipped}`.
+  - `sync_stone_to_sheets(stone_item)` — pushes catalog field updates from a `StoneItem` into matching `Product` and `DesignerSheet` entries by fingerprint.
+  - Fingerprint used: tuple of normalized descriptor fields `(type, variety, color, cut, shape, length, width, height)`.
+- `backend/inventory/services/die_sync.py`:
+  - `sync_all_dies_from_sheets()` — reconciles `DieInventoryItem` records from `DesignerSheet.tracking_rows` and `Product.die_numbers` and synchronizes `designer_skus` / `master_skus` and merged design images.
+  - Utility `_parse_die_legacy_value` to extract die codes from legacy formatted strings.
+- `backend/inventory/services/inventory_service.py`:
+  - `create_stock_transaction(product=..., txn_type, quantity, remark)` — atomic helper to create `InventoryTransaction` rows with sanity checks.
+
+C. Signals
+- `backend/inventory/signals.py`:
+  - `connect_signals()` wires `post_save` handlers for `DesignerSheet` and `Product` that trigger a full die sync via `sync_all_dies_from_sheets`. Handlers swallow exceptions to avoid blocking saves.
+
+D. Management commands & extras
+- `backend/products/management/commands/fix_die_legacy_values.py` — an example management command for data-fixing (search other management commands for maintenance scripts).
+
+E. Tests, migrations, and data files
+- Each app contains `migrations/` with historical schema changes; tests live under `backend/<app>/tests.py` or `tests/` files — useful for understanding edge-case behavior and expected API contracts.
+
+F. Observability & cross-cutting concerns
+- `common.audit` utilities are invoked across modules to log ActivityLog entries on create/update/delete; see calls in `products.views`, `orders.views`, etc.
+- Many write paths wrap critical operations in `transaction.atomic()` to ensure consistency (picklist bulk create, stone sync, die sync, issue-request reviews).
+- Tenancy and per-company scoping is enforced using `core_tenants.TenantCompanyModel` and `TenantAwareModel` base classes — most models include `tenant` and `company` scoping fields.
+- Image uploads are centralized via `common/image_upload.py` with Cloudinary fallback to local `MEDIA_ROOT`.
+
+G. Where to look next for a simplified implementation
+- `backend/products/serializers.py` and `backend/inventory/serializers.py` — show payload shapes, nested creation/update logic and field validations (good references for designing a simplified API).
+- `backend/orders/serializers.py` — reveals nested order item creation and total calculation logic.
+- `backend/inventory/views.py` — shows endpoints covering stock logs, bulk upload and sync actions; useful when designing corresponding frontend UI or import utilities.
+
+---
+End of augmented extraction. For more, I can:
+- add example OpenAPI snippets for the main endpoints,
+- generate JSON schema / sample payloads for `OrderDetail` and `Product` creation,
+- produce ER diagrams from the models.
+
+This file is an extracted, human-readable summary of models, APIs and runtime behaviors relevant to Product, Inventory, Customer and Order modules in this codebase. Use it as a reference while designing a simplified Inventory & Order Management System. For deeper details, inspect the files listed above.
