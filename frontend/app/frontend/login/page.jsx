@@ -49,18 +49,36 @@ function GoogleLoginButton({ redirectPath }) {
 
     const initGsi = () => {
       if (!window.google?.accounts?.id) return;
-      window.google.accounts.id.initialize({
-        client_id: clientId,
-        callback: handleCredential,
-        ux_mode: 'popup',
-      });
-      window.google.accounts.id.renderButton(btnRef.current, {
-        theme: 'outline',
-        size: 'large',
-        width: btnRef.current.offsetWidth || 400,
-        text: 'signin_with',
-        shape: 'rectangular',
-      });
+      // Prevent multiple initializations (React strict mode or remounts)
+      if (window.__psd_gsi_initialized) return;
+      try {
+        window.google.accounts.id.initialize({
+          client_id: clientId,
+          callback: handleCredential,
+          ux_mode: 'popup',
+        });
+        window.google.accounts.id.renderButton(btnRef.current, {
+          theme: 'outline',
+          size: 'large',
+          width: btnRef.current.offsetWidth || 400,
+          text: 'signin_with',
+          shape: 'rectangular',
+        });
+        window.__psd_gsi_initialized = true;
+      } catch (err) {
+        // If popup/postMessage is blocked (COOP/COEP) fall back to redirect ux_mode
+        try {
+          console.warn('GSI init failed, falling back to redirect mode', err);
+          window.google.accounts.id.initialize({
+            client_id: clientId,
+            callback: handleCredential,
+            ux_mode: 'redirect',
+          });
+          window.__psd_gsi_initialized = true;
+        } catch (err2) {
+          console.error('GSI initialization failed completely', err2);
+        }
+      }
     };
 
     if (window.google?.accounts?.id) {

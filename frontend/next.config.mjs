@@ -17,6 +17,8 @@ const nextConfig = {
   async rewrites() {
     return [
       { source: '/api/:path*', destination: '/frontend/api/:path*' },
+      // Serve a placeholder favicon to avoid 404 noise in dev
+      { source: '/favicon.ico', destination: '/placeholder-logo.svg' },
       { source: '/product-sheet', destination: '/frontend' },
       { source: '/home', destination: '/frontend/home' },
       { source: '/welcome', destination: '/frontend/welcome' },

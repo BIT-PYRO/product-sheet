@@ -37,21 +37,21 @@ export async function POST(request) {
       cache: 'no-store',
     });
 
-    const result = await googleResponse.json().catch(() => null);
+    // Try to parse JSON result; if backend returned HTML or empty body, fall back
+    const result = await googleResponse.json().catch(async () => {
+      const text = await googleResponse.text().catch(() => null);
+      return { message: text };
+    });
 
-    const access =
-      result?.data?.access ||
-      result?.access ||
-      '';
-    const refresh =
-      result?.data?.refresh ||
-      result?.refresh ||
-      '';
+    const access = result?.data?.access || result?.access || '';
+    const refresh = result?.data?.refresh || result?.refresh || '';
 
     if (!googleResponse.ok || !access || !refresh) {
+      const backendMsg = result?.message || result?.detail || null;
+      const status = googleResponse.status >= 500 ? 503 : (googleResponse.status || 401);
       return NextResponse.json(
-        { success: false, message: result?.message || 'Google login failed.' },
-        { status: googleResponse.status || 401 }
+        { success: false, message: backendMsg || 'Google login failed.' },
+        { status }
       );
     }
 
