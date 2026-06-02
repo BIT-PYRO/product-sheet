@@ -40,7 +40,11 @@ def get_org(request):
 
 
 def all_users_in_org():
-    """Return all active users (org-scoped organisations use all users for now)."""
+    """Return all active users belonging to the active tenant."""
+    from core_tenants.context import get_current_tenant
+    tenant = get_current_tenant()
+    if tenant:
+        return User.objects.filter(is_active=True, tenant=tenant)
     return User.objects.filter(is_active=True)
 
 
@@ -946,7 +950,8 @@ class HrMasterTaskExportView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        qs = MasterTask.objects.all().select_related('assigned_to', 'assigned_by')
+        tenant_id = str(request.user.tenant.id) if getattr(request.user, 'tenant', None) else ''
+        qs = MasterTask.objects.filter(org_id=tenant_id).select_related('assigned_to', 'assigned_by')
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename="tasks_export.csv"'
         writer = csv.writer(response)

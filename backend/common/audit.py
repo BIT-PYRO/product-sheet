@@ -151,6 +151,26 @@ def log_activity(
 
         ip = get_client_ip(request) if request is not None else None
 
+        # --- resolve tenant and company context ---
+        tenant = None
+        company = None
+
+        if hasattr(instance, 'tenant') and getattr(instance, 'tenant', None) is not None:
+            tenant = instance.tenant
+        if hasattr(instance, 'company') and getattr(instance, 'company', None) is not None:
+            company = instance.company
+
+        from core_tenants.context import get_current_tenant, get_current_company
+        if not tenant:
+            tenant = get_current_tenant()
+        if not company:
+            company = get_current_company()
+
+        if not tenant and request is not None:
+            tenant = getattr(request, 'tenant', None) or (getattr(request.user, 'tenant', None) if getattr(request, 'user', None) and request.user.is_authenticated else None)
+        if not company and request is not None:
+            company = getattr(request, 'company', None) or (getattr(request.user, 'active_company', None) if getattr(request, 'user', None) and request.user.is_authenticated else None)
+
         # --- primary log entry ---
         ActivityLog.objects.create(
             user=user,
@@ -164,6 +184,8 @@ def log_activity(
             rows_affected=rows_affected,
             ip_address=ip,
             extra=extra or {},
+            tenant=tenant,
+            company=company,
         )
 
         # --- secondary upload entry (one per file that changed) ---
@@ -180,6 +202,8 @@ def log_activity(
                 rows_affected=1,
                 ip_address=ip,
                 extra={'source_action': action},
+                tenant=tenant,
+                company=company,
             )
 
     except Exception:

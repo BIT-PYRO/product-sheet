@@ -1,6 +1,7 @@
 from django.db import models
 
 from common.models import AuditModel
+from core_tenants.models import TenantCompanyModel
 from workforce.models import WorkforceMember
 
 
@@ -10,7 +11,7 @@ class KYCStatus(models.TextChoices):
 	REJECTED = 'rejected', 'Rejected'
 
 
-class KYCRecord(AuditModel):
+class KYCRecord(AuditModel, TenantCompanyModel):
 	member = models.OneToOneField(
 		WorkforceMember,
 		on_delete=models.CASCADE,
@@ -22,6 +23,11 @@ class KYCRecord(AuditModel):
 		default=KYCStatus.PENDING,
 	)
 	id_number = models.CharField(max_length=80, blank=True)
+
+	class Meta:
+		indexes = [
+			models.Index(fields=['tenant', 'company', 'status']),
+		]
 
 	def __str__(self):
 		return f'{self.member.full_name} - {self.status}'

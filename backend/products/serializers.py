@@ -3,7 +3,13 @@ from rest_framework import serializers
 from .models import Category, Channel, Collection, Material, Product, TableColumnConfig
 
 
+# ---------------------------------------------------------------------------
+# Lookup / Catalogue Serializers (tenant-scoped)
+# ---------------------------------------------------------------------------
+
 class CollectionSerializer(serializers.ModelSerializer):
+    tenant_id = serializers.UUIDField(read_only=True)
+
     def validate_name(self, value):
         value = value.strip()
         if not value:
@@ -17,10 +23,13 @@ class CollectionSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Collection
-        fields = ['id', 'name', 'created_at']
+        fields = ['id', 'name', 'created_at', 'tenant_id']
+        read_only_fields = ['id', 'created_at', 'tenant', 'tenant_id']
 
 
 class MaterialSerializer(serializers.ModelSerializer):
+    tenant_id = serializers.UUIDField(read_only=True)
+
     def validate_name(self, value):
         value = value.strip()
         if not value:
@@ -34,10 +43,13 @@ class MaterialSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Material
-        fields = ['id', 'name', 'created_at']
+        fields = ['id', 'name', 'created_at', 'tenant_id']
+        read_only_fields = ['id', 'created_at', 'tenant', 'tenant_id']
 
 
 class CategorySerializer(serializers.ModelSerializer):
+    tenant_id = serializers.UUIDField(read_only=True)
+
     def validate_name(self, value):
         value = value.strip()
         if not value:
@@ -51,10 +63,13 @@ class CategorySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Category
-        fields = ['id', 'name', 'created_at']
+        fields = ['id', 'name', 'created_at', 'tenant_id']
+        read_only_fields = ['id', 'created_at', 'tenant', 'tenant_id']
 
 
 class ChannelSerializer(serializers.ModelSerializer):
+    tenant_id = serializers.UUIDField(read_only=True)
+
     def validate_name(self, value):
         value = value.strip()
         if not value:
@@ -68,16 +83,28 @@ class ChannelSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Channel
-        fields = ['id', 'name', 'created_at']
+        fields = ['id', 'name', 'created_at', 'tenant_id']
+        read_only_fields = ['id', 'created_at', 'tenant', 'tenant_id']
 
 
 class TableColumnConfigSerializer(serializers.ModelSerializer):
+    tenant_id = serializers.UUIDField(read_only=True)
+
     class Meta:
         model = TableColumnConfig
-        fields = ['id', 'table_type', 'key', 'label', 'order']
+        fields = ['id', 'table_type', 'key', 'label', 'order', 'tenant_id']
+        read_only_fields = ['id', 'tenant', 'tenant_id']
 
+
+# ---------------------------------------------------------------------------
+# Product Serializer
+# ---------------------------------------------------------------------------
 
 class ProductSerializer(serializers.ModelSerializer):
+    # tenant and company are server-assigned — frontend must never modify them
+    tenant_id = serializers.UUIDField(read_only=True)
+    company_id = serializers.UUIDField(read_only=True)
+
     def validate(self, attrs):
         selling_price = attrs.get('selling_price', getattr(self.instance, 'selling_price', 0))
         cost_price = attrs.get('cost_price', getattr(self.instance, 'cost_price', 0))
@@ -137,3 +164,4 @@ class ProductSerializer(serializers.ModelSerializer):
     class Meta:
         model = Product
         fields = '__all__'
+        read_only_fields = ['tenant', 'company', 'tenant_id', 'company_id']

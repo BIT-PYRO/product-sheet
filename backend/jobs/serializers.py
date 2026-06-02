@@ -30,7 +30,7 @@ class JobSerializer(serializers.ModelSerializer):
     class Meta:
         model = Job
         fields = '__all__'
-        read_only_fields = ('id', 'created_at', 'updated_at')
+        read_only_fields = ('id', 'tenant', 'company', 'tenant_id', 'company_id', 'created_at', 'updated_at')
 
 
 class BulkVoucherRequestSerializer(serializers.Serializer):

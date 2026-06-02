@@ -21,3 +21,9 @@ class CustomerViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
     serializer_class = CustomerSerializer
     filterset_fields = ['status', 'business_type', 'city', 'state']
     search_fields = ['company_name', 'gst_number', 'pan_number', 'mobile', 'email', 'authorized_person_name']
+
+    def perform_create(self, serializer):
+        serializer.save(
+            tenant=(getattr(self.request, 'tenant', None) or (getattr(self.request.user, 'tenant', None) if self.request.user and self.request.user.is_authenticated else None)),
+            company=(getattr(self.request, 'company', None) or (getattr(self.request.user, 'active_company', None) if self.request.user and self.request.user.is_authenticated else None)),
+        )

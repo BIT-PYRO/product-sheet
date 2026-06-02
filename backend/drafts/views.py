@@ -31,7 +31,11 @@ class DraftViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
         return Draft.objects.select_related("owner").order_by("-updated_at")
 
     def perform_create(self, serializer):
-        serializer.save(owner=self.request.user)
+        serializer.save(
+            owner=self.request.user,
+            tenant=(getattr(self.request, 'tenant', None) or (getattr(self.request.user, 'tenant', None) if self.request.user and self.request.user.is_authenticated else None)),
+            company=(getattr(self.request, 'company', None) or (getattr(self.request.user, 'active_company', None) if self.request.user and self.request.user.is_authenticated else None)),
+        )
 
     def _assert_can_modify(self, draft):
         if draft.owner_id != self.request.user.id:

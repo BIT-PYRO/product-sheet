@@ -79,6 +79,25 @@ class StandardizedSuccessResponseMixin:
                     user = u
                     full = f'{u.first_name} {u.last_name}'.strip()
                     deleted_by_name = full or u.username or ''
+            tenant = None
+            company = None
+
+            if hasattr(instance, 'tenant') and getattr(instance, 'tenant', None) is not None:
+                tenant = instance.tenant
+            if hasattr(instance, 'company') and getattr(instance, 'company', None) is not None:
+                company = instance.company
+
+            from core_tenants.context import get_current_tenant, get_current_company
+            if not tenant:
+                tenant = get_current_tenant()
+            if not company:
+                company = get_current_company()
+
+            if not tenant and request is not None:
+                tenant = getattr(request, 'tenant', None) or (getattr(request.user, 'tenant', None) if getattr(request, 'user', None) and request.user.is_authenticated else None)
+            if not company and request is not None:
+                company = getattr(request, 'company', None) or (getattr(request.user, 'active_company', None) if getattr(request, 'user', None) and request.user.is_authenticated else None)
+
             raw = json.loads(django_serializers.serialize('json', [instance]))
             fields = raw[0].get('fields', {}) if raw else {}
             DeletionLog.objects.create(
@@ -89,6 +108,8 @@ class StandardizedSuccessResponseMixin:
                 object_id=str(instance.pk),
                 object_repr=str(instance)[:500],
                 serialized_data=fields,
+                tenant=tenant,
+                company=company,
             )
         except Exception:
             pass  # Never block a deletion

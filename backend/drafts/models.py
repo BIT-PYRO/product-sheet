@@ -1,10 +1,11 @@
 from django.conf import settings
 from django.db import models
 
-from common.models import TimeStampedModel
+from common.models import AuditModel
+from core_tenants.models import TenantCompanyModel
 
 
-class Draft(TimeStampedModel):
+class Draft(AuditModel, TenantCompanyModel):
     owner = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,

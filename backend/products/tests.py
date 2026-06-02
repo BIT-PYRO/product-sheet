@@ -3,22 +3,32 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from products.models import Product
+from core_tenants.models import Tenant, Company
+from core_tenants.context import set_tenant, set_company
 
 
 class ProductApiTests(APITestCase):
 	def setUp(self):
 		user_model = get_user_model()
+		self.tenant = Tenant.objects.create(name='Test Tenant', slug='test-tenant')
+		self.company = Company.objects.create(tenant=self.tenant, name='Test Company')
+		set_tenant(self.tenant)
+		set_company(self.company)
+
 		self.user = user_model.objects.create_user(
 			username='day4_user',
 			password='day4_pass_123',
+			tenant=self.tenant,
+			active_company=self.company,
 		)
+		self.user.accessible_companies.add(self.company)
 		self.client.force_authenticate(user=self.user)
 
 	def test_create_product(self):
 		response = self.client.post(
 			'/api/v1/products/',
 			{
-				'sku': 'SKU-1001',
+				'master_sku': 'SKU-1001',
 				'name': 'Demo Product',
 				'category': 'General',
 				'selling_price': '120.00',
@@ -32,13 +42,13 @@ class ProductApiTests(APITestCase):
 		self.assertTrue(response.data['success'])
 		self.assertIn('data', response.data)
 		self.assertEqual(Product.objects.count(), 1)
-		self.assertEqual(Product.objects.first().sku, 'SKU-1001')
+		self.assertEqual(Product.objects.first().master_sku, 'SKU-1001')
 
 	def test_create_product_validation_error_has_standard_shape(self):
 		response = self.client.post(
 			'/api/v1/products/',
 			{
-				'sku': 'SKU-ERR-1',
+				'master_sku': 'SKU-ERR-1',
 				'name': 'Invalid Product',
 				'category': 'General',
 				'selling_price': '100.00',
@@ -55,7 +65,7 @@ class ProductApiTests(APITestCase):
 
 	def test_list_products(self):
 		Product.objects.create(
-			sku='SKU-2001',
+			master_sku='SKU-2001',
 			name='Product A',
 			category='General',
 			selling_price='99.00',
@@ -69,4 +79,4 @@ class ProductApiTests(APITestCase):
 		self.assertEqual(response.status_code, status.HTTP_200_OK)
 		self.assertTrue(response.data['success'])
 		self.assertEqual(len(response.data['data']), 1)
-		self.assertEqual(response.data['data'][0]['sku'], 'SKU-2001')
+		self.assertEqual(response.data['data'][0]['master_sku'], 'SKU-2001')

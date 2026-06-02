@@ -12,10 +12,25 @@ from jobs.models import Job
 from products.models import Product
 
 
+from core_tenants.models import Tenant, Company
+from core_tenants.context import set_tenant, set_company
+
+
 class RepairIntegrationTests(APITestCase):
     def setUp(self):
         user_model = get_user_model()
-        self.user = user_model.objects.create_user(username='repair_tester', password='secure_password_123')
+        self.tenant = Tenant.objects.create(name='Test Tenant', slug='test-tenant')
+        self.company = Company.objects.create(tenant=self.tenant, name='Test Company')
+        set_tenant(self.tenant)
+        set_company(self.company)
+
+        self.user = user_model.objects.create_user(
+            username='repair_tester',
+            password='secure_password_123',
+            tenant=self.tenant,
+            active_company=self.company,
+        )
+        self.user.accessible_companies.add(self.company)
         self.client.force_authenticate(user=self.user)
 
         # Create a test product matching the SKU used in repairs

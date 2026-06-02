@@ -1,53 +1,64 @@
 from django.db import models
 from common.models import AuditModel
+from core_tenants.models import TenantAwareModel, TenantCompanyModel
 
 
-class Collection(models.Model):
-	name = models.CharField(max_length=120, unique=True)
+# ---------------------------------------------------------------------------
+# Tenant-scoped catalogue / lookup models
+# ---------------------------------------------------------------------------
+
+class Collection(TenantAwareModel):
+	name = models.CharField(max_length=120)
 	created_at = models.DateTimeField(auto_now_add=True)
 
 	class Meta:
 		ordering = ['name']
+		# Name is unique per-tenant (not globally unique)
+		unique_together = [('tenant', 'name')]
 
 	def __str__(self):
 		return self.name
 
 
-class Material(models.Model):
-	name = models.CharField(max_length=120, unique=True)
+class Material(TenantAwareModel):
+	name = models.CharField(max_length=120)
 	created_at = models.DateTimeField(auto_now_add=True)
 
 	class Meta:
 		ordering = ['name']
+		unique_together = [('tenant', 'name')]
 
 	def __str__(self):
 		return self.name
 
 
-class Category(models.Model):
-	name = models.CharField(max_length=120, unique=True)
+class Category(TenantAwareModel):
+	name = models.CharField(max_length=120)
 	created_at = models.DateTimeField(auto_now_add=True)
 
 	class Meta:
 		ordering = ['name']
+		unique_together = [('tenant', 'name')]
 
 	def __str__(self):
 		return self.name
 
 
-class Channel(models.Model):
-	name = models.CharField(max_length=120, unique=True)
+class Channel(TenantAwareModel):
+	name = models.CharField(max_length=120)
 	created_at = models.DateTimeField(auto_now_add=True)
 
 	class Meta:
 		ordering = ['name']
+		unique_together = [('tenant', 'name')]
 
 	def __str__(self):
 		return self.name
 
 
-class Product(AuditModel):
-	master_sku = models.CharField(max_length=60, unique=True)
+class Product(AuditModel, TenantCompanyModel):
+	# master_sku is unique per tenant (not globally unique)
+	master_sku = models.CharField(max_length=60)
 	designer_sku = models.CharField(max_length=60, blank=True, default='')
 	designer_skus = models.JSONField(default=list, blank=True, help_text='List of all designer SKUs linked to this master SKU')
 	name = models.CharField(max_length=255, blank=True, default='')
@@ -80,6 +91,14 @@ class Product(AuditModel):
 	notes = models.TextField(blank=True, default='')
 	images = models.JSONField(default=list, blank=True)
 
+	class Meta:
+		ordering = ['-created_at']
+		# master_sku is unique within a tenant (two tenants may share the same SKU)
+		unique_together = [('tenant', 'master_sku')]
+		indexes = [
+			models.Index(fields=['tenant', 'company', 'is_active']),
+		]
+
 	def __str__(self):
 		return f'{self.master_sku} - {self.name}'
 
@@ -91,8 +110,8 @@ TABLE_TYPE_CHOICES = [
 ]
 
 
-class TableColumnConfig(models.Model):
-	"""Global column configuration for dynamic tables (live stock, stone info, plating info)."""
+class TableColumnConfig(TenantAwareModel):
+	"""Per-tenant column configuration for dynamic tables (live stock, stone info, plating info)."""
 	table_type = models.CharField(max_length=40, choices=TABLE_TYPE_CHOICES)
 	key = models.CharField(max_length=80)          # internal JS key e.g. 'waxPiece'
 	label = models.CharField(max_length=120)        # display header e.g. 'Wax Piece'
@@ -100,7 +119,8 @@ class TableColumnConfig(models.Model):
 
 	class Meta:
 		ordering = ['table_type', 'order']
-		unique_together = [('table_type', 'key')]
+		# Unique per tenant (not globally)
+		unique_together = [('tenant', 'table_type', 'key')]
 
 	def __str__(self):
 		return f'{self.table_type} / {self.label}'

@@ -21,3 +21,9 @@ class KYCRecordViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 	serializer_class = KYCRecordSerializer
 	filterset_fields = ['member', 'status']
 	search_fields = ['member__full_name', 'id_number']
+
+	def perform_create(self, serializer):
+		serializer.save(
+			tenant=(getattr(self.request, 'tenant', None) or (getattr(self.request.user, 'tenant', None) if self.request.user and self.request.user.is_authenticated else None)),
+			company=(getattr(self.request, 'company', None) or (getattr(self.request.user, 'active_company', None) if self.request.user and self.request.user.is_authenticated else None)),
+		)

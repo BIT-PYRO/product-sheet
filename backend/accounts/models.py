@@ -125,6 +125,14 @@ class APIKey(models.Model):
 
     name = models.CharField(max_length=100, help_text='A human-readable label for this key.')
     description = models.TextField(blank=True, default='')
+    tenant = models.ForeignKey(
+        'core_tenants.Tenant',
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='api_keys',
+        help_text='Tenant this API Key is scoped to.',
+    )
     given_to = models.CharField(
         max_length=150, blank=True, default='',
         help_text='Display name of the key recipient.',

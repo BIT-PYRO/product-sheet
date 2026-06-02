@@ -2,7 +2,7 @@ import uuid
 from django.conf import settings
 from django.db import models
 from common.models import TimeStampedModel
-from core_tenants.managers import TenantManager, CompanyManager
+from core_tenants.managers import TenantManager, CompanyManager, TenantCompanyManager
 
 class Tenant(TimeStampedModel):
     """
@@ -12,6 +12,7 @@ class Tenant(TimeStampedModel):
     name = models.CharField(max_length=255, help_text="Tenant organization name.")
     slug = models.SlugField(max_length=255, unique=True, help_text="Unique URL-friendly identifier.")
     is_active = models.BooleanField(default=True, help_text="Designates whether this tenant is active.")
+    external_shop_id = models.CharField(max_length=255, blank=True, default='', help_text="External shop ID for repair queue sync.")
 
     class Meta:
         ordering = ['name']
@@ -74,6 +75,14 @@ class TenantAwareModel(models.Model):
     class Meta:
         abstract = True
 
+    def save(self, *args, **kwargs):
+        if not getattr(self, 'tenant_id', None):
+            from core_tenants.context import get_current_tenant
+            tenant = get_current_tenant()
+            if tenant:
+                self.tenant = tenant
+        super().save(*args, **kwargs)
+
 
 class CompanyAwareModel(models.Model):
     """
@@ -119,3 +128,68 @@ class AuditAwareModel(models.Model):
 
     class Meta:
         abstract = True
+
+    def save(self, *args, **kwargs):
+        from core_tenants.context import get_current_user
+        user = get_current_user()
+        if user:
+            if not getattr(self, 'created_by_id', None):
+                self.created_by = user
+            self.updated_by = user
+        super().save(*args, **kwargs)
+
+
+class TenantCompanyModel(models.Model):
+    """
+    Abstract base model that enforces BOTH tenant and company isolation.
+
+    This is the primary base for all ERP-level models. Subclasses will
+    automatically filter records based on both the active Tenant and the
+    active Company in the request context.
+
+    Usage:
+        class Product(AuditModel, TenantCompanyModel):
+            ...
+
+    The `objects` manager auto-scopes to the active tenant + company.
+    The `unscoped_objects` manager bypasses all scoping (for migrations, admin).
+    """
+
+    tenant = models.ForeignKey(
+        'core_tenants.Tenant',
+        on_delete=models.CASCADE,
+        related_name='%(class)s_related',
+        db_index=True,
+        help_text="Tenant this record belongs to.",
+    )
+    company = models.ForeignKey(
+        'core_tenants.Company',
+        on_delete=models.CASCADE,
+        related_name='%(class)s_company_related',
+        db_index=True,
+        help_text="Company this record belongs to.",
+    )
+
+    # Auto-scoped manager (respects ContextVar tenant + company)
+    objects = TenantCompanyManager()
+    # Bypass all scoping — use in migrations, management commands, admin
+    unscoped_objects = models.Manager()
+
+    class Meta:
+        abstract = True
+        indexes = [
+            models.Index(fields=['tenant', 'company']),
+        ]
+
+    def save(self, *args, **kwargs):
+        if not getattr(self, 'tenant_id', None):
+            from core_tenants.context import get_current_tenant
+            tenant = get_current_tenant()
+            if tenant:
+                self.tenant = tenant
+        if not getattr(self, 'company_id', None):
+            from core_tenants.context import get_current_company
+            company = get_current_company()
+            if company:
+                self.company = company
+        super().save(*args, **kwargs)

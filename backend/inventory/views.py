@@ -4,6 +4,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
 from django.db import transaction as db_transaction
+from django.db.models import Q
 from django.utils import timezone
 
 from common.mixins import StandardizedSuccessResponseMixin
@@ -64,7 +65,10 @@ class InventoryTransactionViewSet(StandardizedSuccessResponseMixin, ModelViewSet
 			pass
 
 	def perform_create(self, serializer):
-		super().perform_create(serializer)
+		serializer.save(
+			tenant=(getattr(self.request, 'tenant', None) or (getattr(self.request.user, 'tenant', None) if self.request.user and self.request.user.is_authenticated else None)),
+			company=(getattr(self.request, 'company', None) or (getattr(self.request.user, 'active_company', None) if self.request.user and self.request.user.is_authenticated else None)),
+		)
 		self._cross_log_product(serializer.instance, 'create')
 
 	def perform_update(self, serializer):
@@ -93,6 +97,12 @@ class PicklistGroupViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 	filterset_fields = ['number', 'group_id']
 	search_fields = ['name', 'uploaded_by', 'group_id', 'items__sku', 'items__listing_name']
 
+	def perform_create(self, serializer):
+		serializer.save(
+			tenant=(getattr(self.request, 'tenant', None) or (getattr(self.request.user, 'tenant', None) if self.request.user and self.request.user.is_authenticated else None)),
+			company=(getattr(self.request, 'company', None) or (getattr(self.request.user, 'active_company', None) if self.request.user and self.request.user.is_authenticated else None)),
+		)
+
 
 @extend_schema_view(
 	list=extend_schema(summary='List stone items', tags=['Stone Inventory']),
@@ -108,6 +118,12 @@ class StoneItemViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 	serializer_class = StoneItemSerializer
 	filterset_fields = ['stone_type', 'species', 'variety', 'color', 'quality', 'shape', 'wax_setting']
 	search_fields = ['stone_type', 'species', 'variety', 'color', 'quality', 'shape']
+
+	def perform_create(self, serializer):
+		serializer.save(
+			tenant=(getattr(self.request, 'tenant', None) or (getattr(self.request.user, 'tenant', None) if self.request.user and self.request.user.is_authenticated else None)),
+			company=(getattr(self.request, 'company', None) or (getattr(self.request.user, 'active_company', None) if self.request.user and self.request.user.is_authenticated else None)),
+		)
 
 	def perform_update(self, serializer):
 		"""After saving a StoneItem, push catalog changes back to all sheets."""
@@ -163,6 +179,12 @@ class StoneStockEntryViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 	filterset_fields = ['stone']
 	http_method_names = ['get', 'post', 'head', 'options']
 
+	def perform_create(self, serializer):
+		serializer.save(
+			tenant=(getattr(self.request, 'tenant', None) or (getattr(self.request.user, 'tenant', None) if self.request.user and self.request.user.is_authenticated else None)),
+			company=(getattr(self.request, 'company', None) or (getattr(self.request.user, 'active_company', None) if self.request.user and self.request.user.is_authenticated else None)),
+		)
+
 
 @extend_schema_view(
 	list=extend_schema(summary='List tool items', tags=['Tools Inventory']),
@@ -177,6 +199,12 @@ class ToolItemViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 	queryset = ToolItem.objects.all()
 	serializer_class = ToolItemSerializer
 	search_fields = ['tool_name', 'department', 'new_location', 'particulars']
+
+	def perform_create(self, serializer):
+		serializer.save(
+			tenant=(getattr(self.request, 'tenant', None) or (getattr(self.request.user, 'tenant', None) if self.request.user and self.request.user.is_authenticated else None)),
+			company=(getattr(self.request, 'company', None) or (getattr(self.request.user, 'active_company', None) if self.request.user and self.request.user.is_authenticated else None)),
+		)
 
 
 @extend_schema_view(
@@ -194,6 +222,12 @@ class OtherItemViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 	filterset_fields = ['category']
 	search_fields = ['item_name', 'category', 'notes']
 
+	def perform_create(self, serializer):
+		serializer.save(
+			tenant=(getattr(self.request, 'tenant', None) or (getattr(self.request.user, 'tenant', None) if self.request.user and self.request.user.is_authenticated else None)),
+			company=(getattr(self.request, 'company', None) or (getattr(self.request.user, 'active_company', None) if self.request.user and self.request.user.is_authenticated else None)),
+		)
+
 
 @extend_schema_view(
 	list=extend_schema(summary='List machine items', tags=['Machines Inventory']),
@@ -208,6 +242,12 @@ class MachineItemViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 	queryset = MachineItem.objects.all()
 	serializer_class = MachineItemSerializer
 	search_fields = ['machine_name', 'department']
+
+	def perform_create(self, serializer):
+		serializer.save(
+			tenant=(getattr(self.request, 'tenant', None) or (getattr(self.request.user, 'tenant', None) if self.request.user and self.request.user.is_authenticated else None)),
+			company=(getattr(self.request, 'company', None) or (getattr(self.request.user, 'active_company', None) if self.request.user and self.request.user.is_authenticated else None)),
+		)
 
 
 @extend_schema_view(
@@ -226,7 +266,11 @@ class ProductInventoryItemViewSet(StandardizedSuccessResponseMixin, ModelViewSet
 	search_fields = ['final_sku', 'location', 'product__master_sku', 'product__designer_sku']
 
 	def perform_create(self, serializer):
-		serializer.save(created_by=self.request.user if self.request.user.is_authenticated else None)
+		serializer.save(
+			tenant=(getattr(self.request, 'tenant', None) or (getattr(self.request.user, 'tenant', None) if self.request.user and self.request.user.is_authenticated else None)),
+			company=(getattr(self.request, 'company', None) or (getattr(self.request.user, 'active_company', None) if self.request.user and self.request.user.is_authenticated else None)),
+			created_by=self.request.user if self.request.user.is_authenticated else None,
+		)
 
 	def perform_update(self, serializer):
 		serializer.save(updated_by=self.request.user if self.request.user.is_authenticated else None)
@@ -238,6 +282,9 @@ class ProductInventoryItemViewSet(StandardizedSuccessResponseMixin, ModelViewSet
 		if not isinstance(items, list) or len(items) == 0:
 			return Response({'success': False, 'message': 'No items provided.'}, status=status.HTTP_400_BAD_REQUEST)
 
+		tenant = getattr(request, 'tenant', None) or (getattr(request.user, 'tenant', None) if request.user and request.user.is_authenticated else None)
+		company = getattr(request, 'company', None) or (getattr(request.user, 'active_company', None) if request.user and request.user.is_authenticated else None)
+
 		from products.models import Product
 		created = 0
 		errors = []
@@ -248,12 +295,14 @@ class ProductInventoryItemViewSet(StandardizedSuccessResponseMixin, ModelViewSet
 				errors.append(f'Row {idx + 1}: master_sku is required.')
 				continue
 
-			product = Product.objects.filter(master_sku__iexact=master_sku).first()
+			product = Product.objects.filter(master_sku__iexact=master_sku, tenant=tenant).first()
 			if not product:
-				errors.append(f'Row {idx + 1}: Product with SKU "{master_sku}" not found.')
+				errors.append(f'Row {idx + 1}: Product with SKU "{master_sku}" not found in your active tenant catalogue.')
 				continue
 
 			ProductInventoryItem.objects.create(
+				tenant=tenant,
+				company=company,
 				product=product,
 				final_sku=str(item.get('final_sku', '')).strip(),
 				value=item.get('value', 0),
@@ -288,6 +337,12 @@ class StockTransactionViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 	filterset_fields = ['inventory_type', 'txn_type', 'tool', 'machine', 'other_item']
 	search_fields = ['item_name', 'particulars', 'received_from', 'issued_to', 'remark']
 
+	def perform_create(self, serializer):
+		serializer.save(
+			tenant=(getattr(self.request, 'tenant', None) or (getattr(self.request.user, 'tenant', None) if self.request.user and self.request.user.is_authenticated else None)),
+			company=(getattr(self.request, 'company', None) or (getattr(self.request.user, 'active_company', None) if self.request.user and self.request.user.is_authenticated else None)),
+		)
+
 
 # ── Stone Transaction ────────────────────────────────────────────────────────
 
@@ -305,6 +360,12 @@ class StoneTransactionViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 	serializer_class = StoneTransactionSerializer
 	filterset_fields = ['txn_type', 'stone']
 	search_fields = ['stone_name', 'variety', 'stone_type', 'species', 'issued_to', 'received_from', 'remark']
+
+	def perform_create(self, serializer):
+		serializer.save(
+			tenant=(getattr(self.request, 'tenant', None) or (getattr(self.request.user, 'tenant', None) if self.request.user and self.request.user.is_authenticated else None)),
+			company=(getattr(self.request, 'company', None) or (getattr(self.request.user, 'active_company', None) if self.request.user and self.request.user.is_authenticated else None)),
+		)
 
 
 # ── Finding Inventory Item ───────────────────────────────────────────────────
@@ -324,6 +385,12 @@ class FindingInventoryItemViewSet(StandardizedSuccessResponseMixin, ModelViewSet
 	filterset_fields = ['material', 'finding_stage', 'mechanism']
 	search_fields = ['finding_code', 'die_number', 'material', 'mechanism', 'notes']
 
+	def perform_create(self, serializer):
+		serializer.save(
+			tenant=(getattr(self.request, 'tenant', None) or (getattr(self.request.user, 'tenant', None) if self.request.user and self.request.user.is_authenticated else None)),
+			company=(getattr(self.request, 'company', None) or (getattr(self.request.user, 'active_company', None) if self.request.user and self.request.user.is_authenticated else None)),
+		)
+
 
 # ── Finding Inventory Transaction ────────────────────────────────────────────
 
@@ -342,6 +409,12 @@ class FindingInventoryTransactionViewSet(StandardizedSuccessResponseMixin, Model
 	filterset_fields = ['txn_type', 'finding']
 	search_fields = ['finding_code', 'material', 'stage', 'issued_to', 'received_from', 'remark']
 
+	def perform_create(self, serializer):
+		serializer.save(
+			tenant=(getattr(self.request, 'tenant', None) or (getattr(self.request.user, 'tenant', None) if self.request.user and self.request.user.is_authenticated else None)),
+			company=(getattr(self.request, 'company', None) or (getattr(self.request.user, 'active_company', None) if self.request.user and self.request.user.is_authenticated else None)),
+		)
+
 
 # ── Product Inventory Transaction ────────────────────────────────────────────
 
@@ -359,6 +432,12 @@ class ProductInventoryTransactionViewSet(StandardizedSuccessResponseMixin, Model
 	serializer_class = ProductInventoryTransactionSerializer
 	filterset_fields = ['txn_type', 'product']
 	search_fields = ['master_sku', 'designer_sku', 'final_sku', 'metal', 'issued_to', 'received_from', 'remark']
+
+	def perform_create(self, serializer):
+		serializer.save(
+			tenant=(getattr(self.request, 'tenant', None) or (getattr(self.request.user, 'tenant', None) if self.request.user and self.request.user.is_authenticated else None)),
+			company=(getattr(self.request, 'company', None) or (getattr(self.request.user, 'active_company', None) if self.request.user and self.request.user.is_authenticated else None)),
+		)
 
 
 # ── Issue Request ────────────────────────────────────────────────────────────
@@ -398,7 +477,19 @@ class IssueRequestViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 					return Response({'success': False, 'message': f'Insufficient stock. Available: {float(tool.new_qty)}, Requested: {float(requested_qty)}.', 'available': float(tool.new_qty), 'requested': float(requested_qty)}, status=status.HTTP_400_BAD_REQUEST)
 				tool.new_qty = tool.new_qty - requested_qty
 				tool.save(update_fields=['new_qty'])
-				StockTransaction.objects.create(txn_date=timezone.now().date(), inventory_type='tools', txn_type='issued', item_name=obj.item_name or '', qty=requested_qty, qty_unit=tool.new_unit or 'PCS', issued_to=obj.issued_to or '', remark=obj.reason or '', tool=tool)
+				StockTransaction.objects.create(
+					tenant=obj.tenant,
+					company=obj.company,
+					txn_date=timezone.now().date(),
+					inventory_type='tools',
+					txn_type='issued',
+					item_name=obj.item_name or '',
+					qty=requested_qty,
+					qty_unit=tool.new_unit or 'PCS',
+					issued_to=obj.issued_to or '',
+					remark=obj.reason or '',
+					tool=tool
+				)
 
 		# ── Others ───────────────────────────────────────────────────────────
 		elif new_status == 'approved' and obj.inventory_type == 'others' and obj.item_id:
@@ -412,7 +503,19 @@ class IssueRequestViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 					return Response({'success': False, 'message': f'Insufficient stock. Available: {float(other.quantity)}, Requested: {float(requested_qty)}.', 'available': float(other.quantity), 'requested': float(requested_qty)}, status=status.HTTP_400_BAD_REQUEST)
 				other.quantity = other.quantity - requested_qty
 				other.save(update_fields=['quantity'])
-				StockTransaction.objects.create(txn_date=timezone.now().date(), inventory_type='others', txn_type='issued', item_name=obj.item_name or '', qty=requested_qty, qty_unit=other.unit or 'PCS', issued_to=obj.issued_to or '', remark=obj.reason or '', other_item=other)
+				StockTransaction.objects.create(
+					tenant=obj.tenant,
+					company=obj.company,
+					txn_date=timezone.now().date(),
+					inventory_type='others',
+					txn_type='issued',
+					item_name=obj.item_name or '',
+					qty=requested_qty,
+					qty_unit=other.unit or 'PCS',
+					issued_to=obj.issued_to or '',
+					remark=obj.reason or '',
+					other_item=other
+				)
 
 		# ── Machines ─────────────────────────────────────────────────────────
 		elif new_status == 'approved' and obj.inventory_type == 'machines' and obj.item_id:
@@ -426,7 +529,18 @@ class IssueRequestViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 					return Response({'success': False, 'message': f'Insufficient running stock. Available: {float(machine.running_qty)}, Requested: {float(requested_qty)}.', 'available': float(machine.running_qty), 'requested': float(requested_qty)}, status=status.HTTP_400_BAD_REQUEST)
 				machine.running_qty = machine.running_qty - requested_qty
 				machine.save(update_fields=['running_qty'])
-				StockTransaction.objects.create(txn_date=timezone.now().date(), inventory_type='machines', txn_type='issued', item_name=obj.item_name or '', qty=requested_qty, issued_to=obj.issued_to or '', remark=obj.reason or '', machine=machine)
+				StockTransaction.objects.create(
+					tenant=obj.tenant,
+					company=obj.company,
+					txn_date=timezone.now().date(),
+					inventory_type='machines',
+					txn_type='issued',
+					item_name=obj.item_name or '',
+					qty=requested_qty,
+					issued_to=obj.issued_to or '',
+					remark=obj.reason or '',
+					machine=machine
+				)
 
 		# ── Stone ─────────────────────────────────────────────────────────────
 		elif new_status == 'approved' and obj.inventory_type == 'stone' and obj.item_id:
@@ -440,7 +554,19 @@ class IssueRequestViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 					return Response({'success': False, 'message': f'Insufficient stock. Available: {float(stone.qty)}, Requested: {float(requested_qty)}.', 'available': float(stone.qty), 'requested': float(requested_qty)}, status=status.HTTP_400_BAD_REQUEST)
 				stone.qty = stone.qty - requested_qty
 				stone.save(update_fields=['qty'])
-				StoneTransaction.objects.create(txn_date=timezone.now().date(), txn_type='issued', stone_name=obj.item_name or '', variety=stone.variety or '', stone_type=stone.stone_type or '', qty=requested_qty, issued_to=obj.issued_to or '', remark=obj.reason or '', stone=stone)
+				StoneTransaction.objects.create(
+					tenant=obj.tenant,
+					company=obj.company,
+					txn_date=timezone.now().date(),
+					txn_type='issued',
+					stone_name=obj.item_name or '',
+					variety=stone.variety or '',
+					stone_type=stone.stone_type or '',
+					qty=requested_qty,
+					issued_to=obj.issued_to or '',
+					remark=obj.reason or '',
+					stone=stone
+				)
 
 		# ── Finding ───────────────────────────────────────────────────────────
 		elif new_status == 'approved' and obj.inventory_type == 'finding' and obj.item_id:
@@ -454,7 +580,17 @@ class IssueRequestViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 					return Response({'success': False, 'message': f'Insufficient stock. Available: {float(finding.quantity)}, Requested: {float(requested_qty)}.', 'available': float(finding.quantity), 'requested': float(requested_qty)}, status=status.HTTP_400_BAD_REQUEST)
 				finding.quantity = finding.quantity - requested_qty
 				finding.save(update_fields=['quantity'])
-				FindingInventoryTransaction.objects.create(txn_date=timezone.now().date(), txn_type='issued', finding=finding, finding_code=finding.finding_code or '', qty=requested_qty, issued_to=obj.issued_to or '', remark=obj.reason or '')
+				FindingInventoryTransaction.objects.create(
+					tenant=obj.tenant,
+					company=obj.company,
+					txn_date=timezone.now().date(),
+					txn_type='issued',
+					finding=finding,
+					finding_code=finding.finding_code or '',
+					qty=requested_qty,
+					issued_to=obj.issued_to or '',
+					remark=obj.reason or ''
+				)
 
 		# ── Die ───────────────────────────────────────────────────────────────
 		elif new_status == 'approved' and obj.inventory_type == 'die' and obj.item_id:
@@ -468,7 +604,17 @@ class IssueRequestViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 					return Response({'success': False, 'message': f'Insufficient stock. Available: {float(die.quantity)}, Requested: {float(requested_qty)}.', 'available': float(die.quantity), 'requested': float(requested_qty)}, status=status.HTTP_400_BAD_REQUEST)
 				die.quantity = die.quantity - requested_qty
 				die.save(update_fields=['quantity'])
-				DieTransaction.objects.create(txn_date=timezone.now().date(), txn_type='issued', die=die, die_code=die.die_code or '', qty=requested_qty, issued_to=obj.issued_to or '', remark=obj.reason or '')
+				DieTransaction.objects.create(
+					tenant=obj.tenant,
+					company=obj.company,
+					txn_date=timezone.now().date(),
+					txn_type='issued',
+					die=die,
+					die_code=die.die_code or '',
+					qty=requested_qty,
+					issued_to=obj.issued_to or '',
+					remark=obj.reason or ''
+				)
 
 		obj.status = new_status
 		obj.reviewed_at = timezone.now()
@@ -551,6 +697,9 @@ class DieInventoryItemViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 		if not isinstance(items, list) or len(items) == 0:
 			return Response({'success': False, 'message': 'No items provided.'}, status=status.HTTP_400_BAD_REQUEST)
 
+		tenant = getattr(request, 'tenant', None) or (getattr(request.user, 'tenant', None) if request.user and request.user.is_authenticated else None)
+		company = getattr(request, 'company', None) or (getattr(request.user, 'active_company', None) if request.user and request.user.is_authenticated else None)
+
 		created = updated = 0
 		errors = []
 
@@ -563,8 +712,8 @@ class DieInventoryItemViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 			defaults = {
 				'location': str(item.get('location', '')).strip(),
 				'quantity': item.get('quantity', 0),
-				'wax_setting': str(item.get('wax_setting', '')).strip(),
-				'casting': str(item.get('casting', '')).strip(),
+				'wax_setting_qty': str(item.get('wax_setting', '')).strip(),
+				'casting_qty': str(item.get('casting', '')).strip(),
 				'notes': str(item.get('notes', '')).strip(),
 			}
 			master_skus = item.get('master_skus', [])
@@ -585,8 +734,22 @@ class DieInventoryItemViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 			else:
 				sku_qty_per_piece = {}
 
+			# Validate master_skus belong to user's active tenant and company catalogue
+			from products.models import Product
+			from core_permissions.filters import SaaSIsolationFilterBackend
+			products_qs = SaaSIsolationFilterBackend().filter_queryset(request, Product.objects.all(), self)
+			invalid_skus = []
+			for s in master_skus:
+				if s and not products_qs.filter(master_sku__iexact=s).exists():
+					invalid_skus.append(s)
+			if invalid_skus:
+				errors.append(f'Row {idx + 1}: SKUs {invalid_skus} do not exist in your active company catalogue.')
+				continue
+
 			obj, was_created = DieInventoryItem.objects.update_or_create(
 				die_code=die_code,
+				tenant=tenant,
+				company=company,
 				defaults={**defaults, 'master_skus': master_skus, 'designer_skus': designer_skus, 'sku_qty_per_piece': sku_qty_per_piece},
 			)
 			if was_created:
@@ -623,8 +786,9 @@ class DieInventoryItemViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 		if not sku:
 			return Response([])
 		sku_upper = sku.upper()
-		# Use icontains as a cheap pre-filter; Python validates exact match
-		candidates = DieInventoryItem.objects.filter(master_skus__icontains=sku)
+		candidates = DieInventoryItem.objects.filter(
+			Q(master_skus__contains=[sku]) | Q(master_skus__contains=[sku_upper])
+		)
 		result = []
 		for item in candidates:
 			skus_list = item.master_skus if isinstance(item.master_skus, list) else []
@@ -674,6 +838,12 @@ class DieTransactionViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 	filterset_fields = ['txn_type', 'die']
 	search_fields = ['die_code', 'master_sku', 'designer_sku', 'issued_to', 'received_from', 'remark']
 
+	def perform_create(self, serializer):
+		serializer.save(
+			tenant=(getattr(self.request, 'tenant', None) or (getattr(self.request.user, 'tenant', None) if self.request.user and self.request.user.is_authenticated else None)),
+			company=(getattr(self.request, 'company', None) or (getattr(self.request.user, 'active_company', None) if self.request.user and self.request.user.is_authenticated else None)),
+		)
+
 
 # ── Repair Queue & Repair Batches API ─────────────────────────────────────────
 import os
@@ -691,6 +861,11 @@ def sync_repair_queue_from_external():
 	api_key = os.environ.get('EXTERNAL_SHOP_API_KEY', '')
 	shop_id = os.environ.get('EXTERNAL_SHOP_ID', '')
 	base_url = os.environ.get('EXTERNAL_SHOP_BASE_URL', '')
+
+	from core_tenants.context import get_current_tenant
+	tenant = get_current_tenant()
+	if tenant and getattr(tenant, 'external_shop_id', None):
+		shop_id = tenant.external_shop_id
 
 	is_production = not settings.DEBUG or os.environ.get('RENDER_EXTERNAL_HOSTNAME', '')
 

@@ -4,13 +4,27 @@ from rest_framework.test import APITestCase
 
 from jobs.models import Job
 from products.models import Product
+from core_tenants.models import Tenant, Company
+from core_tenants.context import set_tenant, set_company
 
 
 class JobApiTests(APITestCase):
 	def setUp(self):
 		user_model = get_user_model()
-		self.user = user_model.objects.create_user(username='jobs_user', password='jobs_pass_123')
+		self.tenant = Tenant.objects.create(name='Test Tenant', slug='test-tenant')
+		self.company = Company.objects.create(tenant=self.tenant, name='Test Company')
+		set_tenant(self.tenant)
+		set_company(self.company)
+
+		self.user = user_model.objects.create_user(
+			username='jobs_user',
+			password='jobs_pass_123',
+			tenant=self.tenant,
+			active_company=self.company,
+		)
+		self.user.accessible_companies.add(self.company)
 		self.client.force_authenticate(user=self.user)
+
 		self.product = Product.objects.create(
 			master_sku='SKU-JOB-1',
 			name='Job Product',

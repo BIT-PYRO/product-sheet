@@ -99,5 +99,4 @@ class WorkforceMemberSerializer(serializers.ModelSerializer):
 	class Meta:
 		model = WorkforceMember
 		fields = '__all__'
-		read_only_fields = ['user_is_approved', 'user_is_superuser', 'user_is_active']
-		read_only_fields = ['user_is_approved', 'user_is_superuser']
+		read_only_fields = ['tenant', 'company', 'tenant_id', 'company_id', 'user_is_approved', 'user_is_superuser', 'user_is_active']

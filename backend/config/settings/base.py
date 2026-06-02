@@ -127,8 +127,10 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.IsAuthenticated',
         'accounts.permissions.APIKeyScopePermission',
+        'core_permissions.permissions.SaaSResourcePermission',
     ),
     'DEFAULT_FILTER_BACKENDS': (
+        'core_permissions.filters.SaaSIsolationFilterBackend',
         'django_filters.rest_framework.DjangoFilterBackend',
         'rest_framework.filters.SearchFilter',
         'rest_framework.filters.OrderingFilter',

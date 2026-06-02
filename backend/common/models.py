@@ -29,6 +29,15 @@ class AuditModel(TimeStampedModel):
 	class Meta:
 		abstract = True
 
+	def save(self, *args, **kwargs):
+		from core_tenants.context import get_current_user
+		user = get_current_user()
+		if user:
+			if not getattr(self, 'created_by_id', None):
+				self.created_by = user
+			self.updated_by = user
+		super().save(*args, **kwargs)
+
 
 class ActivityLog(models.Model):
 	"""Comprehensive audit trail for every create/update/delete/upload/login event."""
@@ -83,6 +92,20 @@ class ActivityLog(models.Model):
 		blank=True,
 		related_name='activity_logs',
 	)
+	tenant = models.ForeignKey(
+		'core_tenants.Tenant',
+		on_delete=models.SET_NULL,
+		null=True,
+		blank=True,
+		related_name='activity_logs',
+	)
+	company = models.ForeignKey(
+		'core_tenants.Company',
+		on_delete=models.SET_NULL,
+		null=True,
+		blank=True,
+		related_name='activity_logs',
+	)
 	user_name     = models.CharField(max_length=300, blank=True, default='')
 	action        = models.CharField(max_length=20, choices=ACTION_CHOICES, db_index=True)
 	sheet         = models.CharField(max_length=30, choices=SHEET_CHOICES, default=SHEET_OTHER, db_index=True)
@@ -101,6 +124,7 @@ class ActivityLog(models.Model):
 			models.Index(fields=['timestamp', 'sheet']),
 			models.Index(fields=['user', 'timestamp']),
 			models.Index(fields=['action', 'timestamp']),
+			models.Index(fields=['tenant', 'company']),
 		]
 
 	def __str__(self):
@@ -112,6 +136,20 @@ class DeletionLog(models.Model):
 	deleted_at = models.DateTimeField(auto_now_add=True)
 	deleted_by = models.ForeignKey(
 		settings.AUTH_USER_MODEL,
+		on_delete=models.SET_NULL,
+		null=True,
+		blank=True,
+		related_name='deletion_logs',
+	)
+	tenant = models.ForeignKey(
+		'core_tenants.Tenant',
+		on_delete=models.SET_NULL,
+		null=True,
+		blank=True,
+		related_name='deletion_logs',
+	)
+	company = models.ForeignKey(
+		'core_tenants.Company',
 		on_delete=models.SET_NULL,
 		null=True,
 		blank=True,
@@ -129,6 +167,7 @@ class DeletionLog(models.Model):
 		ordering = ['-deleted_at']
 		indexes = [
 			models.Index(fields=['app_label', 'model_name']),
+			models.Index(fields=['tenant', 'company']),
 		]
 
 	def __str__(self):

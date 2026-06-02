@@ -13,6 +13,21 @@ from .models import Category, Channel, Collection, Material, Product, TableColum
 from .serializers import CategorySerializer, ChannelSerializer, CollectionSerializer, MaterialSerializer, ProductSerializer, TableColumnConfigSerializer
 
 
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def _get_tenant(request):
+    return (getattr(request, 'tenant', None) or (getattr(request.user, 'tenant', None) if request.user and request.user.is_authenticated else None))
+
+def _get_company(request):
+    return (getattr(request, 'company', None) or (getattr(request.user, 'active_company', None) if request.user and request.user.is_authenticated else None))
+
+
+# ---------------------------------------------------------------------------
+# Lookup / Catalogue ViewSets (tenant-scoped)
+# ---------------------------------------------------------------------------
+
 class CollectionViewSet(ModelViewSet):
 	queryset = Collection.objects.all().order_by('name')
 	serializer_class = CollectionSerializer
@@ -26,7 +41,7 @@ class CollectionViewSet(ModelViewSet):
 	def create(self, request, *args, **kwargs):
 		serializer = self.get_serializer(data=request.data)
 		serializer.is_valid(raise_exception=True)
-		serializer.save()
+		serializer.save(tenant=_get_tenant(request))
 		return Response({'success': True, 'data': serializer.data}, status=status.HTTP_201_CREATED)
 
 	def destroy(self, request, *args, **kwargs):
@@ -47,7 +62,7 @@ class MaterialViewSet(ModelViewSet):
 	def create(self, request, *args, **kwargs):
 		serializer = self.get_serializer(data=request.data)
 		serializer.is_valid(raise_exception=True)
-		serializer.save()
+		serializer.save(tenant=_get_tenant(request))
 		return Response({'success': True, 'data': serializer.data}, status=status.HTTP_201_CREATED)
 
 	def destroy(self, request, *args, **kwargs):
@@ -67,7 +82,7 @@ class CategoryViewSet(ModelViewSet):
 	def create(self, request, *args, **kwargs):
 		serializer = self.get_serializer(data=request.data)
 		serializer.is_valid(raise_exception=True)
-		serializer.save()
+		serializer.save(tenant=_get_tenant(request))
 		return Response({'success': True, 'data': serializer.data}, status=status.HTTP_201_CREATED)
 
 	def destroy(self, request, *args, **kwargs):
@@ -87,7 +102,7 @@ class ChannelViewSet(ModelViewSet):
 	def create(self, request, *args, **kwargs):
 		serializer = self.get_serializer(data=request.data)
 		serializer.is_valid(raise_exception=True)
-		serializer.save()
+		serializer.save(tenant=_get_tenant(request))
 		return Response({'success': True, 'data': serializer.data}, status=status.HTTP_201_CREATED)
 
 	def destroy(self, request, *args, **kwargs):
@@ -122,7 +137,7 @@ class TableColumnConfigViewSet(ModelViewSet):
 		).update(order=db_models.F('order') + 1)
 		serializer = self.get_serializer(data=request.data)
 		serializer.is_valid(raise_exception=True)
-		serializer.save()
+		serializer.save(tenant=_get_tenant(request))
 		return Response({'success': True, 'data': serializer.data}, status=status.HTTP_201_CREATED)
 
 	def update(self, request, *args, **kwargs):
@@ -137,6 +152,10 @@ class TableColumnConfigViewSet(ModelViewSet):
 		self.get_object().delete()
 		return Response({'success': True}, status=status.HTTP_204_NO_CONTENT)
 
+
+# ---------------------------------------------------------------------------
+# Product ViewSet
+# ---------------------------------------------------------------------------
 
 @extend_schema_view(
 	list=extend_schema(summary='List products', tags=['Products']),
@@ -193,6 +212,17 @@ class ProductViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 	serializer_class = ProductSerializer
 	filterset_class = ProductFilter
 	search_fields = ['master_sku', 'name', 'designer_sku']
+
+	def perform_create(self, serializer):
+		"""Auto-assign tenant and company from request context."""
+		serializer.save(
+			tenant=_get_tenant(self.request),
+			company=_get_company(self.request),
+		)
+
+	def perform_update(self, serializer):
+		"""Preserve tenant/company on update — never allow override."""
+		serializer.save()
 
 	def create(self, request, *args, **kwargs):
 		"""Override create to reject duplicate master_sku with a clear error."""

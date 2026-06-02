@@ -59,6 +59,13 @@ def _sync_repair_completion(voucher):
 	shop_id = os.environ.get('EXTERNAL_SHOP_ID', '')
 	base_url = os.environ.get('EXTERNAL_SHOP_BASE_URL', '')
 
+	tenant = getattr(voucher, 'tenant', None)
+	if not tenant:
+		from core_tenants.context import get_current_tenant
+		tenant = get_current_tenant()
+	if tenant and getattr(tenant, 'external_shop_id', None):
+		shop_id = tenant.external_shop_id
+
 	is_production = not settings.DEBUG or os.environ.get('RENDER_EXTERNAL_HOSTNAME', '')
 
 	if is_production:
@@ -239,6 +246,8 @@ def _propagate_qty_to_active_downstream(batch_id, voucher):
 						).first() or ds.product
 						if product:
 							InventoryTransaction.objects.create(
+								tenant=ds.tenant,
+								company=ds.company,
 								product=product,
 								txn_type='adjust',
 								quantity=-delta,
@@ -288,6 +297,8 @@ def _deduct_source_current_stock(voucher):
 			try:
 				die_item = DieInventoryItem.objects.get(die_code=die_code)
 				DieTransaction.objects.create(
+					tenant=voucher.tenant,
+					company=voucher.company,
 					txn_date=timezone.now().date(),
 					die=die_item,
 					die_code=die_code,
@@ -323,6 +334,8 @@ def _deduct_source_current_stock(voucher):
 				continue
 
 			InventoryTransaction.objects.create(
+				tenant=voucher.tenant,
+				company=voucher.company,
 				product=product,
 				txn_type='adjust',
 				quantity=-qty,
@@ -382,7 +395,10 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 			raise
 
 	def perform_create(self, serializer):
-		instance = serializer.save()
+		instance = serializer.save(
+			tenant=(getattr(self.request, 'tenant', None) or (getattr(self.request.user, 'tenant', None) if self.request.user and self.request.user.is_authenticated else None)),
+			company=(getattr(self.request, 'company', None) or (getattr(self.request.user, 'active_company', None) if self.request.user and self.request.user.is_authenticated else None)),
+		)
 		# Single (non-batch) vouchers created directly as in_process need their
 		# source stage current stock deducted immediately.
 		if instance.approval_status == VoucherApprovalStatus.IN_PROCESS and not instance.batch_id:
@@ -431,16 +447,18 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 			VoucherApprovalStatus.IN_PROCESS,
 			VoucherApprovalStatus.PARTIALLY_COMPLETED,
 		}
-		active_jobs = Job.objects.filter(
+		active_jobs = self.filter_queryset(self.get_queryset()).filter(
 			approval_status__in=active_statuses
 		).only('dept_to', 'material_rows', 'die_rows', 'received_rows')
 
 		# Pre-load known master SKUs so we can distinguish master SKUs that contain
 		# a slash (e.g. "AJE15/4") from variant suffixes (e.g. "KARTIK/G").
 		from products.models import Product
+		from core_permissions.filters import SaaSIsolationFilterBackend
+		products_qs = SaaSIsolationFilterBackend().filter_queryset(request, Product.objects.all(), self)
 		known_skus = set(
 			s.upper() for s in
-			Product.objects.values_list('master_sku', flat=True)
+			products_qs.values_list('master_sku', flat=True)
 		)
 
 		def resolve_sku(raw: str) -> str:
@@ -515,6 +533,7 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 		return Response({'success': True, 'data': wip})
 
 	@action(detail=False, methods=['post'], url_path='bulk-create-from-picklist')
+	@transaction.atomic
 	def bulk_create_from_picklist(self, request):
 		"""Create vouchers for all Master SKUs in a picklist based on demand vs stock.
 
@@ -541,8 +560,14 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 
 		batch_id = f'batch-{uuid.uuid4().hex[:12]}'
 
+		# Concurrency-safe voucher generation by locking the active company record
+		company = getattr(request, 'company', None) or (getattr(request.user, 'active_company', None) if request.user and request.user.is_authenticated else None)
+		if company:
+			from core_tenants.models import Company
+			Company.objects.select_for_update().get(id=company.id)
+
 		# Get the current voucher counter from DB
-		last_voucher = Job.objects.filter(voucher_no__startswith='JJ-').order_by('-id').first()
+		last_voucher = Job.objects.select_for_update().filter(voucher_no__startswith='JJ-').order_by('-id').first()
 		counter = 1
 		if last_voucher and last_voucher.voucher_no:
 			try:
@@ -553,24 +578,69 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 		# ------------------------------------------------------------------
 		# Phase 1: Collect each product's custom pipeline and qty
 		# ------------------------------------------------------------------
-		# transition_key (from_key, to_key) ΓåÆ list of {product, master_sku, qty}
+		# transition_key (from_key, to_key) -> list of {product, master_sku, qty}
 		from collections import OrderedDict
 		transition_buckets = OrderedDict()
 
 		from products.models import Product
+		from inventory.models import DieInventoryItem as _DieItem
+		from designers.models import DesignerSheet as _DesignerSheet
 
+		# ── Preload data to avoid N+1 queries ──
+		skus = [item.sku.strip() for item in picklist_items if item.sku.strip()]
+		tenant = getattr(request, 'tenant', None) or (getattr(request.user, 'tenant', None) if request.user and request.user.is_authenticated else None)
+
+		# 1. Preload Products
+		products_list = list(Product.objects.filter(
+			Q(master_sku__in=skus) | Q(master_sku__in=[s.split('/')[0] for s in skus if '/' in s]),
+			tenant=tenant
+		))
+		product_map = {}
+		for p in products_list:
+			product_map[p.master_sku.strip().upper()] = p
+
+		# 2. Preload Stock counts
+		stock_qs = InventoryTransaction.objects.filter(
+			product__in=products_list,
+			stage='final_stock',
+			stock_type='current'
+		).values('product_id').annotate(total=Sum('quantity'))
+		stock_map = {item['product_id']: item['total'] or 0 for item in stock_qs}
+
+		# 3. Preload Die items using contains check for GIN index
+		die_query = Q()
+		for s in skus:
+			die_query |= Q(master_skus__contains=[s]) | Q(master_skus__contains=[s.upper()])
+		die_items = list(_DieItem.objects.filter(die_query, tenant=tenant)) if skus else []
+		
+		sku_to_dies = {}
+		for die in die_items:
+			die_skus = die.master_skus if isinstance(die.master_skus, list) else []
+			for ds in die_skus:
+				ds_upper = str(ds).strip().upper()
+				sku_to_dies.setdefault(ds_upper, []).append(die)
+
+		# 4. Preload Designer Sheets
+		designer_skus_set = set()
+		for p in products_list:
+			if p.designer_sku:
+				designer_skus_set.add(p.designer_sku.strip())
+			for ds in (p.designer_skus or []):
+				if ds and str(ds).strip():
+					designer_skus_set.add(str(ds).strip())
+		designer_sheets = list(_DesignerSheet.objects.filter(sku__in=list(designer_skus_set)).only('sku', 'stone_entries')) if designer_skus_set else []
+		designer_map = {ds.sku.strip(): ds for ds in designer_sheets}
+
+		# ── Build transition buckets ──
 		for item in picklist_items:
 			sku = item.sku.strip()
 			if not sku:
 				continue
 
-			# Try exact match first (handles master SKUs with / like AJE15/4),
-			# then fall back to prefix match for variant suffixes (e.g. KARTIK/G ΓåÆ KARTIK)
-			product = Product.objects.filter(master_sku__iexact=sku).first()
+			sku_upper = sku.upper()
+			product = product_map.get(sku_upper)
 			if not product and '/' in sku:
-				product = Product.objects.filter(
-					master_sku__iexact=sku.split('/')[0]
-				).first()
+				product = product_map.get(sku.split('/')[0].upper())
 			if not product:
 				continue
 
@@ -578,12 +648,7 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 			if demand <= 0:
 				continue
 
-			final_stock_agg = InventoryTransaction.objects.filter(
-				product=product,
-				stage='final_stock',
-				stock_type='current',
-			).aggregate(total=Sum('quantity'))
-			final_stock = final_stock_agg['total'] or 0
+			final_stock = stock_map.get(product.id, 0)
 
 			pieces_to_make = demand - final_stock
 			if pieces_to_make <= 0:
@@ -592,7 +657,6 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 			# Determine which setting stages this product needs
 			raw_setting = (product.setting_type or '').lower()
 			setting_tags = [s.strip() for s in raw_setting.split(',') if s.strip()]
-			# '' | 'wax setting' | 'hand setting' | 'wax' | 'hand' | 'wax,hand' etc.
 			wants_wax  = (not setting_tags) or any('wax'  in t for t in setting_tags)
 			wants_hand = (not setting_tags) or any('hand' in t for t in setting_tags)
 
@@ -600,9 +664,9 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 			product_pipeline = []
 			for dept_key, dept_label in DEPARTMENT_PIPELINE:
 				if dept_key == 'wax-setting' and not wants_wax:
-					continue  # hand-only ΓåÆ skip wax-setting stage
+					continue
 				if dept_key == 'hand-setting' and not wants_hand:
-					continue  # wax-only ΓåÆ skip hand-setting stage
+					continue
 				product_pipeline.append((dept_key, dept_label))
 
 			# Create transitions from consecutive stages
@@ -666,12 +730,11 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 				# ── Build die_rows for pre-casting stages ─────────────────────
 				die_rows = []
 				if bucket['to_key'] in PRE_CASTING_DEPT_TOS:
-					from inventory.models import DieInventoryItem as _DieItem
 					for entry in bucket['items']:
 						sku_upper = entry['master_sku'].strip().upper()
 						pieces_needed = entry['qty']
 						# Find all dies linked to this master SKU
-						die_candidates = _DieItem.objects.filter(master_skus__icontains=entry['master_sku'])
+						die_candidates = sku_to_dies.get(sku_upper, [])
 						for die in die_candidates:
 							skus_list = die.master_skus if isinstance(die.master_skus, list) else []
 							if not any(str(s).strip().upper() == sku_upper for s in skus_list):
@@ -688,7 +751,6 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 							})
 
 				# ── Build stone_rows aggregated across all master SKUs in this voucher ──
-				from designers.models import DesignerSheet as _DesignerSheet
 				stone_agg: dict = {}  # fingerprint -> aggregated stone data
 
 				for entry in bucket['items']:
@@ -707,8 +769,9 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 						if ds and str(ds).strip():
 							d_skus.append(str(ds).strip())
 					if d_skus:
-						for designer in _DesignerSheet.objects.filter(sku__in=d_skus).only('stone_entries'):
-							if isinstance(designer.stone_entries, list):
+						for d_sku in d_skus:
+							designer = designer_map.get(d_sku)
+							if designer and isinstance(designer.stone_entries, list):
 								all_stone_sources.extend(designer.stone_entries)
 
 					for se in all_stone_sources:
@@ -775,6 +838,8 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 				]
 
 				voucher = Job.objects.create(
+					tenant=(getattr(request, 'tenant', None) or (getattr(request.user, 'tenant', None) if request.user and request.user.is_authenticated else None)),
+					company=(getattr(request, 'company', None) or (getattr(request.user, 'active_company', None) if request.user and request.user.is_authenticated else None)),
 					title=title,
 					product=products_in_voucher[0]['product'],  # primary product
 					status='created',
@@ -868,8 +933,14 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 		from designers.models import DesignerSheet
 
 		with transaction.atomic():
-			# Stable voucher numbering counter
-			last_voucher = Job.objects.filter(voucher_no__startswith='JJ-').order_by('-id').first()
+			# Lock the active company to serialize repair voucher numbering
+			company = getattr(request, 'company', None) or (getattr(request.user, 'active_company', None) if request.user and request.user.is_authenticated else None)
+			if company:
+				from core_tenants.models import Company
+				Company.objects.select_for_update().get(id=company.id)
+
+			# Stable voucher numbering counter with select_for_update
+			last_voucher = Job.objects.select_for_update().filter(voucher_no__startswith='JJ-').order_by('-id').first()
 			counter = 1
 			if last_voucher and last_voucher.voucher_no:
 				try:
@@ -1146,6 +1217,8 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 
 				if dest_stage_key:
 					InventoryTransaction.objects.create(
+						tenant=voucher.tenant,
+						company=voucher.company,
 						product=product,
 						txn_type='adjust',
 						quantity=remaining,
@@ -1269,6 +1342,8 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 						die_item = DieInventoryItem.objects.get(die_code__iexact=die_code_raw)
 						if received_qty > 0:
 							DieTransaction.objects.create(
+								tenant=voucher.tenant,
+								company=voucher.company,
 								txn_date=timezone.now().date(),
 								die=die_item,
 								die_code=die_item.die_code,
@@ -1309,6 +1384,8 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 						continue
 					if to_stage:
 						InventoryTransaction.objects.create(
+							tenant=voucher.tenant,
+							company=voucher.company,
 							product=product,
 							txn_type='adjust',
 							quantity=master_pieces,
@@ -1429,6 +1506,8 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 				# WIP is computed live ΓÇö no WIP transaction needed.
 				if to_stage:
 					InventoryTransaction.objects.create(
+						tenant=voucher.tenant,
+						company=voucher.company,
 						product=product,
 						txn_type='adjust',
 						quantity=received_qty,
@@ -1581,6 +1660,8 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 						die_item = DieInventoryItem.objects.get(die_code__iexact=die_code_raw)
 						if recv > 0:
 							_DieTransaction.objects.create(
+								tenant=voucher.tenant,
+								company=voucher.company,
 								txn_date=timezone.now().date(),
 								die=die_item,
 								die_code=die_item.die_code,
@@ -1699,6 +1780,8 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 					continue
 				if to_stage:
 					InventoryTransaction.objects.create(
+						tenant=voucher.tenant,
+						company=voucher.company,
 						product=product,
 						txn_type='adjust',
 						quantity=p['received_qty'],
@@ -1816,6 +1899,8 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 						prod_cache[sku_key] = prod
 						if prod:
 							InventoryTransaction.objects.create(
+								tenant=voucher.tenant,
+								company=voucher.company,
 								product=prod,
 								txn_type='adjust',
 								quantity=ri_qty,
@@ -1828,7 +1913,13 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 							)
 
 			# ── Create Re-Issue vouchers for ALL pipeline stages ─────────────────
-			last_voucher = Job.objects.filter(voucher_no__startswith='JJ-').order_by('-id').first()
+			# Lock the active company to serialize repair voucher numbering
+			company = getattr(request, 'company', None) or (getattr(request.user, 'active_company', None) if request.user and request.user.is_authenticated else None)
+			if company:
+				from core_tenants.models import Company
+				Company.objects.select_for_update().get(id=company.id)
+
+			last_voucher = Job.objects.select_for_update().filter(voucher_no__startswith='JJ-').order_by('-id').first()
 			counter = 1
 			if last_voucher and last_voucher.voucher_no:
 				try:
@@ -2332,18 +2423,23 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 		if not stages_to_redo:
 			raise ValidationError({'error': 'No pipeline stages found to re-issue. Ensure the voucher belongs to a valid batch.'})
 
-		# Next voucher counter
-		last_voucher = Job.objects.filter(voucher_no__startswith='JJ-').order_by('-id').first()
-		counter = 1
-		if last_voucher and last_voucher.voucher_no:
-			try:
-				counter = int(last_voucher.voucher_no.split('-')[1]) + 1
-			except (ValueError, IndexError):
-				counter = 1
-
 		now = timezone.now()
 
 		with transaction.atomic():
+			# Lock the active company to serialize repair voucher numbering
+			company = getattr(request, 'company', None) or (getattr(request.user, 'active_company', None) if request.user and request.user.is_authenticated else None)
+			if company:
+				from core_tenants.models import Company
+				Company.objects.select_for_update().get(id=company.id)
+
+			# Next voucher counter
+			last_voucher = Job.objects.select_for_update().filter(voucher_no__startswith='JJ-').order_by('-id').first()
+			counter = 1
+			if last_voucher and last_voucher.voucher_no:
+				try:
+					counter = int(last_voucher.voucher_no.split('-')[1]) + 1
+				except (ValueError, IndexError):
+					counter = 1
 			# ΓöÇΓöÇ Mark the current voucher as Replaced ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 			voucher.approval_status = VoucherApprovalStatus.REPLACED
 			voucher.save(update_fields=['approval_status'])
@@ -2390,6 +2486,8 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 						_product_cache[sku_key] = prod
 					if prod:
 						InventoryTransaction.objects.create(
+							tenant=voucher.tenant,
+							company=voucher.company,
 							product=prod,
 							txn_type='adjust',
 							quantity=ri_qty,
@@ -2494,6 +2592,8 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 						cf_product_cache[sku_key] = prod
 					if prod:
 						InventoryTransaction.objects.create(
+							tenant=voucher.tenant,
+							company=voucher.company,
 							product=prod,
 							txn_type='adjust',
 							quantity=cf_qty,

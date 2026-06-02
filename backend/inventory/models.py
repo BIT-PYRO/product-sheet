@@ -1,6 +1,8 @@
 from django.db import models
+from django.contrib.postgres.indexes import GinIndex
 
 from common.models import AuditModel
+from core_tenants.models import TenantCompanyModel
 from products.models import Product
 
 
@@ -17,7 +19,7 @@ class StockType(models.TextChoices):
 	WIP = 'wip', 'WIP'
 
 
-class InventoryTransaction(AuditModel):
+class InventoryTransaction(AuditModel, TenantCompanyModel):
 	product = models.ForeignKey(
 		Product,
 		on_delete=models.PROTECT,
@@ -30,25 +32,36 @@ class InventoryTransaction(AuditModel):
 	location = models.CharField(max_length=255, blank=True, default='')
 	remark = models.CharField(max_length=255, blank=True)
 
+	class Meta:
+		ordering = ['-created_at']
+		indexes = [
+			models.Index(fields=['tenant', 'company', 'txn_type']),
+		]
+
 	def __str__(self):
 		return f'{self.product.master_sku} | {self.txn_type} | {self.quantity}'
 
 
-class PicklistGroup(AuditModel):
-	group_id = models.CharField(max_length=120, unique=True)
-	number = models.PositiveIntegerField(unique=True)
+class PicklistGroup(AuditModel, TenantCompanyModel):
+	# group_id and number are unique per tenant (not globally unique)
+	group_id = models.CharField(max_length=120)
+	number = models.PositiveIntegerField()
 	name = models.CharField(max_length=255)
 	uploaded_by = models.CharField(max_length=120, blank=True)
 	uploaded_at = models.DateTimeField()
 
 	class Meta:
 		ordering = ('-number', '-uploaded_at')
+		unique_together = [
+			('tenant', 'group_id'),
+			('tenant', 'number'),
+		]
 
 	def __str__(self):
 		return f'Picklist {self.number} | {self.name}'
 
 
-class PicklistItem(AuditModel):
+class PicklistItem(AuditModel, TenantCompanyModel):
 	group = models.ForeignKey(
 		PicklistGroup,
 		on_delete=models.CASCADE,
@@ -73,7 +86,7 @@ class PriceBy(models.TextChoices):
 	WEIGHT = 'weight', 'By Weight'
 
 
-class StoneItem(AuditModel):
+class StoneItem(AuditModel, TenantCompanyModel):
 	stone_type = models.CharField(max_length=120, blank=True, default='')
 	species = models.CharField(max_length=120, blank=True, default='')
 	variety = models.CharField(max_length=120, blank=True, default='')
@@ -105,7 +118,7 @@ class StoneItem(AuditModel):
 		return f'{self.stone_type} | {self.species} | {self.variety}'
 
 
-class StoneStockEntry(AuditModel):
+class StoneStockEntry(AuditModel, TenantCompanyModel):
 	stone = models.ForeignKey(
 		StoneItem,
 		on_delete=models.CASCADE,
@@ -125,7 +138,7 @@ class StoneStockEntry(AuditModel):
 		return f'{self.stone} | +{self.qty_added}'
 
 
-class ToolItem(AuditModel):
+class ToolItem(AuditModel, TenantCompanyModel):
 	tool_name = models.CharField(max_length=255)
 	particulars = models.CharField(max_length=255, blank=True, default='')
 	department = models.CharField(max_length=120, blank=True, default='')
@@ -150,7 +163,7 @@ class ToolItem(AuditModel):
 		return self.tool_name
 
 
-class OtherItem(AuditModel):
+class OtherItem(AuditModel, TenantCompanyModel):
 	item_name = models.CharField(max_length=255)
 	category = models.CharField(max_length=60, blank=True, default='')
 	quantity = models.DecimalField(max_digits=12, decimal_places=3, default=0)
@@ -166,7 +179,7 @@ class OtherItem(AuditModel):
 		return self.item_name
 
 
-class MachineItem(AuditModel):
+class MachineItem(AuditModel, TenantCompanyModel):
 	machine_name = models.CharField(max_length=255)
 	particulars = models.CharField(max_length=255, blank=True, default='')
 	department = models.CharField(max_length=120, blank=True, default='')
@@ -191,7 +204,7 @@ class MachineItem(AuditModel):
 		return self.machine_name
 
 
-class ProductInventoryItem(AuditModel):
+class ProductInventoryItem(AuditModel, TenantCompanyModel):
 	"""Tracks per-product final stock entries in the product inventory."""
 	product = models.ForeignKey(
 		Product,
@@ -213,7 +226,7 @@ class ProductInventoryItem(AuditModel):
 
 # ── Stock Transaction (movement log for Tools / Machines / Others) ──────────
 
-class StockTransaction(AuditModel):
+class StockTransaction(AuditModel, TenantCompanyModel):
 	"""Received / Issued movement log for Tools, Machines and Others inventory."""
 
 	INVENTORY_TYPE_CHOICES = [
@@ -256,7 +269,7 @@ class StockTransaction(AuditModel):
 
 # ── Stone Transaction (movement log for Stone Inventory) ────────────────────
 
-class StoneTransaction(AuditModel):
+class StoneTransaction(AuditModel, TenantCompanyModel):
 	"""Received / Issued movement log for Stone inventory."""
 
 	TXN_CHOICES = [
@@ -300,7 +313,7 @@ class StoneTransaction(AuditModel):
 
 # ── Finding Inventory Item (standalone — separate from findings.Finding) ─────
 
-class FindingInventoryItem(AuditModel):
+class FindingInventoryItem(AuditModel, TenantCompanyModel):
 	"""Standalone finding inventory. NOT linked to the Master Finding Sheet."""
 
 	finding_code = models.CharField(max_length=120)
@@ -329,7 +342,7 @@ class FindingInventoryItem(AuditModel):
 
 # ── Finding Inventory Transaction ────────────────────────────────────────────
 
-class FindingInventoryTransaction(AuditModel):
+class FindingInventoryTransaction(AuditModel, TenantCompanyModel):
 	"""Movement log for standalone Finding inventory."""
 
 	TXN_CHOICES = [
@@ -366,7 +379,7 @@ class FindingInventoryTransaction(AuditModel):
 
 # ── Product Inventory Transaction ────────────────────────────────────────────
 
-class ProductInventoryTransaction(AuditModel):
+class ProductInventoryTransaction(AuditModel, TenantCompanyModel):
 	"""Movement log for Product inventory."""
 
 	TXN_CHOICES = [
@@ -403,7 +416,7 @@ class ProductInventoryTransaction(AuditModel):
 
 # ── Issue Request (persisted issue requests for all inventory types) ─────────
 
-class IssueRequest(AuditModel):
+class IssueRequest(AuditModel, TenantCompanyModel):
 	"""Persisted issue request for any inventory type."""
 
 	INVENTORY_TYPE_CHOICES = [
@@ -436,6 +449,9 @@ class IssueRequest(AuditModel):
 
 	class Meta:
 		ordering = ('-requested_at',)
+		indexes = [
+			models.Index(fields=['tenant', 'company', 'status']),
+		]
 
 	def __str__(self):
 		return f'{self.inventory_type} | {self.item_name} | {self.quantity} | {self.status}'
@@ -443,15 +459,16 @@ class IssueRequest(AuditModel):
 
 # ── Die Inventory Item ───────────────────────────────────────────────────────
 
-class DieInventoryItem(AuditModel):
+class DieInventoryItem(AuditModel, TenantCompanyModel):
 	"""Master record for a die used in jewellery manufacturing."""
 
-	die_code = models.CharField(max_length=120, unique=True)
+	# die_code is unique per tenant (not globally)
+	die_code = models.CharField(max_length=120)
 	image = models.TextField(blank=True, default='')          # URL or base64
 	master_skus = models.JSONField(default=list, blank=True)  # list of master SKU strings
 	designer_skus = models.JSONField(default=list, blank=True)  # list of designer SKU strings
 	# Maps UPPERCASE master_sku → qty_per_piece (how many of this die per piece of that SKU)
-	sku_qty_per_piece = models.JSONField(default=dict, blank=True, help_text='{"SKU1": 2, "SKU2": 4} — dies needed per piece of each master SKU')
+	sku_qty_per_piece = models.JSONField(default=dict, blank=True, help_text='{\"SKU1\": 2, \"SKU2\": 4} — dies needed per piece of each master SKU')
 	location = models.CharField(max_length=255, blank=True, default='')
 	quantity = models.DecimalField(max_digits=12, decimal_places=3, default=0)
 	wax_piece_qty = models.DecimalField(max_digits=12, decimal_places=3, default=0)
@@ -494,6 +511,10 @@ class DieInventoryItem(AuditModel):
 
 	class Meta:
 		ordering = ('-created_at',)
+		unique_together = [('tenant', 'die_code')]
+		indexes = [
+			GinIndex(fields=['master_skus']),
+		]
 
 	def __str__(self):
 		return self.die_code
@@ -501,7 +522,7 @@ class DieInventoryItem(AuditModel):
 
 # ── Die Inventory Transaction (movement log) ─────────────────────────────────
 
-class DieTransaction(AuditModel):
+class DieTransaction(AuditModel, TenantCompanyModel):
 	"""Received / Issued movement log for Die inventory."""
 
 	TXN_CHOICES = [
@@ -540,8 +561,9 @@ class DieTransaction(AuditModel):
 
 # ── Repair Queue & Repair Batches ─────────────────────────────────────────────
 
-class RepairBatch(AuditModel):
-	batch_no = models.CharField(max_length=120, unique=True, help_text="e.g. Repair-YYYY-MM-DD")
+class RepairBatch(AuditModel, TenantCompanyModel):
+	# batch_no is unique per tenant (not globally)
+	batch_no = models.CharField(max_length=120, help_text="e.g. Repair-YYYY-MM-DD")
 	date = models.DateField(help_text="Confirmation/Creation date")
 	confirmed = models.BooleanField(default=False)
 	confirmed_at = models.DateTimeField(null=True, blank=True)
@@ -549,19 +571,24 @@ class RepairBatch(AuditModel):
 
 	class Meta:
 		ordering = ('-date', '-created_at')
+		unique_together = [('tenant', 'batch_no')]
+		indexes = [
+			models.Index(fields=['tenant', 'company', 'confirmed']),
+		]
 
 	def __str__(self):
 		return f'{self.batch_no} ({self.date})'
 
 
-class RepairItem(AuditModel):
+class RepairItem(AuditModel, TenantCompanyModel):
 	STAGE_CHOICES = [
 		('hand_setting', 'Hand Setting'),
 		('final_polish', 'Final Polish'),
 		('plating', 'Plating'),
 	]
 
-	repair_item_id = models.IntegerField(unique=True)
+	# repair_item_id is unique per tenant (not globally)
+	repair_item_id = models.IntegerField()
 	product = models.CharField(max_length=255)
 	sku = models.CharField(max_length=60)
 	variant = models.CharField(max_length=255, blank=True, default='')
@@ -578,7 +605,10 @@ class RepairItem(AuditModel):
 
 	class Meta:
 		ordering = ('-scanned_at', '-created_at')
+		unique_together = [('tenant', 'repair_item_id')]
+		indexes = [
+			models.Index(fields=['tenant', 'company', 'repair_stage', 'confirmed']),
+		]
 
 	def __str__(self):
 		return f'{self.product} ({self.sku}) | Stage: {self.repair_stage_label} | Qty: {self.quantity}'
-

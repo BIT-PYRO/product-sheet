@@ -18,3 +18,4 @@ class KYCRecordSerializer(serializers.ModelSerializer):
 	class Meta:
 		model = KYCRecord
 		fields = '__all__'
+		read_only_fields = ['tenant', 'company', 'tenant_id', 'company_id']

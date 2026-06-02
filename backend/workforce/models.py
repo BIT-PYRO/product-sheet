@@ -1,9 +1,10 @@
 from django.db import models
 
 from common.models import AuditModel
+from core_tenants.models import TenantCompanyModel
 
 
-class WorkforceMember(AuditModel):
+class WorkforceMember(AuditModel, TenantCompanyModel):
 	full_name = models.CharField(max_length=255)
 	phone = models.CharField(max_length=20, blank=True)
 	whatsapp = models.CharField(max_length=20, blank=True)
@@ -30,11 +31,19 @@ class WorkforceMember(AuditModel):
 	profile_photo_url = models.URLField(max_length=1000, blank=True)
 	aadhaar_url = models.URLField(max_length=1000, blank=True)
 	pan_url = models.URLField(max_length=1000, blank=True)
-	barcode_number = models.CharField(max_length=50, blank=True, null=True, unique=True, db_index=True)
+	# barcode_number is unique per tenant (not globally)
+	barcode_number = models.CharField(max_length=50, blank=True, null=True, db_index=True)
 	date_of_joining = models.DateField(null=True, blank=True)
 
 	# Stores the ID from the external software so webhook updates can be matched
 	external_id = models.CharField(max_length=255, blank=True, db_index=True)
+
+	class Meta:
+		# barcode_number uniqueness is scoped to tenant
+		unique_together = [('tenant', 'barcode_number')]
+		indexes = [
+			models.Index(fields=['tenant', 'company', 'active']),
+		]
 
 	def __str__(self):
 		return f'{self.full_name} ({self.phone})'

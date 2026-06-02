@@ -1,15 +1,28 @@
 from django.test import TestCase
-from django.contrib.auth.models import User
+from django.contrib.auth import get_user_model
 from .models import Order, OrderItem, OrderStatus
+from core_tenants.models import Tenant, Company
+from core_tenants.context import set_tenant, set_company
+
+User = get_user_model()
 
 
 class OrderModelTest(TestCase):
     def setUp(self):
+        self.tenant = Tenant.objects.create(name='Test Tenant', slug='test-tenant')
+        self.company = Company.objects.create(tenant=self.tenant, name='Test Company')
+        set_tenant(self.tenant)
+        set_company(self.company)
+
         self.user = User.objects.create_user(
             username='testuser',
             email='test@test.com',
-            password='testpass123'
+            password='testpass123',
+            tenant=self.tenant,
+            active_company=self.company,
         )
+        self.user.accessible_companies.add(self.company)
+
         self.order = Order.objects.create(
             created_by=self.user,
             status=OrderStatus.DRAFT,

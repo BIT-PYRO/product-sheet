@@ -2,6 +2,7 @@ from django.conf import settings
 from django.db import models
 
 from common.models import AuditModel
+from core_tenants.models import TenantCompanyModel
 from products.models import Product
 
 
@@ -36,7 +37,7 @@ class VoucherApprovalStatus(models.TextChoices):
 	REPLACED = 'replaced', 'Replaced'
 
 
-class Job(AuditModel):
+class Job(AuditModel, TenantCompanyModel):
 	# Jewelry job fields (legacy)
 	title = models.CharField(max_length=255, blank=True, default="Untitled Job")
 	product = models.ForeignKey(Product, on_delete=models.PROTECT, related_name='jobs', null=True, blank=True)
@@ -104,6 +105,13 @@ class Job(AuditModel):
 	# Receive tracking
 	received_by = models.CharField(max_length=255, blank=True, default='', help_text='Who received/accepted the job')
 	received_rows = models.JSONField(default=list, blank=True, help_text='Audit log of all receive events [{timestamp, received_by, is_partial, rows}]')
+
+	class Meta:
+		ordering = ['-created_at']
+		indexes = [
+			models.Index(fields=['tenant', 'company', 'status']),
+			models.Index(fields=['tenant', 'company', 'approval_status']),
+		]
 
 	def __str__(self):
 		return f'{self.title} ({self.status})'

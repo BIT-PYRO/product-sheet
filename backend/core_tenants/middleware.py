@@ -1,6 +1,6 @@
 import uuid
 from django.utils.deprecation import MiddlewareMixin
-from core_tenants.context import set_tenant, set_company, clear_tenant_context
+from core_tenants.context import set_tenant, set_company, set_current_user, clear_tenant_context
 from core_tenants.models import Company
 
 class TenantContextMiddleware(MiddlewareMixin):
@@ -18,6 +18,9 @@ class TenantContextMiddleware(MiddlewareMixin):
                 user = request.user
                 tenant = user.tenant
                 active_company = user.active_company
+
+                # Set request user context
+                set_current_user(user)
 
                 # Check if user is requesting a company switch via header
                 x_company_id = request.headers.get('X-Company-ID') or request.META.get('HTTP_X_COMPANY_ID')

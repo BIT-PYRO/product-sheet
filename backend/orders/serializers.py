@@ -3,6 +3,9 @@ from .models import Order, OrderItem, OrderSource, OrderStatus
 
 
 class OrderItemSerializer(serializers.ModelSerializer):
+    tenant_id = serializers.UUIDField(read_only=True)
+    company_id = serializers.UUIDField(read_only=True)
+
     class Meta:
         model = OrderItem
         fields = [
@@ -16,8 +19,10 @@ class OrderItemSerializer(serializers.ModelSerializer):
             'images',
             'note',
             'total_price',
+            'tenant_id',
+            'company_id',
         ]
-        read_only_fields = ['id', 'total_price']
+        read_only_fields = ['id', 'total_price', 'tenant', 'company', 'tenant_id', 'company_id']
 
 
 class OrderListSerializer(serializers.ModelSerializer):
@@ -47,6 +52,8 @@ class OrderListSerializer(serializers.ModelSerializer):
             'units',
             'picklist_number',
             'order_source',
+            'tenant_id',
+            'company_id',
             'created_at',
             'updated_at',
             'total_items',
@@ -59,6 +66,8 @@ class OrderListSerializer(serializers.ModelSerializer):
             'shipping',
             'tax',
             'total',
+            'tenant_id',
+            'company_id',
             'created_at',
             'updated_at',
         ]

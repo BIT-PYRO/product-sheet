@@ -118,13 +118,15 @@ class TaskStatusView(APIView):
 		return api_success(payload, message='Task status fetched successfully.')
 
 
+from core_permissions.filters import SaaSIsolationFilterBackend
+
 @extend_schema(tags=['Deletion Log'])
 class DeletionLogViewSet(StandardizedSuccessResponseMixin, ListModelMixin, GenericViewSet):
 	"""Read-only endpoint — returns deletion logs, optionally filtered by app_label / model_name."""
 	permission_classes = [IsAdminUser]
 	serializer_class = DeletionLogSerializer
 	queryset = DeletionLog.objects.select_related('deleted_by').all()
-	filter_backends = [DjangoFilterBackend, OrderingFilter]
+	filter_backends = [SaaSIsolationFilterBackend, DjangoFilterBackend, OrderingFilter]
 	filterset_fields = ['app_label', 'model_name']
 	ordering_fields = ['deleted_at']
 	ordering = ['-deleted_at']
@@ -147,7 +149,7 @@ class ActivityLogViewSet(ListModelMixin, GenericViewSet):
 	serializer_class = ActivityLogSerializer
 	pagination_class = ActivityLogPagination
 	queryset = ActivityLog.objects.select_related('user').all()
-	filter_backends = [DjangoFilterBackend, OrderingFilter, SearchFilter]
+	filter_backends = [SaaSIsolationFilterBackend, DjangoFilterBackend, OrderingFilter, SearchFilter]
 	filterset_fields = ['sheet', 'action']
 	ordering_fields = ['timestamp']
 	ordering = ['-timestamp']

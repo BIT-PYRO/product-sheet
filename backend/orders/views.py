@@ -10,7 +10,6 @@ from .serializers import OrderDetailSerializer, OrderListSerializer
 
 class OrderViewSet(viewsets.ModelViewSet):
     audit_sheet = 'order'
-    permission_classes = [AllowAny]
     queryset = Order.objects.all()
 
     def get_serializer_class(self):
@@ -34,11 +33,15 @@ class OrderViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
+        # Auto-assign tenant and company from request context
+        tenant = (getattr(request, 'tenant', None) or (getattr(request.user, 'tenant', None) if request.user and request.user.is_authenticated else None))
+        company = (getattr(request, 'company', None) or (getattr(request.user, 'active_company', None) if request.user and request.user.is_authenticated else None))
+
         # Set created_by to current user if authenticated
         if request.user and request.user.is_authenticated:
-            serializer.save(created_by=request.user)
+            serializer.save(tenant=tenant, company=company, created_by=request.user)
         else:
-            serializer.save()
+            serializer.save(tenant=tenant, company=company)
 
         try:
             from common.audit import log_activity
@@ -93,16 +96,19 @@ class OrderViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # Delete any existing order(s) for this picklist number
+        tenant = (getattr(request, 'tenant', None) or (getattr(request.user, 'tenant', None) if request.user and request.user.is_authenticated else None))
+        company = (getattr(request, 'company', None) or (getattr(request.user, 'active_company', None) if request.user and request.user.is_authenticated else None))
+
+        # Delete any existing order(s) for this picklist number (scoped to tenant+company)
         Order.objects.filter(order_source='picklist', picklist_number=picklist_number).delete()
 
         serializer = OrderDetailSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
         if request.user and request.user.is_authenticated:
-            serializer.save(order_source='picklist', created_by=request.user)
+            serializer.save(order_source='picklist', tenant=tenant, company=company, created_by=request.user)
         else:
-            serializer.save(order_source='picklist')
+            serializer.save(order_source='picklist', tenant=tenant, company=company)
 
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 

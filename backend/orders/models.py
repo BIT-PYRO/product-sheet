@@ -3,7 +3,9 @@ from django.db import models
 from django.core.validators import MinValueValidator
 
 from common.models import AuditModel
+from core_tenants.models import TenantCompanyModel
 from products.models import Product
+
 
 class OrderSource(models.TextChoices):
     CUSTOM = 'custom', 'Custom'
@@ -21,7 +23,7 @@ class OrderStatus(models.TextChoices):
     CANCELLED = 'cancelled', 'Cancelled'
 
 
-class Order(AuditModel):
+class Order(AuditModel, TenantCompanyModel):
     customer_id = models.IntegerField(
         null=True,
         blank=True,
@@ -84,13 +86,6 @@ class Order(AuditModel):
         default=OrderSource.CUSTOM,
         help_text='Origin of the order: custom, picklist, shopify, or sample'
     )
-    created_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='created_orders'
-    )
 
     class Meta:
         ordering = ['-created_at']
@@ -105,7 +100,7 @@ class Order(AuditModel):
         return self.total
 
 
-class OrderItem(AuditModel):
+class OrderItem(AuditModel, TenantCompanyModel):
     order = models.ForeignKey(
         Order,
         on_delete=models.CASCADE,
@@ -139,6 +134,9 @@ class OrderItem(AuditModel):
 
     class Meta:
         ordering = ['created_at']
+        indexes = [
+            models.Index(fields=['tenant', 'company', 'order']),
+        ]
 
     def __str__(self):
         return f'{self.name} x{self.quantity}'

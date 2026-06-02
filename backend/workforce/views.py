@@ -33,7 +33,8 @@ class WorkforceMemberViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 	search_fields = ['full_name', 'phone', 'email', 'department']
 
 	def perform_create(self, serializer):
-		# Idempotent create: if a record with the same email or username already exists, return it
+		# Idempotent create: if a record with the same email or username already exists
+		# within this tenant, return it instead of creating a duplicate
 		email = (serializer.validated_data.get('email') or '').strip().lower()
 		username = (serializer.validated_data.get('username') or '').strip().lower()
 		existing = None
@@ -45,7 +46,11 @@ class WorkforceMemberViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 			# Raise to signal "already exists" — caller gets existing record via list API
 			from rest_framework.exceptions import ValidationError
 			raise ValidationError({'detail': 'already_exists', 'id': existing.id})
-		instance = serializer.save()
+		# Auto-assign tenant and company from request context
+		instance = serializer.save(
+			tenant=(getattr(self.request, 'tenant', None) or (getattr(self.request.user, 'tenant', None) if self.request.user and self.request.user.is_authenticated else None)),
+			company=(getattr(self.request, 'company', None) or (getattr(self.request.user, 'active_company', None) if self.request.user and self.request.user.is_authenticated else None)),
+		)
 		sync_member_permissions(instance)
 		# Ensure a Django User exists for this member so they can log in immediately
 		if email:

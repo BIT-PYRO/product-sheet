@@ -13,6 +13,9 @@ from .models import (
 
 
 class InventoryTransactionSerializer(serializers.ModelSerializer):
+    tenant_id = serializers.UUIDField(read_only=True)
+    company_id = serializers.UUIDField(read_only=True)
+
     def validate_quantity(self, value):
         # Allow quantity=0 for location-only updates (location stored on the txn)
         if value == 0:
@@ -25,6 +28,7 @@ class InventoryTransactionSerializer(serializers.ModelSerializer):
     class Meta:
         model = InventoryTransaction
         fields = '__all__'
+        read_only_fields = ['tenant', 'company', 'tenant_id', 'company_id']
 
 
 class PicklistItemSerializer(serializers.ModelSerializer):
@@ -43,10 +47,12 @@ class PicklistGroupSerializer(serializers.ModelSerializer):
     dateFormatted = serializers.SerializerMethodField()
     items = PicklistItemSerializer(many=True)
     total_items = serializers.SerializerMethodField()
+    tenant_id = serializers.UUIDField(read_only=True)
+    company_id = serializers.UUIDField(read_only=True)
 
     class Meta:
         model = PicklistGroup
-        fields = ('id', 'db_id', 'number', 'name', 'uploadedBy', 'date', 'dateFormatted', 'total_items', 'items')
+        fields = ('id', 'db_id', 'number', 'name', 'uploadedBy', 'date', 'dateFormatted', 'total_items', 'items', 'tenant_id', 'company_id')
 
     def get_dateFormatted(self, obj):
         return obj.uploaded_at.astimezone().strftime('%Y-%m-%d %H:%M:%S')
@@ -109,6 +115,8 @@ class PicklistGroupSerializer(serializers.ModelSerializer):
 
 class StoneItemSerializer(serializers.ModelSerializer):
     averageWeightStock = serializers.SerializerMethodField()
+    tenant_id = serializers.UUIDField(read_only=True)
+    company_id = serializers.UUIDField(read_only=True)
 
     def get_averageWeightStock(self, obj):
         return obj.average_weight_stock
@@ -118,14 +126,20 @@ class StoneItemSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'stone_type', 'species', 'variety', 'color', 'quality',
             'wax_setting', 'cut', 'dos', 'donts', 'shape', 'length', 'width', 'height',
-            'qty', 'used_qty', 'weight_cts', 'min_level', 'averageWeightStock', 'created_at', 'updated_at',
+            'qty', 'used_qty', 'weight_cts', 'min_level', 'averageWeightStock',
+            'tenant_id', 'company_id', 'created_at', 'updated_at',
         ]
+        read_only_fields = ['tenant', 'company', 'tenant_id', 'company_id']
 
 
 class StoneStockEntrySerializer(serializers.ModelSerializer):
+    tenant_id = serializers.UUIDField(read_only=True)
+    company_id = serializers.UUIDField(read_only=True)
+
     class Meta:
         model = StoneStockEntry
-        fields = ['id', 'stone', 'qty_added', 'weight_cts_added', 'price', 'price_by', 'amount', 'remark', 'created_at']
+        fields = ['id', 'stone', 'qty_added', 'weight_cts_added', 'price', 'price_by', 'amount', 'remark', 'tenant_id', 'company_id', 'created_at']
+        read_only_fields = ['tenant', 'company', 'tenant_id', 'company_id']
 
     @transaction.atomic
     def create(self, validated_data):
@@ -138,6 +152,9 @@ class StoneStockEntrySerializer(serializers.ModelSerializer):
 
 
 class ToolItemSerializer(serializers.ModelSerializer):
+    tenant_id = serializers.UUIDField(read_only=True)
+    company_id = serializers.UUIDField(read_only=True)
+
     class Meta:
         model = ToolItem
         fields = [
@@ -146,17 +163,25 @@ class ToolItemSerializer(serializers.ModelSerializer):
             'used_qty', 'used_unit', 'used_location',
             'in_use_qty', 'in_use_unit',
             'min_required_stock',
-            'created_at', 'updated_at',
+            'tenant_id', 'company_id', 'created_at', 'updated_at',
         ]
+        read_only_fields = ['tenant', 'company', 'tenant_id', 'company_id']
 
 
 class OtherItemSerializer(serializers.ModelSerializer):
+    tenant_id = serializers.UUIDField(read_only=True)
+    company_id = serializers.UUIDField(read_only=True)
+
     class Meta:
         model = OtherItem
-        fields = ['id', 'item_name', 'category', 'quantity', 'used_qty', 'unit', 'min_level', 'notes', 'created_at', 'updated_at']
+        fields = ['id', 'item_name', 'category', 'quantity', 'used_qty', 'unit', 'min_level', 'notes', 'tenant_id', 'company_id', 'created_at', 'updated_at']
+        read_only_fields = ['tenant', 'company', 'tenant_id', 'company_id']
 
 
 class MachineItemSerializer(serializers.ModelSerializer):
+    tenant_id = serializers.UUIDField(read_only=True)
+    company_id = serializers.UUIDField(read_only=True)
+
     class Meta:
         model = MachineItem
         fields = [
@@ -165,11 +190,14 @@ class MachineItemSerializer(serializers.ModelSerializer):
             'idle_qty', 'idle_unit', 'idle_location',
             'breakdown_qty', 'breakdown_unit', 'breakdown_location',
             'maintenance_qty', 'maintenance_unit', 'maintenance_location',
-            'created_at', 'updated_at',
+            'tenant_id', 'company_id', 'created_at', 'updated_at',
         ]
+        read_only_fields = ['tenant', 'company', 'tenant_id', 'company_id']
 
 
 class ProductInventoryItemSerializer(serializers.ModelSerializer):
+    tenant_id = serializers.UUIDField(read_only=True)
+    company_id = serializers.UUIDField(read_only=True)
     master_sku = serializers.CharField(source='product.master_sku', read_only=True)
     designer_sku = serializers.CharField(source='product.designer_sku', read_only=True)
     product_name = serializers.CharField(source='product.name', read_only=True)
@@ -183,11 +211,15 @@ class ProductInventoryItemSerializer(serializers.ModelSerializer):
             'id', 'product', 'master_sku', 'designer_sku', 'product_name', 'images',
             'final_sku', 'value', 'actual_quantity', 'unit', 'location', 'total_in_demand',
             'created_at', 'updated_at', 'created_by', 'updated_by',
+            'tenant', 'company', 'tenant_id', 'company_id',
         ]
-        read_only_fields = ['created_at', 'updated_at', 'created_by', 'updated_by']
+        read_only_fields = ['created_at', 'updated_at', 'created_by', 'updated_by', 'tenant', 'company', 'tenant_id', 'company_id']
 
 
 class StockTransactionSerializer(serializers.ModelSerializer):
+    tenant_id = serializers.UUIDField(read_only=True)
+    company_id = serializers.UUIDField(read_only=True)
+
     class Meta:
         model = StockTransaction
         fields = [
@@ -195,10 +227,15 @@ class StockTransactionSerializer(serializers.ModelSerializer):
             'qty', 'qty_unit', 'weight', 'weight_unit', 'location', 'price', 'amount',
             'received_from', 'issued_to', 'usage', 'activity_status', 'remark',
             'tool', 'machine', 'other_item', 'created_at', 'updated_at',
+            'tenant', 'company', 'tenant_id', 'company_id',
         ]
+        read_only_fields = ['tenant', 'company', 'tenant_id', 'company_id']
 
 
 class StoneTransactionSerializer(serializers.ModelSerializer):
+    tenant_id = serializers.UUIDField(read_only=True)
+    company_id = serializers.UUIDField(read_only=True)
+
     class Meta:
         model = StoneTransaction
         fields = [
@@ -207,10 +244,15 @@ class StoneTransactionSerializer(serializers.ModelSerializer):
             'length', 'width', 'height', 'qty', 'weight', 'weight_unit',
             'location', 'price', 'amount', 'received_from', 'issued_to',
             'usage', 'remark', 'activity_status', 'stone', 'created_at', 'updated_at',
+            'tenant', 'company', 'tenant_id', 'company_id',
         ]
+        read_only_fields = ['tenant', 'company', 'tenant_id', 'company_id']
 
 
 class FindingInventoryItemSerializer(serializers.ModelSerializer):
+    tenant_id = serializers.UUIDField(read_only=True)
+    company_id = serializers.UUIDField(read_only=True)
+
     class Meta:
         model = FindingInventoryItem
         fields = [
@@ -218,10 +260,15 @@ class FindingInventoryItemSerializer(serializers.ModelSerializer):
             'mechanism', 'quantity', 'used_qty', 'weight', 'dead_weight', 'mold_qty_per_die',
             'polish', 'total_measurements', 'design_material', 'min_level', 'notes',
             'created_at', 'updated_at',
+            'tenant', 'company', 'tenant_id', 'company_id',
         ]
+        read_only_fields = ['tenant', 'company', 'tenant_id', 'company_id']
 
 
 class FindingInventoryTransactionSerializer(serializers.ModelSerializer):
+    tenant_id = serializers.UUIDField(read_only=True)
+    company_id = serializers.UUIDField(read_only=True)
+
     class Meta:
         model = FindingInventoryTransaction
         fields = [
@@ -229,10 +276,15 @@ class FindingInventoryTransactionSerializer(serializers.ModelSerializer):
             'die_number', 'size', 'material', 'stage', 'qty', 'weight', 'dead_weight',
             'price', 'amount', 'received_from', 'issued_to', 'usage', 'remark', 'activity_status',
             'created_at', 'updated_at',
+            'tenant', 'company', 'tenant_id', 'company_id',
         ]
+        read_only_fields = ['tenant', 'company', 'tenant_id', 'company_id']
 
 
 class ProductInventoryTransactionSerializer(serializers.ModelSerializer):
+    tenant_id = serializers.UUIDField(read_only=True)
+    company_id = serializers.UUIDField(read_only=True)
+
     class Meta:
         model = ProductInventoryTransaction
         fields = [
@@ -240,19 +292,24 @@ class ProductInventoryTransactionSerializer(serializers.ModelSerializer):
             'txn_type', 'inventory_type', 'metal', 'value', 'unit', 'location',
             'wip', 'total_in_demand', 'price', 'amount', 'received_from', 'issued_to',
             'remark', 'activity_status', 'created_at', 'updated_at',
+            'tenant', 'company', 'tenant_id', 'company_id',
         ]
+        read_only_fields = ['tenant', 'company', 'tenant_id', 'company_id']
 
 
 class IssueRequestSerializer(serializers.ModelSerializer):
+    tenant_id = serializers.UUIDField(read_only=True)
+    company_id = serializers.UUIDField(read_only=True)
+
     class Meta:
         model = IssueRequest
         fields = [
             'id', 'inventory_type', 'item_id', 'item_name', 'quantity',
             'issued_to', 'issued_by', 'reason', 'reference_id',
             'status', 'requested_at', 'reviewed_at', 'remark',
-            'created_at', 'updated_at',
+            'tenant_id', 'company_id', 'created_at', 'updated_at',
         ]
-        read_only_fields = ['requested_at', 'created_at', 'updated_at']
+        read_only_fields = ['requested_at', 'tenant', 'company', 'tenant_id', 'company_id', 'created_at', 'updated_at']
 
 
 # ── Die Inventory ─────────────────────────────────────────────────────────────
@@ -354,7 +411,7 @@ class DieInventoryItemSerializer(serializers.ModelSerializer):
         model = DieInventoryItem
         fields = [
             'id', 'die_code', 'image', 'designer_images', 'master_skus', 'designer_skus',
-            'sku_qty_per_piece',
+            'sku_qty_per_piece', 'tenant_id', 'company_id',
             'location', 'quantity',
             'wax_piece_qty', 'wax_piece_location',
             'wax_piece_min', 'wax_piece_wip',
@@ -370,10 +427,13 @@ class DieInventoryItemSerializer(serializers.ModelSerializer):
             'notes', 'used_qty', 'min_level',
             'created_at', 'updated_at',
         ]
-        read_only_fields = ['created_at', 'updated_at']
+        read_only_fields = ['created_at', 'updated_at', 'tenant', 'company', 'tenant_id', 'company_id']
 
 
 class DieTransactionSerializer(serializers.ModelSerializer):
+    tenant_id = serializers.UUIDField(read_only=True)
+    company_id = serializers.UUIDField(read_only=True)
+
     class Meta:
         model = DieTransaction
         fields = [
@@ -391,11 +451,13 @@ class DieTransactionSerializer(serializers.ModelSerializer):
 
 class RepairBatchSerializer(serializers.ModelSerializer):
     items_count = serializers.IntegerField(source='items.count', read_only=True)
+    tenant_id = serializers.UUIDField(read_only=True)
+    company_id = serializers.UUIDField(read_only=True)
 
     class Meta:
         model = RepairBatch
-        fields = ['id', 'batch_no', 'date', 'confirmed', 'confirmed_at', 'voucher_created', 'items_count', 'created_at', 'updated_at']
-        read_only_fields = ['id', 'confirmed_at', 'created_at', 'updated_at']
+        fields = ['id', 'batch_no', 'date', 'confirmed', 'confirmed_at', 'voucher_created', 'items_count', 'tenant_id', 'company_id', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'confirmed_at', 'tenant', 'company', 'tenant_id', 'company_id', 'created_at', 'updated_at']
 
 
 class RepairItemSerializer(serializers.ModelSerializer):
