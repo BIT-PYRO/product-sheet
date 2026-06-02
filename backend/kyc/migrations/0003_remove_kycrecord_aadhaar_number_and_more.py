@@ -13,23 +13,12 @@ class Migration(migrations.Migration):
         # Use IF EXISTS so this migration is safe whether or not 0002 was
         # previously applied to this database (handles both fresh and
         # already-migrated environments).
-        migrations.RunSQL(
-            sql="""
-                ALTER TABLE kyc_kycrecord DROP COLUMN IF EXISTS aadhaar_number;
-                ALTER TABLE kyc_kycrecord DROP COLUMN IF EXISTS aadhaar_status;
-                ALTER TABLE kyc_kycrecord DROP COLUMN IF EXISTS gst_number;
-                ALTER TABLE kyc_kycrecord DROP COLUMN IF EXISTS gst_status;
-                ALTER TABLE kyc_kycrecord DROP COLUMN IF EXISTS pan_number;
-                ALTER TABLE kyc_kycrecord DROP COLUMN IF EXISTS pan_status;
-            """,
-            reverse_sql=migrations.RunSQL.noop,
-            state_operations=[
-                migrations.RemoveField(model_name='kycrecord', name='aadhaar_number'),
-                migrations.RemoveField(model_name='kycrecord', name='aadhaar_status'),
-                migrations.RemoveField(model_name='kycrecord', name='gst_number'),
-                migrations.RemoveField(model_name='kycrecord', name='gst_status'),
-                migrations.RemoveField(model_name='kycrecord', name='pan_number'),
-                migrations.RemoveField(model_name='kycrecord', name='pan_status'),
-            ],
-        ),
+        # Replaced PostgreSQL-specific RunSQL (with DROP COLUMN IF EXISTS) 
+        # with standard Django operations since we are using SQLite.
+        migrations.RemoveField(model_name='kycrecord', name='aadhaar_number'),
+        migrations.RemoveField(model_name='kycrecord', name='aadhaar_status'),
+        migrations.RemoveField(model_name='kycrecord', name='gst_number'),
+        migrations.RemoveField(model_name='kycrecord', name='gst_status'),
+        migrations.RemoveField(model_name='kycrecord', name='pan_number'),
+        migrations.RemoveField(model_name='kycrecord', name='pan_status'),
     ]

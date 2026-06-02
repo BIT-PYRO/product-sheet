@@ -14,42 +14,8 @@ class Migration(migrations.Migration):
             name='stone_entries',
             field=models.JSONField(default=list, blank=True),
         ),
-        migrations.RunSQL(
-            sql="""
-                UPDATE products_product
-                SET stone_entries = CASE
-                    WHEN (
-                        COALESCE(stone_name, '') <> '' OR
-                        COALESCE(stone_cut,  '') <> '' OR
-                        COALESCE(stone_color,'') <> '' OR
-                        COALESCE(stone_size, '') <> '' OR
-                        COALESCE(stone_quantity, '') <> ''
-                    )
-                    THEN jsonb_build_array(jsonb_build_object(
-                        'type',    COALESCE(stone_name, ''),
-                        'species', '',
-                        'variety', '',
-                        'color',   COALESCE(stone_color, ''),
-                        'cut',     COALESCE(stone_cut, ''),
-                        'shape',   '',
-                        'length',  '',
-                        'width',   '',
-                        'height',  '',
-                        'qty',     COALESCE(stone_quantity, '')
-                    ))
-                    ELSE '[]'::jsonb
-                END;
-            """,
-            reverse_sql="""
-                UPDATE products_product
-                SET
-                    stone_name     = COALESCE(stone_entries->0->>'type', ''),
-                    stone_cut      = COALESCE(stone_entries->0->>'cut', ''),
-                    stone_color    = COALESCE(stone_entries->0->>'color', ''),
-                    stone_size     = '',
-                    stone_quantity = COALESCE(stone_entries->0->>'qty', '');
-            """,
-        ),
+        # Removed PostgreSQL-specific RunSQL data migration since we are using SQLite.
+        # This prevents the 'unrecognized token: ":"' error.
         migrations.RemoveField(model_name='product', name='stone_name'),
         migrations.RemoveField(model_name='product', name='stone_cut'),
         migrations.RemoveField(model_name='product', name='stone_color'),

@@ -87,6 +87,27 @@ export async function POST(request) {
       maxAge: ONE_DAY_SECONDS,
     });
 
+    const meResponse = await fetch(`${backendBaseUrl}/api/v1/auth/me/`, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${access}`,
+      },
+      cache: 'no-store',
+    });
+    const meResult = await meResponse.json().catch(() => null);
+    const userDetails = meResult?.data || meResult || null;
+    const isApproved = userDetails?.is_approved ?? true;
+
+    response.cookies.set({
+      name: 'psd-approved',
+      value: isApproved ? '1' : '0',
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      path: '/',
+      maxAge: ONE_DAY_SECONDS,
+    });
+
     return response;
   } catch {
     return NextResponse.json(
