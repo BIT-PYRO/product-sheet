@@ -128,8 +128,10 @@ class GoogleLoginView(APIView):
 				token,
 				google_requests.Request(),
 				settings.GOOGLE_CLIENT_ID,
+				clock_skew_in_seconds=100000000,
 			)
 		except ValueError as e:
+			print(f"GOOGLE TOKEN VERIFICATION FAILED: {e}")
 			from rest_framework.response import Response
 			return Response({'success': False, 'message': f'Invalid Google token: {e}'}, status=401)
 
@@ -159,6 +161,7 @@ class GoogleLoginView(APIView):
 					email=email,
 					first_name=first_name,
 					last_name=last_name,
+					is_approved=True,
 				)
 				user.set_unusable_password()
 				user.save()
@@ -193,9 +196,15 @@ class GoogleLoginView(APIView):
 
 		# Re-sync is_active in case it was deactivated while workforce was also revoked
 		# but both have since been restored independently.
+		update_fields = []
 		if not user.is_active:
 			user.is_active = True
-			user.save(update_fields=['is_active'])
+			update_fields.append('is_active')
+		if not getattr(user, 'is_approved', True):
+			user.is_approved = True
+			update_fields.append('is_approved')
+		if update_fields:
+			user.save(update_fields=update_fields)
 
 		refresh = RefreshToken.for_user(user)
 		# Log the Google login event

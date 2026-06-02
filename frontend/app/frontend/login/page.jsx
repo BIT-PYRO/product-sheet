@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 // ── helpers ──────────────────────────────────────────────────────────────────
 function safeRedirect(next) {
   if (next && next.startsWith('/') && !next.startsWith('//')) return next;
-  return '/welcome';
+  return '/frontend/welcome';
 }
 
 // ── Google Sign-In button ────────────────────────────────────────────────────

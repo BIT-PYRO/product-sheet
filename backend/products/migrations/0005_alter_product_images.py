@@ -10,16 +10,8 @@ class Migration(migrations.Migration):
     operations = [
         # Step 1: replace any empty/null/non-JSON text values with '[]' so the
         # column cast to jsonb does not fail on existing rows.
-        migrations.RunSQL(
-            sql="""
-                UPDATE products_product
-                SET images = '[]'
-                WHERE images IS NULL
-                   OR images = ''
-                   OR images !~ '^\\s*[\\[{]';
-            """,
-            reverse_sql=migrations.RunSQL.noop,
-        ),
+        # Removed PostgreSQL-specific RunSQL (uses !~ regex operator).
+        # We are using SQLite, and AlterField handles this sufficiently.
         # Step 2: now it is safe to change the column type to jsonb.
         migrations.AlterField(
             model_name='product',
