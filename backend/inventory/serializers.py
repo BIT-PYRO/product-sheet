@@ -82,6 +82,8 @@ class PicklistGroupSerializer(serializers.ModelSerializer):
                 sku=item.get('sku', '').strip().upper(),
                 listing_name=item.get('listing_name', '').strip(),
                 needed=max(0, int(item.get('needed') or 0)),
+                tenant=group.tenant,
+                company=group.company,
             )
             for item in items_data
             if str(item.get('sku', '')).strip()
@@ -105,6 +107,8 @@ class PicklistGroupSerializer(serializers.ModelSerializer):
                     sku=item.get('sku', '').strip().upper(),
                     listing_name=item.get('listing_name', '').strip(),
                     needed=max(0, int(item.get('needed') or 0)),
+                    tenant=instance.tenant,
+                    company=instance.company,
                 )
                 for item in items_data
                 if str(item.get('sku', '')).strip()
