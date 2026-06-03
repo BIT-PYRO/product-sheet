@@ -1,4 +1,5 @@
 from django.db import models
+from common.storage import tenant_directory_path
 
 
 class Ledger(models.Model):
@@ -112,7 +113,7 @@ class PendingExpense(models.Model):
 
 class JournalItemAttachment(models.Model):
     journal_item = models.ForeignKey(JournalItem, on_delete=models.CASCADE, related_name='attachments')
-    file = models.FileField(upload_to='journal_receipts/%Y/%m/')
+    file = models.FileField(upload_to=tenant_directory_path)
     name = models.CharField(max_length=255)
     uploaded_at = models.DateTimeField(auto_now_add=True)
 
@@ -151,7 +152,7 @@ class Expense(models.Model):
     date = models.DateField()
     description = models.TextField()
     department = models.CharField(max_length=100, blank=True, null=True)
-    receipt = models.FileField(upload_to='expenses/%Y/%m/', blank=True, null=True)
+    receipt = models.FileField(upload_to=tenant_directory_path, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     journal_entry = models.OneToOneField(JournalEntry, on_delete=models.CASCADE, null=True, blank=True, related_name='expense')
 
@@ -169,7 +170,7 @@ class Income(models.Model):
     date = models.DateField()
     description = models.TextField()
     department = models.CharField(max_length=100, blank=True, null=True)
-    receipt = models.FileField(upload_to='incomes/%Y/%m/', blank=True, null=True)
+    receipt = models.FileField(upload_to=tenant_directory_path, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     journal_entry = models.OneToOneField(
         JournalEntry, on_delete=models.CASCADE, null=True, blank=True, related_name='income'
@@ -219,7 +220,7 @@ class Outstanding(models.Model):
 
 class OutstandingReceipt(models.Model):
     outstanding = models.ForeignKey(Outstanding, on_delete=models.CASCADE, related_name='receipts')
-    file = models.FileField(upload_to='receipts/outstandings/')
+    file = models.FileField(upload_to=tenant_directory_path)
     filename = models.CharField(max_length=255, blank=True)
     uploaded_at = models.DateTimeField(auto_now_add=True)
 
