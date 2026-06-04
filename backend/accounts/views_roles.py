@@ -55,7 +55,7 @@ DEPT_MODULE_MAP = {
         'enrol-customer', 'master-customer-sheet', 'orders',
         'create-generic-job', 'managers-dashboard', 'my-desk',
     ],
-    'CRM': [
+    'Customer Relation Management': [
         'enrol-customer', 'master-customer-sheet', 'orders',
         'drafts', 'managers-dashboard', 'my-desk',
     ],
