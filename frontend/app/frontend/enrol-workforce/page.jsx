@@ -139,7 +139,7 @@ const WORKING_STYLES = ['On-site','Remote','Hybrid','Field Work','Part-time','Co
 
 const DEPT_DATA = {
   'Marketing':                    { categories: ['Performance','Offline','International','Social Media'], roles: ['Chairman','CEO','Director','Department Head','Manager','Associate','Intern'] },
-  'Customer Relation Management': { categories: ['Inbound Calls','Outbound Calls','Social Media','Emails','Offline'], roles: ['Chairman','CEO','Director','Department Head','Manager','Associate','Intern'] },
+  'Customer Relation Management': { categories: ['Inbound Calls','Outbound Calls','Social Media','Emails','Offline'], roles: ['Department Head','Director','Manager','Associate','Intern'] },
   'Operations':                   { categories: [], roles: ['Chairman','CEO','Director','Department Head','Manager','Associate','Intern'] },
   'Design':                       { categories: ['Jewellery','Branding','Visuals','Photographer / Videographer'], roles: ['Chairman','CEO','Director','Department Head','Manager','Associate','Intern'] },
   'Logistics':                    { categories: [], roles: ['Chairman','CEO','Director','Department Head','Manager','Associate','Intern'] },
