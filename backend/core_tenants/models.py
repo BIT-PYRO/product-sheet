@@ -13,6 +13,8 @@ class Tenant(TimeStampedModel):
     slug = models.SlugField(max_length=255, unique=True, help_text="Unique URL-friendly identifier.")
     is_active = models.BooleanField(default=True, help_text="Designates whether this tenant is active.")
     external_shop_id = models.CharField(max_length=255, blank=True, default='', help_text="External shop ID for repair queue sync.")
+    stripe_customer_id = models.CharField(max_length=255, blank=True, null=True, help_text="Stripe Customer ID for SaaS billing.")
+    razorpay_customer_id = models.CharField(max_length=255, blank=True, null=True, help_text="Razorpay Customer ID for SaaS billing.")
 
     class Meta:
         ordering = ['name']

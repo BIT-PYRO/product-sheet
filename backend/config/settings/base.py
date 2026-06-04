@@ -55,6 +55,7 @@ INSTALLED_APPS = [
     'orders',
     'customers',
     'designers',
+    'saas_billing',
     'findings',
     'accounting',
     'core.mydesk',
@@ -72,6 +73,7 @@ MIDDLEWARE = [
     'core_tenants.middleware.TenantContextMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'saas_billing.middleware.SaaSEnforcementMiddleware',
 ]
 
 ROOT_URLCONF = 'config.urls'
@@ -135,6 +137,9 @@ REST_FRAMEWORK = {
         'rest_framework.filters.SearchFilter',
         'rest_framework.filters.OrderingFilter',
     ),
+    'DEFAULT_THROTTLE_CLASSES': [
+        'saas_billing.throttling.TenantGroupRateThrottle',
+    ],
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
     'EXCEPTION_HANDLER': 'common.api.exception_handler',
 }
