@@ -394,7 +394,7 @@ export default function ProfilePage() {
     localStorage.removeItem(`profile_photo_${sessionUser.username}`);
     window.dispatchEvent(new CustomEvent('profile_photo_updated', { detail: { photo: null } }));
     if (workforceMember?.id) {
-      fetch(`/api/workforce/${workforceMember.id}`, {
+      fetch(`/api/workforce/${workforceMember.id}/`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ profile_photo_url: '' }),
