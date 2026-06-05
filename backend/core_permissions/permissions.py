@@ -154,7 +154,9 @@ class SaaSResourcePermission(permissions.BasePermission):
             if model:
                 allowed_staff_write_models = {
                     'Job', 'InventoryTransaction', 'StoneTransaction', 'StockTransaction',
-                    'FindingInventoryTransaction', 'ProductInventoryTransaction', 'IssueRequest', 'RepairItem'
+                    'FindingInventoryTransaction', 'ProductInventoryTransaction', 'IssueRequest', 'RepairItem',
+                    'PicklistGroup', 'PicklistItem',  # Picklist sync is an orders-adjacent write
+                    'Order', 'OrderItem',              # from-picklist creates Order records
                 }
                 if model.__name__ in allowed_staff_write_models:
                     return True
@@ -173,7 +175,9 @@ class SaaSResourcePermission(permissions.BasePermission):
             if model:
                 allowed_dept_head_write_models = {
                     'Job', 'InventoryTransaction', 'StoneTransaction', 'StockTransaction',
-                    'FindingInventoryTransaction', 'ProductInventoryTransaction', 'IssueRequest', 'RepairItem'
+                    'FindingInventoryTransaction', 'ProductInventoryTransaction', 'IssueRequest', 'RepairItem',
+                    'PicklistGroup', 'PicklistItem',  # Picklist sync is an orders-adjacent write
+                    'Order', 'OrderItem',              # from-picklist creates Order records
                 }
                 if model.__name__ in allowed_dept_head_write_models:
                     return True

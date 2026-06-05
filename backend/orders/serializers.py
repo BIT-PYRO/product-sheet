@@ -124,7 +124,15 @@ class OrderDetailSerializer(serializers.ModelSerializer):
         order = Order.objects.create(**validated_data)
 
         for item_data in items_data:
-            OrderItem.objects.create(order=order, **item_data)
+            OrderItem.objects.create(
+                order=order,
+                # Propagate tenant/company from the parent Order so the NOT NULL
+                # constraint on OrderItem.company_id is always satisfied, even when
+                # the request comes through the server-side Next.js proxy (no X-Company-ID header).
+                tenant=order.tenant,
+                company=order.company,
+                **item_data,
+            )
 
         order.calculate_total()
         order.save()
@@ -146,9 +154,15 @@ class OrderDetailSerializer(serializers.ModelSerializer):
         if items_data is not None:
             instance.items.all().delete()
             for item_data in items_data:
-                OrderItem.objects.create(order=instance, **item_data)
+                OrderItem.objects.create(
+                    order=instance,
+                    tenant=instance.tenant,
+                    company=instance.company,
+                    **item_data,
+                )
 
         instance.calculate_total()
         instance.save()
 
         return instance
+

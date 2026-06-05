@@ -70,6 +70,10 @@ class PicklistItem(AuditModel, TenantCompanyModel):
 	sku = models.CharField(max_length=60)
 	listing_name = models.CharField(max_length=255, blank=True)
 	needed = models.PositiveIntegerField(default=0)
+	# Extra metadata (e.g. product images, available stock) stored as JSON.
+	# The column already exists in the DB; declared here so Django includes it
+	# in INSERT/UPDATE statements and bulk_create does not omit it.
+	attributes = models.JSONField(default=dict, blank=True)
 
 	class Meta:
 		ordering = ('id',)
@@ -79,6 +83,7 @@ class PicklistItem(AuditModel, TenantCompanyModel):
 
 	def __str__(self):
 		return f'{self.group.number} | {self.sku} | {self.needed}'
+
 
 
 class PriceBy(models.TextChoices):

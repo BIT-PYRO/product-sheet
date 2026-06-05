@@ -36,6 +36,10 @@ class OrderViewSet(viewsets.ModelViewSet):
         # Auto-assign tenant and company from request context
         tenant = (getattr(request, 'tenant', None) or (getattr(request.user, 'tenant', None) if request.user and request.user.is_authenticated else None))
         company = (getattr(request, 'company', None) or (getattr(request.user, 'active_company', None) if request.user and request.user.is_authenticated else None))
+        # Server-side proxy calls don't carry X-Company-ID — fall back to tenant's first company
+        if company is None and tenant is not None:
+            from core_tenants.models import Company
+            company = Company.objects.filter(tenant=tenant).first()
 
         # Set created_by to current user if authenticated
         if request.user and request.user.is_authenticated:
@@ -98,6 +102,10 @@ class OrderViewSet(viewsets.ModelViewSet):
 
         tenant = (getattr(request, 'tenant', None) or (getattr(request.user, 'tenant', None) if request.user and request.user.is_authenticated else None))
         company = (getattr(request, 'company', None) or (getattr(request.user, 'active_company', None) if request.user and request.user.is_authenticated else None))
+        # Server-side proxy calls don't carry X-Company-ID — fall back to tenant's first company
+        if company is None and tenant is not None:
+            from core_tenants.models import Company
+            company = Company.objects.filter(tenant=tenant).first()
 
         # Delete any existing order(s) for this picklist number (scoped to tenant+company)
         Order.objects.filter(order_source='picklist', picklist_number=picklist_number).delete()
