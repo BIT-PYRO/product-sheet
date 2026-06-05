@@ -1,10 +1,12 @@
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework.decorators import action
 from rest_framework.parsers import MultiPartParser
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
 
 from common.mixins import StandardizedSuccessResponseMixin
+from core_permissions.permissions import SaaSResourcePermission, RequiresFeature
 
 from .models import DesignerSheet
 from .serializers import DesignerSheetSerializer
@@ -22,6 +24,8 @@ class DesignerSheetViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
     audit_sheet = 'designer'
     queryset = DesignerSheet.objects.all().order_by('-created_at')
     serializer_class = DesignerSheetSerializer
+    permission_classes = [IsAuthenticated, SaaSResourcePermission, RequiresFeature]
+    required_feature_code = 'designer-sheet'
     filterset_fields = ['is_active', 'sku']
     search_fields = ['sku', 'motive_code', 'motive_sku']
 

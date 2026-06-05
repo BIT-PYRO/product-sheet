@@ -61,6 +61,7 @@ INSTALLED_APPS = [
     'core.mydesk',
     'calendar_integration',
     'hr',
+    'industries',
 ]
 
 MIDDLEWARE = [

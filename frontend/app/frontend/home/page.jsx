@@ -9,30 +9,9 @@ import { GenericJobModal } from '@/components/generic-job-modal';
 import DateTimeStamp from '@/components/date-time-stamp';
 import { Search, X, ArrowRight, User, Users, Settings, ChevronRight, KeyRound, ShieldCheck } from 'lucide-react';
 import { ThemeToggle } from '@/components/theme-toggle';
-
-const SHEET_BLOCKS = [
-  { href: '/product-sheet', permKey: 'product-sheet', title: 'Product Sheet', subtitle: 'Product entry and live stock form', keywords: ['sku', 'product', 'stock', 'listing', 'material', 'weight', 'variation', 'stone', 'image', 'live stock', 'final stock', 'entry'] },
-  { href: '/master-product-sheet', permKey: 'master-product-sheet', title: 'Master Product Sheet', subtitle: 'All product records', keywords: ['sku', 'product', 'records', 'all products', 'listing', 'master'] },
-  { href: '/master-inventory-sheet', permKey: 'master-inventory-sheet', title: 'Master Inventory Sheet', subtitle: 'Live stock and final stock', keywords: ['inventory', 'stock', 'live stock', 'final stock', 'quantity', 'master'] },
-  { href: '/enrol-customer', permKey: 'enrol-customer', title: 'Enroll Customer', subtitle: 'Customer entry form', keywords: ['customer', 'enroll', 'client', 'onboard', 'new customer', 'buyer', 'phone', 'contact'] },
-  { href: '/master-customer-sheet', permKey: 'master-customer-sheet', title: 'Master Customer Sheet', subtitle: 'Customer records and details', keywords: ['customer', 'records', 'clients', 'details', 'master', 'buyer'] },
-  { href: '/master-kyc-sheet', permKey: 'master-kyc-sheet', title: 'Master KYC Sheet', subtitle: 'Company KYC records', keywords: ['kyc', 'know your customer', 'company', 'verification', 'documents', 'gst', 'pan', 'aadhar'] },
-  { href: '/enrol-workforce', permKey: 'enrol-workforce', title: 'Enroll Workforce', subtitle: 'Workforce onboarding form', keywords: ['workforce', 'worker', 'employee', 'enroll', 'onboard', 'staff', 'craftsMan', 'department', 'designation', 'hr'] },
-  { href: '/master-workforce-sheet', permKey: 'master-workforce-sheet', title: 'Master Workforce Sheet', subtitle: 'Workforce records', keywords: ['workforce', 'worker', 'employee', 'staff', 'records', 'master', 'craftsMan'] },
-  { href: '/master-job-sheet', permKey: 'master-job-sheet', title: 'Master Job Sheet', subtitle: 'Job master data', keywords: ['job', 'work order', 'task', 'assignment', 'master', 'job card'] },
-  { href: '/managers-dashboard', permKey: 'managers-dashboard', title: 'Managers Dashboard', subtitle: 'Manager view and job cards', keywords: ['manager', 'dashboard', 'job cards', 'overview', 'manage', 'admin'] },
-  { href: '/drafts', permKey: 'drafts', title: 'Drafts', subtitle: 'View and load saved drafts', keywords: ['draft', 'saved', 'pending', 'resume', 'incomplete', 'continue'] },
-  { href: '/orders', permKey: 'orders', title: 'Orders', subtitle: 'Create and manage job orders', keywords: ['order', 'job order', 'manage orders', 'create order', 'dispatch'] },
-  { href: '/mydesk', permKey: 'my-desk', title: 'My Desk', subtitle: 'Personal workspace — notes, tasks, attendance, payroll & more', keywords: ['desk', 'personal', 'my work', 'notes', 'tasks', 'payroll', 'attendance', 'leave'] },
-  { href: '#create-generic-job', permKey: 'create-generic-job', title: 'Create Generic Job', subtitle: 'Create jobs for any type of work', keywords: ['job', 'generic', 'create', 'work', 'assignment', 'electrical', 'plumbing', 'craftsMan'] },
-  { href: '/master-designer-sheet', permKey: 'master-designer-sheet', title: 'Master Designer Sheet', subtitle: 'Designer records and details', keywords: ['designer', 'records', 'details', 'master', 'design'] },
-  { href: '/designer-sheet', permKey: 'designer-sheet', title: 'Designer Sheet', subtitle: 'Designer entry and design data', keywords: ['designer', 'design', 'entry', 'die code', 'alloy', 'motive', 'tracking'] },
-  { href: '/finding-sheet', permKey: 'finding-sheet', title: 'Master Finding Sheet', subtitle: 'Finding records and details', keywords: ['finding', 'findings', 'die number', 'size', 'quantity', 'weight', 'sheet', 'master'] },
-  { href: '/finding-entry', permKey: 'finding-entry', title: 'Finding Sheet', subtitle: 'Finding entry with image upload', keywords: ['finding', 'findings', 'image', 'die number', 'size', 'quantity', 'weight', 'entry', 'upload'] },
-  { href: '/inventory', permKey: 'inventory', title: 'Inventory', subtitle: 'Inventory final stocks', keywords: ['inventory', 'final stock', 'stock', 'quantity'] },
-  { href: '/accountancy', permKey: 'accountancy', title: 'Accountancy', subtitle: 'Accounting module and journal entry', keywords: ['accounting', 'accountancy', 'journal', 'ledger', 'debit', 'credit', 'finance'] },
-  { href: '/hr-section', permKey: 'hr-section', title: 'Human Resources', subtitle: 'Human resources management', keywords: ['hr', 'workforce', 'payroll', 'attendance', 'leaves', 'expenses', 'tasks', 'meetings', 'human resources'] },
-];
+import { useEntitlements } from '@/contexts/EntitlementContext';
+import { UpgradeModal } from '@/components/UpgradeModal';
+import { Lock } from 'lucide-react';
 
 export default function HomePage() {
   const router = useRouter();
@@ -50,6 +29,9 @@ export default function HomePage() {
   const searchRef = useRef(null);
   const profileDropdownRef = useRef(null);
   const userInfoRef = useRef(null);
+
+  const { features, hasFeature } = useEntitlements();
+  const [selectedFeatureToUnlock, setSelectedFeatureToUnlock] = useState(null);
 
   // Live data cache — fetched once on first search focus
   const [myPerms, setMyPerms] = useState(null); // null = not yet loaded
@@ -94,10 +76,9 @@ export default function HomePage() {
     const q = searchQuery.trim().toLowerCase();
     if (!q) return { sheetMatches: [], productMatches: [], customerMatches: [], workforceMatches: [] };
 
-    const sheetMatches = SHEET_BLOCKS.filter(block =>
-      block.title.toLowerCase().includes(q) ||
-      block.subtitle.toLowerCase().includes(q) ||
-      (block.keywords || []).some(k => k.toLowerCase().includes(q))
+    const sheetMatches = features.filter(block =>
+      (block.name || '').toLowerCase().includes(q) ||
+      (block.description || '').toLowerCase().includes(q)
     );
 
     const productMatches = liveData.products.filter(p =>
@@ -397,18 +378,17 @@ export default function HomePage() {
                       <div className="px-4 pt-2 pb-1">
                         <span className="text-[10px] font-bold tracking-widest text-cool-gray uppercase">Navigation</span>
                       </div>
-                      {sheetMatches.map((block) => {
-                        const idx = SHEET_BLOCKS.indexOf(block);
+                      {sheetMatches.map((block, idx) => {
                         return (
                           <button
-                            key={block.href + idx}
+                            key={(block.route || block.feature_code) + idx}
                             onClick={() => handleSheetClick(block)}
                             className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-cloud-gray text-left transition group"
                           >
                             <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-trust-blue/10 text-trust-blue text-[10px] font-bold shrink-0">{idx + 1}</span>
                             <div className="flex-1 min-w-0">
-                              <p className="text-sm font-semibold text-midnight-ink">{block.title}</p>
-                              <p className="text-xs text-cool-gray">{block.subtitle}</p>
+                              <p className="text-sm font-semibold text-midnight-ink">{block.name}</p>
+                              <p className="text-xs text-cool-gray">{block.description}</p>
                             </div>
                             <ArrowRight className="h-3 w-3 text-cool-gray group-hover:text-trust-blue transition shrink-0" />
                           </button>
@@ -512,74 +492,95 @@ export default function HomePage() {
           </div>
         )}
 
-        <section className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 ${userInfo?.is_approved === false && !userInfo?.is_superuser ? 'opacity-40 pointer-events-none select-none' : ''}`}>
-          {SHEET_BLOCKS.map((block, index) => {
-            const accessible = canAccess(block.permKey);
-            const num = <span className={`inline-flex items-center justify-center w-5 h-5 rounded-full text-white text-xs font-bold mb-2 ${accessible ? 'bg-trust-blue' : 'bg-gray-300'}`}>{index + 1}</span>;
+        {Object.entries(features.reduce((acc, feature) => {
+          const cat = feature.category || 'General';
+          if (!acc[cat]) acc[cat] = [];
+          acc[cat].push(feature);
+          return acc;
+        }, {})).map(([category, catFeatures]) => (
+          <div key={category} className="mb-8">
+            <h3 className="text-xl font-bold tracking-tight text-midnight-ink mb-4">{category}</h3>
+            <section className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 ${userInfo?.is_approved === false && !userInfo?.is_superuser ? 'opacity-40 pointer-events-none select-none' : ''}`}>
+              {catFeatures.map((block) => {
+                const accessible = hasFeature(block.feature_code);
+                
+                // Locked tile
+                if (!accessible) {
+                  return (
+                    <button
+                      key={block.feature_code}
+                      type="button"
+                      onClick={() => setSelectedFeatureToUnlock(block)}
+                      className="block text-left rounded-xl border border-soft-border bg-muted/30 p-6 opacity-60 hover:opacity-100 hover:border-trust-blue hover:bg-muted/50 transition cursor-not-allowed select-none group relative overflow-hidden"
+                      suppressHydrationWarning
+                    >
+                      <div className="absolute right-4 top-4 text-cool-gray group-hover:text-trust-blue transition-colors">
+                        <Lock className="w-5 h-5" />
+                      </div>
+                      <h2 className="text-lg font-semibold text-gray-500 flex items-center gap-2">
+                        {block.name}
+                      </h2>
+                      <p className="text-sm text-gray-400 mt-2">{block.description}</p>
+                      <div className="mt-4 flex gap-2">
+                        <span className="inline-flex items-center rounded-md bg-trust-blue/10 px-2 py-1 text-xs font-medium text-trust-blue ring-1 ring-inset ring-trust-blue/20">
+                          Upgrade to {block.min_plan_name || 'Premium'}
+                        </span>
+                      </div>
+                    </button>
+                  );
+                }
 
-            // Locked tile — grayed out, shows tooltip on click
-            if (!accessible) {
-              return (
-                <button
-                  key={block.permKey}
-                  type="button"
-                  onClick={() => alert(`You don't have access to "${block.title}". Contact your admin to request permissions.`)}
-                  className="block text-left rounded-xl border border-soft-border bg-background p-6 opacity-50 cursor-not-allowed select-none"
-                  suppressHydrationWarning
-                >
-                  {num}
-                  <h2 className="text-lg font-semibold text-gray-400">{block.title}</h2>
-                  <p className="text-sm text-gray-300 mt-2">{block.subtitle}</p>
-                  <p className="text-xs text-gray-400 mt-2 font-medium">No access</p>
-                </button>
-              );
-            }
+                if (block.route === '/enrol-workforce') {
+                  return (
+                    <button
+                      key={block.route}
+                      type="button"
+                      onClick={() => setIsEnrollWorkforceOpen(true)}
+                      className="block text-left rounded-xl border border-soft-border bg-background p-6 hover:border-trust-blue hover:shadow-md transition relative"
+                    >
+                      <h2 className="text-lg font-semibold text-midnight-ink flex items-center gap-2">
+                        {block.name}
+                        {block.is_beta && <span className="inline-flex items-center rounded-md bg-amber-50 px-2 py-1 text-[10px] font-bold text-amber-700 ring-1 ring-inset ring-amber-600/20 uppercase tracking-wider">Beta</span>}
+                      </h2>
+                      <p className="text-sm text-cool-gray mt-2">{block.description}</p>
+                    </button>
+                  );
+                }
 
-            if (block.href === '/enrol-workforce') {
-              return (
-                <button
-                  key={block.href}
-                  type="button"
-                  onClick={() => setIsEnrollWorkforceOpen(true)}
-                  className="block text-left rounded-xl border border-soft-border bg-background p-6 hover:border-trust-blue hover:shadow-md transition"
-                  suppressHydrationWarning
-                >
-                  {num}
-                  <h2 className="text-lg font-semibold text-midnight-ink">{block.title}</h2>
-                  <p className="text-sm text-cool-gray mt-2">{block.subtitle}</p>
-                </button>
-              );
-            }
+                if (block.route === '#create-generic-job') {
+                  return (
+                    <button
+                      key={block.route}
+                      type="button"
+                      onClick={() => setIsGenericJobModalOpen(true)}
+                      className="block text-left rounded-xl border border-soft-border bg-background p-6 hover:border-trust-blue hover:shadow-md transition relative"
+                    >
+                      <h2 className="text-lg font-semibold text-midnight-ink flex items-center gap-2">
+                        {block.name}
+                        {block.is_beta && <span className="inline-flex items-center rounded-md bg-amber-50 px-2 py-1 text-[10px] font-bold text-amber-700 ring-1 ring-inset ring-amber-600/20 uppercase tracking-wider">Beta</span>}
+                      </h2>
+                      <p className="text-sm text-cool-gray mt-2">{block.description}</p>
+                    </button>
+                  );
+                }
 
-            if (block.href === '#create-generic-job') {
-              return (
-                <button
-                  key={block.href}
-                  type="button"
-                  onClick={() => setIsGenericJobModalOpen(true)}
-                  className="block text-left rounded-xl border border-soft-border bg-background p-6 hover:border-trust-blue hover:shadow-md transition"
-                  suppressHydrationWarning
-                >
-                  {num}
-                  <h2 className="text-lg font-semibold text-midnight-ink">{block.title}</h2>
-                  <p className="text-sm text-cool-gray mt-2">{block.subtitle}</p>
-                </button>
-              );
-            }
-
-            return (
-              <Link
-                key={block.href}
-                href={block.href}
-                className="block rounded-xl border border-soft-border bg-background p-6 hover:border-trust-blue hover:shadow-md transition"
-              >
-                {num}
-                <h2 className="text-lg font-semibold text-midnight-ink">{block.title}</h2>
-                <p className="text-sm text-cool-gray mt-2">{block.subtitle}</p>
-              </Link>
-            );
-          })}
-        </section>
+                return (
+                  <Link
+                    key={block.route}
+                    href={block.route || '#'}
+                    className="block rounded-xl border border-soft-border bg-background p-6 hover:border-trust-blue hover:shadow-md transition relative"
+                  >
+                    <h2 className="text-lg font-semibold text-midnight-ink flex items-center gap-2">
+                      {block.name}
+                      {block.is_beta && <span className="inline-flex items-center rounded-md bg-amber-50 px-2 py-1 text-[10px] font-bold text-amber-700 ring-1 ring-inset ring-amber-600/20 uppercase tracking-wider">Beta</span>}
+                    </h2>
+                    <p className="text-sm text-cool-gray mt-2">{block.description}</p>
+                  </Link>
+                );
+              })}
+            </section>
+          </div>
+        ))}
       </div>
 
       {isEnrollWorkforceOpen && (
@@ -598,6 +599,12 @@ export default function HomePage() {
           onOpenChange={setIsGenericJobModalOpen}
         />
       )}
+
+      <UpgradeModal 
+        feature={selectedFeatureToUnlock} 
+        isOpen={!!selectedFeatureToUnlock} 
+        onClose={() => setSelectedFeatureToUnlock(null)} 
+      />
     </main>
   );
 }

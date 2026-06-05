@@ -5,16 +5,23 @@ from saas_billing.models import (
     Invoice, Payment, CreditNote
 )
 
+from platform_admin.models import PlanFeature
+
 class PlanEntitlementInline(admin.TabularInline):
     model = PlanEntitlement
     extra = 1
+
+class PlanFeatureInline(admin.TabularInline):
+    model = PlanFeature
+    extra = 0
+    autocomplete_fields = ['feature']
 
 @admin.register(Plan)
 class PlanAdmin(admin.ModelAdmin):
     list_display = ('name', 'code', 'is_active', 'trial_days', 'base_price_monthly', 'base_price_yearly')
     list_filter = ('is_active',)
     search_fields = ('name', 'code')
-    inlines = [PlanEntitlementInline]
+    inlines = [PlanFeatureInline, PlanEntitlementInline]
 
 @admin.register(TenantEntitlementOverride)
 class TenantEntitlementOverrideAdmin(admin.ModelAdmin):

@@ -1,11 +1,9 @@
-'use client';
+import { redirect } from 'next/navigation';
 
-import AccountingJournalForm from '@/components/accounting-journal-form';
-
-export default function JournalEntryPage() {
-  return (
-    <main style={{ padding: '24px 24px 48px', maxWidth: 960, margin: '0 auto' }}>
-      <AccountingJournalForm />
-    </main>
-  );
+/**
+ * Legacy /accounting/journal route — now protected under /frontend/accountancy/journal
+ * via the EntitlementGuard layout. Permanently redirect.
+ */
+export default function JournalRedirectPage() {
+  redirect('/frontend/accountancy/journal');
 }

@@ -6,6 +6,7 @@ from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
 
 from common.mixins import StandardizedSuccessResponseMixin
+from core_permissions.permissions import SaaSResourcePermission, RequiresFeature
 
 from .models import Draft
 from .serializers import DraftSerializer
@@ -23,7 +24,8 @@ class DraftViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
     """CRUD for drafts. Lists are team-visible for authenticated users."""
 
     serializer_class = DraftSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, SaaSResourcePermission, RequiresFeature]
+    required_feature_code = 'drafts'
     filterset_fields = ["entity_type", "is_submitted"]
     search_fields = ["entity_type"]
 

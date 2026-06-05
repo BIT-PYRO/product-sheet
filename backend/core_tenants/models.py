@@ -15,6 +15,8 @@ class Tenant(TimeStampedModel):
     external_shop_id = models.CharField(max_length=255, blank=True, default='', help_text="External shop ID for repair queue sync.")
     stripe_customer_id = models.CharField(max_length=255, blank=True, null=True, help_text="Stripe Customer ID for SaaS billing.")
     razorpay_customer_id = models.CharField(max_length=255, blank=True, null=True, help_text="Razorpay Customer ID for SaaS billing.")
+    industry = models.ForeignKey('industries.Industry', on_delete=models.SET_NULL, null=True, blank=True, related_name='tenants', help_text="The primary industry vertical for this tenant.")
+    plan = models.ForeignKey('saas_billing.Plan', on_delete=models.SET_NULL, null=True, blank=True, related_name='tenants', help_text="The SaaS plan this tenant is subscribed to.")
 
     class Meta:
         ordering = ['name']

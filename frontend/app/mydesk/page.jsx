@@ -1,9 +1,9 @@
-import TaskManagerClient from '@/components/mydesk/TaskManagerClient';
+import { redirect } from 'next/navigation';
 
-export const metadata = {
-  title: 'MyDesk',
-};
-
-export default function MyDeskPage() {
-  return <TaskManagerClient />;
+/**
+ * Legacy /mydesk route — now protected under /frontend/my-desk
+ * via the EntitlementGuard layout. Permanently redirect.
+ */
+export default function MyDeskRedirectPage() {
+  redirect('/frontend/my-desk');
 }

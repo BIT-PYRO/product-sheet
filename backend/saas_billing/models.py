@@ -208,3 +208,20 @@ class PlatformAuditRecord(models.Model):
         indexes = [
             models.Index(fields=['event_type', 'created_at']),
         ]
+
+class UpgradeRequestEvent(models.Model):
+    tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE, related_name='upgrade_requests')
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='upgrade_requests')
+    plan_name = models.CharField(max_length=255)
+    feature_code = models.CharField(max_length=255)
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-timestamp']
+        indexes = [
+            models.Index(fields=['tenant', 'feature_code']),
+            models.Index(fields=['timestamp']),
+        ]
+
+    def __str__(self):
+        return f"{self.tenant.name} - {self.feature_code} at {self.timestamp}"

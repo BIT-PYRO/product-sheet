@@ -1,7 +1,9 @@
 from drf_spectacular.utils import extend_schema, extend_schema_view
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.viewsets import ModelViewSet
 
 from common.mixins import StandardizedSuccessResponseMixin
+from core_permissions.permissions import SaaSResourcePermission, RequiresFeature
 
 from .models import Finding
 from .serializers import FindingSerializer
@@ -19,5 +21,7 @@ class FindingViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
     audit_sheet = 'finding'
     queryset = Finding.objects.all().order_by('-created_at')
     serializer_class = FindingSerializer
+    permission_classes = [IsAuthenticated, SaaSResourcePermission, RequiresFeature]
+    required_feature_code = 'finding-sheet'
     filterset_fields = ['is_active', 'finding_code']
     search_fields = ['finding_code']

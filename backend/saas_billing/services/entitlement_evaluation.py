@@ -53,12 +53,41 @@ class EntitlementEvaluationService:
         return False
 
     @classmethod
-    def has_feature(cls, tenant, feature_key):
+    def has_feature(cls, tenant, feature_key, user=None):
         """
-        Check if a boolean feature is enabled.
+        Check if a boolean feature is enabled by delegating to the centralized resolution layer.
         """
-        val = cls.get_entitlement_value(tenant, feature_key)
-        return val is True
+        from platform_admin.services.feature_resolution import FeatureResolutionService
+        return FeatureResolutionService.resolve_feature_access(user, tenant, feature_key)
+
+    @classmethod
+    def get_all_entitlements(cls, tenant, user=None):
+        """
+        Fetch all boolean feature entitlements for a tenant.
+        Returns a dictionary: {'feature_code': True/False, ...}
+        """
+        if not tenant:
+            return {}
+
+        cache_key = f"tenant_{tenant.id}_all_entitlements"
+        if user and getattr(user, 'is_superuser', False):
+            cache_key = f"tenant_{tenant.id}_all_entitlements_su_{user.id}"
+            
+        cached_val = cache.get(cache_key)
+        if cached_val is not None:
+            return cached_val
+
+        # Get all features
+        from platform_admin.models import Feature
+        all_features = Feature.objects.filter(is_active=True)
+
+        entitlements = {}
+        from platform_admin.services.feature_resolution import FeatureResolutionService
+        for feature in all_features:
+            entitlements[feature.code] = FeatureResolutionService.resolve_feature_access(user, tenant, feature.code)
+
+        cache.set(cache_key, entitlements, timeout=3600)
+        return entitlements
 
     @classmethod
     def evaluate_enforcement_state(cls, tenant, limit_key, current_usage):

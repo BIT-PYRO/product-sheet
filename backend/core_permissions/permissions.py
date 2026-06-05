@@ -243,3 +243,46 @@ class SaaSResourcePermission(permissions.BasePermission):
         # Fall back to matching tenant for objects without explicit company attribute
         return True
 
+
+class RequiresFeature(permissions.BasePermission):
+    """
+    Requires the tenant's plan to have a specific feature enabled.
+    The view must define a `required_feature_code` attribute.
+    """
+    def has_permission(self, request, view):
+        if getattr(request.user, 'role', None) == UserRole.SUPER_ADMIN or request.user.is_superuser:
+            return True
+
+        if not getattr(request.user, 'tenant', None) or not getattr(request.user.tenant, 'plan', None):
+            # Fallback to true if no plan is required to even load the tenant, but generally tenant should have a plan.
+            # Actually, if there's no plan, they shouldn't access premium features.
+            return False
+
+        required_feature = getattr(view, 'required_feature_code', None)
+        if not required_feature:
+            return True
+
+        from saas_billing.services.entitlement_evaluation import EntitlementEvaluationService
+        is_enabled = EntitlementEvaluationService.has_feature(request.user.tenant, required_feature)
+
+        if not is_enabled:
+            from rest_framework.exceptions import APIException
+            from rest_framework import status
+            
+            class PaymentRequired(APIException):
+                status_code = status.HTTP_402_PAYMENT_REQUIRED
+                default_detail = 'Payment is required to access this feature.'
+                default_code = 'payment_required'
+                
+            from saas_billing.models import PlatformAuditRecord, AuditEventType
+            
+            PlatformAuditRecord.objects.create(
+                tenant=request.user.tenant,
+                event_type=AuditEventType.ENTITLEMENT_DENIAL,
+                message=f"Denied feature {required_feature} via RequiresFeature"
+            )
+            request._entitlement_warning = f"Feature '{required_feature}' is not enabled for your plan."
+            raise PaymentRequired(detail=f"Your current plan does not include the '{required_feature}' feature. Please upgrade.")
+            
+        return True
+

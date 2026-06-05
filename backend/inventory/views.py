@@ -1,3 +1,5 @@
+from rest_framework import permissions
+from core_permissions.permissions import SaaSResourcePermission, RequiresFeature
 from drf_spectacular.utils import extend_schema_view, extend_schema
 from rest_framework import status
 from rest_framework.decorators import action
@@ -39,6 +41,9 @@ from .serializers import (
 	destroy=extend_schema(summary='Delete inventory transaction', tags=['Inventory']),
 )
 class InventoryTransactionViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
+	permission_classes = [permissions.IsAuthenticated, SaaSResourcePermission, RequiresFeature]
+	required_feature_code = 'inventory'
+
 	audit_sheet = 'inventory'
 	queryset = InventoryTransaction.objects.all().order_by('-created_at')
 	serializer_class = InventoryTransactionSerializer
@@ -90,6 +95,9 @@ class InventoryTransactionViewSet(StandardizedSuccessResponseMixin, ModelViewSet
 	destroy=extend_schema(summary='Delete picklist group', tags=['Inventory']),
 )
 class PicklistGroupViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
+	permission_classes = [permissions.IsAuthenticated, SaaSResourcePermission, RequiresFeature]
+	required_feature_code = 'inventory'
+
 	audit_sheet = 'inventory'
 	queryset = PicklistGroup.objects.prefetch_related('items').all().order_by('-number', '-uploaded_at')
 	serializer_class = PicklistGroupSerializer
@@ -113,6 +121,9 @@ class PicklistGroupViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 	destroy=extend_schema(summary='Delete stone item', tags=['Stone Inventory']),
 )
 class StoneItemViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
+	permission_classes = [permissions.IsAuthenticated, SaaSResourcePermission, RequiresFeature]
+	required_feature_code = 'inventory'
+
 	audit_sheet = 'inventory'
 	queryset = StoneItem.objects.all().order_by('-created_at')
 	serializer_class = StoneItemSerializer
@@ -173,6 +184,9 @@ class StoneItemViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 	create=extend_schema(summary='Add stone stock', tags=['Stone Inventory']),
 )
 class StoneStockEntryViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
+	permission_classes = [permissions.IsAuthenticated, SaaSResourcePermission, RequiresFeature]
+	required_feature_code = 'inventory'
+
 	audit_sheet = 'inventory'
 	queryset = StoneStockEntry.objects.select_related('stone').all().order_by('-created_at')
 	serializer_class = StoneStockEntrySerializer
@@ -195,6 +209,9 @@ class StoneStockEntryViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 	destroy=extend_schema(summary='Delete tool item', tags=['Tools Inventory']),
 )
 class ToolItemViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
+	permission_classes = [permissions.IsAuthenticated, SaaSResourcePermission, RequiresFeature]
+	required_feature_code = 'inventory'
+
 	audit_sheet = 'inventory'
 	queryset = ToolItem.objects.all()
 	serializer_class = ToolItemSerializer
@@ -216,6 +233,9 @@ class ToolItemViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 	destroy=extend_schema(summary='Delete other item', tags=['Others Inventory']),
 )
 class OtherItemViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
+	permission_classes = [permissions.IsAuthenticated, SaaSResourcePermission, RequiresFeature]
+	required_feature_code = 'inventory'
+
 	audit_sheet = 'inventory'
 	queryset = OtherItem.objects.all()
 	serializer_class = OtherItemSerializer
@@ -238,6 +258,9 @@ class OtherItemViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 	destroy=extend_schema(summary='Delete machine item', tags=['Machines Inventory']),
 )
 class MachineItemViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
+	permission_classes = [permissions.IsAuthenticated, SaaSResourcePermission, RequiresFeature]
+	required_feature_code = 'inventory'
+
 	audit_sheet = 'inventory'
 	queryset = MachineItem.objects.all()
 	serializer_class = MachineItemSerializer
@@ -259,6 +282,9 @@ class MachineItemViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 	destroy=extend_schema(summary='Delete product inventory item', tags=['Product Inventory']),
 )
 class ProductInventoryItemViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
+	permission_classes = [permissions.IsAuthenticated, SaaSResourcePermission, RequiresFeature]
+	required_feature_code = 'inventory'
+
 	audit_sheet = 'inventory'
 	queryset = ProductInventoryItem.objects.select_related('product').all().order_by('-created_at')
 	serializer_class = ProductInventoryItemSerializer
@@ -331,6 +357,9 @@ class ProductInventoryItemViewSet(StandardizedSuccessResponseMixin, ModelViewSet
 	destroy=extend_schema(summary='Delete stock transaction', tags=['Stock Log']),
 )
 class StockTransactionViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
+	permission_classes = [permissions.IsAuthenticated, SaaSResourcePermission, RequiresFeature]
+	required_feature_code = 'inventory'
+
 	audit_sheet = 'inventory'
 	queryset = StockTransaction.objects.all().order_by('-txn_date', '-created_at')
 	serializer_class = StockTransactionSerializer
@@ -355,6 +384,9 @@ class StockTransactionViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 	destroy=extend_schema(summary='Delete stone transaction', tags=['Stone Log']),
 )
 class StoneTransactionViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
+	permission_classes = [permissions.IsAuthenticated, SaaSResourcePermission, RequiresFeature]
+	required_feature_code = 'inventory'
+
 	audit_sheet = 'inventory'
 	queryset = StoneTransaction.objects.select_related('stone').all().order_by('-txn_date', '-created_at')
 	serializer_class = StoneTransactionSerializer
@@ -379,6 +411,9 @@ class StoneTransactionViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 	destroy=extend_schema(summary='Delete finding inventory item', tags=['Finding Inventory']),
 )
 class FindingInventoryItemViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
+	permission_classes = [permissions.IsAuthenticated, SaaSResourcePermission, RequiresFeature]
+	required_feature_code = 'inventory'
+
 	audit_sheet = 'inventory'
 	queryset = FindingInventoryItem.objects.all().order_by('-created_at')
 	serializer_class = FindingInventoryItemSerializer
@@ -403,6 +438,9 @@ class FindingInventoryItemViewSet(StandardizedSuccessResponseMixin, ModelViewSet
 	destroy=extend_schema(summary='Delete finding transaction', tags=['Finding Log']),
 )
 class FindingInventoryTransactionViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
+	permission_classes = [permissions.IsAuthenticated, SaaSResourcePermission, RequiresFeature]
+	required_feature_code = 'inventory'
+
 	audit_sheet = 'inventory'
 	queryset = FindingInventoryTransaction.objects.select_related('finding').all().order_by('-txn_date', '-created_at')
 	serializer_class = FindingInventoryTransactionSerializer
@@ -427,6 +465,9 @@ class FindingInventoryTransactionViewSet(StandardizedSuccessResponseMixin, Model
 	destroy=extend_schema(summary='Delete product inventory transaction', tags=['Product Log']),
 )
 class ProductInventoryTransactionViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
+	permission_classes = [permissions.IsAuthenticated, SaaSResourcePermission, RequiresFeature]
+	required_feature_code = 'inventory'
+
 	audit_sheet = 'inventory'
 	queryset = ProductInventoryTransaction.objects.select_related('product').all().order_by('-txn_date', '-created_at')
 	serializer_class = ProductInventoryTransactionSerializer
@@ -451,6 +492,9 @@ class ProductInventoryTransactionViewSet(StandardizedSuccessResponseMixin, Model
 	destroy=extend_schema(summary='Delete issue request', tags=['Issue Requests']),
 )
 class IssueRequestViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
+	permission_classes = [permissions.IsAuthenticated, SaaSResourcePermission, RequiresFeature]
+	required_feature_code = 'inventory'
+
 	audit_sheet = 'inventory'
 	queryset = IssueRequest.objects.all().order_by('-requested_at')
 	serializer_class = IssueRequestSerializer
@@ -656,6 +700,9 @@ class IssueRequestViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 	destroy=extend_schema(summary='Delete die inventory item', tags=['Die Inventory']),
 )
 class DieInventoryItemViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
+	permission_classes = [permissions.IsAuthenticated, SaaSResourcePermission, RequiresFeature]
+	required_feature_code = 'inventory'
+
 	audit_sheet = 'inventory'
 	queryset = DieInventoryItem.objects.all().order_by('-created_at')
 	serializer_class = DieInventoryItemSerializer
@@ -832,6 +879,9 @@ class DieInventoryItemViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 	destroy=extend_schema(summary='Delete die transaction', tags=['Die Log']),
 )
 class DieTransactionViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
+	permission_classes = [permissions.IsAuthenticated, SaaSResourcePermission, RequiresFeature]
+	required_feature_code = 'inventory'
+
 	audit_sheet = 'inventory'
 	queryset = DieTransaction.objects.select_related('die').all().order_by('-txn_date', '-created_at')
 	serializer_class = DieTransactionSerializer
@@ -1013,6 +1063,9 @@ def _generate_mock_repair_items():
 	retrieve=extend_schema(summary='Get repair queue item', tags=['Repair']),
 )
 class RepairQueueViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
+	permission_classes = [permissions.IsAuthenticated, SaaSResourcePermission, RequiresFeature]
+	required_feature_code = 'inventory'
+
 	audit_sheet = 'inventory'
 	queryset = RepairItem.objects.all().order_by('-scanned_at', '-created_at')
 	serializer_class = RepairItemSerializer
@@ -1090,6 +1143,9 @@ class RepairQueueViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 	retrieve=extend_schema(summary='Get repair batch details', tags=['Repair']),
 )
 class RepairBatchViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
+	permission_classes = [permissions.IsAuthenticated, SaaSResourcePermission, RequiresFeature]
+	required_feature_code = 'inventory'
+
 	audit_sheet = 'inventory'
 	queryset = RepairBatch.objects.all().order_by('-date', '-created_at')
 	serializer_class = RepairBatchSerializer

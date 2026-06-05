@@ -70,6 +70,7 @@ class PicklistItem(AuditModel, TenantCompanyModel):
 	sku = models.CharField(max_length=60)
 	listing_name = models.CharField(max_length=255, blank=True)
 	needed = models.PositiveIntegerField(default=0)
+	attributes = models.JSONField(default=dict, blank=True, help_text="Dynamic industry-specific attributes required for picking")
 
 	class Meta:
 		ordering = ('id',)

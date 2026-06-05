@@ -1,7 +1,9 @@
 from drf_spectacular.utils import extend_schema, extend_schema_view
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.viewsets import ModelViewSet
 
 from common.mixins import StandardizedSuccessResponseMixin
+from core_permissions.permissions import SaaSResourcePermission, RequiresFeature
 
 from .models import KYCRecord
 from .serializers import KYCRecordSerializer
@@ -19,6 +21,8 @@ class KYCRecordViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 	audit_sheet = 'kyc'
 	queryset = KYCRecord.objects.all().order_by('-created_at')
 	serializer_class = KYCRecordSerializer
+	permission_classes = [IsAuthenticated, SaaSResourcePermission, RequiresFeature]
+	required_feature_code = 'master-kyc-sheet'
 	filterset_fields = ['member', 'status']
 	search_fields = ['member__full_name', 'id_number']
 
