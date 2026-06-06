@@ -44,20 +44,19 @@ function GoogleLoginButton({ redirectPath }) {
   }, [router, redirectPath]);
 
   useEffect(() => {
-    let isMounted = true;
     const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
     if (!clientId || !btnRef.current) return;
 
     const initGsi = () => {
-      if (!isMounted || !window.google?.accounts?.id || !btnRef.current) return;
+      if (!window.google?.accounts?.id) return;
+      // Prevent multiple initializations (React strict mode or remounts)
+      if (window.__psd_gsi_initialized) return;
       try {
         window.google.accounts.id.initialize({
           client_id: clientId,
           callback: handleCredential,
           ux_mode: 'popup',
         });
-        // Clear container before rendering to prevent duplicates
-        btnRef.current.innerHTML = '';
         window.google.accounts.id.renderButton(btnRef.current, {
           theme: 'outline',
           size: 'large',
@@ -65,6 +64,7 @@ function GoogleLoginButton({ redirectPath }) {
           text: 'signin_with',
           shape: 'rectangular',
         });
+        window.__psd_gsi_initialized = true;
       } catch (err) {
         // If popup/postMessage is blocked (COOP/COEP) fall back to redirect ux_mode
         try {
@@ -74,14 +74,7 @@ function GoogleLoginButton({ redirectPath }) {
             callback: handleCredential,
             ux_mode: 'redirect',
           });
-          btnRef.current.innerHTML = '';
-          window.google.accounts.id.renderButton(btnRef.current, {
-            theme: 'outline',
-            size: 'large',
-            width: btnRef.current.offsetWidth || 400,
-            text: 'signin_with',
-            shape: 'rectangular',
-          });
+          window.__psd_gsi_initialized = true;
         } catch (err2) {
           console.error('GSI initialization failed completely', err2);
         }
@@ -90,16 +83,13 @@ function GoogleLoginButton({ redirectPath }) {
 
     if (window.google?.accounts?.id) {
       initGsi();
-      return () => { isMounted = false; };
+      return;
     }
 
     const existing = document.querySelector('script[src*="accounts.google.com/gsi/client"]');
     if (existing) {
       existing.addEventListener('load', initGsi);
-      return () => {
-        isMounted = false;
-        existing.removeEventListener('load', initGsi);
-      };
+      return () => existing.removeEventListener('load', initGsi);
     }
 
     const script = document.createElement('script');
@@ -108,11 +98,6 @@ function GoogleLoginButton({ redirectPath }) {
     script.defer = true;
     script.onload = initGsi;
     document.head.appendChild(script);
-
-    return () => {
-      isMounted = false;
-      script.onload = null;
-    };
   }, [handleCredential]);
 
   if (!process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID) return null;
@@ -218,10 +203,10 @@ function LoginContent() {
   }, [router, redirectPath]);
 
   return (
-    <main className="min-h-screen flex items-center justify-center px-4 relative bg-transparent transition-colors duration-300">
+    <main className="min-h-screen flex items-center justify-center px-4 relative bg-slate-50 dark:bg-[#0A0A0A] transition-colors duration-300">
 
       {/* Background Gradient to match other premium pages */}
-      <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(29,78,216,0.15),transparent)] dark:bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(29,78,216,0.3),transparent)] pointer-events-none transition-colors duration-500" />
+      <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(29,78,216,0.15),rgba(248,250,252,1))] dark:bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(29,78,216,0.3),rgba(0,0,0,1))] pointer-events-none transition-colors duration-500" />
 
       {/* Back Button */}
       <Link
