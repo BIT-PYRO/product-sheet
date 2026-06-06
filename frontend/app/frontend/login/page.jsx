@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { ThemeToggle } from '@/components/theme-toggle';
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 function safeRedirect(next) {
@@ -223,14 +224,17 @@ function LoginContent() {
       {/* Background Gradient to match other premium pages */}
       <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(29,78,216,0.15),transparent)] dark:bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(29,78,216,0.3),transparent)] pointer-events-none transition-colors duration-500" />
 
-      {/* Back Button */}
-      <Link
-        href="/"
-        className="absolute top-6 left-6 sm:top-8 sm:left-8 inline-flex items-center gap-2 text-sm font-medium text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors bg-white/70 dark:bg-white/5 backdrop-blur-md px-3 py-2 rounded-lg shadow-sm dark:shadow-none border border-slate-200 dark:border-white/10 hover:shadow-md dark:hover:bg-white/10"
-      >
-        <ArrowLeft className="w-4 h-4" />
-        Back
-      </Link>
+      {/* Top Left Navigation */}
+      <div className="absolute top-6 left-6 sm:top-8 sm:left-8 flex items-center gap-4">
+        <Link
+          href="/"
+          className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors bg-white/70 dark:bg-white/5 backdrop-blur-md px-3 py-2 rounded-lg shadow-sm dark:shadow-none border border-slate-200 dark:border-white/10 hover:shadow-md dark:hover:bg-white/10"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Back
+        </Link>
+        <ThemeToggle />
+      </div>
 
       <section className="w-full max-w-md bg-white/80 dark:bg-black/60 backdrop-blur-xl border border-slate-200 dark:border-white/10 rounded-2xl shadow-xl dark:shadow-[0_0_40px_rgba(37,99,235,0.1)] p-8 transition-colors duration-300">
         <h1 className="text-3xl font-bold text-slate-900 dark:text-white text-center tracking-tight">Sign In</h1>
