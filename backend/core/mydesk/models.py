@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth import get_user_model
 from django.utils import timezone
+from common.storage import tenant_directory_path
 
 User = get_user_model()
 
@@ -36,7 +37,7 @@ class MyDeskNoteVersion(models.Model):
 
 class MyDeskNoteAttachment(models.Model):
     note = models.ForeignKey(MyDeskNote, on_delete=models.CASCADE, related_name='file_attachments')
-    file = models.FileField(upload_to='mydesk/notes/')
+    file = models.FileField(upload_to=tenant_directory_path)
     original_name = models.CharField(max_length=255, blank=True, default='')
     mime_type = models.CharField(max_length=120, blank=True, default='')
     file_size = models.PositiveBigIntegerField(default=0)
@@ -61,7 +62,7 @@ class PersonalTodoItem(models.Model):
     recurring = models.CharField(max_length=20, choices=RECURRING_CHOICES, default='none')
     sort_order = models.PositiveIntegerField(default=0)
     meta = models.JSONField(default=dict, blank=True)
-    attachment = models.FileField(upload_to='mydesk/todos/', blank=True, null=True)
+    attachment = models.FileField(upload_to=tenant_directory_path, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -72,7 +73,7 @@ class PersonalTodoItem(models.Model):
 
 class PersonalTodoAttachment(models.Model):
     todo = models.ForeignKey(PersonalTodoItem, on_delete=models.CASCADE, related_name='task_attachments')
-    file = models.FileField(upload_to='mydesk/todos/')
+    file = models.FileField(upload_to=tenant_directory_path)
     original_name = models.CharField(max_length=255, blank=True, default='')
     mime_type = models.CharField(max_length=120, blank=True, default='')
     file_size = models.PositiveBigIntegerField(default=0)
@@ -139,7 +140,7 @@ class ExpenseEntry(models.Model):
     bill_date = models.DateField(blank=True, null=True)
     department = models.CharField(max_length=120, blank=True, default='')
     status = models.CharField(max_length=30, choices=STATUS_CHOICES, default='Draft')
-    receipt = models.FileField(upload_to='expenses/receipts/', blank=True, null=True)
+    receipt = models.FileField(upload_to=tenant_directory_path, blank=True, null=True)
     notes = models.TextField(blank=True, default='')
     rejection_reason = models.TextField(blank=True, default='')
 
@@ -227,7 +228,7 @@ class LeaveRequest(models.Model):
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
     reminder_count = models.PositiveIntegerField(default=0)
     # Document attachment (optional – for sick leave, comp-off proofs)
-    document = models.FileField(upload_to='leave_requests/documents/', blank=True, null=True)
+    document = models.FileField(upload_to=tenant_directory_path, blank=True, null=True)
     # Manager pre-processing
     manager_action = models.CharField(max_length=20, choices=MANAGER_ACTION_CHOICES, blank=True, default='')
     manager_note = models.TextField(blank=True, default='')
@@ -438,7 +439,7 @@ class PayrollPaymentRecord(models.Model):
     salary_structure_snapshot = models.JSONField(default=list, blank=True)
     salary_structure_version = models.PositiveIntegerField(default=0)
     remarks = models.TextField(blank=True, default='')
-    payslip_pdf = models.FileField(upload_to='payroll/payslips/', blank=True, null=True)
+    payslip_pdf = models.FileField(upload_to=tenant_directory_path, blank=True, null=True)
 
     dispute_status = models.CharField(max_length=20, choices=DISPUTE_STATUS_CHOICES, default='none')
     dispute_query = models.TextField(blank=True, default='')
@@ -652,7 +653,7 @@ class GalleryItem(models.Model):
     org_id = models.CharField(max_length=64, db_index=True, blank=True, default='')
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='mydesk_gallery_items')
     album = models.ForeignKey(GalleryAlbum, on_delete=models.SET_NULL, null=True, blank=True, related_name='items')
-    file = models.FileField(upload_to='gallery/items/')
+    file = models.FileField(upload_to=tenant_directory_path)
     media_type = models.CharField(max_length=20, blank=True, default='file')
     is_favorite = models.BooleanField(default=False)
     is_reference = models.BooleanField(default=False)

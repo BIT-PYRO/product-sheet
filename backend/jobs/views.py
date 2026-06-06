@@ -1,3 +1,5 @@
+from rest_framework import permissions
+from core_permissions.permissions import SaaSResourcePermission, RequiresFeature
 import uuid
 from django.db import transaction
 from django.db.models import Sum, Q
@@ -381,6 +383,9 @@ def _deduct_source_current_stock(voucher):
 	destroy=extend_schema(summary='Delete job', tags=['Jobs']),
 )
 class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
+	permission_classes = [permissions.IsAuthenticated, SaaSResourcePermission, RequiresFeature]
+	required_feature_code = 'master-job-sheet'
+
 	audit_sheet = 'job'
 	queryset = Job.objects.all()
 	serializer_class = JobSerializer

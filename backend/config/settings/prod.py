@@ -1,5 +1,29 @@
 from .base import *
 import os
+import os
+from django.core.exceptions import ImproperlyConfigured
+
+# 1. Security Enforcements
+if not os.environ.get('SECRET_KEY') or os.environ.get('SECRET_KEY') == 'django-insecure-change-me':
+    raise ImproperlyConfigured("SECRET_KEY environment variable must be explicitly set and secure in production.")
+
+if not os.environ.get('JWT_SIGNING_KEY') or os.environ.get('JWT_SIGNING_KEY') == 'please-change-this-jwt-signing-key-32b':
+    raise ImproperlyConfigured("JWT_SIGNING_KEY environment variable must be explicitly set and secure in production.")
+
+# 2. Redis Caching
+REDIS_URL = os.environ.get('REDIS_URL')
+if not REDIS_URL:
+    raise ImproperlyConfigured("REDIS_URL must be explicitly set for production caching.")
+
+CACHES = {
+    "default": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": REDIS_URL,
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+        }
+    }
+}
 
 DEBUG = False
 

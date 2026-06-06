@@ -4,6 +4,7 @@ Adapted from HR_share package for standalone `hr` app.
 """
 from django.db import models
 from django.conf import settings
+from common.storage import tenant_directory_path
 
 
 # ── Attendance ───────────────────────────────────────────────────────────────
@@ -145,7 +146,7 @@ class LeaveRequest(models.Model):
     reason = models.TextField(blank=True, default='')
     decline_reason = models.TextField(blank=True, default='')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
-    document = models.FileField(upload_to='hr/leave_requests/', blank=True, null=True)
+    document = models.FileField(upload_to=tenant_directory_path, blank=True, null=True)
     approved_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, blank=True, null=True,
         related_name='hr_leave_approvals',
@@ -331,7 +332,7 @@ class ExpenseEntry(models.Model):
     spent_on = models.DateField()
     department = models.CharField(max_length=120, blank=True, default='')
     status = models.CharField(max_length=30, choices=STATUS_CHOICES, default='Draft')
-    receipt = models.FileField(upload_to='hr/expenses/receipts/', blank=True, null=True)
+    receipt = models.FileField(upload_to=tenant_directory_path, blank=True, null=True)
     notes = models.TextField(blank=True, default='')
     rejection_reason = models.TextField(blank=True, default='')
     dept_approved_by = models.ForeignKey(

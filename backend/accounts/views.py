@@ -176,27 +176,28 @@ class GoogleLoginView(APIView):
 		if needs_save:
 			user.save(update_fields=['is_active'])
 
-		# Safe workforce member lookup — filter instead of get_or_create to avoid
-		# MultipleObjectsReturned when duplicate enrollments share the same email.
-		wf = WorkforceMember.objects.filter(email__iexact=email).first()
-		if wf is None:
-			wf = WorkforceMember.objects.create(email=email, full_name=full_name)
-
-		# Block revoked members before issuing tokens.
-		if wf.active is False:
-			return Response(
-				{
-					'success': False,
-					'message': (
-						'Your access has been revoked. Please contact an administrator to restore access.'
-					),
-				},
-				status=403,
-			)
+		# Legacy WorkforceMember auto-creation removed:
+		# During a global SaaS Google Login, there is no tenant context.
+		# WorkforceMembers should be created by Tenant Admins inside the app, not auto-provisioned here.
 
 		# Re-sync is_active in case it was deactivated while workforce was also revoked
 		# but both have since been restored independently.
 		update_fields = []
+		
+		# Auto-verify email via Google identity
+		if getattr(user, 'is_email_verified', None) is False:
+			user.is_email_verified = True
+			update_fields.append('is_email_verified')
+			# If they own a tenant pending verification, advance it to ACTIVE_TRIAL
+			if hasattr(user, 'tenant') and user.tenant:
+				try:
+					from core_tenants.models import TenantStatus
+					if user.tenant.status == TenantStatus.PENDING_VERIFICATION:
+						user.tenant.status = TenantStatus.ACTIVE_TRIAL
+						user.tenant.save(update_fields=['status'])
+				except ImportError:
+					pass
+
 		if not user.is_active:
 			user.is_active = True
 			update_fields.append('is_active')

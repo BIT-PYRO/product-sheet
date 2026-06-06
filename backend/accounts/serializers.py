@@ -4,9 +4,44 @@ from .models import APIKey, RoleDefaultPermissions, SCOPE_CHOICES, User
 
 
 class UserSerializer(serializers.ModelSerializer):
+    entitlements = serializers.SerializerMethodField()
+    plan_name = serializers.SerializerMethodField()
+
     class Meta:
         model = User
-        fields = ('id', 'username', 'email', 'first_name', 'last_name', 'role', 'is_approved', 'is_superuser')
+        fields = ('id', 'username', 'email', 'first_name', 'last_name', 'role', 'is_approved', 'is_superuser', 'entitlements', 'plan_name')
+
+    def get_entitlements(self, obj):
+        if getattr(obj, 'is_superuser', False):
+            # Super admins get all active features implicitly, handled by frontend EntitlementProvider
+            # but we can also just return all True here if we want.
+            return {}
+            
+        tenant = getattr(obj, 'tenant', None)
+        if not tenant:
+            try:
+                from core_tenants.context import get_current_tenant
+                tenant = get_current_tenant()
+            except Exception:
+                pass
+                
+        if tenant:
+            from saas_billing.services.entitlement_evaluation import EntitlementEvaluationService
+            return EntitlementEvaluationService.get_all_entitlements(tenant, user=obj)
+        return {}
+
+    def get_plan_name(self, obj):
+        tenant = getattr(obj, 'tenant', None)
+        if not tenant:
+            try:
+                from core_tenants.context import get_current_tenant
+                tenant = get_current_tenant()
+            except Exception:
+                pass
+                
+        if tenant and hasattr(tenant, 'subscription') and tenant.subscription:
+            return tenant.subscription.plan.name
+        return "None"
 
 
 class RoleDefaultPermissionsSerializer(serializers.ModelSerializer):

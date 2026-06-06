@@ -1,3 +1,5 @@
+from rest_framework import permissions
+from core_permissions.permissions import SaaSResourcePermission, RequiresFeature
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework.viewsets import ModelViewSet
 
@@ -16,6 +18,9 @@ from .serializers import CustomerSerializer
     destroy=extend_schema(summary='Delete customer', tags=['Customers']),
 )
 class CustomerViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
+    permission_classes = [permissions.IsAuthenticated, SaaSResourcePermission, RequiresFeature]
+    required_feature_code = 'enrol-customer'
+
     audit_sheet = 'customer'
     queryset = Customer.objects.all().order_by('-created_at')
     serializer_class = CustomerSerializer

@@ -144,6 +144,8 @@ export async function GET(request) {
       role: user?.role || 'staff',
       is_approved: isApproved,
       is_superuser: isSuperuser,
+      entitlements: user?.entitlements || {},
+      plan_name: user?.plan_name || 'None',
     },
   });
 

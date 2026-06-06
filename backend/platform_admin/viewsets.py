@@ -81,3 +81,31 @@ class PlatformCompanyViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Company.objects.all()
     serializer_class = CompanySerializer
     permission_classes = [permissions.IsAuthenticated, IsSuperAdmin]
+
+from rest_framework.views import APIView
+from django.db.models import Count, Sum
+
+class PlatformDashboardView(APIView):
+    """
+    Super Admin Dashboard metrics.
+    """
+    permission_classes = [permissions.IsAuthenticated, IsSuperAdmin]
+
+    def get(self, request):
+        total_tenants = Tenant.objects.count()
+        
+        industry_distribution = list(Tenant.objects.values('industry__name').annotate(count=Count('id')))
+        plan_distribution = list(Tenant.objects.values('plan__name').annotate(count=Count('id')))
+        
+        # Calculate Revenue based on Tenant plans
+        revenue_data = Tenant.objects.aggregate(mrr=Sum('plan__base_price_monthly'))
+        mrr = revenue_data.get('mrr') or 0
+        arr = float(mrr) * 12
+        
+        return Response({
+            "total_tenants": total_tenants,
+            "industry_distribution": industry_distribution,
+            "plan_distribution": plan_distribution,
+            "mrr": float(mrr),
+            "arr": arr,
+        }, status=status.HTTP_200_OK)

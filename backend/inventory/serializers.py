@@ -76,6 +76,9 @@ class PicklistGroupSerializer(serializers.ModelSerializer):
         # tenant is injected by .save(tenant=...) so it's already in validated_data
         tenant = validated_data.get('tenant')
 
+        request = self.context.get('request')
+        user = request.user if request and hasattr(request, 'user') else None
+
         group = PicklistGroup.objects.create(
             number=self._resolve_next_number(desired_number, tenant=tenant),
             **validated_data,
@@ -89,6 +92,8 @@ class PicklistGroupSerializer(serializers.ModelSerializer):
                 needed=max(0, int(item.get('needed') or 0)),
                 tenant=group.tenant,
                 company=group.company,
+                created_by=user,
+                updated_by=user,
             )
             for item in items_data
             if str(item.get('sku', '')).strip()
@@ -100,6 +105,9 @@ class PicklistGroupSerializer(serializers.ModelSerializer):
     @transaction.atomic
     def update(self, instance, validated_data):
         items_data = validated_data.pop('items', None)
+
+        request = self.context.get('request')
+        user = request.user if request and hasattr(request, 'user') else None
 
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
@@ -115,6 +123,8 @@ class PicklistGroupSerializer(serializers.ModelSerializer):
                     needed=max(0, int(item.get('needed') or 0)),
                     tenant=instance.tenant,
                     company=instance.company,
+                    created_by=user,
+                    updated_by=user,
                 )
                 for item in items_data
                 if str(item.get('sku', '')).strip()

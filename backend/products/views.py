@@ -1,3 +1,5 @@
+from rest_framework import permissions
+from core_permissions.permissions import SaaSResourcePermission, RequiresFeature
 import django_filters
 from django.db import transaction as db_transaction
 from drf_spectacular.utils import OpenApiExample, extend_schema_view, extend_schema
@@ -29,6 +31,9 @@ def _get_company(request):
 # ---------------------------------------------------------------------------
 
 class CollectionViewSet(ModelViewSet):
+	permission_classes = [permissions.IsAuthenticated, SaaSResourcePermission, RequiresFeature]
+	required_feature_code = 'product-sheet'
+
 	queryset = Collection.objects.all().order_by('name')
 	serializer_class = CollectionSerializer
 	http_method_names = ['get', 'post', 'delete', 'head', 'options']
@@ -51,6 +56,9 @@ class CollectionViewSet(ModelViewSet):
 
 
 class MaterialViewSet(ModelViewSet):
+	permission_classes = [permissions.IsAuthenticated, SaaSResourcePermission, RequiresFeature]
+	required_feature_code = 'product-sheet'
+
 	queryset = Material.objects.all().order_by('name')
 	serializer_class = MaterialSerializer
 	http_method_names = ['get', 'post', 'delete', 'head', 'options']
@@ -71,6 +79,9 @@ class MaterialViewSet(ModelViewSet):
 
 
 class CategoryViewSet(ModelViewSet):
+	permission_classes = [permissions.IsAuthenticated, SaaSResourcePermission, RequiresFeature]
+	required_feature_code = 'product-sheet'
+
 	queryset = Category.objects.all().order_by('name')
 	serializer_class = CategorySerializer
 	http_method_names = ['get', 'post', 'delete', 'head', 'options']
@@ -91,6 +102,9 @@ class CategoryViewSet(ModelViewSet):
 
 
 class ChannelViewSet(ModelViewSet):
+	permission_classes = [permissions.IsAuthenticated, SaaSResourcePermission, RequiresFeature]
+	required_feature_code = 'product-sheet'
+
 	queryset = Channel.objects.all().order_by('name')
 	serializer_class = ChannelSerializer
 	http_method_names = ['get', 'post', 'delete', 'head', 'options']
@@ -111,6 +125,9 @@ class ChannelViewSet(ModelViewSet):
 
 
 class TableColumnConfigViewSet(ModelViewSet):
+	permission_classes = [permissions.IsAuthenticated, SaaSResourcePermission, RequiresFeature]
+	required_feature_code = 'product-sheet'
+
 	"""CRUD for dynamic table column definitions (live_stock, stone_info, plating_info)."""
 	queryset = TableColumnConfig.objects.all().order_by('table_type', 'order')
 	serializer_class = TableColumnConfigSerializer
@@ -195,6 +212,9 @@ class TableColumnConfigViewSet(ModelViewSet):
 	destroy=extend_schema(summary='Delete product', tags=['Products']),
 )
 class ProductViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
+	permission_classes = [permissions.IsAuthenticated, SaaSResourcePermission, RequiresFeature]
+	required_feature_code = 'product-sheet'
+
 	audit_sheet = 'product'
 
 	class ProductFilter(django_filters.FilterSet):

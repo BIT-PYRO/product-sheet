@@ -55,11 +55,13 @@ INSTALLED_APPS = [
     'orders',
     'customers',
     'designers',
+    'saas_billing',
     'findings',
     'accounting',
     'core.mydesk',
     'calendar_integration',
     'hr',
+    'industries',
 ]
 
 MIDDLEWARE = [
@@ -72,6 +74,7 @@ MIDDLEWARE = [
     'core_tenants.middleware.TenantContextMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'saas_billing.middleware.SaaSEnforcementMiddleware',
 ]
 
 ROOT_URLCONF = 'config.urls'
@@ -135,6 +138,9 @@ REST_FRAMEWORK = {
         'rest_framework.filters.SearchFilter',
         'rest_framework.filters.OrderingFilter',
     ),
+    'DEFAULT_THROTTLE_CLASSES': [
+        'saas_billing.throttling.TenantGroupRateThrottle',
+    ],
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
     'EXCEPTION_HANDLER': 'common.api.exception_handler',
 }
@@ -221,4 +227,26 @@ CELERY_BEAT_SCHEDULE = {
         'task': 'common.tasks.generate_operations_summary_task',
         'schedule': crontab(minute='0', hour='9'),
     },
+    'process-trial-expiries-daily': {
+        'task': 'saas_billing.tasks.subscription_tasks.process_trial_expiries',
+        'schedule': crontab(minute='0', hour='0'),
+    },
+    'send-renewal-reminders-daily': {
+        'task': 'saas_billing.tasks.subscription_tasks.send_renewal_reminders',
+        'schedule': crontab(minute='0', hour='8'),
+    },
+    'send-failed-payment-reminders-daily': {
+        'task': 'saas_billing.tasks.subscription_tasks.send_failed_payment_reminders',
+        'schedule': crontab(minute='0', hour='10'),
+    },
+    'reconcile-subscriptions-4-hours': {
+        'task': 'saas_billing.tasks.subscription_tasks.reconcile_subscriptions',
+        'schedule': crontab(minute='0', hour='*/4'),
+    },
+}
+
+CELERY_TASK_ROUTES = {
+    'saas_billing.tasks.subscription_tasks.reconcile_subscriptions': {'queue': 'billing_reconciliation'},
+    'common.tasks.ping_task': {'queue': 'high_priority'},
+    '*': {'queue': 'default'},
 }

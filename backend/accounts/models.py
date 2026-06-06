@@ -66,6 +66,40 @@ class User(AbstractUser):
 		default=False,
 		help_text='Approved users have full access. Unapproved users can only access their Profile page.',
 	)
+	is_email_verified = models.BooleanField(default=False)
+
+
+class EmailVerificationToken(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='verification_tokens')
+    token = models.CharField(max_length=64, unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+    used = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def is_valid(self):
+        from django.utils import timezone
+        return not self.used and timezone.now() < self.expires_at
+
+    @classmethod
+    def generate_token(cls, user):
+        from django.utils import timezone
+        from datetime import timedelta
+        import secrets
+        import hashlib
+        
+        raw_token = secrets.token_urlsafe(32)
+        token_hash = hashlib.sha256(raw_token.encode()).hexdigest()
+        expires = timezone.now() + timedelta(days=1)
+        
+        instance = cls.objects.create(
+            user=user,
+            token=token_hash,
+            expires_at=expires
+        )
+        return instance, raw_token
 
 
 class RoleDefaultPermissions(models.Model):

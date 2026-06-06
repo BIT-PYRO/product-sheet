@@ -1,3 +1,5 @@
+from rest_framework import permissions
+from core_permissions.permissions import SaaSResourcePermission, RequiresFeature
 import logging
 from datetime import date
 
@@ -43,7 +45,8 @@ logger = logging.getLogger(__name__)
 
 
 class LedgerListView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, SaaSResourcePermission, RequiresFeature]
+    required_feature_code = 'accountancy'
 
     def get(self, request):
         serializer = LedgerSerializer(Ledger.objects.all(), many=True)
@@ -51,7 +54,8 @@ class LedgerListView(APIView):
 
 
 class AccountListView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, SaaSResourcePermission, RequiresFeature]
+    required_feature_code = 'accountancy'
 
     def get(self, request):
         accounts = Account.objects.all()
@@ -69,7 +73,8 @@ class AccountListView(APIView):
 
 
 class ExpenseListView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, SaaSResourcePermission, RequiresFeature]
+    required_feature_code = 'accountancy'
 
     def get(self, request):
         qs = Expense.objects.all().select_related('category', 'account')
@@ -85,7 +90,8 @@ class ExpenseListView(APIView):
 
 
 class IncomeListView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, SaaSResourcePermission, RequiresFeature]
+    required_feature_code = 'accountancy'
 
     def get(self, request):
         qs = Income.objects.all().select_related('category', 'account')
@@ -100,7 +106,8 @@ class IncomeListView(APIView):
 
 
 class IncomeCreateView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, SaaSResourcePermission, RequiresFeature]
+    required_feature_code = 'accountancy'
 
     def post(self, request):
         from django.db import transaction
@@ -160,7 +167,8 @@ class IncomeCreateView(APIView):
 
 class FinanceDashboardView(APIView):
     """Returns aggregated totals for income and expense, optionally filtered by date range."""
-    permission_classes = [IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, SaaSResourcePermission, RequiresFeature]
+    required_feature_code = 'accountancy'
 
     def get(self, request):
         date_from = request.query_params.get('date_from')
@@ -221,7 +229,8 @@ class FinanceDashboardView(APIView):
 
 
 class ExpenseCreateView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, SaaSResourcePermission, RequiresFeature]
+    required_feature_code = 'accountancy'
 
     def post(self, request):
         from django.db import transaction
@@ -280,7 +289,8 @@ class ExpenseCreateView(APIView):
 
 
 class JournalCreateView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, SaaSResourcePermission, RequiresFeature]
+    required_feature_code = 'accountancy'
 
     def post(self, request):
         import json
@@ -390,7 +400,8 @@ def _build_transaction_detail(item):
 class LedgerSummaryView(APIView):
     """Aggregate debit/credit totals per ledger from all journal items, with transaction drill-down."""
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, SaaSResourcePermission, RequiresFeature]
+    required_feature_code = 'accountancy'
 
     def get(self, request):
         # Aggregates
@@ -438,7 +449,8 @@ class TrialBalanceView(APIView):
     Validates that grand total debit == grand total credit.
     """
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, SaaSResourcePermission, RequiresFeature]
+    required_feature_code = 'accountancy'
 
     def get(self, request):
         from collections import defaultdict
@@ -515,7 +527,8 @@ class ProfitLossView(APIView):
     Profit = total_income - total_expense
     """
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, SaaSResourcePermission, RequiresFeature]
+    required_feature_code = 'accountancy'
 
     def get(self, request):
         from collections import defaultdict
@@ -614,7 +627,8 @@ class BalanceSheetView(APIView):
     Verifies: total_assets == total_liabilities + equity
     """
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, SaaSResourcePermission, RequiresFeature]
+    required_feature_code = 'accountancy'
 
     def get(self, request):
         from collections import defaultdict
@@ -680,7 +694,8 @@ class DepartmentDashboardView(APIView):
     GET /api/accounting/departments/dashboard/
     Aggregates income/expense for all departments from JournalItems and PendingExpenses.
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, SaaSResourcePermission, RequiresFeature]
+    required_feature_code = 'accountancy'
 
     def get(self, request):
         departments = {}
@@ -810,7 +825,8 @@ class PendingExpenseListView(APIView):
     Query params: status (optional), e.g. ?status=pending
     """
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, SaaSResourcePermission, RequiresFeature]
+    required_feature_code = 'accountancy'
 
     def get(self, request):
         qs = PendingExpense.objects.select_related('category').all()
@@ -830,7 +846,8 @@ class PendingExpenseSyncView(APIView):
     Source_id deduplication prevents double-imports.
     """
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, SaaSResourcePermission, RequiresFeature]
+    required_feature_code = 'accountancy'
 
     def post(self, request):
         try:
@@ -885,7 +902,8 @@ class PendingExpenseApproveView(APIView):
     Creates a double-entry journal and marks the expense approved.
     """
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, SaaSResourcePermission, RequiresFeature]
+    required_feature_code = 'accountancy'
 
     def post(self, request, pk):
         try:
@@ -960,7 +978,8 @@ class PendingExpenseRejectView(APIView):
     Marks the expense as rejected. No journal entry is created.
     """
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, SaaSResourcePermission, RequiresFeature]
+    required_feature_code = 'accountancy'
 
     def post(self, request, pk):
         try:
@@ -995,7 +1014,8 @@ class OutstandingListView(APIView):
     GET  /api/accounting/outstandings/?type=receivable|payable&status=pending|paid
     POST /api/accounting/outstandings/  -- create receivable or payable with auto journal
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, SaaSResourcePermission, RequiresFeature]
+    required_feature_code = 'accountancy'
 
     def get(self, request):
         from .models import Outstanding
@@ -1086,7 +1106,8 @@ class OutstandingSettleView(APIView):
     POST /api/accounting/outstandings/<id>/settle/
     Body: { payment_account_id: <int> }
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, SaaSResourcePermission, RequiresFeature]
+    required_feature_code = 'accountancy'
 
     def post(self, request, pk):
         try:
@@ -1218,7 +1239,8 @@ class BulkSettleView(APIView):
     Settles each pending outstanding individually (reusing OutstandingSettleView logic),
     then creates a BulkSettlement record that groups them as a folder.
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, SaaSResourcePermission, RequiresFeature]
+    required_feature_code = 'accountancy'
 
     def post(self, request):
         outstanding_ids = request.data.get('outstanding_ids', [])
@@ -1352,7 +1374,8 @@ class BulkSettlementListView(APIView):
     GET /api/accounting/bulk-settlements/
     Returns all bulk settlement folders, newest first.
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, SaaSResourcePermission, RequiresFeature]
+    required_feature_code = 'accountancy'
 
     def get(self, request):
         qs = BulkSettlement.objects.select_related('settlement_account').all()
@@ -1361,7 +1384,8 @@ class BulkSettlementListView(APIView):
 
 class OutstandingDashboardView(APIView):
     """GET /api/accounting/outstandings/dashboard/ - summary, account breakdown, settlement logs"""
-    permission_classes = [IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, SaaSResourcePermission, RequiresFeature]
+    required_feature_code = 'accountancy'
 
     def get(self, request):
         from django.db.models import Sum, Count
@@ -1414,7 +1438,8 @@ class OutstandingReceiptView(APIView):
     POST /api/accounting/outstandings/<id>/receipts/  - upload receipts
     GET  /api/accounting/outstandings/<id>/receipts/  - list receipts
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, SaaSResourcePermission, RequiresFeature]
+    required_feature_code = 'accountancy'
 
     def get(self, request, pk):
         from .models import Outstanding, OutstandingReceipt
@@ -1456,7 +1481,8 @@ class InvoiceListCreateView(APIView):
     GET  /api/accounting/invoices/         – list, filter by ?type=sales|purchase&status=pending|settled&department=
     POST /api/accounting/invoices/         – create invoice + linked outstanding
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, SaaSResourcePermission, RequiresFeature]
+    required_feature_code = 'accountancy'
 
     def get(self, request):
         qs = Invoice.objects.select_related('outstanding', 'journal_entry').all()
@@ -1527,7 +1553,8 @@ class InvoiceSettleView(APIView):
     Purchase invoice → Purchase Expense Dr / Bank Cr (department expense += amount)
     Then marks invoice + outstanding as settled.
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, SaaSResourcePermission, RequiresFeature]
+    required_feature_code = 'accountancy'
 
     def post(self, request, pk):
         try:
@@ -1659,7 +1686,8 @@ class InvoiceFromOrdersView(APIView):
       description   : str
       invoice_mode  : 'combined' | 'per_order'   (default: combined)
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, SaaSResourcePermission, RequiresFeature]
+    required_feature_code = 'accountancy'
 
     def post(self, request):
         order_ids    = request.data.get('order_ids', [])
@@ -1801,7 +1829,8 @@ class BankImportPreviewView(APIView):
       3. Returns the saved BankTransaction rows so the frontend can show them.
       4. Also returns all ledgers for dropdowns.
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, SaaSResourcePermission, RequiresFeature]
+    required_feature_code = 'accountancy'
 
     def post(self, request):
         import hashlib
@@ -1933,7 +1962,8 @@ class BankImportConfirmView(APIView):
     Creates JournalEntry + JournalItems for each confirmed transaction.
     Skips duplicates (import_hash already exists).
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, SaaSResourcePermission, RequiresFeature]
+    required_feature_code = 'accountancy'
 
     def post(self, request):
         bank_account_id = request.data.get('bank_account_id')
@@ -1969,7 +1999,8 @@ class BankAccountListView(APIView):
     GET  /api/accounting/bank-accounts/        — list all bank accounts with computed balances
     POST /api/accounting/bank-accounts/        — create a new bank account
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, SaaSResourcePermission, RequiresFeature]
+    required_feature_code = 'accountancy'
 
     def get(self, request):
         accounts = BankAccount.objects.prefetch_related('transactions').all()
@@ -1999,7 +2030,8 @@ class BankAccountDetailView(APIView):
     PATCH  /api/accounting/bank-accounts/<pk>/
     DELETE /api/accounting/bank-accounts/<pk>/
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, SaaSResourcePermission, RequiresFeature]
+    required_feature_code = 'accountancy'
 
     def _get(self, pk):
         try:
@@ -2039,7 +2071,8 @@ class BankTransactionListView(APIView):
     GET /api/accounting/bank-transactions/
     Query params: bank_account, status, date_from, date_to, search
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, SaaSResourcePermission, RequiresFeature]
+    required_feature_code = 'accountancy'
 
     def get(self, request):
         qs = BankTransaction.objects.select_related('bank_account', 'suggested_ledger', 'journal_entry').all()
@@ -2074,7 +2107,8 @@ class BankTransactionDetailView(APIView):
     PATCH  /api/accounting/bank-transactions/<pk>/   — update ledger/department suggestion
     DELETE /api/accounting/bank-transactions/<pk>/
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, SaaSResourcePermission, RequiresFeature]
+    required_feature_code = 'accountancy'
 
     def patch(self, request, pk):
         try:
@@ -2102,7 +2136,8 @@ class BankTransactionDetailView(APIView):
 
 class BankTransactionBulkDeleteView(APIView):
     """DELETE /api/accounting/bank-transactions/bulk-delete/"""
-    permission_classes = [IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, SaaSResourcePermission, RequiresFeature]
+    required_feature_code = 'accountancy'
 
     def post(self, request):
         ids = request.data.get('ids', [])
@@ -2124,7 +2159,8 @@ class BankTransactionConvertView(APIView):
 
     Creates one JournalEntry per transaction using double-entry bookkeeping.
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, SaaSResourcePermission, RequiresFeature]
+    required_feature_code = 'accountancy'
 
     def post(self, request):
         items = request.data

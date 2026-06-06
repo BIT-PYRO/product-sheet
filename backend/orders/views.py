@@ -1,3 +1,5 @@
+from rest_framework import permissions
+from core_permissions.permissions import SaaSResourcePermission, RequiresFeature
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -9,6 +11,9 @@ from .serializers import OrderDetailSerializer, OrderListSerializer
 
 
 class OrderViewSet(viewsets.ModelViewSet):
+    permission_classes = [permissions.IsAuthenticated, SaaSResourcePermission, RequiresFeature]
+    required_feature_code = 'orders'
+
     audit_sheet = 'order'
     queryset = Order.objects.all()
 

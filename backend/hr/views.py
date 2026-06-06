@@ -10,6 +10,7 @@ from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from core_permissions.permissions import RequiresFeature
 
 from .models import (
     AttendanceRulebook, LeaveRequest,
@@ -51,7 +52,8 @@ def all_users_in_org():
 # ── Attendance ────────────────────────────────────────────────────────────────
 
 class HrAttendanceTodayView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, RequiresFeature]
+    required_feature_code = 'hr-section'
 
     def get(self, request):
         date_str = request.query_params.get('date', str(date.today()))
@@ -122,7 +124,8 @@ class HrAttendanceTodayView(APIView):
 
 
 class HrAttendanceMonthlyRegisterView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, RequiresFeature]
+    required_feature_code = 'hr-section'
 
     def get(self, request):
         month_str = request.query_params.get('month', '')
@@ -182,7 +185,8 @@ class HrAttendanceMonthlyRegisterView(APIView):
 
 
 class HrAttendanceEmployeeSummaryView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, RequiresFeature]
+    required_feature_code = 'hr-section'
 
     def get(self, request):
         month_str = request.query_params.get('month', '')
@@ -238,7 +242,8 @@ class HrAttendanceEmployeeSummaryView(APIView):
 
 
 class HrRegularizationQueueView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, RequiresFeature]
+    required_feature_code = 'hr-section'
 
     def get(self, request):
         qs = AttendanceEntry.objects.filter(is_regularization=True, is_active=True).select_related('user')
@@ -289,7 +294,8 @@ class HrRegularizationQueueView(APIView):
 
 
 class HrAttendanceOverrideView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, RequiresFeature]
+    required_feature_code = 'hr-section'
 
     def post(self, request, entry_id=None):
         try:
@@ -311,7 +317,8 @@ class HrAttendanceOverrideView(APIView):
 
 
 class AttendanceRulebookView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, RequiresFeature]
+    required_feature_code = 'hr-section'
 
     def get(self, request, user_id):
         try:
@@ -333,7 +340,8 @@ class AttendanceRulebookView(APIView):
 
 
 class HrAttendanceScoreListView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, RequiresFeature]
+    required_feature_code = 'hr-section'
 
     def get(self, request):
         month_str = request.query_params.get('month', '')
@@ -373,7 +381,8 @@ class HrAttendanceScoreListView(APIView):
 # ── Leave ────────────────────────────────────────────────────────────────────
 
 class HrLeaveRequestView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, RequiresFeature]
+    required_feature_code = 'hr-section'
 
     def get(self, request):
         qs = LeaveRequest.objects.all().select_related('user')
@@ -427,7 +436,8 @@ class HrLeaveRequestView(APIView):
 # ── Payroll ───────────────────────────────────────────────────────────────────
 
 class HrPayrollDashboardView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, RequiresFeature]
+    required_feature_code = 'hr-section'
 
     def get(self, request):
         month_str = request.query_params.get('month', '')
@@ -570,7 +580,8 @@ class HrPayrollDashboardView(APIView):
 
 
 class HrPayrollEmployeeDetailView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, RequiresFeature]
+    required_feature_code = 'hr-section'
 
     def get(self, request, user_id):
         records = PayrollPaymentRecord.objects.filter(
@@ -585,7 +596,8 @@ class HrPayrollEmployeeDetailView(APIView):
 
 
 class HrPayrollRunControlView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, RequiresFeature]
+    required_feature_code = 'hr-section'
 
     def get(self, request):
         month_str = request.query_params.get('month', '')
@@ -837,7 +849,8 @@ class HrPayrollRunControlView(APIView):
 # ── Expense Tracker ───────────────────────────────────────────────────────────
 
 class HrExpenseTrackerOverviewView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, RequiresFeature]
+    required_feature_code = 'hr-section'
 
     def get(self, request):
         qs = ExpenseEntry.objects.all().select_related('user')
@@ -855,7 +868,8 @@ class HrExpenseTrackerOverviewView(APIView):
 
 
 class HrExpenseTrackerMemberDetailView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, RequiresFeature]
+    required_feature_code = 'hr-section'
 
     def get(self, request, user_id):
         qs = ExpenseEntry.objects.filter(user_id=user_id).select_related('user')
@@ -863,7 +877,8 @@ class HrExpenseTrackerMemberDetailView(APIView):
 
 
 class HrExpenseApprovalView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, RequiresFeature]
+    required_feature_code = 'hr-section'
 
     def post(self, request, expense_id):
         try:
@@ -886,7 +901,8 @@ class HrExpenseApprovalView(APIView):
 # ── Master Task Tracker ───────────────────────────────────────────────────────
 
 class HrMasterTaskTrackerView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, RequiresFeature]
+    required_feature_code = 'hr-section'
 
     def get(self, request):
         qs = MasterTask.objects.all().select_related('assigned_to', 'assigned_by')
@@ -934,7 +950,8 @@ class HrMasterTaskTrackerView(APIView):
 
 
 class HrMasterTaskAssignView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, RequiresFeature]
+    required_feature_code = 'hr-section'
 
     def post(self, request):
         data = request.data.copy()
@@ -947,7 +964,8 @@ class HrMasterTaskAssignView(APIView):
 
 
 class HrMasterTaskExportView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, RequiresFeature]
+    required_feature_code = 'hr-section'
 
     def get(self, request):
         tenant_id = str(request.user.tenant.id) if getattr(request.user, 'tenant', None) else ''
@@ -970,7 +988,8 @@ class HrMasterTaskExportView(APIView):
 # ── Meeting Manager ───────────────────────────────────────────────────────────
 
 class HrMeetingManagerOverviewView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, RequiresFeature]
+    required_feature_code = 'hr-section'
 
     def get(self, request):
         qs = CompanyEvent.objects.all().select_related('created_by')
@@ -1017,7 +1036,8 @@ class HrMeetingManagerOverviewView(APIView):
 
 
 class HrMeetingManagerEventDetailView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, RequiresFeature]
+    required_feature_code = 'hr-section'
 
     def put(self, request, event_id):
         try:

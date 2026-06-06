@@ -32,7 +32,11 @@ function GoogleLoginButton({ redirectPath }) {
       const data = await res.json().catch(() => null);
       if (res.ok && data?.success) {
         sessionStorage.setItem('calendar_auto_connect', '1');
-        router.replace(redirectPath);
+        if (data.user?.is_superuser) {
+          router.replace('/platform/dashboard');
+        } else {
+          router.replace(redirectPath);
+        }
       } else {
         setError(data?.message || 'Google login failed. Please try again.');
         setLoading(false);
@@ -49,7 +53,6 @@ function GoogleLoginButton({ redirectPath }) {
 
     const initGsi = () => {
       if (!window.google?.accounts?.id) return;
-      // Prevent multiple initializations (React strict mode or remounts)
       if (window.__psd_gsi_initialized) return;
       try {
         window.google.accounts.id.initialize({
@@ -66,18 +69,7 @@ function GoogleLoginButton({ redirectPath }) {
         });
         window.__psd_gsi_initialized = true;
       } catch (err) {
-        // If popup/postMessage is blocked (COOP/COEP) fall back to redirect ux_mode
-        try {
-          console.warn('GSI init failed, falling back to redirect mode', err);
-          window.google.accounts.id.initialize({
-            client_id: clientId,
-            callback: handleCredential,
-            ux_mode: 'redirect',
-          });
-          window.__psd_gsi_initialized = true;
-        } catch (err2) {
-          console.error('GSI initialization failed completely', err2);
-        }
+        console.warn('GSI renderButton failed', err);
       }
     };
 
@@ -147,7 +139,11 @@ function PasswordLogin({ redirectPath }) {
         setError(result.message || 'Invalid user ID or password.');
         return;
       }
-      router.replace(redirectPath);
+      if (result.user?.is_superuser) {
+        router.replace('/platform/dashboard');
+      } else {
+        router.replace(redirectPath);
+      }
     } catch {
       setError('Unable to login. Please try again.');
     } finally {
@@ -198,8 +194,16 @@ function LoginContent() {
   useEffect(() => {
     fetch('/api/auth/session', { cache: 'no-store' })
       .then((r) => (r.ok ? r.json() : null))
-      .then((data) => { if (data?.success) router.replace(redirectPath); })
-      .catch(() => { });
+      .then((data) => {
+        if (data?.success) {
+          if (data.user?.is_superuser) {
+            router.replace('/platform/dashboard');
+          } else {
+            router.replace(redirectPath);
+          }
+        }
+      })
+      .catch(() => { /* no session — expected on the login page */ });
   }, [router, redirectPath]);
 
   return (

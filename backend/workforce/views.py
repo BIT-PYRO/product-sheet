@@ -1,3 +1,5 @@
+from rest_framework import permissions
+from core_permissions.permissions import SaaSResourcePermission, RequiresFeature
 import logging
 
 from drf_spectacular.utils import extend_schema, extend_schema_view
@@ -23,6 +25,9 @@ logger = logging.getLogger(__name__)
 	destroy=extend_schema(summary='Delete workforce member', tags=['Workforce']),
 )
 class WorkforceMemberViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
+	permission_classes = [permissions.IsAuthenticated, SaaSResourcePermission, RequiresFeature]
+	required_feature_code = 'enrol-workforce'
+
 	audit_sheet = 'workforce'
 	queryset = WorkforceMember.objects.all().order_by('-created_at')
 	serializer_class = WorkforceMemberSerializer

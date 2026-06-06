@@ -57,6 +57,17 @@ export async function POST(request) {
 
     const userData = result?.data?.user || {};
 
+    const meResponse = await fetch(`${backendBaseUrl}/api/v1/auth/me/`, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${access}`,
+      },
+      cache: 'no-store',
+    });
+    const meResult = await meResponse.json().catch(() => null);
+    const userDetails = meResult?.data || meResult || null;
+    const isApproved = userDetails?.is_approved ?? true;
+
     const response = NextResponse.json({
       success: true,
       user: {
@@ -64,6 +75,7 @@ export async function POST(request) {
         full_name: userData.full_name || '',
         picture: userData.picture || '',
         role: 'staff',
+        is_superuser: !!userDetails?.is_superuser,
       },
     });
 
@@ -86,17 +98,6 @@ export async function POST(request) {
       path: '/',
       maxAge: ONE_DAY_SECONDS,
     });
-
-    const meResponse = await fetch(`${backendBaseUrl}/api/v1/auth/me/`, {
-      method: 'GET',
-      headers: {
-        Authorization: `Bearer ${access}`,
-      },
-      cache: 'no-store',
-    });
-    const meResult = await meResponse.json().catch(() => null);
-    const userDetails = meResult?.data || meResult || null;
-    const isApproved = userDetails?.is_approved ?? true;
 
     response.cookies.set({
       name: 'psd-approved',

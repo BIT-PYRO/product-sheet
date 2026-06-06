@@ -102,6 +102,24 @@ class Product(AuditModel, TenantCompanyModel):
 	def __str__(self):
 		return f'{self.master_sku} - {self.name}'
 
+	# Backward compatibility for Phase 5
+	@property
+	def default_variant(self):
+		return self.variants.first()
+
+	@property
+	def display_weight(self):
+		if self.default_variant:
+			opt = self.default_variant.options.filter(attribute__code__iexact='weight').first()
+			if opt: return opt.value
+		return self.weight
+
+	@property
+	def display_price(self):
+		if self.default_variant:
+			return self.default_variant.price
+		return self.selling_price
+
 
 TABLE_TYPE_CHOICES = [
 	('live_stock', 'Live Stock Situation'),
@@ -124,3 +142,60 @@ class TableColumnConfig(TenantAwareModel):
 
 	def __str__(self):
 		return f'{self.table_type} / {self.label}'
+
+
+# ---------------------------------------------------------------------------
+# Dynamic Product Architecture (Phase 5)
+# ---------------------------------------------------------------------------
+
+class ProductAttribute(TenantCompanyModel):
+	name = models.CharField(max_length=120)
+	code = models.CharField(max_length=120)
+
+	class Meta:
+		unique_together = [('tenant', 'code')]
+		ordering = ['name']
+
+	def __str__(self):
+		return self.name
+
+
+class ProductAttributeDefinition(TenantCompanyModel):
+	attribute = models.ForeignKey(ProductAttribute, on_delete=models.CASCADE, related_name='definitions')
+	category = models.CharField(max_length=120, blank=True, default='', help_text="Category name this applies to. Blank means all categories.")
+	is_required = models.BooleanField(default=False)
+	order = models.IntegerField(default=0)
+
+	class Meta:
+		ordering = ['order', 'id']
+
+	def __str__(self):
+		return f"{self.attribute.name} - {self.category or 'All'}"
+
+
+class ProductVariant(AuditModel, TenantCompanyModel):
+	product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='variants')
+	sku = models.CharField(max_length=120)
+	price = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+	cost_price = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+	is_active = models.BooleanField(default=True)
+
+	class Meta:
+		unique_together = [('tenant', 'sku')]
+		ordering = ['sku']
+
+	def __str__(self):
+		return self.sku
+
+
+class ProductVariantOption(TenantCompanyModel):
+	variant = models.ForeignKey(ProductVariant, on_delete=models.CASCADE, related_name='options')
+	attribute = models.ForeignKey(ProductAttribute, on_delete=models.CASCADE)
+	value = models.CharField(max_length=255)
+
+	class Meta:
+		unique_together = [('variant', 'attribute')]
+
+	def __str__(self):
+		return f"{self.variant.sku} - {self.attribute.name}: {self.value}"
+

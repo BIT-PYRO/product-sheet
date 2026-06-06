@@ -4,6 +4,16 @@ from django.db import models
 from common.models import TimeStampedModel
 from core_tenants.managers import TenantManager, CompanyManager, TenantCompanyManager
 
+class TenantStatus(models.TextChoices):
+    PENDING_VERIFICATION = 'pending_verification', 'Pending Verification'
+    ACTIVE_TRIAL = 'active_trial', 'Active Trial'
+    ACTIVE_PAID = 'active_paid', 'Active Paid'
+    TRIAL_EXPIRED = 'trial_expired', 'Trial Expired'
+    GRACE_PERIOD = 'grace_period', 'Grace Period'
+    PAST_DUE = 'past_due', 'Past Due'
+    SUSPENDED = 'suspended', 'Suspended'
+    CANCELLED = 'cancelled', 'Cancelled'
+
 class Tenant(TimeStampedModel):
     """
     Represents a client organization (Tenant) in the multi-tenant SaaS environment.
@@ -12,7 +22,14 @@ class Tenant(TimeStampedModel):
     name = models.CharField(max_length=255, help_text="Tenant organization name.")
     slug = models.SlugField(max_length=255, unique=True, help_text="Unique URL-friendly identifier.")
     is_active = models.BooleanField(default=True, help_text="Designates whether this tenant is active.")
+    status = models.CharField(max_length=50, choices=TenantStatus.choices, default=TenantStatus.PENDING_VERIFICATION)
+    onboarding_step = models.IntegerField(default=1)
+    onboarding_completed = models.BooleanField(default=False)
     external_shop_id = models.CharField(max_length=255, blank=True, default='', help_text="External shop ID for repair queue sync.")
+    stripe_customer_id = models.CharField(max_length=255, blank=True, null=True, help_text="Stripe Customer ID for SaaS billing.")
+    razorpay_customer_id = models.CharField(max_length=255, blank=True, null=True, help_text="Razorpay Customer ID for SaaS billing.")
+    industry = models.ForeignKey('industries.Industry', on_delete=models.SET_NULL, null=True, blank=True, related_name='tenants', help_text="The primary industry vertical for this tenant.")
+    plan = models.ForeignKey('saas_billing.Plan', on_delete=models.SET_NULL, null=True, blank=True, related_name='tenants', help_text="The SaaS plan this tenant is subscribed to.")
 
     class Meta:
         ordering = ['name']
@@ -193,3 +210,15 @@ class TenantCompanyModel(models.Model):
             if company:
                 self.company = company
         super().save(*args, **kwargs)
+
+class TenantBranding(TimeStampedModel):
+    tenant = models.OneToOneField(Tenant, on_delete=models.CASCADE, related_name='branding')
+    company_logo = models.URLField(max_length=500, blank=True, default='')
+    primary_color = models.CharField(max_length=20, blank=True, default='#000000')
+    secondary_color = models.CharField(max_length=20, blank=True, default='#FFFFFF')
+    support_email = models.EmailField(blank=True, default='')
+    company_website = models.URLField(max_length=500, blank=True, default='')
+    company_phone = models.CharField(max_length=50, blank=True, default='')
+
+    def __str__(self):
+        return f"{self.tenant.name} Branding"

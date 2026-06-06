@@ -109,6 +109,7 @@ export async function POST(request) {
       user: {
         id: user?.username || userId,
         role: user?.role || 'staff',
+        is_superuser: !!user?.is_superuser,
       },
     });
 
