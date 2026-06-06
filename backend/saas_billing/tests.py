@@ -7,7 +7,7 @@ from decimal import Decimal
 from core_tenants.models import Tenant
 from saas_billing.models import (
     Plan, PlanEntitlement, DataType, Subscription, SubscriptionStatus,
-    BillingCycle, TenantEntitlementOverride, Invoice, Payment, CreditNote
+    BillingCycle, TenantEntitlementOverride, Invoice, PaymentTransaction, CreditNote
 )
 from saas_billing.services.subscription_lifecycle import SubscriptionLifecycleService
 from saas_billing.services.entitlement_evaluation import EntitlementEvaluationService
@@ -21,18 +21,26 @@ class BillingTests(TestCase):
         self.user = User.objects.create(username="testuser", tenant=self.tenant)
         
         # Free Plan
-        self.free_plan = Plan.objects.create(
-            name="Free", code="free", trial_days=0,
-            base_price_monthly=0, base_price_yearly=0
+        self.free_plan, _ = Plan.objects.get_or_create(
+            code="free", 
+            defaults={
+                "name": "Free", "trial_days": 0,
+                "base_price_monthly": 0, "base_price_yearly": 0
+            }
         )
+        self.free_plan.entitlements.all().delete()
         PlanEntitlement.objects.create(plan=self.free_plan, key="max_users", value="2", data_type=DataType.INTEGER)
         PlanEntitlement.objects.create(plan=self.free_plan, key="exports_enabled", value="false", data_type=DataType.BOOLEAN)
 
         # Starter Plan
-        self.starter_plan = Plan.objects.create(
-            name="Starter", code="starter", trial_days=14,
-            base_price_monthly=49.00, base_price_yearly=490.00
+        self.starter_plan, _ = Plan.objects.get_or_create(
+            code="starter", 
+            defaults={
+                "name": "Starter", "trial_days": 14,
+                "base_price_monthly": 49.00, "base_price_yearly": 490.00
+            }
         )
+        self.starter_plan.entitlements.all().delete()
         PlanEntitlement.objects.create(plan=self.starter_plan, key="max_users", value="10", data_type=DataType.INTEGER)
         PlanEntitlement.objects.create(plan=self.starter_plan, key="exports_enabled", value="true", data_type=DataType.BOOLEAN)
 
@@ -70,6 +78,12 @@ class BillingTests(TestCase):
 
     def test_entitlement_evaluation_booleans(self):
         """Tests checking boolean features."""
+        from platform_admin.models import Feature, PlanFeature, FeatureGroup
+        
+        group, _ = FeatureGroup.objects.get_or_create(name="General")
+        feature, _ = Feature.objects.get_or_create(code="exports_enabled", defaults={"name": "Exports", "is_active": True, "group": group})
+        PlanFeature.objects.get_or_create(plan=self.starter_plan, feature=feature, defaults={"is_enabled": True})
+        
         SubscriptionLifecycleService.create_subscription(self.tenant, self.starter_plan)
         # exports_enabled is true
         self.assertTrue(EntitlementEvaluationService.has_feature(self.tenant, "exports_enabled"))
@@ -77,6 +91,12 @@ class BillingTests(TestCase):
 
     def test_entitlement_override(self):
         """Tests SuperAdmin overriding an entitlement for a specific tenant."""
+        from platform_admin.models import Feature, PlanFeature, FeatureGroup
+        
+        group, _ = FeatureGroup.objects.get_or_create(name="General")
+        feature, _ = Feature.objects.get_or_create(code="exports_enabled", defaults={"name": "Exports", "is_active": True, "group": group})
+        PlanFeature.objects.get_or_create(plan=self.free_plan, feature=feature, defaults={"is_enabled": False})
+        
         SubscriptionLifecycleService.create_subscription(self.tenant, self.free_plan)
         
         # By default, free plan has exports disabled
@@ -113,10 +133,9 @@ class BillingTests(TestCase):
             subscription=sub,
             amount_due=sub.locked_price
         )
-        Payment.objects.create(
-            invoice=invoice,
-            amount=sub.locked_price,
-            status="succeeded"
+        # Create Payment
+        PaymentTransaction.objects.create(
+            invoice=invoice, amount=50.00, currency='USD', status='succeeded'
         )
         self.assertEqual(invoice.payments.count(), 1)
 

@@ -6,8 +6,10 @@ class SubscriptionStatus(models.TextChoices):
     TRIALING = 'trialing', 'Trialing'
     ACTIVE = 'active', 'Active'
     PAST_DUE = 'past_due', 'Past Due'
+    PAYMENT_FAILED = 'payment_failed', 'Payment Failed'
+    GRACE_PERIOD = 'grace_period', 'Grace Period'
     SUSPENDED = 'suspended', 'Suspended'
-    CANCELED = 'canceled', 'Canceled'
+    CANCELLED = 'cancelled', 'Cancelled'
     EXPIRED = 'expired', 'Expired'
 
 class InvoiceStatus(models.TextChoices):
@@ -35,6 +37,9 @@ class Plan(models.Model):
     base_price_monthly = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     base_price_yearly = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     currency = models.CharField(max_length=3, default='USD')
+    is_trial_available = models.BooleanField(default=True)
+    requires_payment_method = models.BooleanField(default=False)
+    is_public = models.BooleanField(default=True)
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -92,8 +97,14 @@ class Subscription(models.Model):
     start_date = models.DateTimeField(auto_now_add=True)
     end_date = models.DateTimeField(null=True, blank=True)
     trial_end_date = models.DateTimeField(null=True, blank=True)
+    trial_ends_at = models.DateTimeField(null=True, blank=True)
     cancel_at_period_end = models.BooleanField(default=False)
+    cancelled_at = models.DateTimeField(null=True, blank=True)
     billing_cycle = models.CharField(max_length=50, choices=BillingCycle.choices, default=BillingCycle.MONTHLY)
+    current_period_start = models.DateTimeField(null=True, blank=True)
+    current_period_end = models.DateTimeField(null=True, blank=True)
+    next_billing_date = models.DateTimeField(null=True, blank=True)
+    grace_period_ends_at = models.DateTimeField(null=True, blank=True)
     
     locked_price = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     locked_currency = models.CharField(max_length=3, default='USD')
@@ -160,7 +171,7 @@ class Invoice(models.Model):
             models.Index(fields=['tenant', 'status']),
         ]
 
-class Payment(models.Model):
+class PaymentTransaction(models.Model):
     invoice = models.ForeignKey(Invoice, on_delete=models.CASCADE, related_name='payments')
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     currency = models.CharField(max_length=3, default='USD')
@@ -168,6 +179,16 @@ class Payment(models.Model):
     status = models.CharField(max_length=50) # e.g. succeeded, failed, pending
     
     created_at = models.DateTimeField(auto_now_add=True)
+
+class BillingEvent(models.Model):
+    event_id = models.CharField(max_length=255, unique=True, db_index=True)
+    provider = models.CharField(max_length=50) # 'stripe', 'razorpay'
+    event_type = models.CharField(max_length=255)
+    payload = models.JSONField(default=dict, blank=True)
+    status = models.CharField(max_length=50, default='pending') # pending, processed, failed, ignored
+    created_at = models.DateTimeField(auto_now_add=True)
+    processed_at = models.DateTimeField(null=True, blank=True)
+    error_message = models.TextField(blank=True, null=True)
 
 class CreditNote(models.Model):
     tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE, related_name='credit_notes')
@@ -214,14 +235,15 @@ class UpgradeRequestEvent(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='upgrade_requests')
     plan_name = models.CharField(max_length=255)
     feature_code = models.CharField(max_length=255)
-    timestamp = models.DateTimeField(auto_now_add=True)
+    status = models.CharField(max_length=50, default='pending')
+    created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        ordering = ['-timestamp']
+        ordering = ['-created_at']
         indexes = [
             models.Index(fields=['tenant', 'feature_code']),
-            models.Index(fields=['timestamp']),
+            models.Index(fields=['created_at']),
         ]
 
     def __str__(self):
-        return f"{self.tenant.name} - {self.feature_code} at {self.timestamp}"
+        return f"{self.tenant.name} - {self.feature_code} at {self.created_at}"

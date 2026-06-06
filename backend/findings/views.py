@@ -22,6 +22,6 @@ class FindingViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
     queryset = Finding.objects.all().order_by('-created_at')
     serializer_class = FindingSerializer
     permission_classes = [IsAuthenticated, SaaSResourcePermission, RequiresFeature]
-    required_feature_code = 'finding-sheet'
+    required_feature_code = 'master-finding-sheet'
     filterset_fields = ['is_active', 'finding_code']
     search_fields = ['finding_code']

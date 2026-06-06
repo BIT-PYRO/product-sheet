@@ -19,6 +19,16 @@ application = get_wsgi_application()
 # This guarantees the DB schema is always up-to-date regardless of how
 # the process manager (gunicorn / Render dashboard) invokes the app.
 from django.core.management import call_command  # noqa: E402
+from django.conf import settings
+
+# Validate startup health (Critical Services)
+if not settings.DEBUG:
+    try:
+        from core.services.startup_validation import StartupValidationService
+        StartupValidationService.validate_production_startup()
+    except ImportError:
+        pass
+
 try:
     call_command('migrate', '--noinput', verbosity=0)
 except Exception:

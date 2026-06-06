@@ -44,6 +44,22 @@ class PlanFeature(AuditModel):
     def __str__(self):
         return f"{self.plan.name} - {self.feature.name}"
 
+class PlatformActionAudit(AuditModel):
+    action_type = models.CharField(max_length=100)
+    target_tenant = models.ForeignKey('core_tenants.Tenant', on_delete=models.SET_NULL, null=True, blank=True, related_name='platform_audits')
+    target_user = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, null=True, blank=True, related_name='platform_audits')
+    performed_by = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, null=True, related_name='performed_platform_audits')
+    old_state = models.JSONField(null=True, blank=True)
+    new_state = models.JSONField(null=True, blank=True)
+    reason = models.TextField(help_text="Mandatory reason for this action")
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.action_type} on {self.target_tenant} by {self.performed_by}"
+
 from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
 from django.core.cache import cache

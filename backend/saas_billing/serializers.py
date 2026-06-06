@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from saas_billing.models import (
-    Plan, PlanEntitlement, Subscription, Invoice, Payment, TenantUsageSnapshot
+    Plan, PlanEntitlement, Subscription, Invoice, PaymentTransaction, TenantUsageSnapshot
 )
 
 class PlanEntitlementSerializer(serializers.ModelSerializer):
@@ -25,8 +25,9 @@ class SubscriptionSerializer(serializers.ModelSerializer):
         model = Subscription
         fields = [
             'id', 'tenant', 'plan', 'status', 'start_date', 'end_date',
-            'trial_end_date', 'cancel_at_period_end', 'billing_cycle',
-            'locked_price', 'locked_currency'
+            'trial_end_date', 'trial_ends_at', 'cancel_at_period_end', 'cancelled_at', 
+            'billing_cycle', 'current_period_start', 'current_period_end', 
+            'next_billing_date', 'grace_period_ends_at', 'locked_price', 'locked_currency'
         ]
 
 class InvoiceSerializer(serializers.ModelSerializer):
@@ -34,9 +35,9 @@ class InvoiceSerializer(serializers.ModelSerializer):
         model = Invoice
         fields = ['id', 'amount_due', 'amount_paid', 'due_date', 'status', 'pdf_url', 'created_at']
 
-class PaymentSerializer(serializers.ModelSerializer):
+class PaymentTransactionSerializer(serializers.ModelSerializer):
     class Meta:
-        model = Payment
+        model = PaymentTransaction
         fields = ['id', 'amount', 'currency', 'status', 'created_at']
 
 class TenantUsageSnapshotSerializer(serializers.ModelSerializer):

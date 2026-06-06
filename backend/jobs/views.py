@@ -384,7 +384,7 @@ def _deduct_source_current_stock(voucher):
 )
 class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 	permission_classes = [permissions.IsAuthenticated, SaaSResourcePermission, RequiresFeature]
-	required_feature_code = 'create-generic-job'
+	required_feature_code = 'master-job-sheet'
 
 	audit_sheet = 'job'
 	queryset = Job.objects.select_related('picklist_group').all().order_by('-created_at')

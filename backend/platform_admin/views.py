@@ -31,6 +31,25 @@ from rest_framework import status
 class UpgradeRequestEventView(APIView):
     permission_classes = [IsAuthenticated]
 
+    def get(self, request):
+        if not request.user.is_superuser:
+            return Response({"error": "Forbidden"}, status=status.HTTP_403_FORBIDDEN)
+            
+        events = UpgradeRequestEvent.objects.select_related('tenant', 'user').order_by('-created_at')
+        data = [{
+            "id": e.id,
+            "tenant_name": e.tenant.name if e.tenant else "Unknown",
+            "tenant_id": str(e.tenant.id) if e.tenant else None,
+            "user_name": e.user.get_full_name() if e.user else "Unknown",
+            "user_email": e.user.email if e.user else "Unknown",
+            "current_plan": e.plan_name,
+            "requested_feature": e.feature_code,
+            "status": e.status,
+            "created_at": e.created_at
+        } for e in events]
+        
+        return Response(data)
+
     def post(self, request):
         feature_code = request.data.get('feature_code')
         if not feature_code:
@@ -53,3 +72,23 @@ class UpgradeRequestEventView(APIView):
         )
         
         return api_success({"status": "success"}, message="Upgrade request recorded.")
+
+    def patch(self, request):
+        if not request.user.is_superuser:
+            return Response({"error": "Forbidden"}, status=status.HTTP_403_FORBIDDEN)
+            
+        event_id = request.data.get('id')
+        new_status = request.data.get('status')
+        
+        if not event_id or not new_status:
+            return Response({"error": "id and status required"}, status=400)
+            
+        try:
+            event = UpgradeRequestEvent.objects.get(id=event_id)
+            # Check if model has status field (if not we should add it)
+            if hasattr(event, 'status'):
+                event.status = new_status
+                event.save()
+            return Response({"message": "Status updated"})
+        except UpgradeRequestEvent.DoesNotExist:
+            return Response({"error": "Event not found"}, status=404)

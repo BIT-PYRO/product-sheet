@@ -35,9 +35,12 @@ class ERPIntegrationFlowTests(TestCase):
         )
 
         # SaaS Plan
-        self.starter_plan = Plan.objects.create(
-            name="Starter", code="STARTER", trial_days=14, base_price_monthly=99.00
+        # SaaS Plan
+        self.starter_plan, _ = Plan.objects.get_or_create(
+            code="STARTER", 
+            defaults={"name": "Starter", "trial_days": 14, "base_price_monthly": 99.00}
         )
+        self.starter_plan.entitlements.all().delete()
         self.starter_plan.entitlements.create(key='max_users', value='5', data_type='integer')
         self.starter_plan.entitlements.create(key='exports_enabled', value='true', data_type='boolean')
         self.starter_plan.entitlements.create(key='api_limit', value='1000', data_type='integer')
@@ -89,6 +92,11 @@ class ERPIntegrationFlowTests(TestCase):
         # Assume an export endpoint exists that requires 'exports_enabled'
         # Since we don't have the exact url, we test the EntitlementEvaluationService directly
         # and mock a view hitting it.
+        from platform_admin.models import Feature, PlanFeature, FeatureGroup
+        group, _ = FeatureGroup.objects.get_or_create(name="General")
+        feature, _ = Feature.objects.get_or_create(code="exports_enabled", defaults={"name": "Exports", "is_active": True, "group": group})
+        PlanFeature.objects.get_or_create(plan=self.starter_plan, feature=feature, defaults={"is_enabled": True})
+        
         from saas_billing.services.entitlement_evaluation import EntitlementEvaluationService
         self.assertTrue(EntitlementEvaluationService.has_feature(self.tenant_a, 'exports_enabled'))
         
@@ -106,7 +114,8 @@ class ERPIntegrationFlowTests(TestCase):
         # Actually our service only checks if `tenant.subscription` exists. It should check `status`.
         
         # But we can test downgrading the plan explicitly.
-        free_plan = Plan.objects.create(name="Free", code="FREE", base_price_monthly=0)
+        free_plan, _ = Plan.objects.get_or_create(code="FREE", defaults={"name": "Free", "base_price_monthly": 0})
+        free_plan.entitlements.all().delete()
         free_plan.entitlements.create(key='exports_enabled', value='false', data_type='boolean')
         self.sub_a.plan = free_plan
         self.sub_a.save()

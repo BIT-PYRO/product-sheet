@@ -31,6 +31,19 @@ class IsAdminOrManager(BasePermission):
         )
 
 
+class IsSuperAdmin(BasePermission):
+    """
+    Enforces that only Django superusers can access this route.
+    Used exclusively for Platform Operations Center.
+    """
+    def has_permission(self, request, view):
+        return bool(
+            request.user
+            and request.user.is_authenticated
+            and request.user.is_superuser
+        )
+
+
 class APIKeyScopePermission(BasePermission):
     """
     Enforces page-scope and read/write/comment rules for API key users.

@@ -1,0 +1,60 @@
+{
+  "celery": {
+    "status": "PASS",
+    "registered_tasks": [],
+    "beat_schedule_keys": [
+      "day10-ping-health-task",
+      "day10-operations-summary-task",
+      "process-trial-expiries-daily",
+      "send-renewal-reminders-daily",
+      "send-failed-payment-reminders-daily",
+      "reconcile-subscriptions-4-hours"
+    ]
+  },
+  "redis": {
+    "status": "PASS",
+    "message": "Cache successfully wrote and retrieved value"
+  },
+  "startup": {
+    "status": "PASS",
+    "health_report": {
+      "database": {
+        "status": "healthy",
+        "message": "Connected to default database"
+      },
+      "redis": {
+        "status": "healthy",
+        "message": "Redis Cache is operational"
+      },
+      "celery": {
+        "status": "unhealthy",
+        "message": "Error 10061 connecting to 127.0.0.1:6379. No connection could be made because the target machine actively refused it."
+      },
+      "keys": {
+        "status": "unhealthy",
+        "message": "Insecure JWT_SIGNING_KEY detected"
+      },
+      "payment_providers": {
+        "status": "warning",
+        "message": "No payment provider configured"
+      },
+      "email": {
+        "status": "warning",
+        "message": "Email credentials missing"
+      }
+    }
+  },
+  "billing": {
+    "status": "PASS",
+    "transitions": [
+      "TRIALING -> ACTIVE (success)",
+      "ACTIVE -> grace_period (success)",
+      "GRACE_PERIOD -> past_due (success)"
+    ]
+  },
+  "features": {
+    "status": "FAIL",
+    "access_true": false,
+    "access_false": false
+  }
+}

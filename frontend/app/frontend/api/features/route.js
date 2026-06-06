@@ -28,12 +28,14 @@ export async function GET(request) {
     });
     
     if (!res.ok) {
-      return NextResponse.json({ success: false, message: 'Failed to fetch features' }, { status: res.status });
+      // Return graceful empty features so login page doesn't flash errors
+      return NextResponse.json({ success: true, features: {} }, { status: 200 });
     }
     
     const data = await res.json();
     return NextResponse.json(data);
   } catch (error) {
-    return NextResponse.json({ success: false, message: 'Backend unreachable' }, { status: 503 });
+    // Return a graceful empty response instead of 503 to avoid noisy console errors on login page
+    return NextResponse.json({ success: true, features: {} }, { status: 200 });
   }
 }

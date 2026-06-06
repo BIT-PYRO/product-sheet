@@ -21,6 +21,12 @@ class FeatureResolutionService:
         if not tenant:
             return False
 
+        from core_tenants.models import TenantStatus
+        if tenant.status == TenantStatus.SUSPENDED:
+            return False
+        if tenant.status in [TenantStatus.TRIAL_EXPIRED, TenantStatus.PAST_DUE, TenantStatus.CANCELLED]:
+            return False
+
         cache_key = f"tenant_{tenant.id}_feature_{feature_code}"
         cached_val = cache.get(cache_key)
         if cached_val is not None:
@@ -59,7 +65,7 @@ class FeatureResolutionService:
             return False
 
         from saas_billing.models import SubscriptionStatus
-        if tenant.subscription.status not in [SubscriptionStatus.ACTIVE, SubscriptionStatus.TRIALING]:
+        if tenant.subscription.status not in [SubscriptionStatus.ACTIVE, SubscriptionStatus.TRIALING, SubscriptionStatus.GRACE_PERIOD]:
             cache.set(cache_key, False, timeout=3600)
             return False
 

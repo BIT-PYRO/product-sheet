@@ -9,6 +9,7 @@ from .views_roles import (
     RoleTemplateApplyView, RoleTemplateCloneView,
     RoleTemplateSeedView, RoleHierarchyView,
 )
+from .views_onboarding import PublicIndustryListView, PublicPlanListView, SignupView, VerifyEmailView, ResendVerificationView
 
 router = DefaultRouter()
 router.register('api-keys', APIKeyViewSet, basename='api-keys')
@@ -36,5 +37,10 @@ urlpatterns = [
     path('role-templates/<int:pk>/', RoleTemplateDetailView.as_view(), name='role_templates_detail'),
     path('role-templates/<int:pk>/apply/', RoleTemplateApplyView.as_view(), name='role_templates_apply'),
     path('role-templates/<int:pk>/clone/', RoleTemplateCloneView.as_view(), name='role_templates_clone'),
+    path('public-industries/', PublicIndustryListView.as_view(), name='public_industries'),
+    path('public-plans/', PublicPlanListView.as_view(), name='public_plans'),
+    path('signup/', SignupView.as_view(), name='signup'),
+    path('verify-email/', VerifyEmailView.as_view(), name='verify_email'),
+    path('resend-verification/', ResendVerificationView.as_view(), name='resend_verification'),
     path('', include(router.urls)),
 ]

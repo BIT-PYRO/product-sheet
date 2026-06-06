@@ -25,7 +25,7 @@ class DesignerSheetViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
     queryset = DesignerSheet.objects.all().order_by('-created_at')
     serializer_class = DesignerSheetSerializer
     permission_classes = [IsAuthenticated, SaaSResourcePermission, RequiresFeature]
-    required_feature_code = 'designer-sheet'
+    required_feature_code = 'master-designer-sheet'
     filterset_fields = ['is_active', 'sku']
     search_fields = ['sku', 'motive_code', 'motive_sku']
 

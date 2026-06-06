@@ -2,7 +2,7 @@ from django.contrib import admin
 from saas_billing.models import (
     Plan, PlanEntitlement, TenantEntitlementOverride, Subscription,
     SubscriptionHistory, SubscriptionEvent, TenantUsageSnapshot,
-    Invoice, Payment, CreditNote
+    Invoice, PaymentTransaction, CreditNote
 )
 
 from platform_admin.models import PlanFeature
@@ -62,8 +62,8 @@ class TenantUsageSnapshotAdmin(admin.ModelAdmin):
     list_filter = ('snapshot_date',)
     search_fields = ('tenant__name',)
 
-class PaymentInline(admin.TabularInline):
-    model = Payment
+class PaymentTransactionInline(admin.TabularInline):
+    model = PaymentTransaction
     extra = 0
 
 @admin.register(Invoice)
@@ -71,7 +71,7 @@ class InvoiceAdmin(admin.ModelAdmin):
     list_display = ('id', 'tenant', 'amount_due', 'amount_paid', 'status', 'due_date')
     list_filter = ('status',)
     search_fields = ('tenant__name',)
-    inlines = [PaymentInline]
+    inlines = [PaymentTransactionInline]
 
 @admin.register(CreditNote)
 class CreditNoteAdmin(admin.ModelAdmin):

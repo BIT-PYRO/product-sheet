@@ -95,7 +95,8 @@ class SubscriptionLifecycleService:
             )
         else:
             old_status = subscription.status
-            subscription.status = SubscriptionStatus.CANCELED
+            subscription.status = SubscriptionStatus.CANCELLED
+            subscription.cancelled_at = timezone.now()
             subscription.cancel_at_period_end = False
             subscription.save()
             
@@ -270,8 +271,14 @@ class SubscriptionLifecycleService:
     @staticmethod
     def apply_grace_period(subscription):
         old_status = subscription.status
-        subscription.status = SubscriptionStatus.PAST_DUE
+        subscription.status = SubscriptionStatus.GRACE_PERIOD
+        subscription.grace_period_ends_at = timezone.now() + timedelta(days=7)
         subscription.save()
+        
+        tenant = subscription.tenant
+        from core_tenants.models import TenantStatus
+        tenant.status = TenantStatus.GRACE_PERIOD
+        tenant.save()
         
         SubscriptionHistory.objects.create(
             subscription=subscription,
@@ -280,6 +287,32 @@ class SubscriptionLifecycleService:
             old_status=old_status,
             new_status=subscription.status,
             reason="Entered grace period due to failed payment"
+        )
+        
+        SubscriptionEvent.objects.create(
+            subscription=subscription,
+            event_type="subscription.grace_period"
+        )
+        return subscription
+
+    @staticmethod
+    def mark_past_due(subscription):
+        old_status = subscription.status
+        subscription.status = SubscriptionStatus.PAST_DUE
+        subscription.save()
+        
+        tenant = subscription.tenant
+        from core_tenants.models import TenantStatus
+        tenant.status = TenantStatus.PAST_DUE
+        tenant.save()
+        
+        SubscriptionHistory.objects.create(
+            subscription=subscription,
+            old_plan=subscription.plan,
+            new_plan=subscription.plan,
+            old_status=old_status,
+            new_status=subscription.status,
+            reason="Grace period expired, marked as past due"
         )
         
         SubscriptionEvent.objects.create(

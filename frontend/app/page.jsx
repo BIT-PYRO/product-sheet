@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ThemeToggle } from '@/components/theme-toggle';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
@@ -34,11 +34,22 @@ export default function Home() {
     },
   ];
 
-  const plans = [
-    { name: "STARTER", price: "$19" },
-    { name: "BUSINESS", price: "$49" },
-    { name: "ENTERPRISE", price: "$99" },
-  ];
+  const [plans, setPlans] = useState([
+    { id: '', name: "STARTER", base_price_monthly: "19", currency: "$" },
+    { id: '', name: "BUSINESS", base_price_monthly: "49", currency: "$" },
+    { id: '', name: "ENTERPRISE", base_price_monthly: "99", currency: "$" },
+  ]);
+
+  useEffect(() => {
+    fetch('/api/v1/auth/public-plans/')
+      .then(res => res.json())
+      .then(data => {
+        if (data && data.length > 0) {
+          setPlans(data);
+        }
+      })
+      .catch(err => console.error("Error fetching plans", err));
+  }, []);
 
   const cards = [
     {
@@ -98,7 +109,7 @@ export default function Home() {
 
             <div className="flex items-center gap-4">
               <ThemeToggle />
-              <Link href="/frontend/login" className="bg-blue-600 dark:bg-white text-white dark:text-blue-700 px-5 py-2 rounded-full font-medium hover:bg-blue-700 dark:hover:bg-slate-100 transition-colors">
+              <Link href="/signup" className="bg-blue-600 dark:bg-white text-white dark:text-blue-700 px-5 py-2 rounded-full font-medium hover:bg-blue-700 dark:hover:bg-slate-100 transition-colors">
                 Get Started
               </Link>
             </div>
@@ -143,7 +154,7 @@ export default function Home() {
             </p>
 
             <div className="flex gap-4 mt-8">
-              <Link href="/frontend/login" className="bg-blue-600 dark:bg-white text-white dark:text-blue-700 font-medium px-8 py-4 rounded-xl hover:bg-blue-700 dark:hover:bg-slate-100 transition-colors">
+              <Link href="/signup" className="bg-blue-600 dark:bg-white text-white dark:text-blue-700 font-medium px-8 py-4 rounded-xl hover:bg-blue-700 dark:hover:bg-slate-100 transition-colors">
                 Book Demo
               </Link>
 
@@ -350,7 +361,7 @@ export default function Home() {
                   <span className="text-slate-500 dark:text-slate-400">/month</span>
                 </div>
 
-                <Link href="/frontend/login" className="block text-center w-full mt-10 bg-blue-600 text-white hover:bg-blue-700 dark:bg-white dark:text-blue-700 dark:hover:bg-slate-100 py-4 rounded-2xl transition-colors font-medium">
+                <Link href={`/signup?plan_id=${plan.id}`} className="block text-center w-full mt-10 bg-blue-600 text-white hover:bg-blue-700 dark:bg-white dark:text-blue-700 dark:hover:bg-slate-100 py-4 rounded-2xl transition-colors font-medium">
                   Get Started
                 </Link>
               </motion.div>
