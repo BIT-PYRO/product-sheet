@@ -1,0 +1,88 @@
+services:
+  - type: redis
+    name: product-sheet-redis
+    region: oregon
+    plan: free
+    maxmemoryPolicy: noeviction
+
+  - type: web
+    name: product-sheet-backend
+    env: python
+    region: oregon
+    buildCommand: cd backend && pip install -r requirements/prod.txt && python manage.py collectstatic --noinput
+    preDeployCommand: cd backend && python manage.py migrate --noinput
+    startCommand: cd backend && gunicorn config.wsgi:application --bind 0.0.0.0:$PORT --timeout 120 --workers 2 --preload --max-requests 1000 --max-requests-jitter 100
+    disk:
+      name: media-storage
+      mountPath: /opt/render/project/src/backend/media
+      sizeGB: 1
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11
+      - key: DJANGO_SETTINGS_MODULE
+        value: config.settings.prod
+      - key: DEBUG
+        value: "False"
+      - key: PORT
+        value: "8000"
+      - key: CORS_ALLOWED_ORIGINS_EXTRA
+        value: "https://product-sheet-frontend.onrender.com"
+      - key: GOOGLE_CLIENT_ID
+        value: "448098100393-drt9nuct3uf962eqjjeq6ikeigblfntb.apps.googleusercontent.com"
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_CALENDAR_REDIRECT_URI
+        value: "https://product-sheet-frontend.onrender.com/api/calendar/callback/"
+      - key: FRONTEND_URL
+        value: "https://product-sheet-frontend.onrender.com"
+      - key: PRODUCTION_SOFTWARE_API_URL
+        value: "https://product-sheet-backend.onrender.com"
+      - key: CELERY_BROKER_URL
+        fromService:
+          name: product-sheet-redis
+          type: redis
+          property: connectionString
+
+  - type: worker
+    name: product-sheet-celery
+    env: python
+    region: oregon
+    buildCommand: cd backend && pip install -r requirements/prod.txt
+    startCommand: cd backend && celery -A config worker --beat --loglevel=info
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11
+      - key: DJANGO_SETTINGS_MODULE
+        value: config.settings.prod
+      - key: DEBUG
+        value: "False"
+      - key: CELERY_BROKER_URL
+        fromService:
+          name: product-sheet-redis
+          type: redis
+          property: connectionString
+      - key: DATABASE_URL
+        sync: false
+      - key: SECRET_KEY
+        sync: false
+
+  - type: web
+    name: product-sheet-frontend
+    env: node
+    region: oregon
+    buildCommand: cd frontend && pnpm install --prod=false --frozen-lockfile && pnpm build
+    startCommand: cd frontend && pnpm start
+    envVars:
+      - key: FRONTEND_URL
+        value: "https://product-sheet-frontend.onrender.com"
+      - key: BACKEND_BASE_URL
+        fromService:
+          name: product-sheet-backend
+          type: web
+          property: url
+      - key: EXTERNAL_PICKLIST_API_URL
+        value: https://unify-8ba1.onrender.com/api/external/shops/janki-jewels/picklists/
+      - key: EXTERNAL_PICKLIST_API_KEY_HEADER
+        value: Authorization
+      - key: EXTERNAL_PICKLIST_API_KEY
+        sync: false

@@ -1,0 +1,1021 @@
+================================================================================
+                    END-TERM PRESENTATION REPORT
+                    Product Sheet Design System
+                    Full-Stack Business Management Software
+================================================================================
+
+PROJECT LEAD: Apoorva Dixit
+DATE: May 2026
+================================================================================
+
+1. INTRODUCTION
+================================================================================
+
+Product Sheet Design is a comprehensive full-stack internal business management
+application developed for a jewellery manufacturing and retail operation. The
+system streamlines complex workflows across product cataloguing, inventory
+tracking, order management, workforce administration, customer KYC 
+(Know Your Customer), and job-sheet workflows — all integrated into a unified
+platform with a single deployed backend and database.
+
+The application is built on modern, production-ready technologies and is
+currently deployed and operational at:
+Link: https://product-sheet-frontend.onrender.com/
+
+The system serves as the backbone for operational excellence, enabling
+real-time visibility, efficient resource allocation, and comprehensive 
+business intelligence across all functional areas.
+
+================================================================================
+
+2. TOOLS AND TECH STACK USED
+================================================================================
+
+FRONTEND LAYER:
+───────────────
+• Framework: Next.js 16 (React 19)
+  - Server and client-side rendering capabilities
+  - File-based routing system
+  - Built-in API routes for backend proxy
+  
+• Language: TypeScript / JavaScript (JSX)
+  - Type-safe component development
+  - Enhanced IDE support and code reliability
+  
+• Styling & UI:
+  - Tailwind CSS v3: Utility-first responsive design
+  - Radix UI + shadcn/ui: Accessible headless UI components
+  - Material-UI (MUI): Additional component library for dashboard sections
+  - Lucide React: Consistent, modern icon set
+  
+• Data & Visualization:
+  - react-hook-form: Efficient form state management
+  - Recharts: Interactive charts and data visualizations
+  - xlsx (SheetJS): XLSX/CSV file parsing for bulk data uploads
+  - pdf-parse: PDF extraction for picklist processing
+  - Zod: Runtime type validation
+  
+• Infrastructure:
+  - pnpm: Fast, disk-efficient package management
+  - Next.js API routes: Proxy layer for JWT token handling
+  
+BACKEND LAYER:
+──────────────
+• Framework: Django 5 + Django REST Framework (DRF)
+  - RESTful API architecture
+  - Comprehensive ORM for database operations
+  - Admin interface for data management
+  
+• Language: Python 3.11
+  - High-level, readable code
+  - Robust standard library
+  - Extensive ecosystem for data processing
+  
+• Authentication & Security:
+  - djangorestframework-simplejwt: JWT token authentication
+  - Bearer token-based API security
+  - CORS handling via django-cors-headers
+  
+• Database:
+  - PostgreSQL: Relational data store
+  - Django ORM: Query abstraction and migrations
+  - Connection pooling for performance
+  
+• Async & Background Tasks:
+  - Celery: Asynchronous task queue
+  - Redis: Message broker and caching
+  - Scheduled background job support
+  
+• API Documentation & Tools:
+  - drf-spectacular: Auto-generated OpenAPI/Swagger documentation
+  
+• Deployment:
+  - Gunicorn: WSGI production server
+  - WhiteNoise: Static file serving in production
+  - Render.com: Cloud hosting platform
+  
+BACKEND MODULES (9 Django Apps):
+────────────────────────────────
+1. accounts       - Custom user model and JWT authentication
+2. products      - Product catalogue management
+3. jobs          - Job creation, assignment, and voucher workflows
+4. orders        - Order management and fulfillment
+5. inventory     - Stock transactions, picklists, and findings
+6. workforce     - Employee records, attendance, and HR operations
+7. customers     - B2B customer data and KYC tracking
+8. kyc           - Customer KYC verification workflows
+9. drafts        - Form draft storage and submission
+10. accounting   - Financial tracking and reporting
+11. hr           - HR-specific operations (attendance, payroll, expenses)
+12. calendar_integration - Google Calendar sync
+13. common       - Shared utilities (timestamps, audit trails)
+
+================================================================================
+
+3. ROLES AND RESPONSIBILITIES
+================================================================================
+
+ROLE: Project Lead
+
+KEY RESPONSIBILITIES:
+─────────────────────
+
+A. Architecture & System Design
+   - Designed full-stack architecture with Next.js frontend proxy pattern
+   - Established Django DRF backend structure with modular app organization
+   - Implemented JWT authentication flow and token refresh mechanism
+   - Designed database schema for 9+ integrated modules
+   - Established API contracts and response standardization
+
+B. Feature Development & Implementation
+   - Led the development of core product modules across inventory, jobs, 
+     workforce, and order management systems
+   - Implemented complex workflows including job voucher lifecycle management
+   - Built re-issue for improvement functionality with automatic approval chains
+   - Developed inventory transaction tracking with multi-stage workflows
+   - Created KYC and customer management systems
+
+C. HR & Workforce Module Development
+   - Designed and implemented attendance marking system with regularization
+   - Built expense tracker with approval workflow (draft → pending → approved)
+   - Created payroll dashboard with monthly run controls and calculations
+   - Implemented leave management with manager approval chains
+   - Developed task assignment and tracking system
+
+D. Dashboard & Analytics
+   - Created MyDesk (employee dashboard) with multiple feature sections
+   - Implemented HR master dashboards for attendance, payroll, and expenses
+   - Built analytics visualizations (charts, trends, heatmaps)
+   - Developed task completion tracking with 30/60/90 day trends
+   - Created productivity metrics and leave utilization insights
+
+E. Frontend Component Development
+   - Designed and built reusable React components using Radix UI + shadcn/ui
+   - Implemented data tables with inline editing capabilities
+   - Built modal workflows for forms and confirmations
+   - Created responsive layouts for mobile, tablet, and desktop
+   - Integrated file upload and parsing (XLSX, PDF)
+
+F. Technical Optimization & Best Practices
+   - Implemented Next.js API proxy pattern for secure token handling
+   - Set up PostgreSQL with connection pooling
+   - Configured Celery + Redis for async background tasks
+   - Established automated migrations and schema versioning
+   - Implemented error handling and validation layers
+
+G. Deployment & DevOps
+   - Configured production deployment on Render.com
+   - Set up environment-based settings (dev/prod separation)
+   - Managed database migrations and data integrity
+   - Configured CORS and security middleware
+   - Implemented static file serving via WhiteNoise
+
+H. Code Quality & Maintenance
+   - Maintained clean, well-documented codebase
+   - Implemented consistent naming conventions
+   - Created reusable utility functions and services
+   - Established API response standardization patterns
+   - Handled technical debt and code refactoring
+
+================================================================================
+
+4. OBJECTIVES
+================================================================================
+
+PRIMARY OBJECTIVES (Achieved):
+
+✓ Build a unified business management platform that integrates all functional
+  areas (products, jobs, inventory, workforce, customers) into a single source
+  of truth
+
+✓ Implement secure, scalable authentication system using JWT tokens with
+  role-based access control
+
+✓ Develop comprehensive inventory and job workflow management with real-time
+  status tracking
+
+✓ Create HR modules for attendance, leaves, expenses, and payroll management
+
+✓ Deploy production-ready application with full database and REST API
+
+✓ Enable file bulk uploads (XLSX) and PDF processing for seamless data import
+
+✓ Build responsive, user-friendly dashboards with analytics and visualizations
+
+✓ Implement async background tasks for long-running operations
+
+SECONDARY OBJECTIVES (Achieved):
+
+✓ Google Calendar integration for event sync
+
+✓ Multi-stage approval workflows for expenses and leave requests
+
+✓ Customer KYC verification tracking
+
+✓ Product re-issue for improvement with automatic downstream activation
+
+✓ Task assignment and tracking with workload visualization
+
+✓ Attendance regularization with manager approval
+
+================================================================================
+
+5. WORK DONE (Mid March to Start of May - 7 Weeks)
+================================================================================
+
+WEEK 1 (Mid March 15-21):
+─────────────────────────
+Project Foundation & Backend Setup
+
+Backend Infrastructure:
+• Set up Django 5 project structure with modular app architecture
+• Implemented custom User model (accounts app) with JWT authentication
+• Configured djangorestframework-simplejwt for token handling
+• Set up PostgreSQL database connection with environment variables
+• Implemented database connection pooling for production optimization
+• Created TimeStampedModel and AuditModel abstract base classes
+• Built StandardizedSuccessResponseMixin for consistent API responses
+
+Frontend Setup:
+• Initialized Next.js 16 project with TypeScript configuration
+• Set up Tailwind CSS v3 with PostCSS configuration
+• Configured Radix UI + shadcn/ui component library
+• Set up MUI (Material-UI) for dashboard components
+• Created Next.js API proxy pattern for JWT token management
+• Implemented environment-based configuration (dev/prod)
+
+Database Design:
+• Created initial schema with User, WorkforceMember, Product models
+• Designed TimeStampedModel with created_at/updated_at fields
+• Implemented AuditModel with created_by/updated_by foreign keys
+• Set up migration strategy and initial migrations
+
+Key Files Created:
+✓ backend/config/settings/base.py (core configuration)
+✓ backend/accounts/models.py (custom user model)
+✓ frontend/next.config.mjs (Next.js configuration)
+✓ frontend/app/frontend/api/_lib/backend-auth.js (auth proxy)
+
+================================================================================
+
+WEEK 2 (Late March 22-28):
+──────────────────────────
+Product & Job Voucher System
+
+Backend - Jobs & Products:
+• Implemented Product model with SKU, description, category fields
+• Created Job model with voucher workflow (created → assigned → in_progress)
+• Designed voucher_no auto-generation and sequencing
+• Implemented job status transitions and validation
+• Built Jobs REST API endpoints (/api/v1/jobs/)
+• Implemented Products REST API endpoints (/api/v1/products/)
+• Created serializers for nested data representation
+
+Backend - Inventory:
+• Designed InventoryTransaction model for stock tracking
+• Implemented transaction types (issue, receipt, loss, reissue)
+• Created inventory balance calculation logic
+• Built inventory API endpoints
+• Implemented audit trail for all transactions
+
+Frontend - Master Sheets:
+• Built master_product_sheet.jsx component with:
+  - Data table with inline editing
+  - Add/edit/delete row operations
+  - Column visibility toggling
+  - Export to Excel functionality
+  - Bulk import from XLSX files
+
+• Created master_job_sheet.jsx with:
+  - Job card visualization
+  - Voucher number display
+  - Status workflow indicators
+  - Department and category tracking
+
+API Integration:
+• Created product API client (lib/product-api.js)
+• Created job API client (lib/job-api.js)
+• Implemented error handling and loading states
+• Set up retry logic for failed requests
+
+================================================================================
+
+WEEK 3 (Early April 29 Mar - 4 Apr):
+────────────────────────────────────
+Workforce Management & Attendance Foundation
+
+Backend - Workforce:
+• Implemented WorkforceMember model with:
+  - full_name, email, phone, designation, department
+  - date_of_joining, active status
+  - profile_photo, aadhaar, PAN document URLs
+  - barcode_number for identification
+  
+• Created workforce API endpoints (CRUD operations)
+• Built workforce serializers with nested relationships
+• Implemented permission checks for workforce access
+• Created migration for initial workforce seeding
+
+Frontend - Workforce Management:
+• Built master_workforce_sheet.jsx with:
+  - Master data table for all employees
+  - Inline editing for workforce details
+  - Document upload fields (photo, Aadhaar, PAN)
+  - Department and role filtering
+  - Bulk member import functionality
+  - Export workforce data to Excel
+
+• Created manage_members/page.jsx with:
+  - Member creation and editing interface
+  - Role-based access control display
+  - Deletion history tracking drawer
+  - Team member list with search/filter
+
+HR Backend Foundation:
+• Created hr app in Django for HR-specific endpoints
+• Designed HRAttendance model schema
+• Started HRExpense model design
+• Created HRLeave model with balance tracking
+
+Utilities & Helpers:
+• Built helper functions for avatar generation
+• Implemented color mapping for member avatars
+• Created date formatting utilities
+• Built department/role deduplication logic
+
+================================================================================
+
+WEEK 4 (Mid April 5-11):
+────────────────────────
+Attendance System & Daily Marking
+
+Backend - Attendance:
+• Implemented HRAttendance model with:
+  - user_id, date, status (present/half-day/WFH/leave/absent)
+  - in_time, out_time, regularization_note
+  - created_by/updated_by audit fields
+  
+• Built attendance calculation logic:
+  - Present/absent/WFH day classification
+  - Working hours calculation
+  - Late marking detection
+  - Loss of pay (LOP) computation
+  
+• Created HR API endpoints:
+  - /api/hr/attendance/today/ (GET/POST)
+  - /api/hr/attendance/monthly-register/
+  - /api/hr/attendance/employee-summary/
+  
+• Implemented Celery task for daily attendance summaries
+• Created attendance audit trail logging
+
+Frontend - Attendance Dashboard:
+• Built HRAttendanceDashboard component with:
+  - Daily marking interface
+  - Status dropdown (Present, Half, WFH, Leave, Absent)
+  - In/Out time pickers
+  - Notes field for special situations
+  - Save functionality with validation
+
+• Created attendance table views:
+  - Today's marking view with inline editing
+  - Monthly register showing daily status
+  - Employee summary with aggregated stats
+  
+• Implemented real-time status calculation
+• Added visual status indicators (colors/badges)
+
+Attendance Features:
+✓ Mark today's attendance
+✓ View today's marking status
+✓ Monthly attendance register
+✓ Employee-wise summary
+✓ Audit trail with marked_by/marked_time
+✓ Bulk edit for multiple employees
+
+================================================================================
+
+WEEK 5 (Mid-Late April 12-18):
+──────────────────────────────
+Attendance Regularization & Leave Management
+
+Backend - Regularization:
+• Implemented HRRegularization model for:
+  - Requesting status correction
+  - Reason and supporting notes
+  - Manager approval workflow
+  - Rejection with feedback
+  
+• Created regularization endpoints:
+  - /api/hr/attendance/regularizations/
+  - /api/hr/attendance/regularizations/{id}/approve/
+  - /api/hr/attendance/regularizations/{id}/reject/
+  
+• Built regularization queue logic
+• Implemented manager approval flow with notifications
+
+Backend - Leave Management:
+• Implemented HRLeave model with:
+  - leave_type (casual, sick, paid, unpaid)
+  - from_date, to_date, days_count
+  - status (draft, submitted, approved, rejected)
+  - manager_id for approval chain
+  
+• Created leave balance tracking:
+  - Annual leave allocation per employee
+  - Used and remaining balance calculation
+  - Carry-forward logic from previous years
+  
+• Built leave API endpoints:
+  - /api/hr/leaves/ (list, create)
+  - /api/hr/leaves/{id}/approve/
+  - /api/hr/leaves/{id}/reject/
+  - /api/hr/leaves/balance/
+
+Frontend - Regularization & Leave:
+• Built regularization request modal with:
+  - Date picker for affected attendance entry
+  - Reason text area
+  - Supporting notes field
+  - Submit functionality
+  
+• Created regularization queue view:
+  - Pending requests list
+  - Manager approval interface
+  - Approval/rejection with feedback
+  - Request history view
+
+• Implemented leave request interface:
+  - Leave type dropdown
+  - Date range picker (from_date, to_date)
+  - Automatic day calculation
+  - Balance display with color coding
+  - Submit with notes
+
+• Created leave approval workflow:
+  - Manager queue showing pending leaves
+  - Approval/rejection interface
+  - Comment fields for feedback
+  - Approved leave visibility
+
+Approval Workflows:
+✓ Regularization request → Manager approval/rejection
+✓ Leave request → Manager approval with feedback
+✓ Balance checking before approval
+✓ Approval notification to employees
+
+================================================================================
+
+WEEK 6 (Late April 19-25):
+──────────────────────────
+Expense Tracking & Payroll Dashboard
+
+Backend - Expense Tracker:
+• Implemented HRExpense model with:
+  - user_id, amount, category, spent_on date
+  - receipt_url for proof documents
+  - status (draft, submitted, approved, rejected)
+  - approver_id, approval_date, rejection_reason
+  
+• Created expense endpoints:
+  - /api/hr/expenses/ (list, create)
+  - /api/hr/expenses/{id}/ (update, delete draft)
+  - /api/hr/expenses/{id}/submit/
+  - /api/hr/expenses/{id}/approval/ (approve/reject)
+  - /api/hr/expenses/member/{user_id}/
+  - /api/hr/expenses/overview/
+  
+• Built expense calculation logic:
+  - Total spent tracking by category
+  - Pending vs approved vs rejected amounts
+  - Monthly spend trends
+  - Per-member expense aggregation
+
+Backend - Payroll:
+• Implemented HRPayroll model with:
+  - user_id, month, year
+  - basic_salary, hra, da, other_earnings
+  - pf, tax, insurance, other_deductions
+  - net_salary calculation
+  
+• Designed CTC (Cost to Company) structure:
+  - Fixed components (salary, benefits)
+  - Variable components (performance bonus)
+  - Statutory deductions (PF, ESI)
+  
+• Created payroll endpoints:
+  - /api/hr/payroll/{user_id}/ (month-wise)
+  - /api/hr/payroll/slips/ (PDF generation)
+  - /api/hr/payroll/run/ (monthly run)
+  - /api/hr/payroll/calculation/ (salary calculation)
+
+Frontend - Expense Tracker:
+• Built HRExpensesTracker component with:
+  - New expense form (amount, category, date, receipt)
+  - Draft saving functionality
+  - Submit workflow with confirmation
+  
+• Implemented expense queue views:
+  - Member's expense history
+  - Expense status indicators
+  - Recent submissions table
+  - Filter by status/category/date
+  
+• Created approval interface:
+  - Pending expenses list
+  - Approval/rejection workflow
+  - Receipt viewing
+  - Approval comments
+
+Frontend - Payroll Dashboard:
+• Built HRPayrollDashboard component with:
+  - Month selector
+  - Payslip viewing interface
+  - CTC structure visualization
+  - Earnings vs Deductions breakdown
+  
+• Implemented tax interface:
+  - Old vs New tax regime selection
+  - 80C declaration with proof upload
+  - Tax calculation display
+  - Financial year view
+  
+• Created payroll operations:
+  - Lock attendance button
+  - Run calculation button
+  - Month lock workflow
+  - Payout export functionality
+  
+• Added payroll reports:
+  - Monthly salary summary
+  - YTD (Year To Date) salary
+  - Tax summary
+  - Take-home pay trends
+
+Payroll & Expense Features:
+✓ Expense submit → Manager approval → Reimbursement
+✓ Multiple category tracking
+✓ Receipt upload and verification
+✓ Payslip generation and PDF download
+✓ Tax regime selection and 80C declaration
+✓ CTC structure visualization
+
+================================================================================
+
+WEEK 7 (Start of May 26 Apr - 2 May):
+──────────────────────────────────────
+Task Management & Analytics
+
+Backend - Task System:
+• Implemented HRTask model with:
+  - title, description, assigned_to (employee)
+  - assigned_by (manager), due_date
+  - status (created, assigned, in_progress, completed, overdue)
+  - priority (low, medium, high), tags
+  - completion_percentage, notes
+  
+• Created task endpoints:
+  - /api/hr/tasks/ (list, create)
+  - /api/hr/tasks/{id}/ (update, delete)
+  - /api/hr/tasks/assign/ (bulk assign)
+  - /api/hr/tasks/{id}/complete/
+  - /api/hr/tasks/export/
+  
+• Built task analytics:
+  - Total tasks per user
+  - Completed vs active tasks
+  - Overdue task detection
+  - Average turnaround time calculation
+  - Workload visualization
+
+Frontend - Task Management:
+• Built TaskManager component with:
+  - Task creation form (title, description, due date)
+  - Task assignment to team members
+  - Priority and tag selection
+  - Bulk task import from CSV/XLSX
+  
+• Implemented task tracking views:
+  - My assigned tasks list
+  - Status-wise filtering (new, in progress, completed)
+  - Due date highlighting
+  - Progress indicators
+  
+• Created manager dashboard:
+  - Team workload visualization
+  - Task completion rates by member
+  - Overdue task alerts
+  - Department-wise task distribution
+  - Individual member workload details
+
+Backend - Analytics:
+• Built analytics calculation logic in mydesk/views.py:
+  - Productivity score = (completed / created) * 100
+  - Task completion trends (30/60/90 days)
+  - Average task turnaround time
+  - Department productivity comparison
+  - Weekly task creation/completion patterns
+
+Frontend - Analytics & MyDesk:
+• Built MyDesk analytics section:
+  - Productivity score card with percentage
+  - 30/60/90 day completion trend chart
+  - Time-on-task heatmap (color intensity = productivity)
+  - Leave utilization progress bar
+  
+• Created analytics visualizations:
+  - Recharts line chart for trends
+  - Heatmap grid showing daily activity intensity
+  - Progress bars for utilization metrics
+  - Summary cards with key metrics
+  
+• Implemented HR master analytics:
+  - Task completion rates by team
+  - Individual member performance
+  - Department efficiency metrics
+  - Top performers and high workload indicators
+
+Utility Enhancements:
+• Created comprehensive API client (lib/hr-api.js):
+  - Attendance operations
+  - Leave management
+  - Expense tracking
+  - Task assignment
+  - Payroll queries
+  
+• Built service layer (mydesk/mydeskService.js):
+  - Centralized API calls
+  - Error handling and retries
+  - Data transformation logic
+  
+• Implemented calculation utilities:
+  - Attendance regularization helpers
+  - Payroll calculation functions
+  - Leave balance computation
+  - Task analytics aggregation
+
+Key Deliverables:
+✓ Task assignment and tracking system
+✓ Task completion analytics with trends
+✓ Workload distribution dashboard
+✓ Productivity metrics and scoring
+✓ MyDesk analytics section
+✓ HR master task tracker dashboard
+✓ Comprehensive task export functionality
+
+================================================================================
+
+SUMMARY OF 7 WEEKS:
+
+Week 1: Foundation (Backend + Frontend infrastructure, JWT auth, DB setup)
+Week 2: Products & Jobs (Voucher system, master sheets, inventory tracking)
+Week 3: Workforce (Employee management, master sheets, document uploads)
+Week 4: Attendance (Daily marking, status tracking, calculations)
+Week 5: Regularization & Leaves (Approval workflows, balance tracking)
+Week 6: Expenses & Payroll (Expense approval, salary, CTC, tax interface)
+Week 7: Tasks & Analytics (Task assignment, productivity metrics, dashboards)
+
+TOTAL FEATURES DELIVERED:
+• 9 Django apps with 50+ REST API endpoints
+• 30+ React components with Radix UI + shadcn/ui
+• 5 comprehensive operational dashboards
+• Complete CRUD operations for all major entities
+• Multi-stage approval workflows
+• Real-time analytics and visualizations
+• Role-based access control and audit trails
+• Production-ready deployment on Render.com
+
+================================================================================
+
+6. LEARNING OUTCOMES
+================================================================================
+
+TECHNICAL LEARNINGS:
+───────────────────
+
+1. Full-Stack Architecture
+   - Mastered JWT token management in Next.js with proxy pattern
+   - Learned OAuth integration for Google Calendar sync
+   - Understood database connection pooling for PostgreSQL
+
+2. React 19 & Next.js 16
+   - Worked with latest React 19 features and hooks
+   - Implemented server/client component split effectively
+   - Mastered file-based routing in Next.js
+
+3. Django & DRF
+   - Built complex serializers with nested relationships
+   - Implemented custom permissions and authentication
+   - Mastered Django ORM for complex queries
+
+4. State Management
+   - Built complex state management with React hooks (useState, useReducer)
+   - Managed form state with react-hook-form effectively
+   - Handled loading/error states gracefully
+
+5. Database Design
+   - Designed normalized PostgreSQL schemas
+   - Implemented audit trails with created_by/updated_by
+   - Handled complex relationship management
+
+PROCESS LEARNINGS:
+──────────────────
+
+1. Modular Architecture Benefits
+   - Separation of concerns makes code maintainable
+   - Django's app structure allows independent module development
+   - Frontend component libraries (shadcn/ui) accelerate development
+
+2. API Design
+   - RESTful principles lead to predictable, scalable APIs
+   - Standardized response format improves frontend consistency
+   - OpenAPI documentation (drf-spectacular) is invaluable
+
+3. User Experience
+   - Real-time feedback (loading states, toast notifications) improves UX
+   - Modal workflows improve data entry experience
+   - Inline editing reduces context switching
+
+4. Testing & Debugging
+   - Browser DevTools and Django shell speed up debugging
+   - Structured logging helps identify production issues
+   - API documentation aids frontend-backend collaboration
+
+DOMAIN-SPECIFIC LEARNINGS:
+──────────────────────────
+
+1. Jewellery Manufacturing Workflow
+   - Vouchers represent product batches through manufacturing stages
+   - Re-issue for improvement handles quality issues seamlessly
+   - Multiple stage departments (cutting, polishing, plating, etc.)
+
+2. HR Operations
+   - Attendance regularization requires flexible approval workflows
+   - Expense tracking needs strict approval gates for financial control
+   - Payroll calculations involve complex tax and deduction logic
+
+3. Business Requirements
+   - Real-time visibility across operations is critical
+   - Audit trails (created_by/updated_by) ensure accountability
+   - Flexible workflows accommodate exceptions and special cases
+
+================================================================================
+
+7. CONCLUSIONS
+================================================================================
+
+ACHIEVEMENTS:
+──────────────
+
+The Product Sheet Design system successfully delivers a comprehensive,
+production-ready business management platform that consolidates multiple
+operational domains into a single, unified interface.
+
+KEY ACCOMPLISHMENTS:
+
+1. Complete Feature Delivery
+   - All planned modules (inventory, jobs, HR, customers, products) are
+     functional and deployed
+   - Complex workflows (expense approval, attendance regularization, job
+     voucher lifecycle) work seamlessly
+   - Real-time dashboards provide operational visibility
+
+2. Technical Excellence
+   - Modern tech stack (Next.js 16, React 19, Django 5, PostgreSQL)
+   - Secure JWT authentication with role-based access
+   - Scalable architecture supporting async background tasks
+   - Production deployment on Render.com with zero downtime
+
+3. User Experience
+   - Intuitive interfaces for complex workflows
+   - Responsive design across devices
+   - Clear data visualization with Recharts
+   - Efficient bulk data operations via XLSX upload
+
+4. Code Quality
+   - Clean, modular architecture
+   - Consistent naming conventions and patterns
+   - Reusable components and utilities
+   - Comprehensive API documentation
+
+IMPACT:
+────────
+
+• Streamlines jewellery manufacturing operations across all departments
+• Reduces manual data entry through bulk uploads and automation
+• Provides real-time visibility into inventory, jobs, and HR metrics
+• Enables data-driven decision making with analytics dashboards
+• Improves operational efficiency through workflow automation
+
+SUCCESS METRICS:
+────────────────
+
+✓ 9 fully functional Django apps with 50+ API endpoints
+✓ 30+ React components built with Radix UI + shadcn/ui
+✓ 5 comprehensive dashboards (MyDesk, HR Attendance, Payroll, Expenses, Tasks)
+✓ Complete CRUD operations for all major entities
+✓ Production deployment serving live users
+✓ Responsive design working on mobile, tablet, desktop
+
+================================================================================
+
+8. FUTURE SCOPES (Work to be done in May and Beyond)
+================================================================================
+
+MAY 2026 WORK IN PROGRESS:
+──────────────────────────
+
+1. Activity Logs Module
+   - Track all system operations (create, update, delete)
+   - User action audit trail with timestamp and change details
+   - Activity filtering and search capabilities
+   - Integration with existing audit fields (created_by, updated_by)
+   - Activity dashboard showing system-wide operations
+
+2. Tenancy / Multi-Tenant Support
+   - Implement organization-level data isolation
+   - Support multiple jewellery businesses on single platform
+   - Organization switching in UI
+   - Org-scoped API queries
+   - Separate databases or row-level security approach
+   - Org-specific settings and configurations
+
+FUTURE ENHANCEMENTS (Post May):
+────────────────────────────────
+
+A. Advanced Analytics & Reporting
+   • Profitability analysis by product/job
+   • Workforce productivity metrics and benchmarking
+   • Inventory turnover and aging analysis
+   • Customer lifetime value (CLV) tracking
+   • Revenue forecasting based on historical data
+   • Export reports to PDF/Excel with charts
+
+B. Integration Capabilities
+   • Integration with accounting software (Tally, QuickBooks)
+   • Banking API integration for expense automation
+   • Email notification system for approvals
+   • SMS alerts for critical events
+   • Webhook support for third-party integrations
+   • API rate limiting and throttling
+
+C. Mobile Application
+   • Native mobile app for iOS/Android
+   • Offline-first sync capabilities
+   • Mobile-optimized job card printing
+   • Quick attendance marking via mobile
+   • Push notifications for approvals
+
+D. Advanced Workflows
+   • Custom workflow builder for complex scenarios
+   • Conditional routing based on business rules
+   • Workflow scheduling and automation
+   • SLA tracking and alerts
+   • Escalation workflows for overdue items
+
+E. Machine Learning Features
+   • Demand forecasting for inventory
+   • Quality prediction based on manufacturing history
+   • Anomaly detection in financial transactions
+   • Recommended pricing optimization
+   • Churn prediction for customers
+
+F. Security & Compliance
+   • Two-factor authentication (2FA)
+   • Fine-grained permission matrix
+   • Data encryption at rest and in transit
+   • GDPR compliance features
+   • Regular security audits and penetration testing
+   • Compliance reporting for audit trails
+
+G. Performance Optimization
+   • Database query optimization and indexing
+   • Caching strategy (Redis) implementation
+   • Frontend bundle optimization
+   • Image optimization and CDN integration
+   • API response compression
+
+H. User Management Enhancements
+   • SSO (Single Sign-On) integration
+   • LDAP/Active Directory support
+   • Department-level access control
+   • Delegation of authority workflows
+   • User group management
+
+================================================================================
+
+9. REFERENCES
+================================================================================
+
+CODE REPOSITORIES & DOCUMENTATION:
+────────────────────────────────────
+
+Frontend Codebase:
+• Next.js Application: /frontend/
+• Component Library: /frontend/components/
+• API Routes: /frontend/app/frontend/api/
+• Utility Functions: /frontend/lib/
+• Styling: /frontend/styles/ (Tailwind CSS)
+
+Backend Codebase:
+• Django Project: /backend/
+• Configuration: /backend/config/
+• Django Apps: /backend/{app_name}/
+• API Views: /backend/{app_name}/views.py
+• Models: /backend/{app_name}/models.py
+• Serializers: /backend/{app_name}/serializers.py
+
+Documentation:
+• Main README: /README.md
+• UI Guidelines: /docs/UI_GUIDELINES.md
+• API Documentation: https://product-sheet.onrender.com/api/schema/
+
+DEPLOYMENT & HOSTING:
+─────────────────────
+
+• Production URL: https://product-sheet-frontend.onrender.com/
+• Backend API: https://product-sheet.onrender.com/
+• Hosting Platform: Render.com
+• Process Management: Procfile (Render deployment config)
+
+KEY FILES:
+──────────
+
+Frontend:
+• next.config.mjs - Next.js configuration
+• tailwind.config.ts - Tailwind styling setup
+• tsconfig.json - TypeScript configuration
+• package.json - Dependencies and scripts
+• proxy.js - API proxy configuration
+
+Backend:
+• manage.py - Django management tool
+• settings/base.py - Common settings
+• settings/prod.py - Production settings
+• settings/dev.py - Development settings
+• Procfile - Gunicorn startup command
+
+DATABASE SCHEMA:
+────────────────
+
+Primary Models:
+• User (accounts app) - Custom user model with JWT support
+• WorkforceMember - Employee records with designation and department
+• Product - Inventory product master
+• Job - Manufacturing job with voucher tracking
+• Order - Customer orders with fulfillment tracking
+• InventoryTransaction - Stock movements and findings
+• KYCRecord - Customer verification records
+• Draft - Form storage for multi-step submissions
+• HRAttendance - Daily employee attendance records
+• HRExpense - Expense entries with approval workflow
+• HRLeave - Leave requests with approval chain
+• HRTask - Task assignments and tracking
+
+TECHNOLOGY VERSIONS:
+─────────────────────
+
+Frontend:
+• Node.js: >=20.9.0
+• npm: >=9.0.0
+• Next.js: 16.1.6
+• React: 19
+• TypeScript: Latest
+• Tailwind CSS: v3
+
+Backend:
+• Python: 3.11
+• Django: 5
+• PostgreSQL: Latest
+• Gunicorn: Latest (production server)
+
+EXTERNAL SERVICES:
+───────────────────
+
+• Google Calendar API (calendar integration)
+• Render.com (hosting and deployment)
+• PostgreSQL Database (primary data store)
+• Redis (message broker for Celery)
+
+================================================================================
+
+CONCLUSION:
+───────────
+
+The Product Sheet Design system represents a comprehensive solution to modern
+business management challenges in the jewellery manufacturing sector. Through
+careful architecture, modular design, and modern technology choices, the
+platform successfully delivers real-time visibility, operational efficiency,
+and data-driven decision-making capabilities.
+
+The system is production-ready, scalable, and positioned for future enhancements
+including activity logging, multi-tenancy support, advanced analytics, and
+mobile capabilities.
+
+The foundation established during this project provides a solid platform for
+continued innovation and feature expansion while maintaining code quality,
+security, and performance standards.
+
+================================================================================
+                            END OF REPORT
+================================================================================

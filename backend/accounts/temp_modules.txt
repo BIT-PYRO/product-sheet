@@ -1,0 +1,16 @@
+﻿_MODULES = {
+    'products_inventory': ['product_sheet', 'master_product_sheet', 'master_inventory_sheet', 'inventory'],
+    'design_findings': ['designer_sheet', 'master_designer_sheet', 'finding_entry', 'finding_sheet'],
+    'jobs_orders': ['create_generic_job', 'master_job_sheet', 'orders', 'drafts'],
+    'customers_kyc': ['enrol_customer', 'master_customer_sheet', 'master_kyc_sheet'],
+    'human_resources': [
+        'team_directory', 'enrol_workforce', 'master_workforce_sheet',
+        'master_task_manager', 'meeting_manager', 'attendance_dashboard',
+        'leave_requests', 'org_hierarchy', 'roles_permissions', 'diary'
+    ],
+    'finance_accountancy': [
+        'payroll', 'expenses', 'dept_expenses', 'accounts_payable',
+        'accounts_receivable', 'invoices', 'purchase_bills', 'profit_loss', 'finance_dashboard'
+    ],
+    'workspace': ['my_desk', 'managers_dashboard']
+}

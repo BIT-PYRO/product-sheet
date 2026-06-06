@@ -1,0 +1,38 @@
+# v0 runtime files (should only exist in preview, not in git)
+__v0_runtime_loader.js
+__v0_devtools.tsx
+__v0_jsx-dev-runtime.ts
+instrumentation-client.js
+instrumentation-client.ts
+
+# ── Frontend (Next.js) ──────────────────────────────────────
+node_modules/
+frontend/node_modules/
+.next/
+frontend/.next/
+.env.local
+.env*.local
+frontend/.env.local
+frontend/.env*.local
+
+# ── Backend (Django) ────────────────────────────────────────
+backend/.env
+backend/.venv/
+backend/db.sqlite3
+backend/celerybeat-schedule.*
+backend/media/
+
+# ── Python ──────────────────────────────────────────────────
+**/__pycache__/
+*.pyc
+*.pyo
+
+# ── Dev notes (local only) ──────────────────────────────────
+DEV_ACCESS.md
+API_readme.md
+
+# ── General ─────────────────────────────────────────────────
+.DS_Store
+.venv/
+backend/backend.log
+product_inventory_system_details.txt

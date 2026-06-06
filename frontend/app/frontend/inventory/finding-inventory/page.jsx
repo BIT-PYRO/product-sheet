@@ -1,0 +1,1377 @@
+﻿'use client';
+
+import { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
+import { ArrowLeft, ChevronDown, Download, Pencil, Plus, Printer, RefreshCw, Search, X } from 'lucide-react';
+import * as XLSX from 'xlsx';
+import SortPopover from '@/components/sort-popover';
+import MasterNavigationDrawer from '@/components/master_navigation_drawer';
+import LastUpdatedFooter from '@/components/last-updated-footer';
+import DeletionHistoryDrawer from '@/components/deletion-history-drawer';
+import { useSheetPermissions } from '@/hooks/use-sheet-permissions';
+import { useColumnPreferences } from '@/hooks/use-column-preferences';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import GlobalSearchBar from '@/components/global-search-bar';
+import { fmtNum } from '@/lib/utils';
+import DateTimeStamp from '@/components/date-time-stamp';
+import MultiselectFilterPopover from '@/components/multiselect-filter-popover';
+import { EnrolWorkforceForm } from '@/app/frontend/enrol-workforce/page';
+
+const MATERIAL_OPTIONS = ['Gold', 'Silver', 'Brass', 'Alloy', 'Platinum'];
+const STAGE_OPTIONS = ['Raw', 'Wax', 'Casting', 'Filing', 'Polish', 'Hand Setting', 'Ready', 'Finished'];
+const FINDING_ISSUE_REQUESTS_KEY = 'finding_issue_requests_v1'; // kept for migration reference only
+const FINDING_COLUMNS = [
+  { id: 'sno', label: '#' },
+  { id: 'finding_code', label: 'Finding Code' },
+  { id: 'die_number', label: 'Die No.' },
+  { id: 'size', label: 'Size' },
+  { id: 'material', label: 'Material' },
+  { id: 'finding_stage', label: 'Stage' },
+  { id: 'mechanism', label: 'Mechanism' },
+  { id: 'quantity', label: 'Quantity' },
+  { id: 'used_qty', label: 'Used Qty' },
+  { id: 'weight', label: 'Weight' },
+  { id: 'dead_weight', label: 'Dead Wt.' },
+  { id: 'mold_qty_per_die', label: 'Mold Qty/Die' },
+];
+
+function emptyFinding() {
+  return {
+    finding_code: '',
+    die_number: '',
+    size: '',
+    material: '',
+    finding_stage: '',
+    mechanism: '',
+    quantity: '',
+    weight: '',
+    dead_weight: '',
+    mold_qty_per_die: '',
+    polish: '',
+    total_measurements: '',
+    design_material: '',
+    notes: '',
+  };
+}
+
+function Field({ label, value, onChange, textarea = false, type = 'text', children }) {
+  const base = 'w-full rounded-md border border-soft-border px-3 py-1.5 text-sm text-midnight-ink placeholder:text-cool-gray focus:outline-none focus:ring-1 focus:ring-trust-blue  bg-background ';
+  return (
+    <div className="flex flex-col gap-1">
+      <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">{label}</label>
+      {children ? children : textarea ? (
+        <textarea className={`${base} resize-none`} rows={2} value={value} onChange={(e) => onChange(e.target.value)} />
+      ) : (
+        <input className={base} type={type} value={value} onChange={(e) => onChange(e.target.value)} />
+      )}
+    </div>
+  );
+}
+
+export default function FindingInventoryPage() {
+  const { canExport } = useSheetPermissions('inventory');
+  const [findings, setFindings] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState('');
+
+  const [search, setSearch] = useState('');
+  const [filterMaterial, setFilterMaterial] = useState([]);
+  const [filterStage, setFilterStage] = useState([]);
+  const [filterMechanism, setFilterMechanism] = useState([]);
+  const [sortField, setSortField] = useState('');
+  const [sortDir, setSortDir] = useState('asc');
+  const handleSort = (field) => { setSortField((prev) => { if (prev === field) { setSortDir((d) => d === 'asc' ? 'desc' : 'asc'); return prev; } setSortDir('asc'); return field; }); };
+
+  // Add New Finding dialog
+  const [addOpen, setAddOpen] = useState(false);
+  const [form, setForm] = useState(emptyFinding());
+  const [saving, setSaving] = useState(false);
+  const [statusMsg, setStatusMsg] = useState('');
+
+  // Row selection
+  const [selectedIds, setSelectedIds] = useState(new Set());
+  const [editingRowIds, setEditingRowIds] = useState(new Set());
+  const [editBuffer, setEditBuffer] = useState({});
+  const [savingEdits, setSavingEdits] = useState(false);
+  const [isManageColumnsOpen, setIsManageColumnsOpen] = useState(false);
+  const [selectedColumnsForAction, setSelectedColumnsForAction] = useState(new Set());
+  const [exportMenuOpen, setExportMenuOpen] = useState(false);
+  const { visibleColumns, setVisibleColumns, saveView: saveColumnView, saveViewStatus } = useColumnPreferences('inv-finding', FINDING_COLUMNS.map((column) => column.id));
+
+  // Issue request workflow
+  const [issueOpen, setIssueOpen] = useState(false);
+  const [requestsPanelOpen, setRequestsPanelOpen] = useState(false);
+  const [requestDetailsOpen, setRequestDetailsOpen] = useState(false);
+  const [activeRequestId, setActiveRequestId] = useState(null);
+  const [issueRequests, setIssueRequests] = useState([]);
+  const [reviewError, setReviewError] = useState('');
+  // issueRequestsReady removed — now using API
+  const [issueForm, setIssueForm] = useState({ findingId: '', quantity: '', issuedTo: '', issuedBy: '', reason: '' });
+  const [workforceMembers, setWorkforceMembers] = useState([]);
+  const [enrollWorkforceOpen, setEnrollWorkforceOpen] = useState(false);
+  const [currentUserName, setCurrentUserName] = useState('');
+  const [currentUserEmail, setCurrentUserEmail] = useState('');
+  const [currentUsername, setCurrentUsername] = useState('');
+  const [rowsPerPage, setRowsPerPage] = useState(25);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [lastUpdated, setLastUpdated] = useState(null);
+
+  // Receive Finding workflow
+  const [receiveOpen, setReceiveOpen] = useState(false);
+  const [receiveForm, setReceiveForm] = useState({ findingId: '', quantity: '', employeeVendorName: '', referenceId: '', price: '', usage: 'new' });
+
+  const EXPORT_HEADERS = ['id','finding_code','die_number','size','material','finding_stage','mechanism','quantity','used_qty','weight','dead_weight','mold_qty_per_die'];
+  const buildExportRows = () => filtered.map((r) => EXPORT_HEADERS.map((h) => r[h] ?? ''));
+  const exportToExcel = () => {
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([EXPORT_HEADERS, ...buildExportRows()]), 'Findings');
+    XLSX.writeFile(wb, 'finding_inventory.xlsx');
+    setExportMenuOpen(false);
+  };
+  const exportToPDF = () => {
+    const win = window.open('', '_blank');
+    const rows = buildExportRows();
+    win.document.write(`<html><head><title>Finding Inventory</title><style>body{font-family:sans-serif;font-size:11px;margin:16px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #ccc;padding:4px 6px;text-align:left}th{background:#ecfdf5}</style></head><body><h2>Finding Inventory</h2><table><thead><tr>${EXPORT_HEADERS.map((h)=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${rows.map((r)=>`<tr>${r.map((c)=>`<td>${c}</td>`).join('')}</tr>`).join('')}</tbody></table><script>window.onload=function(){window.print();}<\/script></body></html>`);
+    win.document.close();
+    setExportMenuOpen(false);
+  };
+
+  const fetchFindings = async () => {
+    setLoading(true);
+    setFetchError('');
+    try {
+      const res = await fetch('/api/finding-inventory?page_size=500');
+      if (!res.ok) throw new Error(`Error ${res.status}`);
+      const data = await res.json();
+      const results = data?.data?.results ?? data?.results ?? data?.data ?? [];
+      setFindings(Array.isArray(results) ? results : []);
+      setLastUpdated(new Date());
+    } catch (err) {
+      setFetchError(err.message || 'Failed to load findings');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchIssueRequests = async () => {
+    try {
+      const res = await fetch('/api/issue-requests?inventory_type=finding&page_size=200');
+      if (!res.ok) return;
+      const data = await res.json();
+      const results = data?.data?.results ?? data?.results ?? data?.data ?? [];
+      setIssueRequests(Array.isArray(results) ? results : []);
+    } catch { /* non-fatal */ }
+  };
+
+  useEffect(() => {
+    fetchFindings();
+    fetchIssueRequests();
+  }, []);
+
+  useEffect(() => {
+    fetch('/api/workforce?page_size=200')
+      .then((r) => r.json())
+      .then((d) => setWorkforceMembers(Array.isArray(d?.data?.results) ? d.data.results : Array.isArray(d?.data) ? d.data : Array.isArray(d?.results) ? d.results : Array.isArray(d) ? d : []))
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    fetch('/api/auth/session', { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((d) => {
+        const u = d?.user;
+        if (!u) return;
+        const fullName = `${u.first_name || ''} ${u.last_name || ''}`.trim() || u.username || '';
+        setCurrentUserName(fullName);
+        setCurrentUserEmail(u.email || '');
+        setCurrentUsername(u.username || '');
+      })
+      .catch(() => {});
+  }, []);
+
+  const refreshWorkforce = () => {
+    fetch('/api/workforce?page_size=200')
+      .then((r) => r.json())
+      .then((d) => setWorkforceMembers(Array.isArray(d?.data?.results) ? d.data.results : Array.isArray(d?.data) ? d.data : Array.isArray(d?.results) ? d.results : Array.isArray(d) ? d : []))
+      .catch(() => {});
+  };
+
+  useEffect(() => {
+    try {
+      // migrated from localStorage — no longer needed
+    } catch { /* noop */ }
+  }, []);
+
+  const filtered = useMemo(() => {
+    const materialFilters = Array.isArray(filterMaterial) ? filterMaterial : [];
+    const stageFilters = Array.isArray(filterStage) ? filterStage : [];
+    const mechanismFilters = Array.isArray(filterMechanism) ? filterMechanism : [];
+    const base = findings.filter((f) => {
+      const matchSearch =
+        !search ||
+        (f.finding_code || '').toLowerCase().includes(search.toLowerCase()) ||
+        (f.die_number || '').toLowerCase().includes(search.toLowerCase());
+      const matchMaterial =
+        materialFilters.length === 0 ||
+        materialFilters.some((value) => String(f.material || '').toLowerCase().includes(String(value || '').toLowerCase()));
+      const matchStage =
+        stageFilters.length === 0 ||
+        stageFilters.some((value) => String(f.finding_stage || '').toLowerCase().includes(String(value || '').toLowerCase()));
+      const matchMechanism =
+        mechanismFilters.length === 0 ||
+        mechanismFilters.some((value) => String(f.mechanism || '').toLowerCase().includes(String(value || '').toLowerCase()));
+      return matchSearch && matchMaterial && matchStage && matchMechanism;
+    });
+    if (!sortField) return base;
+    return [...base].sort((a, b) => {
+      const av = a[sortField] ?? ''; const bv = b[sortField] ?? '';
+      const cmp = (typeof av === 'number' && typeof bv === 'number') ? av - bv : String(av).localeCompare(String(bv));
+      return sortDir === 'asc' ? cmp : -cmp;
+    });
+  }, [
+    findings,
+    search,
+    filterMaterial,
+    filterStage,
+    filterMechanism,
+    sortField,
+    sortDir,
+  ]);
+
+  const mechanismOptions = useMemo(
+    () => Array.from(new Set(findings.map((finding) => String(finding.mechanism || '').trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b)),
+    [findings]
+  );
+
+  const allSelected = filtered.length > 0 && filtered.every((f) => selectedIds.has(f.id));
+  const someSelected = filtered.some((f) => selectedIds.has(f.id)) && !allSelected;
+  const visibleTableColumnCount = 1 + FINDING_COLUMNS.filter((column) => visibleColumns.has(column.id)).length;
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / rowsPerPage));
+  const safePage = Math.min(currentPage, totalPages);
+  const pagedFiltered = useMemo(() => {
+    const start = (safePage - 1) * rowsPerPage;
+    return filtered.slice(start, start + rowsPerPage);
+  }, [filtered, safePage, rowsPerPage]);
+
+  const selectedFindings = useMemo(
+    () => findings.filter((f) => selectedIds.has(f.id)),
+    [findings, selectedIds]
+  );
+
+  const pendingIssueRequests = useMemo(
+    () => issueRequests.filter((r) => r.status === 'pending'),
+    [issueRequests]
+  );
+
+  const sortedIssueRequests = useMemo(
+    () => [...issueRequests].sort((a, b) => new Date(b.requested_at || b.requestedAt || 0) - new Date(a.requested_at || a.requestedAt || 0)),
+    [issueRequests]
+  );
+
+  const activeRequest = useMemo(
+    () => issueRequests.find((r) => r.id === activeRequestId) || null,
+    [issueRequests, activeRequestId]
+  );
+
+  function findingName(finding) {
+    if (!finding) return 'Finding';
+    return finding.finding_code || finding.die_number || `Finding #${finding.id}`;
+  }
+
+  function toggleSelectAll() {
+    if (editingRowIds.size > 0) return;
+    if (allSelected) {
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        filtered.forEach((f) => next.delete(f.id));
+        return next;
+      });
+      return;
+    }
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      filtered.forEach((f) => next.add(f.id));
+      return next;
+    });
+  }
+
+  function toggleRow(id) {
+    if (editingRowIds.size > 0) return;
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function openIssuePopup() {
+    const lEmail = currentUserEmail.toLowerCase();
+    const lName = currentUserName.toLowerCase();
+    const lUser = currentUsername.toLowerCase();
+    const matchedMember = workforceMembers.find((w) => lEmail && w.email && w.email.toLowerCase() === lEmail)
+      || workforceMembers.find((w) => lName && w.full_name && w.full_name.toLowerCase() === lName)
+      || workforceMembers.find((w) => lUser && w.full_name && w.full_name.toLowerCase().startsWith(lUser));
+    const issuedBy = matchedMember?.full_name || currentUserName;
+    setIssueForm({ findingId: '', quantity: '', issuedTo: '', issuedBy, reason: '' });
+    setIssueOpen(true);
+  }
+
+  function openReceivePopup() {
+    setReceiveForm({ findingId: '', quantity: '', employeeVendorName: '', referenceId: '', price: '', usage: 'new' });
+    setReceiveOpen(true);
+  }
+
+  async function createReceiveRequest() {
+    const findingIdNum = Number(receiveForm.findingId);
+    const quantityNum = Number(receiveForm.quantity);
+    const employeeVendorName = receiveForm.employeeVendorName.trim();
+    const referenceId = receiveForm.referenceId.trim();
+    if (!findingIdNum) { setStatusMsg('Please select a finding.'); return; }
+    if (!Number.isFinite(quantityNum) || quantityNum <= 0) { setStatusMsg('Please enter a valid quantity greater than 0.'); return; }
+    if (!employeeVendorName) { setStatusMsg('Please enter employee/vendor name.'); return; }
+    if (!referenceId) { setStatusMsg('Please enter a reference ID.'); return; }
+    const finding = findings.find((f) => f.id === findingIdNum);
+    try {
+      if (receiveForm.usage === 'used') {
+        // Used: add to used_qty only, do NOT change quantity
+        const newUsedQty = Number(finding?.used_qty || 0) + quantityNum;
+        await fetch(`/api/finding-inventory/${findingIdNum}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ used_qty: newUsedQty }) });
+      } else {
+        // New: add to quantity
+        const newQty = Number(finding?.quantity || 0) + quantityNum;
+        await fetch(`/api/finding-inventory/${findingIdNum}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ quantity: newQty }) });
+      }
+      await fetch('/api/finding-transactions', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ txn_date: new Date().toISOString().slice(0, 10), txn_type: 'received', finding: findingIdNum, finding_code: finding?.finding_code || '', die_number: finding?.die_number || '', qty: quantityNum, weight: finding?.weight || 0, dead_weight: finding?.dead_weight || 0, received_from: employeeVendorName, remark: referenceId, price: receiveForm.price || 0, usage: receiveForm.usage || 'new' }),
+      });
+      setReceiveOpen(false);
+      setReceiveForm({ findingId: '', quantity: '', employeeVendorName: '', referenceId: '', price: '', usage: 'new' });
+      await fetchFindings();
+      setStatusMsg(`Received ${quantityNum} of ${findingName(finding)} from ${employeeVendorName}.`);
+    } catch (err) { setStatusMsg(err.message || 'Receive failed'); }
+  }
+
+  function handleEditRows() {
+    if (selectedFindings.length === 0) {
+      setStatusMsg('Select at least one finding row, then click Edit Row.');
+      return;
+    }
+    const buffer = {};
+    selectedFindings.forEach((finding) => {
+      buffer[finding.id] = {
+        finding_code: finding.finding_code || '',
+        die_number: finding.die_number || '',
+        size: finding.size || '',
+        material: finding.material || '',
+        finding_stage: finding.finding_stage || '',
+        mechanism: finding.mechanism || '',
+        quantity: finding.quantity || '',
+        weight: finding.weight || '',
+        dead_weight: finding.dead_weight || '',
+        mold_qty_per_die: finding.mold_qty_per_die || '',
+      };
+    });
+    setEditBuffer(buffer);
+    setEditingRowIds(new Set(selectedFindings.map((finding) => finding.id)));
+    setStatusMsg(`Editing ${selectedFindings.length} finding${selectedFindings.length !== 1 ? 's' : ''}.`);
+  }
+
+  function updateEditBuffer(id, key, value) {
+    if (!editingRowIds.has(id)) return;
+    setEditBuffer((prev) => ({
+      ...prev,
+      [id]: {
+        ...(prev[id] || {}),
+        [key]: value,
+      },
+    }));
+  }
+
+  async function handleSaveEdit() {
+    const ids = Array.from(editingRowIds);
+    if (ids.length === 0) return;
+    setSavingEdits(true);
+    try {
+      for (const id of ids) {
+        const payload = editBuffer[id];
+        if (!payload) continue;
+        const res = await fetch(`/api/finding-inventory/${id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err?.message || `Failed to update finding ${id}`);
+        }
+      }
+      setEditingRowIds(new Set());
+      setEditBuffer({});
+      await fetchFindings();
+      setStatusMsg('Selected finding rows updated successfully.');
+    } catch (err) {
+      setStatusMsg(err.message || 'Failed to save finding edits.');
+    } finally {
+      setSavingEdits(false);
+    }
+  }
+
+  function handleCancelEdit() {
+    setEditingRowIds(new Set());
+    setEditBuffer({});
+    setStatusMsg('Edit canceled.');
+  }
+
+  async function createIssueRequest() {
+    const findingIdNum = Number(issueForm.findingId);
+    const quantityNum = Number(issueForm.quantity);
+    const issuedTo = issueForm.issuedTo.trim();
+    const issuedBy = issueForm.issuedBy.trim();
+    const reason = issueForm.reason.trim();
+    if (!findingIdNum) { setStatusMsg('Please select a finding for the request.'); return; }
+    if (!Number.isFinite(quantityNum) || quantityNum <= 0) { setStatusMsg('Please enter a valid quantity greater than 0.'); return; }
+    if (!issuedTo) { setStatusMsg('Please enter who the finding is issued to.'); return; }
+    if (!issuedBy) { setStatusMsg('Please enter who issued the finding.'); return; }
+    if (!reason) { setStatusMsg('Please enter reason of issue.'); return; }
+    const finding = findings.find((f) => f.id === findingIdNum);
+    try {
+      const res = await fetch('/api/issue-requests', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ inventory_type: 'finding', item_id: findingIdNum, item_name: findingName(finding), quantity: quantityNum, issued_to: issuedTo, issued_by: issuedBy, reason }),
+      });
+      if (!res.ok) throw new Error(`Error ${res.status}`);
+      setIssueOpen(false);
+      setIssueForm({ findingId: '', quantity: '', issuedTo: '', issuedBy: '', reason: '' });
+      await fetchIssueRequests();
+      setStatusMsg('Issue request created.');
+    } catch (err) { setStatusMsg(err.message || 'Failed to create issue request'); }
+  }
+
+  function openRequestDetails(requestId) {
+    setActiveRequestId(requestId);
+    setRequestDetailsOpen(true);
+  }
+
+  async function reviewIssueRequest(nextStatus) {
+    if (!activeRequest) return;
+    setReviewError('');
+    try {
+      const res = await fetch(`/api/issue-requests/${activeRequest.id}/review`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: nextStatus }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setReviewError(data?.message || `Error ${res.status}`);
+        return;
+      }
+      setReviewError('');
+      await fetchFindings();
+      setRequestDetailsOpen(false);
+      await fetchIssueRequests();
+      setStatusMsg(`Request ${nextStatus}.`);
+    } catch (err) { setReviewError(err.message || 'Review failed'); }
+  }
+
+  function relativeTime(iso) {
+    if (!iso) return '';
+    const diff = Date.now() - new Date(iso).getTime();
+    const min = Math.floor(diff / 60000);
+    if (min < 1) return 'just now';
+    if (min < 60) return `${min}m`;
+    const hr = Math.floor(min / 60);
+    if (hr < 24) return `${hr}h`;
+    const day = Math.floor(hr / 24);
+    return `${day}d`;
+  }
+
+  function printIssueVoucher(request) {
+    if (!request) return;
+    const opened = window.open('', '_blank', 'width=900,height=700');
+    if (!opened) {
+      setStatusMsg('Popup blocked. Please allow popups to print voucher.');
+      return;
+    }
+    const requestedAt = (request.requested_at || request.requestedAt) ? new Date(request.requested_at || request.requestedAt).toLocaleString() : '-';
+    const reviewedAt = (request.reviewed_at || request.reviewedAt) ? new Date(request.reviewed_at || request.reviewedAt).toLocaleString() : '-';
+    const html = `
+      <html>
+        <head>
+          <title>Finding Issue Voucher</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 24px; color: #111827; }
+            h1 { margin: 0 0 4px; font-size: 22px; }
+            p { margin: 0 0 16px; color: #6B7280; }
+            table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+            th, td { border: 1px solid #E5E7EB; padding: 10px; text-align: left; font-size: 14px; }
+            th { background: #F8F9FA; width: 220px; }
+            .badge { display: inline-block; padding: 4px 10px; border-radius: 999px; background: #DCFCE7; color: #166534; font-weight: 600; }
+          </style>
+        </head>
+        <body>
+          <h1>Finding Issue Voucher</h1>
+          <p>Generated from Finding Inventory requests panel</p>
+          <table>
+            <tr><th>Request ID</th><td>${request.id}</td></tr>
+            <tr><th>Finding Name</th><td>${request.item_name || request.findingName}</td></tr>
+            <tr><th>Quantity</th><td>${request.quantity}</td></tr>
+            <tr><th>Issued To</th><td>${request.issued_to || request.issuedTo}</td></tr>
+            <tr><th>Issued By</th><td>${request.issued_by || request.issuedBy || '-'}</td></tr>
+            <tr><th>Reason of Issue</th><td>${request.reason || '-'}</td></tr>
+            <tr><th>Status</th><td><span class="badge">${String(request.status || '').toUpperCase()}</span></td></tr>
+            <tr><th>Requested At</th><td>${requestedAt}</td></tr>
+            <tr><th>Reviewed At</th><td>${reviewedAt}</td></tr>
+          </table>
+        </body>
+      </html>
+    `;
+    opened.document.open();
+    opened.document.write(html);
+    opened.document.close();
+    opened.focus();
+    opened.print();
+  }
+
+  function handlePrintTable() {
+    window.print();
+  }
+
+  function toggleColumnSelection(columnId) {
+    const next = new Set(selectedColumnsForAction);
+    if (next.has(columnId)) next.delete(columnId);
+    else next.add(columnId);
+    setSelectedColumnsForAction(next);
+  }
+
+  function toggleSelectAllColumns() {
+    if (selectedColumnsForAction.size === FINDING_COLUMNS.length) {
+      setSelectedColumnsForAction(new Set());
+    } else {
+      setSelectedColumnsForAction(new Set(FINDING_COLUMNS.map((column) => column.id)));
+    }
+  }
+
+  function handleHideColumns() {
+    const next = new Set(visibleColumns);
+    selectedColumnsForAction.forEach((columnId) => next.delete(columnId));
+    setVisibleColumns(next);
+    setSelectedColumnsForAction(new Set());
+    setIsManageColumnsOpen(false);
+  }
+
+  function handleShowColumns() {
+    const next = new Set(visibleColumns);
+    selectedColumnsForAction.forEach((columnId) => next.add(columnId));
+    setVisibleColumns(next);
+    setSelectedColumnsForAction(new Set());
+    setIsManageColumnsOpen(false);
+  }
+
+  const clearFilters = () => {
+    setSearch('');
+    setFilterMaterial('');
+    setFilterStage('');
+    setFilterMechanism('');
+    setCustomMaterialFilter('');
+    setCustomStageFilter('');
+    setCustomMechanismFilter('');
+  };
+
+  const hasActiveFilters = search || filterMaterial || filterStage || filterMechanism || customMaterialFilter || customStageFilter || customMechanismFilter;
+
+  function ff(key) {
+    return (val) => setForm((prev) => ({ ...prev, [key]: val }));
+  }
+
+  async function handleSaveFinding() {
+    if (!form.finding_code.trim()) {
+      setStatusMsg('Finding Code is required.');
+      return;
+    }
+    setSaving(true);
+    setStatusMsg('');
+    try {
+      const res = await fetch('/api/finding-inventory', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(JSON.stringify(err));
+      }
+      setStatusMsg('Finding added successfully.');
+      setAddOpen(false);
+      setForm(emptyFinding());
+      fetchFindings();
+    } catch (err) {
+      setStatusMsg(`Error: ${err.message}`);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <main className="min-h-screen bg-cloud-gray">
+      {/* Header */}
+      <div className="transition-[left,width] duration-300 ease-in-out fixed top-0 left-0 right-0 z-[60] bg-background/95 py-2 border-b border-soft-border shadow-sm backdrop-blur px-3 md:px-4">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <MasterNavigationDrawer inHeader />
+            <h1 className="text-xl font-bold tracking-tight text-midnight-ink">FINDING INVENTORY</h1>
+          </div>
+          <GlobalSearchBar />
+          <DateTimeStamp />
+        </div>
+      </div>
+
+      <div className="w-full px-3 md:px-4 pt-16 pb-16">
+        {/* Status message */}
+        {statusMsg && (
+          <div className="fixed top-16 right-4 z-50 flex items-center justify-between gap-3 rounded-lg border border-soft-border bg-background px-4 py-2 text-sm text-midnight-ink shadow-md">
+            <span>{statusMsg}</span>
+            <button onClick={() => setStatusMsg('')}><X className="h-3.5 w-3.5 text-cool-gray hover:text-midnight-ink" /></button>
+          </div>
+        )}
+
+        {/* Back + summary row */}
+        <div className="mb-4 flex justify-end">
+          <Link
+            href="/inventory"
+            className="inline-flex items-center gap-2 rounded-lg border border-soft-border bg-background px-3 py-2 text-sm font-medium text-midnight-ink hover:border-trust-blue transition"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back
+          </Link>
+        </div>
+
+        <div className="mb-4 flex flex-wrap gap-2 md:gap-3 justify-end items-center">
+          <Button onClick={fetchFindings} variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8">
+            <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
+            Refresh
+          </Button>
+          <Button onClick={handlePrintTable} variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8">
+            <Printer className="w-3.5 h-3.5 mr-1.5" />
+            Print
+          </Button>
+          <SortPopover
+            columns={[
+              { id: 'finding_code', label: 'Finding Code' },
+              { id: 'die_number', label: 'Die No.' },
+              { id: 'material', label: 'Material' },
+              { id: 'finding_stage', label: 'Stage' },
+              { id: 'mechanism', label: 'Mechanism' },
+              { id: 'quantity', label: 'Quantity' },
+              { id: 'weight', label: 'Weight' },
+            ]}
+            sortField={sortField}
+            sortDir={sortDir}
+            onSort={handleSort}
+            onClear={() => { setSortField(''); setSortDir('asc'); }}
+          />
+          <Button onClick={() => setIsManageColumnsOpen(true)} variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8">
+            Manage Columns
+          </Button>
+          <Button onClick={handleEditRows} variant="outline" disabled={editingRowIds.size > 0} className="border-trust-blue text-trust-blue hover:bg-trust-blue/10 rounded-full px-4 text-sm h-8">
+            <Pencil className="w-3.5 h-3.5 mr-1.5" />
+            Edit Row
+          </Button>
+          <Button onClick={() => { setForm(emptyFinding()); setStatusMsg(''); setAddOpen(true); }} variant="outline" className="border-trust-blue text-trust-blue hover:bg-trust-blue/10 rounded-full px-4 text-sm h-8">
+            <Plus className="w-3.5 h-3.5 mr-1.5" />
+            New Finding
+          </Button>
+          <Button onClick={openReceivePopup} variant="outline" className="border-emerald-500 text-emerald-600 hover:bg-emerald-50 rounded-full px-4 text-sm h-8">
+            Add Finding
+          </Button>
+          <Button onClick={openIssuePopup} variant="outline" className="border-trust-blue text-trust-blue hover:bg-trust-blue/10 rounded-full px-4 text-sm h-8">
+            Issue Finding
+          </Button>
+          <div className="relative">
+            {exportMenuOpen && <div className="fixed inset-0 z-10" onClick={() => setExportMenuOpen(false)} />}
+            <Button onClick={() => setExportMenuOpen((p) => !p)} variant="outline"
+              className="relative z-20 border-emerald-500 text-emerald-600 hover:bg-emerald-50 rounded-full px-4 text-sm h-8 flex items-center gap-1.5">
+              <Download className="w-3.5 h-3.5" /> Export <ChevronDown className="w-3.5 h-3.5" />
+            </Button>
+            {exportMenuOpen && (
+              <div className="absolute right-0 top-9 z-30 w-52 rounded-lg bg-background shadow-lg border border-soft-border py-1">
+                <button type="button" onClick={exportToExcel} className="w-full px-4 py-2 text-sm text-midnight-ink hover:bg-cloud-gray text-left">Export as Excel (.xlsx)</button>
+                <button type="button" onClick={exportToPDF} className="w-full px-4 py-2 text-sm text-midnight-ink hover:bg-cloud-gray text-left">Export as PDF</button>
+              </div>
+            )}
+          </div>
+          <Button onClick={() => setRequestsPanelOpen((prev) => !prev)} variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8">
+            Requests
+            {pendingIssueRequests.length > 0 && (
+              <span className="ml-1 rounded-full bg-danger px-1.5 py-0.5 text-[10px] text-white leading-none">
+                {pendingIssueRequests.length}
+              </span>
+            )}
+          </Button>
+        </div>
+
+        {editingRowIds.size > 0 && (
+          <div className="mb-2 flex items-center gap-2">
+            <Button onClick={handleSaveEdit} disabled={savingEdits} className="h-8 px-3 bg-success text-white hover:bg-success/90">
+              {savingEdits ? 'Saving...' : 'Save Changes'}
+            </Button>
+            <Button variant="outline" onClick={handleCancelEdit} disabled={savingEdits} className="h-8 px-3 border-danger text-danger hover:bg-danger/10">
+              Cancel Edit
+            </Button>
+          </div>
+        )}
+
+        {/* Filters */}
+        <section className="border border-soft-border rounded-lg mb-4 bg-blue-100 dark:bg-blue-900/20 p-3">
+          <div className="flex flex-wrap gap-2 items-center">
+            {/* Search */}
+            <div className="relative">
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search"
+                className="h-8 text-sm w-36 bg-background rounded-md border border-trust-blue/40 px-3"
+              />
+            </div>
+
+            <MultiselectFilterPopover
+              label="Material"
+              selectedValues={filterMaterial}
+              onSelectValues={setFilterMaterial}
+              options={MATERIAL_OPTIONS}
+              storageKey="inventory:finding:material"
+            />
+
+            <MultiselectFilterPopover
+              label="Stage"
+              selectedValues={filterStage}
+              onSelectValues={setFilterStage}
+              options={STAGE_OPTIONS}
+              storageKey="inventory:finding:stage"
+            />
+
+            <MultiselectFilterPopover
+              label="Mechanism"
+              selectedValues={filterMechanism}
+              onSelectValues={setFilterMechanism}
+              options={mechanismOptions}
+              storageKey="inventory:finding:mechanism"
+            />
+            <button
+              type="button"
+              onClick={() => {
+                setSearch('');
+                setFilterMaterial([]);
+                setFilterStage([]);
+                setFilterMechanism([]);
+              }}
+              className="h-8 px-3 text-sm border rounded bg-trust-blue text-white border-trust-blue font-medium"
+            >
+              Clear
+            </button>
+          </div>
+        </section>
+
+        {/* Error */}
+        {fetchError && (
+          <div className="mb-4 rounded-lg border border-danger-soft bg-danger-soft px-4 py-3 text-sm text-danger">
+            {fetchError}
+          </div>
+        )}
+
+        {/* Table */}
+        <section className="rounded-xl border border-soft-border bg-background shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[900px] border-collapse text-sm">
+              <thead>
+                <tr className="bg-blue-100 dark:bg-blue-900/20 border-b border-soft-border">
+                  <th className="border border-soft-border px-3 py-2.5 text-left">
+                    <input
+                      type="checkbox"
+                      checked={allSelected}
+                      ref={(el) => { if (el) el.indeterminate = someSelected; }}
+                      onChange={toggleSelectAll}
+                      disabled={editingRowIds.size > 0}
+                      className="h-4 w-4 cursor-pointer rounded border-soft-border accent-trust-blue"
+                    />
+                  </th>
+                  {visibleColumns.has('sno') && <th className="border border-soft-border px-3 py-2.5 text-left text-xs font-normal text-foreground w-12">#</th>}
+                  {visibleColumns.has('finding_code') && <th className="border border-soft-border px-3 py-2.5 text-left text-xs font-normal text-foreground">Finding Code</th>}
+                  {visibleColumns.has('die_number') && <th className="border border-soft-border px-3 py-2.5 text-left text-xs font-normal text-foreground">Die No.</th>}
+                  {visibleColumns.has('size') && <th className="border border-soft-border px-3 py-2.5 text-left text-xs font-normal text-foreground">Size</th>}
+                  {visibleColumns.has('material') && <th className="border border-soft-border px-3 py-2.5 text-left text-xs font-normal text-foreground">Material</th>}
+                  {visibleColumns.has('finding_stage') && <th className="border border-soft-border px-3 py-2.5 text-left text-xs font-normal text-foreground">Stage</th>}
+                  {visibleColumns.has('mechanism') && <th className="border border-soft-border px-3 py-2.5 text-left text-xs font-normal text-foreground">Mechanism</th>}
+                  {visibleColumns.has('quantity') && <th className="border border-soft-border px-3 py-2.5 text-right text-xs font-normal text-foreground">Quantity</th>}
+                  {visibleColumns.has('used_qty') && <th className="border border-soft-border px-3 py-2.5 text-right text-xs font-normal text-foreground">Used Qty</th>}
+                  {visibleColumns.has('weight') && <th className="border border-soft-border px-3 py-2.5 text-right text-xs font-normal text-foreground">Weight</th>}
+                  {visibleColumns.has('dead_weight') && <th className="border border-soft-border px-3 py-2.5 text-right text-xs font-normal text-foreground">Dead Wt.</th>}
+                  {visibleColumns.has('mold_qty_per_die') && <th className="border border-soft-border px-3 py-2.5 text-right text-xs font-normal text-foreground">Mold Qty/Die</th>}
+                </tr>
+              </thead>
+              <tbody>
+                {loading && (
+                  <tr>
+                    <td colSpan={visibleTableColumnCount} className="border border-soft-border px-4 py-10 text-center text-sm text-cool-gray">
+                      Loading findings…
+                    </td>
+                  </tr>
+                )}
+                {!loading && filtered.length === 0 && (
+                  <tr>
+                    <td colSpan={visibleTableColumnCount} className="border border-soft-border px-4 py-10 text-center text-sm text-cool-gray">
+                      {hasActiveFilters ? 'No findings match your filters.' : 'No findings found.'}
+                    </td>
+                  </tr>
+                )}
+                {!loading &&
+                  pagedFiltered.map((f, index) => {
+                    const isSelected = selectedIds.has(f.id);
+                    return (
+                    <tr
+                      key={f.id}
+                      className={`border-b border-soft-border/70 last:border-b-0 transition-colors ${isSelected ? 'bg-blue-50' : 'hover:bg-cloud-gray/50'}`}
+                    >
+                      <td className="border border-soft-border px-3 py-2.5">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => toggleRow(f.id)}
+                          disabled={editingRowIds.size > 0}
+                          className="h-4 w-4 cursor-pointer rounded border-soft-border accent-trust-blue"
+                        />
+                      </td>
+                      {visibleColumns.has('sno') && <td className="border border-soft-border px-3 py-2.5 text-cool-gray">{(safePage - 1) * rowsPerPage + index + 1}</td>}
+                      {editingRowIds.has(f.id) ? (
+                        <>
+                          {visibleColumns.has('finding_code') && <td className="border border-soft-border px-3 py-2.5"><input type="text" value={editBuffer[f.id]?.finding_code ?? ''} onChange={(e) => updateEditBuffer(f.id, 'finding_code', e.target.value)} className="h-8 w-full rounded border border-soft-border px-2 text-sm" /></td>}
+                          {visibleColumns.has('die_number') && <td className="border border-soft-border px-3 py-2.5"><input type="text" value={editBuffer[f.id]?.die_number ?? ''} onChange={(e) => updateEditBuffer(f.id, 'die_number', e.target.value)} className="h-8 w-full rounded border border-soft-border px-2 text-sm" /></td>}
+                          {visibleColumns.has('size') && <td className="border border-soft-border px-3 py-2.5"><input type="text" value={editBuffer[f.id]?.size ?? ''} onChange={(e) => updateEditBuffer(f.id, 'size', e.target.value)} className="h-8 w-full rounded border border-soft-border px-2 text-sm" /></td>}
+                          {visibleColumns.has('material') && <td className="border border-soft-border px-3 py-2.5">
+                            <select value={editBuffer[f.id]?.material ?? ''} onChange={(e) => updateEditBuffer(f.id, 'material', e.target.value)} className="h-8 w-full rounded border border-soft-border bg-background px-2 text-sm">
+                              <option value="">Select</option>
+                              {MATERIAL_OPTIONS.map((m) => <option key={m} value={m}>{m}</option>)}
+                            </select>
+                          </td>}
+                          {visibleColumns.has('finding_stage') && <td className="border border-soft-border px-3 py-2.5">
+                            <select value={editBuffer[f.id]?.finding_stage ?? ''} onChange={(e) => updateEditBuffer(f.id, 'finding_stage', e.target.value)} className="h-8 w-full rounded border border-soft-border bg-background px-2 text-sm">
+                              <option value="">Select</option>
+                              {STAGE_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
+                            </select>
+                          </td>}
+                          {visibleColumns.has('mechanism') && <td className="border border-soft-border px-3 py-2.5"><input type="text" value={editBuffer[f.id]?.mechanism ?? ''} onChange={(e) => updateEditBuffer(f.id, 'mechanism', e.target.value)} className="h-8 w-full rounded border border-soft-border px-2 text-sm" /></td>}
+                          {visibleColumns.has('quantity') && <td className="border border-soft-border px-3 py-2.5"><input type="number" value={editBuffer[f.id]?.quantity ?? ''} onChange={(e) => updateEditBuffer(f.id, 'quantity', e.target.value)} className="h-8 w-full rounded border border-soft-border px-2 text-sm text-right" /></td>}
+                          {visibleColumns.has('used_qty') && <td className="border border-soft-border px-3 py-2.5"><input type="number" value={editBuffer[f.id]?.used_qty ?? ''} onChange={(e) => updateEditBuffer(f.id, 'used_qty', e.target.value)} className="h-8 w-full rounded border border-soft-border px-2 text-sm text-right" /></td>}
+                          {visibleColumns.has('weight') && <td className="border border-soft-border px-3 py-2.5"><input type="number" value={editBuffer[f.id]?.weight ?? ''} onChange={(e) => updateEditBuffer(f.id, 'weight', e.target.value)} className="h-8 w-full rounded border border-soft-border px-2 text-sm text-right" /></td>}
+                          {visibleColumns.has('dead_weight') && <td className="border border-soft-border px-3 py-2.5"><input type="number" value={editBuffer[f.id]?.dead_weight ?? ''} onChange={(e) => updateEditBuffer(f.id, 'dead_weight', e.target.value)} className="h-8 w-full rounded border border-soft-border px-2 text-sm text-right" /></td>}
+                          {visibleColumns.has('mold_qty_per_die') && <td className="border border-soft-border px-3 py-2.5"><input type="number" value={editBuffer[f.id]?.mold_qty_per_die ?? ''} onChange={(e) => updateEditBuffer(f.id, 'mold_qty_per_die', e.target.value)} className="h-8 w-full rounded border border-soft-border px-2 text-sm text-right" /></td>}
+                        </>
+                      ) : (
+                        <>
+                          {visibleColumns.has('finding_code') && <td className="border border-soft-border px-3 py-2.5 font-medium">
+                            <Link
+                              href={`/finding-entry?code=${encodeURIComponent(f.finding_code)}`}
+                              className="text-trust-blue hover:underline"
+                            >
+                              {f.finding_code || '—'}
+                            </Link>
+                          </td>}
+                          {visibleColumns.has('die_number') && <td className="border border-soft-border px-3 py-2.5 text-midnight-ink">{f.die_number || '—'}</td>}
+                          {visibleColumns.has('size') && <td className="border border-soft-border px-3 py-2.5 text-midnight-ink">{f.size || '—'}</td>}
+                          {visibleColumns.has('material') && <td className="border border-soft-border px-3 py-2.5">
+                            {f.material ? (
+                              <span className="inline-block rounded-full bg-cloud-gray px-2.5 py-0.5 text-xs font-medium text-slate-text">
+                                {f.material}
+                              </span>
+                            ) : '—'}
+                          </td>}
+                          {visibleColumns.has('finding_stage') && <td className="border border-soft-border px-3 py-2.5">
+                            {f.finding_stage ? (
+                              <span className="inline-block rounded-full bg-sky-50 px-2.5 py-0.5 text-xs font-medium text-sky-700">
+                                {f.finding_stage}
+                              </span>
+                            ) : '—'}
+                          </td>}
+                          {visibleColumns.has('mechanism') && <td className="border border-soft-border px-3 py-2.5 text-midnight-ink">{f.mechanism || '—'}</td>}
+                          {visibleColumns.has('quantity') && <td className="border border-soft-border px-3 py-2.5 text-right text-midnight-ink font-medium">
+                            {fmtNum(f.quantity) || '—'}
+                          </td>}
+                          {visibleColumns.has('used_qty') && <td className="border border-soft-border px-3 py-2.5 text-right text-midnight-ink font-medium">
+                            {fmtNum(f.used_qty) || '—'}
+                          </td>}
+                          {visibleColumns.has('weight') && <td className="border border-soft-border px-3 py-2.5 text-right text-midnight-ink">{fmtNum(f.weight) || '—'}</td>}
+                          {visibleColumns.has('dead_weight') && <td className="border border-soft-border px-3 py-2.5 text-right text-midnight-ink">{fmtNum(f.dead_weight) || '—'}</td>}
+                          {visibleColumns.has('mold_qty_per_die') && <td className="border border-soft-border px-3 py-2.5 text-right text-midnight-ink">{fmtNum(f.mold_qty_per_die) || '—'}</td>}
+                        </>
+                      )}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Footer summary */}
+          {!loading && filtered.length > 0 && (
+            <div className="border-t border-soft-border px-4 py-3 flex items-center justify-between">
+              <span className="text-xs text-cool-gray">
+                Showing {filtered.length} of {findings.length} findings
+              </span>
+              <Link
+                href="/finding-entry"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-trust-blue bg-trust-blue px-3 py-1.5 text-sm font-semibold text-white hover:opacity-90 transition"
+              >
+                + Add Finding
+              </Link>
+            </div>
+          )}
+        </section>
+      </div>
+
+      {requestsPanelOpen && (
+        <>
+          <div className="fixed inset-0 z-[75] bg-black/20" onClick={() => setRequestsPanelOpen(false)} />
+          <aside className="fixed right-2 top-[64px] z-[80] h-[calc(100vh-72px)] w-full max-w-[390px] rounded-2xl border border-soft-border bg-background shadow-2xl">
+            <div className="flex h-full flex-col">
+              <div className="flex items-center justify-between border-b border-soft-border px-4 py-3">
+                <div>
+                  <h3 className="text-base font-semibold text-midnight-ink">Notifications</h3>
+                  <p className="text-xs text-cool-gray">Issue requests for findings</p>
+                </div>
+                <button onClick={() => setRequestsPanelOpen(false)} className="rounded-md p-1 text-cool-gray hover:bg-muted hover:text-midnight-ink">
+                  <X size={16} />
+                </button>
+              </div>
+              <div className="flex-1 overflow-y-auto">
+                {sortedIssueRequests.length === 0 ? (
+                  <div className="px-4 py-6 text-sm text-cool-gray">No requests yet.</div>
+                ) : (
+                  <div className="divide-y divide-soft-border">
+                    {sortedIssueRequests.map((req) => {
+                      const statusClass =
+                        req.status === 'approved'
+                          ? 'bg-emerald-100 text-emerald-800'
+                          : req.status === 'declined'
+                            ? 'bg-red-100 text-red-700'
+                            : 'bg-amber-100 text-amber-800';
+                      return (
+                        <button
+                          key={req.id}
+                          onClick={() => openRequestDetails(req.id)}
+                          className="w-full rounded-xl px-4 py-3 text-left transition hover:bg-muted"
+                        >
+                          <div className="flex items-start gap-3">
+                            <div className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/20 text-xs font-semibold text-trust-blue">
+                              {String(req.item_name || req.findingName || 'F').charAt(0).toUpperCase()}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-sm text-midnight-ink">
+                                <span className="font-semibold">{req.issued_to || req.issuedTo}</span> requested <span className="font-semibold">{req.quantity}</span> of {req.item_name || req.findingName}
+                              </p>
+                              <p className="mt-0.5 truncate text-xs text-cool-gray">Reason: {req.reason || '-'}</p>
+                              <div className="mt-1 flex items-center gap-2">
+                                <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${statusClass}`}>
+                                  {req.status}
+                                </span>
+                                {req.status === 'approved' && canExport && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      printIssueVoucher(req);
+                                    }}
+                                    className="inline-flex items-center gap-1 rounded-full border border-soft-border px-2 py-0.5 text-[10px] font-semibold text-midnight-ink hover:border-trust-blue"
+                                  >
+                                    <Printer size={10} />
+                                    Print
+                                  </button>
+                                )}
+                                <span className="text-[11px] text-cool-gray">{relativeTime(req.requested_at || req.requestedAt)}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          </aside>
+        </>
+      )}
+
+      {/* ── Add New Finding dialog ── */}
+      <Dialog open={addOpen} onOpenChange={setAddOpen}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-semibold text-midnight-ink">Add New Finding</DialogTitle>
+          </DialogHeader>
+
+          <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+            <Field label="Finding Code *" value={form.finding_code} onChange={ff('finding_code')} />
+            <Field label="Die Number" value={form.die_number} onChange={ff('die_number')} />
+            <Field label="Size" value={form.size} onChange={ff('size')} />
+
+            <Field label="Material">
+              <select
+                value={form.material}
+                onChange={(e) => ff('material')(e.target.value)}
+                className="w-full rounded-md border border-soft-border bg-background px-3 py-1.5 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+              >
+                <option value="">Select material</option>
+                {MATERIAL_OPTIONS.map((m) => <option key={m} value={m}>{m}</option>)}
+              </select>
+            </Field>
+
+            <Field label="Stage">
+              <select
+                value={form.finding_stage}
+                onChange={(e) => ff('finding_stage')(e.target.value)}
+                className="w-full rounded-md border border-soft-border bg-background px-3 py-1.5 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+              >
+                <option value="">Select stage</option>
+                {STAGE_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </Field>
+
+            <Field label="Mechanism" value={form.mechanism} onChange={ff('mechanism')} />
+            <Field label="Quantity" value={form.quantity} onChange={ff('quantity')} />
+            <Field label="Weight" value={form.weight} onChange={ff('weight')} />
+            <Field label="Dead Weight" value={form.dead_weight} onChange={ff('dead_weight')} />
+            <Field label="Mold Qty / Die" value={form.mold_qty_per_die} onChange={ff('mold_qty_per_die')} />
+            <Field label="Polish" value={form.polish} onChange={ff('polish')} />
+            <Field label="Total Measurements" value={form.total_measurements} onChange={ff('total_measurements')} />
+            <Field label="Design Material" value={form.design_material} onChange={ff('design_material')} />
+            <div className="sm:col-span-2 md:col-span-3">
+              <Field label="Notes" value={form.notes} onChange={ff('notes')} textarea />
+            </div>
+          </div>
+
+          {statusMsg && !addOpen && null}
+
+          <div className="mt-5 flex justify-end gap-3">
+            <Button variant="outline" onClick={() => setAddOpen(false)} disabled={saving}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveFinding} disabled={saving}>
+              {saving ? 'Saving...' : 'Save Finding'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={issueOpen} onOpenChange={setIssueOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-semibold text-midnight-ink">Issue Finding</DialogTitle>
+          </DialogHeader>
+
+          <div className="mt-2 grid grid-cols-1 gap-4">
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Name of Finding</label>
+              <select
+                value={issueForm.findingId}
+                onChange={(e) => setIssueForm((prev) => ({ ...prev, findingId: e.target.value }))}
+                className="w-full rounded-md border border-soft-border bg-background px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+              >
+                <option value="">Select finding</option>
+                {findings.map((finding) => (
+                  <option key={finding.id} value={finding.id}>{findingName(finding)}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+              <Field
+                label="Quantity"
+                type="number"
+                value={issueForm.quantity}
+                onChange={(value) => {
+                  if (value === '') {
+                    setIssueForm((prev) => ({ ...prev, quantity: '' }));
+                    return;
+                  }
+                  const num = Number(value);
+                  setIssueForm((prev) => ({ ...prev, quantity: String(Number.isFinite(num) ? Math.max(0, num) : 0) }));
+                }}
+              />
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Issued To</label>
+                <select
+                  value={issueForm.issuedTo}
+                  onChange={(e) => setIssueForm((prev) => ({ ...prev, issuedTo: e.target.value }))}
+                  className="w-full rounded-md border border-soft-border bg-background px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                >
+                  <option value="">Select person</option>
+                  {workforceMembers.map((m) => (
+                    <option key={m.id} value={m.full_name}>{m.full_name}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Issued By</label>
+                <select
+                  value={issueForm.issuedBy}
+                  onChange={(e) => setIssueForm((prev) => ({ ...prev, issuedBy: e.target.value }))}
+                  className="w-full rounded-md border border-soft-border bg-background px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                >
+                  <option value="">Select person</option>
+                  {workforceMembers.map((m) => (
+                    <option key={m.id} value={m.full_name}>{m.full_name}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div>
+              <button type="button" onClick={() => setEnrollWorkforceOpen(true)} className="text-xs text-trust-blue hover:underline text-left">+ Enroll Workforce</button>
+            </div>
+
+            <Field
+              label="Reason of Issue"
+              value={issueForm.reason}
+              onChange={(value) => setIssueForm((prev) => ({ ...prev, reason: value }))}
+            />
+          </div>
+
+          <div className="mt-5 flex justify-end gap-3">
+            <Button variant="outline" onClick={() => setIssueOpen(false)}>Cancel</Button>
+            <Button onClick={createIssueRequest}>Request</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={receiveOpen} onOpenChange={setReceiveOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-semibold text-midnight-ink">Add Finding</DialogTitle>
+          </DialogHeader>
+          <div className="mt-2 grid grid-cols-1 gap-4">
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Finding</label>
+              <select
+                value={receiveForm.findingId}
+                onChange={(e) => setReceiveForm((prev) => ({ ...prev, findingId: e.target.value }))}
+                className="w-full rounded-md border border-soft-border bg-background px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+              >
+                <option value="">Select finding</option>
+                {findings.map((f) => (
+                  <option key={f.id} value={f.id}>{f.finding_name || f.finding_code || `Finding #${f.id}`}</option>
+                ))}
+              </select>
+              {receiveForm.findingId && (() => {
+                const _f = findings.find((f) => f.id === Number(receiveForm.findingId));
+                const _stock = Number(_f?.quantity ?? 0);
+                return (
+                  <p className="text-xs text-cool-gray mt-0.5">
+                    Current stock: <span className="font-semibold text-emerald-600">{_stock}</span>
+                  </p>
+                );
+              })()}
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Employee / Vendor Name</label>
+              <select
+                value={receiveForm.employeeVendorName}
+                onChange={(e) => setReceiveForm((prev) => ({ ...prev, employeeVendorName: e.target.value }))}
+                className="w-full rounded-md border border-soft-border bg-background px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+              >
+                <option value="">Select person</option>
+                {workforceMembers.map((m) => (
+                  <option key={m.id} value={m.full_name}>{m.full_name}</option>
+                ))}
+              </select>
+              <button type="button" onClick={() => setEnrollWorkforceOpen(true)} className="text-xs text-trust-blue hover:underline mt-0.5 text-left">+ Quick Enrol Workforce</button>
+            </div>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Reference ID</label>
+                <input
+                  type="text"
+                  value={receiveForm.referenceId}
+                  onChange={(e) => setReceiveForm((prev) => ({ ...prev, referenceId: e.target.value }))}
+                  placeholder="e.g. REF-001"
+                  className="w-full rounded-md border border-soft-border px-3 py-1.5 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Quantity</label>
+                <input
+                  type="number"
+                  min={0}
+                  value={receiveForm.quantity}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (value === '') { setReceiveForm((prev) => ({ ...prev, quantity: '' })); return; }
+                    const num = Number(value);
+                    setReceiveForm((prev) => ({ ...prev, quantity: String(Number.isFinite(num) ? Math.max(0, num) : 0) }));
+                  }}
+                  className="w-full rounded-md border border-soft-border px-3 py-1.5 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Price</label>
+                <input
+                  type="text"
+                  value={receiveForm.price}
+                  onChange={(e) => setReceiveForm((prev) => ({ ...prev, price: e.target.value }))}
+                  placeholder="e.g. 500"
+                  className="w-full rounded-md border border-soft-border px-3 py-1.5 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                />
+              </div>
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Usage</label>
+              <select
+                value={receiveForm.usage}
+                onChange={(e) => setReceiveForm((prev) => ({ ...prev, usage: e.target.value }))}
+                className="w-full rounded-md border border-soft-border bg-background px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+              >
+                <option value="new">New</option>
+                <option value="used">Used</option>
+              </select>
+            </div>
+          </div>
+          <div className="mt-5 flex justify-end gap-3">
+            <Button variant="outline" onClick={() => setReceiveOpen(false)}>Cancel</Button>
+            <Button onClick={createReceiveRequest}>Receive</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={requestDetailsOpen} onOpenChange={(open) => { setRequestDetailsOpen(open); if (!open) setReviewError(''); }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-semibold text-midnight-ink">Issue Request Details</DialogTitle>
+          </DialogHeader>
+
+          {activeRequest ? (
+            <div className="mt-2 grid grid-cols-1 gap-3">
+              <Field label="Finding Code" value={activeRequest.item_name || activeRequest.findingName} disabled />
+              <Field label="Quantity" value={String(activeRequest.quantity)} disabled />
+              <Field label="Issued To" value={activeRequest.issued_to || activeRequest.issuedTo} disabled />
+              <Field label="Issued By" value={activeRequest.issued_by || activeRequest.issuedBy || '-'} disabled />
+              <Field label="Reason of Issue" value={activeRequest.reason || '-'} disabled />
+              <Field label="Status" value={activeRequest.status.toUpperCase()} disabled />
+              <Field label="Requested At" value={new Date(activeRequest.requested_at || activeRequest.requestedAt).toLocaleString()} disabled />
+            </div>
+          ) : (
+            <p className="text-sm text-cool-gray">Request not found.</p>
+          )}
+
+          {reviewError && (
+            <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
+              {reviewError}
+            </div>
+          )}
+
+          <div className="mt-5 flex justify-end gap-3">
+            <Button variant="outline" onClick={() => setRequestDetailsOpen(false)}>Close</Button>
+            {activeRequest?.status === 'pending' && (
+              <>
+                <Button variant="destructive" onClick={() => reviewIssueRequest('rejected')}>Decline</Button>
+                <Button onClick={() => reviewIssueRequest('approved')}>Approve</Button>
+              </>
+            )}
+            {activeRequest?.status === 'approved' && canExport && (
+              <Button variant="outline" onClick={() => printIssueVoucher(activeRequest)}>
+                <Printer size={14} className="mr-2" />
+                Print
+              </Button>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isManageColumnsOpen} onOpenChange={setIsManageColumnsOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Manage Columns</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 max-h-[400px] overflow-y-auto py-4">
+            <div className="flex items-center justify-between gap-3 pb-3 border-b border-soft-border mb-3">
+              <div className="flex items-center gap-3 flex-1">
+                <input
+                  id="select-all-finding-inventory-columns"
+                  type="checkbox"
+                  checked={selectedColumnsForAction.size === FINDING_COLUMNS.length && FINDING_COLUMNS.length > 0}
+                  onChange={toggleSelectAllColumns}
+                  className="h-4 w-4 cursor-pointer rounded border-soft-border accent-trust-blue"
+                />
+                <label htmlFor="select-all-finding-inventory-columns" className="text-sm font-semibold cursor-pointer">Select All</label>
+              </div>
+            </div>
+            {FINDING_COLUMNS.map((column) => (
+              <div key={column.id} className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 flex-1">
+                  <input
+                    id={`finding-inventory-column-${column.id}`}
+                    type="checkbox"
+                    checked={selectedColumnsForAction.has(column.id)}
+                    onChange={() => toggleColumnSelection(column.id)}
+                    className="h-4 w-4 cursor-pointer rounded border-soft-border accent-trust-blue"
+                  />
+                  <label htmlFor={`finding-inventory-column-${column.id}`} className="text-sm cursor-pointer">{column.label}</label>
+                </div>
+                <div className="text-sm font-semibold px-2 py-1 rounded">
+                  {!visibleColumns.has(column.id)
+                    ? <span className="bg-danger/10 text-danger-dark px-2 py-1 rounded-full text-sm">Hidden</span>
+                    : <span className="bg-success/10 text-success-dark px-2 py-1 rounded-full text-sm">Visible</span>}
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="mt-2 flex justify-end gap-2">
+            <Button onClick={handleHideColumns} disabled={selectedColumnsForAction.size === 0} variant="outline" className="text-danger border-danger/40 hover:bg-danger/10">Hide</Button>
+            <Button onClick={handleShowColumns} disabled={selectedColumnsForAction.size === 0} variant="outline" className="text-success border-green-300 hover:bg-success/10">Show</Button>
+            <Button onClick={saveColumnView} variant="outline" className="ml-auto border-midnight-ink text-midnight-ink hover:bg-midnight-ink/10">{saveViewStatus === 'saved' ? 'Saved ✓' : 'Save View'}</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {enrollWorkforceOpen && (
+        <EnrolWorkforceForm
+          open={enrollWorkforceOpen}
+          onEnroll={() => { refreshWorkforce(); setEnrollWorkforceOpen(false); }}
+          onClose={() => setEnrollWorkforceOpen(false)}
+        />
+      )}
+      {/* Fixed Footer */}
+      {(() => {
+        const _tp = totalPages;
+        const _sp = safePage;
+        return (
+          <div className="fixed bottom-0 left-0 right-0 z-50 bg-background border-t border-soft-border shadow-lg px-4 py-2 flex flex-wrap items-center justify-between gap-3 text-sm text-cool-gray">
+            <div className="flex items-center gap-2">
+              <span>Rows per page:</span>
+              <select value={rowsPerPage} onChange={(e) => { setRowsPerPage(Number(e.target.value)); setCurrentPage(1); }} className="border border-soft-border rounded px-2 py-1 text-sm text-midnight-ink  bg-background ">
+                {[25, 50, 75, 100].map(n => <option key={n} value={n}>{n}</option>)}
+              </select>
+            </div>
+            <div className="flex items-center gap-3">
+              <span>{filtered.length === 0 ? '0' : `${(_sp - 1) * rowsPerPage + 1}-${Math.min(_sp * rowsPerPage, filtered.length)}`} of {filtered.length}</span>
+              <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={_sp <= 1} className="px-2 py-1 border border-soft-border rounded disabled:opacity-40 hover:bg-cloud-gray">&lsaquo;</button>
+              <span>{_sp} / {_tp}</span>
+              <button onClick={() => setCurrentPage(p => Math.min(_tp, p + 1))} disabled={_sp >= _tp} className="px-2 py-1 border border-soft-border rounded disabled:opacity-40 hover:bg-cloud-gray">&rsaquo;</button>
+            </div>
+            <div className="flex gap-4">
+              <span>Selected: {selectedIds.size}</span>
+              {editingRowIds.size > 0 && <span className="text-trust-blue font-semibold">Editing {editingRowIds.size} item(s)</span>}
+            </div>
+            <LastUpdatedFooter timestamp={lastUpdated} username={currentUserName} compact />
+            <DeletionHistoryDrawer appLabel="inventory" modelName="findinginventoryitem" sheet="inventory" />
+          </div>
+        );
+      })()}
+    </main>
+  );
+}

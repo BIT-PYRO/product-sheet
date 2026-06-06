@@ -1,0 +1,174 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+/* ─────────────────────────────────────────────
+   UI Guidelines Color Palette (HSL mappings)
+   ─────────────────────────────────────────── */
+@layer base {
+  :root {
+    /* Page & surface */
+    --background: 210 20% 98%;          /* Cloud Gray  #F9FAFB */
+    --foreground: 222.2 47.4% 11.2%;    /* Midnight Ink #111827 */
+
+    /* Cards */
+    --card: 0 0% 100%;                  /* White #FFFFFF */
+    --card-foreground: 222.2 47.4% 11.2%;
+
+    /* Popovers */
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 47.4% 11.2%;
+
+    /* Primary action — Trust Blue */
+    --primary: 217.2 91.2% 59.8%;       /* #2563EB */
+    --primary-foreground: 0 0% 100%;    /* White */
+
+    /* Secondary */
+    --secondary: 210 20% 98%;           /* Cloud Gray */
+    --secondary-foreground: 222.2 47.4% 11.2%;
+
+    /* Muted */
+    --muted: 210 20% 96%;
+    --muted-foreground: 220 8.9% 46.1%; /* Cool Gray #6B7280 */
+
+    /* Accent */
+    --accent: 210 20% 96%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+
+    /* Destructive — Alert Red */
+    --destructive: 0 72.2% 50.6%;       /* #DC2626 */
+    --destructive-foreground: 0 0% 100%;
+
+    /* Borders & inputs — Soft Border Gray */
+    --border: 220 13% 91%;              /* #E5E7EB */
+    --input: 220 13% 91%;
+    --ring: 217.2 91.2% 59.8%;          /* Trust Blue focus ring */
+
+    /* Charts */
+    --chart-1: 217.2 91.2% 59.8%;
+    --chart-2: 142.1 76.2% 36.3%;
+    --chart-3: 198.7 88.7% 48.4%;
+    --chart-4: 32.1 94.6% 43.7%;
+    --chart-5: 0 72.2% 50.6%;
+
+    --radius: 0.5rem;
+
+    /* Sidebar */
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 222.2 47.4% 11.2%;
+    --sidebar-primary: 217.2 91.2% 59.8%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 210 20% 96%;
+    --sidebar-accent-foreground: 222.2 47.4% 11.2%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+
+  .dark {
+    --background: 222.2 47.4% 11.2%;
+    --foreground: 210 20% 98%;
+    --card: 222.2 47.4% 11.2%;
+    --card-foreground: 210 20% 98%;
+    --popover: 222.2 47.4% 11.2%;
+    --popover-foreground: 210 20% 98%;
+    --primary: 217.2 91.2% 59.8%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 215.3 16.2% 26.7%;
+    --secondary-foreground: 210 20% 98%;
+    --muted: 215.3 16.2% 26.7%;
+    --muted-foreground: 220 8.9% 46.1%;
+    --accent: 215.3 16.2% 26.7%;
+    --accent-foreground: 210 20% 98%;
+    --destructive: 0 72.2% 50.6%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 215.3 16.2% 26.7%;
+    --input: 215.3 16.2% 26.7%;
+    --ring: 217.2 91.2% 59.8%;
+    --chart-1: 217.2 91.2% 59.8%;
+    --chart-2: 142.1 76.2% 36.3%;
+    --chart-3: 198.7 88.7% 48.4%;
+    --chart-4: 32.1 94.6% 43.7%;
+    --chart-5: 0 72.2% 50.6%;
+    --sidebar-background: 222.2 47.4% 11.2%;
+    --sidebar-foreground: 210 20% 98%;
+    --sidebar-primary: 217.2 91.2% 59.8%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 215.3 16.2% 26.7%;
+    --sidebar-accent-foreground: 210 20% 98%;
+    --sidebar-border: 215.3 16.2% 26.7%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-size: 16px;
+    line-height: 1.5;
+  }
+}
+
+/* ── Fix autofill background ── */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0 1000px white inset !important;
+  -webkit-text-fill-color: #111827 !important;
+}
+
+/* ── Disabled inputs ── */
+input:disabled,
+textarea:disabled,
+select:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+  background-color: #F9FAFB !important;
+  border-color: #E5E7EB !important;
+  color: #6B7280 !important;
+}
+
+/* ── Hide number spinners ── */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+/* ── Global input / button sizing (UI Guidelines 44px min) ── */
+@layer components {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([role]),
+  textarea,
+  select,
+  .min-h-touch {
+    min-height: 44px;
+  }
+}
+
+/* ── Print: show only ID cards, hide everything else ── */
+@media print {
+  body * { visibility: hidden; }
+  #id-cards-print-area,
+  #id-cards-print-area * { visibility: visible; }
+  #id-cards-print-area {
+    position: fixed;
+    top: 0;
+    left: 0;
+    display: flex !important;
+    flex-wrap: wrap;
+    gap: 16px;
+    padding: 16px;
+    background: white;
+  }
+}

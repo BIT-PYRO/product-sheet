@@ -1,0 +1,10 @@
+-r base.txt
+pytest>=8.3
+pytest-django>=4.9
+factory-boy>=3.3
+coverage>=7.6
+black>=24.10
+isort>=5.13
+flake8>=7.1
+mypy>=1.13
+pre-commit>=4.0
