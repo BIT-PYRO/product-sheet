@@ -1,4 +1,4 @@
-﻿"use client"
+"use client"
 
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
@@ -667,6 +667,7 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
   }
 
   const isCompleted = ['completed', 'replaced'].includes(voucherData?.approvalStatus)
+  const isBaseLocked = isCompleted || voucherData?.approvalStatus === 'partially_complete'
 
   return (
     <>
@@ -899,21 +900,21 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
                   <tr key={row.id} className="border-t border-border bg-white hover:bg-gray-50/50 text-xs">
                     {/* SKU */}
                     <td className="border-r border-border/40 p-0 whitespace-nowrap">
-                      <input className="h-7 px-1.5 bg-transparent border-0 outline-none text-xs" style={{  width: '100%' }} placeholder="SKU" value={row.sku} onChange={(e) => updateRow(row.id, 'sku', e.target.value)} />
+                      <input className={`h-7 px-1.5 bg-transparent border-0 outline-none text-xs ${isBaseLocked ? 'cursor-default font-semibold text-gray-500' : ''}`} style={{  width: '100%' }} placeholder="SKU" value={row.sku} readOnly={isBaseLocked} onChange={isBaseLocked ? undefined : (e) => updateRow(row.id, 'sku', e.target.value)} />
                     </td>
                     {/* Category */}
                     <td className="border-r border-border/40 p-0 whitespace-nowrap">
-                      <input className="h-7 px-1.5 bg-transparent border-0 outline-none text-xs" style={{  width: '100%' }} placeholder="Cat" value={row.category} onChange={(e) => updateRow(row.id, 'category', e.target.value)} />
+                      <input className={`h-7 px-1.5 bg-transparent border-0 outline-none text-xs ${isBaseLocked ? 'cursor-default font-semibold text-gray-500' : ''}`} style={{  width: '100%' }} placeholder="Cat" value={row.category} readOnly={isBaseLocked} onChange={isBaseLocked ? undefined : (e) => updateRow(row.id, 'category', e.target.value)} />
                     </td>
                     {/* Metal */}
                     <td className="border-r border-border/40 p-0 whitespace-nowrap">
-                      <input className="h-7 px-1.5 bg-transparent border-0 outline-none text-xs" style={{  width: '100%' }} placeholder="Metal" value={row.metal} onChange={(e) => updateRow(row.id, 'metal', e.target.value)} />
+                      <input className={`h-7 px-1.5 bg-transparent border-0 outline-none text-xs ${isBaseLocked ? 'cursor-default font-semibold text-gray-500' : ''}`} style={{  width: '100%' }} placeholder="Metal" value={row.metal} readOnly={isBaseLocked} onChange={isBaseLocked ? undefined : (e) => updateRow(row.id, 'metal', e.target.value)} />
                     </td>
                     {/* Issued Qty+Unit */}
                     <td className="border-l-2 border-l-blue-300 bg-blue-50/50 p-0 whitespace-nowrap">
                       <div className="flex items-center h-7 px-1 gap-0.5">
-                        <input type="number" className="w-11 bg-transparent border-0 outline-none text-xs text-center " placeholder="0" value={row.issuedQty} onChange={(e) => updateRow(row.id, 'issuedQty', e.target.value)} />
-                        <select className="bg-transparent border-0 outline-none appearance-none cursor-pointer flex-shrink-0 text-gray-400" style={{ fontSize: 9 }} value={row.unit1} onChange={(e) => updateRow(row.id, 'unit1', e.target.value)}>
+                        <input type="number" className={`w-11 bg-transparent border-0 outline-none text-xs text-center ${isBaseLocked ? 'cursor-default font-semibold text-gray-500' : ''}`} placeholder="0" value={row.issuedQty} readOnly={isBaseLocked} onChange={isBaseLocked ? undefined : (e) => updateRow(row.id, 'issuedQty', e.target.value)} />
+                        <select className={`bg-transparent border-0 outline-none appearance-none ${isBaseLocked ? 'cursor-default text-gray-400' : 'cursor-pointer flex-shrink-0 text-gray-400'}`} style={{ fontSize: 9 }} value={row.unit1} disabled={isBaseLocked} onChange={isBaseLocked ? undefined : (e) => updateRow(row.id, 'unit1', e.target.value)}>
                           <option>Pcs</option><option>Pairs</option>
                         </select>
                       </div>
@@ -921,8 +922,8 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
                     {/* Issued Weight+Unit */}
                     <td className="border-r border-border/30 bg-blue-50/50 p-0 whitespace-nowrap">
                       <div className="flex items-center h-7 px-1 gap-0.5">
-                        <input type="number" className="w-11 bg-transparent border-0 outline-none text-xs text-center " placeholder="0.0" value={row.issuedWeight} onChange={(e) => updateRow(row.id, 'issuedWeight', e.target.value)} />
-                        <select className="bg-transparent border-0 outline-none appearance-none cursor-pointer flex-shrink-0 text-gray-400" style={{ fontSize: 9 }} value={row.unit2} onChange={(e) => updateRow(row.id, 'unit2', e.target.value)}>
+                        <input type="number" className={`w-11 bg-transparent border-0 outline-none text-xs text-center ${isBaseLocked ? 'cursor-default font-semibold text-gray-500' : ''}`} placeholder="0.0" value={row.issuedWeight} readOnly={isBaseLocked} onChange={isBaseLocked ? undefined : (e) => updateRow(row.id, 'issuedWeight', e.target.value)} />
+                        <select className={`bg-transparent border-0 outline-none appearance-none ${isBaseLocked ? 'cursor-default text-gray-400' : 'cursor-pointer flex-shrink-0 text-gray-400'}`} style={{ fontSize: 9 }} value={row.unit2} disabled={isBaseLocked} onChange={isBaseLocked ? undefined : (e) => updateRow(row.id, 'unit2', e.target.value)}>
                           <option>g</option><option>Kg</option><option>mg</option><option>lb</option><option>oz</option><option>ct</option>
                         </select>
                       </div>

@@ -382,9 +382,22 @@ def _deduct_source_current_stock(voucher):
 )
 class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 	audit_sheet = 'job'
-	queryset = Job.objects.select_related('picklist_group').all().order_by('-created_at')
+	queryset = Job.objects.all()
 	serializer_class = JobSerializer
 	filterset_fields = ['status', 'product', 'assignee', 'approval_status', 'batch_id', 'picklist_group']
+
+	def get_queryset(self):
+		return Job.objects.select_related('picklist_group').all().order_by('-created_at')
+
+	def dispatch(self, request, *args, **kwargs):
+		try:
+			return super().dispatch(request, *args, **kwargs)
+		except Exception as e:
+			import traceback
+			with open(r'd:\Janki\product-sheet-design\backend\err_view.txt', 'a') as f:
+				f.write(f"ERROR in {request.path}:\n")
+				f.write(traceback.format_exc() + "\n")
+			raise e
 	
 	def create(self, request, *args, **kwargs):
 		logger.info(f"Job creation request received: {request.data}")
@@ -1053,6 +1066,8 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 				primary_product = Product.objects.filter(master_sku__iexact=bucket_items[0].sku).first()
 
 				voucher = Job.objects.create(
+					tenant=(getattr(request, 'tenant', None) or (getattr(request.user, 'tenant', None) if request.user and request.user.is_authenticated else None)),
+					company=(getattr(request, 'company', None) or (getattr(request.user, 'active_company', None) if request.user and request.user.is_authenticated else None)),
 					title=title,
 					product=primary_product,
 					status='created',
@@ -1196,6 +1211,52 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 						already_rcvd.get(s, 0)
 						+ int(float(prev_row.get('received_qty', 0) or 0))
 					)
+
+			if voucher.dept_to in PRE_CASTING_DEPT_TOS:
+				from inventory.models import DieInventoryItem, DieTransaction
+
+				stage_qty_field = PRE_CASTING_STAGE_QTY_FIELD.get(voucher.dept_to, '')
+
+				die_already_received: dict = {}
+				for event in (voucher.received_rows or []):
+					for prev_row in (event.get('rows') or []):
+						dc = str(prev_row.get('die_code', '') or prev_row.get('sku', '') or '').strip().upper()
+						if dc:
+							die_already_received[dc] = (
+								die_already_received.get(dc, 0)
+								+ int(float(prev_row.get('received_qty', 0) or 0))
+							)
+
+				for dr in (voucher.die_rows or []):
+					dc = str(dr.get('die_code', '') or '').strip()
+					issued = int(float(dr.get('issued_qty', 0) or 0))
+					if issued <= 0 or not dc:
+						continue
+					
+					remaining = max(0, issued - die_already_received.get(dc.upper(), 0))
+					if remaining <= 0:
+						continue
+
+					try:
+						die_item = DieInventoryItem.objects.get(die_code__iexact=dc)
+						DieTransaction.objects.create(
+							tenant=voucher.tenant,
+							company=voucher.company,
+							txn_date=timezone.now().date(),
+							die=die_item,
+							die_code=die_item.die_code,
+							txn_type='received',
+							master_sku=str(dr.get('master_sku', '') or '').strip(),
+							qty=remaining,
+							remark=f'Completed (Auto-receive remaining): {voucher.voucher_no}',
+							activity_status='received',
+						)
+						if stage_qty_field:
+							current_qty = float(getattr(die_item, stage_qty_field, 0) or 0)
+							setattr(die_item, stage_qty_field, current_qty + remaining)
+							die_item.save(update_fields=[stage_qty_field])
+					except DieInventoryItem.DoesNotExist:
+						pass
 
 			for row in (voucher.material_rows or []):
 				issued = int(float(row.get('issued_qty', 0) or 0))
@@ -1594,7 +1655,10 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 		from products.models import Product as _Product
 
 		with transaction.atomic():
-			voucher = Job.objects.select_for_update().get(pk=pk)
+			try:
+				voucher = Job.objects.select_for_update().get(pk=pk)
+			except Job.DoesNotExist:
+				return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
 
 			if voucher.approval_status not in [
 				VoucherApprovalStatus.IN_PROCESS,
@@ -1653,8 +1717,10 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 						continue
 
 					info = die_info_map_pre.get(dc_upper, {})
-					master_sku = info.get('master_sku', '')
-					qpp = info.get('qty_per_piece', 1) or 1.0
+					master_sku = str(info.get('master_sku', '') or dc_upper).strip()
+					qpp = float(info.get('qty_per_piece', 1) or 1.0)
+					if qpp <= 0:
+						qpp = 1.0
 
 					try:
 						die_item = DieInventoryItem.objects.get(die_code__iexact=die_code_raw)
@@ -1958,6 +2024,8 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 					notes_text += f' {note}'
 
 				new_v = Job.objects.create(
+					tenant=voucher.tenant,
+					company=voucher.company,
 					title=f'RE-ISSUE {voucher_no_new} - {from_label} to {to_label}',
 					product=stage_v.product,
 					status='created',
@@ -2533,6 +2601,8 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 					notes_text += f' {note}'
 
 				new_v = Job.objects.create(
+					tenant=voucher.tenant,
+					company=voucher.company,
 					title=title,
 					product=stage_v.product,
 					status='created',
