@@ -762,6 +762,7 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
                   onChange={(e) => setVoucherNo(e.target.value)}
                   placeholder="JW-2026-XXXX"
                   className="h-7 text-sm bg-background border-border"
+                  readOnly={isBaseLocked}
                 />
               </div>
             </div>
@@ -772,7 +773,7 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
             <div className="grid grid-cols-[minmax(200px,260px)_1fr_minmax(200px,240px)] gap-5 items-end">
               <div className="flex flex-col gap-0.5">
                 <Label className="text-sm font-medium text-muted-foreground">Issued To</Label>
-                <Select value={issuedTo} onValueChange={setIssuedTo}>
+                <Select value={issuedTo} onValueChange={setIssuedTo} disabled={isBaseLocked}>
                   <SelectTrigger className="h-7 text-sm bg-background border-border">
                     <SelectValue placeholder="Select workforce" />
                   </SelectTrigger>
@@ -790,7 +791,7 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
               <div className="flex items-center justify-center text-sm text-muted-foreground px-6">ΓÇö</div>
               <div className="flex flex-col gap-0.5">
                 <Label className="text-sm font-medium text-muted-foreground">Work Type</Label>
-                <Select value={workType} onValueChange={setWorkType}>
+                <Select value={workType} onValueChange={setWorkType} disabled={isBaseLocked}>
                   <SelectTrigger className="h-7 text-sm bg-background border-border">
                     <SelectValue placeholder="Select" />
                   </SelectTrigger>
@@ -809,7 +810,7 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
             <div className="grid grid-cols-[minmax(200px,260px)_1fr_minmax(200px,260px)] gap-5 items-end">
               <div className="flex flex-col gap-0.5">
                 <Label className="text-sm font-bold uppercase tracking-wide text-midnight-ink">From</Label>
-                <Select value={deptFrom} onValueChange={setDeptFrom}>
+                <Select value={deptFrom} onValueChange={setDeptFrom} disabled={isBaseLocked}>
                   <SelectTrigger className="h-8 text-sm font-bold bg-background border-trust-blue text-midnight-ink">
                     <SelectValue placeholder="Select Department" />
                   </SelectTrigger>
@@ -825,7 +826,7 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
               </div>
               <div className="flex flex-col gap-0.5">
                 <Label className="text-sm font-bold uppercase tracking-wide text-midnight-ink">To</Label>
-                <Select value={deptTo} onValueChange={setDeptTo}>
+                <Select value={deptTo} onValueChange={setDeptTo} disabled={isBaseLocked}>
                   <SelectTrigger className="h-8 text-sm font-bold bg-background border-trust-blue text-midnight-ink">
                     <SelectValue placeholder="Select Department" />
                   </SelectTrigger>
@@ -844,12 +845,12 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
             <div className="grid grid-cols-[minmax(220px,320px)_1fr_minmax(220px,320px)] gap-4">
               <div className="flex flex-col gap-0.5">
                 <Label className="text-sm font-medium text-muted-foreground">Issued By</Label>
-                <Input placeholder="User Name" value={issuedByName} onChange={(e) => setIssuedByName(e.target.value)} className="h-7 text-sm bg-background border-border focus:ring-1 focus:ring-trust-blue focus:border-trust-blue transition-colors cursor-text" />
+                <Input placeholder="User Name" value={issuedByName} onChange={(e) => setIssuedByName(e.target.value)} className="h-7 text-sm bg-background border-border focus:ring-1 focus:ring-trust-blue focus:border-trust-blue transition-colors cursor-text" readOnly={isBaseLocked} />
               </div>
               <div className="hidden md:block" />
               <div className="flex flex-col gap-0.5">
                 <Label className="text-sm font-medium text-muted-foreground">Contact</Label>
-                <Input type="tel" placeholder="Contact Number" value={issuedByContact} onChange={(e) => setIssuedByContact(e.target.value)} className="h-7 text-sm bg-background border-border" />
+                <Input type="tel" placeholder="Contact Number" value={issuedByContact} onChange={(e) => setIssuedByContact(e.target.value)} className="h-7 text-sm bg-background border-border" readOnly={isBaseLocked} />
               </div>
             </div>
           </div>
@@ -958,8 +959,8 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
                     {/* Loss Weight+Unit */}
                     <td className="border-r border-border/30 bg-rose-50/50 p-0 whitespace-nowrap">
                       <div className="flex items-center h-7 px-1 gap-0.5">
-                        <input type="number" className="w-11 bg-transparent border-0 outline-none text-xs text-center" placeholder="0.0" value={row.lossWeight} onChange={(e) => updateRow(row.id, 'lossWeight', e.target.value)} />
-                        <select className="bg-transparent border-0 outline-none appearance-none cursor-pointer flex-shrink-0 text-gray-400" style={{ fontSize: 9 }} value={row.unit6 || 'Kg'} onChange={(e) => updateRow(row.id, 'unit6', e.target.value)}>
+                        <input type="number" className={`w-11 bg-transparent border-0 outline-none text-xs text-center ${isCompleted ? 'cursor-default font-semibold text-rose-700' : ''}`} placeholder="0.0" value={row.lossWeight} readOnly={isCompleted} onChange={isCompleted ? undefined : (e) => updateRow(row.id, 'lossWeight', e.target.value)} />
+                        <select className="bg-transparent border-0 outline-none appearance-none cursor-pointer flex-shrink-0 text-gray-400" style={{ fontSize: 9 }} value={row.unit6 || 'Kg'} disabled={isCompleted} onChange={(e) => updateRow(row.id, 'unit6', e.target.value)}>
                           <option>g</option><option>Kg</option><option>mg</option><option>lb</option><option>oz</option><option>ct</option>
                         </select>
                       </div>
@@ -974,17 +975,19 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
                     {/* Re-Issue Weight+Unit */}
                     <td className="bg-amber-50/50 p-0 whitespace-nowrap">
                       <div className="flex items-center h-7 px-1 gap-0.5">
-                        <input type="number" className="w-11 bg-transparent border-0 outline-none text-xs text-center " placeholder="0.0" value={row.reissueWeight} onChange={(e) => updateRow(row.id, 'reissueWeight', e.target.value)} />
-                        <select className="bg-transparent border-0 outline-none appearance-none cursor-pointer flex-shrink-0 text-gray-400" style={{ fontSize: 9 }} value={row.unit8 || 'Kg'} onChange={(e) => updateRow(row.id, 'unit8', e.target.value)}>
+                        <input type="number" className={`w-11 bg-transparent border-0 outline-none text-xs text-center ${isCompleted ? 'cursor-default font-semibold text-amber-700' : ''}`} placeholder="0.0" value={row.reissueWeight} readOnly={isCompleted} onChange={isCompleted ? undefined : (e) => updateRow(row.id, 'reissueWeight', e.target.value)} />
+                        <select className="bg-transparent border-0 outline-none appearance-none cursor-pointer flex-shrink-0 text-gray-400" style={{ fontSize: 9 }} value={row.unit8 || 'Kg'} disabled={isCompleted} onChange={(e) => updateRow(row.id, 'unit8', e.target.value)}>
                           <option>g</option><option>Kg</option><option>mg</option><option>lb</option><option>oz</option><option>ct</option>
                         </select>
                       </div>
                     </td>
                     {/* Delete */}
                     <td className="p-0 text-center align-middle">
-                      <button type="button" onClick={() => deleteRow(row.id)} className="text-danger hover:text-danger-dark transition-colors">
-                        <Trash2 className="h-3 w-3" />
-                      </button>
+                      {!isBaseLocked && (
+                        <button type="button" onClick={() => deleteRow(row.id)} className="text-danger hover:text-danger-dark transition-colors">
+                          <Trash2 className="h-3 w-3" />
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}
