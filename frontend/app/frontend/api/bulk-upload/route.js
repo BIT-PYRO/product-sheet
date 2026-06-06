@@ -550,15 +550,31 @@ function normalizeKycStatus(value) {
 }
 
 async function fetchCollection(client, path) {
-  const { response, payload } = await client.request(path);
-  if (!response.ok) {
-    throw new Error(errorMessageFromPayload(payload, `Failed to fetch ${path}`));
+  let allResults = [];
+  let currentPath = path.includes('?') ? `${path}&page_size=200` : `${path}?page_size=200`;
+
+  while (currentPath) {
+    const { response, payload } = await client.request(currentPath);
+    if (!response.ok) {
+      throw new Error(errorMessageFromPayload(payload, `Failed to fetch ${currentPath}`));
+    }
+    
+    if (Array.isArray(payload?.data)) {
+      allResults = allResults.concat(payload.data);
+      break;
+    } else if (payload?.data?.results && Array.isArray(payload.data.results)) {
+      allResults = allResults.concat(payload.data.results);
+      if (payload.data.next) {
+        const nextUrl = new URL(payload.data.next);
+        currentPath = nextUrl.pathname + nextUrl.search;
+      } else {
+        break;
+      }
+    } else {
+      break;
+    }
   }
-  return Array.isArray(payload?.data)
-    ? payload.data
-    : Array.isArray(payload?.data?.results)
-      ? payload.data.results
-      : [];
+  return allResults;
 }
 
 async function uploadProducts(client, rows) {
@@ -1459,14 +1475,14 @@ async function uploadDieInventory(client, rows) {
 
     const payload = {
       die_code: dieCode,
-      location: String(pickValue(row, ['location'])).trim(),
-      quantity: toNumber(pickValue(row, ['quantity', 'qty']), 0),
-      wax_piece_qty: toNumber(pickValue(row, ['waxpieceqty', 'wax_piece_qty', 'wax piece qty', 'waxpiece']), 0),
-      wax_piece_location: String(pickValue(row, ['waxpiecelocation', 'wax_piece_location', 'wax piece location'])).trim(),
-      wax_setting_qty: String(pickValue(row, ['waxsettingqty', 'wax_setting_qty', 'wax setting qty', 'waxsetting', 'wax_setting'])).trim(),
-      wax_setting_location: String(pickValue(row, ['waxsettinglocation', 'wax_setting_location', 'wax setting location'])).trim(),
-      casting_qty: String(pickValue(row, ['castingqty', 'casting_qty', 'casting qty', 'casting'])).trim(),
-      casting_location: String(pickValue(row, ['castinglocation', 'casting_location', 'casting location'])).trim(),
+      location: String(pickValue(row, ['location', 'dielocation', 'die_location', 'die location'])).trim(),
+      quantity: toNumber(pickValue(row, ['quantity', 'qty', 'diequantity', 'die_quantity', 'die quantity']), 0),
+      wax_piece_qty: toNumber(pickValue(row, ['waxpieceqty', 'wax_piece_qty', 'wax piece qty', 'waxpiece', 'waxpiecequantity', 'wax_piece_quantity', 'wax piece quantity']), 0),
+      wax_piece_location: String(pickValue(row, ['waxpiecelocation', 'wax_piece_location', 'wax piece location', 'waxpieceloc', 'wax_piece_loc', 'wax piece loc'])).trim(),
+      wax_setting_qty: String(pickValue(row, ['waxsettingqty', 'wax_setting_qty', 'wax setting qty', 'waxsetting', 'wax_setting', 'waxsettingquantity', 'wax_setting_quantity', 'wax setting quantity'])).trim(),
+      wax_setting_location: String(pickValue(row, ['waxsettinglocation', 'wax_setting_location', 'wax setting location', 'waxsettingloc', 'wax_setting_loc', 'wax setting loc'])).trim(),
+      casting_qty: String(pickValue(row, ['castingqty', 'casting_qty', 'casting qty', 'casting', 'castingquantity', 'casting_quantity', 'casting quantity'])).trim(),
+      casting_location: String(pickValue(row, ['castinglocation', 'casting_location', 'casting location', 'castingloc', 'casting_loc', 'casting loc'])).trim(),
       notes: String(pickValue(row, ['notes', 'note', 'remarks'])).trim(),
       used_qty: toNumber(pickValue(row, ['usedqty', 'used_qty', 'used qty']), 0),
       min_level: toNumber(pickValue(row, ['minlevel', 'min_level', 'minimum level', 'min level']), 0),

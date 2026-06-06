@@ -100,7 +100,7 @@ function DeleteConfirmModal({ member, onClose, onRevoked }) {
     setDeleting(true);
     setError('');
     try {
-      const res = await fetch(`/api/workforce/${member.id}`, {
+      const res = await fetch(`/api/workforce/${member.id}/`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ active: false }),
@@ -260,7 +260,7 @@ function PermissionsModal({ member, canEdit, isSelf, onClose, onSaved }) {
     setError('');
     try {
       // Save sheet permissions
-      const res = await fetch(`/api/workforce/${member.id}`, {
+      const res = await fetch(`/api/workforce/${member.id}/`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ permissions: perms, ...(barcodeNumber.trim() ? { barcode_number: barcodeNumber.trim() } : {}) }),
@@ -573,7 +573,7 @@ export default function ManageMembersPage() {
 
   async function handleRestoreAccess(memberId) {
     try {
-      const res = await fetch(`/api/workforce/${memberId}`, {
+      const res = await fetch(`/api/workforce/${memberId}/`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ active: true }),

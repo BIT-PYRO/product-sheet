@@ -60,22 +60,27 @@ class PicklistGroupSerializer(serializers.ModelSerializer):
     def get_total_items(self, obj):
         return obj.items.count()
 
-    def _resolve_next_number(self, desired_number):
-        if desired_number and not PicklistGroup.objects.filter(number=desired_number).exists():
+    def _resolve_next_number(self, desired_number, tenant=None):
+        qs = PicklistGroup.objects
+        if tenant is not None:
+            qs = qs.filter(tenant=tenant)
+        if desired_number and not qs.filter(number=desired_number).exists():
             return desired_number
-        last = PicklistGroup.objects.order_by('-number').first()
+        last = qs.order_by('-number').first()
         return (last.number + 1) if last else 1
 
     @transaction.atomic
     def create(self, validated_data):
         items_data = validated_data.pop('items', [])
         desired_number = validated_data.pop('number', None)
+        # tenant is injected by .save(tenant=...) so it's already in validated_data
+        tenant = validated_data.get('tenant')
 
         request = self.context.get('request')
         user = request.user if request and hasattr(request, 'user') else None
 
         group = PicklistGroup.objects.create(
-            number=self._resolve_next_number(desired_number),
+            number=self._resolve_next_number(desired_number, tenant=tenant),
             **validated_data,
         )
 
@@ -95,6 +100,7 @@ class PicklistGroupSerializer(serializers.ModelSerializer):
         ])
 
         return group
+
 
     @transaction.atomic
     def update(self, instance, validated_data):

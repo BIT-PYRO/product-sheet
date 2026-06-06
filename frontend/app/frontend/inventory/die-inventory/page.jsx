@@ -113,7 +113,7 @@ export default function DieInventoryPage() {
   const [filterWaxPiece, setFilterWaxPiece] = useState([]);
   const [filterWaxSetting, setFilterWaxSetting] = useState([]);
   const [filterCasting, setFilterCasting] = useState([]);
-  const [sortField, setSortField] = useState('');
+  const [sortField, setSortField] = useState('die_code');
   const [sortDir, setSortDir] = useState('asc');
   const handleSort = (field) => { setSortField((prev) => { if (prev === field) { setSortDir((d) => d === 'asc' ? 'desc' : 'asc'); return prev; } setSortDir('asc'); return field; }); };
 
@@ -278,7 +278,7 @@ export default function DieInventoryPage() {
   }, [filtered, safePage, rowsPerPage]);
 
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
-  const EXPORT_HEADERS = ['id','die_code','master_skus','designer_skus','location','quantity','wax_piece_qty','wax_piece_location','wax_setting_qty','wax_setting_location','casting_qty','casting_location','notes'];
+  const EXPORT_HEADERS = ['die_code','master_skus','designer_skus','location','quantity','wax_piece_qty','wax_piece_location','wax_setting_qty','wax_setting_location','casting_qty','casting_location','notes'];
   const buildExportRows = () => filtered.map((r) => EXPORT_HEADERS.map((h) => Array.isArray(r[h]) ? r[h].join(', ') : (r[h] ?? '')));
   const exportToExcel = () => {
     const wb = XLSX.utils.book_new();

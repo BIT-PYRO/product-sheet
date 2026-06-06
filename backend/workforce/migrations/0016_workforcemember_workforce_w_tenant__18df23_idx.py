@@ -8,14 +8,13 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ('core_tenants', '0002_add_attributes_to_picklistitem'),
-        ('kyc', '0005_alter_kycrecord_company_alter_kycrecord_tenant'),
         ('workforce', '0015_fix_mismatched_tenants'),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
     operations = [
         migrations.AddIndex(
-            model_name='kycrecord',
-            index=models.Index(fields=['tenant', 'company', 'status'], name='kyc_kycreco_tenant__6a5198_idx'),
+            model_name='workforcemember',
+            index=models.Index(fields=['tenant', 'company', 'active'], name='workforce_w_tenant__18df23_idx'),
         ),
     ]

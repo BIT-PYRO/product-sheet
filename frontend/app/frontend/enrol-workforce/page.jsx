@@ -32,6 +32,29 @@ function normalizeRoleLabel(role) {
   if (/^craftsman-artisan$/i.test(value)) return 'craftsMan';
   return value;
 }
+
+// Maps all department name variants to a single canonical name so the
+// DEPT_DATA lookup (and role dropdown) always works correctly.
+const DEPT_NAME_ALIASES = {
+  'crm':                              'Customer Relation Management',
+  'customer relation management':     'Customer Relation Management',
+  'customer relation manage':         'Customer Relation Management',
+  'customer relationship management': 'Customer Relation Management',
+  'customer relation':                'Customer Relation Management',
+  'sales / business development':     'Sales / Business Development',
+  'sales/business development':       'Sales / Business Development',
+  'sales & business development':     'Sales / Business Development',
+  'information technology':           'Information Technology',
+  'it':                               'Information Technology',
+  'human resource':                   'Human Resource',
+  'human resources':                  'Human Resource',
+  'hr':                               'Human Resource',
+};
+function normalizeDeptLabel(dept) {
+  const value = String(dept || '').trim();
+  if (!value) return '';
+  return DEPT_NAME_ALIASES[value.toLowerCase()] || value;
+}
 function getDesignationRank(desig) {
   if (!desig) return 999;
   const idx = DESIGNATION_ORDER.findIndex(d => d.toLowerCase() === desig.toLowerCase());
@@ -116,7 +139,7 @@ const WORKING_STYLES = ['On-site','Remote','Hybrid','Field Work','Part-time','Co
 
 const DEPT_DATA = {
   'Marketing':                    { categories: ['Performance','Offline','International','Social Media'], roles: ['Chairman','CEO','Director','Department Head','Manager','Associate','Intern'] },
-  'Customer Relation Management': { categories: ['Inbound Calls','Outbound Calls','Social Media','Emails','Offline'], roles: ['Chairman','CEO','Director','Department Head','Manager','Associate','Intern'] },
+  'Customer Relation Management': { categories: ['Inbound Calls','Outbound Calls','Social Media','Emails','Offline'], roles: ['Department Head','Director','Manager','Associate','Intern'] },
   'Operations':                   { categories: [], roles: ['Chairman','CEO','Director','Department Head','Manager','Associate','Intern'] },
   'Design':                       { categories: ['Jewellery','Branding','Visuals','Photographer / Videographer'], roles: ['Chairman','CEO','Director','Department Head','Manager','Associate','Intern'] },
   'Logistics':                    { categories: [], roles: ['Chairman','CEO','Director','Department Head','Manager','Associate','Intern'] },
@@ -370,7 +393,7 @@ export function EnrolWorkforceForm({ onEnroll, onClose, open=true, draftData=nul
   function normalizeDraft(d) {
     return {
       ...d,
-      departments: Array.isArray(d.departments)?d.departments:(d.department?[d.department]:[]),
+      departments: Array.isArray(d.departments)?d.departments.map(normalizeDeptLabel):(d.department?[normalizeDeptLabel(d.department)]:[]),
       departmentOther: d.departmentOther||'',
       designations: (Array.isArray(d.designations)?d.designations:(d.designation?[d.designation]:[])).map(normalizeRoleLabel),
       designationOther: d.designationOther||'',
@@ -396,7 +419,7 @@ export function EnrolWorkforceForm({ onEnroll, onClose, open=true, draftData=nul
       setForm({
         fullName:d.full_name||'', dob:d.dob||'', gender:d.gender||'',
         email:d.email||'', contact:d.phone||'', whatsapp:d.whatsapp||'',
-        departments:(d.department||'').split(',').map(s=>s.trim()).filter(Boolean),
+        departments:(d.department||'').split(',').map(s=>normalizeDeptLabel(s.trim())).filter(Boolean),
         departmentOther:'',
         designations:(d.designation||'').split(',').map(s=>normalizeRoleLabel(s)).filter(Boolean),
         designationOther:'',

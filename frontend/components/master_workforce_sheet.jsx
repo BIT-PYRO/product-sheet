@@ -421,7 +421,7 @@ export default function MasterWorkforceSheet() {
       const deleteResults = await Promise.all(
         backendRows.map(async (row) => {
           try {
-            const response = await fetch(`/api/workforce/${row.id}`, {
+            const response = await fetch(`/api/workforce/${row.id}/`, {
               method: 'DELETE',
             });
 

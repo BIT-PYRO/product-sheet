@@ -137,6 +137,25 @@ class SaaSResourcePermission(permissions.BasePermission):
         elif role == UserRole.STAFF_LEGACY:
             role = UserRole.STAFF
 
+        # Pre-check dynamic sheet permissions (from WorkforceMember)
+        # This overrides VIEWER, STAFF, and DEPARTMENT_HEAD restrictions if explicit access is given.
+        if role in [UserRole.VIEWER, UserRole.STAFF, UserRole.DEPARTMENT_HEAD]:
+            audit_sheet = getattr(view, 'audit_sheet', None)
+            if audit_sheet and getattr(request.user, 'email', None) and getattr(request.user, 'tenant', None):
+                if not hasattr(request, '_cached_workforce_permissions'):
+                    from workforce.models import WorkforceMember
+                    member = WorkforceMember.objects.filter(email__iexact=request.user.email, tenant=request.user.tenant).first()
+                    request._cached_workforce_permissions = member.permissions if member else {}
+                
+                sheet_perms = request._cached_workforce_permissions.get('sheets', {}).get(audit_sheet, {})
+                if sheet_perms:
+                    if request.method in permissions.SAFE_METHODS and sheet_perms.get('view'):
+                        return True
+                    if request.method in ('POST', 'PUT', 'PATCH') and (sheet_perms.get('create') or sheet_perms.get('edit')):
+                        return True
+                    if request.method == 'DELETE' and (sheet_perms.get('delete') or sheet_perms.get('edit')):
+                        return True
+
         # VIEWER: strictly read-only
         if role == UserRole.VIEWER:
             return request.method in permissions.SAFE_METHODS
@@ -154,7 +173,9 @@ class SaaSResourcePermission(permissions.BasePermission):
             if model:
                 allowed_staff_write_models = {
                     'Job', 'InventoryTransaction', 'StoneTransaction', 'StockTransaction',
-                    'FindingInventoryTransaction', 'ProductInventoryTransaction', 'IssueRequest', 'RepairItem'
+                    'FindingInventoryTransaction', 'ProductInventoryTransaction', 'IssueRequest', 'RepairItem',
+                    'PicklistGroup', 'PicklistItem',  # Picklist sync is an orders-adjacent write
+                    'Order', 'OrderItem',              # from-picklist creates Order records
                 }
                 if model.__name__ in allowed_staff_write_models:
                     return True
@@ -173,7 +194,9 @@ class SaaSResourcePermission(permissions.BasePermission):
             if model:
                 allowed_dept_head_write_models = {
                     'Job', 'InventoryTransaction', 'StoneTransaction', 'StockTransaction',
-                    'FindingInventoryTransaction', 'ProductInventoryTransaction', 'IssueRequest', 'RepairItem'
+                    'FindingInventoryTransaction', 'ProductInventoryTransaction', 'IssueRequest', 'RepairItem',
+                    'PicklistGroup', 'PicklistItem',  # Picklist sync is an orders-adjacent write
+                    'Order', 'OrderItem',              # from-picklist creates Order records
                 }
                 if model.__name__ in allowed_dept_head_write_models:
                     return True

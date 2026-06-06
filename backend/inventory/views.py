@@ -106,10 +106,22 @@ class PicklistGroupViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 	search_fields = ['name', 'uploaded_by', 'group_id', 'items__sku', 'items__listing_name']
 
 	def perform_create(self, serializer):
-		serializer.save(
-			tenant=(getattr(self.request, 'tenant', None) or (getattr(self.request.user, 'tenant', None) if self.request.user and self.request.user.is_authenticated else None)),
-			company=(getattr(self.request, 'company', None) or (getattr(self.request.user, 'active_company', None) if self.request.user and self.request.user.is_authenticated else None)),
+		tenant = (
+			getattr(self.request, 'tenant', None)
+			or (getattr(self.request.user, 'tenant', None) if self.request.user and self.request.user.is_authenticated else None)
 		)
+		company = (
+			getattr(self.request, 'company', None)
+			or (getattr(self.request.user, 'active_company', None) if self.request.user and self.request.user.is_authenticated else None)
+		)
+		# Server-side picklist-sync calls go through the Next.js proxy without
+		# an X-Company-ID header, so company may be None even though company_id
+		# is NOT NULL. Fall back to the tenant's first company to prevent the
+		# IntegrityError that was causing HTTP 500 on POST /picklist-groups/.
+		if company is None and tenant is not None:
+			from core_tenants.models import Company
+			company = Company.objects.filter(tenant=tenant).first()
+		serializer.save(tenant=tenant, company=company)
 
 
 @extend_schema_view(
