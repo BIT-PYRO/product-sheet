@@ -2305,7 +2305,7 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 			d.die_code: d
 			for d in DieInventoryItem.objects
 			.filter(die_code__in=die_qty_map.keys())
-			.only('die_code', 'image', 'location', 'designer_skus')
+			.only('die_code', 'image', 'location', 'designer_skus', 'wax_piece_location', 'wax_setting_location', 'casting_location')
 		}
 
 		def make_absolute(url):
@@ -2374,6 +2374,9 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 				'image': resolved_imgs[0] if resolved_imgs else '',
 				'images': resolved_imgs,
 				'location': (inv.location or '') if inv else '',
+				'wax_piece_location': (inv.wax_piece_location or '') if inv else '',
+				'wax_setting_location': (inv.wax_setting_location or '') if inv else '',
+				'casting_location': (inv.casting_location or '') if inv else '',
 				'qty_needed': qty,
 			})
 
