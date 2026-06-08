@@ -83,9 +83,14 @@ class APIKeyAuthentication(BaseAuthentication):
         # Import here to avoid circular imports at module load time
         from .models import APIKey
         try:
-            api_key = APIKey.objects.select_related('tenant').get(key_hash=key_hash, is_active=True)
+            api_key = APIKey.objects.select_related('tenant', 'created_by').get(key_hash=key_hash, is_active=True)
         except APIKey.DoesNotExist:
             raise AuthenticationFailed('Invalid or inactive API key.')
+
+        # Auto-migrate tenant if missing
+        if not api_key.tenant and api_key.created_by and getattr(api_key.created_by, 'tenant', None):
+            api_key.tenant = api_key.created_by.tenant
+            api_key.save(update_fields=['tenant'])
 
         # Verify that the requested tenant matches the API Key's tenant
         requested_tenant_id = request.headers.get('X-Tenant-ID') or request.META.get('HTTP_X_TENANT_ID') or request.query_params.get('tenant_id')

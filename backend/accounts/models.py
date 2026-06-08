@@ -182,9 +182,13 @@ class APIKey(models.Model):
         raw_key = generate_api_key()
         prefix = raw_key[:8]
         key_hash = hashlib.sha256(raw_key.encode()).hexdigest()
+        
+        tenant = getattr(created_by, 'tenant', None) if created_by else None
+        
         instance = cls.objects.create(
             name=name,
             description=description,
+            tenant=tenant,
             given_to=given_to,
             given_to_workforce_id=given_to_workforce_id,
             key_prefix=prefix,
