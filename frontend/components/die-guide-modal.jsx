@@ -55,6 +55,9 @@ export default function DieGuideModal({ open, onOpenChange, jobId, voucherNo = "
           <td class="die-code">${d.die_code || '—'}</td>
           <td class="center">${imgsHtml}</td>
           <td class="center">${d.location || '—'}</td>
+          <td class="center">${d.wax_setting_location || '—'}</td>
+          <td class="center">${d.wax_piece_location || '—'}</td>
+          <td class="center">${d.casting_location || '—'}</td>
           <td class="center">${d.qty_needed != null ? d.qty_needed : '—'}</td>
         </tr>
       `;
@@ -91,7 +94,10 @@ export default function DieGuideModal({ open, onOpenChange, jobId, voucherNo = "
       <tr>
         <th>Die Code</th>
         <th class="center" style="width:64px">Die Image</th>
-        <th class="center">Location</th>
+        <th class="center">Die Location</th>
+        <th class="center">Wax Setting Location</th>
+        <th class="center">Wax Piece Location</th>
+        <th class="center">Casting Location</th>
         <th class="center" style="width:70px">Qty Needed</th>
       </tr>
     </thead>
@@ -162,7 +168,10 @@ export default function DieGuideModal({ open, onOpenChange, jobId, voucherNo = "
                 <tr className="bg-amber-600 text-white text-xs">
                   <th className="border border-amber-700 px-3 py-1.5 text-left">Die Code</th>
                   <th className="border border-amber-700 px-3 py-1.5 text-center w-16">Die Image</th>
-                  <th className="border border-amber-700 px-3 py-1.5 text-center w-40">Location</th>
+                  <th className="border border-amber-700 px-3 py-1.5 text-center w-24">Die Location</th>
+                  <th className="border border-amber-700 px-3 py-1.5 text-center w-24">Wax Setting Location</th>
+                  <th className="border border-amber-700 px-3 py-1.5 text-center w-24">Wax Piece Location</th>
+                  <th className="border border-amber-700 px-3 py-1.5 text-center w-24">Casting Location</th>
                   <th className="border border-amber-700 px-3 py-1.5 text-center w-24">Qty Needed</th>
                 </tr>
               </thead>
@@ -200,6 +209,15 @@ export default function DieGuideModal({ open, onOpenChange, jobId, voucherNo = "
                     </td>
                     <td className="border border-border px-3 py-1.5 text-center text-xs text-foreground">
                       {d.location || <span className="text-muted-foreground/40">—</span>}
+                    </td>
+                    <td className="border border-border px-3 py-1.5 text-center text-xs text-foreground">
+                      {d.wax_setting_location || <span className="text-muted-foreground/40">—</span>}
+                    </td>
+                    <td className="border border-border px-3 py-1.5 text-center text-xs text-foreground">
+                      {d.wax_piece_location || <span className="text-muted-foreground/40">—</span>}
+                    </td>
+                    <td className="border border-border px-3 py-1.5 text-center text-xs text-foreground">
+                      {d.casting_location || <span className="text-muted-foreground/40">—</span>}
                     </td>
                     <td className="border border-border px-3 py-1.5 text-center text-xs font-semibold">
                       {d.qty_needed != null ? d.qty_needed : <span className="text-muted-foreground/40">—</span>}
