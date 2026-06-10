@@ -145,6 +145,11 @@
   body {
     @apply bg-background text-foreground text-base leading-normal;
   }
+  input:not([type="checkbox"]):not([type="radio"]),
+  select,
+  textarea {
+    @apply bg-background text-foreground;
+  }
 }
 
 /* ── Fix autofill background ── */

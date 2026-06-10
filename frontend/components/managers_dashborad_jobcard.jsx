@@ -1,6 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, Fragment } from 'react';
+import MultiselectFilterPopover from '@/components/multiselect-filter-popover';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -78,7 +79,7 @@ export default function ManagersDashboard() {
   const [issuerFilter, setIssuerFilter] = useState('');
   const [departmentFilter, setDepartmentFilter] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState([]);
   const statusOptions = ['In Process', 'Awaiting', 'Partial', 'Completed'];
   const newReissueOptions = ['New', 'Re-issue'];
 
@@ -238,10 +239,14 @@ export default function ManagersDashboard() {
       if (issuerFilter && card.issuedBy !== issuerFilter) return false;
       if (departmentFilter && card.deptFrom !== departmentFilter) return false;
       if (typeFilter && card.workType !== typeFilter) return false;
-      if (categoryFilter) {
-        if (categoryFilter === 'New' && card.voucherType !== 'New') return false;
-        else if (categoryFilter === 'Re-Issue' && card.voucherType !== 'Re-Issue') return false;
-        else if (categoryFilter !== 'New' && categoryFilter !== 'Re-Issue' && card.picklistName !== categoryFilter) return false;
+      if (categoryFilter && categoryFilter.length > 0) {
+        const matchesAny = categoryFilter.some(filterVal => {
+          if (filterVal === 'New' && card.voucherType === 'New') return true;
+          if (filterVal === 'Re-Issue' && card.voucherType === 'Re-Issue') return true;
+          if (filterVal !== 'New' && filterVal !== 'Re-Issue' && card.picklistName === filterVal) return true;
+          return false;
+        });
+        if (!matchesAny) return false;
       }
       if (searchTerm) {
         const term = searchTerm.toLowerCase();
@@ -271,6 +276,63 @@ export default function ManagersDashboard() {
     }
     return ids;
   }, [filteredJobCardsData]);
+
+  const allFilteredCards = useMemo(() => {
+    const list = [];
+    for (const col of Object.values(filteredJobCardsData)) {
+      for (const bucket of ['new', 'wip', 'completed']) {
+        list.push(...col[bucket]);
+      }
+    }
+    return list;
+  }, [filteredJobCardsData]);
+
+  const getGroupKey = useCallback((card) => {
+    if (card.picklistName) {
+      return card.picklistName;
+    }
+    if (card.createdAt) {
+      const d = new Date(card.createdAt);
+      if (!isNaN(d)) {
+        return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: '2-digit' });
+      }
+      return String(card.createdAt).slice(0, 10);
+    }
+    return 'No Date/Batch';
+  }, []);
+
+  const groupedJobCards = useMemo(() => {
+    const groups = {};
+    allFilteredCards.forEach((card) => {
+      const key = getGroupKey(card);
+      if (!groups[key]) {
+        groups[key] = [];
+      }
+      groups[key].push(card);
+    });
+    return groups;
+  }, [allFilteredCards, getGroupKey]);
+
+  const sortedGroupKeys = useMemo(() => {
+    const getGroupMaxDate = (cardsInGroup) => {
+      let maxTime = 0;
+      for (const card of cardsInGroup) {
+        const time = card.createdAt ? new Date(card.createdAt).getTime() : 0;
+        if (time > maxTime) {
+          maxTime = time;
+        }
+      }
+      return maxTime;
+    };
+    
+    return Object.keys(groupedJobCards).sort((a, b) => {
+      return getGroupMaxDate(groupedJobCards[b]) - getGroupMaxDate(groupedJobCards[a]);
+    });
+  }, [groupedJobCards]);
+
+  const visibleColumnsCount = useMemo(() => {
+    return processColumns.filter(col => visibleColumns.has(col)).length;
+  }, [visibleColumns]);
 
   useEffect(() => {
     fetch('/api/auth/session').then(r => r.json()).then(d => { if (d?.user?.username) setCurrentUsername(d.user.username); }).catch(() => {});
@@ -1175,7 +1237,7 @@ export default function ManagersDashboard() {
           <div className="flex justify-end mb-2">
             <button
               type="button"
-              onClick={() => { setStatusFilter(''); setDateFromFilter(''); setDateToFilter(''); setNewReissueFilter(''); setNameFilter(''); setIssuerFilter(''); setDepartmentFilter(''); setTypeFilter(''); setCategoryFilter(''); }}
+              onClick={() => { setStatusFilter(''); setDateFromFilter(''); setDateToFilter(''); setNewReissueFilter(''); setNameFilter(''); setIssuerFilter(''); setDepartmentFilter(''); setTypeFilter(''); setCategoryFilter([]); }}
               className="text-xs text-trust-blue hover:underline font-medium"
             >
               Clear Filters
@@ -1297,23 +1359,13 @@ export default function ManagersDashboard() {
             {/* Category */}
             <div>
               <label className="text-sm font-semibold text-slate-text block mb-1">CATEGORY</label>
-              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                <SelectTrigger className="h-9 text-sm bg-white">
-                  <SelectValue placeholder="Select Category" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="New">New</SelectItem>
-                  <SelectItem value="Re-Issue">Re-Issue</SelectItem>
-                  {filterOptions.picklists.length > 0 && (
-                    <>
-                      <SelectSeparator />
-                      {filterOptions.picklists.map(pl => (
-                        <SelectItem key={pl} value={pl}>{pl}</SelectItem>
-                      ))}
-                    </>
-                  )}
-                </SelectContent>
-              </Select>
+              <MultiselectFilterPopover
+                label="Select Category"
+                selectedValues={categoryFilter}
+                onSelectValues={setCategoryFilter}
+                options={['New', 'Re-Issue', ...filterOptions.picklists]}
+                className="w-full h-9 justify-between bg-white border border-input text-midnight-ink"
+              />
             </div>
           </div>
         </div>
@@ -1342,30 +1394,47 @@ export default function ManagersDashboard() {
             </tr>
           </thead>
           <tbody>
-            <tr>
-              {processColumns.map((column) => 
-                visibleColumns.has(column) && (
-                  <td key={column} className="border-2 border-soft-border p-3 align-top min-h-[400px]">
-                  <div className="space-y-2.5">
-                    {/* New Cards */}
-                    {filteredJobCardsData[column].new.map((card, idx) => (
-                      <VoucherCard key={`new-${idx}`} card={card} bucket="new" />
-                    ))}
-
-                    {/* Work in Progress Cards */}
-                    {filteredJobCardsData[column].wip.map((card, idx) => (
-                      <VoucherCard key={`wip-${idx}`} card={card} bucket="wip" />
-                    ))}
-
-                    {/* Completed Cards */}
-                    {filteredJobCardsData[column].completed.map((card, idx) => (
-                      <VoucherCard key={`completed-${idx}`} card={card} bucket="completed" />
-                    ))}
-                  </div>
+            {sortedGroupKeys.length === 0 ? (
+              <tr>
+                <td colSpan={visibleColumnsCount} className="p-8 text-center text-cool-gray">
+                  No vouchers found.
                 </td>
-                )
-              )}
-            </tr>
+              </tr>
+            ) : (
+              sortedGroupKeys.map((groupKey) => (
+                <Fragment key={groupKey}>
+                  {/* Group header row */}
+                  <tr className="bg-slate-100 dark:bg-slate-900/40 border-y border-soft-border">
+                    <td
+                      colSpan={visibleColumnsCount}
+                      className="p-2 font-bold text-midnight-ink text-xs uppercase tracking-wider text-center"
+                    >
+                      {groupKey}
+                    </td>
+                  </tr>
+                  {/* Cards row */}
+                  <tr>
+                    {processColumns.map((column) => {
+                      if (!visibleColumns.has(column)) return null;
+                      const cardsInColumn = groupedJobCards[groupKey].filter(
+                        (card) =>
+                          DEPT_TO_COLUMN[card.deptTo] === column ||
+                          (column === 'Others' && !DEPT_TO_COLUMN[card.deptTo])
+                      );
+                      return (
+                         <td key={column} className="border-2 border-soft-border p-3 align-top min-h-[120px]">
+                           <div className="space-y-2.5">
+                             {cardsInColumn.map((card) => (
+                               <VoucherCard key={card.id} card={card} />
+                             ))}
+                           </div>
+                         </td>
+                      );
+                    })}
+                  </tr>
+                </Fragment>
+              ))
+            )}
           </tbody>
           </table>
         </div>

@@ -1796,7 +1796,7 @@ export default function StoneInventoryPage() {
                   value={receiveForm.referenceId}
                   onChange={(e) => setReceiveForm((prev) => ({ ...prev, referenceId: e.target.value }))}
                   placeholder="e.g. REF-001"
-                  className="w-full rounded-md border border-soft-border px-3 py-1.5 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                  className="w-full rounded-md border border-soft-border bg-background px-3 py-1.5 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
                 />
               </div>
               <div className="flex flex-col gap-1">
@@ -1806,7 +1806,7 @@ export default function StoneInventoryPage() {
                   value={receiveForm.quality}
                   onChange={(e) => setReceiveForm((prev) => ({ ...prev, quality: e.target.value }))}
                   placeholder="e.g. AA+"
-                  className="w-full rounded-md border border-soft-border px-3 py-1.5 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                  className="w-full rounded-md border border-soft-border bg-background px-3 py-1.5 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
                 />
               </div>
               <div className="flex flex-col gap-1">
@@ -1831,7 +1831,7 @@ export default function StoneInventoryPage() {
                   value={receiveForm.quantity}
                   placeholder="0"
                   onChange={(e) => handleReceiveFormChange('quantity', e.target.value)}
-                  className="w-full rounded-md border border-soft-border px-3 py-1.5 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                  className="w-full rounded-md border border-soft-border bg-background px-3 py-1.5 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
                 />
               </div>
               <div className="flex flex-col gap-1">
@@ -1843,7 +1843,7 @@ export default function StoneInventoryPage() {
                   value={receiveForm.weight}
                   placeholder="0.00"
                   onChange={(e) => handleReceiveFormChange('weight', e.target.value)}
-                  className="w-full rounded-md border border-soft-border px-3 py-1.5 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                  className="w-full rounded-md border border-soft-border bg-background px-3 py-1.5 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
                 />
               </div>
               <div className="flex flex-col gap-1">
@@ -1855,7 +1855,7 @@ export default function StoneInventoryPage() {
                   value={receiveForm.price}
                   placeholder="e.g. 500"
                   onChange={(e) => handleReceiveFormChange('price', e.target.value)}
-                  className="w-full rounded-md border border-soft-border px-3 py-1.5 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                  className="w-full rounded-md border border-soft-border bg-background px-3 py-1.5 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
                 />
               </div>
               <div className="flex flex-col gap-1">
@@ -1876,7 +1876,7 @@ export default function StoneInventoryPage() {
                   value={receiveForm.amount}
                   disabled
                   placeholder="—"
-                  className="w-full rounded-md border border-transparent bg-green-50 px-3 py-1.5 text-sm font-semibold text-success-dark focus:outline-none cursor-default"
+                  className="w-full rounded-md border border-transparent bg-green-50 dark:bg-green-950/40 px-3 py-1.5 text-sm font-semibold text-success-dark dark:text-emerald-400 focus:outline-none cursor-default"
                 />
               </div>
             </div>
@@ -1889,7 +1889,7 @@ export default function StoneInventoryPage() {
                     type="text"
                     value={receiveForm[key]}
                     onChange={(e) => setReceiveForm((prev) => ({ ...prev, [key]: e.target.value }))}
-                    className="w-full rounded-md border border-soft-border px-2 py-1.5 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                    className="w-full rounded-md border border-soft-border bg-background px-2 py-1.5 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
                   />
                 </div>
               ))}
