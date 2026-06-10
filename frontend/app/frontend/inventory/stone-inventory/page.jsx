@@ -16,6 +16,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
 import GlobalSearchBar from '@/components/global-search-bar';
 import DateTimeStamp from '@/components/date-time-stamp';
@@ -239,7 +244,6 @@ export default function StoneInventoryPage() {
   const [rowsPerPage, setRowsPerPage] = useState(25);
   const [currentPage, setCurrentPage] = useState(1);
   const [lastUpdated, setLastUpdated] = useState(null);
-  const [showCalculationInfo, setShowCalculationInfo] = useState(false);
 
   // â”€â”€ load â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
@@ -1884,15 +1888,46 @@ export default function StoneInventoryPage() {
               <div className="flex flex-col gap-1 relative">
                 <div className="flex items-center gap-1.5">
                   <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Price By</label>
-                  <button
-                    type="button"
-                    onMouseEnter={() => setShowCalculationInfo(true)}
-                    onMouseLeave={() => setShowCalculationInfo(false)}
-                    onClick={() => setShowCalculationInfo(!showCalculationInfo)}
-                    className="text-cool-gray hover:text-trust-blue focus:outline-none transition-colors"
-                  >
-                    <Info size={14} />
-                  </button>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <button
+                        type="button"
+                        className="text-cool-gray hover:text-trust-blue focus:outline-none transition-colors cursor-pointer"
+                      >
+                        <Info size={14} />
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-80 p-4 shadow-xl z-[9999]" side="top" align="center">
+                      <h4 className="font-bold mb-1.5 text-trust-blue text-sm">Calculation Details</h4>
+                      <p className="mb-2 text-xs text-cool-gray">
+                        The Amount is calculated automatically based on your choice in <span className="font-semibold text-foreground">Price By</span>:
+                      </p>
+                      <ul className="space-y-2 mb-3 text-xs">
+                        <li>
+                          <span className="font-semibold text-foreground">● Pieces</span>: Calculates amount by multiplying quantity:
+                          <div className="bg-muted dark:bg-muted/30 p-1.5 rounded font-mono mt-0.5 border border-soft-border">
+                            Amount = Qty × Price
+                          </div>
+                        </li>
+                        <li>
+                          <span className="font-semibold text-foreground">● Weight</span>: Calculates amount by multiplying weight in the selected unit:
+                          <div className="bg-muted dark:bg-muted/30 p-1.5 rounded font-mono mt-0.5 border border-soft-border">
+                            Amount = Weight ({receiveForm.weight_unit || 'cts'}) × Price
+                          </div>
+                        </li>
+                      </ul>
+                      <div className="border-t border-soft-border pt-2 mt-2 text-xs">
+                        <h5 className="font-semibold mb-1 text-foreground">Weight Unit Conversions:</h5>
+                        <p className="text-[11px] text-cool-gray mb-1.5">
+                          For consistent inventory tracking, weights in other units are automatically converted to Carats (cts) when saved:
+                        </p>
+                        <ul className="list-disc list-inside mt-1 font-mono text-[10px] text-cool-gray space-y-0.5 bg-muted dark:bg-muted/30 p-1.5 rounded border border-soft-border">
+                          <li>1 Gram (g) = 5 Carats (cts)</li>
+                          <li>1 Kilogram (kg) = 5,000 Carats (cts)</li>
+                        </ul>
+                      </div>
+                    </PopoverContent>
+                  </Popover>
                 </div>
                 <select
                   value={receiveForm.price_by}
@@ -1902,39 +1937,6 @@ export default function StoneInventoryPage() {
                   <option value="pcs">Pieces</option>
                   <option value="weight">Weight</option>
                 </select>
-
-                {showCalculationInfo && (
-                  <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 z-50 w-72 rounded-lg border border-soft-border bg-background p-4 shadow-xl text-xs text-midnight-ink animate-in fade-in zoom-in-95 duration-150">
-                    <h4 className="font-bold mb-1.5 text-trust-blue text-sm">Calculation Details</h4>
-                    <p className="mb-2 text-cool-gray">
-                      The Amount is calculated automatically based on your choice in <span className="font-semibold text-foreground">Price By</span>:
-                    </p>
-                    <ul className="space-y-2 mb-3">
-                      <li>
-                        <span className="font-semibold text-foreground">● Pieces</span>: Calculates amount by multiplying quantity:
-                        <div className="bg-muted dark:bg-muted/30 p-1.5 rounded font-mono mt-0.5 border border-soft-border">
-                          Amount = Qty × Price
-                        </div>
-                      </li>
-                      <li>
-                        <span className="font-semibold text-foreground">● Weight</span>: Calculates amount by multiplying weight in the selected unit:
-                        <div className="bg-muted dark:bg-muted/30 p-1.5 rounded font-mono mt-0.5 border border-soft-border">
-                          Amount = Weight ({receiveForm.weight_unit || 'cts'}) × Price
-                        </div>
-                      </li>
-                    </ul>
-                    <div className="border-t border-soft-border pt-2 mt-2">
-                      <h5 className="font-semibold mb-1 text-foreground">Weight Unit Conversions:</h5>
-                      <p className="text-[11px] text-cool-gray mb-1.5">
-                        For consistent inventory tracking, weights in other units are automatically converted to Carats (cts) when saved:
-                      </p>
-                      <ul className="list-disc list-inside mt-1 font-mono text-[10px] text-cool-gray space-y-0.5 bg-muted dark:bg-muted/30 p-1.5 rounded border border-soft-border">
-                        <li>1 Gram (g) = 5 Carats (cts)</li>
-                        <li>1 Kilogram (kg) = 5,000 Carats (cts)</li>
-                      </ul>
-                    </div>
-                  </div>
-                )}
               </div>
               <div className="flex flex-col gap-1">
                 <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Amount</label>

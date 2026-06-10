@@ -249,9 +249,29 @@ export default function ManagersDashboard() {
         if (!matchesAny) return false;
       }
       if (searchTerm) {
-        const term = searchTerm.toLowerCase();
-        const haystack = [card.voucherNo, card.name, card.category, card.issuedBy, card.workType, card.picklistName].join(' ').toLowerCase();
-        if (!haystack.includes(term)) return false;
+        const terms = searchTerm.split(',').map(t => t.trim().toLowerCase()).filter(Boolean);
+        if (terms.length > 0) {
+          const matchAny = terms.some(term => {
+            const picklistName = String(card.picklistName || '');
+            const orderName = String(card.orderName || '');
+            const voucherNo = String(card.voucherNo || '');
+            const name = String(card.name || '');
+            const category = String(card.category || '');
+            const issuedBy = String(card.issuedBy || '');
+            const workType = String(card.workType || '');
+            const batchId = String(card.batchId || '');
+            
+            return picklistName.toLowerCase().includes(term) ||
+                   orderName.toLowerCase().includes(term) ||
+                   voucherNo.toLowerCase().includes(term) ||
+                   name.toLowerCase().includes(term) ||
+                   category.toLowerCase().includes(term) ||
+                   issuedBy.toLowerCase().includes(term) ||
+                   workType.toLowerCase().includes(term) ||
+                   batchId.toLowerCase().includes(term);
+          });
+          if (!matchAny) return false;
+        }
       }
       return true;
     };
@@ -908,9 +928,9 @@ export default function ManagersDashboard() {
         <div className={`${s.header} flex items-center justify-between px-2 py-1`}>
           <span
             className={`text-[11px] font-bold ${s.headerText} truncate`}
-            title={card.picklistName ? `${card.voucherNo} - ${card.picklistName}` : card.voucherNo}
+            title={card.picklistName ? `${card.voucherNo} - ${card.picklistName}${card.orderName ? ` - ${card.orderName}` : ''}` : card.voucherNo}
           >
-            {card.voucherNo}{card.picklistName ? ` - ${card.picklistName}` : ''}
+            {card.voucherNo}{card.picklistName ? ` - ${card.picklistName}` : ''}{card.orderName ? ` - ${card.orderName}` : ''}
           </span>
           <div className="flex items-center gap-1">
             <input
