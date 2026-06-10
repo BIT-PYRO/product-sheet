@@ -184,12 +184,14 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
         const totalReceived = {}
         const totalLoss = {}
         const totalReceivedWeight = {}
+        const totalLossWeight = {}
         for (const event of receivedEvents) {
           for (const row of (event.rows || [])) {
-            const key = (row.sku || '').trim().toUpperCase()
+            const key = (row.sku || row.die_code || '').trim().toUpperCase()
             totalReceived[key] = (totalReceived[key] || 0) + (parseFloat(row.received_qty) || 0)
             totalLoss[key] = (totalLoss[key] || 0) + (parseFloat(row.loss_qty) || 0)
             totalReceivedWeight[key] = (totalReceivedWeight[key] || 0) + (parseFloat(row.received_weight) || 0)
+            totalLossWeight[key] = (totalLossWeight[key] || 0) + (parseFloat(row.loss_weight) || 0)
           }
         }
 
@@ -204,7 +206,9 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
               receivedQty: String(totalReceived[key] || 0),
               receivedWeight: String(totalReceivedWeight[key] || ''),
               lossQty: String(totalLoss[key] || 0),
+              lossWeight: String(totalLossWeight[key] || ''),
               reissueQty: String(totalLoss[key] || 0),
+              reissueWeight: String(totalLossWeight[key] || ''),
             }
           }))
         } else if (isPartial && hasPriorActivity) {
@@ -912,7 +916,7 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
                       <input className={`h-7 px-1.5 bg-transparent border-0 outline-none text-xs ${isBaseLocked ? 'cursor-default font-semibold text-gray-500' : ''}`} style={{  width: '100%' }} placeholder="Metal" value={row.metal} readOnly={isBaseLocked} onChange={isBaseLocked ? undefined : (e) => updateRow(row.id, 'metal', e.target.value)} />
                     </td>
                     {/* Issued Qty+Unit */}
-                    <td className="border-l-2 border-l-blue-300 bg-blue-50/50 p-0 whitespace-nowrap">
+                    <td className="border-l-2 border-l-blue-300 bg-blue-50 p-0 whitespace-nowrap">
                       <div className="flex items-center h-7 px-1 gap-0.5">
                         <input type="number" className={`w-11 bg-transparent border-0 outline-none text-xs text-center ${isBaseLocked ? 'cursor-default font-semibold text-gray-500' : ''}`} placeholder="0" value={row.issuedQty} readOnly={isBaseLocked} onChange={isBaseLocked ? undefined : (e) => updateRow(row.id, 'issuedQty', e.target.value)} />
                         <select className={`bg-transparent border-0 outline-none appearance-none ${isBaseLocked ? 'cursor-default text-gray-400' : 'cursor-pointer flex-shrink-0 text-gray-400'}`} style={{ fontSize: 9 }} value={row.unit1} disabled={isBaseLocked} onChange={isBaseLocked ? undefined : (e) => updateRow(row.id, 'unit1', e.target.value)}>
@@ -921,7 +925,7 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
                       </div>
                     </td>
                     {/* Issued Weight+Unit */}
-                    <td className="border-r border-border/30 bg-blue-50/50 p-0 whitespace-nowrap">
+                    <td className="border-r border-border/30 bg-blue-50 p-0 whitespace-nowrap">
                       <div className="flex items-center h-7 px-1 gap-0.5">
                         <input type="number" className={`w-11 bg-transparent border-0 outline-none text-xs text-center ${isBaseLocked ? 'cursor-default font-semibold text-gray-500' : ''}`} placeholder="0.0" value={row.issuedWeight} readOnly={isBaseLocked} onChange={isBaseLocked ? undefined : (e) => updateRow(row.id, 'issuedWeight', e.target.value)} />
                         <select className={`bg-transparent border-0 outline-none appearance-none ${isBaseLocked ? 'cursor-default text-gray-400' : 'cursor-pointer flex-shrink-0 text-gray-400'}`} style={{ fontSize: 9 }} value={row.unit2} disabled={isBaseLocked} onChange={isBaseLocked ? undefined : (e) => updateRow(row.id, 'unit2', e.target.value)}>
@@ -930,7 +934,7 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
                       </div>
                     </td>
                     {/* Received Qty+Unit */}
-                    <td className="border-l-2 border-l-emerald-300 bg-emerald-50/50 p-0 whitespace-nowrap">
+                    <td className="border-l-2 border-l-emerald-300 bg-emerald-50 p-0 whitespace-nowrap">
                       <div className="flex items-center h-7 px-1 gap-0.5">
                         <input type="number" className={`w-11 bg-transparent border-0 outline-none text-xs text-center ${isCompleted ? 'cursor-default font-semibold text-emerald-700' : ''}`} placeholder="0" value={row.receivedQty} readOnly={isCompleted} onChange={isCompleted ? undefined : (e) => updateRow(row.id, 'receivedQty', e.target.value)} />
                         <select className="bg-transparent border-0 outline-none appearance-none cursor-pointer flex-shrink-0 text-gray-400" style={{ fontSize: 9 }} value={row.unit3 || 'Pcs'} disabled={isCompleted} onChange={(e) => updateRow(row.id, 'unit3', e.target.value)}>
@@ -939,7 +943,7 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
                       </div>
                     </td>
                     {/* Received Weight+Unit */}
-                    <td className="border-r border-border/30 bg-emerald-50/50 p-0 whitespace-nowrap">
+                    <td className="border-r border-border/30 bg-emerald-50 p-0 whitespace-nowrap">
                       <div className="flex items-center h-7 px-1 gap-0.5">
                         <input type="number" className={`w-11 bg-transparent border-0 outline-none text-xs text-center ${isCompleted ? 'cursor-default font-semibold text-emerald-700' : ''}`} placeholder="0.0" value={row.receivedWeight} readOnly={isCompleted} onChange={isCompleted ? undefined : (e) => updateRow(row.id, 'receivedWeight', e.target.value)} />
                         <select className="bg-transparent border-0 outline-none appearance-none cursor-pointer flex-shrink-0 text-gray-400" style={{ fontSize: 9 }} value={row.unit4 || 'Kg'} disabled={isCompleted} onChange={(e) => updateRow(row.id, 'unit4', e.target.value)}>
@@ -948,7 +952,7 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
                       </div>
                     </td>
                     {/* Loss Qty+Unit */}
-                    <td className="border-l-2 border-l-rose-300 bg-rose-50/50 p-0 whitespace-nowrap">
+                    <td className="border-l-2 border-l-rose-300 bg-rose-50 p-0 whitespace-nowrap">
                       <div className="flex items-center h-7 px-1 gap-0.5">
                         <input type="number" className={`w-11 bg-transparent border-0 outline-none text-xs text-center ${isCompleted ? 'cursor-default font-semibold text-rose-700' : ''}`} placeholder="0" value={row.lossQty} readOnly={isCompleted} onChange={isCompleted ? undefined : (e) => updateRow(row.id, 'lossQty', e.target.value)} />
                         <select className="bg-transparent border-0 outline-none appearance-none cursor-pointer flex-shrink-0 text-gray-400" style={{ fontSize: 9 }} value={row.unit5 || 'Pcs'} disabled={isCompleted} onChange={(e) => updateRow(row.id, 'unit5', e.target.value)}>
@@ -957,7 +961,7 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
                       </div>
                     </td>
                     {/* Loss Weight+Unit */}
-                    <td className="border-r border-border/30 bg-rose-50/50 p-0 whitespace-nowrap">
+                    <td className="border-r border-border/30 bg-rose-50 p-0 whitespace-nowrap">
                       <div className="flex items-center h-7 px-1 gap-0.5">
                         <input type="number" className={`w-11 bg-transparent border-0 outline-none text-xs text-center ${isCompleted ? 'cursor-default font-semibold text-rose-700' : ''}`} placeholder="0.0" value={row.lossWeight} readOnly={isCompleted} onChange={isCompleted ? undefined : (e) => updateRow(row.id, 'lossWeight', e.target.value)} />
                         <select className="bg-transparent border-0 outline-none appearance-none cursor-pointer flex-shrink-0 text-gray-400" style={{ fontSize: 9 }} value={row.unit6 || 'Kg'} disabled={isCompleted} onChange={(e) => updateRow(row.id, 'unit6', e.target.value)}>
@@ -966,14 +970,14 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
                       </div>
                     </td>
                     {/* Re-Issue Qty+Unit — read-only, auto-filled from Loss Qty */}
-                    <td className="border-l-2 border-l-amber-300 bg-amber-50/50 p-0 whitespace-nowrap">
+                    <td className="border-l-2 border-l-amber-300 bg-amber-50 p-0 whitespace-nowrap">
                       <div className="flex items-center h-7 px-1 gap-0.5">
                         <input type="number" className="w-11 bg-amber-100/70 border-0 outline-none text-xs text-center cursor-not-allowed" placeholder="0" value={row.reissueQty} readOnly tabIndex={-1} />
                         <span className="text-gray-400 flex-shrink-0" style={{ fontSize: 9 }}>{row.unit7 || 'Pcs'}</span>
                       </div>
                     </td>
                     {/* Re-Issue Weight+Unit */}
-                    <td className="bg-amber-50/50 p-0 whitespace-nowrap">
+                    <td className="bg-amber-50 p-0 whitespace-nowrap">
                       <div className="flex items-center h-7 px-1 gap-0.5">
                         <input type="number" className={`w-11 bg-transparent border-0 outline-none text-xs text-center ${isCompleted ? 'cursor-default font-semibold text-amber-700' : ''}`} placeholder="0.0" value={row.reissueWeight} readOnly={isCompleted} onChange={isCompleted ? undefined : (e) => updateRow(row.id, 'reissueWeight', e.target.value)} />
                         <select className="bg-transparent border-0 outline-none appearance-none cursor-pointer flex-shrink-0 text-gray-400" style={{ fontSize: 9 }} value={row.unit8 || 'Kg'} disabled={isCompleted} onChange={(e) => updateRow(row.id, 'unit8', e.target.value)}>

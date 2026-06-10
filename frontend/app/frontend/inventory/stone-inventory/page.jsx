@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, ChevronDown, Download, Pencil, Plus, Printer, RefreshCw, Trash2, X } from 'lucide-react';
+import { ArrowLeft, ChevronDown, Download, Info, Pencil, Plus, Printer, RefreshCw, Trash2, X } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import SortPopover from '@/components/sort-popover';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
@@ -217,6 +217,7 @@ export default function StoneInventoryPage() {
     stoneId: '',
     quantity: '',
     weight: '',
+    weight_unit: 'cts',
     price: '',
     price_by: 'pcs',
     amount: '',
@@ -238,6 +239,7 @@ export default function StoneInventoryPage() {
   const [rowsPerPage, setRowsPerPage] = useState(25);
   const [currentPage, setCurrentPage] = useState(1);
   const [lastUpdated, setLastUpdated] = useState(null);
+  const [showCalculationInfo, setShowCalculationInfo] = useState(false);
 
   // â”€â”€ load â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
@@ -498,6 +500,7 @@ export default function StoneInventoryPage() {
       stoneId: '',
       quantity: '',
       weight: '',
+      weight_unit: 'cts',
       price: '',
       price_by: 'pcs',
       amount: '',
@@ -522,12 +525,21 @@ export default function StoneInventoryPage() {
     const referenceId = receiveForm.referenceId.trim();
     const price = receiveForm.price || '0';
     const amount = receiveForm.amount || '0';
+    const unit = receiveForm.weight_unit || 'cts';
     
     if (!stoneIdNum) { setStatusMsg('Please select a stone.'); return; }
     if (quantityNum <= 0 && weightNum <= 0) { setStatusMsg('Please enter a valid quantity or weight.'); return; }
     if (!employeeVendorName) { setStatusMsg('Please enter employee/vendor name.'); return; }
     if (!referenceId) { setStatusMsg('Please enter a reference ID.'); return; }
     if (!price || Number(price) <= 0) { setStatusMsg('Please enter a price.'); return; }
+
+    // Convert weight to cts (Carats) for inventory tracking
+    let weightCts = weightNum;
+    if (unit === 'g') {
+      weightCts = weightNum * 5;
+    } else if (unit === 'kg') {
+      weightCts = weightNum * 5000;
+    }
 
     const stone = stones.find((s) => s.id === stoneIdNum);
     setSavingStock(true);
@@ -557,11 +569,11 @@ export default function StoneInventoryPage() {
       const payload = {
         stone: stoneIdNum,
         qty_added: String(quantityNum),
-        weight_cts_added: String(weightNum),
+        weight_cts_added: String(weightCts),
         price: price,
         price_by: receiveForm.price_by || 'pcs',
         amount: amount,
-        remark: `Received from ${employeeVendorName}. Ref: ${referenceId}. Usage: ${receiveForm.usage}`,
+        remark: `Received from ${employeeVendorName}. Ref: ${referenceId}. Usage: ${receiveForm.usage} (Original weight: ${weightNum} ${unit})`,
       };
       
       const res = await fetch('/api/stone-transactions', {
@@ -1835,16 +1847,27 @@ export default function StoneInventoryPage() {
                 />
               </div>
               <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Weight (cts)</label>
-                <input
-                  type="number"
-                  min={0}
-                  step="any"
-                  value={receiveForm.weight}
-                  placeholder="0.00"
-                  onChange={(e) => handleReceiveFormChange('weight', e.target.value)}
-                  className="w-full rounded-md border border-soft-border bg-background px-3 py-1.5 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
-                />
+                <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Weight</label>
+                <div className="flex h-[34px] w-full rounded-md border border-soft-border bg-background focus-within:ring-1 focus-within:ring-trust-blue overflow-hidden">
+                  <input
+                    type="number"
+                    min={0}
+                    step="any"
+                    value={receiveForm.weight}
+                    placeholder="0.00"
+                    onChange={(e) => handleReceiveFormChange('weight', e.target.value)}
+                    className="flex-1 min-w-0 bg-transparent px-3 py-1 text-sm text-midnight-ink focus:outline-none placeholder:text-cool-gray"
+                  />
+                  <select
+                    value={receiveForm.weight_unit || 'cts'}
+                    onChange={(e) => handleReceiveFormChange('weight_unit', e.target.value)}
+                    className="bg-muted px-2 py-1 text-xs font-medium text-midnight-ink focus:outline-none cursor-pointer border-l border-soft-border h-full"
+                  >
+                    <option value="cts">cts</option>
+                    <option value="g">g</option>
+                    <option value="kg">kg</option>
+                  </select>
+                </div>
               </div>
               <div className="flex flex-col gap-1">
                 <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Price</label>
@@ -1858,8 +1881,19 @@ export default function StoneInventoryPage() {
                   className="w-full rounded-md border border-soft-border bg-background px-3 py-1.5 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
                 />
               </div>
-              <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Price By</label>
+              <div className="flex flex-col gap-1 relative">
+                <div className="flex items-center gap-1.5">
+                  <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Price By</label>
+                  <button
+                    type="button"
+                    onMouseEnter={() => setShowCalculationInfo(true)}
+                    onMouseLeave={() => setShowCalculationInfo(false)}
+                    onClick={() => setShowCalculationInfo(!showCalculationInfo)}
+                    className="text-cool-gray hover:text-trust-blue focus:outline-none transition-colors"
+                  >
+                    <Info size={14} />
+                  </button>
+                </div>
                 <select
                   value={receiveForm.price_by}
                   onChange={(e) => handleReceiveFormChange('price_by', e.target.value)}
@@ -1868,6 +1902,39 @@ export default function StoneInventoryPage() {
                   <option value="pcs">Pieces</option>
                   <option value="weight">Weight</option>
                 </select>
+
+                {showCalculationInfo && (
+                  <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 z-50 w-72 rounded-lg border border-soft-border bg-background p-4 shadow-xl text-xs text-midnight-ink animate-in fade-in zoom-in-95 duration-150">
+                    <h4 className="font-bold mb-1.5 text-trust-blue text-sm">Calculation Details</h4>
+                    <p className="mb-2 text-cool-gray">
+                      The Amount is calculated automatically based on your choice in <span className="font-semibold text-foreground">Price By</span>:
+                    </p>
+                    <ul className="space-y-2 mb-3">
+                      <li>
+                        <span className="font-semibold text-foreground">● Pieces</span>: Calculates amount by multiplying quantity:
+                        <div className="bg-muted dark:bg-muted/30 p-1.5 rounded font-mono mt-0.5 border border-soft-border">
+                          Amount = Qty × Price
+                        </div>
+                      </li>
+                      <li>
+                        <span className="font-semibold text-foreground">● Weight</span>: Calculates amount by multiplying weight in the selected unit:
+                        <div className="bg-muted dark:bg-muted/30 p-1.5 rounded font-mono mt-0.5 border border-soft-border">
+                          Amount = Weight ({receiveForm.weight_unit || 'cts'}) × Price
+                        </div>
+                      </li>
+                    </ul>
+                    <div className="border-t border-soft-border pt-2 mt-2">
+                      <h5 className="font-semibold mb-1 text-foreground">Weight Unit Conversions:</h5>
+                      <p className="text-[11px] text-cool-gray mb-1.5">
+                        For consistent inventory tracking, weights in other units are automatically converted to Carats (cts) when saved:
+                      </p>
+                      <ul className="list-disc list-inside mt-1 font-mono text-[10px] text-cool-gray space-y-0.5 bg-muted dark:bg-muted/30 p-1.5 rounded border border-soft-border">
+                        <li>1 Gram (g) = 5 Carats (cts)</li>
+                        <li>1 Kilogram (kg) = 5,000 Carats (cts)</li>
+                      </ul>
+                    </div>
+                  </div>
+                )}
               </div>
               <div className="flex flex-col gap-1">
                 <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Amount</label>

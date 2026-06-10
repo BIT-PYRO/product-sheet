@@ -1407,7 +1407,7 @@ export default function ManagersDashboard() {
                   <tr className="bg-slate-100 dark:bg-slate-900/40 border-y border-soft-border">
                     <td
                       colSpan={visibleColumnsCount}
-                      className="p-2 font-bold text-midnight-ink text-xs uppercase tracking-wider text-center"
+                      className="p-2 pl-4 font-bold text-midnight-ink text-xs uppercase tracking-wider text-left"
                     >
                       {groupKey}
                     </td>
