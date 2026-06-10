@@ -190,7 +190,7 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
         const totalLossWeight = {}
         for (const event of receivedEvents) {
           for (const row of (event.rows || [])) {
-            const key = (row.sku || row.die_code || '').trim().toUpperCase()
+            const key = (row.die_code || row.sku || '').trim().toUpperCase()
             totalReceived[key] = (totalReceived[key] || 0) + (parseFloat(row.received_qty) || 0)
             totalLoss[key] = (totalLoss[key] || 0) + (parseFloat(row.loss_qty) || 0)
             totalReceivedWeight[key] = (totalReceivedWeight[key] || 0) + (parseFloat(row.received_weight) || 0)

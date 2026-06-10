@@ -48,6 +48,7 @@ export default function ManagersDashboard() {
   const [lastUpdated, setLastUpdated] = useState(null);
   const [currentUsername, setCurrentUsername] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+  const [searchType, setSearchType] = useState('picklist');
   const [selectedCard, setSelectedCard] = useState(null);
   const [isReceiveJobOpen, setIsReceiveJobOpen] = useState(false);
   const [selectedVoucherForReceive, setSelectedVoucherForReceive] = useState(null);
@@ -252,23 +253,15 @@ export default function ManagersDashboard() {
         const terms = searchTerm.split(',').map(t => t.trim().toLowerCase()).filter(Boolean);
         if (terms.length > 0) {
           const matchAny = terms.some(term => {
-            const picklistName = String(card.picklistName || '');
-            const orderName = String(card.orderName || '');
-            const voucherNo = String(card.voucherNo || '');
-            const name = String(card.name || '');
-            const category = String(card.category || '');
-            const issuedBy = String(card.issuedBy || '');
-            const workType = String(card.workType || '');
-            const batchId = String(card.batchId || '');
-            
-            return picklistName.toLowerCase().includes(term) ||
-                   orderName.toLowerCase().includes(term) ||
-                   voucherNo.toLowerCase().includes(term) ||
-                   name.toLowerCase().includes(term) ||
-                   category.toLowerCase().includes(term) ||
-                   issuedBy.toLowerCase().includes(term) ||
-                   workType.toLowerCase().includes(term) ||
-                   batchId.toLowerCase().includes(term);
+            if (searchType === 'picklist') {
+              const orderName = String(card.orderName || '');
+              return orderName.toLowerCase().includes(term);
+            } else if (searchType === 'batch') {
+              const picklistName = String(card.picklistName || '');
+              const batchId = String(card.batchId || '');
+              return picklistName.toLowerCase().includes(term) || batchId.toLowerCase().includes(term);
+            }
+            return false;
           });
           if (!matchAny) return false;
         }
@@ -284,7 +277,7 @@ export default function ManagersDashboard() {
       };
     }
     return result;
-  }, [jobCardsData, statusFilter, dateFromFilter, dateToFilter, newReissueFilter, nameFilter, issuerFilter, departmentFilter, typeFilter, categoryFilter, searchTerm]);
+  }, [jobCardsData, statusFilter, dateFromFilter, dateToFilter, newReissueFilter, nameFilter, issuerFilter, departmentFilter, typeFilter, categoryFilter, searchTerm, searchType]);
 
   // All card IDs currently visible (after filtering) – used for Select All
   const allFilteredCardIds = useMemo(() => {
@@ -1099,15 +1092,26 @@ export default function ManagersDashboard() {
 
         {/* Search Bar and Buttons */}
         <div className="flex flex-wrap gap-4 items-center justify-between mb-4">
-          <div className="relative max-w-[250px]">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-cool-gray w-5 h-5" />
-            <Input
-              type="text"
-              placeholder="SEARCH BAR"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="border-2 border-soft-border rounded-lg px-4 py-2 pl-10"
-            />
+          <div className="flex items-center gap-2">
+            <div className="relative max-w-[220px]">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-cool-gray w-5 h-5" />
+              <Input
+                type="text"
+                placeholder="SEARCH BAR"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="border-2 border-soft-border rounded-lg px-4 py-2 pl-10 h-9"
+              />
+            </div>
+            <Select value={searchType} onValueChange={setSearchType}>
+              <SelectTrigger className="w-[125px] h-9 border-2 border-soft-border rounded-lg bg-white text-xs font-semibold">
+                <SelectValue placeholder="Search by" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="picklist" className="text-xs">Picklist</SelectItem>
+                <SelectItem value="batch" className="text-xs">Batch</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           <div className="flex gap-2 flex-wrap">
             {canCreate && (
