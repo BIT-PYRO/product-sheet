@@ -73,8 +73,20 @@ export default function ManagersDashboard() {
   
   // Filter states
   const [statusFilter, setStatusFilter] = useState('');
-  const [dateFromFilter, setDateFromFilter] = useState('');
-  const [dateToFilter, setDateToFilter] = useState('');
+  const [dateFromFilter, setDateFromFilter] = useState(() => {
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  });
+  const [dateToFilter, setDateToFilter] = useState(() => {
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  });
   const [newReissueFilter, setNewReissueFilter] = useState('');
   const [nameFilter, setNameFilter] = useState('');
   const [issuerFilter, setIssuerFilter] = useState('');
@@ -230,7 +242,7 @@ export default function ManagersDashboard() {
       if (statusFilter === 'Awaiting' && card.approvalStatus !== 'awaiting') return false;
       if (statusFilter === 'Partial' && card.approvalStatus !== 'partially_complete') return false;
       if (statusFilter === 'Completed' && card.approvalStatus !== 'completed') return false;
-      if (dateFromFilter || dateToFilter) {
+      if (!searchTerm && (dateFromFilter || dateToFilter)) {
         const cardDate = card.createdAt ? card.createdAt.slice(0, 10) : '';
         if (dateFromFilter && cardDate < dateFromFilter) return false;
         if (dateToFilter && cardDate > dateToFilter) return false;
@@ -253,6 +265,9 @@ export default function ManagersDashboard() {
         const terms = searchTerm.split(',').map(t => t.trim().toLowerCase()).filter(Boolean);
         if (terms.length > 0) {
           const matchAny = terms.some(term => {
+            const voucherNo = String(card.voucherNo || '').toLowerCase();
+            if (voucherNo.includes(term)) return true;
+
             if (searchType === 'picklist') {
               const orderName = String(card.orderName || '');
               return orderName.toLowerCase().includes(term);

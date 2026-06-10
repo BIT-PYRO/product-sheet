@@ -579,14 +579,18 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 			from core_tenants.models import Company
 			Company.objects.select_for_update().get(id=company.id)
 
-		# Get the current voucher counter from DB
-		last_voucher = Job.objects.select_for_update().filter(voucher_no__startswith='JJ-').order_by('-id').first()
-		counter = 1
-		if last_voucher and last_voucher.voucher_no:
-			try:
-				counter = int(last_voucher.voucher_no.split('-')[1]) + 1
-			except (ValueError, IndexError):
-				counter = 1
+		# Get the current voucher counter from DB by finding the max counter number
+		locked_vouchers = list(Job.objects.select_for_update().filter(voucher_no__startswith='JJ-'))
+		max_num = 0
+		for v in locked_vouchers:
+			if v.voucher_no:
+				try:
+					num = int(v.voucher_no.split('-')[1])
+					if num > max_num:
+						max_num = num
+				except (ValueError, IndexError):
+					pass
+		counter = max_num + 1
 
 		# ------------------------------------------------------------------
 		# Phase 1: Collect each product's custom pipeline and qty
@@ -952,14 +956,18 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 				from core_tenants.models import Company
 				Company.objects.select_for_update().get(id=company.id)
 
-			# Stable voucher numbering counter with select_for_update
-			last_voucher = Job.objects.select_for_update().filter(voucher_no__startswith='JJ-').order_by('-id').first()
-			counter = 1
-			if last_voucher and last_voucher.voucher_no:
-				try:
-					counter = int(last_voucher.voucher_no.split('-')[1]) + 1
-				except (ValueError, IndexError):
-					counter = 1
+			# Stable voucher numbering counter with select_for_update, finding the max counter number
+			locked_vouchers = list(Job.objects.select_for_update().filter(voucher_no__startswith='JJ-'))
+			max_num = 0
+			for v in locked_vouchers:
+				if v.voucher_no:
+					try:
+						num = int(v.voucher_no.split('-')[1])
+						if num > max_num:
+							max_num = num
+					except (ValueError, IndexError):
+						pass
+			counter = max_num + 1
 
 			for stage_key, bucket_items in stage_buckets.items():
 				mapping = STAGE_MAPPING.get(stage_key)
@@ -1985,13 +1993,18 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 				from core_tenants.models import Company
 				Company.objects.select_for_update().get(id=company.id)
 
-			last_voucher = Job.objects.select_for_update().filter(voucher_no__startswith='JJ-').order_by('-id').first()
-			counter = 1
-			if last_voucher and last_voucher.voucher_no:
-				try:
-					counter = int(last_voucher.voucher_no.split('-')[1]) + 1
-				except (ValueError, IndexError):
-					pass
+			# stable voucher counter incrementing from max counter number
+			locked_vouchers = list(Job.objects.select_for_update().filter(voucher_no__startswith='JJ-'))
+			max_num = 0
+			for v in locked_vouchers:
+				if v.voucher_no:
+					try:
+						num = int(v.voucher_no.split('-')[1])
+						if num > max_num:
+							max_num = num
+					except (ValueError, IndexError):
+						pass
+			counter = max_num + 1
 
 			new_vouchers = []
 			for stage_v in stages_to_redo:
@@ -2503,14 +2516,18 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 				from core_tenants.models import Company
 				Company.objects.select_for_update().get(id=company.id)
 
-			# Next voucher counter
-			last_voucher = Job.objects.select_for_update().filter(voucher_no__startswith='JJ-').order_by('-id').first()
-			counter = 1
-			if last_voucher and last_voucher.voucher_no:
-				try:
-					counter = int(last_voucher.voucher_no.split('-')[1]) + 1
-				except (ValueError, IndexError):
-					counter = 1
+			# Next voucher counter, finding the max counter number
+			locked_vouchers = list(Job.objects.select_for_update().filter(voucher_no__startswith='JJ-'))
+			max_num = 0
+			for v in locked_vouchers:
+				if v.voucher_no:
+					try:
+						num = int(v.voucher_no.split('-')[1])
+						if num > max_num:
+							max_num = num
+					except (ValueError, IndexError):
+						pass
+			counter = max_num + 1
 			# ΓöÇΓöÇ Mark the current voucher as Replaced ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 			voucher.approval_status = VoucherApprovalStatus.REPLACED
 			voucher.save(update_fields=['approval_status'])
