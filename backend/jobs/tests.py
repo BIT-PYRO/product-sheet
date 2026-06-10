@@ -21,6 +21,8 @@ class JobApiTests(APITestCase):
 			password='jobs_pass_123',
 			tenant=self.tenant,
 			active_company=self.company,
+			is_approved=True,
+			role='TENANT_OWNER',
 		)
 		self.user.accessible_companies.add(self.company)
 		self.client.force_authenticate(user=self.user)

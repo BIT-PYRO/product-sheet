@@ -313,7 +313,7 @@ class RoleDefaultPermissionsDetailView(APIView):
 			return True
 		try:
 			from workforce.models import WorkforceMember
-			member = WorkforceMember.objects.filter(user=request.user).first()
+			member = WorkforceMember.objects.filter(email__iexact=request.user.email).first()
 			if member and member.designation in ('CEO', 'Chairman', 'Director', 'General Manager'):
 				return True
 			if member and member.permissions and member.permissions.get('manage_members'):

@@ -495,7 +495,12 @@ export function OrderProgressSheetView({ embedded = false }) {
                           ) : (
                             filteredStateVouchers.map((voucher) => (
                               <tr key={voucher.id} className="border-b border-soft-border last:border-b-0">
-                                <td className="px-3 py-2 font-semibold text-midnight-ink">{voucher.voucher_no || `#${voucher.id}`}</td>
+                                <td
+                                  className="px-3 py-2 font-semibold text-midnight-ink"
+                                  title={voucher.picklist_name ? `${voucher.voucher_no || `#${voucher.id}`} - ${voucher.picklist_name}` : (voucher.voucher_no || `#${voucher.id}`)}
+                                >
+                                  {voucher.voucher_no || `#${voucher.id}`}{voucher.picklist_name ? ` - ${voucher.picklist_name}` : ''}
+                                </td>
                                 <td className="px-3 py-2">
                                   <span
                                     className={`inline-flex rounded-full px-2 py-0.5 font-semibold ${

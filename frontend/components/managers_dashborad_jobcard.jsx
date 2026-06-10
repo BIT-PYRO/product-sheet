@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -245,7 +245,7 @@ export default function ManagersDashboard() {
       }
       if (searchTerm) {
         const term = searchTerm.toLowerCase();
-        const haystack = [card.voucherNo, card.name, card.category, card.issuedBy, card.workType].join(' ').toLowerCase();
+        const haystack = [card.voucherNo, card.name, card.category, card.issuedBy, card.workType, card.picklistName].join(' ').toLowerCase();
         if (!haystack.includes(term)) return false;
       }
       return true;
@@ -844,7 +844,12 @@ export default function ManagersDashboard() {
       >
         {/* Header row: Voucher No. | print checkbox | status badge | type badge */}
         <div className={`${s.header} flex items-center justify-between px-2 py-1`}>
-          <span className={`text-[11px] font-bold ${s.headerText} truncate`}>{card.voucherNo}</span>
+          <span
+            className={`text-[11px] font-bold ${s.headerText} truncate`}
+            title={card.picklistName ? `${card.voucherNo} - ${card.picklistName}` : card.voucherNo}
+          >
+            {card.voucherNo}{card.picklistName ? ` - ${card.picklistName}` : ''}
+          </span>
           <div className="flex items-center gap-1">
             <input
               type="checkbox"

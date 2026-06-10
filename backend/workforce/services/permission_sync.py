@@ -10,10 +10,11 @@ logger = logging.getLogger(__name__)
 def ensure_role_defaults(designation, department=''):
     """
     Ensure a RoleDefaultPermissions entry exists for the given
-    designation + department pair. Creates one with empty permissions if absent.
+    designation + department pair. Creates one with default permissions if absent.
     Returns the object (existing or newly created).
     """
     from accounts.models import RoleDefaultPermissions
+    from accounts.views_roles import build_default_permissions
 
     designation = (designation or '').strip()
     department = (department or '').strip()
@@ -21,15 +22,17 @@ def ensure_role_defaults(designation, department=''):
     if not designation:
         return None
 
+    default_perms = build_default_permissions(designation, department)
+
     obj, created = RoleDefaultPermissions.objects.get_or_create(
         role=designation,
         department=department,
-        defaults={'permissions': {}},
+        defaults={'permissions': default_perms},
     )
     if created:
         logger.info(
             f'[PermSync] Auto-created RoleDefaultPermissions for '
-            f'{designation!r}/{department!r}.'
+            f'{designation!r}/{department!r} with default permissions.'
         )
     return obj
 
