@@ -1,7 +1,7 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 
-from .views import ApproveUserView, APIKeyViewSet, DeleteUserView, GoogleLoginView, LoginView, MeView, MergeUsersView, RefreshTokenView, RoleDefaultPermissionsDetailView, RoleDefaultPermissionsListView, SetCredentialsView
+from .views import ApproveUserView, APIKeyViewSet, DeleteUserView, GoogleLoginView, LoginView, MeView, MergeUsersView, PublicCompaniesView, RefreshTokenView, RoleDefaultPermissionsDetailView, RoleDefaultPermissionsListView, SetCredentialsView, SignupView
 from .views_roles import (
     RoleListCreateView, RoleDetailView,
     DepartmentModulesView,
@@ -22,6 +22,8 @@ urlpatterns = [
     path('approve-user/', ApproveUserView.as_view(), name='approve_user'),
     path('delete-user/', DeleteUserView.as_view(), name='delete_user'),
     path('merge-user/', MergeUsersView.as_view(), name='merge_user'),
+    path('signup/', SignupView.as_view(), name='signup'),
+    path('public-companies/', PublicCompaniesView.as_view(), name='public_companies'),
     path('role-permissions/', RoleDefaultPermissionsListView.as_view(), name='role_permissions_list'),
     path('role-permissions/<str:role>/<path:department>/', RoleDefaultPermissionsDetailView.as_view(), name='role_permissions_detail'),
     path('role-permissions/<str:role>/', RoleDefaultPermissionsDetailView.as_view(), name='role_permissions_detail_nodept'),
