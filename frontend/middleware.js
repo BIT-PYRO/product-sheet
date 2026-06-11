@@ -11,7 +11,7 @@ function isPublicAsset(pathname) {
   return /\.[^/]+$/.test(pathname);
 }
 
-export function proxy(request) {
+export function middleware(request) {
   const { pathname, search } = request.nextUrl;
   const hasAccessToken = Boolean(request.cookies.get(ACCESS_COOKIE)?.value);
   const hasRefreshToken = Boolean(request.cookies.get(REFRESH_COOKIE)?.value);
@@ -22,8 +22,13 @@ export function proxy(request) {
     return NextResponse.next();
   }
 
-  if (pathname === '/login' || pathname === '/') {
-    if (isAuthenticated && pathname === '/login') {
+  if (
+    pathname === '/login' ||
+    pathname === '/signup' ||
+    pathname === '/frontend/signup' ||
+    pathname === '/'
+  ) {
+    if (isAuthenticated && (pathname === '/login' || pathname === '/signup' || pathname === '/frontend/signup')) {
       return NextResponse.redirect(new URL('/welcome', request.url));
     }
     return NextResponse.next();

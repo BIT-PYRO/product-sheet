@@ -214,6 +214,30 @@ class GoogleLoginView(APIView):
 			log_activity(request, ActivityLog.ACTION_LOGIN, ActivityLog.SHEET_AUTH, user, extra={'login_method': 'google', 'email': email})
 		except Exception:
 			pass
+
+		# Send welcome email for new Google SSO signups
+		if created:
+			try:
+				from django.core.mail import send_mail
+				send_mail(
+					subject='Welcome to Miraee — Registration Successful',
+					message=(
+						f'Dear {full_name},\n\n'
+						'Your registration request has been accepted successfully!\n\n'
+						'You can now sign in to Miraee using:\n'
+						f'  • Your Google account (email: {email})\n\n'
+						'Once you sign in you will be able to view all modules. '
+						'Access to specific modules will be granted by your administrator.\n\n'
+						'If you have any questions please contact your organisation admin.\n\n'
+						'Best regards,\nThe Miraee Team'
+					),
+					from_email=None,
+					recipient_list=[email],
+					fail_silently=True,
+				)
+			except Exception:
+				pass
+
 		return api_success(
 			{
 				'access': str(refresh.access_token),
