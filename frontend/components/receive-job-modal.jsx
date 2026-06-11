@@ -68,10 +68,43 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
   const [submitWarnings, setSubmitWarnings] = useState([])
   const [stoneIssueRequests, setStoneIssueRequests] = useState([])
   const [isRecalcStone, setIsRecalcStone] = useState(false)
+  const [totalReceived, setTotalReceived] = useState({})
+  const [totalLoss, setTotalLoss] = useState({})
+  const [totalReceivedWeight, setTotalReceivedWeight] = useState({})
+  const [totalLossWeight, setTotalLossWeight] = useState({})
 
   // Pre-populate form with voucher data when it's selected
   useEffect(() => {
-    if (voucherData && open) {
+    if (!open) {
+      // Clear/Reset all states when modal is closed
+      setRows([{ id: 1, sku: "", category: "", metal: "", issuedQty: "", unit1: "Pcs", issuedWeight: "", unit2: "Kg", receivedQty: "", receivedWeight: "", lossQty: "", lossWeight: "", reissueQty: "", reissueWeight: "" }])
+      setVoucherNo("")
+      setVoucherType("New")
+      setIssuedTo("")
+      setWorkType("")
+      setDeptFrom("")
+      setDeptTo("")
+      setIssueDate("")
+      setIssuedByContact("")
+      setReceivedByName("")
+      setReceivedByContact("")
+      setPicklistName("")
+      setOrderName("")
+      setSubmitError("")
+      setSubmitWarnings([])
+      setStoneIssueRequests([])
+      setNoteForReissue("")
+      setRatingScore(5)
+      setTotalReceived({})
+      setTotalLoss({})
+      setTotalReceivedWeight({})
+      setTotalLossWeight({})
+      setIsSubmitting(false)
+      setIsRecalcStone(false)
+      return
+    }
+
+    if (voucherData) {
       setVoucherNo(voucherData.voucherNo || "")
       setVoucherType(voucherData.voucherType || voucherData.voucher_type || "New")
       setIssuedTo(voucherData.name || voucherData.firstName || "")
@@ -90,8 +123,6 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
       // Populate picklist / order info
       setPicklistName(voucherData.picklistName || '')
       setOrderName(voucherData.orderName || '')
-      setSubmitError('')
-      setSubmitWarnings([])
 
       // Populate rows from materialRows (multi-SKU voucher)
       const materialRows = Array.isArray(voucherData.materialRows) ? voucherData.materialRows : []
@@ -184,23 +215,26 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
         const receivedEvents = Array.isArray(job.received_rows) ? job.received_rows : []
 
         // Aggregate all received_qty and loss_qty across every prior event per SKU
-        const totalReceived = {}
-        const totalLoss = {}
-        const totalReceivedWeight = {}
-        const totalLossWeight = {}
+        const aggregatedReceived = {}
+        const aggregatedLoss = {}
+        const aggregatedReceivedWeight = {}
+        const aggregatedLossWeight = {}
         for (const event of receivedEvents) {
           for (const row of (event.rows || [])) {
             const key = (row.die_code || row.sku || '').trim().toUpperCase()
-            totalReceived[key] = (totalReceived[key] || 0) + (parseFloat(row.received_qty) || 0)
-            totalLoss[key] = (totalLoss[key] || 0) + (parseFloat(row.loss_qty) || 0)
-            totalReceivedWeight[key] = (totalReceivedWeight[key] || 0) + (parseFloat(row.received_weight) || 0)
-            totalLossWeight[key] = (totalLossWeight[key] || 0) + (parseFloat(row.loss_weight) || 0)
+            aggregatedReceived[key] = (aggregatedReceived[key] || 0) + (parseFloat(row.received_qty) || 0)
+            aggregatedLoss[key] = (aggregatedLoss[key] || 0) + (parseFloat(row.loss_qty) || 0)
+            aggregatedReceivedWeight[key] = (aggregatedReceivedWeight[key] || 0) + (parseFloat(row.received_weight) || 0)
+            aggregatedLossWeight[key] = (aggregatedLossWeight[key] || 0) + (parseFloat(row.loss_weight) || 0)
           }
         }
 
-        const hasPriorActivity = Object.keys(totalReceived).length > 0 || Object.keys(totalLoss).length > 0
+        setTotalReceived(aggregatedReceived)
+        setTotalLoss(aggregatedLoss)
+        setTotalReceivedWeight(aggregatedReceivedWeight)
+        setTotalLossWeight(aggregatedLossWeight)
 
-        if (isLocked && hasPriorActivity) {
+        if (isLocked) {
           // Completed or partially complete: reconstruct rows to show original issued values and total received/loss values
           const isPreCasting = ['wax-pieces', 'wax-setting', 'casting'].includes(job.dept_to || '')
           const rawMaterialRows = Array.isArray(job.material_rows) ? job.material_rows : []
@@ -209,6 +243,40 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
           if (isPreCasting && rawDieRows.length > 0) {
             setRows(rawDieRows.map((dr, idx) => {
               const key = (dr.die_code || '').trim().toUpperCase()
+              const masterKey = (dr.master_sku || '').trim().toUpperCase()
+              
+              let rx = aggregatedReceived[key]
+              if (rx === undefined && masterKey) {
+                rx = aggregatedReceived[masterKey]
+              }
+              if (rx === undefined) {
+                rx = isCompleted ? (parseFloat(dr.issued_qty) || 0) : 0
+              }
+
+              let lx = aggregatedLoss[key]
+              if (lx === undefined && masterKey) {
+                lx = aggregatedLoss[masterKey]
+              }
+              if (lx === undefined) {
+                lx = 0
+              }
+
+              let rxWt = aggregatedReceivedWeight[key]
+              if (rxWt === undefined && masterKey) {
+                rxWt = aggregatedReceivedWeight[masterKey]
+              }
+              if (rxWt === undefined) {
+                rxWt = ''
+              }
+
+              let lxWt = aggregatedLossWeight[key]
+              if (lxWt === undefined && masterKey) {
+                lxWt = aggregatedLossWeight[masterKey]
+              }
+              if (lxWt === undefined) {
+                lxWt = ''
+              }
+
               return {
                 id: idx + 1,
                 sku: dr.die_code || '',
@@ -220,23 +288,44 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
                 unit1: 'Pcs',
                 issuedWeight: '',
                 unit2: 'Kg',
-                receivedQty: String(totalReceived[key] || 0),
+                receivedQty: String(rx),
                 unit3: 'Pcs',
-                receivedWeight: String(totalReceivedWeight[key] || ''),
+                receivedWeight: String(rxWt),
                 unit4: 'Kg',
-                lossQty: String(totalLoss[key] || 0),
+                lossQty: String(lx),
                 unit5: 'Pcs',
-                lossWeight: String(totalLossWeight[key] || ''),
+                lossWeight: String(lxWt),
                 unit6: 'Kg',
-                reissueQty: String(totalLoss[key] || 0),
+                reissueQty: String(lx),
                 unit7: 'Pcs',
-                reissueWeight: String(totalLossWeight[key] || ''),
+                reissueWeight: String(lxWt),
                 unit8: 'Kg',
               }
             }))
           } else if (rawMaterialRows.length > 0) {
             setRows(rawMaterialRows.map((mr, idx) => {
               const key = (mr.sku || '').trim().toUpperCase()
+              
+              let rx = aggregatedReceived[key]
+              if (rx === undefined) {
+                rx = isCompleted ? (parseFloat(mr.issued_qty || mr.issuedQty) || 0) : 0
+              }
+
+              let lx = aggregatedLoss[key]
+              if (lx === undefined) {
+                lx = 0
+              }
+
+              let rxWt = aggregatedReceivedWeight[key]
+              if (rxWt === undefined) {
+                rxWt = isCompleted ? (mr.issued_weight || mr.issuedWeight || '') : ''
+              }
+
+              let lxWt = aggregatedLossWeight[key]
+              if (lxWt === undefined) {
+                lxWt = ''
+              }
+
               return {
                 id: idx + 1,
                 sku: mr.sku || '',
@@ -246,51 +335,54 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
                 unit1: mr.unit1 || 'Pcs',
                 issuedWeight: String(mr.issued_weight || mr.issuedWeight || ''),
                 unit2: mr.unit2 || 'Kg',
-                receivedQty: String(totalReceived[key] || 0),
+                receivedQty: String(rx),
                 unit3: 'Pcs',
-                receivedWeight: String(totalReceivedWeight[key] || ''),
+                receivedWeight: String(rxWt),
                 unit4: 'Kg',
-                lossQty: String(totalLoss[key] || 0),
+                lossQty: String(lx),
                 unit5: 'Pcs',
-                lossWeight: String(totalLossWeight[key] || ''),
+                lossWeight: String(lxWt),
                 unit6: 'Kg',
-                reissueQty: String(totalLoss[key] || 0),
+                reissueQty: String(lx),
                 unit7: 'Pcs',
-                reissueWeight: String(totalLossWeight[key] || ''),
+                reissueWeight: String(lxWt),
                 unit8: 'Kg',
               }
             }))
           } else {
             setRows(prevRows => prevRows.map(r => {
               const key = (r.sku || '').trim().toUpperCase()
+              let rx = aggregatedReceived[key]
+              if (rx === undefined) {
+                rx = isCompleted ? (parseFloat(r.issuedQty) || 0) : 0
+              }
+
+              let lx = aggregatedLoss[key]
+              if (lx === undefined) {
+                lx = 0
+              }
+
+              let rxWt = aggregatedReceivedWeight[key]
+              if (rxWt === undefined) {
+                rxWt = isCompleted ? (r.issuedWeight || '') : ''
+              }
+
+              let lxWt = aggregatedLossWeight[key]
+              if (lxWt === undefined) {
+                lxWt = ''
+              }
+
               return {
                 ...r,
-                receivedQty: String(totalReceived[key] || 0),
-                receivedWeight: String(totalReceivedWeight[key] || ''),
-                lossQty: String(totalLoss[key] || 0),
-                lossWeight: String(totalLossWeight[key] || ''),
-                reissueQty: String(totalLoss[key] || 0),
-                reissueWeight: String(totalLossWeight[key] || ''),
+                receivedQty: String(rx),
+                receivedWeight: String(rxWt),
+                lossQty: String(lx),
+                lossWeight: String(lxWt),
+                reissueQty: String(lx),
+                reissueWeight: String(lxWt),
               }
             }))
           }
-        } else if (isPartial && hasPriorActivity) {
-          const alreadyAccountedFor = {}
-          for (const key of Object.keys(totalReceived)) {
-            alreadyAccountedFor[key] = (totalReceived[key] || 0) + (totalLoss[key] || 0)
-          }
-          setRows(prevRows => prevRows.map(r => {
-            const key = (r.sku || '').trim().toUpperCase()
-            const issuedQty = parseFloat(r.issuedQty) || 0
-            const issuedWeight = parseFloat(r.issuedWeight) || 0
-            const remainingQty = Math.max(0, issuedQty - (alreadyAccountedFor[key] || 0))
-            const remainingWeight = Math.max(0, issuedWeight - (totalReceivedWeight[key] || 0))
-            return {
-              ...r,
-              issuedQty: String(remainingQty),
-              issuedWeight: remainingWeight > 0 ? String(remainingWeight) : r.issuedWeight,
-            }
-          }))
         }
       })
       .catch(() => {})
@@ -399,15 +491,43 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
     const isPreCasting = ['wax-pieces', 'wax-setting', 'casting'].includes(deptFrom)
     const receivedRows = rows
       .filter(r => String(r.receivedQty || '').trim() !== '')
-      .map(r => ({
-        sku: r.sku,
-        ...(isPreCasting && r.masterSku ? { die_code: r.sku, master_sku: r.masterSku, qty_per_piece: r.qtyPerPiece || 1 } : {}),
-        received_qty: parseFloat(r.receivedQty) || 0,
-        received_weight: parseFloat(r.receivedWeight) || 0,
-        loss_qty: parseFloat(r.lossQty) || 0,
-        loss_weight: parseFloat(r.lossWeight) || 0,
-        reissue_qty: parseFloat(r.reissueQty) || 0,
-      }))
+      .map(r => {
+        const key = (r.sku || '').trim().toUpperCase()
+        const masterKey = (r.masterSku || '').trim().toUpperCase()
+        
+        let prevRx = totalReceived[key] || 0
+        if (totalReceived[key] === undefined && masterKey && totalReceived[masterKey] !== undefined) {
+          prevRx = totalReceived[masterKey]
+        }
+        let prevRxWt = totalReceivedWeight[key] || 0
+        if (totalReceivedWeight[key] === undefined && masterKey && totalReceivedWeight[masterKey] !== undefined) {
+          prevRxWt = totalReceivedWeight[masterKey]
+        }
+        let prevLoss = totalLoss[key] || 0
+        if (totalLoss[key] === undefined && masterKey && totalLoss[masterKey] !== undefined) {
+          prevLoss = totalLoss[masterKey]
+        }
+        let prevLossWt = totalLossWeight[key] || 0
+        if (totalLossWeight[key] === undefined && masterKey && totalLossWeight[masterKey] !== undefined) {
+          prevLossWt = totalLossWeight[masterKey]
+        }
+
+        const deltaRx = Math.max(0, (parseFloat(r.receivedQty) || 0) - prevRx)
+        const deltaRxWt = Math.max(0, (parseFloat(r.receivedWeight) || 0) - prevRxWt)
+        const deltaLoss = Math.max(0, (parseFloat(r.lossQty) || 0) - prevLoss)
+        const deltaLossWt = Math.max(0, (parseFloat(r.lossWeight) || 0) - prevLossWt)
+        const deltaReissue = Math.max(0, (parseFloat(r.reissueQty) || 0) - prevLoss)
+
+        return {
+          sku: r.sku,
+          ...(isPreCasting && r.masterSku ? { die_code: r.sku, master_sku: r.masterSku, qty_per_piece: r.qtyPerPiece || 1 } : {}),
+          received_qty: deltaRx,
+          received_weight: deltaRxWt,
+          loss_qty: deltaLoss,
+          loss_weight: deltaLossWt,
+          reissue_qty: deltaReissue,
+        }
+      })
     if (receivedRows.length === 0) {
       setSubmitError('Please fill in at least one Received Qty before submitting.')
       return
@@ -461,12 +581,29 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
     const isPreCastingSend = ['wax-pieces', 'wax-setting', 'casting'].includes(deptFrom)
     const payloadRows = rows
       .filter(r => r.sku)
-      .map(r => ({
-        sku: r.sku,
-        ...(isPreCastingSend && r.masterSku ? { die_code: r.sku, master_sku: r.masterSku, qty_per_piece: r.qtyPerPiece || 1 } : {}),
-        received_qty: parseFloat(r.receivedQty) || 0,
-        loss_qty: parseFloat(r.lossQty) || 0,
-      }))
+      .map(r => {
+        const key = (r.sku || '').trim().toUpperCase()
+        const masterKey = (r.masterSku || '').trim().toUpperCase()
+
+        let prevRx = totalReceived[key] || 0
+        if (totalReceived[key] === undefined && masterKey && totalReceived[masterKey] !== undefined) {
+          prevRx = totalReceived[masterKey]
+        }
+        let prevLoss = totalLoss[key] || 0
+        if (totalLoss[key] === undefined && masterKey && totalLoss[masterKey] !== undefined) {
+          prevLoss = totalLoss[masterKey]
+        }
+
+        const deltaRx = Math.max(0, (parseFloat(r.receivedQty) || 0) - prevRx)
+        const deltaLoss = Math.max(0, (parseFloat(r.lossQty) || 0) - prevLoss)
+
+        return {
+          sku: r.sku,
+          ...(isPreCastingSend && r.masterSku ? { die_code: r.sku, master_sku: r.masterSku, qty_per_piece: r.qtyPerPiece || 1 } : {}),
+          received_qty: deltaRx,
+          loss_qty: deltaLoss,
+        }
+      })
     if (payloadRows.length === 0) {
       setSubmitError('No rows with SKU found.')
       return
@@ -734,6 +871,16 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
   const isCompleted = ['completed', 'replaced'].includes(voucherData?.approvalStatus)
   const isBaseLocked = isCompleted || voucherData?.approvalStatus === 'partially_complete'
 
+  const getRowLockState = (row) => {
+    if (isCompleted) return true
+    if (voucherData?.approvalStatus === 'in_process') return false
+    const key = (row.sku || '').trim().toUpperCase()
+    const masterKey = (row.masterSku || '').trim().toUpperCase()
+    const prevRx = totalReceived[key] !== undefined ? totalReceived[key] : (masterKey && totalReceived[masterKey] !== undefined ? totalReceived[masterKey] : 0)
+    const issued = parseFloat(row.issuedQty) || 0
+    return (issued > 0 && prevRx >= issued)
+  }
+
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
@@ -966,21 +1113,21 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
                   <tr key={row.id} className="border-t border-border bg-white hover:bg-gray-50/50 text-xs">
                     {/* SKU */}
                     <td className="border-r border-border/40 p-0 whitespace-nowrap">
-                      <input className={`h-7 px-1.5 bg-transparent border-0 outline-none text-xs ${isBaseLocked ? 'cursor-default font-semibold text-gray-500' : ''}`} style={{  width: '100%' }} placeholder="SKU" value={row.sku} readOnly={isBaseLocked} onChange={isBaseLocked ? undefined : (e) => updateRow(row.id, 'sku', e.target.value)} />
+                      <input className={`h-7 px-1.5 bg-transparent border-0 outline-none text-xs ${(isCompleted || (isBaseLocked && !row.isNew)) ? 'cursor-default font-semibold text-gray-500' : ''}`} style={{  width: '100%' }} placeholder="SKU" value={row.sku} readOnly={isCompleted || (isBaseLocked && !row.isNew)} onChange={isCompleted || (isBaseLocked && !row.isNew) ? undefined : (e) => updateRow(row.id, 'sku', e.target.value)} />
                     </td>
                     {/* Category */}
                     <td className="border-r border-border/40 p-0 whitespace-nowrap">
-                      <input className={`h-7 px-1.5 bg-transparent border-0 outline-none text-xs ${isBaseLocked ? 'cursor-default font-semibold text-gray-500' : ''}`} style={{  width: '100%' }} placeholder="Cat" value={row.category} readOnly={isBaseLocked} onChange={isBaseLocked ? undefined : (e) => updateRow(row.id, 'category', e.target.value)} />
+                      <input className={`h-7 px-1.5 bg-transparent border-0 outline-none text-xs ${(isCompleted || (isBaseLocked && !row.isNew)) ? 'cursor-default font-semibold text-gray-500' : ''}`} style={{  width: '100%' }} placeholder="Cat" value={row.category} readOnly={isCompleted || (isBaseLocked && !row.isNew)} onChange={isCompleted || (isBaseLocked && !row.isNew) ? undefined : (e) => updateRow(row.id, 'category', e.target.value)} />
                     </td>
                     {/* Metal */}
                     <td className="border-r border-border/40 p-0 whitespace-nowrap">
-                      <input className={`h-7 px-1.5 bg-transparent border-0 outline-none text-xs ${isBaseLocked ? 'cursor-default font-semibold text-gray-500' : ''}`} style={{  width: '100%' }} placeholder="Metal" value={row.metal} readOnly={isBaseLocked} onChange={isBaseLocked ? undefined : (e) => updateRow(row.id, 'metal', e.target.value)} />
+                      <input className={`h-7 px-1.5 bg-transparent border-0 outline-none text-xs ${(isCompleted || (isBaseLocked && !row.isNew)) ? 'cursor-default font-semibold text-gray-500' : ''}`} style={{  width: '100%' }} placeholder="Metal" value={row.metal} readOnly={isCompleted || (isBaseLocked && !row.isNew)} onChange={isCompleted || (isBaseLocked && !row.isNew) ? undefined : (e) => updateRow(row.id, 'metal', e.target.value)} />
                     </td>
                     {/* Issued Qty+Unit */}
                     <td className="border-l-2 border-l-blue-300 bg-blue-50 p-0 whitespace-nowrap">
                       <div className="flex items-center h-7 px-1 gap-0.5">
-                        <input type="number" className={`w-11 bg-transparent border-0 outline-none text-xs text-center ${isBaseLocked ? 'cursor-default font-semibold text-gray-500' : ''}`} placeholder="0" value={row.issuedQty} readOnly={isBaseLocked} onChange={isBaseLocked ? undefined : (e) => updateRow(row.id, 'issuedQty', e.target.value)} />
-                        <select className={`bg-transparent border-0 outline-none appearance-none ${isBaseLocked ? 'cursor-default text-gray-400' : 'cursor-pointer flex-shrink-0 text-gray-400'}`} style={{ fontSize: 9 }} value={row.unit1} disabled={isBaseLocked} onChange={isBaseLocked ? undefined : (e) => updateRow(row.id, 'unit1', e.target.value)}>
+                        <input type="number" className={`w-11 bg-transparent border-0 outline-none text-xs text-center ${(isCompleted || (isBaseLocked && !row.isNew)) ? 'cursor-default font-semibold text-gray-500' : ''}`} placeholder="0" value={row.issuedQty} readOnly={isCompleted || (isBaseLocked && !row.isNew)} onChange={isCompleted || (isBaseLocked && !row.isNew) ? undefined : (e) => updateRow(row.id, 'issuedQty', e.target.value)} />
+                        <select className={`bg-transparent border-0 outline-none appearance-none ${(isCompleted || (isBaseLocked && !row.isNew)) ? 'cursor-default text-gray-400' : 'cursor-pointer flex-shrink-0 text-gray-400'}`} style={{ fontSize: 9 }} value={row.unit1} disabled={isCompleted || (isBaseLocked && !row.isNew)} onChange={isCompleted || (isBaseLocked && !row.isNew) ? undefined : (e) => updateRow(row.id, 'unit1', e.target.value)}>
                           <option>Pcs</option><option>Pairs</option>
                         </select>
                       </div>
@@ -988,8 +1135,8 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
                     {/* Issued Weight+Unit */}
                     <td className="border-r border-border/30 bg-blue-50 p-0 whitespace-nowrap">
                       <div className="flex items-center h-7 px-1 gap-0.5">
-                        <input type="number" className={`w-11 bg-transparent border-0 outline-none text-xs text-center ${isBaseLocked ? 'cursor-default font-semibold text-gray-500' : ''}`} placeholder="0.0" value={row.issuedWeight} readOnly={isBaseLocked} onChange={isBaseLocked ? undefined : (e) => updateRow(row.id, 'issuedWeight', e.target.value)} />
-                        <select className={`bg-transparent border-0 outline-none appearance-none ${isBaseLocked ? 'cursor-default text-gray-400' : 'cursor-pointer flex-shrink-0 text-gray-400'}`} style={{ fontSize: 9 }} value={row.unit2} disabled={isBaseLocked} onChange={isBaseLocked ? undefined : (e) => updateRow(row.id, 'unit2', e.target.value)}>
+                        <input type="number" className={`w-11 bg-transparent border-0 outline-none text-xs text-center ${(isCompleted || (isBaseLocked && !row.isNew)) ? 'cursor-default font-semibold text-gray-500' : ''}`} placeholder="0.0" value={row.issuedWeight} readOnly={isCompleted || (isBaseLocked && !row.isNew)} onChange={isCompleted || (isBaseLocked && !row.isNew) ? undefined : (e) => updateRow(row.id, 'issuedWeight', e.target.value)} />
+                        <select className={`bg-transparent border-0 outline-none appearance-none ${(isCompleted || (isBaseLocked && !row.isNew)) ? 'cursor-default text-gray-400' : 'cursor-pointer flex-shrink-0 text-gray-400'}`} style={{ fontSize: 9 }} value={row.unit2} disabled={isCompleted || (isBaseLocked && !row.isNew)} onChange={isCompleted || (isBaseLocked && !row.isNew) ? undefined : (e) => updateRow(row.id, 'unit2', e.target.value)}>
                           <option>g</option><option>Kg</option><option>mg</option><option>lb</option><option>oz</option><option>ct</option>
                         </select>
                       </div>
@@ -997,8 +1144,8 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
                     {/* Received Qty+Unit */}
                     <td className="border-l-2 border-l-emerald-300 bg-emerald-50 p-0 whitespace-nowrap">
                       <div className="flex items-center h-7 px-1 gap-0.5">
-                        <input type="number" className={`w-11 bg-transparent border-0 outline-none text-xs text-center ${isBaseLocked ? 'cursor-default font-semibold text-emerald-700' : ''}`} placeholder="0" value={row.receivedQty} readOnly={isBaseLocked} onChange={isBaseLocked ? undefined : (e) => updateRow(row.id, 'receivedQty', e.target.value)} />
-                        <select className="bg-transparent border-0 outline-none appearance-none cursor-pointer flex-shrink-0 text-gray-400" style={{ fontSize: 9 }} value={row.unit3 || 'Pcs'} disabled={isBaseLocked} onChange={(e) => updateRow(row.id, 'unit3', e.target.value)}>
+                        <input type="number" className={`w-11 bg-transparent border-0 outline-none text-xs text-center ${getRowLockState(row) ? 'cursor-default font-semibold text-emerald-700' : ''}`} placeholder="0" value={row.receivedQty} readOnly={getRowLockState(row)} onChange={getRowLockState(row) ? undefined : (e) => updateRow(row.id, 'receivedQty', e.target.value)} />
+                        <select className="bg-transparent border-0 outline-none appearance-none cursor-pointer flex-shrink-0 text-gray-400" style={{ fontSize: 9 }} value={row.unit3 || 'Pcs'} disabled={getRowLockState(row)} onChange={(e) => updateRow(row.id, 'unit3', e.target.value)}>
                           <option>Pcs</option><option>Pairs</option>
                         </select>
                       </div>
@@ -1006,8 +1153,8 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
                     {/* Received Weight+Unit */}
                     <td className="border-r border-border/30 bg-emerald-50 p-0 whitespace-nowrap">
                       <div className="flex items-center h-7 px-1 gap-0.5">
-                        <input type="number" className={`w-11 bg-transparent border-0 outline-none text-xs text-center ${isBaseLocked ? 'cursor-default font-semibold text-emerald-700' : ''}`} placeholder="0.0" value={row.receivedWeight} readOnly={isBaseLocked} onChange={isBaseLocked ? undefined : (e) => updateRow(row.id, 'receivedWeight', e.target.value)} />
-                        <select className="bg-transparent border-0 outline-none appearance-none cursor-pointer flex-shrink-0 text-gray-400" style={{ fontSize: 9 }} value={row.unit4 || 'Kg'} disabled={isBaseLocked} onChange={(e) => updateRow(row.id, 'unit4', e.target.value)}>
+                        <input type="number" className={`w-11 bg-transparent border-0 outline-none text-xs text-center ${getRowLockState(row) ? 'cursor-default font-semibold text-emerald-700' : ''}`} placeholder="0.0" value={row.receivedWeight} readOnly={getRowLockState(row)} onChange={getRowLockState(row) ? undefined : (e) => updateRow(row.id, 'receivedWeight', e.target.value)} />
+                        <select className="bg-transparent border-0 outline-none appearance-none cursor-pointer flex-shrink-0 text-gray-400" style={{ fontSize: 9 }} value={row.unit4 || 'Kg'} disabled={getRowLockState(row)} onChange={(e) => updateRow(row.id, 'unit4', e.target.value)}>
                           <option>g</option><option>Kg</option><option>mg</option><option>lb</option><option>oz</option><option>ct</option>
                         </select>
                       </div>
@@ -1015,8 +1162,8 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
                     {/* Loss Qty+Unit */}
                     <td className="border-l-2 border-l-rose-300 bg-rose-50 p-0 whitespace-nowrap">
                       <div className="flex items-center h-7 px-1 gap-0.5">
-                        <input type="number" className={`w-11 bg-transparent border-0 outline-none text-xs text-center ${isBaseLocked ? 'cursor-default font-semibold text-rose-700' : ''}`} placeholder="0" value={row.lossQty} readOnly={isBaseLocked} onChange={isBaseLocked ? undefined : (e) => updateRow(row.id, 'lossQty', e.target.value)} />
-                        <select className="bg-transparent border-0 outline-none appearance-none cursor-pointer flex-shrink-0 text-gray-400" style={{ fontSize: 9 }} value={row.unit5 || 'Pcs'} disabled={isBaseLocked} onChange={(e) => updateRow(row.id, 'unit5', e.target.value)}>
+                        <input type="number" className={`w-11 bg-transparent border-0 outline-none text-xs text-center ${getRowLockState(row) ? 'cursor-default font-semibold text-rose-700' : ''}`} placeholder="0" value={row.lossQty} readOnly={getRowLockState(row)} onChange={getRowLockState(row) ? undefined : (e) => updateRow(row.id, 'lossQty', e.target.value)} />
+                        <select className="bg-transparent border-0 outline-none appearance-none cursor-pointer flex-shrink-0 text-gray-400" style={{ fontSize: 9 }} value={row.unit5 || 'Pcs'} disabled={getRowLockState(row)} onChange={(e) => updateRow(row.id, 'unit5', e.target.value)}>
                           <option>Pcs</option><option>Pairs</option>
                         </select>
                       </div>
@@ -1024,8 +1171,8 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
                     {/* Loss Weight+Unit */}
                     <td className="border-r border-border/30 bg-rose-50 p-0 whitespace-nowrap">
                       <div className="flex items-center h-7 px-1 gap-0.5">
-                        <input type="number" className={`w-11 bg-transparent border-0 outline-none text-xs text-center ${isBaseLocked ? 'cursor-default font-semibold text-rose-700' : ''}`} placeholder="0.0" value={row.lossWeight} readOnly={isBaseLocked} onChange={isBaseLocked ? undefined : (e) => updateRow(row.id, 'lossWeight', e.target.value)} />
-                        <select className="bg-transparent border-0 outline-none appearance-none cursor-pointer flex-shrink-0 text-gray-400" style={{ fontSize: 9 }} value={row.unit6 || 'Kg'} disabled={isBaseLocked} onChange={(e) => updateRow(row.id, 'unit6', e.target.value)}>
+                        <input type="number" className={`w-11 bg-transparent border-0 outline-none text-xs text-center ${getRowLockState(row) ? 'cursor-default font-semibold text-rose-700' : ''}`} placeholder="0.0" value={row.lossWeight} readOnly={getRowLockState(row)} onChange={getRowLockState(row) ? undefined : (e) => updateRow(row.id, 'lossWeight', e.target.value)} />
+                        <select className="bg-transparent border-0 outline-none appearance-none cursor-pointer flex-shrink-0 text-gray-400" style={{ fontSize: 9 }} value={row.unit6 || 'Kg'} disabled={getRowLockState(row)} onChange={(e) => updateRow(row.id, 'unit6', e.target.value)}>
                           <option>g</option><option>Kg</option><option>mg</option><option>lb</option><option>oz</option><option>ct</option>
                         </select>
                       </div>
@@ -1040,15 +1187,15 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
                     {/* Re-Issue Weight+Unit */}
                     <td className="bg-amber-50 p-0 whitespace-nowrap">
                       <div className="flex items-center h-7 px-1 gap-0.5">
-                        <input type="number" className={`w-11 bg-transparent border-0 outline-none text-xs text-center ${isBaseLocked ? 'cursor-default font-semibold text-amber-700' : ''}`} placeholder="0.0" value={row.reissueWeight} readOnly={isBaseLocked} onChange={isBaseLocked ? undefined : (e) => updateRow(row.id, 'reissueWeight', e.target.value)} />
-                        <select className="bg-transparent border-0 outline-none appearance-none cursor-pointer flex-shrink-0 text-gray-400" style={{ fontSize: 9 }} value={row.unit8 || 'Kg'} disabled={isBaseLocked} onChange={(e) => updateRow(row.id, 'unit8', e.target.value)}>
+                        <input type="number" className={`w-11 bg-transparent border-0 outline-none text-xs text-center ${getRowLockState(row) ? 'cursor-default font-semibold text-amber-700' : ''}`} placeholder="0.0" value={row.reissueWeight} readOnly={getRowLockState(row)} onChange={getRowLockState(row) ? undefined : (e) => updateRow(row.id, 'reissueWeight', e.target.value)} />
+                        <select className="bg-transparent border-0 outline-none appearance-none cursor-pointer flex-shrink-0 text-gray-400" style={{ fontSize: 9 }} value={row.unit8 || 'Kg'} disabled={getRowLockState(row)} onChange={(e) => updateRow(row.id, 'unit8', e.target.value)}>
                           <option>g</option><option>Kg</option><option>mg</option><option>lb</option><option>oz</option><option>ct</option>
                         </select>
                       </div>
                     </td>
                     {/* Delete */}
                     <td className="p-0 text-center align-middle">
-                      {!isBaseLocked && (
+                      {!isCompleted && (!isBaseLocked || row.isNew) && (
                         <button type="button" onClick={() => deleteRow(row.id)} className="text-danger hover:text-danger-dark transition-colors">
                           <Trash2 className="h-3 w-3" />
                         </button>
@@ -1058,7 +1205,7 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
                 ))}
               </tbody>
               <tfoot>
-                {!isBaseLocked && (
+                {!isCompleted && (
                   <tr className="border-t border-border bg-background">
                     <td colSpan={12} className="py-1 text-center">
                       <button type="button" className="text-trust-blue hover:text-deep-blue text-xs font-semibold transition-colors" onClick={addRow}>
@@ -1180,7 +1327,7 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
           )}
 
           {/* Action Button */}
-          {!isBaseLocked && (
+          {!isCompleted && (
           <div className="flex">
             <Button
               className="flex-1 h-9 bg-trust-blue hover:bg-deep-blue text-white font-bold text-sm rounded"
@@ -1197,11 +1344,11 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
             <div className="grid grid-cols-[minmax(220px,320px)_minmax(220px,320px)_minmax(180px,220px)] gap-4 items-end justify-start">
               <div className="flex flex-col gap-0.5">
                 <Label className="text-sm font-medium text-muted-foreground">Received By</Label>
-                <Input placeholder="User Name" value={receivedByName} onChange={(e) => setReceivedByName(e.target.value)} className="h-7 text-sm bg-background border-border focus:ring-1 focus:ring-trust-blue focus:border-trust-blue transition-colors cursor-text" readOnly={isBaseLocked} />
+                <Input placeholder="User Name" value={receivedByName} onChange={(e) => setReceivedByName(e.target.value)} className="h-7 text-sm bg-background border-border focus:ring-1 focus:ring-trust-blue focus:border-trust-blue transition-colors cursor-text" readOnly={isCompleted} />
               </div>
               <div className="flex flex-col gap-0.5">
                 <Label className="text-sm font-medium text-muted-foreground">Contact</Label>
-                <Input type="tel" placeholder="Contact Number" value={receivedByContact} onChange={(e) => setReceivedByContact(e.target.value)} className="h-7 text-sm bg-background border-border" readOnly={isBaseLocked} />
+                <Input type="tel" placeholder="Contact Number" value={receivedByContact} onChange={(e) => setReceivedByContact(e.target.value)} className="h-7 text-sm bg-background border-border" readOnly={isCompleted} />
               </div>
               <div className="flex flex-col gap-0.5">
                 <Label className="text-sm font-bold uppercase tracking-wide text-muted-foreground">Rate Workmanship</Label>
@@ -1210,12 +1357,12 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
                     <button
                       key={num}
                       onClick={() => setRatingScore(num)}
-                      disabled={isBaseLocked}
+                      disabled={isCompleted}
                       className={`h-6 w-6 rounded-full border text-sm font-semibold transition-colors ${
                         ratingScore >= num
                           ? "border-warning bg-warning text-white"
                           : "border-warning text-warning"
-                      } ${isBaseLocked ? 'cursor-default opacity-85' : ''}`}
+                      } ${isCompleted ? 'cursor-default opacity-85' : ''}`}
                       title={`Rating ${num}`}
                       type="button"
                     >
@@ -1235,7 +1382,7 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
               onChange={(e) => setNoteForReissue(e.target.value)}
               placeholder="Enter notes..."
               className="min-h-[35px] text-sm resize-none bg-background border-border p-1.5"
-              readOnly={isBaseLocked}
+              readOnly={isCompleted}
             />
           </div>
 

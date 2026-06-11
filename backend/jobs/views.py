@@ -579,8 +579,12 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 			from core_tenants.models import Company
 			Company.objects.select_for_update().get(id=company.id)
 
-		# Get the current voucher counter from DB by finding the max counter number
-		locked_vouchers = list(Job.objects.select_for_update().filter(voucher_no__startswith='JJ-'))
+		# Get the current voucher counter from DB by finding the max counter number of today
+		today = timezone.now().date()
+		locked_vouchers = list(Job.objects.select_for_update().filter(
+			voucher_no__startswith='JJ-',
+			created_at__date=today
+		))
 		max_num = 0
 		for v in locked_vouchers:
 			if v.voucher_no:
@@ -956,8 +960,12 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 				from core_tenants.models import Company
 				Company.objects.select_for_update().get(id=company.id)
 
-			# Stable voucher numbering counter with select_for_update, finding the max counter number
-			locked_vouchers = list(Job.objects.select_for_update().filter(voucher_no__startswith='JJ-'))
+			# Stable voucher numbering counter with select_for_update, finding the max counter number of today
+			today = timezone.now().date()
+			locked_vouchers = list(Job.objects.select_for_update().filter(
+				voucher_no__startswith='JJ-',
+				created_at__date=today
+			))
 			max_num = 0
 			for v in locked_vouchers:
 				if v.voucher_no:
@@ -1201,10 +1209,9 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 		with transaction.atomic():
 			voucher.approval_status = VoucherApprovalStatus.COMPLETED
 			voucher.status = 'completed'
-			voucher.save(update_fields=['approval_status', 'status'])
 			_sync_repair_completion(voucher)
 
-			# Add remaining pieces (issued ΓêÆ already received) to Current Stock of
+			# Add remaining pieces (issued → already received) to Current Stock of
 			# the destination stage.  WIP is computed live so no WIP transaction needed.
 			from products.models import Product
 
@@ -1219,6 +1226,8 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 						already_rcvd.get(s, 0)
 						+ int(float(prev_row.get('received_qty', 0) or 0))
 					)
+
+			synthetic_received_rows = []
 
 			if voucher.dept_to in PRE_CASTING_DEPT_TOS:
 				from inventory.models import DieInventoryItem, DieTransaction
@@ -1266,35 +1275,62 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 					except DieInventoryItem.DoesNotExist:
 						pass
 
-			for row in (voucher.material_rows or []):
-				issued = int(float(row.get('issued_qty', 0) or 0))
-				if issued <= 0:
-					continue
-				sku = str(row.get('sku', '') or '').strip()
-				sku_key = sku.upper()
+					synthetic_received_rows.append({
+						'die_code': dc,
+						'sku': str(dr.get('master_sku', '') or '').strip(),
+						'received_qty': str(remaining),
+						'loss_qty': '0',
+					})
 
-				# Only create transaction for pieces not yet received
-				remaining = max(0, issued - already_rcvd.get(sku_key, 0))
-				if remaining <= 0:
-					continue
+			else:
+				for row in (voucher.material_rows or []):
+					issued = int(float(row.get('issued_qty', 0) or 0))
+					if issued <= 0:
+						continue
+					sku = str(row.get('sku', '') or '').strip()
+					sku_key = sku.upper()
 
-				product = Product.objects.filter(
-					Q(master_sku__iexact=sku)
-				).first() or voucher.product
-				if not product:
-					continue
+					# Only create transaction for pieces not yet received
+					remaining = max(0, issued - already_rcvd.get(sku_key, 0))
+					if remaining <= 0:
+						continue
 
-				if dest_stage_key:
-					InventoryTransaction.objects.create(
-						tenant=voucher.tenant,
-						company=voucher.company,
-						product=product,
-						txn_type='adjust',
-						quantity=remaining,
-						stage=dest_stage_key,
-						stock_type='current',
-						remark=f'Completed: {voucher.voucher_no}',
-					)
+					product = Product.objects.filter(
+						Q(master_sku__iexact=sku)
+					).first() or voucher.product
+					if not product:
+						continue
+
+					if dest_stage_key:
+						InventoryTransaction.objects.create(
+							tenant=voucher.tenant,
+							company=voucher.company,
+							product=product,
+							txn_type='adjust',
+							quantity=remaining,
+							stage=dest_stage_key,
+							stock_type='current',
+							remark=f'Completed: {voucher.voucher_no}',
+						)
+
+					synthetic_received_rows.append({
+						'sku': sku,
+						'received_qty': str(remaining),
+						'loss_qty': '0',
+					})
+
+			if synthetic_received_rows:
+				receive_log = list(voucher.received_rows or [])
+				receive_log.append({
+					'timestamp': timezone.now().isoformat(),
+					'received_by': 'system (mark-complete)',
+					'is_partial': False,
+					'total_received': sum(int(float(r['received_qty'])) for r in synthetic_received_rows),
+					'rows': synthetic_received_rows,
+				})
+				voucher.received_rows = receive_log
+
+			voucher.save(update_fields=['approval_status', 'status', 'received_rows'])
 
 			# Activate all vouchers in the batch whose predecessors are now done
 			if voucher.batch_id:
@@ -1993,8 +2029,12 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 				from core_tenants.models import Company
 				Company.objects.select_for_update().get(id=company.id)
 
-			# stable voucher counter incrementing from max counter number
-			locked_vouchers = list(Job.objects.select_for_update().filter(voucher_no__startswith='JJ-'))
+			# stable voucher counter incrementing from max counter number of today
+			today = timezone.now().date()
+			locked_vouchers = list(Job.objects.select_for_update().filter(
+				voucher_no__startswith='JJ-',
+				created_at__date=today
+			))
 			max_num = 0
 			for v in locked_vouchers:
 				if v.voucher_no:
@@ -2516,8 +2556,12 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 				from core_tenants.models import Company
 				Company.objects.select_for_update().get(id=company.id)
 
-			# Next voucher counter, finding the max counter number
-			locked_vouchers = list(Job.objects.select_for_update().filter(voucher_no__startswith='JJ-'))
+			# Next voucher counter, finding the max counter number of today
+			today = timezone.now().date()
+			locked_vouchers = list(Job.objects.select_for_update().filter(
+				voucher_no__startswith='JJ-',
+				created_at__date=today
+			))
 			max_num = 0
 			for v in locked_vouchers:
 				if v.voucher_no:
