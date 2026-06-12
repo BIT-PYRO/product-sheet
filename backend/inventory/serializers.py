@@ -364,12 +364,64 @@ class DieInventoryItemSerializer(serializers.ModelSerializer):
         except Exception:
             return []
 
+    def _process_images(self, validated_data, instance=None):
+        from common.image_upload import upload_image_base64, unsign_cloudinary_url
+        import uuid
+
+        die_code = (
+            validated_data.get('die_code')
+            or (instance.die_code if instance else '')
+            or 'unknown'
+        )
+        safe_die_code = die_code.replace('/', '-').replace(' ', '-').strip('-') or 'unknown'
+        folder = f'dies/{safe_die_code}'
+
+        raw_image = validated_data.get('image') or ''
+
+        # Parse raw_image into a list of image items
+        imgs = []
+        if raw_image:
+            raw_image = raw_image.strip()
+            if raw_image.startswith('['):
+                try:
+                    import json
+                    parsed = json.loads(raw_image)
+                    if isinstance(parsed, list):
+                        imgs = [str(x) for x in parsed]
+                    else:
+                        imgs = [str(parsed)]
+                except Exception:
+                    imgs = [raw_image]
+            elif ',' in raw_image:
+                imgs = [x.strip() for x in raw_image.split(',') if x.strip()]
+            else:
+                imgs = [raw_image]
+
+        processed = []
+        for idx, img in enumerate(imgs):
+            img = img.strip()
+            if not img:
+                continue
+            if img.startswith('data:image/'):
+                # Upload to cloudinary
+                url = upload_image_base64(img, folder=folder, public_id=f'image_{idx + 1}_{uuid.uuid4().hex[:6]}')
+                if url and not url.startswith('data:image/'):
+                    processed.append(unsign_cloudinary_url(url))
+            else:
+                processed.append(unsign_cloudinary_url(img))
+
+        # Store as JSON list string (unsigned URLs)
+        import json
+        validated_data['image'] = json.dumps(processed)
+        return validated_data
+
     def _sync_images(self, instance):
         try:
             skus = [s for s in (instance.designer_skus or []) if s]
             if not skus:
                 return
             from designers.models import DesignerSheet
+            from common.image_upload import unsign_cloudinary_url
             sheets = DesignerSheet.objects.filter(sku__in=skus).only(
                 'sku', 'rendered_photo', 'image', 'designer_image_2', 'designer_image_3', 'technical_drawing'
             )
@@ -382,39 +434,42 @@ class DieInventoryItemSerializer(serializers.ModelSerializer):
                         import json
                         parsed = json.loads(existing_image)
                         if isinstance(parsed, list):
-                            existing_imgs = [str(x) for x in parsed]
+                            existing_imgs = [unsign_cloudinary_url(str(x)) for x in parsed]
                         else:
-                            existing_imgs = [str(parsed)]
+                            existing_imgs = [unsign_cloudinary_url(str(parsed))]
                     except Exception:
-                        existing_imgs = [existing_image]
+                        existing_imgs = [unsign_cloudinary_url(existing_image)]
                 elif ',' in existing_image:
-                    existing_imgs = [x.strip() for x in existing_image.split(',') if x.strip()]
+                    existing_imgs = [unsign_cloudinary_url(x.strip()) for x in existing_image.split(',') if x.strip()]
                 else:
-                    existing_imgs = [existing_image]
+                    existing_imgs = [unsign_cloudinary_url(existing_image)]
 
             seen = set(existing_imgs)
             for sheet in sheets:
                 for url in (sheet.rendered_photo, sheet.image, sheet.designer_image_2, sheet.designer_image_3, sheet.technical_drawing):
-                    if url and url not in seen:
-                        seen.add(url)
-                        design_imgs.append(url)
+                    if url:
+                        clean_url = unsign_cloudinary_url(url)
+                        if clean_url not in seen:
+                            seen.add(clean_url)
+                            design_imgs.append(clean_url)
 
-            if design_imgs:
-                combined = existing_imgs + design_imgs
-                import json
-                instance.image = json.dumps(combined)
-                instance.save(update_fields=['image', 'updated_at'])
+            combined = existing_imgs + design_imgs
+            import json
+            instance.image = json.dumps(combined)
+            instance.save(update_fields=['image', 'updated_at'])
         except Exception:
             pass
 
     @transaction.atomic
     def create(self, validated_data):
+        validated_data = self._process_images(validated_data)
         instance = super().create(validated_data)
         self._sync_images(instance)
         return instance
 
     @transaction.atomic
     def update(self, instance, validated_data):
+        validated_data = self._process_images(validated_data, instance)
         instance = super().update(instance, validated_data)
         self._sync_images(instance)
         return instance

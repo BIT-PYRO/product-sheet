@@ -50,6 +50,8 @@ function emptyDie() {
   return {
     die_code: '',
     image: '',
+    images: [],
+    designer_images: [],
     master_skus: '',
     designer_skus: '',
     location: '',
@@ -353,9 +355,27 @@ export default function DieInventoryPage() {
     }
     const d = selectedDies[0];
     setEditingDieId(d.id);
+    
+    // Parse existing image URLs
+    let customImgs = [];
+    if (d.image) {
+      if (d.image.startsWith('[')) {
+        try { customImgs = JSON.parse(d.image); } catch(e) { customImgs = [d.image]; }
+      } else if (d.image.includes(',')) {
+        customImgs = d.image.split(',').map(s => s.trim()).filter(Boolean);
+      } else {
+        customImgs = [d.image];
+      }
+    }
+    const designerImgs = d.designer_images || [];
+    // Clean customImgs to remove any designer images so they don't get duplicated or treated as custom
+    customImgs = customImgs.filter(url => !designerImgs.includes(url));
+
     setForm({
       die_code: d.die_code || '',
       image: d.image || '',
+      images: customImgs,
+      designer_images: designerImgs,
       master_skus: Array.isArray(d.master_skus) ? d.master_skus.join(', ') : d.master_skus || '',
       designer_skus: Array.isArray(d.designer_skus) ? d.designer_skus.join(', ') : d.designer_skus || '',
       location: d.location || '',
@@ -429,6 +449,7 @@ export default function DieInventoryPage() {
     try {
       const payload = {
         ...form,
+        image: JSON.stringify(form.images || []),
         master_skus: typeof form.master_skus === 'string'
           ? form.master_skus.split(',').map((s) => s.trim()).filter(Boolean)
           : form.master_skus,
@@ -1287,8 +1308,44 @@ export default function DieInventoryPage() {
               <Field label="Designer SKUs (comma-separated)" value={form.designer_skus} onChange={ff('designer_skus')} />
             </div>
             {/* Image picker: upload or paste on hover */}
-            <div className="col-span-2 flex flex-col gap-1">
-              <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Image</label>
+            <div className="col-span-2 flex flex-col gap-2">
+              <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Images</label>
+
+              {/* Existing Images Gallery */}
+              {((form.images || []).length > 0 || (form.designer_images || []).length > 0) && (
+                <div className="grid grid-cols-4 gap-2 mb-2 p-2 border border-soft-border rounded-md bg-cloud-gray/20 max-h-[220px] overflow-y-auto">
+                  {/* Custom Uploaded Images */}
+                  {(form.images || []).map((src, i) => (
+                    <div key={`custom-${i}`} className="relative group aspect-square rounded border border-soft-border overflow-hidden bg-background shadow-sm">
+                      <img src={src} alt={`Custom upload ${i + 1}`} className="h-full w-full object-cover" />
+                      <span className="absolute bottom-0 left-0 right-0 bg-black/60 text-[9px] text-white py-0.5 text-center font-medium">Custom</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setForm((prev) => ({
+                            ...prev,
+                            images: (prev.images || []).filter((_, idx) => idx !== i)
+                          }));
+                        }}
+                        className="absolute top-1 right-1 rounded-full bg-background p-1 text-rose-500 hover:bg-rose-50 shadow-md opacity-0 group-hover:opacity-100 transition"
+                        title="Remove image"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+
+                  {/* Designer Sheet Images */}
+                  {(form.designer_images || []).map((src, i) => (
+                    <div key={`designer-${i}`} className="relative group aspect-square rounded border border-soft-border overflow-hidden bg-background shadow-sm">
+                      <img src={src} alt={`Designer sheet ${i + 1}`} className="h-full w-full object-cover" />
+                      <span className="absolute bottom-0 left-0 right-0 bg-trust-blue/90 text-[9px] text-white py-0.5 text-center font-medium">Designer</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Dropzone for new uploads */}
               <div
                 className="relative flex items-center justify-center rounded-md border-2 border-dashed border-soft-border bg-cloud-gray/40 transition hover:border-trust-blue/60 cursor-pointer"
                 style={{ minHeight: 90 }}
@@ -1298,44 +1355,42 @@ export default function DieInventoryPage() {
                   const file = item.getAsFile();
                   if (!file) return;
                   const reader = new FileReader();
-                  reader.onload = (ev) => ff('image')(ev.target.result);
+                  reader.onload = (ev) => {
+                    setForm((prev) => ({
+                      ...prev,
+                      images: [...(prev.images || []), ev.target.result],
+                    }));
+                  };
                   reader.readAsDataURL(file);
                 }}
                 tabIndex={0}
-                title="Hover here and press Ctrl+V to paste an image, or click to upload"
+                title="Hover here and press Ctrl+V to paste a new image, or click to upload"
               >
-                {form.image ? (
-                  <>
-                    <img src={form.image} alt="preview" className="max-h-24 max-w-full rounded object-contain" />
-                    <button
-                      type="button"
-                      onClick={(e) => { e.stopPropagation(); ff('image')(''); }}
-                      className="absolute top-1 right-1 rounded-full bg-background p-0.5 text-rose-500 hover:bg-rose-50 shadow"
-                      title="Remove image"
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </button>
-                  </>
-                ) : (
-                  <label className="flex flex-col items-center gap-1 cursor-pointer px-4 py-4 w-full text-center">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7 text-cool-gray/60" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M12 12V4m0 0L8 8m4-4l4 4" />
-                    </svg>
-                    <span className="text-xs text-cool-gray">Click to upload <span className="font-medium text-trust-blue">or hover &amp; paste</span></span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="sr-only"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (!file) return;
+                <label className="flex flex-col items-center gap-1 cursor-pointer px-4 py-4 w-full text-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7 text-cool-gray/60" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M12 12V4m0 0L8 8m4-4l4 4" />
+                  </svg>
+                  <span className="text-xs text-cool-gray">Click to upload <span className="font-medium text-trust-blue">or hover &amp; paste</span></span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="sr-only"
+                    multiple
+                    onChange={(e) => {
+                      const files = Array.from(e.target.files || []);
+                      files.forEach((file) => {
                         const reader = new FileReader();
-                        reader.onload = (ev) => ff('image')(ev.target.result);
+                        reader.onload = (ev) => {
+                          setForm((prev) => ({
+                            ...prev,
+                            images: [...(prev.images || []), ev.target.result],
+                          }));
+                        };
                         reader.readAsDataURL(file);
-                      }}
-                    />
-                  </label>
-                )}
+                      });
+                    }}
+                  />
+                </label>
               </div>
             </div>
             <div className="col-span-2">

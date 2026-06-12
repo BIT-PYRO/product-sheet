@@ -326,3 +326,33 @@ def sign_cloudinary_url(url: str) -> str:
     except Exception:
         return url
 
+
+def unsign_cloudinary_url(url: str) -> str:
+    """
+    Strip any Cloudinary signature token (s--...--) from a delivery URL,
+    returning a clean unsigned URL. Useful for saving clean paths in DB.
+    """
+    if not url or 'cloudinary.com' not in url:
+        return url
+    try:
+        import re as _re
+        from urllib.parse import urlparse as _urlparse, urlunparse as _urlunparse
+        parsed = _urlparse(url)
+        parts = [p for p in (parsed.path or '').strip('/').split('/') if p]
+        upload_idx = next((i for i, p in enumerate(parts) if p == 'upload'), None)
+        if upload_idx is None:
+            return url
+        
+        # Filter out signature parts (starts with s--)
+        new_parts = []
+        for p in parts:
+            if _re.match(r'^s--[A-Za-z0-9_-]+--$', p):
+                continue
+            new_parts.append(p)
+            
+        new_path = '/' + '/'.join(new_parts)
+        # Reconstruct URL without query params/fragments or signature
+        return _urlunparse((parsed.scheme, parsed.netloc, new_path, '', '', ''))
+    except Exception:
+        return url
+
