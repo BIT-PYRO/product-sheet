@@ -95,6 +95,13 @@ export default function ManagersDashboard() {
   const [categoryFilter, setCategoryFilter] = useState([]);
   const statusOptions = ['In Process', 'Awaiting', 'Partial', 'Completed'];
   const newReissueOptions = ['New', 'Re-issue'];
+  const [sortBy, setSortBy] = useState('date-newest');
+  const sortOptions = [
+    { value: 'date-newest', label: 'Date (Newest First)' },
+    { value: 'date-oldest', label: 'Date (Oldest First)' },
+    { value: 'batch-name', label: 'Batch Name' },
+    { value: 'date-approved', label: 'Date Approved' },
+  ];
 
   // Process columns — live pipeline stages (matches dept_from keys order)
   const processColumns = [
@@ -315,25 +322,55 @@ export default function ManagersDashboard() {
     return list;
   }, [filteredJobCardsData]);
 
-  const getGroupKey = useCallback((card) => {
-    // Extract a sortable date string (YYYY-MM-DD) from the card
-    let dateSortable = '9999-99-99'; // fallback sorts to end
-    let dateDisplay = 'No Date';
-    if (card.createdAt) {
-      const d = new Date(card.createdAt);
-      if (!isNaN(d)) {
-        dateSortable = d.toISOString().slice(0, 10); // YYYY-MM-DD
-        dateDisplay = d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: '2-digit' }).toUpperCase();
-      } else {
-        dateSortable = String(card.createdAt).slice(0, 10);
-        dateDisplay = dateSortable;
+  const extractDateFromPicklistName = useCallback((name) => {
+    if (!name) return null;
+    const match = name.match(/·\s*([A-Za-z]+)\s+(\d{1,2}),\s+(\d{4})\s*·/);
+    if (match && match[1] && match[2] && match[3]) {
+      const monthStr = match[1].toLowerCase().slice(0, 3);
+      const dayStr = match[2].padStart(2, '0');
+      const yearStr = match[3];
+      const months = {
+        jan: '01', feb: '02', mar: '03', apr: '04', may: '05', jun: '06',
+        jul: '07', aug: '08', sep: '09', oct: '10', nov: '11', dec: '12'
+      };
+      const monthNum = months[monthStr];
+      if (monthNum) {
+        return `${yearStr}-${monthNum}-${dayStr}`; // YYYY-MM-DD
       }
     }
+    return null;
+  }, []);
+
+  const getGroupKey = useCallback((card) => {
+    // Try to extract date from picklist batch name first, fallback to createdAt
+    let dateSortable = '9999-99-99';
+    let dateDisplay = 'No Date';
+
+    const picklistDate = extractDateFromPicklistName(card.picklistName);
+    let resolvedDate = picklistDate;
+
+    if (!resolvedDate && card.createdAt) {
+      resolvedDate = String(card.createdAt).slice(0, 10);
+    }
+
+    if (resolvedDate && /^\d{4}-\d{2}-\d{2}$/.test(resolvedDate)) {
+      dateSortable = resolvedDate;
+      const [year, month, day] = resolvedDate.split('-');
+      const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+      const mIdx = parseInt(month, 10) - 1;
+      const monthStr = months[mIdx] || month;
+      dateDisplay = `${monthStr} ${day}, ${year}`;
+    } else if (resolvedDate) {
+      dateSortable = resolvedDate;
+      dateDisplay = resolvedDate;
+    }
+
     // Batch name from picklist or fallback
     const batchName = card.picklistName || 'Ungrouped';
     // Composite key: DATE_SORTABLE|DATE_DISPLAY|BATCH_NAME
     return `${dateSortable}|${dateDisplay}|${batchName}`;
-  }, []);
+  }, [extractDateFromPicklistName]);
+
 
   const groupedJobCards = useMemo(() => {
     const groups = {};
@@ -351,12 +388,41 @@ export default function ManagersDashboard() {
     return Object.keys(groupedJobCards).sort((a, b) => {
       const [dateA, , batchA] = a.split('|');
       const [dateB, , batchB] = b.split('|');
-      // Sort by date ascending (oldest first)
-      if (dateA !== dateB) return dateA.localeCompare(dateB);
-      // Within same date, sort by batch name
-      return (batchA || '').localeCompare(batchB || '');
+
+      switch (sortBy) {
+        case 'date-oldest':
+          // Sort by date ascending (oldest first)
+          if (dateA !== dateB) return dateA.localeCompare(dateB);
+          return (batchA || '').localeCompare(batchB || '');
+        case 'batch-name':
+          // Sort by batch name alphabetically
+          const cmp = (batchA || '').localeCompare(batchB || '');
+          if (cmp !== 0) return cmp;
+          return dateB.localeCompare(dateA);
+        case 'date-approved': {
+          // Sort by the approved_at timestamp of the first card in each group
+          const getMinApproved = (cards) => {
+            let earliest = Infinity;
+            for (const card of cards) {
+              // approvedAt is not directly on card, use createdAt as proxy
+              // In future, if approvedAt is added to card data, use that
+              const time = card.createdAt ? new Date(card.createdAt).getTime() : Infinity;
+              if (time < earliest) earliest = time;
+            }
+            return earliest;
+          };
+          const approvedA = getMinApproved(groupedJobCards[a]);
+          const approvedB = getMinApproved(groupedJobCards[b]);
+          return approvedB - approvedA; // newest approved first
+        }
+        case 'date-newest':
+        default:
+          // Sort by date descending (newest first)
+          if (dateA !== dateB) return dateB.localeCompare(dateA);
+          return (batchA || '').localeCompare(batchB || '');
+      }
     });
-  }, [groupedJobCards]);
+  }, [groupedJobCards, sortBy]);
 
   const visibleColumnsCount = useMemo(() => {
     return processColumns.filter(col => visibleColumns.has(col)).length;
@@ -1276,7 +1342,7 @@ export default function ManagersDashboard() {
           <div className="flex justify-end mb-2">
             <button
               type="button"
-              onClick={() => { setStatusFilter(''); setDateFromFilter(''); setDateToFilter(''); setNewReissueFilter(''); setNameFilter(''); setIssuerFilter(''); setDepartmentFilter(''); setTypeFilter(''); setCategoryFilter([]); }}
+              onClick={() => { setStatusFilter(''); setDateFromFilter(''); setDateToFilter(''); setNewReissueFilter(''); setNameFilter(''); setIssuerFilter(''); setDepartmentFilter(''); setTypeFilter(''); setCategoryFilter([]); setSortBy('date-newest'); }}
               className="text-xs text-trust-blue hover:underline font-medium"
             >
               Clear Filters
@@ -1405,6 +1471,21 @@ export default function ManagersDashboard() {
                 options={['New', 'Re-Issue', ...filterOptions.picklists]}
                 className="w-full h-9 justify-between bg-white border border-input text-midnight-ink"
               />
+            </div>
+
+            {/* Sort By */}
+            <div>
+              <label className="text-sm font-semibold text-slate-text block mb-1">SORT BY</label>
+              <Select value={sortBy} onValueChange={setSortBy}>
+                <SelectTrigger className="h-9 text-sm bg-white">
+                  <SelectValue placeholder="Sort" />
+                </SelectTrigger>
+                <SelectContent>
+                  {sortOptions.map(opt => (
+                    <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
         </div>
