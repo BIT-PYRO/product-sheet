@@ -347,7 +347,8 @@ class DieInventoryItemSerializer(serializers.ModelSerializer):
                         if url not in seen:
                             seen.add(url)
                             images.append(url)
-                return images
+                from common.image_upload import sign_cloudinary_url
+                return [sign_cloudinary_url(url) for url in images]
             # Fallback: single query (detail / other actions)
             from designers.models import DesignerSheet
             sheets = DesignerSheet.objects.filter(sku__in=skus).only(
@@ -358,7 +359,8 @@ class DieInventoryItemSerializer(serializers.ModelSerializer):
                     if url and url not in seen:
                         seen.add(url)
                         images.append(url)
-            return images
+            from common.image_upload import sign_cloudinary_url
+            return [sign_cloudinary_url(url) for url in images]
         except Exception:
             return []
 
@@ -416,6 +418,30 @@ class DieInventoryItemSerializer(serializers.ModelSerializer):
         instance = super().update(instance, validated_data)
         self._sync_images(instance)
         return instance
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        raw_img = data.get('image') or ''
+        if raw_img:
+            from common.image_upload import sign_cloudinary_url
+            if raw_img.startswith('['):
+                try:
+                    import json
+                    parsed = json.loads(raw_img)
+                    if isinstance(parsed, list):
+                        signed_imgs = [sign_cloudinary_url(str(x)) for x in parsed]
+                        data['image'] = json.dumps(signed_imgs)
+                    else:
+                        data['image'] = sign_cloudinary_url(str(parsed))
+                except Exception:
+                    data['image'] = sign_cloudinary_url(raw_img)
+            elif ',' in raw_img:
+                parts = [x.strip() for x in raw_img.split(',') if x.strip()]
+                signed_parts = [sign_cloudinary_url(x) for x in parts]
+                data['image'] = ', '.join(signed_parts)
+            else:
+                data['image'] = sign_cloudinary_url(raw_img)
+        return data
 
     class Meta:
         model = DieInventoryItem

@@ -2296,7 +2296,8 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 				continue
 			product = product_map.get(sku.upper())
 			raw_images = product.images if product and isinstance(product.images, list) else []
-			resolved = [make_absolute(img) for img in raw_images]
+			from common.image_upload import sign_cloudinary_url
+			resolved = [sign_cloudinary_url(make_absolute(img)) for img in raw_images]
 			resolved = [img for img in resolved if img]  # filter None/empty
 
 			# Build location dict for this product
@@ -2458,7 +2459,8 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 			for img in imgs:
 				abs_img = make_absolute(img)
 				if abs_img:
-					resolved_imgs.append(abs_img)
+					from common.image_upload import sign_cloudinary_url
+					resolved_imgs.append(sign_cloudinary_url(abs_img))
 
 			# If no custom photos uploaded, fetch from Master Designer Sheet (fallback)
 			if not resolved_imgs and inv:
@@ -2475,7 +2477,8 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 								abs_url = make_absolute(url)
 								if abs_url and abs_url not in seen:
 									seen.add(abs_url)
-									resolved_imgs.append(abs_url)
+									from common.image_upload import sign_cloudinary_url
+									resolved_imgs.append(sign_cloudinary_url(abs_url))
 
 			result.append({
 				'die_code': die_code,
