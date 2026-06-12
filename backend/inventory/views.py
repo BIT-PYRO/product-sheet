@@ -680,13 +680,19 @@ class DieInventoryItemViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 		if getattr(self, 'action', None) == 'list':
 			try:
 				from designers.models import DesignerSheet
+				from products.models import Product
 				queryset = self.filter_queryset(self.get_queryset())
 				referenced_skus = set()
-				for item in queryset.only('designer_skus'):
+				referenced_master_skus = set()
+				for item in queryset.only('designer_skus', 'master_skus'):
 					if item.designer_skus:
 						for s in item.designer_skus:
 							if s:
 								referenced_skus.add(s)
+					if item.master_skus:
+						for s in item.master_skus:
+							if s:
+								referenced_master_skus.add(s)
 
 				sku_images: dict = {}
 				if referenced_skus:
@@ -698,8 +704,24 @@ class DieInventoryItemViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 						if urls:
 							sku_images[sheet.sku] = urls
 				context['sku_images'] = sku_images
+
+				product_images: dict = {}
+				if referenced_master_skus:
+					products = Product.objects.filter(master_sku__in=referenced_master_skus).only('master_sku', 'images')
+					for prod in products:
+						raw_imgs = prod.images if isinstance(prod.images, list) else []
+						urls = []
+						for u in raw_imgs:
+							if isinstance(u, dict):
+								u = u.get('url') or u.get('src') or ''
+							if u:
+								urls.append(u)
+						if urls:
+							product_images[prod.master_sku] = urls
+				context['product_images'] = product_images
 			except Exception:
 				context['sku_images'] = {}
+				context['product_images'] = {}
 		return context
 
 	@extend_schema(summary='Bulk upload die inventory items', tags=['Die Inventory'])

@@ -2462,17 +2462,36 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 					from common.image_upload import sign_cloudinary_url
 					resolved_imgs.append(sign_cloudinary_url(abs_img))
 
-			# If no custom photos uploaded, fetch from Master Designer Sheet (fallback)
+			# If no custom photos uploaded, fetch from Master Designer Sheet & Product Sheet (fallback)
 			if not resolved_imgs and inv:
 				from designers.models import DesignerSheet
+				from products.models import Product
 				skus = [s for s in (inv.designer_skus or []) if s]
+				master_skus = [s for s in (inv.master_skus or []) if s]
+				seen = set()
+				
+				# 1. Fetch from DesignerSheet
 				if skus:
-					seen = set()
 					sheets = DesignerSheet.objects.filter(sku__in=skus).only(
 						'sku', 'rendered_photo', 'image', 'designer_image_2', 'designer_image_3', 'technical_drawing'
 					)
 					for sheet in sheets:
 						for url in (sheet.rendered_photo, sheet.image, sheet.designer_image_2, sheet.designer_image_3, sheet.technical_drawing):
+							if url:
+								abs_url = make_absolute(url)
+								if abs_url and abs_url not in seen:
+									seen.add(abs_url)
+									from common.image_upload import sign_cloudinary_url
+									resolved_imgs.append(sign_cloudinary_url(abs_url))
+
+				# 2. Fetch from Product (Master product sheet)
+				if master_skus:
+					products = Product.objects.filter(master_sku__in=master_skus).only('images')
+					for prod in products:
+						raw_imgs = prod.images if isinstance(prod.images, list) else []
+						for url in raw_imgs:
+							if isinstance(url, dict):
+								url = url.get('url') or url.get('src') or ''
 							if url:
 								abs_url = make_absolute(url)
 								if abs_url and abs_url not in seen:
