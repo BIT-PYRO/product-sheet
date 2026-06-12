@@ -1200,25 +1200,27 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 
 	@action(detail=True, methods=['post'], url_path='mark-voucher-complete')
 	def mark_voucher_complete(self, request, pk=None):
-		"""Mark a voucher step as completed, activate the next one in the pipeline."""
+		"""Mark a voucher step as completed, activate the next one in the pipeline.
+
+		Checks actual received quantities from prior receive events.
+		- If all SKUs are fully received → COMPLETED (auto-fills any tiny remainder)
+		- If any SKU has received < issued (or received is 0/empty) → PARTIALLY_COMPLETED
+		"""
 		voucher = self.get_object()
 
 		if voucher.approval_status not in (VoucherApprovalStatus.IN_PROCESS, VoucherApprovalStatus.PARTIALLY_COMPLETED):
 			raise ValidationError({'approval_status': 'Only in-process or partially complete vouchers can be marked complete.'})
 
 		with transaction.atomic():
-			voucher.approval_status = VoucherApprovalStatus.COMPLETED
-			voucher.status = 'completed'
 			_sync_repair_completion(voucher)
 
-			# Add remaining pieces (issued → already received) to Current Stock of
-			# the destination stage.  WIP is computed live so no WIP transaction needed.
 			from products.models import Product
 
 			dest_stage_key = DEPT_TO_STOCK_STAGE.get(voucher.dept_to, '')
 
 			# Build already-received totals per SKU from previous receive events
 			already_rcvd: dict = {}
+			already_loss: dict = {}
 			for event in (voucher.received_rows or []):
 				for prev_row in (event.get('rows') or []):
 					s = str(prev_row.get('sku', '') or '').strip().upper()
@@ -1226,7 +1228,13 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 						already_rcvd.get(s, 0)
 						+ int(float(prev_row.get('received_qty', 0) or 0))
 					)
+					already_loss[s] = (
+						already_loss.get(s, 0)
+						+ int(float(prev_row.get('loss_qty', 0) or 0))
+					)
 
+			# ── Determine if all SKUs are fully accounted for ──────────────────
+			all_fully_received = True
 			synthetic_received_rows = []
 
 			if voucher.dept_to in PRE_CASTING_DEPT_TOS:
@@ -1235,6 +1243,7 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 				stage_qty_field = PRE_CASTING_STAGE_QTY_FIELD.get(voucher.dept_to, '')
 
 				die_already_received: dict = {}
+				die_already_loss: dict = {}
 				for event in (voucher.received_rows or []):
 					for prev_row in (event.get('rows') or []):
 						dc = str(prev_row.get('die_code', '') or prev_row.get('sku', '') or '').strip().upper()
@@ -1243,6 +1252,10 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 								die_already_received.get(dc, 0)
 								+ int(float(prev_row.get('received_qty', 0) or 0))
 							)
+							die_already_loss[dc] = (
+								die_already_loss.get(dc, 0)
+								+ int(float(prev_row.get('loss_qty', 0) or 0))
+							)
 
 				for dr in (voucher.die_rows or []):
 					dc = str(dr.get('die_code', '') or '').strip()
@@ -1250,37 +1263,55 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 					if issued <= 0 or not dc:
 						continue
 					
-					remaining = max(0, issued - die_already_received.get(dc.upper(), 0))
-					if remaining <= 0:
-						continue
+					dc_upper = dc.upper()
+					received_so_far = die_already_received.get(dc_upper, 0)
+					loss_so_far = die_already_loss.get(dc_upper, 0)
+					remaining = max(0, issued - received_so_far - loss_so_far)
 
-					try:
-						die_item = DieInventoryItem.objects.get(die_code__iexact=dc)
-						DieTransaction.objects.create(
-							tenant=voucher.tenant,
-							company=voucher.company,
-							txn_date=timezone.now().date(),
-							die=die_item,
-							die_code=die_item.die_code,
-							txn_type='received',
-							master_sku=str(dr.get('master_sku', '') or '').strip(),
-							qty=remaining,
-							remark=f'Completed (Auto-receive remaining): {voucher.voucher_no}',
-							activity_status='received',
-						)
-						if stage_qty_field:
-							current_qty = float(getattr(die_item, stage_qty_field, 0) or 0)
-							setattr(die_item, stage_qty_field, current_qty + remaining)
-							die_item.save(update_fields=[stage_qty_field])
-					except DieInventoryItem.DoesNotExist:
-						pass
+					if remaining > 0:
+						# This SKU is NOT fully accounted for
+						all_fully_received = False
 
-					synthetic_received_rows.append({
-						'die_code': dc,
-						'sku': str(dr.get('master_sku', '') or '').strip(),
-						'received_qty': str(remaining),
-						'loss_qty': '0',
-					})
+				# Only auto-fill and create inventory transactions if fully received
+				if all_fully_received:
+					for dr in (voucher.die_rows or []):
+						dc = str(dr.get('die_code', '') or '').strip()
+						issued = int(float(dr.get('issued_qty', 0) or 0))
+						if issued <= 0 or not dc:
+							continue
+						
+						# Any tiny remainder (received without loss accounting)
+						remaining_recv = max(0, issued - die_already_received.get(dc.upper(), 0))
+						if remaining_recv <= 0:
+							continue
+
+						try:
+							die_item = DieInventoryItem.objects.get(die_code__iexact=dc)
+							DieTransaction.objects.create(
+								tenant=voucher.tenant,
+								company=voucher.company,
+								txn_date=timezone.now().date(),
+								die=die_item,
+								die_code=die_item.die_code,
+								txn_type='received',
+								master_sku=str(dr.get('master_sku', '') or '').strip(),
+								qty=remaining_recv,
+								remark=f'Completed (Auto-receive remaining): {voucher.voucher_no}',
+								activity_status='received',
+							)
+							if stage_qty_field:
+								current_qty = float(getattr(die_item, stage_qty_field, 0) or 0)
+								setattr(die_item, stage_qty_field, current_qty + remaining_recv)
+								die_item.save(update_fields=[stage_qty_field])
+						except DieInventoryItem.DoesNotExist:
+							pass
+
+						synthetic_received_rows.append({
+							'die_code': dc,
+							'sku': str(dr.get('master_sku', '') or '').strip(),
+							'received_qty': str(remaining_recv),
+							'loss_qty': '0',
+						})
 
 			else:
 				for row in (voucher.material_rows or []):
@@ -1290,41 +1321,70 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 					sku = str(row.get('sku', '') or '').strip()
 					sku_key = sku.upper()
 
-					# Only create transaction for pieces not yet received
-					remaining = max(0, issued - already_rcvd.get(sku_key, 0))
-					if remaining <= 0:
-						continue
+					received_so_far = already_rcvd.get(sku_key, 0)
+					loss_so_far = already_loss.get(sku_key, 0)
+					remaining = max(0, issued - received_so_far - loss_so_far)
 
-					product = Product.objects.filter(
-						Q(master_sku__iexact=sku)
-					).first() or voucher.product
-					if not product:
-						continue
+					if remaining > 0:
+						# Check if received is 0 or empty — means not received at all
+						if received_so_far <= 0:
+							all_fully_received = False
+						else:
+							# Received something but not everything — still not fully received
+							all_fully_received = False
 
-					if dest_stage_key:
-						InventoryTransaction.objects.create(
-							tenant=voucher.tenant,
-							company=voucher.company,
-							product=product,
-							txn_type='adjust',
-							quantity=remaining,
-							stage=dest_stage_key,
-							stock_type='current',
-							remark=f'Completed: {voucher.voucher_no}',
-						)
+				# Only auto-fill and create inventory transactions if fully received
+				if all_fully_received:
+					for row in (voucher.material_rows or []):
+						issued = int(float(row.get('issued_qty', 0) or 0))
+						if issued <= 0:
+							continue
+						sku = str(row.get('sku', '') or '').strip()
+						sku_key = sku.upper()
 
-					synthetic_received_rows.append({
-						'sku': sku,
-						'received_qty': str(remaining),
-						'loss_qty': '0',
-					})
+						# Any tiny remainder
+						remaining_recv = max(0, issued - already_rcvd.get(sku_key, 0))
+						if remaining_recv <= 0:
+							continue
+
+						product = Product.objects.filter(
+							Q(master_sku__iexact=sku)
+						).first() or voucher.product
+						if not product:
+							continue
+
+						if dest_stage_key:
+							InventoryTransaction.objects.create(
+								tenant=voucher.tenant,
+								company=voucher.company,
+								product=product,
+								txn_type='adjust',
+								quantity=remaining_recv,
+								stage=dest_stage_key,
+								stock_type='current',
+								remark=f'Completed: {voucher.voucher_no}',
+							)
+
+						synthetic_received_rows.append({
+							'sku': sku,
+							'received_qty': str(remaining_recv),
+							'loss_qty': '0',
+						})
+
+			# Set status based on whether all material has been received
+			if all_fully_received:
+				voucher.approval_status = VoucherApprovalStatus.COMPLETED
+				voucher.status = 'completed'
+			else:
+				voucher.approval_status = VoucherApprovalStatus.PARTIALLY_COMPLETED
+				# Status stays as-is (not 'completed')
 
 			if synthetic_received_rows:
 				receive_log = list(voucher.received_rows or [])
 				receive_log.append({
 					'timestamp': timezone.now().isoformat(),
 					'received_by': 'system (mark-complete)',
-					'is_partial': False,
+					'is_partial': not all_fully_received,
 					'total_received': sum(int(float(r['received_qty'])) for r in synthetic_received_rows),
 					'rows': synthetic_received_rows,
 				})

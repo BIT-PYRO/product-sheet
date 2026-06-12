@@ -316,17 +316,23 @@ export default function ManagersDashboard() {
   }, [filteredJobCardsData]);
 
   const getGroupKey = useCallback((card) => {
-    if (card.picklistName) {
-      return card.picklistName;
-    }
+    // Extract a sortable date string (YYYY-MM-DD) from the card
+    let dateSortable = '9999-99-99'; // fallback sorts to end
+    let dateDisplay = 'No Date';
     if (card.createdAt) {
       const d = new Date(card.createdAt);
       if (!isNaN(d)) {
-        return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: '2-digit' });
+        dateSortable = d.toISOString().slice(0, 10); // YYYY-MM-DD
+        dateDisplay = d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: '2-digit' }).toUpperCase();
+      } else {
+        dateSortable = String(card.createdAt).slice(0, 10);
+        dateDisplay = dateSortable;
       }
-      return String(card.createdAt).slice(0, 10);
     }
-    return 'No Date/Batch';
+    // Batch name from picklist or fallback
+    const batchName = card.picklistName || 'Ungrouped';
+    // Composite key: DATE_SORTABLE|DATE_DISPLAY|BATCH_NAME
+    return `${dateSortable}|${dateDisplay}|${batchName}`;
   }, []);
 
   const groupedJobCards = useMemo(() => {
@@ -342,19 +348,13 @@ export default function ManagersDashboard() {
   }, [allFilteredCards, getGroupKey]);
 
   const sortedGroupKeys = useMemo(() => {
-    const getGroupMaxDate = (cardsInGroup) => {
-      let maxTime = 0;
-      for (const card of cardsInGroup) {
-        const time = card.createdAt ? new Date(card.createdAt).getTime() : 0;
-        if (time > maxTime) {
-          maxTime = time;
-        }
-      }
-      return maxTime;
-    };
-    
     return Object.keys(groupedJobCards).sort((a, b) => {
-      return getGroupMaxDate(groupedJobCards[b]) - getGroupMaxDate(groupedJobCards[a]);
+      const [dateA, , batchA] = a.split('|');
+      const [dateB, , batchB] = b.split('|');
+      // Sort by date ascending (oldest first)
+      if (dateA !== dateB) return dateA.localeCompare(dateB);
+      // Within same date, sort by batch name
+      return (batchA || '').localeCompare(batchB || '');
     });
   }, [groupedJobCards]);
 
@@ -1440,7 +1440,13 @@ export default function ManagersDashboard() {
                 </td>
               </tr>
             ) : (
-              sortedGroupKeys.map((groupKey) => (
+              sortedGroupKeys.map((groupKey) => {
+                // Extract display parts from composite key: DATE_SORTABLE|DATE_DISPLAY|BATCH_NAME
+                const [, dateDisplay, batchName] = groupKey.split('|');
+                const headerLabel = batchName && batchName !== 'Ungrouped'
+                  ? `${batchName} · ${dateDisplay}`
+                  : dateDisplay || groupKey;
+                return (
                 <Fragment key={groupKey}>
                   {/* Group header row */}
                   <tr className="bg-slate-100 dark:bg-slate-900/40 border-y border-soft-border">
@@ -1448,7 +1454,7 @@ export default function ManagersDashboard() {
                       colSpan={visibleColumnsCount}
                       className="p-2 pl-4 font-bold text-midnight-ink text-xs uppercase tracking-wider text-left"
                     >
-                      {groupKey}
+                      {headerLabel}
                     </td>
                   </tr>
                   {/* Cards row */}
@@ -1472,7 +1478,7 @@ export default function ManagersDashboard() {
                     })}
                   </tr>
                 </Fragment>
-              ))
+              )})
             )}
           </tbody>
           </table>

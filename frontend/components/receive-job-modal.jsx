@@ -68,6 +68,7 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
   const [submitWarnings, setSubmitWarnings] = useState([])
   const [stoneIssueRequests, setStoneIssueRequests] = useState([])
   const [isRecalcStone, setIsRecalcStone] = useState(false)
+  const [copyAllReceived, setCopyAllReceived] = useState(false)
   const [totalReceived, setTotalReceived] = useState({})
   const [totalLoss, setTotalLoss] = useState({})
   const [totalReceivedWeight, setTotalReceivedWeight] = useState({})
@@ -95,6 +96,7 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
       setStoneIssueRequests([])
       setNoteForReissue("")
       setRatingScore(5)
+      setCopyAllReceived(false)
       setTotalReceived({})
       setTotalLoss({})
       setTotalReceivedWeight({})
@@ -881,6 +883,30 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
     return (issued > 0 && prevRx >= issued)
   }
 
+  // Copy all issued qty/weight to received when checkbox is toggled
+  const handleCopyAllReceived = (checked) => {
+    setCopyAllReceived(checked)
+    if (checked) {
+      setRows(prev => prev.map(row => {
+        if (getRowLockState(row)) return row // don't touch locked rows
+        return {
+          ...row,
+          receivedQty: row.issuedQty || '',
+          receivedWeight: row.issuedWeight || '',
+        }
+      }))
+    } else {
+      setRows(prev => prev.map(row => {
+        if (getRowLockState(row)) return row // don't touch locked rows
+        return {
+          ...row,
+          receivedQty: '',
+          receivedWeight: '',
+        }
+      }))
+    }
+  }
+
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
@@ -1091,7 +1117,21 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
                   <th rowSpan={2} className="py-1 px-1 font-semibold border-r border-white/20 align-middle">Category</th>
                   <th rowSpan={2} className="py-1 px-1 font-semibold border-r border-white/20 align-middle">Metal</th>
                   <th colSpan={2} className="py-1 px-0.5 font-semibold bg-blue-800 border-l-2 border-white/40">ISSUED</th>
-                  <th colSpan={2} className="py-1 px-0.5 font-semibold bg-emerald-800 border-l-2 border-white/40">Received</th>
+                  <th colSpan={2} className="py-1 px-0.5 font-semibold bg-emerald-800 border-l-2 border-white/40">
+                    <div className="flex items-center justify-center gap-1">
+                      <span>Received</span>
+                      {!isCompleted && (
+                        <input
+                          type="checkbox"
+                          checked={copyAllReceived}
+                          onChange={(e) => handleCopyAllReceived(e.target.checked)}
+                          onClick={(e) => e.stopPropagation()}
+                          title="Copy all Issued Qty to Received"
+                          className="h-3 w-3 cursor-pointer accent-emerald-400 shrink-0"
+                        />
+                      )}
+                    </div>
+                  </th>
                   <th colSpan={2} className="py-1 px-0.5 font-semibold bg-rose-900 border-l-2 border-white/40">Loss</th>
                   <th colSpan={2} className="py-1 px-0.5 font-semibold bg-amber-800 border-l-2 border-white/40">Re-Issue</th>
                   <th rowSpan={2} className="py-1 px-0.5 font-semibold align-middle"></th>
