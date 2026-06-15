@@ -460,7 +460,7 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 			VoucherApprovalStatus.IN_PROCESS,
 			VoucherApprovalStatus.PARTIALLY_COMPLETED,
 		}
-		active_jobs = self.filter_queryset(self.get_queryset()).filter(
+		active_jobs = self.filter_queryset(Job.objects.all()).filter(
 			approval_status__in=active_statuses
 		).only('dept_to', 'material_rows', 'die_rows', 'received_rows')
 
@@ -2136,9 +2136,16 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 				if note:
 					notes_text += f' {note}'
 
+				from core_tenants.context import get_current_tenant, get_current_company
+				tenant_obj = voucher.tenant or get_current_tenant() or (request.user.tenant if request.user and request.user.is_authenticated else None)
+				company_obj = voucher.company or get_current_company() or (request.user.active_company if request.user and request.user.is_authenticated else None)
+				if company_obj is None and tenant_obj is not None:
+					from core_tenants.models import Company
+					company_obj = Company.objects.filter(tenant=tenant_obj).first()
+
 				new_v = Job.objects.create(
-					tenant=voucher.tenant,
-					company=voucher.company,
+					tenant=tenant_obj,
+					company=company_obj,
 					title=f'RE-ISSUE {voucher_no_new} - {from_label} to {to_label}',
 					product=stage_v.product,
 					status='created',
@@ -2204,154 +2211,158 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 		Each row: { sku, issued_qty, unit, images: [...], location: {wax_piece, wax_setting, ...} }
 		Images are returned as absolute URLs.
 		"""
-		from products.models import Product as ProductModel
-		from inventory.models import InventoryTransaction, PicklistItem, PicklistGroup
-		from django.db.models.functions import Upper
-		from django.db.models import Q
+		try:
+			from products.models import Product as ProductModel
+			from inventory.models import InventoryTransaction, PicklistItem, PicklistGroup
+			from django.db.models.functions import Upper
+			from django.db.models import Q
 
-		job = self.get_object()
+			job = self.get_object()
 
-		# Collect combined picklist group IDs
-		picklist_ids = []
-		if job.picklist_group_id:
-			picklist_ids.append(job.picklist_group_id)
-		
-		# Parse combined picklist numbers from notes
-		notes = job.notes or ""
-		if "Combined Picklists:" in notes:
-			try:
-				line = [l for l in notes.split('\n') if "Combined Picklists:" in l][0]
-				numbers_str = line.replace("Combined Picklists:", "").strip()
-				numbers = [int(num.strip()) for num in numbers_str.split(',') if num.strip().isdigit()]
-				if numbers:
-					combined_groups = PicklistGroup.objects.filter(number__in=numbers).values_list('id', flat=True)
-					for pg_id in combined_groups:
-						if pg_id not in picklist_ids:
-							picklist_ids.append(pg_id)
-			except Exception:
-				pass
+			# Collect combined picklist group IDs
+			picklist_ids = []
+			if job.picklist_group_id:
+				picklist_ids.append(job.picklist_group_id)
+			
+			# Parse combined picklist numbers from notes
+			notes = job.notes or ""
+			if "Combined Picklists:" in notes:
+				try:
+					line = [l for l in notes.split('\n') if "Combined Picklists:" in l][0]
+					numbers_str = line.replace("Combined Picklists:", "").strip()
+					numbers = [int(num.strip()) for num in numbers_str.split(',') if num.strip().isdigit()]
+					if numbers:
+						combined_groups = PicklistGroup.objects.filter(number__in=numbers).values_list('id', flat=True)
+						for pg_id in combined_groups:
+							if pg_id not in picklist_ids:
+								picklist_ids.append(pg_id)
+				except Exception:
+					pass
 
-		# ── 1. Build sku_qty_map: UPPER_SKU → [qty, unit] ─────────────────
-		sku_qty_map = {}
-		if picklist_ids:
-			for item in PicklistItem.objects.filter(group_id__in=picklist_ids).only('sku', 'needed'):
-				sku = item.sku.strip()
-				if sku:
-					sku_upper = sku.upper()
-					qty = item.needed or 0
-					unit = 'Pcs'
-					if sku_upper in sku_qty_map:
-						sku_qty_map[sku_upper][0] += qty
-					else:
-						sku_qty_map[sku_upper] = [qty, unit]
+			# ── 1. Build sku_qty_map: UPPER_SKU → [qty, unit] ─────────────────
+			sku_qty_map = {}
+			if picklist_ids:
+				for item in PicklistItem.objects.filter(group__in=picklist_ids).only('sku', 'needed'):
+					sku = item.sku.strip()
+					if sku:
+						sku_upper = sku.upper()
+						qty = item.needed or 0
+						unit = 'Pcs'
+						if sku_upper in sku_qty_map:
+							sku_qty_map[sku_upper][0] += qty
+						else:
+							sku_qty_map[sku_upper] = [qty, unit]
 
-		if not sku_qty_map:
-			# Fallback: collect from this voucher's material_rows
-			material_rows = job.material_rows or []
-			for row in material_rows:
-				sku = row.get('sku', '').strip()
-				if sku:
-					try:
-						qty = float(row.get('issued_qty') or row.get('qty') or 0)
-					except (ValueError, TypeError):
-						qty = 0
-					unit = row.get('unit1') or 'Pcs'
-					sku_qty_map[sku.upper()] = [qty, unit]
+			if not sku_qty_map:
+				# Fallback: collect from this voucher's material_rows
+				material_rows = job.material_rows or []
+				for row in material_rows:
+					sku = row.get('sku', '').strip()
+					if sku:
+						try:
+							qty = float(row.get('issued_qty') or row.get('qty') or 0)
+						except (ValueError, TypeError):
+							qty = 0
+						unit = row.get('unit1') or 'Pcs'
+						sku_qty_map[sku.upper()] = [qty, unit]
 
-		skus = list(sku_qty_map.keys())
-		upper_skus = [s.upper() for s in skus]
+			skus = list(sku_qty_map.keys())
+			upper_skus = [s.upper() for s in skus]
 
-		# Primary lookup: match by master_sku (case-insensitive)
-		products_by_master = (
-			ProductModel.objects
-			.annotate(upper_sku=Upper('master_sku'))
-			.filter(upper_sku__in=upper_skus)
-			.only('master_sku', 'designer_sku', 'images')
-		)
-		product_map = {p.master_sku.upper(): p for p in products_by_master}
-
-		# Fallback: for SKUs not matched by master_sku, try designer_sku
-		unmatched = [s for s in upper_skus if s not in product_map]
-		if unmatched:
-			products_by_designer = (
+			# Primary lookup: match by master_sku (case-insensitive)
+			products_by_master = (
 				ProductModel.objects
-				.annotate(upper_designer=Upper('designer_sku'))
-				.filter(upper_designer__in=unmatched)
+				.annotate(upper_sku=Upper('master_sku'))
+				.filter(upper_sku__in=upper_skus)
 				.only('master_sku', 'designer_sku', 'images')
 			)
-			for p in products_by_designer:
-				key = p.designer_sku.upper()
-				if key not in product_map:
-					product_map[key] = p
+			product_map = {p.master_sku.upper(): p for p in products_by_master}
 
-		# Build per-product stage → latest location from inventory transactions
-		product_ids = [p.id for p in product_map.values()]
-		STAGE_LABELS = {
-			'wax_piece':        'Wax Piece',
-			'wax_setting':      'Wax Setting',
-			'casting':          'Casting',
-			'filling':          'Filling',
-			'pre_polish':       'Pre Polish',
-			'setting':          'Hand Setting',
-			'final_polish':     'Final Polish',
-			'ready_for_plating':'Plating',
-		}
-		# Fetch only transactions that have a non-empty location
-		txns = (
-			InventoryTransaction.objects
-			.filter(product_id__in=product_ids)
-			.exclude(location='')
-			.values('product_id', 'stage', 'location', 'created_at')
-			.order_by('product_id', 'stage', 'created_at')  # last one wins via iteration
-		)
-		# product_id → stage → latest location
-		location_map = {}  # product_id → {stage_key: location_str}
-		for txn in txns:
-			pid = txn['product_id']
-			stage = txn['stage']
-			loc = txn['location'] or ''
-			if loc:
-				if pid not in location_map:
-					location_map[pid] = {}
-				location_map[pid][stage] = loc
+			# Fallback: for SKUs not matched by master_sku, try designer_sku
+			unmatched = [s for s in upper_skus if s not in product_map]
+			if unmatched:
+				products_by_designer = (
+					ProductModel.objects
+					.annotate(upper_designer=Upper('designer_sku'))
+					.filter(upper_designer__in=unmatched)
+					.only('master_sku', 'designer_sku', 'images')
+				)
+				for p in products_by_designer:
+					key = p.designer_sku.upper()
+					if key not in product_map:
+						product_map[key] = p
 
-		def make_absolute(url):
-			"""Turn a relative /media/... path into an absolute URL."""
-			if not url:
-				return None
-			if isinstance(url, dict):
-				# Handle images stored as {url: "..."} objects
-				url = url.get('url') or url.get('src') or ''
-			url = str(url).strip()
-			if not url:
-				return None
-			if url.startswith('http://') or url.startswith('https://') or url.startswith('data:'):
-				return url
-			return request.build_absolute_uri(url)
+			# Build per-product stage → latest location from inventory transactions
+			product_ids = [p.id for p in product_map.values()]
+			STAGE_LABELS = {
+				'wax_piece':        'Wax Piece',
+				'wax_setting':      'Wax Setting',
+				'casting':          'Casting',
+				'filling':          'Filling',
+				'pre_polish':       'Pre Polish',
+				'setting':          'Hand Setting',
+				'final_polish':     'Final Polish',
+				'ready_for_plating':'Plating',
+			}
+			# Fetch only transactions that have a non-empty location
+			txns = (
+				InventoryTransaction.objects
+				.filter(product_id__in=product_ids)
+				.exclude(location='')
+				.values('product_id', 'stage', 'location', 'created_at')
+				.order_by('product_id', 'stage', 'created_at')  # last one wins via iteration
+			)
+			# product_id → stage → latest location
+			location_map = {}  # product_id → {stage_key: location_str}
+			for txn in txns:
+				pid = txn['product_id']
+				stage = txn['stage']
+				loc = txn['location'] or ''
+				if loc:
+					if pid not in location_map:
+						location_map[pid] = {}
+					location_map[pid][stage] = loc
 
-		result = []
-		for sku_upper, (qty, unit) in sku_qty_map.items():
-			product = product_map.get(sku_upper)
-			raw_images = product.images if product and isinstance(product.images, list) else []
-			from common.image_upload import sign_cloudinary_url
-			resolved = [sign_cloudinary_url(make_absolute(img)) for img in raw_images]
-			resolved = [img for img in resolved if img]
+			def make_absolute(url):
+				"""Turn a relative /media/... path into an absolute URL."""
+				if not url:
+					return None
+				if isinstance(url, dict):
+					# Handle images stored as {url: "..."} objects
+					url = url.get('url') or url.get('src') or ''
+				url = str(url).strip()
+				if not url:
+					return None
+				if url.startswith('http://') or url.startswith('https://') or url.startswith('data:'):
+					return url
+				return request.build_absolute_uri(url)
 
-			# Build location dict for this product
-			stage_locs = location_map.get(product.id, {}) if product else {}
-			location = {label: stage_locs.get(key, '') for key, label in STAGE_LABELS.items()}
+			result = []
+			for sku_upper, (qty, unit) in sku_qty_map.items():
+				product = product_map.get(sku_upper)
+				raw_images = product.images if product and isinstance(product.images, list) else []
+				from common.image_upload import sign_cloudinary_url
+				resolved = [sign_cloudinary_url(make_absolute(img)) for img in raw_images]
+				resolved = [img for img in resolved if img]
 
-			qty_formatted = int(qty) if qty == int(qty) else round(qty, 2)
+				# Build location dict for this product
+				stage_locs = location_map.get(product.id, {}) if product else {}
+				location = {label: stage_locs.get(key, '') for key, label in STAGE_LABELS.items()}
 
-			result.append({
-				'sku': sku_upper,
-				'quantity': qty_formatted,
-				'unit': unit,
-				'images': resolved,
-				'location': location,
-			})
+				qty_formatted = int(qty) if qty == int(qty) else round(qty, 2)
 
-		return Response({'success': True, 'data': result})
+				result.append({
+					'sku': sku_upper,
+					'quantity': qty_formatted,
+					'unit': unit,
+					'images': resolved,
+					'location': location,
+				})
+
+			return Response({'success': True, 'data': result})
+		except Exception as e:
+			logger.exception("Error in photo_guide:")
+			return Response({'success': False, 'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 	@action(detail=True, methods=['get'], url_path='die-guide')
 	def die_guide(self, request, pk=None):
@@ -2365,212 +2376,216 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 		Image and location come from DieInventoryItem (looked up by die_code).
 		Each entry: { die_code, image, location, qty_needed }
 		"""
-		from products.models import Product as ProductModel
-		from inventory.models import DieInventoryItem, PicklistItem, PicklistGroup
-		from django.db.models.functions import Upper
-		from django.db.models import Q
+		try:
+			from products.models import Product as ProductModel
+			from inventory.models import DieInventoryItem, PicklistItem, PicklistGroup
+			from django.db.models.functions import Upper
+			from django.db.models import Q
 
-		job = self.get_object()
+			job = self.get_object()
 
-		# Collect combined picklist group IDs
-		picklist_ids = []
-		if job.picklist_group_id:
-			picklist_ids.append(job.picklist_group_id)
-		
-		# Parse combined picklist numbers from notes
-		notes = job.notes or ""
-		if "Combined Picklists:" in notes:
-			try:
-				line = [l for l in notes.split('\n') if "Combined Picklists:" in l][0]
-				numbers_str = line.replace("Combined Picklists:", "").strip()
-				numbers = [int(num.strip()) for num in numbers_str.split(',') if num.strip().isdigit()]
-				if numbers:
-					combined_groups = PicklistGroup.objects.filter(number__in=numbers).values_list('id', flat=True)
-					for pg_id in combined_groups:
-						if pg_id not in picklist_ids:
-							picklist_ids.append(pg_id)
-			except Exception:
-				pass
+			# Collect combined picklist group IDs
+			picklist_ids = []
+			if job.picklist_group_id:
+				picklist_ids.append(job.picklist_group_id)
+			
+			# Parse combined picklist numbers from notes
+			notes = job.notes or ""
+			if "Combined Picklists:" in notes:
+				try:
+					line = [l for l in notes.split('\n') if "Combined Picklists:" in l][0]
+					numbers_str = line.replace("Combined Picklists:", "").strip()
+					numbers = [int(num.strip()) for num in numbers_str.split(',') if num.strip().isdigit()]
+					if numbers:
+						combined_groups = PicklistGroup.objects.filter(number__in=numbers).values_list('id', flat=True)
+						for pg_id in combined_groups:
+							if pg_id not in picklist_ids:
+								picklist_ids.append(pg_id)
+				except Exception:
+					pass
 
-		# ── 1. Build sku_needed_map: UPPER_SKU → qty needed ─────────────────
-		sku_needed_map = {}
-		if picklist_ids:
-			for item in PicklistItem.objects.filter(group_id__in=picklist_ids).only('sku', 'needed'):
-				sku = item.sku.strip()
-				if sku:
-					sku_needed_map[sku.upper()] = sku_needed_map.get(sku.upper(), 0) + (item.needed or 0)
+			# ── 1. Build sku_needed_map: UPPER_SKU → qty needed ─────────────────
+			sku_needed_map = {}
+			if picklist_ids:
+				for item in PicklistItem.objects.filter(group__in=picklist_ids).only('sku', 'needed'):
+					sku = item.sku.strip()
+					if sku:
+						sku_needed_map[sku.upper()] = sku_needed_map.get(sku.upper(), 0) + (item.needed or 0)
 
-		if not sku_needed_map:
-			# Fallback: collect from this voucher's material_rows
-			for row in (job.material_rows or []):
-				sku = row.get('sku', '').strip()
-				if sku:
-					try:
-						qty = int(row.get('issued_qty') or row.get('qty') or 1)
-					except (ValueError, TypeError):
-						qty = 1
-					sku_needed_map[sku.upper()] = sku_needed_map.get(sku.upper(), 0) + qty
+			if not sku_needed_map:
+				# Fallback: collect from this voucher's material_rows
+				for row in (job.material_rows or []):
+					sku = row.get('sku', '').strip()
+					if sku:
+						try:
+							qty = int(row.get('issued_qty') or row.get('qty') or 1)
+						except (ValueError, TypeError):
+							qty = 1
+						sku_needed_map[sku.upper()] = sku_needed_map.get(sku.upper(), 0) + qty
 
-		if not sku_needed_map:
-			return Response({'success': True, 'data': []})
+			if not sku_needed_map:
+				return Response({'success': True, 'data': []})
 
-		upper_skus = list(sku_needed_map.keys())
+			upper_skus = list(sku_needed_map.keys())
 
-		# ── 2. Fetch Products (exact match, then variant-prefix fallback) ────
-		exact_prods = (
-			ProductModel.objects
-			.annotate(upper_sku=Upper('master_sku'))
-			.filter(upper_sku__in=upper_skus)
-			.only('master_sku', 'die_numbers')
-		)
-		products_map = {p.master_sku.upper(): p for p in exact_prods}
-
-		# e.g. picklist has "AJS1/G" but product master_sku is "AJS1"
-		unmatched = [s for s in upper_skus if s not in products_map and '/' in s]
-		if unmatched:
-			prefix_to_variants: dict = {}
-			for s in unmatched:
-				prefix_to_variants.setdefault(s.split('/')[0], []).append(s)
-			prefix_prods = (
+			# ── 2. Fetch Products (exact match, then variant-prefix fallback) ────
+			exact_prods = (
 				ProductModel.objects
 				.annotate(upper_sku=Upper('master_sku'))
-				.filter(upper_sku__in=prefix_to_variants.keys())
+				.filter(upper_sku__in=upper_skus)
 				.only('master_sku', 'die_numbers')
 			)
-			for p in prefix_prods:
-				for variant in prefix_to_variants.get(p.master_sku.upper(), []):
-					if variant not in products_map:
-						products_map[variant] = p
+			products_map = {p.master_sku.upper(): p for p in exact_prods}
 
-		# ── 3. Aggregate die qty: die_code → total_qty_needed ───────────────
-		# Source of truth: Product.die_numbers[i].quantity = qty_per_piece for that SKU
-		die_qty_map: dict[str, float] = {}
+			# e.g. picklist has "AJS1/G" but product master_sku is "AJS1"
+			unmatched = [s for s in upper_skus if s not in products_map and '/' in s]
+			if unmatched:
+				prefix_to_variants: dict = {}
+				for s in unmatched:
+					prefix_to_variants.setdefault(s.split('/')[0], []).append(s)
+				prefix_prods = (
+					ProductModel.objects
+					.annotate(upper_sku=Upper('master_sku'))
+					.filter(upper_sku__in=prefix_to_variants.keys())
+					.only('master_sku', 'die_numbers')
+				)
+				for p in prefix_prods:
+					for variant in prefix_to_variants.get(p.master_sku.upper(), []):
+						if variant not in products_map:
+							products_map[variant] = p
 
-		for upper_sku, needed_qty in sku_needed_map.items():
-			if needed_qty <= 0:
-				continue
-			product = products_map.get(upper_sku)
-			if not product or not isinstance(product.die_numbers, list):
-				continue
-			for entry in product.die_numbers:
-				if not isinstance(entry, dict):
+			# ── 3. Aggregate die qty: die_code → total_qty_needed ───────────────
+			# Source of truth: Product.die_numbers[i].quantity = qty_per_piece for that SKU
+			die_qty_map: dict[str, float] = {}
+
+			for upper_sku, needed_qty in sku_needed_map.items():
+				if needed_qty <= 0:
 					continue
-				die_code = str(entry.get('value') or '').strip()
-				if not die_code:
+				product = products_map.get(upper_sku)
+				if not product or not isinstance(product.die_numbers, list):
 					continue
-				try:
-					qty_per_piece = float(entry.get('quantity') or 0)
-				except (ValueError, TypeError):
-					qty_per_piece = 0.0
-				if qty_per_piece <= 0:
-					continue
-				die_qty_map[die_code] = die_qty_map.get(die_code, 0.0) + qty_per_piece * needed_qty
-
-		if not die_qty_map:
-			return Response({'success': True, 'data': []})
-
-		# ── 4. Fetch DieInventoryItem for image + location ───────────────────
-		die_inv_map = {
-			d.die_code: d
-			for d in DieInventoryItem.objects
-			.filter(die_code__in=die_qty_map.keys())
-			.only('die_code', 'image', 'location', 'designer_skus', 'wax_piece_location', 'wax_setting_location', 'casting_location')
-		}
-
-		def make_absolute(url):
-			"""Turn a relative /media/... path into an absolute URL."""
-			if not url:
-				return None
-			if isinstance(url, dict):
-				# Handle images stored as {url: "..."} objects
-				url = url.get('url') or url.get('src') or ''
-			url = str(url).strip()
-			if not url:
-				return None
-			if url.startswith('http://') or url.startswith('https://') or url.startswith('data:'):
-				return url
-			return request.build_absolute_uri(url)
-
-		result = []
-		for die_code, total_qty in die_qty_map.items():
-			inv = die_inv_map.get(die_code)
-			qty = int(total_qty) if total_qty == int(total_qty) else round(total_qty, 2)
-			
-			raw_img = (inv.image or '') if inv else ''
-			imgs = []
-			if raw_img:
-				if raw_img.startswith('['):
+				for entry in product.die_numbers:
+					if not isinstance(entry, dict):
+						continue
+					die_code = str(entry.get('value') or '').strip()
+					if not die_code:
+						continue
 					try:
-						import json
-						parsed = json.loads(raw_img)
-						if isinstance(parsed, list):
-							imgs = [str(x) for x in parsed]
-						else:
-							imgs = [str(parsed)]
-					except Exception:
-						imgs = [raw_img]
-				elif ',' in raw_img:
-					imgs = [x.strip() for x in raw_img.split(',') if x.strip()]
-				else:
-					imgs = [raw_img]
+						qty_per_piece = float(entry.get('quantity') or 0)
+					except (ValueError, TypeError):
+						qty_per_piece = 0.0
+					if qty_per_piece <= 0:
+						continue
+					die_qty_map[die_code] = die_qty_map.get(die_code, 0.0) + qty_per_piece * needed_qty
 
-			# Resolve image URLs to absolute URLs
-			resolved_imgs = []
-			for img in imgs:
-				abs_img = make_absolute(img)
-				if abs_img:
-					from common.image_upload import sign_cloudinary_url
-					resolved_imgs.append(sign_cloudinary_url(abs_img))
+			if not die_qty_map:
+				return Response({'success': True, 'data': []})
 
-			# If no custom photos uploaded, fetch from Master Designer Sheet & Product Sheet (fallback)
-			if not resolved_imgs and inv:
-				from designers.models import DesignerSheet
-				from products.models import Product
-				skus = [s for s in (inv.designer_skus or []) if s]
-				master_skus = [s for s in (inv.master_skus or []) if s]
-				seen = set()
+			# ── 4. Fetch DieInventoryItem for image + location ───────────────────
+			die_inv_map = {
+				d.die_code: d
+				for d in DieInventoryItem.objects
+				.filter(die_code__in=die_qty_map.keys())
+				.only('die_code', 'image', 'location', 'designer_skus', 'wax_piece_location', 'wax_setting_location', 'casting_location')
+			}
+
+			def make_absolute(url):
+				"""Turn a relative /media/... path into an absolute URL."""
+				if not url:
+					return None
+				if isinstance(url, dict):
+					# Handle images stored as {url: "..."} objects
+					url = url.get('url') or url.get('src') or ''
+				url = str(url).strip()
+				if not url:
+					return None
+				if url.startswith('http://') or url.startswith('https://') or url.startswith('data:'):
+					return url
+				return request.build_absolute_uri(url)
+
+			result = []
+			for die_code, total_qty in die_qty_map.items():
+				inv = die_inv_map.get(die_code)
+				qty = int(total_qty) if total_qty == int(total_qty) else round(total_qty, 2)
 				
-				# 1. Fetch from DesignerSheet
-				if skus:
-					sheets = DesignerSheet.objects.filter(sku__in=skus).only(
-						'sku', 'rendered_photo', 'image', 'designer_image_2', 'designer_image_3', 'technical_drawing'
-					)
-					for sheet in sheets:
-						for url in (sheet.rendered_photo, sheet.image, sheet.designer_image_2, sheet.designer_image_3, sheet.technical_drawing):
-							if url:
-								abs_url = make_absolute(url)
-								if abs_url and abs_url not in seen:
-									seen.add(abs_url)
-									from common.image_upload import sign_cloudinary_url
-									resolved_imgs.append(sign_cloudinary_url(abs_url))
+				raw_img = (inv.image or '') if inv else ''
+				imgs = []
+				if raw_img:
+					if raw_img.startswith('['):
+						try:
+							import json
+							parsed = json.loads(raw_img)
+							if isinstance(parsed, list):
+								imgs = [str(x) for x in parsed]
+							else:
+								imgs = [str(parsed)]
+						except Exception:
+							imgs = [raw_img]
+					elif ',' in raw_img:
+						imgs = [x.strip() for x in raw_img.split(',') if x.strip()]
+					else:
+						imgs = [raw_img]
 
-				# 2. Fetch from Product (Master product sheet)
-				if master_skus:
-					products = Product.objects.filter(master_sku__in=master_skus).only('images')
-					for prod in products:
-						raw_imgs = prod.images if isinstance(prod.images, list) else []
-						for url in raw_imgs:
-							if isinstance(url, dict):
-								url = url.get('url') or url.get('src') or ''
-							if url:
-								abs_url = make_absolute(url)
-								if abs_url and abs_url not in seen:
-									seen.add(abs_url)
-									from common.image_upload import sign_cloudinary_url
-									resolved_imgs.append(sign_cloudinary_url(abs_url))
+				# Resolve image URLs to absolute URLs
+				resolved_imgs = []
+				for img in imgs:
+					abs_img = make_absolute(img)
+					if abs_img:
+						from common.image_upload import sign_cloudinary_url
+						resolved_imgs.append(sign_cloudinary_url(abs_img))
 
-			result.append({
-				'die_code': die_code,
-				'image': resolved_imgs[0] if resolved_imgs else '',
-				'images': resolved_imgs,
-				'location': (inv.location or '') if inv else '',
-				'wax_piece_location': (inv.wax_piece_location or '') if inv else '',
-				'wax_setting_location': (inv.wax_setting_location or '') if inv else '',
-				'casting_location': (inv.casting_location or '') if inv else '',
-				'qty_needed': qty,
-			})
+				# If no custom photos uploaded, fetch from Master Designer Sheet & Product Sheet (fallback)
+				if not resolved_imgs and inv:
+					from designers.models import DesignerSheet
+					from products.models import Product
+					skus = [s for s in (inv.designer_skus or []) if s]
+					master_skus = [s for s in (inv.master_skus or []) if s]
+					seen = set()
+					
+					# 1. Fetch from DesignerSheet
+					if skus:
+						sheets = DesignerSheet.objects.filter(sku__in=skus).only(
+							'sku', 'rendered_photo', 'image', 'designer_image_2', 'designer_image_3', 'technical_drawing'
+						)
+						for sheet in sheets:
+							for url in (sheet.rendered_photo, sheet.image, sheet.designer_image_2, sheet.designer_image_3, sheet.technical_drawing):
+								if url:
+									abs_url = make_absolute(url)
+									if abs_url and abs_url not in seen:
+										seen.add(abs_url)
+										from common.image_upload import sign_cloudinary_url
+										resolved_imgs.append(sign_cloudinary_url(abs_url))
 
-		return Response({'success': True, 'data': result})
+					# 2. Fetch from Product (Master product sheet)
+					if master_skus:
+						products = ProductModel.objects.filter(master_sku__in=master_skus).only('images')
+						for prod in products:
+							raw_imgs = prod.images if isinstance(prod.images, list) else []
+							for url in raw_imgs:
+								if isinstance(url, dict):
+									url = url.get('url') or url.get('src') or ''
+								if url:
+									abs_url = make_absolute(url)
+									if abs_url and abs_url not in seen:
+										seen.add(abs_url)
+										from common.image_upload import sign_cloudinary_url
+										resolved_imgs.append(sign_cloudinary_url(abs_url))
+
+				result.append({
+					'die_code': die_code,
+					'image': resolved_imgs[0] if resolved_imgs else '',
+					'images': resolved_imgs,
+					'location': (inv.location or '') if inv else '',
+					'wax_piece_location': (inv.wax_piece_location or '') if inv else '',
+					'wax_setting_location': (inv.wax_setting_location or '') if inv else '',
+					'casting_location': (inv.casting_location or '') if inv else '',
+					'qty_needed': qty,
+				})
+
+			return Response({'success': True, 'data': result})
+		except Exception as e:
+			logger.exception("Error in die_guide:")
+			return Response({'success': False, 'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 	@action(detail=True, methods=['post'], url_path='reissue-for-improvement')
 	def reissue_for_improvement(self, request, pk=None):
@@ -2806,9 +2821,16 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 				if note:
 					notes_text += f' {note}'
 
+				from core_tenants.context import get_current_tenant, get_current_company
+				tenant_obj = voucher.tenant or get_current_tenant() or (request.user.tenant if request.user and request.user.is_authenticated else None)
+				company_obj = voucher.company or get_current_company() or (request.user.active_company if request.user and request.user.is_authenticated else None)
+				if company_obj is None and tenant_obj is not None:
+					from core_tenants.models import Company
+					company_obj = Company.objects.filter(tenant=tenant_obj).first()
+
 				new_v = Job.objects.create(
-					tenant=voucher.tenant,
-					company=voucher.company,
+					tenant=tenant_obj,
+					company=company_obj,
 					title=title,
 					product=stage_v.product,
 					status='created',

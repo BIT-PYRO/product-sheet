@@ -167,19 +167,19 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
       }
 
       loadLocalPicklists()
-        .finally(() => setIsPicklistLoading(false))
         .then(() => {
           // Auto-sync in background: fetch picklists from the previous 7 days
-          return fetch('/frontend/api/picklist-sync?days=7', { method: 'POST' })
+          return fetch('/api/picklist-sync?days=7', { method: 'POST' })
         })
         .then(res => res.json())
         .then(result => {
           if (result?.success && !result.skipped) {
             // New picklists were successfully synced/fetched; refresh local picklists list
-            loadLocalPicklists()
+            return loadLocalPicklists()
           }
         })
         .catch(() => {})
+        .finally(() => setIsPicklistLoading(false))
     } else if (open && mode === 'repair') {
       setIsPicklistLoading(true)
       setSelectedPicklistId("")

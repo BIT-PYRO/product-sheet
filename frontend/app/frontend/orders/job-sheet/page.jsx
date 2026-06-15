@@ -179,7 +179,7 @@ export function OrderSheetView({ embedded = false, defaultPicklistNum = null }) 
 
   // Check if external sync is configured (to show/hide Sync button)
   useEffect(() => {
-    fetch('/frontend/api/picklist-sync', { cache: 'no-store' })
+    fetch('/api/picklist-sync', { cache: 'no-store' })
       .then((res) => res.json())
       .then((data) => {
         if (data?.configured) {
@@ -194,7 +194,7 @@ export function OrderSheetView({ embedded = false, defaultPicklistNum = null }) 
     setIsSyncing(true);
     setSyncStatus(null);
     try {
-      const response = await fetch('/frontend/api/picklist-sync?days=7', { method: 'POST' });
+      const response = await fetch('/api/picklist-sync?days=7', { method: 'POST' });
       const result = await response.json().catch(() => null);
 
       if (!response.ok || !result?.success) {

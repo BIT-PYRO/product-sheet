@@ -12,8 +12,27 @@ class JobSerializer(serializers.ModelSerializer):
 
     def get_order_name(self, obj):
         if obj.picklist_group_id and hasattr(obj, 'picklist_group') and obj.picklist_group:
-            return f"PICKLIST-{obj.picklist_group.number}"
+            pg = obj.picklist_group
+            batch_no = getattr(pg, 'group_id', '') or ''
+            if batch_no.startswith('ext-'):
+                batch_no = batch_no[4:]
+            elif batch_no.startswith('sync-'):
+                batch_no = f"Sync #{pg.number}"
+            
+            uploaded_at = getattr(pg, 'uploaded_at', None)
+            date_str = uploaded_at.strftime('%d-%m-%Y') if uploaded_at else ''
+            
+            parts = []
+            if batch_no:
+                parts.append(f"Batch: {batch_no}")
+            if date_str:
+                parts.append(f"Date: {date_str}")
+            
+            if parts:
+                return f"PICKLIST-{pg.number} ({', '.join(parts)})"
+            return f"PICKLIST-{pg.number}"
         return ''
+
 
     def to_representation(self, instance):
         data = super().to_representation(instance)

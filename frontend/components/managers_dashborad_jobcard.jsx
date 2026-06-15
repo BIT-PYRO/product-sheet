@@ -741,19 +741,7 @@ export default function ManagersDashboard() {
       return `${String(d.getDate()).padStart(2,'0')}-${String(d.getMonth()+1).padStart(2,'0')}-${d.getFullYear()}`;
     };
     const getOrderDisplayStr = (card) => {
-      if (!card.orderName) return '';
-      const parts = [];
-      if (card.batchId) {
-        parts.push(`Batch: ${card.batchId}`);
-      }
-      const dateStr = fmtDate(card.createdAt);
-      if (dateStr && dateStr !== '\u2014') {
-        parts.push(`Date: ${dateStr}`);
-      }
-      if (parts.length > 0) {
-        return `${card.orderName} (${parts.join(', ')})`;
-      }
-      return card.orderName;
+      return card.orderName || '';
     };
 
     let cardsToRender = allCards;
