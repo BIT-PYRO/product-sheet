@@ -63,6 +63,9 @@ export default function ManagersDashboard() {
   const [isReviewingStone, setIsReviewingStone] = useState(null);
   const [isKYCModalOpen, setIsKYCModalOpen] = useState(false);
   const [selectedForPrint, setSelectedForPrint] = useState(new Set());
+  const [showPrintOptions, setShowPrintOptions] = useState(false);
+  const [printMerged, setPrintMerged] = useState(false);
+  const [printOptionsCards, setPrintOptionsCards] = useState([]);
   const [selectedVoucher, setSelectedVoucher] = useState(null);
   const [isGenericJobOpen, setIsGenericJobOpen] = useState(false);
   const [selectedGenericJobData, setSelectedGenericJobData] = useState(null);
@@ -717,7 +720,19 @@ export default function ManagersDashboard() {
       }
     }
     if (allCards.length === 0) return;
+    setPrintOptionsCards(allCards);
+    setPrintMerged(false);
+    setShowPrintOptions(true);
+  }
 
+  function executePrint() {
+    const cardsToPrint = printOptionsCards.filter(c => selectedForPrint.has(c.id));
+    if (cardsToPrint.length === 0) return;
+    performPrint(cardsToPrint, printMerged);
+    setShowPrintOptions(false);
+  }
+
+  function performPrint(allCards, merged) {
     const deptLabel = (val) => DEPT_LABELS[val] || val || '\u2014';
     const fmtDate = (v) => {
       if (!v) return '\u2014';
@@ -726,7 +741,143 @@ export default function ManagersDashboard() {
       return `${String(d.getDate()).padStart(2,'0')}-${String(d.getMonth()+1).padStart(2,'0')}-${d.getFullYear()}`;
     };
 
-    const voucherPages = allCards.map((card, pageIdx) => {
+    let cardsToRender = allCards;
+
+    if (merged && allCards.length > 1) {
+      const uniquePicklists = [...new Set(allCards.map(c => c.picklistName).filter(Boolean))].sort();
+      const picklistName = uniquePicklists.join(' + ');
+
+      const uniqueOrders = [...new Set(allCards.map(c => c.orderName).filter(Boolean))].sort();
+      const orderName = uniqueOrders.join(' + ');
+
+      const uniqueVouchers = [...new Set(allCards.map(c => c.voucherNo).filter(Boolean))].sort();
+      const voucherNo = uniqueVouchers.join(' + ');
+
+      const uniqueNames = [...new Set(allCards.map(c => c.name).filter(Boolean))].sort();
+      const name = uniqueNames.join(' + ');
+
+      const uniqueWorkTypes = [...new Set(allCards.map(c => c.workType).filter(Boolean))].sort();
+      const workType = uniqueWorkTypes.join(' + ');
+
+      const uniqueDeptFrom = [...new Set(allCards.map(c => c.deptFrom).filter(Boolean))].sort();
+      const deptFrom = uniqueDeptFrom.length === 1 ? uniqueDeptFrom[0] : uniqueDeptFrom.join(', ');
+
+      const uniqueDeptTo = [...new Set(allCards.map(c => c.deptTo).filter(Boolean))].sort();
+      const deptTo = uniqueDeptTo.length === 1 ? uniqueDeptTo[0] : uniqueDeptTo.join(', ');
+
+      const qty = allCards.reduce((sum, c) => sum + (Number(c.qty) || 0), 0);
+      const weight = allCards.reduce((sum, c) => sum + (Number(c.weight) || 0), 0);
+
+      const skuMap = new Map();
+      allCards.forEach(card => {
+        const rows = Array.isArray(card.materialRows) ? card.materialRows : [];
+        rows.forEach(row => {
+          const skuKey = String(row.sku || '').trim().toUpperCase();
+          if (!skuKey) return;
+          if (!skuMap.has(skuKey)) {
+            skuMap.set(skuKey, {
+              sku: row.sku || '',
+              category: row.category || '',
+              metal: row.metal || '',
+              issued_qty: 0,
+              issued_weight: 0,
+              unit1: row.unit1 || 'Pcs',
+              unit2: row.unit2 || 'Kg'
+            });
+          }
+          const entry = skuMap.get(skuKey);
+          entry.issued_qty += Number(row.issued_qty) || 0;
+          entry.issued_weight += Number(row.issued_weight) || 0;
+          if (!entry.category && row.category) entry.category = row.category;
+          if (!entry.metal && row.metal) entry.metal = row.metal;
+        });
+      });
+      const materialRows = Array.from(skuMap.values())
+        .sort((a, b) => a.sku.localeCompare(b.sku))
+        .map(entry => ({
+          ...entry,
+          issued_qty: String(entry.issued_qty),
+          issued_weight: String(Math.round(entry.issued_weight * 1000) / 1000)
+        }));
+
+      const stoneMap = new Map();
+      allCards.forEach(card => {
+        const stones = Array.isArray(card.stoneRows) ? card.stoneRows : [];
+        stones.forEach(sr => {
+          if (!sr.variety && !sr.qty && !sr.shape) return;
+
+          const varKey = String(sr.variety || '').trim().toUpperCase();
+          const colKey = String(sr.color || '').trim().toUpperCase();
+          const cutKey = String(sr.cut || '').trim().toUpperCase();
+          const shpKey = String(sr.shape || '').trim().toUpperCase();
+          const lenKey = String(sr.length || '').trim().toUpperCase();
+          const widKey = String(sr.width || '').trim().toUpperCase();
+          const hgtKey = String(sr.height || '').trim().toUpperCase();
+          const key = `${varKey}|${colKey}|${cutKey}|${shpKey}|${lenKey}|${widKey}|${hgtKey}`;
+
+          if (!stoneMap.has(key)) {
+            stoneMap.set(key, {
+              variety: sr.variety || '',
+              color: sr.color || '',
+              cut: sr.cut || '',
+              shape: sr.shape || '',
+              length: sr.length || '',
+              width: sr.width || '',
+              height: sr.height || '',
+              qty: 0,
+              master_sku_breakdown_map: new Map()
+            });
+          }
+
+          const entry = stoneMap.get(key);
+          entry.qty += Number(sr.qty) || 0;
+
+          const breakdown = Array.isArray(sr.master_sku_breakdown) ? sr.master_sku_breakdown : [];
+          breakdown.forEach(b => {
+            const msKey = String(b.master_sku || '').trim().toUpperCase();
+            if (!msKey) return;
+            const currentQty = entry.master_sku_breakdown_map.get(msKey) || 0;
+            entry.master_sku_breakdown_map.set(msKey, currentQty + (Number(b.qty) || 0));
+          });
+        });
+      });
+
+      const stoneRows = Array.from(stoneMap.values()).map(entry => {
+        const master_sku_breakdown = Array.from(entry.master_sku_breakdown_map.entries()).map(([master_sku, qty]) => ({
+          master_sku,
+          qty
+        }));
+        return {
+          variety: entry.variety,
+          color: entry.color,
+          cut: entry.cut,
+          shape: entry.shape,
+          length: entry.length,
+          width: entry.width,
+          height: entry.height,
+          qty: entry.qty,
+          master_sku_breakdown
+        };
+      });
+
+      cardsToRender = [{
+        createdAt: new Date().toISOString(),
+        voucherType: 'Combined',
+        picklistName,
+        orderName,
+        voucherNo,
+        name,
+        workType,
+        deptFrom,
+        deptTo,
+        qty,
+        weight,
+        materialRows,
+        stoneRows
+      }];
+    }
+
+    const voucherPages = cardsToRender.map((card, pageIdx) => {
       const materialRows = Array.isArray(card.materialRows) ? card.materialRows : [];
       const tableRows = materialRows.length > 0
         ? materialRows.map(row => {
@@ -874,7 +1025,7 @@ export default function ManagersDashboard() {
 <html>
 <head>
   <meta charset="utf-8" />
-  <title>Print Vouchers (${allCards.length})</title>
+  <title>Print Vouchers (${cardsToRender.length})</title>
   <style>
     @page { size: A4 portrait; margin: 10mm 12mm; }
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -1597,6 +1748,121 @@ export default function ManagersDashboard() {
         initialData={selectedGenericJobData}
         onJobCreated={loadJobs}
       />
+
+      {/* Print Vouchers Options Dialog */}
+      <Dialog open={showPrintOptions} onOpenChange={setShowPrintOptions}>
+        <DialogContent className="max-w-md bg-white">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-bold text-center text-midnight-ink mb-1">
+              Print Vouchers
+            </DialogTitle>
+          </DialogHeader>
+          <div className="p-4 space-y-4">
+            <p className="text-center text-xs text-cool-gray">
+              Select one or more vouchers to print.
+            </p>
+
+            {/* Voucher List with Checkboxes */}
+            <div className="space-y-2 max-h-48 overflow-y-auto mb-4 pr-1">
+              {printOptionsCards.map((card) => {
+                const isChecked = selectedForPrint.has(card.id);
+                return (
+                  <label
+                    key={card.id}
+                    className={`flex items-start gap-3 w-full px-3 py-2.5 rounded-lg border cursor-pointer transition-colors ${
+                      isChecked
+                        ? 'border-trust-blue bg-trust-blue/5'
+                        : 'border-soft-border bg-cloud-gray hover:border-trust-blue/50 hover:bg-trust-blue/5'
+                    }`}
+                  >
+                    <Checkbox
+                      checked={isChecked}
+                      onCheckedChange={(checked) => {
+                        setSelectedForPrint((prev) => {
+                          const next = new Set(prev);
+                          if (checked) {
+                            next.add(card.id);
+                          } else {
+                            next.delete(card.id);
+                          }
+                          return next;
+                        });
+                      }}
+                      className="mt-0.5 cursor-pointer shrink-0"
+                    />
+                    <div className="min-w-0">
+                      <p className={`text-xs font-bold ${isChecked ? 'text-trust-blue' : 'text-midnight-ink'}`}>
+                        {card.voucherNo}
+                      </p>
+                      <p className="text-[11px] text-cool-gray mt-0.5">
+                        {card.name} &nbsp;·&nbsp; {card.qty ?? 0} pcs &nbsp;·&nbsp; {card.category}
+                        {card.picklistName ? ` · ${card.picklistName}` : ''}
+                      </p>
+                    </div>
+                  </label>
+                );
+              })}
+            </div>
+
+            {/* Merge toggle — only shown when 2+ vouchers are selected */}
+            {selectedForPrint.size > 1 && (
+              <div className="mb-4 rounded-lg border border-soft-border overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setPrintMerged(false)}
+                  className={`w-full flex items-start gap-3 px-3 py-2.5 transition-colors border-b ${
+                    !printMerged ? 'bg-trust-blue/10 border-trust-blue/30' : 'bg-cloud-gray border-soft-border hover:bg-trust-blue/5'
+                  }`}
+                >
+                  <span className={`mt-0.5 w-4 h-4 rounded-full border-2 shrink-0 flex items-center justify-center ${
+                    !printMerged ? 'border-trust-blue' : 'border-cool-gray'
+                  }`}>
+                    {!printMerged && <span className="w-2 h-2 rounded-full bg-trust-blue block" />}
+                  </span>
+                  <div className="text-left">
+                    <p className={`text-xs font-semibold ${!printMerged ? 'text-trust-blue' : 'text-midnight-ink'}`}>Separate sections</p>
+                    <p className="text-[11px] text-cool-gray">Each voucher printed as its own section</p>
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPrintMerged(true)}
+                  className={`w-full flex items-start gap-3 px-3 py-2.5 transition-colors ${
+                    printMerged ? 'bg-trust-blue/10' : 'bg-cloud-gray hover:bg-trust-blue/5'
+                  }`}
+                >
+                  <span className={`mt-0.5 w-4 h-4 rounded-full border-2 shrink-0 flex items-center justify-center ${
+                    printMerged ? 'border-trust-blue' : 'border-cool-gray'
+                  }`}>
+                    {printMerged && <span className="w-2 h-2 rounded-full bg-trust-blue block" />}
+                  </span>
+                  <div className="text-left">
+                    <p className={`text-xs font-semibold ${printMerged ? 'text-trust-blue' : 'text-midnight-ink'}`}>Combined voucher</p>
+                    <p className="text-[11px] text-cool-gray">Quantities for the same SKU and Dies are summed across all selected vouchers</p>
+                  </div>
+                </button>
+              </div>
+            )}
+          </div>
+          <DialogFooter className="flex gap-2 p-4 pt-0">
+            <Button
+              onClick={() => setShowPrintOptions(false)}
+              variant="outline"
+              className="flex-1"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={executePrint}
+              disabled={selectedForPrint.size === 0}
+              className="flex-1 bg-trust-blue hover:bg-deep-blue text-white"
+            >
+              <Printer className="w-4 h-4 mr-1.5" />
+              Print ({selectedForPrint.size})
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Edit Voucher Dialog */}
       <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
