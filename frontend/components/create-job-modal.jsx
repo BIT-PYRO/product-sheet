@@ -20,7 +20,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { CalendarIcon, Plus, Trash2, X, ArrowRight, FileText, Loader2 } from "lucide-react"
+import { Checkbox } from "@/components/ui/checkbox"
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuCheckboxItem,
+} from "@/components/ui/dropdown-menu"
+import { CalendarIcon, Plus, Trash2, X, ArrowRight, FileText, Loader2, ChevronDown } from "lucide-react"
 import { useDrafts, useDraftLoader } from "@/components/drafts-manager"
 import { fmtNum } from "@/lib/utils"
 
@@ -59,6 +66,7 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
   // Picklist state (only used when mode === 'all')
   const [picklists, setPicklists] = useState([])
   const [selectedPicklistId, setSelectedPicklistId] = useState("")
+  const [selectedPicklistIds, setSelectedPicklistIds] = useState([])
   const [isPicklistLoading, setIsPicklistLoading] = useState(false)
   const [isBulkCreating, setIsBulkCreating] = useState(false)
   const [isIssueStoneLoading, setIsIssueStoneLoading] = useState(false)
@@ -136,6 +144,7 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
     if (open && (mode === 'all' || mode === 'single')) {
       setIsPicklistLoading(true)
       setSelectedPicklistId("")
+      setSelectedPicklistIds([])
       fetch('/api/picklist-groups', { cache: 'no-store' })
         .then(r => r.json())
         .then(result => {
@@ -151,6 +160,7 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
     } else if (open && mode === 'repair') {
       setIsPicklistLoading(true)
       setSelectedPicklistId("")
+      setSelectedPicklistIds([])
       fetch('/api/inventory/repair-batches/?confirmed=true&voucher_created=false', { cache: 'no-store' })
         .then(r => r.json())
         .then(result => {
@@ -168,9 +178,10 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
     }
   }, [open, mode])
 
-  // Auto-populate SKU rows when a picklist is selected
+  // Auto-populate SKU rows when picklists are selected
   useEffect(() => {
-    if (mode === 'repair' && selectedPicklistId) {
+    if (mode === 'repair') {
+      if (!selectedPicklistId) return
       const batch = picklists.find(b => String(b.id) === selectedPicklistId)
       if (!batch) return
 
@@ -209,35 +220,47 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
       return
     }
 
-    if ((mode !== 'all' && mode !== 'single') || !selectedPicklistId) return
-    const pl = picklists.find(p => String(p.id) === selectedPicklistId)
-    if (!pl || !Array.isArray(pl.items) || pl.items.length === 0) return
-    // Picklist items use Final Stock SKUs (e.g. AJB9/G). Convert to Master SKU
-    // by stripping the variation suffix after the last '/'.
+    if (mode !== 'all' && mode !== 'single') return
+    if (!selectedPicklistIds || selectedPicklistIds.length === 0) {
+      // Reset rows to default empty rows if no picklist is selected
+      setRows([
+        { id: 1, sku: "", category: "", metal: "", issuedQty: "", unit1: "", issuedWeight: "", unit2: "" },
+        { id: 2, sku: "", category: "", metal: "", issuedQty: "", unit1: "", issuedWeight: "", unit2: "" },
+        { id: 3, sku: "", category: "", metal: "", issuedQty: "", unit1: "", issuedWeight: "", unit2: "" },
+      ])
+      return
+    }
+
+    // Accumulate items across all selected picklists
     const toMasterSku = (fsSku) => {
       const s = String(fsSku || '').trim()
       return s.includes('/') ? s.substring(0, s.lastIndexOf('/')) : s
     }
-    // Deduplicate by master SKU and sum up "needed" quantities
+
     const masterMap = new Map()
-    pl.items.forEach((item) => {
-      const finalSku = item.sku || item.master_sku || ''
-      const masterSku = toMasterSku(finalSku)
-      if (!masterSku) return
-      if (masterMap.has(masterSku)) {
-        const existing = masterMap.get(masterSku)
-        const prev = parseFloat(existing.issuedQty) || 0
+    selectedPicklistIds.forEach(plId => {
+      const pl = picklists.find(p => String(p.id) === plId)
+      if (!pl || !Array.isArray(pl.items)) return
+      pl.items.forEach((item) => {
+        const finalSku = item.sku || item.master_sku || ''
+        const masterSku = toMasterSku(finalSku)
+        if (!masterSku) return
         const add = parseFloat(item.needed || item.quantity || 0)
-        existing.issuedQty = String(prev + add)
-      } else {
-        masterMap.set(masterSku, {
-          sku: masterSku,
-          category: item.category || '',
-          metal: item.metal || '',
-          issuedQty: String(item.needed || item.quantity || ''),
-        })
-      }
+        if (masterMap.has(masterSku)) {
+          const existing = masterMap.get(masterSku)
+          const prev = parseFloat(existing.issuedQty) || 0
+          existing.issuedQty = String(prev + add)
+        } else {
+          masterMap.set(masterSku, {
+            sku: masterSku,
+            category: item.category || '',
+            metal: item.metal || '',
+            issuedQty: String(add),
+          })
+        }
+      })
     })
+
     const newRows = Array.from(masterMap.values()).map((entry, idx) => ({
       id: idx + 1,
       ...entry,
@@ -245,13 +268,23 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
       issuedWeight: '',
       unit2: '',
     }))
-    setRows(newRows)
+
+    if (newRows.length > 0) {
+      setRows(newRows)
+    } else {
+      setRows([
+        { id: 1, sku: "", category: "", metal: "", issuedQty: "", unit1: "", issuedWeight: "", unit2: "" },
+        { id: 2, sku: "", category: "", metal: "", issuedQty: "", unit1: "", issuedWeight: "", unit2: "" },
+        { id: 3, sku: "", category: "", metal: "", issuedQty: "", unit1: "", issuedWeight: "", unit2: "" },
+      ])
+    }
+
     // Auto-fill departments for first pipeline step when in 'all' mode
     if (mode === 'all') {
       setDeptFrom('wax-pieces')
       setDeptTo('wax-setting')
     }
-  }, [selectedPicklistId, mode, picklists])
+  }, [selectedPicklistIds, selectedPicklistId, mode, picklists])
 
   // Force voucherType to 'Repair' when in repair mode
   useEffect(() => {
@@ -502,6 +535,35 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
       return
     }
 
+    // Resolve picklist group DB id and combined notes
+    let picklistGroupDbId = null
+    let plNumbersStr = ""
+    if (mode === 'all' || mode === 'single') {
+      const selectedPlGroups = selectedPicklistIds.map(id => picklists.find(p => String(p.id) === id)).filter(Boolean)
+      plNumbersStr = selectedPlGroups.map(p => p.number).join(', ')
+      if (selectedPlGroups.length > 0) {
+        const firstPlNumber = selectedPlGroups[0].number
+        try {
+          const pgRes = await fetch(`/api/picklist-groups?number=${firstPlNumber}`, { cache: 'no-store' })
+          const pgResult = await pgRes.json().catch(() => null)
+          const pgData = Array.isArray(pgResult?.data) ? pgResult.data
+            : Array.isArray(pgResult?.data?.results) ? pgResult.data.results : []
+          picklistGroupDbId = pgData[0]?.db_id ?? null
+        } catch { /* skip */ }
+      }
+    } else if (mode === 'single-pipeline' && picklistGroupNumber) {
+      try {
+        const pgRes = await fetch(`/api/picklist-groups?number=${picklistGroupNumber}`, { cache: 'no-store' })
+        const pgResult = await pgRes.json().catch(() => null)
+        const pgData = Array.isArray(pgResult?.data) ? pgResult.data
+          : Array.isArray(pgResult?.data?.results) ? pgResult.data.results : []
+        picklistGroupDbId = pgData[0]?.db_id ?? null
+      } catch { /* skip */ }
+    }
+
+    const notePrefix = plNumbersStr ? `Combined Picklists: ${plNumbersStr}\n` : ''
+    const combinedNotes = noteByIssuer ? `${notePrefix}${noteByIssuer}`.trim() : notePrefix.trim()
+
     // Bulk-create mode: one voucher per department step, ALL SKUs as material rows in each
     if (mode === 'all' || mode === 'single-pipeline') {
       const skuRows = rows.filter(r => String(r.sku || '').trim())
@@ -510,21 +572,6 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
         return
       }
       setIsBulkCreating(true)
-
-      // Resolve picklist group DB id once before the loop
-      let picklistGroupDbId = null
-      const plNumber = mode === 'all'
-        ? (() => { const pl = picklists.find(p => String(p.id) === selectedPicklistId); return pl?.number ?? null })()
-        : picklistGroupNumber
-      if (plNumber !== null && plNumber !== undefined) {
-        try {
-          const pgRes = await fetch(`/api/picklist-groups?number=${plNumber}`, { cache: 'no-store' })
-          const pgResult = await pgRes.json().catch(() => null)
-          const pgData = Array.isArray(pgResult?.data) ? pgResult.data
-            : Array.isArray(pgResult?.data?.results) ? pgResult.data.results : []
-          picklistGroupDbId = pgData[0]?.db_id ?? null
-        } catch { /* skip */ }
-      }
 
       const results = { created: 0, failed: 0, errors: [] }
 
@@ -687,7 +734,9 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
                 dept_to: toDept.key,
                 batch_id: batchId,
                 department_order: i,
-                notes: noteByIssuer || `Step ${i + 1}: ${fromDept.label} → ${toDept.label}`,
+                notes: noteByIssuer 
+                  ? `${notePrefix}${noteByIssuer}`.trim()
+                  : (notePrefix ? `${notePrefix}Step ${i + 1}: ${fromDept.label} → ${toDept.label}` : `Step ${i + 1}: ${fromDept.label} → ${toDept.label}`),
                 material_rows: effectiveMaterialRows,
                 stone_rows: stoneRows.map(({ variety, color, cut, shape, length, width, height, qty }) => ({ variety, color, cut, shape, length, width, height, qty })),
                 die_weight_rows: dieWeightRows.map(({ dieNumber, quantity, weight, unit }) => ({ die_number: dieNumber, quantity, weight, unit })),
@@ -777,7 +826,7 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
           schedule: scheduleFuture || null,
           dept_from: deptFrom,
           dept_to: deptTo,
-          notes: noteByIssuer,
+          notes: combinedNotes,
           material_rows: isPreCasting && dieRows.length > 0
             ? (() => {
                 const agg = {}
@@ -798,6 +847,7 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
             qty_per_piece: r.qtyPerPiece,
             issued_qty: String(r.issuedQty),
           })) : [],
+          ...(picklistGroupDbId ? { picklist_group: picklistGroupDbId } : {}),
         }),
       })
 
@@ -949,22 +999,78 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
               {(mode === 'all' || mode === 'single') && (
                 <div className="flex flex-col gap-0.5">
                   <Label className="text-sm font-bold uppercase tracking-wide text-muted-foreground">Picklist</Label>
-                  <Select value={selectedPicklistId} onValueChange={setSelectedPicklistId}>
-                    <SelectTrigger className="h-8 px-2 py-1 text-sm bg-background border-border focus:ring-0 focus:outline-none min-w-[150px]">
-                      <SelectValue placeholder={isPicklistLoading ? "Loading..." : "Select Picklist"} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {picklists.map(pl => (
-                        <SelectItem key={pl.id} value={String(pl.id)}>
-                          #{pl.number} — {pl.name}
-                          {pl.items?.length ? ` (${pl.items.length})` : ''}
-                        </SelectItem>
-                      ))}
-                      {picklists.length === 0 && !isPicklistLoading && (
-                        <SelectItem value="__none" disabled>No picklists available</SelectItem>
-                      )}
-                    </SelectContent>
-                  </Select>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        type="button"
+                        className="flex items-center justify-between h-8 px-2 py-1 text-sm bg-background border border-border rounded-md focus:ring-0 focus:outline-none min-w-[150px] text-left hover:bg-muted/30 transition-colors"
+                      >
+                        <span className="truncate max-w-[150px]">
+                          {isPicklistLoading ? (
+                            "Loading..."
+                          ) : selectedPicklistIds.length === 0 ? (
+                            "Select Picklists"
+                          ) : selectedPicklistIds.length === 1 ? (
+                            (() => {
+                              const pl = picklists.find(p => String(p.id) === selectedPicklistIds[0])
+                              return pl ? `#${pl.number} — ${pl.name}` : "1 picklist selected"
+                            })()
+                          ) : (
+                            `${selectedPicklistIds.length} picklists selected`
+                          )}
+                        </span>
+                        <ChevronDown className="h-4 w-4 opacity-50 ml-1 shrink-0" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent className="w-[280px] max-h-[300px] overflow-y-auto bg-popover border border-border rounded-md shadow-md p-1 z-50">
+                      <div className="flex items-center justify-between px-2 py-1.5 border-b border-border">
+                        <span className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Select Picklists</span>
+                        {selectedPicklistIds.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault()
+                              e.stopPropagation()
+                              setSelectedPicklistIds([])
+                            }}
+                            className="text-[10px] text-red-500 hover:text-red-700 font-semibold"
+                          >
+                            Clear All
+                          </button>
+                        )}
+                      </div>
+                      <div className="py-1">
+                        {picklists.map(pl => {
+                          const isChecked = selectedPicklistIds.includes(String(pl.id))
+                          return (
+                            <DropdownMenuCheckboxItem
+                              key={pl.id}
+                              checked={isChecked}
+                              onCheckedChange={(checked) => {
+                                if (checked) {
+                                  setSelectedPicklistIds(prev => [...prev, String(pl.id)])
+                                } else {
+                                  setSelectedPicklistIds(prev => prev.filter(id => id !== String(pl.id)))
+                                }
+                              }}
+                              onSelect={(e) => e.preventDefault()}
+                              className="cursor-pointer"
+                            >
+                              <span className="truncate">
+                                #{pl.number} — {pl.name}
+                                {pl.items?.length ? ` (${pl.items.length})` : ''}
+                              </span>
+                            </DropdownMenuCheckboxItem>
+                          )
+                        })}
+                        {picklists.length === 0 && !isPicklistLoading && (
+                          <div className="px-2 py-1.5 text-xs text-muted-foreground text-center">
+                            No picklists available
+                          </div>
+                        )}
+                      </div>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               )}
 
