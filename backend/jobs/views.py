@@ -2205,21 +2205,61 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 		Images are returned as absolute URLs.
 		"""
 		from products.models import Product as ProductModel
-		from inventory.models import InventoryTransaction
+		from inventory.models import InventoryTransaction, PicklistItem, PicklistGroup
+		from django.db.models.functions import Upper
+		from django.db.models import Q
 
 		job = self.get_object()
-		material_rows = job.material_rows or []
 
-		# Collect unique, non-empty SKUs
-		skus = list({
-			row.get('sku', '').strip()
-			for row in material_rows
-			if row.get('sku', '').strip()
-		})
+		# Collect combined picklist group IDs
+		picklist_ids = []
+		if job.picklist_group_id:
+			picklist_ids.append(job.picklist_group_id)
+		
+		# Parse combined picklist numbers from notes
+		notes = job.notes or ""
+		if "Combined Picklists:" in notes:
+			try:
+				line = [l for l in notes.split('\n') if "Combined Picklists:" in l][0]
+				numbers_str = line.replace("Combined Picklists:", "").strip()
+				numbers = [int(num.strip()) for num in numbers_str.split(',') if num.strip().isdigit()]
+				if numbers:
+					combined_groups = PicklistGroup.objects.filter(number__in=numbers).values_list('id', flat=True)
+					for pg_id in combined_groups:
+						if pg_id not in picklist_ids:
+							picklist_ids.append(pg_id)
+			except Exception:
+				pass
 
+		# ── 1. Build sku_qty_map: UPPER_SKU → [qty, unit] ─────────────────
+		sku_qty_map = {}
+		if picklist_ids:
+			for item in PicklistItem.objects.filter(group_id__in=picklist_ids).only('sku', 'needed', 'unit'):
+				sku = item.sku.strip()
+				if sku:
+					sku_upper = sku.upper()
+					qty = item.needed or 0
+					unit = item.unit or 'Pcs'
+					if sku_upper in sku_qty_map:
+						sku_qty_map[sku_upper][0] += qty
+					else:
+						sku_qty_map[sku_upper] = [qty, unit]
+
+		if not sku_qty_map:
+			# Fallback: collect from this voucher's material_rows
+			material_rows = job.material_rows or []
+			for row in material_rows:
+				sku = row.get('sku', '').strip()
+				if sku:
+					try:
+						qty = float(row.get('issued_qty') or row.get('qty') or 0)
+					except (ValueError, TypeError):
+						qty = 0
+					unit = row.get('unit1') or 'Pcs'
+					sku_qty_map[sku.upper()] = [qty, unit]
+
+		skus = list(sku_qty_map.keys())
 		upper_skus = [s.upper() for s in skus]
-
-		from django.db.models.functions import Upper
 
 		# Primary lookup: match by master_sku (case-insensitive)
 		products_by_master = (
@@ -2244,7 +2284,7 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 				if key not in product_map:
 					product_map[key] = p
 
-		# Build per-product stage ΓåÆ latest location from inventory transactions
+		# Build per-product stage → latest location from inventory transactions
 		product_ids = [p.id for p in product_map.values()]
 		STAGE_LABELS = {
 			'wax_piece':        'Wax Piece',
@@ -2264,8 +2304,8 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 			.values('product_id', 'stage', 'location', 'created_at')
 			.order_by('product_id', 'stage', 'created_at')  # last one wins via iteration
 		)
-		# product_id ΓåÆ stage ΓåÆ latest location
-		location_map = {}  # product_id ΓåÆ {stage_key: location_str}
+		# product_id → stage → latest location
+		location_map = {}  # product_id → {stage_key: location_str}
 		for txn in txns:
 			pid = txn['product_id']
 			stage = txn['stage']
@@ -2273,7 +2313,7 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 			if loc:
 				if pid not in location_map:
 					location_map[pid] = {}
-				location_map[pid][stage] = loc  # later rows overwrite earlier (ordered by created_at)
+				location_map[pid][stage] = loc
 
 		def make_absolute(url):
 			"""Turn a relative /media/... path into an absolute URL."""
@@ -2290,24 +2330,23 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 			return request.build_absolute_uri(url)
 
 		result = []
-		for row in material_rows:
-			sku = row.get('sku', '').strip()
-			if not sku:
-				continue
-			product = product_map.get(sku.upper())
+		for sku_upper, (qty, unit) in sku_qty_map.items():
+			product = product_map.get(sku_upper)
 			raw_images = product.images if product and isinstance(product.images, list) else []
 			from common.image_upload import sign_cloudinary_url
 			resolved = [sign_cloudinary_url(make_absolute(img)) for img in raw_images]
-			resolved = [img for img in resolved if img]  # filter None/empty
+			resolved = [img for img in resolved if img]
 
 			# Build location dict for this product
 			stage_locs = location_map.get(product.id, {}) if product else {}
 			location = {label: stage_locs.get(key, '') for key, label in STAGE_LABELS.items()}
 
+			qty_formatted = int(qty) if qty == int(qty) else round(qty, 2)
+
 			result.append({
-				'sku': sku,
-				'quantity': row.get('issued_qty', ''),
-				'unit': row.get('unit1', 'Pcs'),
+				'sku': sku_upper,
+				'quantity': qty_formatted,
+				'unit': unit,
 				'images': resolved,
 				'location': location,
 			})
@@ -2327,15 +2366,36 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 		Each entry: { die_code, image, location, qty_needed }
 		"""
 		from products.models import Product as ProductModel
-		from inventory.models import DieInventoryItem, PicklistItem
+		from inventory.models import DieInventoryItem, PicklistItem, PicklistGroup
 		from django.db.models.functions import Upper
+		from django.db.models import Q
 
 		job = self.get_object()
 
+		# Collect combined picklist group IDs
+		picklist_ids = []
+		if job.picklist_group_id:
+			picklist_ids.append(job.picklist_group_id)
+		
+		# Parse combined picklist numbers from notes
+		notes = job.notes or ""
+		if "Combined Picklists:" in notes:
+			try:
+				line = [l for l in notes.split('\n') if "Combined Picklists:" in l][0]
+				numbers_str = line.replace("Combined Picklists:", "").strip()
+				numbers = [int(num.strip()) for num in numbers_str.split(',') if num.strip().isdigit()]
+				if numbers:
+					combined_groups = PicklistGroup.objects.filter(number__in=numbers).values_list('id', flat=True)
+					for pg_id in combined_groups:
+						if pg_id not in picklist_ids:
+							picklist_ids.append(pg_id)
+			except Exception:
+				pass
+
 		# ── 1. Build sku_needed_map: UPPER_SKU → qty needed ─────────────────
 		sku_needed_map = {}
-		if job.picklist_group_id:
-			for item in PicklistItem.objects.filter(group_id=job.picklist_group_id).only('sku', 'needed'):
+		if picklist_ids:
+			for item in PicklistItem.objects.filter(group_id__in=picklist_ids).only('sku', 'needed'):
 				sku = item.sku.strip()
 				if sku:
 					sku_needed_map[sku.upper()] = sku_needed_map.get(sku.upper(), 0) + (item.needed or 0)
