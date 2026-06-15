@@ -67,6 +67,7 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
   const [picklists, setPicklists] = useState([])
   const [selectedPicklistId, setSelectedPicklistId] = useState("")
   const [selectedPicklistIds, setSelectedPicklistIds] = useState([])
+  const [isPicklistDropdownOpen, setIsPicklistDropdownOpen] = useState(false)
   const [isPicklistLoading, setIsPicklistLoading] = useState(false)
   const [isBulkCreating, setIsBulkCreating] = useState(false)
   const [isIssueStoneLoading, setIsIssueStoneLoading] = useState(false)
@@ -145,6 +146,7 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
       setIsPicklistLoading(true)
       setSelectedPicklistId("")
       setSelectedPicklistIds([])
+      setIsPicklistDropdownOpen(false)
       fetch('/api/picklist-groups', { cache: 'no-store' })
         .then(r => r.json())
         .then(result => {
@@ -161,6 +163,7 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
       setIsPicklistLoading(true)
       setSelectedPicklistId("")
       setSelectedPicklistIds([])
+      setIsPicklistDropdownOpen(false)
       fetch('/api/inventory/repair-batches/?confirmed=true&voucher_created=false', { cache: 'no-store' })
         .then(r => r.json())
         .then(result => {
@@ -997,80 +1000,94 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
 
               {/* PICKLIST DROPDOWN - in "all" and "single" mode */}
               {(mode === 'all' || mode === 'single') && (
-                <div className="flex flex-col gap-0.5">
+                <div className="flex flex-col gap-0.5 relative">
                   <Label className="text-sm font-bold uppercase tracking-wide text-muted-foreground">Picklist</Label>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <button
-                        type="button"
-                        className="flex items-center justify-between h-8 px-2 py-1 text-sm bg-background border border-border rounded-md focus:ring-0 focus:outline-none min-w-[150px] text-left hover:bg-muted/30 transition-colors"
-                      >
-                        <span className="truncate max-w-[150px]">
-                          {isPicklistLoading ? (
-                            "Loading..."
-                          ) : selectedPicklistIds.length === 0 ? (
-                            "Select Picklists"
-                          ) : selectedPicklistIds.length === 1 ? (
-                            (() => {
-                              const pl = picklists.find(p => String(p.id) === selectedPicklistIds[0])
-                              return pl ? `#${pl.number} — ${pl.name}` : "1 picklist selected"
-                            })()
-                          ) : (
-                            `${selectedPicklistIds.length} picklists selected`
-                          )}
-                        </span>
-                        <ChevronDown className="h-4 w-4 opacity-50 ml-1 shrink-0" />
-                      </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent className="w-[280px] max-h-[300px] overflow-y-auto bg-popover border border-border rounded-md shadow-md p-1 z-50">
-                      <div className="flex items-center justify-between px-2 py-1.5 border-b border-border">
-                        <span className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Select Picklists</span>
-                        {selectedPicklistIds.length > 0 && (
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.preventDefault()
-                              e.stopPropagation()
-                              setSelectedPicklistIds([])
-                            }}
-                            className="text-[10px] text-red-500 hover:text-red-700 font-semibold"
-                          >
-                            Clear All
-                          </button>
-                        )}
-                      </div>
-                      <div className="py-1">
-                        {picklists.map(pl => {
-                          const isChecked = selectedPicklistIds.includes(String(pl.id))
-                          return (
-                            <DropdownMenuCheckboxItem
-                              key={pl.id}
-                              checked={isChecked}
-                              onCheckedChange={(checked) => {
-                                if (checked) {
-                                  setSelectedPicklistIds(prev => [...prev, String(pl.id)])
-                                } else {
-                                  setSelectedPicklistIds(prev => prev.filter(id => id !== String(pl.id)))
-                                }
+                  <button
+                    type="button"
+                    onClick={() => setIsPicklistDropdownOpen(!isPicklistDropdownOpen)}
+                    className="flex items-center justify-between h-8 px-2 py-1 text-sm bg-background border border-border rounded-md focus:ring-0 focus:outline-none min-w-[150px] text-left hover:bg-muted/30 transition-colors"
+                  >
+                    <span className="truncate max-w-[150px]">
+                      {isPicklistLoading ? (
+                        "Loading..."
+                      ) : selectedPicklistIds.length === 0 ? (
+                        "Select Picklists"
+                      ) : selectedPicklistIds.length === 1 ? (
+                        (() => {
+                          const pl = picklists.find(p => String(p.id) === selectedPicklistIds[0])
+                          return pl ? `#${pl.number} — ${pl.name}` : "1 picklist selected"
+                        })()
+                      ) : (
+                        `${selectedPicklistIds.length} picklists selected`
+                      )}
+                    </span>
+                    <ChevronDown className="h-4 w-4 opacity-50 ml-1 shrink-0" />
+                  </button>
+
+                  {/* Custom Dropdown Content */}
+                  {isPicklistDropdownOpen && (
+                    <>
+                      {/* Backdrop to close dropdown on click outside */}
+                      <div 
+                        className="fixed inset-0 z-40" 
+                        onClick={() => setIsPicklistDropdownOpen(false)}
+                      />
+                      
+                      {/* Dropdown Menu Panel */}
+                      <div className="absolute left-0 top-full mt-1 w-[280px] max-h-[300px] overflow-y-auto bg-popover border border-border rounded-md shadow-md p-1 z-50 flex flex-col">
+                        <div className="flex items-center justify-between px-2 py-1.5 border-b border-border">
+                          <span className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Select Picklists</span>
+                          {selectedPicklistIds.length > 0 && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.preventDefault()
+                                e.stopPropagation()
+                                setSelectedPicklistIds([])
                               }}
-                              onSelect={(e) => e.preventDefault()}
-                              className="cursor-pointer"
+                              className="text-[10px] text-red-500 hover:text-red-700 font-semibold"
                             >
-                              <span className="truncate">
-                                #{pl.number} — {pl.name}
-                                {pl.items?.length ? ` (${pl.items.length})` : ''}
-                              </span>
-                            </DropdownMenuCheckboxItem>
-                          )
-                        })}
-                        {picklists.length === 0 && !isPicklistLoading && (
-                          <div className="px-2 py-1.5 text-xs text-muted-foreground text-center">
-                            No picklists available
-                          </div>
-                        )}
+                              Clear All
+                            </button>
+                          )}
+                        </div>
+                        <div className="py-1 flex flex-col gap-0.5">
+                          {picklists.map(pl => {
+                            const isChecked = selectedPicklistIds.includes(String(pl.id))
+                            return (
+                              <label
+                                key={pl.id}
+                                className="flex items-center gap-2 py-1.5 px-3 text-sm cursor-pointer hover:bg-accent hover:text-accent-foreground rounded-sm select-none"
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={isChecked}
+                                  onChange={(e) => {
+                                    const checked = e.target.checked
+                                    if (checked) {
+                                      setSelectedPicklistIds(prev => [...prev, String(pl.id)])
+                                    } else {
+                                      setSelectedPicklistIds(prev => prev.filter(id => id !== String(pl.id)))
+                                    }
+                                  }}
+                                  className="h-4 w-4 rounded border-border text-primary focus:ring-primary bg-background cursor-pointer"
+                                />
+                                <span className="truncate text-foreground">
+                                  #{pl.number} — {pl.name}
+                                  {pl.items?.length ? ` (${pl.items.length})` : ''}
+                                </span>
+                              </label>
+                            )
+                          })}
+                          {picklists.length === 0 && !isPicklistLoading && (
+                            <div className="px-2 py-1.5 text-xs text-muted-foreground text-center">
+                              No picklists available
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                    </>
+                  )}
                 </div>
               )}
 
