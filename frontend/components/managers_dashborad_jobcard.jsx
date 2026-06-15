@@ -740,6 +740,21 @@ export default function ManagersDashboard() {
       if (isNaN(d)) return v;
       return `${String(d.getDate()).padStart(2,'0')}-${String(d.getMonth()+1).padStart(2,'0')}-${d.getFullYear()}`;
     };
+    const getOrderDisplayStr = (card) => {
+      if (!card.orderName) return '';
+      const parts = [];
+      if (card.batchId) {
+        parts.push(`Batch: ${card.batchId}`);
+      }
+      const dateStr = fmtDate(card.createdAt);
+      if (dateStr && dateStr !== '\u2014') {
+        parts.push(`Date: ${dateStr}`);
+      }
+      if (parts.length > 0) {
+        return `${card.orderName} (${parts.join(', ')})`;
+      }
+      return card.orderName;
+    };
 
     let cardsToRender = allCards;
 
@@ -764,6 +779,12 @@ export default function ManagersDashboard() {
 
       const uniqueDeptTo = [...new Set(allCards.map(c => c.deptTo).filter(Boolean))].sort();
       const deptTo = uniqueDeptTo.length === 1 ? uniqueDeptTo[0] : uniqueDeptTo.join(', ');
+
+      const uniqueBatches = [...new Set(allCards.map(c => c.batchId).filter(Boolean))].sort();
+      const batchId = uniqueBatches.join(', ');
+
+      const uniqueDates = [...new Set(allCards.map(c => fmtDate(c.createdAt)).filter(Boolean))].sort();
+      const combinedDateStr = uniqueDates.join(', ');
 
       const qty = allCards.reduce((sum, c) => sum + (Number(c.qty) || 0), 0);
       const weight = allCards.reduce((sum, c) => sum + (Number(c.weight) || 0), 0);
@@ -861,10 +882,11 @@ export default function ManagersDashboard() {
       });
 
       cardsToRender = [{
-        createdAt: new Date().toISOString(),
+        createdAt: combinedDateStr || new Date().toISOString(),
         voucherType: 'Combined',
         picklistName,
         orderName,
+        batchId,
         voucherNo,
         name,
         workType,
@@ -938,7 +960,7 @@ export default function ManagersDashboard() {
     <div class="top-right">
       <div class="top-field"><label>Voucher Type</label><span>${card.voucherType || 'New'}</span></div>
       ${card.picklistName ? `<div class="top-field"><label>Picklist</label><span class="chip">${card.picklistName}</span></div>` : ''}
-      ${card.orderName ? `<div class="top-field"><label>Order</label><span class="chip">${card.orderName}</span></div>` : ''}
+      ${card.orderName ? `<div class="top-field"><label>Order</label><span class="chip">${getOrderDisplayStr(card)}</span></div>` : ''}
       <div class="top-field"><label>Voucher No.</label><span style="font-size:12px;font-weight:700;">${card.voucherNo}</span></div>
     </div>
   </div>

@@ -194,7 +194,7 @@ export function OrderSheetView({ embedded = false, defaultPicklistNum = null }) 
     setIsSyncing(true);
     setSyncStatus(null);
     try {
-      const response = await fetch('/frontend/api/picklist-sync', { method: 'POST' });
+      const response = await fetch('/frontend/api/picklist-sync?days=7', { method: 'POST' });
       const result = await response.json().catch(() => null);
 
       if (!response.ok || !result?.success) {

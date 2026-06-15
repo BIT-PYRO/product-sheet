@@ -140,25 +140,46 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
     }
   }, [open])
 
-  // Load picklists when mode is 'all' or 'single' and modal opens
+  // Load picklists when mode is 'all', 'single', or 'single-pipeline' and modal opens
   useEffect(() => {
-    if (open && (mode === 'all' || mode === 'single')) {
+    if (open && (mode === 'all' || mode === 'single' || mode === 'single-pipeline')) {
       setIsPicklistLoading(true)
       setSelectedPicklistId("")
       setSelectedPicklistIds([])
       setIsPicklistDropdownOpen(false)
-      fetch('/api/picklist-groups', { cache: 'no-store' })
-        .then(r => r.json())
-        .then(result => {
-          const groups = Array.isArray(result?.data)
-            ? result.data
-            : Array.isArray(result?.picklists)
-              ? result.picklists
-              : []
-          setPicklists(groups)
-        })
-        .catch(() => setPicklists([]))
+
+      const loadLocalPicklists = () => {
+        return fetch('/api/picklist-groups', { cache: 'no-store' })
+          .then(r => r.json())
+          .then(result => {
+            const groups = Array.isArray(result?.data)
+              ? result.data
+              : Array.isArray(result?.picklists)
+                ? result.picklists
+                : []
+            setPicklists(groups)
+            return groups
+          })
+          .catch(() => {
+            setPicklists([])
+            return []
+          })
+      }
+
+      loadLocalPicklists()
         .finally(() => setIsPicklistLoading(false))
+        .then(() => {
+          // Auto-sync in background: fetch picklists from the previous 7 days
+          return fetch('/frontend/api/picklist-sync?days=7', { method: 'POST' })
+        })
+        .then(res => res.json())
+        .then(result => {
+          if (result?.success && !result.skipped) {
+            // New picklists were successfully synced/fetched; refresh local picklists list
+            loadLocalPicklists()
+          }
+        })
+        .catch(() => {})
     } else if (open && mode === 'repair') {
       setIsPicklistLoading(true)
       setSelectedPicklistId("")
@@ -223,7 +244,7 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
       return
     }
 
-    if (mode !== 'all' && mode !== 'single') return
+    if (mode !== 'all' && mode !== 'single' && mode !== 'single-pipeline') return
     if (!selectedPicklistIds || selectedPicklistIds.length === 0) {
       // Reset rows to default empty rows if no picklist is selected
       setRows([
@@ -541,8 +562,15 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
     // Resolve picklist group DB id and combined notes
     let picklistGroupDbId = null
     let plNumbersStr = ""
-    if (mode === 'all' || mode === 'single') {
-      const selectedPlGroups = selectedPicklistIds.map(id => picklists.find(p => String(p.id) === id)).filter(Boolean)
+    if (mode === 'all' || mode === 'single' || mode === 'single-pipeline') {
+      // Use dropdown-selected picklists (selectedPicklistIds) if any were selected,
+      // otherwise fall back to the picklistGroupNumber prop passed from the parent.
+      let selectedPlGroups = selectedPicklistIds.map(id => picklists.find(p => String(p.id) === id)).filter(Boolean)
+      if (selectedPlGroups.length === 0 && picklistGroupNumber) {
+        // Pre-select based on the prop passed from parent (e.g. currently-viewed picklist)
+        const fallback = picklists.find(p => String(p.number) === String(picklistGroupNumber))
+        if (fallback) selectedPlGroups = [fallback]
+      }
       plNumbersStr = selectedPlGroups.map(p => p.number).join(', ')
       if (selectedPlGroups.length > 0) {
         const firstPlNumber = selectedPlGroups[0].number
@@ -554,14 +582,6 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
           picklistGroupDbId = pgData[0]?.db_id ?? null
         } catch { /* skip */ }
       }
-    } else if (mode === 'single-pipeline' && picklistGroupNumber) {
-      try {
-        const pgRes = await fetch(`/api/picklist-groups?number=${picklistGroupNumber}`, { cache: 'no-store' })
-        const pgResult = await pgRes.json().catch(() => null)
-        const pgData = Array.isArray(pgResult?.data) ? pgResult.data
-          : Array.isArray(pgResult?.data?.results) ? pgResult.data.results : []
-        picklistGroupDbId = pgData[0]?.db_id ?? null
-      } catch { /* skip */ }
     }
 
     const notePrefix = plNumbersStr ? `Combined Picklists: ${plNumbersStr}\n` : ''
@@ -998,8 +1018,8 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
                 </Select>
               </div>
 
-              {/* PICKLIST DROPDOWN - in "all" and "single" mode */}
-              {(mode === 'all' || mode === 'single') && (
+              {/* PICKLIST DROPDOWN - in "all", "single", and "single-pipeline" mode */}
+              {(mode === 'all' || mode === 'single' || mode === 'single-pipeline') && (
                 <div className="flex flex-col gap-0.5 relative">
                   <Label className="text-sm font-bold uppercase tracking-wide text-muted-foreground">Picklist</Label>
                   <button
