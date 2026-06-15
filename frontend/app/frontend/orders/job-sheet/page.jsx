@@ -177,13 +177,23 @@ export function OrderSheetView({ embedded = false, defaultPicklistNum = null }) 
       .catch(() => {});
   }, []);
 
-  // Check if external sync is configured (to show/hide Sync button)
+  // Check if external sync is configured (to show/hide Sync button) and auto-sync on mount
   useEffect(() => {
     fetch('/api/picklist-sync', { cache: 'no-store' })
       .then((res) => res.json())
       .then((data) => {
         if (data?.configured) {
           setExternalSyncConfigured(true);
+          // Trigger background auto-sync of picklists for the last 7 days on mount
+          fetch('/api/picklist-sync?days=7', { method: 'POST' })
+            .then((res) => res.json())
+            .then((result) => {
+              if (result?.success && !result.skipped) {
+                // If new picklists were synced, refresh the orders list
+                loadOrdersAndProducts();
+              }
+            })
+            .catch((err) => console.error('Background sync failed:', err));
         }
       })
       .catch(() => {});
@@ -1073,9 +1083,9 @@ export function OrderSheetView({ embedded = false, defaultPicklistNum = null }) 
                   <tbody className="divide-y divide-soft-border">
                     {filteredOrders.map((order) => {
                       const orderRef = order.order_source === 'picklist' ? 'PICKLIST' : 'CUSTOM';
-                      const orderName = order.order_source === 'picklist'
+                      const orderName = order.order_name || (order.order_source === 'picklist'
                         ? `PICKLIST-${order.picklist_number ?? order.id}`
-                        : `CUSTOM-${order.id}`;
+                        : `CUSTOM-${order.id}`);
                       const totalPieces = (order.items || []).reduce((sum, i) => sum + (Number(i.quantity) || 0), 0);
                       const totalItems = order.total_items ?? (order.items || []).length;
                       const isEditingType = editingCell?.orderId === order.id && editingCell?.field === 'order_type';

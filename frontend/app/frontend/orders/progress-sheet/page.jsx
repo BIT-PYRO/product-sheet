@@ -184,6 +184,24 @@ export function OrderProgressSheetView({ embedded = false }) {
 
   useEffect(() => {
     loadData();
+
+    // Check if external sync is configured and trigger background auto-sync of picklists on mount
+    fetch('/api/picklist-sync', { cache: 'no-store' })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.configured) {
+          fetch('/api/picklist-sync?days=7', { method: 'POST' })
+            .then((res) => res.json())
+            .then((result) => {
+              if (result?.success && !result.skipped) {
+                // If new picklists were synced, refresh the progress data
+                loadData();
+              }
+            })
+            .catch((err) => console.error('Background sync failed:', err));
+        }
+      })
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -355,9 +373,9 @@ export function OrderProgressSheetView({ embedded = false }) {
                   <tbody className="divide-y divide-soft-border">
                     {orders.map((order) => {
                       const orderRef = order.order_source === 'picklist' ? 'PICKLIST' : 'CUSTOM';
-                      const orderName = order.order_source === 'picklist'
+                      const orderName = order.order_name || (order.order_source === 'picklist'
                         ? `PICKLIST-${order.picklist_number ?? order.id}`
-                        : `CUSTOM-${order.id}`;
+                        : `CUSTOM-${order.id}`);
                       const totalPieces = (order.items || []).reduce((sum, i) => sum + (Number(i.quantity) || 0), 0);
 
                       return (
