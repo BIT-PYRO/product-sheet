@@ -2234,12 +2234,12 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 		# ── 1. Build sku_qty_map: UPPER_SKU → [qty, unit] ─────────────────
 		sku_qty_map = {}
 		if picklist_ids:
-			for item in PicklistItem.objects.filter(group_id__in=picklist_ids).only('sku', 'needed', 'unit'):
+			for item in PicklistItem.objects.filter(group_id__in=picklist_ids).only('sku', 'needed'):
 				sku = item.sku.strip()
 				if sku:
 					sku_upper = sku.upper()
 					qty = item.needed or 0
-					unit = item.unit or 'Pcs'
+					unit = 'Pcs'
 					if sku_upper in sku_qty_map:
 						sku_qty_map[sku_upper][0] += qty
 					else:
