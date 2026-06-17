@@ -47,3 +47,69 @@ class WorkforceMember(AuditModel, TenantCompanyModel):
 
 	def __str__(self):
 		return f'{self.full_name} ({self.phone})'
+
+
+from django.db.models.signals import post_save
+from django.dispatch import receiver
+
+@receiver(post_save, sender=WorkforceMember)
+def sync_django_user_on_workforce_save(sender, instance, created, **kwargs):
+	email = (instance.email or '').strip().lower()
+	if not email:
+		return
+
+	from django.contrib.auth import get_user_model
+	from core_permissions.roles import UserRole
+
+	User = get_user_model()
+
+	# Determine mapped role from designation
+	def map_designation_to_user_role(designation: str) -> str:
+		val = (designation or '').strip().lower()
+		if not val:
+			return UserRole.STAFF
+		if val == 'superuser':
+			return UserRole.SUPER_ADMIN
+		elif val in ('chairman', 'ceo', 'owner', 'tenant owner', 'tenant_owner'):
+			return UserRole.TENANT_OWNER
+		elif val in ('director', 'admin', 'company admin', 'company_admin', 'general manager'):
+			return UserRole.COMPANY_ADMIN
+		elif val in ('department head', 'department_head', 'dept head', 'dept_head'):
+			return UserRole.DEPARTMENT_HEAD
+		elif val == 'manager':
+			return UserRole.MANAGER
+		elif val == 'associate':
+			return UserRole.STAFF
+		elif val in ('intern', 'viewer'):
+			return UserRole.VIEWER
+		
+		# Fallback
+		if 'head' in val:
+			return UserRole.DEPARTMENT_HEAD
+		elif 'manager' in val:
+			return UserRole.MANAGER
+		elif 'director' in val or 'admin' in val:
+			return UserRole.COMPANY_ADMIN
+		elif 'intern' in val:
+			return UserRole.VIEWER
+		return UserRole.STAFF
+
+	user = User.objects.filter(email__iexact=email).first() or User.objects.filter(username__iexact=email).first()
+	if user is None:
+		user = User(username=email, email=email)
+		user.set_unusable_password()
+
+	user.is_active = bool(instance.active)
+	user.is_approved = True  # active workforce members get approved access automatically
+
+	if instance.tenant:
+		user.tenant = instance.tenant
+	if instance.company:
+		user.active_company = instance.company
+
+	user.role = map_designation_to_user_role(instance.designation)
+	user.save()
+
+	if instance.company:
+		user.accessible_companies.add(instance.company)
+

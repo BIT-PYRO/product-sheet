@@ -215,6 +215,30 @@ class GoogleLoginView(APIView):
 			log_activity(request, ActivityLog.ACTION_LOGIN, ActivityLog.SHEET_AUTH, user, extra={'login_method': 'google', 'email': email})
 		except Exception:
 			pass
+
+		# Send welcome email for new Google SSO signups
+		if created:
+			try:
+				from django.core.mail import send_mail
+				send_mail(
+					subject='Welcome to Miraee — Registration Successful',
+					message=(
+						f'Dear {full_name},\n\n'
+						'Your registration request has been accepted successfully!\n\n'
+						'You can now sign in to Miraee using:\n'
+						f'  • Your Google account (email: {email})\n\n'
+						'Once you sign in you will be able to view all modules. '
+						'Access to specific modules will be granted by your administrator.\n\n'
+						'If you have any questions please contact your organisation admin.\n\n'
+						'Best regards,\nThe Miraee Team'
+					),
+					from_email=None,
+					recipient_list=[email],
+					fail_silently=True,
+				)
+			except Exception:
+				pass
+
 		return api_success(
 			{
 				'access': str(refresh.access_token),
@@ -314,7 +338,7 @@ class RoleDefaultPermissionsDetailView(APIView):
 			return True
 		try:
 			from workforce.models import WorkforceMember
-			member = WorkforceMember.objects.filter(user=request.user).first()
+			member = WorkforceMember.objects.filter(email__iexact=request.user.email).first()
 			if member and member.designation in ('CEO', 'Chairman', 'Director', 'General Manager'):
 				return True
 			if member and member.permissions and member.permissions.get('manage_members'):
@@ -609,3 +633,143 @@ class APIKeyViewSet(viewsets.ViewSet):
         out = APIKeyListSerializer(instance).data
         out['raw_key'] = raw_key
         return api_success(out, message='API key regenerated. Copy the raw_key now — it will not be shown again.')
+
+
+# ---------------------------------------------------------------------------
+# Public signup endpoint — no authentication required
+# ---------------------------------------------------------------------------
+
+class SignupView(APIView):
+	"""Allow a new user to register themselves.
+
+	Creates a Django User + WorkforceMember (no permissions) and sends a
+	confirmation e-mail.  All sign-ups are placed in the primary tenant/company.
+	"""
+	permission_classes = [AllowAny]
+
+	def post(self, request):
+		name = str(request.data.get('name', '')).strip()
+		email = str(request.data.get('email', '')).strip().lower()
+		phone = str(request.data.get('phone', '')).strip()
+		password = str(request.data.get('password', '')).strip()
+		organization = str(request.data.get('organization', '')).strip()
+
+		# ── basic validation ─────────────────────────────────────────────────
+		if not name:
+			return Response({'success': False, 'message': 'Full name is required.'}, status=400)
+		if not email:
+			return Response({'success': False, 'message': 'Email is required.'}, status=400)
+		if not password:
+			return Response({'success': False, 'message': 'Password is required.'}, status=400)
+		if len(password) < 6:
+			return Response({'success': False, 'message': 'Password must be at least 6 characters.'}, status=400)
+
+		User = get_user_model()
+
+		# ── duplicate check ──────────────────────────────────────────────────
+		if User.objects.filter(email__iexact=email).exists() or User.objects.filter(username__iexact=email).exists():
+			return Response(
+				{'success': False, 'message': 'An account with this email already exists. Please sign in instead.'},
+				status=400,
+			)
+
+		# ── resolve primary tenant + company ─────────────────────────────────
+		from core_tenants.models import Tenant, Company
+		tenant = (
+			Tenant.objects.filter(slug='default').first()
+			or Tenant.objects.filter(is_active=True).exclude(slug__icontains='audit').first()
+		)
+		company = Company.objects.filter(tenant=tenant, is_active=True).first() if tenant else None
+
+		# ── split full name ──────────────────────────────────────────────────
+		name_parts = name.split(' ', 1)
+		first_name = name_parts[0]
+		last_name = name_parts[1] if len(name_parts) > 1 else ''
+
+		# ── create Django user ───────────────────────────────────────────────
+		user = User(
+			username=email,
+			email=email,
+			first_name=first_name,
+			last_name=last_name,
+			is_approved=True,
+		)
+		if tenant:
+			user.tenant = tenant
+		if company:
+			user.active_company = company
+		user.set_password(password)
+		user.save()
+
+		if company:
+			user.accessible_companies.add(company)
+
+		# ── create WorkforceMember (no permissions — admin will grant later) ─
+		if tenant and company:
+			try:
+				from workforce.models import WorkforceMember
+				if not WorkforceMember.objects.filter(email__iexact=email).exists():
+					notes = f'Registered via signup form.'
+					if organization:
+						notes += f' Organisation: {organization}.'
+					WorkforceMember.objects.create(
+						tenant=tenant,
+						company=company,
+						full_name=name,
+						email=email,
+						phone=phone,
+						notes=notes,
+						active=True,
+						permissions={},
+					)
+			except Exception:
+				pass  # Non-fatal
+
+		# ── send confirmation e-mail (best-effort) ───────────────────────────
+		try:
+			from django.core.mail import send_mail
+			send_mail(
+				subject='Welcome to Miraee — Registration Successful',
+				message=(
+					f'Dear {name},\n\n'
+					'Your registration request has been accepted successfully!\n\n'
+					'You can now sign in to Miraee using:\n'
+					f'  • Your Google account (email: {email})\n'
+					'  • Or using your email and the password you set during registration\n\n'
+					'Once you sign in you will be able to view all modules. '
+					'Access to specific modules will be granted by your administrator.\n\n'
+					'If you have any questions please contact your organisation admin.\n\n'
+					'Best regards,\nThe Miraee Team'
+				),
+				from_email=None,
+				recipient_list=[email],
+				fail_silently=True,
+			)
+		except Exception:
+			pass
+
+		return api_success(
+			{'email': email, 'name': name},
+			message=(
+				'Registration successful! A confirmation email has been sent to your inbox. '
+				'You can now sign in using your email and password or via Google.'
+			),
+			status_code=201,
+		)
+
+
+# ---------------------------------------------------------------------------
+# Public endpoint — list available companies for the sign-up form dropdown
+# ---------------------------------------------------------------------------
+
+class PublicCompaniesView(APIView):
+	"""Return a minimal list of active companies (public, no auth required)."""
+	permission_classes = [AllowAny]
+
+	def get(self, request):
+		from core_tenants.models import Company
+		companies = [
+			{'id': str(c.id), 'name': c.name, 'tenant': c.tenant.name}
+			for c in Company.objects.filter(is_active=True).select_related('tenant')
+		]
+		return api_success(companies, message='Companies fetched.')

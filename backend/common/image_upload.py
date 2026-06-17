@@ -292,3 +292,67 @@ def _upload_to_local_bytes(image_bytes: bytes, folder: str, file_name: str) -> s
         f.write(image_bytes)
 
     return f'{settings.MEDIA_URL}{_safe_folder(folder)}/{file_name}'
+
+
+def sign_cloudinary_url(url: str) -> str:
+    """
+    Sign a Cloudinary delivery URL using the backend SDK credentials.
+    Required when the account has 'Require Signed URLs' enabled.
+    Returns the original URL unchanged if signing fails.
+    """
+    if not url or 'cloudinary.com' not in url:
+        return url
+    try:
+        import re as _re
+        from urllib.parse import urlparse as _urlparse
+        import cloudinary.utils as _cld_utils
+        parsed = _urlparse(url)
+        parts = [p for p in (parsed.path or '').strip('/').split('/') if p]
+        upload_idx = next((i for i, p in enumerate(parts) if p == 'upload'), None)
+        if upload_idx is None:
+            return url
+        resource_type = parts[upload_idx - 1] if upload_idx > 0 else 'raw'
+        after = parts[upload_idx + 1:]
+        # Strip existing signature token (s--...--) and version (v1234567890)
+        if after and _re.match(r'^s--[A-Za-z0-9_-]+--$', after[0]):
+            after = after[1:]
+        if after and _re.match(r'^v\d+$', after[0]):
+            after = after[1:]
+        public_id = '/'.join(after)
+        if not public_id:
+            return url
+        signed, _ = _cld_utils.cloudinary_url(public_id, resource_type=resource_type, sign_url=True)
+        return signed or url
+    except Exception:
+        return url
+
+
+def unsign_cloudinary_url(url: str) -> str:
+    """
+    Strip any Cloudinary signature token (s--...--) from a delivery URL,
+    returning a clean unsigned URL. Useful for saving clean paths in DB.
+    """
+    if not url or 'cloudinary.com' not in url:
+        return url
+    try:
+        import re as _re
+        from urllib.parse import urlparse as _urlparse, urlunparse as _urlunparse
+        parsed = _urlparse(url)
+        parts = [p for p in (parsed.path or '').strip('/').split('/') if p]
+        upload_idx = next((i for i, p in enumerate(parts) if p == 'upload'), None)
+        if upload_idx is None:
+            return url
+        
+        # Filter out signature parts (starts with s--)
+        new_parts = []
+        for p in parts:
+            if _re.match(r'^s--[A-Za-z0-9_-]+--$', p):
+                continue
+            new_parts.append(p)
+            
+        new_path = '/' + '/'.join(new_parts)
+        # Reconstruct URL without query params/fragments or signature
+        return _urlunparse((parsed.scheme, parsed.netloc, new_path, '', '', ''))
+    except Exception:
+        return url
+

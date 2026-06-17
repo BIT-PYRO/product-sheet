@@ -22,13 +22,19 @@ SCOPE_URL_MAP = {
 _SAFE_METHODS = frozenset(('GET', 'HEAD', 'OPTIONS'))
 
 
+from core_permissions.roles import UserRole
+
 class IsAdminOrManager(BasePermission):
     def has_permission(self, request, view):
-        return bool(
-            request.user
-            and request.user.is_authenticated
-            and getattr(request.user, 'role', None) in ['admin', 'manager']
-        )
+        if not request.user or not request.user.is_authenticated:
+            return False
+        if getattr(request.user, 'is_superuser', False):
+            return True
+        role = getattr(request.user, 'role', None)
+        return role in [
+            'admin', 'manager',
+            UserRole.SUPER_ADMIN, UserRole.TENANT_OWNER, UserRole.COMPANY_ADMIN, UserRole.MANAGER
+        ]
 
 
 class IsSuperAdmin(BasePermission):

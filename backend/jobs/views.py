@@ -465,7 +465,7 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 			VoucherApprovalStatus.IN_PROCESS,
 			VoucherApprovalStatus.PARTIALLY_COMPLETED,
 		}
-		active_jobs = self.filter_queryset(self.get_queryset()).filter(
+		active_jobs = self.filter_queryset(Job.objects.all()).filter(
 			approval_status__in=active_statuses
 		).only('dept_to', 'material_rows', 'die_rows', 'received_rows')
 
@@ -584,14 +584,22 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 			from core_tenants.models import Company
 			Company.objects.select_for_update().get(id=company.id)
 
-		# Get the current voucher counter from DB
-		last_voucher = Job.objects.select_for_update().filter(voucher_no__startswith='JJ-').order_by('-id').first()
-		counter = 1
-		if last_voucher and last_voucher.voucher_no:
-			try:
-				counter = int(last_voucher.voucher_no.split('-')[1]) + 1
-			except (ValueError, IndexError):
-				counter = 1
+		# Get the current voucher counter from DB by finding the max counter number of today
+		today = timezone.now().date()
+		locked_vouchers = list(Job.objects.select_for_update().filter(
+			voucher_no__startswith='JJ-',
+			created_at__date=today
+		))
+		max_num = 0
+		for v in locked_vouchers:
+			if v.voucher_no:
+				try:
+					num = int(v.voucher_no.split('-')[1])
+					if num > max_num:
+						max_num = num
+				except (ValueError, IndexError):
+					pass
+		counter = max_num + 1
 
 		# ------------------------------------------------------------------
 		# Phase 1: Collect each product's custom pipeline and qty
@@ -957,14 +965,22 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 				from core_tenants.models import Company
 				Company.objects.select_for_update().get(id=company.id)
 
-			# Stable voucher numbering counter with select_for_update
-			last_voucher = Job.objects.select_for_update().filter(voucher_no__startswith='JJ-').order_by('-id').first()
-			counter = 1
-			if last_voucher and last_voucher.voucher_no:
-				try:
-					counter = int(last_voucher.voucher_no.split('-')[1]) + 1
-				except (ValueError, IndexError):
-					counter = 1
+			# Stable voucher numbering counter with select_for_update, finding the max counter number of today
+			today = timezone.now().date()
+			locked_vouchers = list(Job.objects.select_for_update().filter(
+				voucher_no__startswith='JJ-',
+				created_at__date=today
+			))
+			max_num = 0
+			for v in locked_vouchers:
+				if v.voucher_no:
+					try:
+						num = int(v.voucher_no.split('-')[1])
+						if num > max_num:
+							max_num = num
+					except (ValueError, IndexError):
+						pass
+			counter = max_num + 1
 
 			for stage_key, bucket_items in stage_buckets.items():
 				mapping = STAGE_MAPPING.get(stage_key)
@@ -1189,26 +1205,27 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 
 	@action(detail=True, methods=['post'], url_path='mark-voucher-complete')
 	def mark_voucher_complete(self, request, pk=None):
-		"""Mark a voucher step as completed, activate the next one in the pipeline."""
+		"""Mark a voucher step as completed, activate the next one in the pipeline.
+
+		Checks actual received quantities from prior receive events.
+		- If all SKUs are fully received → COMPLETED (auto-fills any tiny remainder)
+		- If any SKU has received < issued (or received is 0/empty) → PARTIALLY_COMPLETED
+		"""
 		voucher = self.get_object()
 
 		if voucher.approval_status not in (VoucherApprovalStatus.IN_PROCESS, VoucherApprovalStatus.PARTIALLY_COMPLETED):
 			raise ValidationError({'approval_status': 'Only in-process or partially complete vouchers can be marked complete.'})
 
 		with transaction.atomic():
-			voucher.approval_status = VoucherApprovalStatus.COMPLETED
-			voucher.status = 'completed'
-			voucher.save(update_fields=['approval_status', 'status'])
 			_sync_repair_completion(voucher)
 
-			# Add remaining pieces (issued ΓêÆ already received) to Current Stock of
-			# the destination stage.  WIP is computed live so no WIP transaction needed.
 			from products.models import Product
 
 			dest_stage_key = DEPT_TO_STOCK_STAGE.get(voucher.dept_to, '')
 
 			# Build already-received totals per SKU from previous receive events
 			already_rcvd: dict = {}
+			already_loss: dict = {}
 			for event in (voucher.received_rows or []):
 				for prev_row in (event.get('rows') or []):
 					s = str(prev_row.get('sku', '') or '').strip().upper()
@@ -1216,6 +1233,14 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 						already_rcvd.get(s, 0)
 						+ int(float(prev_row.get('received_qty', 0) or 0))
 					)
+					already_loss[s] = (
+						already_loss.get(s, 0)
+						+ int(float(prev_row.get('loss_qty', 0) or 0))
+					)
+
+			# ── Determine if all SKUs are fully accounted for ──────────────────
+			all_fully_received = True
+			synthetic_received_rows = []
 
 			if voucher.dept_to in PRE_CASTING_DEPT_TOS:
 				from inventory.models import DieInventoryItem, DieTransaction
@@ -1223,6 +1248,7 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 				stage_qty_field = PRE_CASTING_STAGE_QTY_FIELD.get(voucher.dept_to, '')
 
 				die_already_received: dict = {}
+				die_already_loss: dict = {}
 				for event in (voucher.received_rows or []):
 					for prev_row in (event.get('rows') or []):
 						dc = str(prev_row.get('die_code', '') or prev_row.get('sku', '') or '').strip().upper()
@@ -1231,6 +1257,10 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 								die_already_received.get(dc, 0)
 								+ int(float(prev_row.get('received_qty', 0) or 0))
 							)
+							die_already_loss[dc] = (
+								die_already_loss.get(dc, 0)
+								+ int(float(prev_row.get('loss_qty', 0) or 0))
+							)
 
 				for dr in (voucher.die_rows or []):
 					dc = str(dr.get('die_code', '') or '').strip()
@@ -1238,60 +1268,134 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 					if issued <= 0 or not dc:
 						continue
 					
-					remaining = max(0, issued - die_already_received.get(dc.upper(), 0))
-					if remaining <= 0:
+					dc_upper = dc.upper()
+					received_so_far = die_already_received.get(dc_upper, 0)
+					loss_so_far = die_already_loss.get(dc_upper, 0)
+					remaining = max(0, issued - received_so_far - loss_so_far)
+
+					if remaining > 0:
+						# This SKU is NOT fully accounted for
+						all_fully_received = False
+
+				# Only auto-fill and create inventory transactions if fully received
+				if all_fully_received:
+					for dr in (voucher.die_rows or []):
+						dc = str(dr.get('die_code', '') or '').strip()
+						issued = int(float(dr.get('issued_qty', 0) or 0))
+						if issued <= 0 or not dc:
+							continue
+						
+						# Any tiny remainder (received without loss accounting)
+						remaining_recv = max(0, issued - die_already_received.get(dc.upper(), 0))
+						if remaining_recv <= 0:
+							continue
+
+						try:
+							die_item = DieInventoryItem.objects.get(die_code__iexact=dc)
+							DieTransaction.objects.create(
+								tenant=voucher.tenant,
+								company=voucher.company,
+								txn_date=timezone.now().date(),
+								die=die_item,
+								die_code=die_item.die_code,
+								txn_type='received',
+								master_sku=str(dr.get('master_sku', '') or '').strip(),
+								qty=remaining_recv,
+								remark=f'Completed (Auto-receive remaining): {voucher.voucher_no}',
+								activity_status='received',
+							)
+							if stage_qty_field:
+								current_qty = float(getattr(die_item, stage_qty_field, 0) or 0)
+								setattr(die_item, stage_qty_field, current_qty + remaining_recv)
+								die_item.save(update_fields=[stage_qty_field])
+						except DieInventoryItem.DoesNotExist:
+							pass
+
+						synthetic_received_rows.append({
+							'die_code': dc,
+							'sku': str(dr.get('master_sku', '') or '').strip(),
+							'received_qty': str(remaining_recv),
+							'loss_qty': '0',
+						})
+
+			else:
+				for row in (voucher.material_rows or []):
+					issued = int(float(row.get('issued_qty', 0) or 0))
+					if issued <= 0:
 						continue
+					sku = str(row.get('sku', '') or '').strip()
+					sku_key = sku.upper()
 
-					try:
-						die_item = DieInventoryItem.objects.get(die_code__iexact=dc)
-						DieTransaction.objects.create(
-							tenant=voucher.tenant,
-							company=voucher.company,
-							txn_date=timezone.now().date(),
-							die=die_item,
-							die_code=die_item.die_code,
-							txn_type='received',
-							master_sku=str(dr.get('master_sku', '') or '').strip(),
-							qty=remaining,
-							remark=f'Completed (Auto-receive remaining): {voucher.voucher_no}',
-							activity_status='received',
-						)
-						if stage_qty_field:
-							current_qty = float(getattr(die_item, stage_qty_field, 0) or 0)
-							setattr(die_item, stage_qty_field, current_qty + remaining)
-							die_item.save(update_fields=[stage_qty_field])
-					except DieInventoryItem.DoesNotExist:
-						pass
+					received_so_far = already_rcvd.get(sku_key, 0)
+					loss_so_far = already_loss.get(sku_key, 0)
+					remaining = max(0, issued - received_so_far - loss_so_far)
 
-			for row in (voucher.material_rows or []):
-				issued = int(float(row.get('issued_qty', 0) or 0))
-				if issued <= 0:
-					continue
-				sku = str(row.get('sku', '') or '').strip()
-				sku_key = sku.upper()
+					if remaining > 0:
+						# Check if received is 0 or empty — means not received at all
+						if received_so_far <= 0:
+							all_fully_received = False
+						else:
+							# Received something but not everything — still not fully received
+							all_fully_received = False
 
-				# Only create transaction for pieces not yet received
-				remaining = max(0, issued - already_rcvd.get(sku_key, 0))
-				if remaining <= 0:
-					continue
+				# Only auto-fill and create inventory transactions if fully received
+				if all_fully_received:
+					for row in (voucher.material_rows or []):
+						issued = int(float(row.get('issued_qty', 0) or 0))
+						if issued <= 0:
+							continue
+						sku = str(row.get('sku', '') or '').strip()
+						sku_key = sku.upper()
 
-				product = Product.objects.filter(
-					Q(master_sku__iexact=sku)
-				).first() or voucher.product
-				if not product:
-					continue
+						# Any tiny remainder
+						remaining_recv = max(0, issued - already_rcvd.get(sku_key, 0))
+						if remaining_recv <= 0:
+							continue
 
-				if dest_stage_key:
-					InventoryTransaction.objects.create(
-						tenant=voucher.tenant,
-						company=voucher.company,
-						product=product,
-						txn_type='adjust',
-						quantity=remaining,
-						stage=dest_stage_key,
-						stock_type='current',
-						remark=f'Completed: {voucher.voucher_no}',
-					)
+						product = Product.objects.filter(
+							Q(master_sku__iexact=sku)
+						).first() or voucher.product
+						if not product:
+							continue
+
+						if dest_stage_key:
+							InventoryTransaction.objects.create(
+								tenant=voucher.tenant,
+								company=voucher.company,
+								product=product,
+								txn_type='adjust',
+								quantity=remaining_recv,
+								stage=dest_stage_key,
+								stock_type='current',
+								remark=f'Completed: {voucher.voucher_no}',
+							)
+
+						synthetic_received_rows.append({
+							'sku': sku,
+							'received_qty': str(remaining_recv),
+							'loss_qty': '0',
+						})
+
+			# Set status based on whether all material has been received
+			if all_fully_received:
+				voucher.approval_status = VoucherApprovalStatus.COMPLETED
+				voucher.status = 'completed'
+			else:
+				voucher.approval_status = VoucherApprovalStatus.PARTIALLY_COMPLETED
+				# Status stays as-is (not 'completed')
+
+			if synthetic_received_rows:
+				receive_log = list(voucher.received_rows or [])
+				receive_log.append({
+					'timestamp': timezone.now().isoformat(),
+					'received_by': 'system (mark-complete)',
+					'is_partial': not all_fully_received,
+					'total_received': sum(int(float(r['received_qty'])) for r in synthetic_received_rows),
+					'rows': synthetic_received_rows,
+				})
+				voucher.received_rows = receive_log
+
+			voucher.save(update_fields=['approval_status', 'status', 'received_rows'])
 
 			# Activate all vouchers in the batch whose predecessors are now done
 			if voucher.batch_id:
@@ -1990,13 +2094,22 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 				from core_tenants.models import Company
 				Company.objects.select_for_update().get(id=company.id)
 
-			last_voucher = Job.objects.select_for_update().filter(voucher_no__startswith='JJ-').order_by('-id').first()
-			counter = 1
-			if last_voucher and last_voucher.voucher_no:
-				try:
-					counter = int(last_voucher.voucher_no.split('-')[1]) + 1
-				except (ValueError, IndexError):
-					pass
+			# stable voucher counter incrementing from max counter number of today
+			today = timezone.now().date()
+			locked_vouchers = list(Job.objects.select_for_update().filter(
+				voucher_no__startswith='JJ-',
+				created_at__date=today
+			))
+			max_num = 0
+			for v in locked_vouchers:
+				if v.voucher_no:
+					try:
+						num = int(v.voucher_no.split('-')[1])
+						if num > max_num:
+							max_num = num
+					except (ValueError, IndexError):
+						pass
+			counter = max_num + 1
 
 			new_vouchers = []
 			for stage_v in stages_to_redo:
@@ -2028,9 +2141,16 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 				if note:
 					notes_text += f' {note}'
 
+				from core_tenants.context import get_current_tenant, get_current_company
+				tenant_obj = voucher.tenant or get_current_tenant() or (request.user.tenant if request.user and request.user.is_authenticated else None)
+				company_obj = voucher.company or get_current_company() or (request.user.active_company if request.user and request.user.is_authenticated else None)
+				if company_obj is None and tenant_obj is not None:
+					from core_tenants.models import Company
+					company_obj = Company.objects.filter(tenant=tenant_obj).first()
+
 				new_v = Job.objects.create(
-					tenant=voucher.tenant,
-					company=voucher.company,
+					tenant=tenant_obj,
+					company=company_obj,
 					title=f'RE-ISSUE {voucher_no_new} - {from_label} to {to_label}',
 					product=stage_v.product,
 					status='created',
@@ -2096,114 +2216,158 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 		Each row: { sku, issued_qty, unit, images: [...], location: {wax_piece, wax_setting, ...} }
 		Images are returned as absolute URLs.
 		"""
-		from products.models import Product as ProductModel
-		from inventory.models import InventoryTransaction
+		try:
+			from products.models import Product as ProductModel
+			from inventory.models import InventoryTransaction, PicklistItem, PicklistGroup
+			from django.db.models.functions import Upper
+			from django.db.models import Q
 
-		job = self.get_object()
-		material_rows = job.material_rows or []
+			job = self.get_object()
 
-		# Collect unique, non-empty SKUs
-		skus = list({
-			row.get('sku', '').strip()
-			for row in material_rows
-			if row.get('sku', '').strip()
-		})
+			# Collect combined picklist group IDs
+			picklist_ids = []
+			if job.picklist_group_id:
+				picklist_ids.append(job.picklist_group_id)
+			
+			# Parse combined picklist numbers from notes
+			notes = job.notes or ""
+			if "Combined Picklists:" in notes:
+				try:
+					line = [l for l in notes.split('\n') if "Combined Picklists:" in l][0]
+					numbers_str = line.replace("Combined Picklists:", "").strip()
+					numbers = [int(num.strip()) for num in numbers_str.split(',') if num.strip().isdigit()]
+					if numbers:
+						combined_groups = PicklistGroup.objects.filter(number__in=numbers).values_list('id', flat=True)
+						for pg_id in combined_groups:
+							if pg_id not in picklist_ids:
+								picklist_ids.append(pg_id)
+				except Exception:
+					pass
 
-		upper_skus = [s.upper() for s in skus]
+			# ── 1. Build sku_qty_map: UPPER_SKU → [qty, unit] ─────────────────
+			sku_qty_map = {}
+			if picklist_ids:
+				for item in PicklistItem.objects.filter(group__in=picklist_ids).only('sku', 'needed'):
+					sku = item.sku.strip()
+					if sku:
+						sku_upper = sku.upper()
+						qty = item.needed or 0
+						unit = 'Pcs'
+						if sku_upper in sku_qty_map:
+							sku_qty_map[sku_upper][0] += qty
+						else:
+							sku_qty_map[sku_upper] = [qty, unit]
 
-		from django.db.models.functions import Upper
+			if not sku_qty_map:
+				# Fallback: collect from this voucher's material_rows
+				material_rows = job.material_rows or []
+				for row in material_rows:
+					sku = row.get('sku', '').strip()
+					if sku:
+						try:
+							qty = float(row.get('issued_qty') or row.get('qty') or 0)
+						except (ValueError, TypeError):
+							qty = 0
+						unit = row.get('unit1') or 'Pcs'
+						sku_qty_map[sku.upper()] = [qty, unit]
 
-		# Primary lookup: match by master_sku (case-insensitive)
-		products_by_master = (
-			ProductModel.objects
-			.annotate(upper_sku=Upper('master_sku'))
-			.filter(upper_sku__in=upper_skus)
-			.only('master_sku', 'designer_sku', 'images')
-		)
-		product_map = {p.master_sku.upper(): p for p in products_by_master}
+			skus = list(sku_qty_map.keys())
+			upper_skus = [s.upper() for s in skus]
 
-		# Fallback: for SKUs not matched by master_sku, try designer_sku
-		unmatched = [s for s in upper_skus if s not in product_map]
-		if unmatched:
-			products_by_designer = (
+			# Primary lookup: match by master_sku (case-insensitive)
+			products_by_master = (
 				ProductModel.objects
-				.annotate(upper_designer=Upper('designer_sku'))
-				.filter(upper_designer__in=unmatched)
+				.annotate(upper_sku=Upper('master_sku'))
+				.filter(upper_sku__in=upper_skus)
 				.only('master_sku', 'designer_sku', 'images')
 			)
-			for p in products_by_designer:
-				key = p.designer_sku.upper()
-				if key not in product_map:
-					product_map[key] = p
+			product_map = {p.master_sku.upper(): p for p in products_by_master}
 
-		# Build per-product stage ΓåÆ latest location from inventory transactions
-		product_ids = [p.id for p in product_map.values()]
-		STAGE_LABELS = {
-			'wax_piece':        'Wax Piece',
-			'wax_setting':      'Wax Setting',
-			'casting':          'Casting',
-			'filling':          'Filling',
-			'pre_polish':       'Pre Polish',
-			'setting':          'Hand Setting',
-			'final_polish':     'Final Polish',
-			'ready_for_plating':'Plating',
-		}
-		# Fetch only transactions that have a non-empty location
-		txns = (
-			InventoryTransaction.objects
-			.filter(product_id__in=product_ids)
-			.exclude(location='')
-			.values('product_id', 'stage', 'location', 'created_at')
-			.order_by('product_id', 'stage', 'created_at')  # last one wins via iteration
-		)
-		# product_id ΓåÆ stage ΓåÆ latest location
-		location_map = {}  # product_id ΓåÆ {stage_key: location_str}
-		for txn in txns:
-			pid = txn['product_id']
-			stage = txn['stage']
-			loc = txn['location'] or ''
-			if loc:
-				if pid not in location_map:
-					location_map[pid] = {}
-				location_map[pid][stage] = loc  # later rows overwrite earlier (ordered by created_at)
+			# Fallback: for SKUs not matched by master_sku, try designer_sku
+			unmatched = [s for s in upper_skus if s not in product_map]
+			if unmatched:
+				products_by_designer = (
+					ProductModel.objects
+					.annotate(upper_designer=Upper('designer_sku'))
+					.filter(upper_designer__in=unmatched)
+					.only('master_sku', 'designer_sku', 'images')
+				)
+				for p in products_by_designer:
+					key = p.designer_sku.upper()
+					if key not in product_map:
+						product_map[key] = p
 
-		def make_absolute(url):
-			"""Turn a relative /media/... path into an absolute URL."""
-			if not url:
-				return None
-			if isinstance(url, dict):
-				# Handle images stored as {url: "..."} objects
-				url = url.get('url') or url.get('src') or ''
-			url = str(url).strip()
-			if not url:
-				return None
-			if url.startswith('http://') or url.startswith('https://') or url.startswith('data:'):
-				return url
-			return request.build_absolute_uri(url)
+			# Build per-product stage → latest location from inventory transactions
+			product_ids = [p.id for p in product_map.values()]
+			STAGE_LABELS = {
+				'wax_piece':        'Wax Piece',
+				'wax_setting':      'Wax Setting',
+				'casting':          'Casting',
+				'filling':          'Filling',
+				'pre_polish':       'Pre Polish',
+				'setting':          'Hand Setting',
+				'final_polish':     'Final Polish',
+				'ready_for_plating':'Plating',
+			}
+			# Fetch only transactions that have a non-empty location
+			txns = (
+				InventoryTransaction.objects
+				.filter(product_id__in=product_ids)
+				.exclude(location='')
+				.values('product_id', 'stage', 'location', 'created_at')
+				.order_by('product_id', 'stage', 'created_at')  # last one wins via iteration
+			)
+			# product_id → stage → latest location
+			location_map = {}  # product_id → {stage_key: location_str}
+			for txn in txns:
+				pid = txn['product_id']
+				stage = txn['stage']
+				loc = txn['location'] or ''
+				if loc:
+					if pid not in location_map:
+						location_map[pid] = {}
+					location_map[pid][stage] = loc
 
-		result = []
-		for row in material_rows:
-			sku = row.get('sku', '').strip()
-			if not sku:
-				continue
-			product = product_map.get(sku.upper())
-			raw_images = product.images if product and isinstance(product.images, list) else []
-			resolved = [make_absolute(img) for img in raw_images]
-			resolved = [img for img in resolved if img]  # filter None/empty
+			def make_absolute(url):
+				"""Turn a relative /media/... path into an absolute URL."""
+				if not url:
+					return None
+				if isinstance(url, dict):
+					# Handle images stored as {url: "..."} objects
+					url = url.get('url') or url.get('src') or ''
+				url = str(url).strip()
+				if not url:
+					return None
+				if url.startswith('http://') or url.startswith('https://') or url.startswith('data:'):
+					return url
+				return request.build_absolute_uri(url)
 
-			# Build location dict for this product
-			stage_locs = location_map.get(product.id, {}) if product else {}
-			location = {label: stage_locs.get(key, '') for key, label in STAGE_LABELS.items()}
+			result = []
+			for sku_upper, (qty, unit) in sku_qty_map.items():
+				product = product_map.get(sku_upper)
+				raw_images = product.images if product and isinstance(product.images, list) else []
+				from common.image_upload import sign_cloudinary_url
+				resolved = [sign_cloudinary_url(make_absolute(img)) for img in raw_images]
+				resolved = [img for img in resolved if img]
 
-			result.append({
-				'sku': sku,
-				'quantity': row.get('issued_qty', ''),
-				'unit': row.get('unit1', 'Pcs'),
-				'images': resolved,
-				'location': location,
-			})
+				# Build location dict for this product
+				stage_locs = location_map.get(product.id, {}) if product else {}
+				location = {label: stage_locs.get(key, '') for key, label in STAGE_LABELS.items()}
 
-		return Response({'success': True, 'data': result})
+				qty_formatted = int(qty) if qty == int(qty) else round(qty, 2)
+
+				result.append({
+					'sku': sku_upper,
+					'quantity': qty_formatted,
+					'unit': unit,
+					'images': resolved,
+					'location': location,
+				})
+
+			return Response({'success': True, 'data': result})
+		except Exception as e:
+			logger.exception("Error in photo_guide:")
+			return Response({'success': False, 'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 	@action(detail=True, methods=['get'], url_path='die-guide')
 	def die_guide(self, request, pk=None):
@@ -2217,170 +2381,216 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 		Image and location come from DieInventoryItem (looked up by die_code).
 		Each entry: { die_code, image, location, qty_needed }
 		"""
-		from products.models import Product as ProductModel
-		from inventory.models import DieInventoryItem, PicklistItem
-		from django.db.models.functions import Upper
+		try:
+			from products.models import Product as ProductModel
+			from inventory.models import DieInventoryItem, PicklistItem, PicklistGroup
+			from django.db.models.functions import Upper
+			from django.db.models import Q
 
-		job = self.get_object()
+			job = self.get_object()
 
-		# ── 1. Build sku_needed_map: UPPER_SKU → qty needed ─────────────────
-		sku_needed_map = {}
-		if job.picklist_group_id:
-			for item in PicklistItem.objects.filter(group_id=job.picklist_group_id).only('sku', 'needed'):
-				sku = item.sku.strip()
-				if sku:
-					sku_needed_map[sku.upper()] = sku_needed_map.get(sku.upper(), 0) + (item.needed or 0)
+			# Collect combined picklist group IDs
+			picklist_ids = []
+			if job.picklist_group_id:
+				picklist_ids.append(job.picklist_group_id)
+			
+			# Parse combined picklist numbers from notes
+			notes = job.notes or ""
+			if "Combined Picklists:" in notes:
+				try:
+					line = [l for l in notes.split('\n') if "Combined Picklists:" in l][0]
+					numbers_str = line.replace("Combined Picklists:", "").strip()
+					numbers = [int(num.strip()) for num in numbers_str.split(',') if num.strip().isdigit()]
+					if numbers:
+						combined_groups = PicklistGroup.objects.filter(number__in=numbers).values_list('id', flat=True)
+						for pg_id in combined_groups:
+							if pg_id not in picklist_ids:
+								picklist_ids.append(pg_id)
+				except Exception:
+					pass
 
-		if not sku_needed_map:
-			# Fallback: collect from this voucher's material_rows
-			for row in (job.material_rows or []):
-				sku = row.get('sku', '').strip()
-				if sku:
-					try:
-						qty = int(row.get('issued_qty') or row.get('qty') or 1)
-					except (ValueError, TypeError):
-						qty = 1
-					sku_needed_map[sku.upper()] = sku_needed_map.get(sku.upper(), 0) + qty
+			# ── 1. Build sku_needed_map: UPPER_SKU → qty needed ─────────────────
+			sku_needed_map = {}
+			if picklist_ids:
+				for item in PicklistItem.objects.filter(group__in=picklist_ids).only('sku', 'needed'):
+					sku = item.sku.strip()
+					if sku:
+						sku_needed_map[sku.upper()] = sku_needed_map.get(sku.upper(), 0) + (item.needed or 0)
 
-		if not sku_needed_map:
-			return Response({'success': True, 'data': []})
+			if not sku_needed_map:
+				# Fallback: collect from this voucher's material_rows
+				for row in (job.material_rows or []):
+					sku = row.get('sku', '').strip()
+					if sku:
+						try:
+							qty = int(row.get('issued_qty') or row.get('qty') or 1)
+						except (ValueError, TypeError):
+							qty = 1
+						sku_needed_map[sku.upper()] = sku_needed_map.get(sku.upper(), 0) + qty
 
-		upper_skus = list(sku_needed_map.keys())
+			if not sku_needed_map:
+				return Response({'success': True, 'data': []})
 
-		# ── 2. Fetch Products (exact match, then variant-prefix fallback) ────
-		exact_prods = (
-			ProductModel.objects
-			.annotate(upper_sku=Upper('master_sku'))
-			.filter(upper_sku__in=upper_skus)
-			.only('master_sku', 'die_numbers')
-		)
-		products_map = {p.master_sku.upper(): p for p in exact_prods}
+			upper_skus = list(sku_needed_map.keys())
 
-		# e.g. picklist has "AJS1/G" but product master_sku is "AJS1"
-		unmatched = [s for s in upper_skus if s not in products_map and '/' in s]
-		if unmatched:
-			prefix_to_variants: dict = {}
-			for s in unmatched:
-				prefix_to_variants.setdefault(s.split('/')[0], []).append(s)
-			prefix_prods = (
+			# ── 2. Fetch Products (exact match, then variant-prefix fallback) ────
+			exact_prods = (
 				ProductModel.objects
 				.annotate(upper_sku=Upper('master_sku'))
-				.filter(upper_sku__in=prefix_to_variants.keys())
+				.filter(upper_sku__in=upper_skus)
 				.only('master_sku', 'die_numbers')
 			)
-			for p in prefix_prods:
-				for variant in prefix_to_variants.get(p.master_sku.upper(), []):
-					if variant not in products_map:
-						products_map[variant] = p
+			products_map = {p.master_sku.upper(): p for p in exact_prods}
 
-		# ── 3. Aggregate die qty: die_code → total_qty_needed ───────────────
-		# Source of truth: Product.die_numbers[i].quantity = qty_per_piece for that SKU
-		die_qty_map: dict[str, float] = {}
+			# e.g. picklist has "AJS1/G" but product master_sku is "AJS1"
+			unmatched = [s for s in upper_skus if s not in products_map and '/' in s]
+			if unmatched:
+				prefix_to_variants: dict = {}
+				for s in unmatched:
+					prefix_to_variants.setdefault(s.split('/')[0], []).append(s)
+				prefix_prods = (
+					ProductModel.objects
+					.annotate(upper_sku=Upper('master_sku'))
+					.filter(upper_sku__in=prefix_to_variants.keys())
+					.only('master_sku', 'die_numbers')
+				)
+				for p in prefix_prods:
+					for variant in prefix_to_variants.get(p.master_sku.upper(), []):
+						if variant not in products_map:
+							products_map[variant] = p
 
-		for upper_sku, needed_qty in sku_needed_map.items():
-			if needed_qty <= 0:
-				continue
-			product = products_map.get(upper_sku)
-			if not product or not isinstance(product.die_numbers, list):
-				continue
-			for entry in product.die_numbers:
-				if not isinstance(entry, dict):
+			# ── 3. Aggregate die qty: die_code → total_qty_needed ───────────────
+			# Source of truth: Product.die_numbers[i].quantity = qty_per_piece for that SKU
+			die_qty_map: dict[str, float] = {}
+
+			for upper_sku, needed_qty in sku_needed_map.items():
+				if needed_qty <= 0:
 					continue
-				die_code = str(entry.get('value') or '').strip()
-				if not die_code:
+				product = products_map.get(upper_sku)
+				if not product or not isinstance(product.die_numbers, list):
 					continue
-				try:
-					qty_per_piece = float(entry.get('quantity') or 0)
-				except (ValueError, TypeError):
-					qty_per_piece = 0.0
-				if qty_per_piece <= 0:
-					continue
-				die_qty_map[die_code] = die_qty_map.get(die_code, 0.0) + qty_per_piece * needed_qty
-
-		if not die_qty_map:
-			return Response({'success': True, 'data': []})
-
-		# ── 4. Fetch DieInventoryItem for image + location ───────────────────
-		die_inv_map = {
-			d.die_code: d
-			for d in DieInventoryItem.objects
-			.filter(die_code__in=die_qty_map.keys())
-			.only('die_code', 'image', 'location', 'designer_skus', 'wax_piece_location', 'wax_setting_location', 'casting_location')
-		}
-
-		def make_absolute(url):
-			"""Turn a relative /media/... path into an absolute URL."""
-			if not url:
-				return None
-			if isinstance(url, dict):
-				# Handle images stored as {url: "..."} objects
-				url = url.get('url') or url.get('src') or ''
-			url = str(url).strip()
-			if not url:
-				return None
-			if url.startswith('http://') or url.startswith('https://') or url.startswith('data:'):
-				return url
-			return request.build_absolute_uri(url)
-
-		result = []
-		for die_code, total_qty in die_qty_map.items():
-			inv = die_inv_map.get(die_code)
-			qty = int(total_qty) if total_qty == int(total_qty) else round(total_qty, 2)
-			
-			raw_img = (inv.image or '') if inv else ''
-			imgs = []
-			if raw_img:
-				if raw_img.startswith('['):
+				for entry in product.die_numbers:
+					if not isinstance(entry, dict):
+						continue
+					die_code = str(entry.get('value') or '').strip()
+					if not die_code:
+						continue
 					try:
-						import json
-						parsed = json.loads(raw_img)
-						if isinstance(parsed, list):
-							imgs = [str(x) for x in parsed]
-						else:
-							imgs = [str(parsed)]
-					except Exception:
+						qty_per_piece = float(entry.get('quantity') or 0)
+					except (ValueError, TypeError):
+						qty_per_piece = 0.0
+					if qty_per_piece <= 0:
+						continue
+					die_qty_map[die_code] = die_qty_map.get(die_code, 0.0) + qty_per_piece * needed_qty
+
+			if not die_qty_map:
+				return Response({'success': True, 'data': []})
+
+			# ── 4. Fetch DieInventoryItem for image + location ───────────────────
+			die_inv_map = {
+				d.die_code: d
+				for d in DieInventoryItem.objects
+				.filter(die_code__in=die_qty_map.keys())
+				.only('die_code', 'image', 'location', 'designer_skus', 'wax_piece_location', 'wax_setting_location', 'casting_location')
+			}
+
+			def make_absolute(url):
+				"""Turn a relative /media/... path into an absolute URL."""
+				if not url:
+					return None
+				if isinstance(url, dict):
+					# Handle images stored as {url: "..."} objects
+					url = url.get('url') or url.get('src') or ''
+				url = str(url).strip()
+				if not url:
+					return None
+				if url.startswith('http://') or url.startswith('https://') or url.startswith('data:'):
+					return url
+				return request.build_absolute_uri(url)
+
+			result = []
+			for die_code, total_qty in die_qty_map.items():
+				inv = die_inv_map.get(die_code)
+				qty = int(total_qty) if total_qty == int(total_qty) else round(total_qty, 2)
+				
+				raw_img = (inv.image or '') if inv else ''
+				imgs = []
+				if raw_img:
+					if raw_img.startswith('['):
+						try:
+							import json
+							parsed = json.loads(raw_img)
+							if isinstance(parsed, list):
+								imgs = [str(x) for x in parsed]
+							else:
+								imgs = [str(parsed)]
+						except Exception:
+							imgs = [raw_img]
+					elif ',' in raw_img:
+						imgs = [x.strip() for x in raw_img.split(',') if x.strip()]
+					else:
 						imgs = [raw_img]
-				elif ',' in raw_img:
-					imgs = [x.strip() for x in raw_img.split(',') if x.strip()]
-				else:
-					imgs = [raw_img]
 
-			# Resolve image URLs to absolute URLs
-			resolved_imgs = []
-			for img in imgs:
-				abs_img = make_absolute(img)
-				if abs_img:
-					resolved_imgs.append(abs_img)
+				# Resolve image URLs to absolute URLs
+				resolved_imgs = []
+				for img in imgs:
+					abs_img = make_absolute(img)
+					if abs_img:
+						from common.image_upload import sign_cloudinary_url
+						resolved_imgs.append(sign_cloudinary_url(abs_img))
 
-			# If no custom photos uploaded, fetch from Master Designer Sheet (fallback)
-			if not resolved_imgs and inv:
-				from designers.models import DesignerSheet
-				skus = [s for s in (inv.designer_skus or []) if s]
-				if skus:
+				# If no custom photos uploaded, fetch from Master Designer Sheet & Product Sheet (fallback)
+				if not resolved_imgs and inv:
+					from designers.models import DesignerSheet
+					from products.models import Product
+					skus = [s for s in (inv.designer_skus or []) if s]
+					master_skus = [s for s in (inv.master_skus or []) if s]
 					seen = set()
-					sheets = DesignerSheet.objects.filter(sku__in=skus).only(
-						'sku', 'rendered_photo', 'image', 'designer_image_2', 'designer_image_3', 'technical_drawing'
-					)
-					for sheet in sheets:
-						for url in (sheet.rendered_photo, sheet.image, sheet.designer_image_2, sheet.designer_image_3, sheet.technical_drawing):
-							if url:
-								abs_url = make_absolute(url)
-								if abs_url and abs_url not in seen:
-									seen.add(abs_url)
-									resolved_imgs.append(abs_url)
+					
+					# 1. Fetch from DesignerSheet
+					if skus:
+						sheets = DesignerSheet.objects.filter(sku__in=skus).only(
+							'sku', 'rendered_photo', 'image', 'designer_image_2', 'designer_image_3', 'technical_drawing'
+						)
+						for sheet in sheets:
+							for url in (sheet.rendered_photo, sheet.image, sheet.designer_image_2, sheet.designer_image_3, sheet.technical_drawing):
+								if url:
+									abs_url = make_absolute(url)
+									if abs_url and abs_url not in seen:
+										seen.add(abs_url)
+										from common.image_upload import sign_cloudinary_url
+										resolved_imgs.append(sign_cloudinary_url(abs_url))
 
-			result.append({
-				'die_code': die_code,
-				'image': resolved_imgs[0] if resolved_imgs else '',
-				'images': resolved_imgs,
-				'location': (inv.location or '') if inv else '',
-				'wax_piece_location': (inv.wax_piece_location or '') if inv else '',
-				'wax_setting_location': (inv.wax_setting_location or '') if inv else '',
-				'casting_location': (inv.casting_location or '') if inv else '',
-				'qty_needed': qty,
-			})
+					# 2. Fetch from Product (Master product sheet)
+					if master_skus:
+						products = ProductModel.objects.filter(master_sku__in=master_skus).only('images')
+						for prod in products:
+							raw_imgs = prod.images if isinstance(prod.images, list) else []
+							for url in raw_imgs:
+								if isinstance(url, dict):
+									url = url.get('url') or url.get('src') or ''
+								if url:
+									abs_url = make_absolute(url)
+									if abs_url and abs_url not in seen:
+										seen.add(abs_url)
+										from common.image_upload import sign_cloudinary_url
+										resolved_imgs.append(sign_cloudinary_url(abs_url))
 
-		return Response({'success': True, 'data': result})
+				result.append({
+					'die_code': die_code,
+					'image': resolved_imgs[0] if resolved_imgs else '',
+					'images': resolved_imgs,
+					'location': (inv.location or '') if inv else '',
+					'wax_piece_location': (inv.wax_piece_location or '') if inv else '',
+					'wax_setting_location': (inv.wax_setting_location or '') if inv else '',
+					'casting_location': (inv.casting_location or '') if inv else '',
+					'qty_needed': qty,
+				})
+
+			return Response({'success': True, 'data': result})
+		except Exception as e:
+			logger.exception("Error in die_guide:")
+			return Response({'success': False, 'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 	@action(detail=True, methods=['post'], url_path='reissue-for-improvement')
 	def reissue_for_improvement(self, request, pk=None):
@@ -2508,14 +2718,22 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 				from core_tenants.models import Company
 				Company.objects.select_for_update().get(id=company.id)
 
-			# Next voucher counter
-			last_voucher = Job.objects.select_for_update().filter(voucher_no__startswith='JJ-').order_by('-id').first()
-			counter = 1
-			if last_voucher and last_voucher.voucher_no:
-				try:
-					counter = int(last_voucher.voucher_no.split('-')[1]) + 1
-				except (ValueError, IndexError):
-					counter = 1
+			# Next voucher counter, finding the max counter number of today
+			today = timezone.now().date()
+			locked_vouchers = list(Job.objects.select_for_update().filter(
+				voucher_no__startswith='JJ-',
+				created_at__date=today
+			))
+			max_num = 0
+			for v in locked_vouchers:
+				if v.voucher_no:
+					try:
+						num = int(v.voucher_no.split('-')[1])
+						if num > max_num:
+							max_num = num
+					except (ValueError, IndexError):
+						pass
+			counter = max_num + 1
 			# ΓöÇΓöÇ Mark the current voucher as Replaced ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 			voucher.approval_status = VoucherApprovalStatus.REPLACED
 			voucher.save(update_fields=['approval_status'])
@@ -2608,9 +2826,16 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 				if note:
 					notes_text += f' {note}'
 
+				from core_tenants.context import get_current_tenant, get_current_company
+				tenant_obj = voucher.tenant or get_current_tenant() or (request.user.tenant if request.user and request.user.is_authenticated else None)
+				company_obj = voucher.company or get_current_company() or (request.user.active_company if request.user and request.user.is_authenticated else None)
+				if company_obj is None and tenant_obj is not None:
+					from core_tenants.models import Company
+					company_obj = Company.objects.filter(tenant=tenant_obj).first()
+
 				new_v = Job.objects.create(
-					tenant=voucher.tenant,
-					company=voucher.company,
+					tenant=tenant_obj,
+					company=company_obj,
 					title=title,
 					product=stage_v.product,
 					status='created',

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, ChevronDown, Download, Pencil, Plus, Printer, RefreshCw, Trash2, X } from 'lucide-react';
+import { ArrowLeft, ChevronDown, Download, Info, Pencil, Plus, Printer, RefreshCw, Trash2, X } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import SortPopover from '@/components/sort-popover';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
@@ -16,6 +16,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
 import GlobalSearchBar from '@/components/global-search-bar';
 import DateTimeStamp from '@/components/date-time-stamp';
@@ -213,7 +218,24 @@ export default function StoneInventoryPage() {
 
   // Receive Stone workflow
   const [receiveOpen, setReceiveOpen] = useState(false);
-  const [receiveForm, setReceiveForm] = useState({ stoneId: '', quantity: '', employeeVendorName: '', referenceId: '', price: '', usage: 'new', cut: '', shape: '', length: '', width: '', height: '' });
+  const [receiveForm, setReceiveForm] = useState({
+    stoneId: '',
+    quantity: '',
+    weight: '',
+    weight_unit: 'cts',
+    price: '',
+    price_by: 'pcs',
+    amount: '',
+    quality: '',
+    employeeVendorName: '',
+    referenceId: '',
+    usage: 'new',
+    cut: '',
+    shape: '',
+    length: '',
+    width: '',
+    height: ''
+  });
   const [workforceMembers, setWorkforceMembers] = useState([]);
   const [enrollWorkforceOpen, setEnrollWorkforceOpen] = useState(false);
   const [currentUserName, setCurrentUserName] = useState('');
@@ -461,30 +483,122 @@ export default function StoneInventoryPage() {
     setIssueJobOpen(true);
   }
 
+
+
+  const handleReceiveFormChange = (key, value) => {
+    setReceiveForm((prev) => {
+      const updated = { ...prev, [key]: value };
+      const priceVal = parseFloat(updated.price) || 0;
+      const qtyVal = parseFloat(updated.quantity) || 0;
+      const weightVal = parseFloat(updated.weight) || 0;
+      const priceBy = updated.price_by || 'pcs';
+      
+      const totalAmount = priceBy === 'weight' ? priceVal * weightVal : priceVal * qtyVal;
+      updated.amount = totalAmount > 0 ? String(totalAmount) : '';
+      return updated;
+    });
+  };
+
   function openReceivePopup() {
-    setReceiveForm({ stoneId: '', quantity: '', employeeVendorName: '', referenceId: '', price: '', usage: 'new', cut: '', shape: '', length: '', width: '', height: '' });
+    setReceiveForm({
+      stoneId: '',
+      quantity: '',
+      weight: '',
+      weight_unit: 'cts',
+      price: '',
+      price_by: 'pcs',
+      amount: '',
+      quality: '',
+      employeeVendorName: '',
+      referenceId: '',
+      usage: 'new',
+      cut: '',
+      shape: '',
+      length: '',
+      width: '',
+      height: ''
+    });
     setReceiveOpen(true);
   }
 
-  function createReceiveRequest() {
+  async function createReceiveRequest() {
     const stoneIdNum = Number(receiveForm.stoneId);
-    const quantityNum = Number(receiveForm.quantity);
+    const quantityNum = Number(receiveForm.quantity) || 0;
+    const weightNum = Number(receiveForm.weight) || 0;
     const employeeVendorName = receiveForm.employeeVendorName.trim();
     const referenceId = receiveForm.referenceId.trim();
-    const price = receiveForm.price.trim();
+    const price = receiveForm.price || '0';
+    const amount = receiveForm.amount || '0';
+    const unit = receiveForm.weight_unit || 'cts';
+    
     if (!stoneIdNum) { setStatusMsg('Please select a stone.'); return; }
-    if (!Number.isFinite(quantityNum) || quantityNum <= 0) { setStatusMsg('Please enter a valid quantity greater than 0.'); return; }
+    if (quantityNum <= 0 && weightNum <= 0) { setStatusMsg('Please enter a valid quantity or weight.'); return; }
     if (!employeeVendorName) { setStatusMsg('Please enter employee/vendor name.'); return; }
     if (!referenceId) { setStatusMsg('Please enter a reference ID.'); return; }
-    if (!price) { setStatusMsg('Please enter a price.'); return; }
-    const stone = stones.find((s) => s.id === stoneIdNum);
-    if (receiveForm.usage === 'used') {
-      setStones((prev) => prev.map((s) => s.id === stoneIdNum ? { ...s, used_qty: Number(s.used_qty || 0) + quantityNum } : s));
-    } else {
-      setStones((prev) => prev.map((s) => s.id === stoneIdNum ? { ...s, qty: Number(s.qty || 0) + quantityNum } : s));
+    if (!price || Number(price) <= 0) { setStatusMsg('Please enter a price.'); return; }
+
+    // Convert weight to cts (Carats) for inventory tracking
+    let weightCts = weightNum;
+    if (unit === 'g') {
+      weightCts = weightNum * 5;
+    } else if (unit === 'kg') {
+      weightCts = weightNum * 5000;
     }
-    setReceiveOpen(false);
-    setStatusMsg(`Received ${quantityNum} of ${stone?.species || 'Stone #' + stoneIdNum} from ${employeeVendorName}.`);
+
+    const stone = stones.find((s) => s.id === stoneIdNum);
+    setSavingStock(true);
+    setStatusMsg('');
+    
+    try {
+      const stoneUpdate = {
+        quality: receiveForm.quality || '',
+        cut: receiveForm.cut || '',
+        shape: receiveForm.shape || '',
+        length: receiveForm.length || '',
+        width: receiveForm.width || '',
+        height: receiveForm.height || '',
+      };
+      
+      const patchRes = await fetch(`/api/stone-inventory/${stoneIdNum}`, {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(stoneUpdate),
+      });
+      if (!patchRes.ok) {
+        const err = await patchRes.json().catch(() => ({}));
+        throw new Error(err.message || 'Failed to update stone details.');
+      }
+
+      const payload = {
+        stone: stoneIdNum,
+        qty_added: String(quantityNum),
+        weight_cts_added: String(weightCts),
+        price: price,
+        price_by: receiveForm.price_by || 'pcs',
+        amount: amount,
+        remark: `Received from ${employeeVendorName}. Ref: ${referenceId}. Usage: ${receiveForm.usage} (Original weight: ${weightNum} ${unit})`,
+      };
+      
+      const res = await fetch('/api/stone-transactions', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || 'Failed to save stone transaction.');
+      }
+
+      setStatusMsg(`Received ${quantityNum} pcs / ${weightNum} cts of ${stoneName(stone)} from ${employeeVendorName}.`);
+      setReceiveOpen(false);
+      await loadStones();
+    } catch (err) {
+      setStatusMsg(`Error receiving stone: ${err.message}`);
+    } finally {
+      setSavingStock(false);
+    }
   }
 
   async function createIssueRequest() {
@@ -1635,7 +1749,7 @@ export default function StoneInventoryPage() {
       </Dialog>
 
       <Dialog open={receiveOpen} onOpenChange={setReceiveOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-lg font-semibold text-midnight-ink">Add Stone</DialogTitle>
           </DialogHeader>
@@ -1644,12 +1758,25 @@ export default function StoneInventoryPage() {
               <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Stone</label>
               <select
                 value={receiveForm.stoneId}
-                onChange={(e) => setReceiveForm((prev) => ({ ...prev, stoneId: e.target.value }))}
+                onChange={(e) => {
+                  const stoneId = e.target.value;
+                  const selectedStone = stones.find((s) => String(s.id) === stoneId);
+                  setReceiveForm((prev) => ({
+                    ...prev,
+                    stoneId,
+                    quality: selectedStone?.quality || '',
+                    cut: selectedStone?.cut || '',
+                    shape: selectedStone?.shape || '',
+                    length: selectedStone?.length || '',
+                    width: selectedStone?.width || '',
+                    height: selectedStone?.height || '',
+                  }));
+                }}
                 className="w-full rounded-md border border-soft-border bg-background px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
               >
                 <option value="">Select stone</option>
                 {stones.map((s) => (
-                  <option key={s.id} value={s.id}>{s.species || s.variety || `Stone #${s.id}`}</option>
+                  <option key={s.id} value={s.id}>{s.stone_type ? `${s.stone_type} / ${s.species || ''} / ${s.variety || ''}` : (s.species || s.variety || `Stone #${s.id}`)}</option>
                 ))}
               </select>
               {receiveForm.stoneId && (() => {
@@ -1676,6 +1803,7 @@ export default function StoneInventoryPage() {
               </select>
               <button type="button" onClick={() => setEnrollWorkforceOpen(true)} className="text-xs text-trust-blue hover:underline mt-0.5 text-left">+ Quick Enrol Workforce</button>
             </div>
+            
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               <div className="flex flex-col gap-1">
                 <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Reference ID</label>
@@ -1684,46 +1812,144 @@ export default function StoneInventoryPage() {
                   value={receiveForm.referenceId}
                   onChange={(e) => setReceiveForm((prev) => ({ ...prev, referenceId: e.target.value }))}
                   placeholder="e.g. REF-001"
-                  className="w-full rounded-md border border-soft-border px-3 py-1.5 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                  className="w-full rounded-md border border-soft-border bg-background px-3 py-1.5 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
                 />
               </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Quality</label>
+                <input
+                  type="text"
+                  value={receiveForm.quality}
+                  onChange={(e) => setReceiveForm((prev) => ({ ...prev, quality: e.target.value }))}
+                  placeholder="e.g. AA+"
+                  className="w-full rounded-md border border-soft-border bg-background px-3 py-1.5 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Usage</label>
+                <select
+                  value={receiveForm.usage}
+                  onChange={(e) => setReceiveForm((prev) => ({ ...prev, usage: e.target.value }))}
+                  className="w-full rounded-md border border-soft-border bg-background px-3 py-1.5 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                >
+                  <option value="new">New</option>
+                  <option value="used">Used</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-5">
               <div className="flex flex-col gap-1">
                 <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Quantity</label>
                 <input
                   type="number"
                   min={0}
                   value={receiveForm.quantity}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    if (value === '') { setReceiveForm((prev) => ({ ...prev, quantity: '' })); return; }
-                    const num = Number(value);
-                    setReceiveForm((prev) => ({ ...prev, quantity: String(Number.isFinite(num) ? Math.max(0, num) : 0) }));
-                  }}
-                  className="w-full rounded-md border border-soft-border px-3 py-1.5 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                  placeholder="0"
+                  onChange={(e) => handleReceiveFormChange('quantity', e.target.value)}
+                  className="w-full rounded-md border border-soft-border bg-background px-3 py-1.5 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
                 />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Weight</label>
+                <div className="flex h-[34px] w-full rounded-md border border-soft-border bg-background focus-within:ring-1 focus-within:ring-trust-blue overflow-hidden">
+                  <input
+                    type="number"
+                    min={0}
+                    step="any"
+                    value={receiveForm.weight}
+                    placeholder="0.00"
+                    onChange={(e) => handleReceiveFormChange('weight', e.target.value)}
+                    className="flex-1 min-w-0 bg-transparent px-3 py-1 text-sm text-midnight-ink focus:outline-none placeholder:text-cool-gray"
+                  />
+                  <select
+                    value={receiveForm.weight_unit || 'cts'}
+                    onChange={(e) => handleReceiveFormChange('weight_unit', e.target.value)}
+                    className="bg-muted px-2 py-1 text-xs font-medium text-midnight-ink focus:outline-none cursor-pointer border-l border-soft-border h-full"
+                  >
+                    <option value="cts">cts</option>
+                    <option value="g">g</option>
+                    <option value="kg">kg</option>
+                  </select>
+                </div>
               </div>
               <div className="flex flex-col gap-1">
                 <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Price</label>
                 <input
-                  type="text"
+                  type="number"
+                  min={0}
+                  step="any"
                   value={receiveForm.price}
-                  onChange={(e) => setReceiveForm((prev) => ({ ...prev, price: e.target.value }))}
                   placeholder="e.g. 500"
-                  className="w-full rounded-md border border-soft-border px-3 py-1.5 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                  onChange={(e) => handleReceiveFormChange('price', e.target.value)}
+                  className="w-full rounded-md border border-soft-border bg-background px-3 py-1.5 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                />
+              </div>
+              <div className="flex flex-col gap-1 relative">
+                <div className="flex items-center gap-1.5">
+                  <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Price By</label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <button
+                        type="button"
+                        className="text-cool-gray hover:text-trust-blue focus:outline-none transition-colors cursor-pointer"
+                      >
+                        <Info size={14} />
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-80 p-4 shadow-xl z-[9999]" side="top" align="center">
+                      <h4 className="font-bold mb-1.5 text-trust-blue text-sm">Calculation Details</h4>
+                      <p className="mb-2 text-xs text-cool-gray">
+                        The Amount is calculated automatically based on your choice in <span className="font-semibold text-foreground">Price By</span>:
+                      </p>
+                      <ul className="space-y-2 mb-3 text-xs">
+                        <li>
+                          <span className="font-semibold text-foreground">● Pieces</span>: Calculates amount by multiplying quantity:
+                          <div className="bg-muted dark:bg-muted/30 p-1.5 rounded font-mono mt-0.5 border border-soft-border">
+                            Amount = Qty × Price
+                          </div>
+                        </li>
+                        <li>
+                          <span className="font-semibold text-foreground">● Weight</span>: Calculates amount by multiplying weight in the selected unit:
+                          <div className="bg-muted dark:bg-muted/30 p-1.5 rounded font-mono mt-0.5 border border-soft-border">
+                            Amount = Weight ({receiveForm.weight_unit || 'cts'}) × Price
+                          </div>
+                        </li>
+                      </ul>
+                      <div className="border-t border-soft-border pt-2 mt-2 text-xs">
+                        <h5 className="font-semibold mb-1 text-foreground">Weight Unit Conversions:</h5>
+                        <p className="text-[11px] text-cool-gray mb-1.5">
+                          For consistent inventory tracking, weights in other units are automatically converted to Carats (cts) when saved:
+                        </p>
+                        <ul className="list-disc list-inside mt-1 font-mono text-[10px] text-cool-gray space-y-0.5 bg-muted dark:bg-muted/30 p-1.5 rounded border border-soft-border">
+                          <li>1 Gram (g) = 5 Carats (cts)</li>
+                          <li>1 Kilogram (kg) = 5,000 Carats (cts)</li>
+                        </ul>
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                </div>
+                <select
+                  value={receiveForm.price_by}
+                  onChange={(e) => handleReceiveFormChange('price_by', e.target.value)}
+                  className="w-full rounded-md border border-soft-border bg-background px-3 py-1.5 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                >
+                  <option value="pcs">Pieces</option>
+                  <option value="weight">Weight</option>
+                </select>
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Amount</label>
+                <input
+                  type="text"
+                  value={receiveForm.amount}
+                  disabled
+                  placeholder="—"
+                  className="w-full rounded-md border border-transparent bg-green-50 dark:bg-green-950/40 px-3 py-1.5 text-sm font-semibold text-success-dark dark:text-emerald-400 focus:outline-none cursor-default"
                 />
               </div>
             </div>
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Usage</label>
-              <select
-                value={receiveForm.usage}
-                onChange={(e) => setReceiveForm((prev) => ({ ...prev, usage: e.target.value }))}
-                className="w-full rounded-md border border-soft-border bg-background px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
-              >
-                <option value="new">New</option>
-                <option value="used">Used</option>
-              </select>
-            </div>
+
             <div className="grid grid-cols-5 gap-2">
               {[['Cut', 'cut'], ['Shape', 'shape'], ['Length', 'length'], ['Width', 'width'], ['Height', 'height']].map(([label, key]) => (
                 <div key={key} className="flex flex-col gap-1">
@@ -1732,7 +1958,7 @@ export default function StoneInventoryPage() {
                     type="text"
                     value={receiveForm[key]}
                     onChange={(e) => setReceiveForm((prev) => ({ ...prev, [key]: e.target.value }))}
-                    className="w-full rounded-md border border-soft-border px-2 py-1.5 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
+                    className="w-full rounded-md border border-soft-border bg-background px-2 py-1.5 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
                   />
                 </div>
               ))}

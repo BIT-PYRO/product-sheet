@@ -338,50 +338,162 @@ class DieInventoryItemSerializer(serializers.ModelSerializer):
     designer_images = serializers.SerializerMethodField()
 
     def get_designer_images(self, obj):
-        """Return a deduplicated list of image URLs from all linked DesignerSheet records.
+        """Return a deduplicated list of image URLs from both DesignerSheet and Product records.
 
-        For list actions the ViewSet injects a precomputed ``sku_images`` dict into
-        the serializer context so this method performs zero extra DB queries.  For
-        detail/other actions it falls back to a single filter query.
+        For list actions the ViewSet injects precomputed ``sku_images`` and ``product_images``
+        dicts into the serializer context so this method performs zero extra DB queries. For
+        detail/other actions it falls back to single filter queries.
         """
         try:
             skus = [s for s in (obj.designer_skus or []) if s]
-            if not skus:
+            master_skus = [s for s in (obj.master_skus or []) if s]
+            if not skus and not master_skus:
                 return []
             seen = set()
             images = []
-            sku_images = self.context.get('sku_images')  # injected by ViewSet for list
-            if sku_images is not None:
-                for sku in skus:
-                    for url in sku_images.get(sku, []):
-                        if url not in seen:
-                            seen.add(url)
-                            images.append(url)
-                return images
+            
+            # Check context optimization
+            sku_images = self.context.get('sku_images')
+            product_images = self.context.get('product_images')
+            
+            if sku_images is not None or product_images is not None:
+                if sku_images is not None:
+                    for sku in skus:
+                        for url in sku_images.get(sku, []):
+                            if url not in seen:
+                                seen.add(url)
+                                images.append(url)
+                if product_images is not None:
+                    for sku in master_skus:
+                        for url in product_images.get(sku, []):
+                            if url not in seen:
+                                seen.add(url)
+                                images.append(url)
+                from common.image_upload import sign_cloudinary_url
+                return [sign_cloudinary_url(url) for url in images]
+                
             # Fallback: single query (detail / other actions)
             from designers.models import DesignerSheet
-            sheets = DesignerSheet.objects.filter(sku__in=skus).only(
-                'sku', 'rendered_photo', 'image', 'designer_image_2', 'designer_image_3', 'technical_drawing'
-            )
-            for sheet in sheets:
-                for url in (sheet.rendered_photo, sheet.image, sheet.designer_image_2, sheet.designer_image_3, sheet.technical_drawing):
-                    if url and url not in seen:
-                        seen.add(url)
-                        images.append(url)
-            return images
+            from products.models import Product
+            
+            if skus:
+                sheets = DesignerSheet.objects.filter(sku__in=skus).only(
+                    'sku', 'rendered_photo', 'image', 'designer_image_2', 'designer_image_3', 'technical_drawing'
+                )
+                for sheet in sheets:
+                    for url in (sheet.rendered_photo, sheet.image, sheet.designer_image_2, sheet.designer_image_3, sheet.technical_drawing):
+                        if url and url not in seen:
+                            seen.add(url)
+                            images.append(url)
+                            
+            if master_skus:
+                products = Product.objects.filter(master_sku__in=master_skus).only('images')
+                for prod in products:
+                    raw_imgs = prod.images if isinstance(prod.images, list) else []
+                    for url in raw_imgs:
+                        if isinstance(url, dict):
+                            url = url.get('url') or url.get('src') or ''
+                        if url and url not in seen:
+                            seen.add(url)
+                            images.append(url)
+                            
+            from common.image_upload import sign_cloudinary_url
+            return [sign_cloudinary_url(url) for url in images]
         except Exception:
             return []
+
+    def _process_images(self, validated_data, instance=None):
+        from common.image_upload import upload_image_base64, unsign_cloudinary_url
+        import uuid
+
+        die_code = (
+            validated_data.get('die_code')
+            or (instance.die_code if instance else '')
+            or 'unknown'
+        )
+        safe_die_code = die_code.replace('/', '-').replace(' ', '-').strip('-') or 'unknown'
+        folder = f'dies/{safe_die_code}'
+
+        raw_image = validated_data.get('image') or ''
+
+        # Parse raw_image into a list of image items
+        imgs = []
+        if raw_image:
+            raw_image = raw_image.strip()
+            if raw_image.startswith('['):
+                try:
+                    import json
+                    parsed = json.loads(raw_image)
+                    if isinstance(parsed, list):
+                        imgs = [str(x) for x in parsed]
+                    else:
+                        imgs = [str(parsed)]
+                except Exception:
+                    imgs = [raw_image]
+            elif ',' in raw_image:
+                imgs = [x.strip() for x in raw_image.split(',') if x.strip()]
+            else:
+                imgs = [raw_image]
+
+        processed = []
+        for idx, img in enumerate(imgs):
+            img = img.strip()
+            if not img:
+                continue
+            if img.startswith('data:image/'):
+                # Upload to cloudinary
+                url = upload_image_base64(img, folder=folder, public_id=f'image_{idx + 1}_{uuid.uuid4().hex[:6]}')
+                if url and not url.startswith('data:image/'):
+                    processed.append(unsign_cloudinary_url(url))
+            else:
+                processed.append(unsign_cloudinary_url(img))
+
+        # Store as JSON list string (unsigned URLs)
+        import json
+        validated_data['image'] = json.dumps(processed)
+        return validated_data
 
     def _sync_images(self, instance):
         try:
             skus = [s for s in (instance.designer_skus or []) if s]
-            if not skus:
+            master_skus = [s for s in (instance.master_skus or []) if s]
+            if not skus and not master_skus:
                 return
             from designers.models import DesignerSheet
-            sheets = DesignerSheet.objects.filter(sku__in=skus).only(
-                'sku', 'rendered_photo', 'image', 'designer_image_2', 'designer_image_3', 'technical_drawing'
-            )
+            from products.models import Product
+            from common.image_upload import unsign_cloudinary_url
+            
             design_imgs = []
+            seen = set()
+
+            # 1. Fetch from DesignerSheet
+            if skus:
+                sheets = DesignerSheet.objects.filter(sku__in=skus).only(
+                    'sku', 'rendered_photo', 'image', 'designer_image_2', 'designer_image_3', 'technical_drawing'
+                )
+                for sheet in sheets:
+                    for url in (sheet.rendered_photo, sheet.image, sheet.designer_image_2, sheet.designer_image_3, sheet.technical_drawing):
+                        if url:
+                            clean_url = unsign_cloudinary_url(url)
+                            if clean_url not in seen:
+                                seen.add(clean_url)
+                                design_imgs.append(clean_url)
+
+            # 2. Fetch from Product (Master product sheet)
+            if master_skus:
+                products = Product.objects.filter(master_sku__in=master_skus).only('images')
+                for prod in products:
+                    raw_imgs = prod.images if isinstance(prod.images, list) else []
+                    for url in raw_imgs:
+                        if isinstance(url, dict):
+                            url = url.get('url') or url.get('src') or ''
+                        if url:
+                            clean_url = unsign_cloudinary_url(url)
+                            if clean_url not in seen:
+                                seen.add(clean_url)
+                                design_imgs.append(clean_url)
+
+            # Gather custom images from instance.image
             existing_image = instance.image or ''
             existing_imgs = []
             if existing_image:
@@ -390,42 +502,64 @@ class DieInventoryItemSerializer(serializers.ModelSerializer):
                         import json
                         parsed = json.loads(existing_image)
                         if isinstance(parsed, list):
-                            existing_imgs = [str(x) for x in parsed]
+                            existing_imgs = [unsign_cloudinary_url(str(x)) for x in parsed]
                         else:
-                            existing_imgs = [str(parsed)]
+                            existing_imgs = [unsign_cloudinary_url(str(parsed))]
                     except Exception:
-                        existing_imgs = [existing_image]
+                        existing_imgs = [unsign_cloudinary_url(existing_image)]
                 elif ',' in existing_image:
-                    existing_imgs = [x.strip() for x in existing_image.split(',') if x.strip()]
+                    existing_imgs = [unsign_cloudinary_url(x.strip()) for x in existing_image.split(',') if x.strip()]
                 else:
-                    existing_imgs = [existing_image]
+                    existing_imgs = [unsign_cloudinary_url(existing_image)]
 
-            seen = set(existing_imgs)
-            for sheet in sheets:
-                for url in (sheet.rendered_photo, sheet.image, sheet.designer_image_2, sheet.designer_image_3, sheet.technical_drawing):
-                    if url and url not in seen:
-                        seen.add(url)
-                        design_imgs.append(url)
+            # Combine custom images (taking priority) with fallback images
+            final_seen = set(existing_imgs)
+            fallback_to_add = [url for url in design_imgs if url not in final_seen]
 
-            if design_imgs:
-                combined = existing_imgs + design_imgs
-                import json
-                instance.image = json.dumps(combined)
-                instance.save(update_fields=['image', 'updated_at'])
+            combined = existing_imgs + fallback_to_add
+            import json
+            instance.image = json.dumps(combined)
+            instance.save(update_fields=['image', 'updated_at'])
         except Exception:
             pass
 
     @transaction.atomic
     def create(self, validated_data):
+        validated_data = self._process_images(validated_data)
         instance = super().create(validated_data)
         self._sync_images(instance)
         return instance
 
     @transaction.atomic
     def update(self, instance, validated_data):
+        validated_data = self._process_images(validated_data, instance)
         instance = super().update(instance, validated_data)
         self._sync_images(instance)
         return instance
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        raw_img = data.get('image') or ''
+        if raw_img:
+            from common.image_upload import sign_cloudinary_url
+            if raw_img.startswith('['):
+                try:
+                    import json
+                    parsed = json.loads(raw_img)
+                    if isinstance(parsed, list):
+                        signed_imgs = [sign_cloudinary_url(str(x)) for x in parsed]
+                        data['image'] = json.dumps(signed_imgs)
+                    else:
+                        data['image'] = sign_cloudinary_url(str(parsed))
+                except Exception:
+                    data['image'] = sign_cloudinary_url(raw_img)
+            elif ',' in raw_img:
+                parts = [x.strip() for x in raw_img.split(',') if x.strip()]
+                signed_parts = [sign_cloudinary_url(x) for x in parts]
+                data['image'] = ', '.join(signed_parts)
+            else:
+                data['image'] = sign_cloudinary_url(raw_img)
+        return data
 
     class Meta:
         model = DieInventoryItem

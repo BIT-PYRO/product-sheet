@@ -22,11 +22,23 @@ function toIsoZ(date) {
   return date.toISOString().replace(/\.\d{3}Z$/, 'Z');
 }
 
-function buildDateRange() {
-  // Default 7 days: if auto-sync misses a day, we still catch recent batches.
-  // Unify filters by batch printing date (not order creation date), so a wider
-  // window never double-counts — dedup by batch ID handles re-syncing.
-  const daysBack = Math.max(0, parseInt(process.env.PICKLIST_SYNC_DAYS_BACK || '7', 10));
+function buildDateRange(request) {
+  let daysBack = 7;
+  try {
+    if (request && request.url) {
+      const urlObj = new URL(request.url);
+      const daysParam = urlObj.searchParams.get('days');
+      if (daysParam) {
+        daysBack = Math.max(0, parseInt(daysParam, 10));
+      } else {
+        daysBack = Math.max(0, parseInt(process.env.PICKLIST_SYNC_DAYS_BACK || '7', 10));
+      }
+    } else {
+      daysBack = Math.max(0, parseInt(process.env.PICKLIST_SYNC_DAYS_BACK || '7', 10));
+    }
+  } catch {
+    daysBack = Math.max(0, parseInt(process.env.PICKLIST_SYNC_DAYS_BACK || '7', 10));
+  }
   const now = new Date();
 
   // Work in UTC so the window is never clipped by the server's local timezone
@@ -38,8 +50,8 @@ function buildDateRange() {
   return { from: toIsoZ(fromUtc), to: toIsoZ(toUtc) };
 }
 
-function appendDateParams(baseUrl) {
-  const { from, to } = buildDateRange();
+function appendDateParams(baseUrl, request) {
+  const { from, to } = buildDateRange(request);
   const url = new URL(baseUrl);
   // Respect hard-coded dates already in the URL, otherwise inject the current range
   if (!url.searchParams.has('from_date')) url.searchParams.set('from_date', from);
@@ -327,7 +339,7 @@ export async function POST(request) {
   // ── 1. Build URL with fresh date range ───────────────────────────────────
   let apiUrl;
   try {
-    apiUrl = appendDateParams(baseUrl);
+    apiUrl = appendDateParams(baseUrl, request);
   } catch {
     apiUrl = baseUrl;
   }

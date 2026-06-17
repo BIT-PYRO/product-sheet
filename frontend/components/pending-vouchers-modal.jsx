@@ -422,7 +422,12 @@ export function PendingVouchersModal({ open, onOpenChange, onVouchersApproved })
                         ? <ChevronDown className="h-4 w-4 text-trust-blue dark:text-blue-400 shrink-0" />
                         : <ChevronRight className="h-4 w-4 text-cool-gray shrink-0" />
                       }
-                      <span className="text-sm font-bold text-midnight-ink dark:text-slate-200">{voucher.voucher_no}</span>
+                      <span
+                        className="text-sm font-bold text-midnight-ink dark:text-slate-200"
+                        title={voucher.picklist_name ? `${voucher.voucher_no} - ${voucher.picklist_name}` : voucher.voucher_no}
+                      >
+                        {voucher.voucher_no}{voucher.picklist_name ? ` - ${voucher.picklist_name}` : ''}
+                      </span>
                       <VoucherStatusBadge status={voucher.approval_status} type={voucher.voucher_type} />
                       <span className="text-xs text-cool-gray">
                         {getDeptLabel(voucher.dept_from)} → {getDeptLabel(voucher.dept_to)}

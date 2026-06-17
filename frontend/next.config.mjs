@@ -23,6 +23,7 @@ const nextConfig = {
       { source: '/home', destination: '/frontend/home' },
       { source: '/welcome', destination: '/frontend/welcome' },
       { source: '/login', destination: '/frontend/login' },
+      { source: '/signup', destination: '/frontend/signup' },
       { source: '/auth/google', destination: '/frontend/auth/google' },
       { source: '/drafts', destination: '/frontend/drafts' },
       { source: '/enrol-workforce', destination: '/frontend/enrol-workforce' },

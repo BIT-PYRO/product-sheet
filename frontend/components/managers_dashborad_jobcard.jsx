@@ -1,6 +1,7 @@
-﻿'use client';
+'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, Fragment } from 'react';
+import MultiselectFilterPopover from '@/components/multiselect-filter-popover';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -47,6 +48,7 @@ export default function ManagersDashboard() {
   const [lastUpdated, setLastUpdated] = useState(null);
   const [currentUsername, setCurrentUsername] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+  const [searchType, setSearchType] = useState('picklist');
   const [selectedCard, setSelectedCard] = useState(null);
   const [isReceiveJobOpen, setIsReceiveJobOpen] = useState(false);
   const [selectedVoucherForReceive, setSelectedVoucherForReceive] = useState(null);
@@ -61,6 +63,9 @@ export default function ManagersDashboard() {
   const [isReviewingStone, setIsReviewingStone] = useState(null);
   const [isKYCModalOpen, setIsKYCModalOpen] = useState(false);
   const [selectedForPrint, setSelectedForPrint] = useState(new Set());
+  const [showPrintOptions, setShowPrintOptions] = useState(false);
+  const [printMerged, setPrintMerged] = useState(false);
+  const [printOptionsCards, setPrintOptionsCards] = useState([]);
   const [selectedVoucher, setSelectedVoucher] = useState(null);
   const [isGenericJobOpen, setIsGenericJobOpen] = useState(false);
   const [selectedGenericJobData, setSelectedGenericJobData] = useState(null);
@@ -71,16 +76,35 @@ export default function ManagersDashboard() {
   
   // Filter states
   const [statusFilter, setStatusFilter] = useState('');
-  const [dateFromFilter, setDateFromFilter] = useState('');
-  const [dateToFilter, setDateToFilter] = useState('');
+  const [dateFromFilter, setDateFromFilter] = useState(() => {
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  });
+  const [dateToFilter, setDateToFilter] = useState(() => {
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  });
   const [newReissueFilter, setNewReissueFilter] = useState('');
   const [nameFilter, setNameFilter] = useState('');
   const [issuerFilter, setIssuerFilter] = useState('');
   const [departmentFilter, setDepartmentFilter] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState([]);
   const statusOptions = ['In Process', 'Awaiting', 'Partial', 'Completed'];
   const newReissueOptions = ['New', 'Re-issue'];
+  const [sortBy, setSortBy] = useState('date-newest');
+  const sortOptions = [
+    { value: 'date-newest', label: 'Date (Newest First)' },
+    { value: 'date-oldest', label: 'Date (Oldest First)' },
+    { value: 'batch-name', label: 'Batch Name' },
+    { value: 'date-approved', label: 'Date Approved' },
+  ];
 
   // Process columns — live pipeline stages (matches dept_from keys order)
   const processColumns = [
@@ -228,7 +252,7 @@ export default function ManagersDashboard() {
       if (statusFilter === 'Awaiting' && card.approvalStatus !== 'awaiting') return false;
       if (statusFilter === 'Partial' && card.approvalStatus !== 'partially_complete') return false;
       if (statusFilter === 'Completed' && card.approvalStatus !== 'completed') return false;
-      if (dateFromFilter || dateToFilter) {
+      if (!searchTerm && (dateFromFilter || dateToFilter)) {
         const cardDate = card.createdAt ? card.createdAt.slice(0, 10) : '';
         if (dateFromFilter && cardDate < dateFromFilter) return false;
         if (dateToFilter && cardDate > dateToFilter) return false;
@@ -238,15 +262,34 @@ export default function ManagersDashboard() {
       if (issuerFilter && card.issuedBy !== issuerFilter) return false;
       if (departmentFilter && card.deptFrom !== departmentFilter) return false;
       if (typeFilter && card.workType !== typeFilter) return false;
-      if (categoryFilter) {
-        if (categoryFilter === 'New' && card.voucherType !== 'New') return false;
-        else if (categoryFilter === 'Re-Issue' && card.voucherType !== 'Re-Issue') return false;
-        else if (categoryFilter !== 'New' && categoryFilter !== 'Re-Issue' && card.picklistName !== categoryFilter) return false;
+      if (categoryFilter && categoryFilter.length > 0) {
+        const matchesAny = categoryFilter.some(filterVal => {
+          if (filterVal === 'New' && card.voucherType === 'New') return true;
+          if (filterVal === 'Re-Issue' && card.voucherType === 'Re-Issue') return true;
+          if (filterVal !== 'New' && filterVal !== 'Re-Issue' && card.picklistName === filterVal) return true;
+          return false;
+        });
+        if (!matchesAny) return false;
       }
       if (searchTerm) {
-        const term = searchTerm.toLowerCase();
-        const haystack = [card.voucherNo, card.name, card.category, card.issuedBy, card.workType].join(' ').toLowerCase();
-        if (!haystack.includes(term)) return false;
+        const terms = searchTerm.split(',').map(t => t.trim().toLowerCase()).filter(Boolean);
+        if (terms.length > 0) {
+          const matchAny = terms.some(term => {
+            const voucherNo = String(card.voucherNo || '').toLowerCase();
+            if (voucherNo.includes(term)) return true;
+
+            if (searchType === 'picklist') {
+              const orderName = String(card.orderName || '');
+              return orderName.toLowerCase().includes(term);
+            } else if (searchType === 'batch') {
+              const picklistName = String(card.picklistName || '');
+              const batchId = String(card.batchId || '');
+              return picklistName.toLowerCase().includes(term) || batchId.toLowerCase().includes(term);
+            }
+            return false;
+          });
+          if (!matchAny) return false;
+        }
       }
       return true;
     };
@@ -259,7 +302,7 @@ export default function ManagersDashboard() {
       };
     }
     return result;
-  }, [jobCardsData, statusFilter, dateFromFilter, dateToFilter, newReissueFilter, nameFilter, issuerFilter, departmentFilter, typeFilter, categoryFilter, searchTerm]);
+  }, [jobCardsData, statusFilter, dateFromFilter, dateToFilter, newReissueFilter, nameFilter, issuerFilter, departmentFilter, typeFilter, categoryFilter, searchTerm, searchType]);
 
   // All card IDs currently visible (after filtering) – used for Select All
   const allFilteredCardIds = useMemo(() => {
@@ -271,6 +314,122 @@ export default function ManagersDashboard() {
     }
     return ids;
   }, [filteredJobCardsData]);
+
+  const allFilteredCards = useMemo(() => {
+    const list = [];
+    for (const col of Object.values(filteredJobCardsData)) {
+      for (const bucket of ['new', 'wip', 'completed']) {
+        list.push(...col[bucket]);
+      }
+    }
+    return list;
+  }, [filteredJobCardsData]);
+
+  const extractDateFromPicklistName = useCallback((name) => {
+    if (!name) return null;
+    const match = name.match(/·\s*([A-Za-z]+)\s+(\d{1,2}),\s+(\d{4})\s*·/);
+    if (match && match[1] && match[2] && match[3]) {
+      const monthStr = match[1].toLowerCase().slice(0, 3);
+      const dayStr = match[2].padStart(2, '0');
+      const yearStr = match[3];
+      const months = {
+        jan: '01', feb: '02', mar: '03', apr: '04', may: '05', jun: '06',
+        jul: '07', aug: '08', sep: '09', oct: '10', nov: '11', dec: '12'
+      };
+      const monthNum = months[monthStr];
+      if (monthNum) {
+        return `${yearStr}-${monthNum}-${dayStr}`; // YYYY-MM-DD
+      }
+    }
+    return null;
+  }, []);
+
+  const getGroupKey = useCallback((card) => {
+    // Try to extract date from picklist batch name first, fallback to createdAt
+    let dateSortable = '9999-99-99';
+    let dateDisplay = 'No Date';
+
+    const picklistDate = extractDateFromPicklistName(card.picklistName);
+    let resolvedDate = picklistDate;
+
+    if (!resolvedDate && card.createdAt) {
+      resolvedDate = String(card.createdAt).slice(0, 10);
+    }
+
+    if (resolvedDate && /^\d{4}-\d{2}-\d{2}$/.test(resolvedDate)) {
+      dateSortable = resolvedDate;
+      const [year, month, day] = resolvedDate.split('-');
+      const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+      const mIdx = parseInt(month, 10) - 1;
+      const monthStr = months[mIdx] || month;
+      dateDisplay = `${monthStr} ${day}, ${year}`;
+    } else if (resolvedDate) {
+      dateSortable = resolvedDate;
+      dateDisplay = resolvedDate;
+    }
+
+    // Batch name from picklist or fallback
+    const batchName = card.picklistName || 'Ungrouped';
+    // Composite key: DATE_SORTABLE|DATE_DISPLAY|BATCH_NAME
+    return `${dateSortable}|${dateDisplay}|${batchName}`;
+  }, [extractDateFromPicklistName]);
+
+
+  const groupedJobCards = useMemo(() => {
+    const groups = {};
+    allFilteredCards.forEach((card) => {
+      const key = getGroupKey(card);
+      if (!groups[key]) {
+        groups[key] = [];
+      }
+      groups[key].push(card);
+    });
+    return groups;
+  }, [allFilteredCards, getGroupKey]);
+
+  const sortedGroupKeys = useMemo(() => {
+    return Object.keys(groupedJobCards).sort((a, b) => {
+      const [dateA, , batchA] = a.split('|');
+      const [dateB, , batchB] = b.split('|');
+
+      switch (sortBy) {
+        case 'date-oldest':
+          // Sort by date ascending (oldest first)
+          if (dateA !== dateB) return dateA.localeCompare(dateB);
+          return (batchA || '').localeCompare(batchB || '');
+        case 'batch-name':
+          // Sort by batch name alphabetically
+          const cmp = (batchA || '').localeCompare(batchB || '');
+          if (cmp !== 0) return cmp;
+          return dateB.localeCompare(dateA);
+        case 'date-approved': {
+          // Sort by the approved_at timestamp of the first card in each group
+          const getMinApproved = (cards) => {
+            let earliest = Infinity;
+            for (const card of cards) {
+              // approvedAt is not directly on card, use createdAt as proxy
+              // In future, if approvedAt is added to card data, use that
+              const time = card.createdAt ? new Date(card.createdAt).getTime() : Infinity;
+              if (time < earliest) earliest = time;
+            }
+            return earliest;
+          };
+          const approvedA = getMinApproved(groupedJobCards[a]);
+          const approvedB = getMinApproved(groupedJobCards[b]);
+          return approvedB - approvedA; // newest approved first
+        }
+        case 'date-newest':
+        default:
+          // Sort by date descending (newest first)
+          if (dateA !== dateB) return dateB.localeCompare(dateA);
+          return (batchA || '').localeCompare(batchB || '');
+      }
+    });
+  }, [groupedJobCards, sortBy]);
+
+  const visibleColumnsCount = useMemo(() => {
+    return processColumns.filter(col => visibleColumns.has(col)).length;
+  }, [visibleColumns]);
 
   useEffect(() => {
     fetch('/api/auth/session').then(r => r.json()).then(d => { if (d?.user?.username) setCurrentUsername(d.user.username); }).catch(() => {});
@@ -561,7 +720,19 @@ export default function ManagersDashboard() {
       }
     }
     if (allCards.length === 0) return;
+    setPrintOptionsCards(allCards);
+    setPrintMerged(false);
+    setShowPrintOptions(true);
+  }
 
+  function executePrint() {
+    const cardsToPrint = printOptionsCards.filter(c => selectedForPrint.has(c.id));
+    if (cardsToPrint.length === 0) return;
+    performPrint(cardsToPrint, printMerged);
+    setShowPrintOptions(false);
+  }
+
+  function performPrint(allCards, merged) {
     const deptLabel = (val) => DEPT_LABELS[val] || val || '\u2014';
     const fmtDate = (v) => {
       if (!v) return '\u2014';
@@ -569,8 +740,154 @@ export default function ManagersDashboard() {
       if (isNaN(d)) return v;
       return `${String(d.getDate()).padStart(2,'0')}-${String(d.getMonth()+1).padStart(2,'0')}-${d.getFullYear()}`;
     };
+    const getOrderDisplayStr = (card) => {
+      return card.orderName || '';
+    };
 
-    const voucherPages = allCards.map((card, pageIdx) => {
+    let cardsToRender = allCards;
+
+    if (merged && allCards.length > 1) {
+      const uniquePicklists = [...new Set(allCards.map(c => c.picklistName).filter(Boolean))].sort();
+      const picklistName = uniquePicklists.join(' + ');
+
+      const uniqueOrders = [...new Set(allCards.map(c => c.orderName).filter(Boolean))].sort();
+      const orderName = uniqueOrders.join(' + ');
+
+      const uniqueVouchers = [...new Set(allCards.map(c => c.voucherNo).filter(Boolean))].sort();
+      const voucherNo = uniqueVouchers.join(' + ');
+
+      const uniqueNames = [...new Set(allCards.map(c => c.name).filter(Boolean))].sort();
+      const name = uniqueNames.join(' + ');
+
+      const uniqueWorkTypes = [...new Set(allCards.map(c => c.workType).filter(Boolean))].sort();
+      const workType = uniqueWorkTypes.join(' + ');
+
+      const uniqueDeptFrom = [...new Set(allCards.map(c => c.deptFrom).filter(Boolean))].sort();
+      const deptFrom = uniqueDeptFrom.length === 1 ? uniqueDeptFrom[0] : uniqueDeptFrom.join(', ');
+
+      const uniqueDeptTo = [...new Set(allCards.map(c => c.deptTo).filter(Boolean))].sort();
+      const deptTo = uniqueDeptTo.length === 1 ? uniqueDeptTo[0] : uniqueDeptTo.join(', ');
+
+      const uniqueBatches = [...new Set(allCards.map(c => c.batchId).filter(Boolean))].sort();
+      const batchId = uniqueBatches.join(', ');
+
+      const uniqueDates = [...new Set(allCards.map(c => fmtDate(c.createdAt)).filter(Boolean))].sort();
+      const combinedDateStr = uniqueDates.join(', ');
+
+      const qty = allCards.reduce((sum, c) => sum + (Number(c.qty) || 0), 0);
+      const weight = allCards.reduce((sum, c) => sum + (Number(c.weight) || 0), 0);
+
+      const skuMap = new Map();
+      allCards.forEach(card => {
+        const rows = Array.isArray(card.materialRows) ? card.materialRows : [];
+        rows.forEach(row => {
+          const skuKey = String(row.sku || '').trim().toUpperCase();
+          if (!skuKey) return;
+          if (!skuMap.has(skuKey)) {
+            skuMap.set(skuKey, {
+              sku: row.sku || '',
+              category: row.category || '',
+              metal: row.metal || '',
+              issued_qty: 0,
+              issued_weight: 0,
+              unit1: row.unit1 || 'Pcs',
+              unit2: row.unit2 || 'Kg'
+            });
+          }
+          const entry = skuMap.get(skuKey);
+          entry.issued_qty += Number(row.issued_qty) || 0;
+          entry.issued_weight += Number(row.issued_weight) || 0;
+          if (!entry.category && row.category) entry.category = row.category;
+          if (!entry.metal && row.metal) entry.metal = row.metal;
+        });
+      });
+      const materialRows = Array.from(skuMap.values())
+        .sort((a, b) => a.sku.localeCompare(b.sku))
+        .map(entry => ({
+          ...entry,
+          issued_qty: String(entry.issued_qty),
+          issued_weight: String(Math.round(entry.issued_weight * 1000) / 1000)
+        }));
+
+      const stoneMap = new Map();
+      allCards.forEach(card => {
+        const stones = Array.isArray(card.stoneRows) ? card.stoneRows : [];
+        stones.forEach(sr => {
+          if (!sr.variety && !sr.qty && !sr.shape) return;
+
+          const varKey = String(sr.variety || '').trim().toUpperCase();
+          const colKey = String(sr.color || '').trim().toUpperCase();
+          const cutKey = String(sr.cut || '').trim().toUpperCase();
+          const shpKey = String(sr.shape || '').trim().toUpperCase();
+          const lenKey = String(sr.length || '').trim().toUpperCase();
+          const widKey = String(sr.width || '').trim().toUpperCase();
+          const hgtKey = String(sr.height || '').trim().toUpperCase();
+          const key = `${varKey}|${colKey}|${cutKey}|${shpKey}|${lenKey}|${widKey}|${hgtKey}`;
+
+          if (!stoneMap.has(key)) {
+            stoneMap.set(key, {
+              variety: sr.variety || '',
+              color: sr.color || '',
+              cut: sr.cut || '',
+              shape: sr.shape || '',
+              length: sr.length || '',
+              width: sr.width || '',
+              height: sr.height || '',
+              qty: 0,
+              master_sku_breakdown_map: new Map()
+            });
+          }
+
+          const entry = stoneMap.get(key);
+          entry.qty += Number(sr.qty) || 0;
+
+          const breakdown = Array.isArray(sr.master_sku_breakdown) ? sr.master_sku_breakdown : [];
+          breakdown.forEach(b => {
+            const msKey = String(b.master_sku || '').trim().toUpperCase();
+            if (!msKey) return;
+            const currentQty = entry.master_sku_breakdown_map.get(msKey) || 0;
+            entry.master_sku_breakdown_map.set(msKey, currentQty + (Number(b.qty) || 0));
+          });
+        });
+      });
+
+      const stoneRows = Array.from(stoneMap.values()).map(entry => {
+        const master_sku_breakdown = Array.from(entry.master_sku_breakdown_map.entries()).map(([master_sku, qty]) => ({
+          master_sku,
+          qty
+        }));
+        return {
+          variety: entry.variety,
+          color: entry.color,
+          cut: entry.cut,
+          shape: entry.shape,
+          length: entry.length,
+          width: entry.width,
+          height: entry.height,
+          qty: entry.qty,
+          master_sku_breakdown
+        };
+      });
+
+      cardsToRender = [{
+        createdAt: combinedDateStr || new Date().toISOString(),
+        voucherType: 'Combined',
+        picklistName,
+        orderName,
+        batchId,
+        voucherNo,
+        name,
+        workType,
+        deptFrom,
+        deptTo,
+        qty,
+        weight,
+        materialRows,
+        stoneRows
+      }];
+    }
+
+    const voucherPages = cardsToRender.map((card, pageIdx) => {
       const materialRows = Array.isArray(card.materialRows) ? card.materialRows : [];
       const tableRows = materialRows.length > 0
         ? materialRows.map(row => {
@@ -631,7 +948,7 @@ export default function ManagersDashboard() {
     <div class="top-right">
       <div class="top-field"><label>Voucher Type</label><span>${card.voucherType || 'New'}</span></div>
       ${card.picklistName ? `<div class="top-field"><label>Picklist</label><span class="chip">${card.picklistName}</span></div>` : ''}
-      ${card.orderName ? `<div class="top-field"><label>Order</label><span class="chip">${card.orderName}</span></div>` : ''}
+      ${card.orderName ? `<div class="top-field"><label>Order</label><span class="chip">${getOrderDisplayStr(card)}</span></div>` : ''}
       <div class="top-field"><label>Voucher No.</label><span style="font-size:12px;font-weight:700;">${card.voucherNo}</span></div>
     </div>
   </div>
@@ -718,7 +1035,7 @@ export default function ManagersDashboard() {
 <html>
 <head>
   <meta charset="utf-8" />
-  <title>Print Vouchers (${allCards.length})</title>
+  <title>Print Vouchers (${cardsToRender.length})</title>
   <style>
     @page { size: A4 portrait; margin: 10mm 12mm; }
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -844,7 +1161,12 @@ export default function ManagersDashboard() {
       >
         {/* Header row: Voucher No. | print checkbox | status badge | type badge */}
         <div className={`${s.header} flex items-center justify-between px-2 py-1`}>
-          <span className={`text-[11px] font-bold ${s.headerText} truncate`}>{card.voucherNo}</span>
+          <span
+            className={`text-[11px] font-bold ${s.headerText} truncate`}
+            title={card.picklistName ? `${card.voucherNo} - ${card.picklistName}${card.orderName ? ` - ${card.orderName}` : ''}` : card.voucherNo}
+          >
+            {card.voucherNo}{card.picklistName ? ` - ${card.picklistName}` : ''}{card.orderName ? ` - ${card.orderName}` : ''}
+          </span>
           <div className="flex items-center gap-1">
             <input
               type="checkbox"
@@ -1012,15 +1334,26 @@ export default function ManagersDashboard() {
 
         {/* Search Bar and Buttons */}
         <div className="flex flex-wrap gap-4 items-center justify-between mb-4">
-          <div className="relative max-w-[250px]">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-cool-gray w-5 h-5" />
-            <Input
-              type="text"
-              placeholder="SEARCH BAR"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="border-2 border-soft-border rounded-lg px-4 py-2 pl-10"
-            />
+          <div className="flex items-center gap-2">
+            <div className="relative max-w-[220px]">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-cool-gray w-5 h-5" />
+              <Input
+                type="text"
+                placeholder="SEARCH BAR"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="border-2 border-soft-border rounded-lg px-4 py-2 pl-10 h-9"
+              />
+            </div>
+            <Select value={searchType} onValueChange={setSearchType}>
+              <SelectTrigger className="w-[125px] h-9 border-2 border-soft-border rounded-lg bg-white text-xs font-semibold">
+                <SelectValue placeholder="Search by" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="picklist" className="text-xs">Picklist</SelectItem>
+                <SelectItem value="batch" className="text-xs">Batch</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           <div className="flex gap-2 flex-wrap">
             {canCreate && (
@@ -1170,7 +1503,7 @@ export default function ManagersDashboard() {
           <div className="flex justify-end mb-2">
             <button
               type="button"
-              onClick={() => { setStatusFilter(''); setDateFromFilter(''); setDateToFilter(''); setNewReissueFilter(''); setNameFilter(''); setIssuerFilter(''); setDepartmentFilter(''); setTypeFilter(''); setCategoryFilter(''); }}
+              onClick={() => { setStatusFilter(''); setDateFromFilter(''); setDateToFilter(''); setNewReissueFilter(''); setNameFilter(''); setIssuerFilter(''); setDepartmentFilter(''); setTypeFilter(''); setCategoryFilter([]); setSortBy('date-newest'); }}
               className="text-xs text-trust-blue hover:underline font-medium"
             >
               Clear Filters
@@ -1292,21 +1625,26 @@ export default function ManagersDashboard() {
             {/* Category */}
             <div>
               <label className="text-sm font-semibold text-slate-text block mb-1">CATEGORY</label>
-              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+              <MultiselectFilterPopover
+                label="Select Category"
+                selectedValues={categoryFilter}
+                onSelectValues={setCategoryFilter}
+                options={['New', 'Re-Issue', ...filterOptions.picklists]}
+                className="w-full h-9 justify-between bg-white border border-input text-midnight-ink"
+              />
+            </div>
+
+            {/* Sort By */}
+            <div>
+              <label className="text-sm font-semibold text-slate-text block mb-1">SORT BY</label>
+              <Select value={sortBy} onValueChange={setSortBy}>
                 <SelectTrigger className="h-9 text-sm bg-white">
-                  <SelectValue placeholder="Select Category" />
+                  <SelectValue placeholder="Sort" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="New">New</SelectItem>
-                  <SelectItem value="Re-Issue">Re-Issue</SelectItem>
-                  {filterOptions.picklists.length > 0 && (
-                    <>
-                      <SelectSeparator />
-                      {filterOptions.picklists.map(pl => (
-                        <SelectItem key={pl} value={pl}>{pl}</SelectItem>
-                      ))}
-                    </>
-                  )}
+                  {sortOptions.map(opt => (
+                    <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -1337,30 +1675,53 @@ export default function ManagersDashboard() {
             </tr>
           </thead>
           <tbody>
-            <tr>
-              {processColumns.map((column) => 
-                visibleColumns.has(column) && (
-                  <td key={column} className="border-2 border-soft-border p-3 align-top min-h-[400px]">
-                  <div className="space-y-2.5">
-                    {/* New Cards */}
-                    {filteredJobCardsData[column].new.map((card, idx) => (
-                      <VoucherCard key={`new-${idx}`} card={card} bucket="new" />
-                    ))}
-
-                    {/* Work in Progress Cards */}
-                    {filteredJobCardsData[column].wip.map((card, idx) => (
-                      <VoucherCard key={`wip-${idx}`} card={card} bucket="wip" />
-                    ))}
-
-                    {/* Completed Cards */}
-                    {filteredJobCardsData[column].completed.map((card, idx) => (
-                      <VoucherCard key={`completed-${idx}`} card={card} bucket="completed" />
-                    ))}
-                  </div>
+            {sortedGroupKeys.length === 0 ? (
+              <tr>
+                <td colSpan={visibleColumnsCount} className="p-8 text-center text-cool-gray">
+                  No vouchers found.
                 </td>
-                )
-              )}
-            </tr>
+              </tr>
+            ) : (
+              sortedGroupKeys.map((groupKey) => {
+                // Extract display parts from composite key: DATE_SORTABLE|DATE_DISPLAY|BATCH_NAME
+                const [, dateDisplay, batchName] = groupKey.split('|');
+                const headerLabel = batchName && batchName !== 'Ungrouped'
+                  ? `${batchName} · ${dateDisplay}`
+                  : dateDisplay || groupKey;
+                return (
+                <Fragment key={groupKey}>
+                  {/* Group header row */}
+                  <tr className="bg-slate-100 dark:bg-slate-900/40 border-y border-soft-border">
+                    <td
+                      colSpan={visibleColumnsCount}
+                      className="p-2 pl-4 font-bold text-midnight-ink text-xs uppercase tracking-wider text-left"
+                    >
+                      {headerLabel}
+                    </td>
+                  </tr>
+                  {/* Cards row */}
+                  <tr>
+                    {processColumns.map((column) => {
+                      if (!visibleColumns.has(column)) return null;
+                      const cardsInColumn = groupedJobCards[groupKey].filter(
+                        (card) =>
+                          DEPT_TO_COLUMN[card.deptTo] === column ||
+                          (column === 'Others' && !DEPT_TO_COLUMN[card.deptTo])
+                      );
+                      return (
+                         <td key={column} className="border-2 border-soft-border p-3 align-top min-h-[120px]">
+                           <div className="space-y-2.5">
+                             {cardsInColumn.map((card) => (
+                               <VoucherCard key={card.id} card={card} />
+                             ))}
+                           </div>
+                         </td>
+                      );
+                    })}
+                  </tr>
+                </Fragment>
+              )})
+            )}
           </tbody>
           </table>
         </div>
@@ -1397,6 +1758,121 @@ export default function ManagersDashboard() {
         initialData={selectedGenericJobData}
         onJobCreated={loadJobs}
       />
+
+      {/* Print Vouchers Options Dialog */}
+      <Dialog open={showPrintOptions} onOpenChange={setShowPrintOptions}>
+        <DialogContent className="max-w-md bg-white">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-bold text-center text-midnight-ink mb-1">
+              Print Vouchers
+            </DialogTitle>
+          </DialogHeader>
+          <div className="p-4 space-y-4">
+            <p className="text-center text-xs text-cool-gray">
+              Select one or more vouchers to print.
+            </p>
+
+            {/* Voucher List with Checkboxes */}
+            <div className="space-y-2 max-h-48 overflow-y-auto mb-4 pr-1">
+              {printOptionsCards.map((card) => {
+                const isChecked = selectedForPrint.has(card.id);
+                return (
+                  <label
+                    key={card.id}
+                    className={`flex items-start gap-3 w-full px-3 py-2.5 rounded-lg border cursor-pointer transition-colors ${
+                      isChecked
+                        ? 'border-trust-blue bg-trust-blue/5'
+                        : 'border-soft-border bg-cloud-gray hover:border-trust-blue/50 hover:bg-trust-blue/5'
+                    }`}
+                  >
+                    <Checkbox
+                      checked={isChecked}
+                      onCheckedChange={(checked) => {
+                        setSelectedForPrint((prev) => {
+                          const next = new Set(prev);
+                          if (checked) {
+                            next.add(card.id);
+                          } else {
+                            next.delete(card.id);
+                          }
+                          return next;
+                        });
+                      }}
+                      className="mt-0.5 cursor-pointer shrink-0"
+                    />
+                    <div className="min-w-0">
+                      <p className={`text-xs font-bold ${isChecked ? 'text-trust-blue' : 'text-midnight-ink'}`}>
+                        {card.voucherNo}
+                      </p>
+                      <p className="text-[11px] text-cool-gray mt-0.5">
+                        {card.name} &nbsp;·&nbsp; {card.qty ?? 0} pcs &nbsp;·&nbsp; {card.category}
+                        {card.picklistName ? ` · ${card.picklistName}` : ''}
+                      </p>
+                    </div>
+                  </label>
+                );
+              })}
+            </div>
+
+            {/* Merge toggle — only shown when 2+ vouchers are selected */}
+            {selectedForPrint.size > 1 && (
+              <div className="mb-4 rounded-lg border border-soft-border overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setPrintMerged(false)}
+                  className={`w-full flex items-start gap-3 px-3 py-2.5 transition-colors border-b ${
+                    !printMerged ? 'bg-trust-blue/10 border-trust-blue/30' : 'bg-cloud-gray border-soft-border hover:bg-trust-blue/5'
+                  }`}
+                >
+                  <span className={`mt-0.5 w-4 h-4 rounded-full border-2 shrink-0 flex items-center justify-center ${
+                    !printMerged ? 'border-trust-blue' : 'border-cool-gray'
+                  }`}>
+                    {!printMerged && <span className="w-2 h-2 rounded-full bg-trust-blue block" />}
+                  </span>
+                  <div className="text-left">
+                    <p className={`text-xs font-semibold ${!printMerged ? 'text-trust-blue' : 'text-midnight-ink'}`}>Separate sections</p>
+                    <p className="text-[11px] text-cool-gray">Each voucher printed as its own section</p>
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPrintMerged(true)}
+                  className={`w-full flex items-start gap-3 px-3 py-2.5 transition-colors ${
+                    printMerged ? 'bg-trust-blue/10' : 'bg-cloud-gray hover:bg-trust-blue/5'
+                  }`}
+                >
+                  <span className={`mt-0.5 w-4 h-4 rounded-full border-2 shrink-0 flex items-center justify-center ${
+                    printMerged ? 'border-trust-blue' : 'border-cool-gray'
+                  }`}>
+                    {printMerged && <span className="w-2 h-2 rounded-full bg-trust-blue block" />}
+                  </span>
+                  <div className="text-left">
+                    <p className={`text-xs font-semibold ${printMerged ? 'text-trust-blue' : 'text-midnight-ink'}`}>Combined voucher</p>
+                    <p className="text-[11px] text-cool-gray">Quantities for the same SKU and Dies are summed across all selected vouchers</p>
+                  </div>
+                </button>
+              </div>
+            )}
+          </div>
+          <DialogFooter className="flex gap-2 p-4 pt-0">
+            <Button
+              onClick={() => setShowPrintOptions(false)}
+              variant="outline"
+              className="flex-1"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={executePrint}
+              disabled={selectedForPrint.size === 0}
+              className="flex-1 bg-trust-blue hover:bg-deep-blue text-white"
+            >
+              <Printer className="w-4 h-4 mr-1.5" />
+              Print ({selectedForPrint.size})
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Edit Voucher Dialog */}
       <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>

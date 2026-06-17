@@ -14,7 +14,7 @@ from django.conf import settings
 from django.core.files.base import ContentFile
 from django.core.mail import send_mail
 from django.db import connection, transaction
-from django.db.models import Prefetch, Q
+from django.db.models import Prefetch, Q, Sum
 from django.http import FileResponse, HttpResponse, HttpResponseRedirect
 from django.utils import timezone
 
@@ -7722,7 +7722,7 @@ class TeamMembersView(OrgScopedBaseAPIView):
     """Return a minimal list of organisation users for meeting scheduling."""
 
     def get(self, request):
-        org_id = _get_org_id_or_none(request.user)
+        org_id = _get_org_id_or_none(request)
         qs = _organization_users(org_id)
         if not qs.exists():
             # Single-tenant / no org setup — return all active users

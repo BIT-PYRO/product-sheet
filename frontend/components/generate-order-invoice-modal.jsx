@@ -24,9 +24,9 @@ const fmtDate = (d) => {
 
 function OrderRefBadge({ order }) {
   const isPicklist = order.order_source === 'picklist';
-  const name = isPicklist
+  const name = order.order_name || (isPicklist
     ? `PICKLIST-${order.picklist_number ?? order.id}`
-    : `CUSTOM-${order.id}`;
+    : `CUSTOM-${order.id}`);
   return (
     <span
       className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${
