@@ -18,7 +18,7 @@ def reverse_fix(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('workforce', '0014_alter_workforcemember_company_and_more'),
+        ('workforce', '0015_workforcemember_workforce_w_tenant__18df23_idx'),
         ('accounts', '0001_initial'),  # Ensures User model is available
     ]
 

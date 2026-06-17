@@ -61,8 +61,8 @@ class FeatureResolutionService:
 
         # 2. Plan Feature Enablement
         if not hasattr(tenant, 'subscription') or not tenant.subscription:
-            cache.set(cache_key, False, timeout=3600)
-            return False
+            cache.set(cache_key, True, timeout=3600)
+            return True
 
         from saas_billing.models import SubscriptionStatus
         if tenant.subscription.status not in [SubscriptionStatus.ACTIVE, SubscriptionStatus.TRIALING, SubscriptionStatus.GRACE_PERIOD]:

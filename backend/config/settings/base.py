@@ -126,6 +126,7 @@ REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
         'accounts.api_key_auth.APIKeyAuthentication',
+        'rest_framework.authentication.SessionAuthentication',
     ),
     'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.IsAuthenticated',
@@ -250,3 +251,9 @@ CELERY_TASK_ROUTES = {
     'common.tasks.ping_task': {'queue': 'high_priority'},
     '*': {'queue': 'default'},
 }
+
+# Celery eager settings for tests
+import sys
+if 'test' in sys.argv or 'pytest' in sys.argv or any('test' in arg for arg in sys.argv):
+    CELERY_TASK_ALWAYS_EAGER = True
+    CELERY_TASK_STORE_EAGER_RESULT = True

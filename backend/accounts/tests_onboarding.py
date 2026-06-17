@@ -11,9 +11,12 @@ from core_permissions.roles import UserRole
 class TestOnboarding(TestCase):
     def setUp(self):
         self.client = APIClient()
-        self.industry = Industry.objects.create(name='Fashion')
-        self.plan = Plan.objects.create(
-            name='Growth', code='GROWTH', is_public=True, is_trial_available=True, trial_days=14
+        self.industry, _ = Industry.objects.get_or_create(name='Fashion')
+        self.plan, _ = Plan.objects.get_or_create(
+            code='GROWTH',
+            defaults={
+                'name': 'Growth', 'is_public': True, 'is_trial_available': True, 'trial_days': 14
+            }
         )
 
     def test_successful_signup_and_provisioning(self):

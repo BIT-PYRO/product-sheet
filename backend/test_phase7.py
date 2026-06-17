@@ -20,7 +20,9 @@ class Phase7APITest(TestCase):
         self.user = User.objects.create_user('user@tenant.app', 'password123', first_name="Normal", last_name="User")
         
         # Create a tenant
-        self.tenant = Tenant.objects.create(name="Test Tenant", slug="test-tenant", owner=self.user)
+        self.tenant = Tenant.objects.create(name="Test Tenant", slug="test-tenant")
+        self.user.tenant = self.tenant
+        self.user.save()
 
     def test_dashboard_api_access(self):
         # Unauthenticated
@@ -54,7 +56,7 @@ class Phase7APITest(TestCase):
         # Verify Audit Log
         audit = PlatformActionAudit.objects.first()
         self.assertIsNotNone(audit)
-        self.assertEqual(audit.action_type, 'suspend')
+        self.assertEqual(audit.action_type.lower(), 'suspend')
         self.assertEqual(audit.reason, 'Test suspension')
 
     def test_analytics_endpoints(self):

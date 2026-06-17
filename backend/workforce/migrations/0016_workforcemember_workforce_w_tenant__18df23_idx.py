@@ -13,8 +13,4 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.AddIndex(
-            model_name='workforcemember',
-            index=models.Index(fields=['tenant', 'company', 'active'], name='workforce_w_tenant__18df23_idx'),
-        ),
     ]

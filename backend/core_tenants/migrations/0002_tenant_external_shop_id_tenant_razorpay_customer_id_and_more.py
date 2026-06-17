@@ -3,26 +3,78 @@
 from django.db import migrations, models
 
 
+def add_billing_fields_if_not_exists(apps, schema_editor):
+    from core_tenants.models import Tenant
+    with schema_editor.connection.cursor() as cursor:
+        cursor.execute("""
+            SELECT count(*) 
+            FROM information_schema.columns 
+            WHERE table_name = 'core_tenants_tenant' AND column_name = 'razorpay_customer_id';
+        """)
+        has_razorpay = cursor.fetchone()[0] > 0
+        
+        cursor.execute("""
+            SELECT count(*) 
+            FROM information_schema.columns 
+            WHERE table_name = 'core_tenants_tenant' AND column_name = 'stripe_customer_id';
+        """)
+        has_stripe = cursor.fetchone()[0] > 0
+        
+    if not has_razorpay:
+        field = Tenant._meta.get_field('razorpay_customer_id')
+        schema_editor.add_field(Tenant, field)
+    if not has_stripe:
+        field = Tenant._meta.get_field('stripe_customer_id')
+        schema_editor.add_field(Tenant, field)
+
+
+def reverse_billing_fields(apps, schema_editor):
+    from core_tenants.models import Tenant
+    with schema_editor.connection.cursor() as cursor:
+        cursor.execute("""
+            SELECT count(*) 
+            FROM information_schema.columns 
+            WHERE table_name = 'core_tenants_tenant' AND column_name = 'razorpay_customer_id';
+        """)
+        has_razorpay = cursor.fetchone()[0] > 0
+        
+        cursor.execute("""
+            SELECT count(*) 
+            FROM information_schema.columns 
+            WHERE table_name = 'core_tenants_tenant' AND column_name = 'stripe_customer_id';
+        """)
+        has_stripe = cursor.fetchone()[0] > 0
+        
+    if has_razorpay:
+        field = Tenant._meta.get_field('razorpay_customer_id')
+        schema_editor.remove_field(Tenant, field)
+    if has_stripe:
+        field = Tenant._meta.get_field('stripe_customer_id')
+        schema_editor.remove_field(Tenant, field)
+
+
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('core_tenants', '0001_initial'),
+        ('core_tenants', '0002_add_attributes_to_picklistitem'),
     ]
 
     operations = [
-        migrations.AddField(
-            model_name='tenant',
-            name='external_shop_id',
-            field=models.CharField(blank=True, default='', help_text='External shop ID for repair queue sync.', max_length=255),
-        ),
-        migrations.AddField(
-            model_name='tenant',
-            name='razorpay_customer_id',
-            field=models.CharField(blank=True, help_text='Razorpay Customer ID for SaaS billing.', max_length=255, null=True),
-        ),
-        migrations.AddField(
-            model_name='tenant',
-            name='stripe_customer_id',
-            field=models.CharField(blank=True, help_text='Stripe Customer ID for SaaS billing.', max_length=255, null=True),
+        migrations.SeparateDatabaseAndState(
+            state_operations=[
+                migrations.AddField(
+                    model_name='tenant',
+                    name='razorpay_customer_id',
+                    field=models.CharField(blank=True, help_text='Razorpay Customer ID for SaaS billing.', max_length=255, null=True),
+                ),
+                migrations.AddField(
+                    model_name='tenant',
+                    name='stripe_customer_id',
+                    field=models.CharField(blank=True, help_text='Stripe Customer ID for SaaS billing.', max_length=255, null=True),
+                ),
+            ],
+            database_operations=[
+                migrations.RunPython(add_billing_fields_if_not_exists, reverse_billing_fields),
+            ],
         ),
     ]

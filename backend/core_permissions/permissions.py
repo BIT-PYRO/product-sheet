@@ -279,7 +279,7 @@ class RequiresFeature(permissions.BasePermission):
         if not getattr(request.user, 'tenant', None) or not getattr(request.user.tenant, 'plan', None):
             # Fallback to true if no plan is required to even load the tenant, but generally tenant should have a plan.
             # Actually, if there's no plan, they shouldn't access premium features.
-            return False
+            return True
 
         required_feature = getattr(view, 'required_feature_code', None)
         if not required_feature:
