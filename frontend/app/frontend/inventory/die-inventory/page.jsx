@@ -28,6 +28,7 @@ import { fmtNum } from '@/lib/utils';
 import GlobalSearchBar from '@/components/global-search-bar';
 import DateTimeStamp from '@/components/date-time-stamp';
 import MultiselectFilterPopover from '@/components/multiselect-filter-popover';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 const DIE_COLUMNS = [
   { id: 'sno', label: '#' },
@@ -115,6 +116,8 @@ export default function DieInventoryPage() {
   const [filterWaxPiece, setFilterWaxPiece] = useState([]);
   const [filterWaxSetting, setFilterWaxSetting] = useState([]);
   const [filterCasting, setFilterCasting] = useState([]);
+  const [picklists, setPicklists] = useState([]);
+  const [selectedPicklists, setSelectedPicklists] = useState([]);
   const [sortField, setSortField] = useState('die_code');
   const [sortDir, setSortDir] = useState('asc');
   const handleSort = (field) => { setSortField((prev) => { if (prev === field) { setSortDir((d) => d === 'asc' ? 'desc' : 'asc'); return prev; } setSortDir('asc'); return field; }); };
@@ -186,9 +189,50 @@ export default function DieInventoryPage() {
     } catch { /* non-fatal */ }
   };
 
+  const fetchPicklists = async () => {
+    try {
+      const res = await fetch('/api/picklist-groups', { cache: 'no-store' });
+      if (res.ok) {
+        const data = await res.json();
+        const list = Array.isArray(data?.data)
+          ? data.data
+          : Array.isArray(data?.picklists)
+            ? data.picklists
+            : [];
+        setPicklists(list);
+      }
+    } catch { /* non-fatal */ }
+  };
+
   useEffect(() => {
     fetchDies();
     fetchIssueRequests();
+    fetchPicklists();
+  }, []);
+
+  // Auto-refresh die inventory every 30 s
+  useEffect(() => {
+    const POLL_MS = 30_000;
+    const id = setInterval(() => {
+      fetchDies();
+      fetchIssueRequests();
+      fetchPicklists();
+    }, POLL_MS);
+
+    // Also reload immediately whenever the browser tab regains focus / becomes visible.
+    const handleVisible = () => {
+      if (document.visibilityState === 'visible') {
+        fetchDies();
+        fetchIssueRequests();
+        fetchPicklists();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisible);
+
+    return () => {
+      clearInterval(id);
+      document.removeEventListener('visibilitychange', handleVisible);
+    };
   }, []);
 
   useEffect(() => {
@@ -234,6 +278,25 @@ export default function DieInventoryPage() {
     [dies]
   );
 
+  const selectedPicklistMasterSkus = useMemo(() => {
+    const skusSet = new Set();
+    if (selectedPicklists.length === 0) return skusSet;
+
+    selectedPicklists.forEach((picklistId) => {
+      const picklist = picklists.find((p) => p.id === picklistId);
+      if (!picklist) return;
+      (picklist.items || []).forEach((item) => {
+        const s = String(item.sku || '').trim().toUpperCase();
+        if (!s) return;
+        const masterSku = s.includes('/') ? s.substring(0, s.lastIndexOf('/')) : s;
+        if (masterSku) {
+          skusSet.add(masterSku);
+        }
+      });
+    });
+    return skusSet;
+  }, [selectedPicklists, picklists]);
+
   const filtered = useMemo(() => {
     const base = dies.filter((d) => {
       const matchSearch =
@@ -258,7 +321,11 @@ export default function DieInventoryPage() {
         filterCasting.length === 0 ||
         filterCasting.some((v) => String(d.casting_qty || '').toLowerCase().includes(v.toLowerCase()));
 
-      return matchSearch && matchLocation && matchWaxPiece && matchWax && matchCasting;
+      const matchPicklists =
+        selectedPicklists.length === 0 ||
+        skuList(d.master_skus).some((s) => selectedPicklistMasterSkus.has(s.toUpperCase()));
+
+      return matchSearch && matchLocation && matchWaxPiece && matchWax && matchCasting && matchPicklists;
     });
     if (!sortField) return base;
     return [...base].sort((a, b) => {
@@ -266,7 +333,7 @@ export default function DieInventoryPage() {
       const cmp = (typeof av === 'number' && typeof bv === 'number') ? av - bv : String(av).localeCompare(String(bv));
       return sortDir === 'asc' ? cmp : -cmp;
     });
-  }, [dies, search, filterLocation, filterWaxPiece, filterWaxSetting, filterCasting, sortField, sortDir]);
+  }, [dies, search, filterLocation, filterWaxPiece, filterWaxSetting, filterCasting, selectedPicklists, selectedPicklistMasterSkus, sortField, sortDir]);
 
   const allSelected = filtered.length > 0 && filtered.every((d) => selectedIds.has(d.id));
   const someSelected = filtered.some((d) => selectedIds.has(d.id)) && !allSelected;
@@ -634,7 +701,7 @@ export default function DieInventoryPage() {
   }
 
   const ff = (key) => (val) => setForm((prev) => ({ ...prev, [key]: val }));
-  const hasActiveFilters = search || filterLocation.length || filterWaxPiece.length || filterWaxSetting.length || filterCasting.length;
+  const hasActiveFilters = search || filterLocation.length || filterWaxPiece.length || filterWaxSetting.length || filterCasting.length || selectedPicklists.length;
 
   // ── Render ───────────────────────────────────────────────────────────────────
 
@@ -835,9 +902,84 @@ export default function DieInventoryPage() {
               options={castingOptions}
               storageKey="inventory:die:casting"
             />
+            <Popover>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  className="flex items-center gap-1.5 px-3 py-1 text-sm border rounded bg-white text-midnight-ink border-trust-blue/40"
+                >
+                  <span className="truncate">
+                    {selectedPicklists.length === 0
+                      ? 'Picklists'
+                      : `${selectedPicklists.length} selected`}
+                  </span>
+                  <ChevronDown className="h-3.5 w-3.5 opacity-60" />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-80 p-2 z-[110] max-h-80 overflow-y-auto bg-white" align="start">
+                <div className="flex items-center justify-between pb-2 mb-2 border-b border-soft-border">
+                  <span className="text-sm font-semibold">Select Picklists</span>
+                  {selectedPicklists.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setSelectedPicklists([])}
+                      className="text-xs text-trust-blue hover:underline font-medium"
+                    >
+                      Clear All
+                    </button>
+                  )}
+                </div>
+                <div className="space-y-1">
+                  {picklists.map((picklist) => {
+                    const isSelected = selectedPicklists.includes(picklist.id);
+                    const itemCount = (picklist.items || []).length;
+                    return (
+                      <button
+                        key={picklist.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedPicklists((prev) =>
+                            isSelected
+                              ? prev.filter((id) => id !== picklist.id)
+                              : [...prev, picklist.id]
+                          );
+                        }}
+                        className={`w-full text-left px-2.5 py-2 text-xs rounded hover:bg-trust-blue/5 transition-colors border-b border-soft-border/30 last:border-0 flex items-start gap-2.5 ${
+                          isSelected ? 'bg-blue-50/70 border-blue-100 font-semibold' : ''
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => {}} // handled by click
+                          className="h-3.5 w-3.5 rounded mt-0.5 border-soft-border accent-trust-blue cursor-pointer shrink-0"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="font-semibold text-midnight-ink flex items-center justify-between gap-1">
+                            <span className="truncate">
+                              {picklist.number ? `#${picklist.number} — ` : ''}{picklist.name}
+                            </span>
+                            <span className="text-[10px] bg-blue-100 text-trust-blue px-1.5 py-0.5 rounded-full font-medium shrink-0">
+                              {itemCount} {itemCount === 1 ? 'item' : 'items'}
+                            </span>
+                          </div>
+                          <div className="text-[10px] text-cool-gray mt-0.5 flex items-center justify-between font-normal">
+                            <span>{picklist.dateFormatted || (picklist.date ? new Date(picklist.date).toLocaleDateString() : '')}</span>
+                            {picklist.uploadedBy && <span className="truncate max-w-[100px]">by {picklist.uploadedBy}</span>}
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                  {picklists.length === 0 && (
+                    <p className="text-xs text-cool-gray p-2 text-center">No picklists found.</p>
+                  )}
+                </div>
+              </PopoverContent>
+            </Popover>
             <button
               type="button"
-              onClick={() => { setSearch(''); setFilterLocation([]); setFilterWaxPiece([]); setFilterWaxSetting([]); setFilterCasting([]); }}
+              onClick={() => { setSearch(''); setFilterLocation([]); setFilterWaxPiece([]); setFilterWaxSetting([]); setFilterCasting([]); setSelectedPicklists([]); }}
               className="h-8 px-3 text-sm border rounded bg-trust-blue text-white border-trust-blue font-medium"
             >
               Clear

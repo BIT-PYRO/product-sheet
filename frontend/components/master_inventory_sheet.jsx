@@ -14,6 +14,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   Dialog,
   DialogContent,
@@ -454,7 +455,7 @@ export default function MasterInventorySheet() {
   const [currentUsername, setCurrentUsername] = useState('');
   const [products, setProducts] = useState([]);
   const [picklists, setPicklists] = useState([]);
-  const [selectedPicklist, setSelectedPicklist] = useState(null);
+  const [selectedPicklists, setSelectedPicklists] = useState([]);
   const [isPicklistDropdownOpen, setIsPicklistDropdownOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSku, setSelectedSku] = useState('');
@@ -707,12 +708,12 @@ export default function MasterInventorySheet() {
   const filteredProducts = useMemo(() => {
     const normalizedSearch = effectiveSearch.toLowerCase();
 
-    // When a picklist is selected, drive rows from the picklist items themselves.
+    // When one or more picklists are selected, drive rows from their items combined.
     // Picklist items use Final Stock SKUs (e.g. AJE55/G), so we match against
     // product.finalStock[].sku rather than the master SKU.
-    if (selectedPicklist) {
-      const currentPicklist = picklists.find((p) => p.id === selectedPicklist);
-      const items = currentPicklist?.items || [];
+    if (selectedPicklists && selectedPicklists.length > 0) {
+      const selectedPicklistObjs = picklists.filter((p) => selectedPicklists.includes(p.id));
+      const items = selectedPicklistObjs.flatMap((p) => p.items || []);
 
       if (items.length > 0) {
         // Build a map: Final Stock SKU (uppercase) → product
@@ -727,10 +728,8 @@ export default function MasterInventorySheet() {
           });
         });
 
-        // Return unique products whose Final Stock SKU appears in the picklist,
-        // preserving picklist order. Dedup by product.id so a product with
-        // multiple variations (AJE55/G + AJE55/S) only appears once — the table
-        // renders all its variation rows automatically.
+        // Return unique products whose Final Stock SKU appears in any of the selected picklists,
+        // preserving picklist order. Dedup by product.id.
         const seen = new Set();
         return items.reduce((acc, item) => {
           const sku = String(item.sku || '').trim().toUpperCase();
@@ -805,7 +804,7 @@ export default function MasterInventorySheet() {
         .toLowerCase()
         .includes(normalizedSearch);
     });
-  }, [effectiveSearch, filterSelections, products, selectedSku, selectedPicklist, picklists]);
+  }, [effectiveSearch, filterSelections, products, selectedSku, selectedPicklists, picklists]);
 
   const sortedProducts = useMemo(() => {
     if (sortOrder !== 'default') {
@@ -964,31 +963,33 @@ export default function MasterInventorySheet() {
     [sortedProducts, stockField]
   );
 
-  const selectedPicklistData = useMemo(
-    () => picklists.find((picklist) => picklist.id === selectedPicklist) || null,
-    [picklists, selectedPicklist]
+  const selectedPicklistsData = useMemo(
+    () => picklists.filter((picklist) => selectedPicklists.includes(picklist.id)),
+    [picklists, selectedPicklists]
   );
 
-  // Build a SKU → needed-qty map from the selected picklist (localStorage).
+  // Build a SKU → needed-qty map from the selected picklists.
   // When no picklist is selected this map is empty and the DB-derived
   // totalInDemand from each inventory row is used instead.
   const picklistNeededBySku = useMemo(() => {
     const map = new Map();
-    if (!selectedPicklist) return map;
+    if (!selectedPicklists || selectedPicklists.length === 0) return map;
 
-    (selectedPicklistData?.items || []).forEach((item) => {
-      // Normalize to uppercase so lookup matches regardless of DB casing.
-      const sku = String(item.sku || '').trim().toUpperCase();
-      if (!sku) {
-        return;
-      }
+    selectedPicklistsData.forEach((picklist) => {
+      (picklist?.items || []).forEach((item) => {
+        // Normalize to uppercase so lookup matches regardless of DB casing.
+        const sku = String(item.sku || '').trim().toUpperCase();
+        if (!sku) {
+          return;
+        }
 
-      const needed = parseNumericValue(item.needed || 0);
-      map.set(sku, (map.get(sku) || 0) + needed);
+        const needed = parseNumericValue(item.needed || item.quantity || 0);
+        map.set(sku, (map.get(sku) || 0) + needed);
+      });
     });
 
     return map;
-  }, [selectedPicklist, selectedPicklistData]);
+  }, [selectedPicklists, selectedPicklistsData]);
 
   const totalInDemandByRowId = useMemo(() => {
     const map = new Map();
@@ -1003,7 +1004,7 @@ export default function MasterInventorySheet() {
 
       // When a picklist is selected → show that picklist's needed qty.
       // Otherwise → show the total demand from the DB (all demand transactions).
-      const demandValue = selectedPicklistData
+      const demandValue = (selectedPicklists && selectedPicklists.length > 0)
         ? (picklistNeededBySku.get(sku) ?? '')
         : (row.totalInDemand || '');
 
@@ -1011,7 +1012,7 @@ export default function MasterInventorySheet() {
     });
 
     return map;
-  }, [inventoryRows, picklistNeededBySku, selectedPicklistData]);
+  }, [inventoryRows, picklistNeededBySku, selectedPicklists.length]);
 
   // Per-product alert data: orange = any stage below min, red = demand > final stock
   const alertByProductId = useMemo(() => {
@@ -1037,7 +1038,7 @@ export default function MasterInventorySheet() {
       // sum demands for each of this product's final stock variation SKUs directly.
       const finalStockArr = Array.isArray(product.finalStock) ? product.finalStock : [];
       let demand = 0;
-      if (selectedPicklistData) {
+      if (selectedPicklists && selectedPicklists.length > 0) {
         demand = finalStockArr.reduce((sum, v) => {
           const varSku = String(v.sku || '').trim().toUpperCase();
           return sum + (parseFloat(picklistNeededBySku.get(varSku) || 0) || 0);
@@ -1056,7 +1057,7 @@ export default function MasterInventorySheet() {
       }
     });
     return map;
-  }, [sortedProducts, totalInDemandByRowId, selectedPicklistData, picklistNeededBySku]);
+  }, [sortedProducts, totalInDemandByRowId, selectedPicklists.length, picklistNeededBySku]);
 
   // Items to pass to NeededVouchersModal — products where demand > finalStock (red !)
   const neededItems = useMemo(() => {
@@ -2270,72 +2271,90 @@ export default function MasterInventorySheet() {
                   </th>
                 ))}
 
-                {/* ── Gap spacer ── */}
-                <th className="border-0 p-0" style={{ width: '32px', minWidth: '32px', position: 'sticky', right: '292px', top: '0', backgroundColor: 'white', zIndex: 22 }} aria-hidden="true" />
-
                 {/* ── TOTAL IN DEMAND ── */}
-                <th className="border-t border-b border-l border-r border-soft-border px-2 h-10 whitespace-nowrap text-center text-xs font-semibold text-black bg-[#dbeafe]" style={{ minWidth: '100px', position: 'sticky', right: '192px', top: '0', zIndex: 22, boxShadow: '-4px 0 6px -2px rgba(0,0,0,0.10)' }}>
+                <th className="border-t border-b border-l border-r border-soft-border px-2 h-10 whitespace-nowrap text-center text-xs font-semibold text-black bg-[#dbeafe]" style={{ minWidth: '100px', position: 'sticky', right: '160px', top: '0', zIndex: 22, boxShadow: '-4px 0 6px -2px rgba(0,0,0,0.10)' }}>
                   TOTAL IN DEMAND
                 </th>
-
-                {/* ── Gap spacer ── */}
-                <th className="border-0 p-0" style={{ width: '32px', minWidth: '32px', position: 'sticky', right: '160px', top: '0', backgroundColor: 'white', zIndex: 22 }} aria-hidden="true" />
 
                 {/* ── ORDER PICK LIST (with dropdown) ── */}
                 <th className="border-t border-b border-l border-r border-soft-border px-2 h-10 text-xs font-semibold text-black bg-[#dbeafe] relative" style={{ minWidth: '160px', position: 'sticky', right: '0', top: '0', zIndex: 22 }}>
                   <div className="relative">
-                    <button
-                      onClick={() => setIsPicklistDropdownOpen(!isPicklistDropdownOpen)}
-                      className="w-full text-left px-1 rounded hover:bg-trust-blue/10 transition-colors leading-tight text-[11px] tracking-wide block overflow-hidden text-ellipsis whitespace-nowrap"
-                    >
-                      {selectedPicklistData
-                        ? `#${selectedPicklistData.number ?? ''}`
-                        : 'ORDER PICK LIST'}
-                    </button>
-                    {isPicklistDropdownOpen && (
-                      <div className="absolute left-0 right-0 top-full mt-0 bg-white border border-soft-border rounded shadow-lg z-30 max-h-48 overflow-y-auto">
+                    <Popover open={isPicklistDropdownOpen} onOpenChange={setIsPicklistDropdownOpen}>
+                      <PopoverTrigger asChild>
                         <button
-                          onClick={() => {
-                            setSelectedPicklist(null);
-                            setIsPicklistDropdownOpen(false);
-                          }}
-                          className={`w-full text-left px-3 py-2 text-sm border-b border-soft-border hover:bg-trust-blue/10 transition-colors font-semibold ${
-                            selectedPicklist === null ? 'bg-trust-blue/10' : ''
-                          }`}
+                          className="w-full text-left px-1 rounded hover:bg-trust-blue/10 transition-colors leading-tight text-[11px] tracking-wide block overflow-hidden text-ellipsis whitespace-nowrap font-bold text-trust-blue flex items-center justify-between"
                         >
-                          <div className="text-deep-blue">ORDER PICK LIST</div>
-                          <div className="text-cool-gray text-sm">Show all {products.length} products</div>
+                          <span className="truncate">
+                            {selectedPicklists.length === 0
+                              ? 'ORDER PICK LIST'
+                              : selectedPicklists.length === 1
+                              ? `#${picklists.find(p => p.id === selectedPicklists[0])?.number ?? ''}`
+                              : `${selectedPicklists.length} PICKLISTS`}
+                          </span>
+                          <ChevronDown className="h-3 w-3 opacity-60 shrink-0" />
                         </button>
-                        {picklists.map((picklist) => (
-                          <button
-                            key={picklist.id}
-                            onClick={() => {
-                              setSelectedPicklist(picklist.id);
-                              setIsPicklistDropdownOpen(false);
-                            }}
-                            className={`w-full text-left px-3 py-2 text-sm border-b border-soft-border hover:bg-trust-blue/10 transition-colors ${
-                              selectedPicklist === picklist.id ? 'bg-trust-blue/10 font-semibold' : ''
-                            }`}
-                          >
-                            <div className="font-medium">
-                              {picklist.number ? `#${picklist.number} — ` : ''}{picklist.name}
-                            </div>
-                            <div className="text-cool-gray text-xs">
-                              {picklist.dateFormatted || (picklist.date ? new Date(picklist.date).toLocaleString() : '')}
-                              {picklist.uploadedBy ? ` · ${picklist.uploadedBy}` : ''}
-                            </div>
-                            <div className="text-cool-gray text-xs">
-                              {(picklist.items || []).length} parsed item{(picklist.items || []).length !== 1 ? 's' : ''}
-                            </div>
-                          </button>
-                        ))}
-                        {picklists.length === 0 && (
-                          <div className="px-3 py-2 text-sm text-cool-gray">
-                            No uploaded picklists found.
-                          </div>
-                        )}
-                      </div>
-                    )}
+                      </PopoverTrigger>
+                      <PopoverContent className="w-80 p-2 z-[110] max-h-80 overflow-y-auto bg-white font-normal text-left animate-none" align="end" style={{ pointerEvents: 'auto' }}>
+                        <div className="flex items-center justify-between pb-2 mb-2 border-b border-soft-border">
+                          <span className="text-sm font-semibold">Select Picklists</span>
+                          {selectedPicklists.length > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => setSelectedPicklists([])}
+                              className="text-xs text-trust-blue hover:underline font-medium"
+                            >
+                              Clear All
+                            </button>
+                          )}
+                        </div>
+                        <div className="space-y-1">
+                          {picklists.map((picklist) => {
+                            const isSelected = selectedPicklists.includes(picklist.id);
+                            const itemCount = (picklist.items || []).length;
+                            return (
+                              <button
+                                key={picklist.id}
+                                type="button"
+                                onClick={() => {
+                                  setSelectedPicklists((prev) =>
+                                    isSelected
+                                      ? prev.filter((id) => id !== picklist.id)
+                                      : [...prev, picklist.id]
+                                  );
+                                }}
+                                className={`w-full text-left px-2.5 py-2 text-xs rounded hover:bg-trust-blue/5 transition-colors border-b border-soft-border/30 last:border-0 flex items-start gap-2.5 ${
+                                  isSelected ? 'bg-blue-50/70 border-blue-100 font-semibold' : ''
+                                }`}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  onChange={() => {}} // handled by click
+                                  className="h-3.5 w-3.5 rounded mt-0.5 border-soft-border accent-trust-blue cursor-pointer shrink-0"
+                                />
+                                <div className="flex-1 min-w-0">
+                                  <div className="font-semibold text-midnight-ink flex items-center justify-between gap-1">
+                                    <span className="truncate">
+                                      {picklist.number ? `#${picklist.number} — ` : ''}{picklist.name}
+                                    </span>
+                                    <span className="text-[10px] bg-blue-100 text-trust-blue px-1.5 py-0.5 rounded-full font-medium shrink-0">
+                                      {itemCount} {itemCount === 1 ? 'item' : 'items'}
+                                    </span>
+                                  </div>
+                                  <div className="text-[10px] text-cool-gray mt-0.5 flex items-center justify-between font-normal">
+                                    <span>{picklist.dateFormatted || (picklist.date ? new Date(picklist.date).toLocaleDateString() : '')}</span>
+                                    {picklist.uploadedBy && <span className="truncate max-w-[100px]">by {picklist.uploadedBy}</span>}
+                                  </div>
+                                </div>
+                              </button>
+                            );
+                          })}
+                          {picklists.length === 0 && (
+                            <p className="text-xs text-cool-gray p-2 text-center">No picklists found.</p>
+                          )}
+                        </div>
+                      </PopoverContent>
+                    </Popover>
                   </div>
                 </th>
               </tr>
@@ -2356,9 +2375,7 @@ export default function MasterInventorySheet() {
                           }`}
                         />
                       ))}
-                      <td className="border-0 p-0" style={{ width: '32px', minWidth: '32px', position: 'sticky', right: '292px', backgroundColor: 'white', zIndex: 12 }} aria-hidden="true" />
-                      <td className="border-b border-l border-r border-soft-border px-2 h-9 text-center text-sm text-midnight-ink bg-white" style={{ position: 'sticky', right: '192px', zIndex: 12, boxShadow: '-4px 0 6px -2px rgba(0,0,0,0.10)' }} />
-                      <td className="border-0 p-0" style={{ width: '32px', minWidth: '32px', position: 'sticky', right: '160px', backgroundColor: 'white', zIndex: 12 }} aria-hidden="true" />
+                      <td className="border-b border-l border-r border-soft-border px-2 h-9 text-center text-sm text-midnight-ink bg-white" style={{ position: 'sticky', right: '160px', zIndex: 12, boxShadow: '-4px 0 6px -2px rgba(0,0,0,0.10)' }} />
                       <td className="border-b border-l border-r border-soft-border px-2 h-9 text-sm text-midnight-ink bg-white" style={{ position: 'sticky', right: '0', zIndex: 12 }} />
                     </tr>
                   )];
@@ -2555,19 +2572,16 @@ export default function MasterInventorySheet() {
                         );
                       })}
 
-                      {/* ── Sticky right: gap + Total In Demand (per variation) + gap + Order Pick List (per variation = Final Stock SKU) ── */}
-                      <td className="border-0 p-0" style={{ width: '32px', minWidth: '32px', position: 'sticky', right: '292px', backgroundColor: 'white', zIndex: 12 }} aria-hidden="true" />
-                      <td className="border-b border-l border-r border-soft-border px-2 h-9 text-center text-sm text-midnight-ink bg-white" style={{ position: 'sticky', right: '192px', zIndex: 12, boxShadow: '-4px 0 6px -2px rgba(0,0,0,0.10)' }}>
+                      <td className="border-b border-l border-r border-soft-border px-2 h-9 text-center text-sm text-midnight-ink bg-white" style={{ position: 'sticky', right: '160px', zIndex: 12, boxShadow: '-4px 0 6px -2px rgba(0,0,0,0.10)' }}>
                         {(() => {
                           const varSkuUpper = String(variation.sku || '').trim().toUpperCase();
-                          if (selectedPicklistData) {
+                          if (selectedPicklists && selectedPicklists.length > 0) {
                             return varSkuUpper ? (picklistNeededBySku.get(varSkuUpper) ?? '') : '';
                           }
                           // No picklist — show product-level demand on every variation row
                           return row.totalInDemand || '';
                         })()}
                       </td>
-                      <td className="border-0 p-0" style={{ width: '32px', minWidth: '32px', position: 'sticky', right: '160px', backgroundColor: 'white', zIndex: 12 }} aria-hidden="true" />
                       {/* ORDER PICK LIST: shows this variation's Final Stock SKU */}
                       <td className="border-b border-l border-r border-soft-border px-2 h-9 text-sm text-midnight-ink bg-white" style={{ position: 'sticky', right: '0', zIndex: 12 }}>
                         {variation.sku || ''}
@@ -2617,7 +2631,7 @@ export default function MasterInventorySheet() {
         open={isCreateJobModalOpen}
         onOpenChange={setIsCreateJobModalOpen}
         mode="single-pipeline"
-        picklistGroupNumber={selectedPicklistData?.number ?? null}
+        picklistGroupNumber={selectedPicklistsData[0]?.number ?? null}
         onJobCreated={() => {
           loadProducts();
         }}
