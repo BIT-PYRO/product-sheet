@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Search } from 'lucide-react';
@@ -556,11 +556,11 @@ export default function FindingSheet() {
                 <tbody>
                   {filteredRows.map((row, index) => (
                     <tr key={row.id} className={index % 2 === 0 ? 'bg-background' : 'bg-cloud-gray'}>
-                      <td className="border border-soft-border p-2 break-words">{row.findingCode || 'ΓÇö'}</td>
-                      <td className="border border-soft-border p-2 break-words">{row.dieNumber || 'ΓÇö'}</td>
-                      <td className="border border-soft-border p-2 break-words">{row.size || 'ΓÇö'}</td>
-                      <td className="border border-soft-border p-2 break-words">{row.quantity || 'ΓÇö'}</td>
-                      <td className="border border-soft-border p-2 break-words">{row.weight || 'ΓÇö'}</td>
+                      <td className="border border-soft-border p-2 break-words">{row.findingCode || '—'}</td>
+                      <td className="border border-soft-border p-2 break-words">{row.dieNumber || '—'}</td>
+                      <td className="border border-soft-border p-2 break-words">{row.size || '—'}</td>
+                      <td className="border border-soft-border p-2 break-words">{row.quantity || '—'}</td>
+                      <td className="border border-soft-border p-2 break-words">{row.weight || '—'}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -917,7 +917,7 @@ function DetailCard({ label, value }) {
   return (
     <div className="border border-soft-border rounded-lg bg-background overflow-hidden">
       <div className="px-2 py-1 bg-cloud-gray font-semibold text-xs text-slate-text border-b border-soft-border">{label}</div>
-      <div className="px-2 py-2 text-sm min-h-[36px] whitespace-pre-wrap break-words">{value || 'ΓÇö'}</div>
+      <div className="px-2 py-2 text-sm min-h-[36px] whitespace-pre-wrap break-words">{value || '—'}</div>
     </div>
   );
 }
