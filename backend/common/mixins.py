@@ -19,6 +19,8 @@ class StandardizedSuccessResponseMixin:
 
     def perform_create(self, serializer):
         super().perform_create(serializer)
+        if getattr(self, 'bypass_standard_logging', False):
+            return
         try:
             from common.audit import log_activity
             from common.models import ActivityLog
@@ -32,6 +34,9 @@ class StandardizedSuccessResponseMixin:
             pass
 
     def perform_update(self, serializer):
+        if getattr(self, 'bypass_standard_logging', False):
+            super().perform_update(serializer)
+            return
         try:
             from common.audit import serialize_instance
             old_data = serialize_instance(serializer.instance)
@@ -53,6 +58,10 @@ class StandardizedSuccessResponseMixin:
 
     def perform_destroy(self, instance):
         """Log the deletion before removing the record."""
+        if getattr(self, 'bypass_standard_logging', False):
+            self._record_deletion(instance)
+            super().perform_destroy(instance)
+            return
         try:
             from common.audit import log_activity
             from common.models import ActivityLog

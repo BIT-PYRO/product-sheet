@@ -129,6 +129,17 @@ export default function DeletionHistoryDrawer({ appLabel, modelName, sheet, obje
     }
   }, [open, activeTab, fetchDeletionLogs, fetchActivityLogs]);
 
+  // Auto-refresh logs every 30s when the drawer is open
+  useEffect(() => {
+    if (!open) return;
+    const POLL_MS = 30_000;
+    const id = setInterval(() => {
+      if (activeTab === 'deletion') fetchDeletionLogs();
+      else fetchActivityLogs();
+    }, POLL_MS);
+    return () => clearInterval(id);
+  }, [open, activeTab, fetchDeletionLogs, fetchActivityLogs]);
+
   function formatDate(iso) {
     if (!iso) return '—';
     try {

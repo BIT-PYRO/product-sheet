@@ -669,6 +669,7 @@ class IssueRequestViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 )
 class DieInventoryItemViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 	audit_sheet = 'inventory'
+	bypass_standard_logging = True
 	queryset = DieInventoryItem.objects.all().order_by('-created_at')
 	serializer_class = DieInventoryItemSerializer
 	search_fields = ['die_code', 'location', 'notes']

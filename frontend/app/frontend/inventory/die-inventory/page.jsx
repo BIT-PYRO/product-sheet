@@ -107,6 +107,7 @@ export default function DieInventoryPage() {
   const { canExport } = useSheetPermissions('inventory');
 
   const [dies, setDies] = useState([]);
+  const [backendMode, setBackendMode] = useState('');
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState('');
   const [statusMsg, setStatusMsg] = useState('');
@@ -255,6 +256,17 @@ export default function DieInventoryPage() {
         setCurrentUserName(fullName);
         setCurrentUserEmail(u.email || '');
         setCurrentUsername(u.username || '');
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    fetch('/api/backend-info', { cache: 'no-store' })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.backendMode) {
+          setBackendMode(String(data.backendMode));
+        }
       })
       .catch(() => {});
   }, []);
@@ -715,7 +727,28 @@ export default function DieInventoryPage() {
             <h1 className="text-xl font-bold tracking-tight text-midnight-ink">DIE INVENTORY</h1>
           </div>
           <GlobalSearchBar />
-          <DateTimeStamp />
+          <div className="flex items-center gap-2">
+            {backendMode && (
+              <span
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border ${
+                  backendMode === 'DEPLOYED'
+                    ? 'bg-success/10 text-success-dark border-success/30'
+                    : 'bg-danger/10 text-danger-dark border-danger/30'
+                }`}
+              >
+                <span className="relative flex h-2 w-2">
+                  <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${
+                    backendMode === 'DEPLOYED' ? 'bg-success' : 'bg-danger'
+                  }`}></span>
+                  <span className={`relative inline-flex rounded-full h-2 w-2 ${
+                    backendMode === 'DEPLOYED' ? 'bg-success' : 'bg-danger'
+                  }`}></span>
+                </span>
+                Backend: {backendMode} (Auto-updating)
+              </span>
+            )}
+            <DateTimeStamp />
+          </div>
         </div>
       </div>
 

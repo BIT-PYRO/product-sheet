@@ -7,7 +7,7 @@ from unittest.mock import patch, MagicMock
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from inventory.models import RepairItem, RepairBatch
+from inventory.models import DieInventoryItem, RepairItem, RepairBatch
 from jobs.models import Job
 from products.models import Product
 
@@ -299,3 +299,74 @@ class RepairIntegrationTests(APITestCase):
 
         # Item should be deleted from the local cached list on success
         self.assertEqual(RepairItem.objects.filter(repair_item_id=9999).count(), 0)
+
+
+class DieInventoryAuditTests(APITestCase):
+    def setUp(self):
+        user_model = get_user_model()
+        self.tenant = Tenant.objects.create(name='Test Tenant', slug='test-tenant')
+        self.company = Company.objects.create(tenant=self.tenant, name='Test Company')
+        set_tenant(self.tenant)
+        set_company(self.company)
+
+        self.user = user_model.objects.create_user(
+            username='die_tester',
+            password='secure_password_123',
+            tenant=self.tenant,
+            active_company=self.company,
+            is_approved=True,
+            role='TENANT_OWNER',
+        )
+        self.client.force_authenticate(user=self.user)
+        from core_tenants.context import set_current_user
+        set_current_user(self.user)
+
+    def tearDown(self):
+        from core_tenants.context import clear_tenant_context
+        clear_tenant_context()
+
+    def test_die_inventory_item_signals_log_activity(self):
+        from common.models import ActivityLog
+        # 1. Create a DieInventoryItem
+        die = DieInventoryItem.objects.create(
+            die_code='DIE-TST-1',
+            tenant=self.tenant,
+            company=self.company,
+            location='A1',
+            quantity=10,
+        )
+        # Should create a 'create' activity log
+        create_log = ActivityLog.objects.filter(
+            action=ActivityLog.ACTION_CREATE,
+            sheet=ActivityLog.SHEET_INVENTORY,
+            object_id=str(die.pk)
+        ).first()
+        self.assertIsNotNone(create_log)
+        self.assertEqual(create_log.user, self.user)
+
+        # 2. Update the DieInventoryItem
+        die.location = 'B2'
+        die.quantity = 15
+        die.save()
+
+        # Should create an 'update' activity log with diff
+        update_log = ActivityLog.objects.filter(
+            action=ActivityLog.ACTION_UPDATE,
+            sheet=ActivityLog.SHEET_INVENTORY,
+            object_id=str(die.pk)
+        ).first()
+        self.assertIsNotNone(update_log)
+        self.assertEqual(update_log.changes.get('location'), {'old': 'A1', 'new': 'B2'})
+        self.assertEqual(update_log.changes.get('quantity'), {'old': 10.0, 'new': 15.0})
+
+        # 3. Delete the DieInventoryItem
+        die_pk = die.pk
+        die.delete()
+        
+        # Should create a 'delete' activity log
+        delete_log = ActivityLog.objects.filter(
+            action=ActivityLog.ACTION_DELETE,
+            sheet=ActivityLog.SHEET_INVENTORY,
+            object_id=str(die_pk)
+        ).first()
+        self.assertIsNotNone(delete_log)
