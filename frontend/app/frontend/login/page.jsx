@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { ThemeToggle } from '@/components/theme-toggle';
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 function safeRedirect(next) {
@@ -32,11 +33,7 @@ function GoogleLoginButton({ redirectPath }) {
       const data = await res.json().catch(() => null);
       if (res.ok && data?.success) {
         sessionStorage.setItem('calendar_auto_connect', '1');
-        if (data.user?.is_superuser) {
-          router.replace('/platform/dashboard');
-        } else {
-          router.replace(redirectPath);
-        }
+        router.replace(redirectPath);
       } else {
         setError(data?.message || 'Google login failed. Please try again.');
         setLoading(false);
@@ -48,18 +45,20 @@ function GoogleLoginButton({ redirectPath }) {
   }, [router, redirectPath]);
 
   useEffect(() => {
+    let isMounted = true;
     const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
     if (!clientId || !btnRef.current) return;
 
     const initGsi = () => {
-      if (!window.google?.accounts?.id) return;
-      if (window.__psd_gsi_initialized) return;
+      if (!isMounted || !window.google?.accounts?.id || !btnRef.current) return;
       try {
         window.google.accounts.id.initialize({
           client_id: clientId,
           callback: handleCredential,
           ux_mode: 'popup',
         });
+        // Clear container before rendering to prevent duplicates
+        btnRef.current.innerHTML = '';
         window.google.accounts.id.renderButton(btnRef.current, {
           theme: 'outline',
           size: 'large',
@@ -67,21 +66,41 @@ function GoogleLoginButton({ redirectPath }) {
           text: 'signin_with',
           shape: 'rectangular',
         });
-        window.__psd_gsi_initialized = true;
       } catch (err) {
-        console.warn('GSI renderButton failed', err);
+        // If popup/postMessage is blocked (COOP/COEP) fall back to redirect ux_mode
+        try {
+          console.warn('GSI init failed, falling back to redirect mode', err);
+          window.google.accounts.id.initialize({
+            client_id: clientId,
+            callback: handleCredential,
+            ux_mode: 'redirect',
+          });
+          btnRef.current.innerHTML = '';
+          window.google.accounts.id.renderButton(btnRef.current, {
+            theme: 'outline',
+            size: 'large',
+            width: btnRef.current.offsetWidth || 400,
+            text: 'signin_with',
+            shape: 'rectangular',
+          });
+        } catch (err2) {
+          console.error('GSI initialization failed completely', err2);
+        }
       }
     };
 
     if (window.google?.accounts?.id) {
       initGsi();
-      return;
+      return () => { isMounted = false; };
     }
 
     const existing = document.querySelector('script[src*="accounts.google.com/gsi/client"]');
     if (existing) {
       existing.addEventListener('load', initGsi);
-      return () => existing.removeEventListener('load', initGsi);
+      return () => {
+        isMounted = false;
+        existing.removeEventListener('load', initGsi);
+      };
     }
 
     const script = document.createElement('script');
@@ -90,6 +109,11 @@ function GoogleLoginButton({ redirectPath }) {
     script.defer = true;
     script.onload = initGsi;
     document.head.appendChild(script);
+
+    return () => {
+      isMounted = false;
+      script.onload = null;
+    };
   }, [handleCredential]);
 
   if (!process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID) return null;
@@ -139,11 +163,7 @@ function PasswordLogin({ redirectPath }) {
         setError(result.message || 'Invalid user ID or password.');
         return;
       }
-      if (result.user?.is_superuser) {
-        router.replace('/platform/dashboard');
-      } else {
-        router.replace(redirectPath);
-      }
+      router.replace(redirectPath);
     } catch {
       setError('Unable to login. Please try again.');
     } finally {
@@ -194,32 +214,27 @@ function LoginContent() {
   useEffect(() => {
     fetch('/api/auth/session', { cache: 'no-store' })
       .then((r) => (r.ok ? r.json() : null))
-      .then((data) => {
-        if (data?.success) {
-          if (data.user?.is_superuser) {
-            router.replace('/platform/dashboard');
-          } else {
-            router.replace(redirectPath);
-          }
-        }
-      })
-      .catch(() => { /* no session — expected on the login page */ });
+      .then((data) => { if (data?.success) router.replace(redirectPath); })
+      .catch(() => { });
   }, [router, redirectPath]);
 
   return (
-    <main className="min-h-screen flex items-center justify-center px-4 relative bg-slate-50 dark:bg-[#0A0A0A] transition-colors duration-300">
+    <main className="min-h-screen flex items-center justify-center px-4 relative bg-transparent transition-colors duration-300">
 
       {/* Background Gradient to match other premium pages */}
-      <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(29,78,216,0.15),rgba(248,250,252,1))] dark:bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(29,78,216,0.3),rgba(0,0,0,1))] pointer-events-none transition-colors duration-500" />
+      <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(29,78,216,0.15),transparent)] dark:bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(29,78,216,0.3),transparent)] pointer-events-none transition-colors duration-500" />
 
-      {/* Back Button */}
-      <Link
-        href="/"
-        className="absolute top-6 left-6 sm:top-8 sm:left-8 inline-flex items-center gap-2 text-sm font-medium text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors bg-white/70 dark:bg-white/5 backdrop-blur-md px-3 py-2 rounded-lg shadow-sm dark:shadow-none border border-slate-200 dark:border-white/10 hover:shadow-md dark:hover:bg-white/10"
-      >
-        <ArrowLeft className="w-4 h-4" />
-        Back
-      </Link>
+      {/* Top Left Navigation */}
+      <div className="absolute top-6 left-6 sm:top-8 sm:left-8 flex items-center gap-4">
+        <Link
+          href="/"
+          className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors bg-white/70 dark:bg-white/5 backdrop-blur-md px-3 py-2 rounded-lg shadow-sm dark:shadow-none border border-slate-200 dark:border-white/10 hover:shadow-md dark:hover:bg-white/10"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Back
+        </Link>
+        <ThemeToggle />
+      </div>
 
       <section className="w-full max-w-md bg-white/80 dark:bg-black/60 backdrop-blur-xl border border-slate-200 dark:border-white/10 rounded-2xl shadow-xl dark:shadow-[0_0_40px_rgba(37,99,235,0.1)] p-8 transition-colors duration-300">
         <h1 className="text-3xl font-bold text-slate-900 dark:text-white text-center tracking-tight">Sign In</h1>

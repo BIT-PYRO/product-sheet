@@ -1,5 +1,6 @@
 import { Inter } from 'next/font/google'
 import { ThemeProvider } from '@/contexts/ThemeContext'
+import BackgroundEffect from '@/components/ui/BackgroundEffect'
 
 import './globals.css'
 
@@ -24,8 +25,9 @@ export default function RootLayout({ children }) {
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
-      <body suppressHydrationWarning className="font-sans antialiased">
+      <body suppressHydrationWarning className="font-sans antialiased min-h-screen text-slate-900 dark:text-white bg-slate-50 dark:bg-[#0A192F] transition-colors duration-500 overflow-x-clip">
         <ThemeProvider>
+          <BackgroundEffect />
           {children}
         </ThemeProvider>
       </body>

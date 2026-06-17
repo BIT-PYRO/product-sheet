@@ -82,7 +82,7 @@ export default function WelcomePage() {
 
             <div className="flex flex-col sm:flex-row items-center justify-center gap-5">
               <Link 
-                href="/mydesk" 
+                href="/frontend/home" 
                 className="inline-flex w-full sm:w-auto items-center justify-center gap-3 px-10 py-5 text-lg font-bold text-white bg-blue-600 rounded-full hover:bg-blue-500 shadow-[0_0_20px_rgba(37,99,235,0.4)] dark:hover:shadow-[0_0_40px_rgba(37,99,235,0.6)] transition-all active:scale-95 hover:-translate-y-1"
               >
                 Go to Dashboard
