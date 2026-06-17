@@ -236,8 +236,8 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
         setTotalReceivedWeight(aggregatedReceivedWeight)
         setTotalLossWeight(aggregatedLossWeight)
 
-        if (isLocked) {
-          // Completed or partially complete: reconstruct rows to show original issued values and total received/loss values
+        if (isCompleted) {
+          // Completed or replaced: show final recorded values
           const isPreCasting = ['wax-pieces', 'wax-setting', 'casting'].includes(job.dept_to || '')
           const rawMaterialRows = Array.isArray(job.material_rows) ? job.material_rows : []
           const rawDieRows = Array.isArray(job.die_rows) ? job.die_rows : []
@@ -246,38 +246,10 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
             setRows(rawDieRows.map((dr, idx) => {
               const key = (dr.die_code || '').trim().toUpperCase()
               const masterKey = (dr.master_sku || '').trim().toUpperCase()
-              
-              let rx = aggregatedReceived[key]
-              if (rx === undefined && masterKey) {
-                rx = aggregatedReceived[masterKey]
-              }
-              if (rx === undefined) {
-                rx = isCompleted ? (parseFloat(dr.issued_qty) || 0) : 0
-              }
-
-              let lx = aggregatedLoss[key]
-              if (lx === undefined && masterKey) {
-                lx = aggregatedLoss[masterKey]
-              }
-              if (lx === undefined) {
-                lx = 0
-              }
-
-              let rxWt = aggregatedReceivedWeight[key]
-              if (rxWt === undefined && masterKey) {
-                rxWt = aggregatedReceivedWeight[masterKey]
-              }
-              if (rxWt === undefined) {
-                rxWt = ''
-              }
-
-              let lxWt = aggregatedLossWeight[key]
-              if (lxWt === undefined && masterKey) {
-                lxWt = aggregatedLossWeight[masterKey]
-              }
-              if (lxWt === undefined) {
-                lxWt = ''
-              }
+              let rx = aggregatedReceived[key] !== undefined ? aggregatedReceived[key] : (masterKey && aggregatedReceived[masterKey] !== undefined ? aggregatedReceived[masterKey] : 0)
+              let lx = aggregatedLoss[key] !== undefined ? aggregatedLoss[key] : (masterKey && aggregatedLoss[masterKey] !== undefined ? aggregatedLoss[masterKey] : 0)
+              let rxWt = aggregatedReceivedWeight[key] !== undefined ? aggregatedReceivedWeight[key] : (masterKey && aggregatedReceivedWeight[masterKey] !== undefined ? aggregatedReceivedWeight[masterKey] : '')
+              let lxWt = aggregatedLossWeight[key] !== undefined ? aggregatedLossWeight[key] : (masterKey && aggregatedLossWeight[masterKey] !== undefined ? aggregatedLossWeight[masterKey] : '')
 
               return {
                 id: idx + 1,
@@ -307,26 +279,10 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
           } else if (rawMaterialRows.length > 0) {
             setRows(rawMaterialRows.map((mr, idx) => {
               const key = (mr.sku || '').trim().toUpperCase()
-              
-              let rx = aggregatedReceived[key]
-              if (rx === undefined) {
-                rx = isCompleted ? (parseFloat(mr.issued_qty || mr.issuedQty) || 0) : 0
-              }
-
-              let lx = aggregatedLoss[key]
-              if (lx === undefined) {
-                lx = 0
-              }
-
-              let rxWt = aggregatedReceivedWeight[key]
-              if (rxWt === undefined) {
-                rxWt = isCompleted ? (mr.issued_weight || mr.issuedWeight || '') : ''
-              }
-
-              let lxWt = aggregatedLossWeight[key]
-              if (lxWt === undefined) {
-                lxWt = ''
-              }
+              let rx = aggregatedReceived[key] !== undefined ? aggregatedReceived[key] : 0
+              let lx = aggregatedLoss[key] !== undefined ? aggregatedLoss[key] : 0
+              let rxWt = aggregatedReceivedWeight[key] !== undefined ? aggregatedReceivedWeight[key] : ''
+              let lxWt = aggregatedLossWeight[key] !== undefined ? aggregatedLossWeight[key] : ''
 
               return {
                 id: idx + 1,
@@ -351,39 +307,61 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
                 unit8: 'Kg',
               }
             }))
-          } else {
-            setRows(prevRows => prevRows.map(r => {
-              const key = (r.sku || '').trim().toUpperCase()
-              let rx = aggregatedReceived[key]
-              if (rx === undefined) {
-                rx = isCompleted ? (parseFloat(r.issuedQty) || 0) : 0
-              }
+          }
+        } else {
+          // in_process or partially_complete: show current remaining issued values, inputs empty for new receive
+          const isPreCasting = ['wax-pieces', 'wax-setting', 'casting'].includes(job.dept_to || '')
+          const rawMaterialRows = Array.isArray(job.material_rows) ? job.material_rows : []
+          const rawDieRows = Array.isArray(job.die_rows) ? job.die_rows : []
 
-              let lx = aggregatedLoss[key]
-              if (lx === undefined) {
-                lx = 0
-              }
-
-              let rxWt = aggregatedReceivedWeight[key]
-              if (rxWt === undefined) {
-                rxWt = isCompleted ? (r.issuedWeight || '') : ''
-              }
-
-              let lxWt = aggregatedLossWeight[key]
-              if (lxWt === undefined) {
-                lxWt = ''
-              }
-
-              return {
-                ...r,
-                receivedQty: String(rx),
-                receivedWeight: String(rxWt),
-                lossQty: String(lx),
-                lossWeight: String(lxWt),
-                reissueQty: String(lx),
-                reissueWeight: String(lxWt),
-              }
-            }))
+          if (isPreCasting && rawDieRows.length > 0) {
+            setRows(rawDieRows.map((dr, idx) => ({
+              id: idx + 1,
+              sku: dr.die_code || '',
+              masterSku: dr.master_sku || '',
+              qtyPerPiece: dr.qty_per_piece || 1,
+              category: '',
+              metal: '',
+              issuedQty: String(dr.issued_qty || ''),
+              unit1: 'Pcs',
+              issuedWeight: '',
+              unit2: 'Kg',
+              receivedQty: '',
+              unit3: 'Pcs',
+              receivedWeight: '',
+              unit4: 'Kg',
+              lossQty: '',
+              unit5: 'Pcs',
+              lossWeight: '',
+              unit6: 'Kg',
+              reissueQty: '',
+              unit7: 'Pcs',
+              reissueWeight: '',
+              unit8: 'Kg',
+            })))
+          } else if (rawMaterialRows.length > 0) {
+            setRows(rawMaterialRows.map((mr, idx) => ({
+              id: idx + 1,
+              sku: mr.sku || '',
+              category: mr.category || '',
+              metal: mr.metal || '',
+              issuedQty: String(mr.issued_qty || mr.issuedQty || ''),
+              unit1: mr.unit1 || 'Pcs',
+              issuedWeight: String(mr.issued_weight || mr.issuedWeight || mr.mr_weight || ''),
+              unit2: mr.unit2 || 'Kg',
+              receivedQty: '',
+              unit3: 'Pcs',
+              receivedWeight: '',
+              unit4: 'Kg',
+              lossQty: '',
+              unit5: 'Pcs',
+              lossWeight: '',
+              unit6: 'Kg',
+              reissueQty: '',
+              unit7: 'Pcs',
+              reissueWeight: '',
+              unit8: 'Kg',
+            })))
           }
         }
       })
@@ -492,42 +470,22 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
     }
     const isPreCasting = ['wax-pieces', 'wax-setting', 'casting'].includes(deptFrom)
     const receivedRows = rows
-      .filter(r => String(r.receivedQty || '').trim() !== '')
+      .filter(r => String(r.receivedQty || '').trim() !== '' || String(r.lossQty || '').trim() !== '')
       .map(r => {
-        const key = (r.sku || '').trim().toUpperCase()
-        const masterKey = (r.masterSku || '').trim().toUpperCase()
-        
-        let prevRx = totalReceived[key] || 0
-        if (totalReceived[key] === undefined && masterKey && totalReceived[masterKey] !== undefined) {
-          prevRx = totalReceived[masterKey]
-        }
-        let prevRxWt = totalReceivedWeight[key] || 0
-        if (totalReceivedWeight[key] === undefined && masterKey && totalReceivedWeight[masterKey] !== undefined) {
-          prevRxWt = totalReceivedWeight[masterKey]
-        }
-        let prevLoss = totalLoss[key] || 0
-        if (totalLoss[key] === undefined && masterKey && totalLoss[masterKey] !== undefined) {
-          prevLoss = totalLoss[masterKey]
-        }
-        let prevLossWt = totalLossWeight[key] || 0
-        if (totalLossWeight[key] === undefined && masterKey && totalLossWeight[masterKey] !== undefined) {
-          prevLossWt = totalLossWeight[masterKey]
-        }
-
-        const deltaRx = Math.max(0, (parseFloat(r.receivedQty) || 0) - prevRx)
-        const deltaRxWt = Math.max(0, (parseFloat(r.receivedWeight) || 0) - prevRxWt)
-        const deltaLoss = Math.max(0, (parseFloat(r.lossQty) || 0) - prevLoss)
-        const deltaLossWt = Math.max(0, (parseFloat(r.lossWeight) || 0) - prevLossWt)
-        const deltaReissue = Math.max(0, (parseFloat(r.reissueQty) || 0) - prevLoss)
+        const rx = parseFloat(r.receivedQty) || 0
+        const rxWt = parseFloat(r.receivedWeight) || 0
+        const loss = parseFloat(r.lossQty) || 0
+        const lossWt = parseFloat(r.lossWeight) || 0
+        const reissue = parseFloat(r.reissueQty) || loss
 
         return {
           sku: r.sku,
           ...(isPreCasting && r.masterSku ? { die_code: r.sku, master_sku: r.masterSku, qty_per_piece: r.qtyPerPiece || 1 } : {}),
-          received_qty: deltaRx,
-          received_weight: deltaRxWt,
-          loss_qty: deltaLoss,
-          loss_weight: deltaLossWt,
-          reissue_qty: deltaReissue,
+          received_qty: rx,
+          received_weight: rxWt,
+          loss_qty: loss,
+          loss_weight: lossWt,
+          reissue_qty: reissue,
         }
       })
     if (receivedRows.length === 0) {
@@ -584,26 +542,14 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
     const payloadRows = rows
       .filter(r => r.sku)
       .map(r => {
-        const key = (r.sku || '').trim().toUpperCase()
-        const masterKey = (r.masterSku || '').trim().toUpperCase()
-
-        let prevRx = totalReceived[key] || 0
-        if (totalReceived[key] === undefined && masterKey && totalReceived[masterKey] !== undefined) {
-          prevRx = totalReceived[masterKey]
-        }
-        let prevLoss = totalLoss[key] || 0
-        if (totalLoss[key] === undefined && masterKey && totalLoss[masterKey] !== undefined) {
-          prevLoss = totalLoss[masterKey]
-        }
-
-        const deltaRx = Math.max(0, (parseFloat(r.receivedQty) || 0) - prevRx)
-        const deltaLoss = Math.max(0, (parseFloat(r.lossQty) || 0) - prevLoss)
+        const rx = parseFloat(r.receivedQty) || 0
+        const loss = parseFloat(r.lossQty) || 0
 
         return {
           sku: r.sku,
           ...(isPreCastingSend && r.masterSku ? { die_code: r.sku, master_sku: r.masterSku, qty_per_piece: r.qtyPerPiece || 1 } : {}),
-          received_qty: deltaRx,
-          loss_qty: deltaLoss,
+          received_qty: rx,
+          loss_qty: loss,
         }
       })
     if (payloadRows.length === 0) {
@@ -875,12 +821,8 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
 
   const getRowLockState = (row) => {
     if (isCompleted) return true
-    if (voucherData?.approvalStatus === 'in_process') return false
-    const key = (row.sku || '').trim().toUpperCase()
-    const masterKey = (row.masterSku || '').trim().toUpperCase()
-    const prevRx = totalReceived[key] !== undefined ? totalReceived[key] : (masterKey && totalReceived[masterKey] !== undefined ? totalReceived[masterKey] : 0)
     const issued = parseFloat(row.issuedQty) || 0
-    return (issued > 0 && prevRx >= issued)
+    return issued <= 0
   }
 
   // Copy all issued qty/weight to received when checkbox is toggled

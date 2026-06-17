@@ -72,3 +72,112 @@ class JobApiTests(APITestCase):
 		self.assertFalse(response.data['success'])
 		self.assertEqual(response.data['error']['code'], 'validation_error')
 		self.assertIn('details', response.data['error'])
+
+	def test_die_inventory_updates_and_partial_voucher(self):
+		from inventory.models import DieInventoryItem, DieTransaction
+		from jobs.models import VoucherApprovalStatus
+		
+		# Create a DieInventoryItem
+		die_item = DieInventoryItem.objects.create(
+			tenant=self.tenant,
+			company=self.company,
+			die_code='DIE-A101',
+			quantity=20,
+			wax_piece_qty=0,
+			wax_setting_qty=0,
+			casting_qty=0,
+			created_by=self.user,
+			updated_by=self.user,
+		)
+		
+		# Create a pre-casting voucher (die -> wax-pieces)
+		job = Job.objects.create(
+			tenant=self.tenant,
+			company=self.company,
+			title='V1',
+			product=self.product,
+			status='created',
+			approval_status=VoucherApprovalStatus.IN_PROCESS,
+			dept_from='die',
+			dept_to='wax-pieces',
+			die_rows=[{
+				'die_code': 'DIE-A101',
+				'master_sku': 'SKU-JOB-1',
+				'qty_per_piece': 1,
+				'issued_qty': '10',
+			}],
+			material_rows=[{
+				'sku': 'DIE-A101',
+				'issued_qty': '10',
+			}],
+			created_by=self.user,
+			updated_by=self.user,
+		)
+		
+		# Trigger source deduction (enters in_process)
+		from jobs.views import _deduct_source_current_stock
+		_deduct_source_current_stock(job)
+		
+		# Verify source quantity is decremented (quantity went from 20 to 10)
+		die_item.refresh_from_db()
+		self.assertEqual(float(die_item.quantity), 10.0)
+		self.assertEqual(float(die_item.wax_piece_qty), 0.0)
+		
+		# Now, receive 6 partially
+		response = self.client.post(
+			f'/api/v1/jobs/{job.id}/receive-voucher/',
+			{
+				'rows': [{
+					'die_code': 'DIE-A101',
+					'received_qty': 6,
+					'loss_qty': 0,
+				}],
+				'is_partial': True,
+				'received_by': 'Tester',
+			},
+			format='json',
+		)
+		
+		self.assertEqual(response.status_code, status.HTTP_200_OK)
+		self.assertTrue(response.data['success'])
+		
+		# Verify status is PARTIALLY_COMPLETED
+		job.refresh_from_db()
+		self.assertEqual(job.approval_status, VoucherApprovalStatus.PARTIALLY_COMPLETED)
+		
+		# Verify remaining issued_qty is updated to 4 (10 - 6)
+		self.assertEqual(job.die_rows[0]['issued_qty'], '4')
+		self.assertEqual(job.material_rows[0]['issued_qty'], '4')
+		
+		# Verify destination qty (wax_piece_qty) is incremented by 6
+		die_item.refresh_from_db()
+		self.assertEqual(float(die_item.wax_piece_qty), 6.0)
+		
+		# Now receive the remaining 4
+		response2 = self.client.post(
+			f'/api/v1/jobs/{job.id}/receive-voucher/',
+			{
+				'rows': [{
+					'die_code': 'DIE-A101',
+					'received_qty': 4,
+					'loss_qty': 0,
+				}],
+				'is_partial': False,
+				'received_by': 'Tester',
+			},
+			format='json',
+		)
+		
+		self.assertEqual(response2.status_code, status.HTTP_200_OK)
+		
+		# Verify status becomes COMPLETED
+		job.refresh_from_db()
+		self.assertEqual(job.approval_status, VoucherApprovalStatus.COMPLETED)
+		
+		# Verify remaining issued_qty is now 0
+		self.assertEqual(job.die_rows[0]['issued_qty'], '0')
+		self.assertEqual(job.material_rows[0]['issued_qty'], '0')
+		
+		# Verify destination qty (wax_piece_qty) is now 10
+		die_item.refresh_from_db()
+		self.assertEqual(float(die_item.wax_piece_qty), 10.0)
