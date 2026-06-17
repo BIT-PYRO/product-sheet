@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, ChevronDown, Download, Pencil, Plus, Printer, RefreshCw, Trash2, X } from 'lucide-react';
 import * as XLSX from 'xlsx';
@@ -106,6 +106,9 @@ function skuList(val) {
 export default function DieInventoryPage() {
   const { canExport } = useSheetPermissions('inventory');
 
+  const lastInvLogIdRef = useRef(null);
+  const lastJobLogIdRef = useRef(null);
+
   const [dies, setDies] = useState([]);
   const [backendMode, setBackendMode] = useState('');
   const [loading, setLoading] = useState(true);
@@ -158,8 +161,38 @@ export default function DieInventoryPage() {
 
   // ── Fetch data ──────────────────────────────────────────────────────────────
 
-  const fetchDies = async () => {
-    setLoading(true);
+  const fetchLatestLogIds = async () => {
+    try {
+      const [invRes, jobRes] = await Promise.all([
+        fetch('/api/activity-logs?sheet=inventory&page_size=1', { cache: 'no-store' }),
+        fetch('/api/activity-logs?sheet=job&page_size=1', { cache: 'no-store' }),
+      ]);
+      let invId = null;
+      let jobId = null;
+      if (invRes.ok) {
+        const data = await invRes.json();
+        const results = data?.data?.results ?? data?.results ?? data?.data ?? [];
+        if (results.length > 0) {
+          invId = results[0].id;
+        }
+      }
+      if (jobRes.ok) {
+        const data = await jobRes.json();
+        const results = data?.data?.results ?? data?.results ?? data?.data ?? [];
+        if (results.length > 0) {
+          jobId = results[0].id;
+        }
+      }
+      return { invId, jobId };
+    } catch {
+      return { invId: null, jobId: null };
+    }
+  };
+
+  const fetchDies = async (isBackground = false) => {
+    if (!isBackground) {
+      setLoading(true);
+    }
     setFetchError('');
     try {
       const res = await fetch('/api/die-inventory?page_size=500');
@@ -173,10 +206,17 @@ export default function DieInventoryPage() {
       const results = data?.data?.results ?? data?.results ?? data?.data ?? [];
       setDies(Array.isArray(results) ? results : []);
       setLastUpdated(new Date());
+
+      // Update refs to latest log IDs to align status check
+      const logs = await fetchLatestLogIds();
+      lastInvLogIdRef.current = logs.invId;
+      lastJobLogIdRef.current = logs.jobId;
     } catch (err) {
       setFetchError(err.message || 'Failed to load die inventory');
     } finally {
-      setLoading(false);
+      if (!isBackground) {
+        setLoading(false);
+      }
     }
   };
 
@@ -205,27 +245,57 @@ export default function DieInventoryPage() {
     } catch { /* non-fatal */ }
   };
 
+  const handleManualRefresh = async () => {
+    fetchDies(false);
+    fetchIssueRequests();
+    fetchPicklists();
+  };
+
   useEffect(() => {
-    fetchDies();
+    fetchDies(false);
     fetchIssueRequests();
     fetchPicklists();
   }, []);
 
-  // Auto-refresh die inventory every 30 s
+  // Auto-refresh die inventory check every 30 s
   useEffect(() => {
     const POLL_MS = 30_000;
+
+    const checkAndRefresh = async () => {
+      const logs = await fetchLatestLogIds();
+      let hasChanges = false;
+
+      // If we don't have prior values, initialize them but don't force a full background reload
+      if (lastInvLogIdRef.current === null && lastJobLogIdRef.current === null) {
+        lastInvLogIdRef.current = logs.invId;
+        lastJobLogIdRef.current = logs.jobId;
+        return;
+      }
+
+      if (logs.invId !== lastInvLogIdRef.current) {
+        hasChanges = true;
+        lastInvLogIdRef.current = logs.invId;
+      }
+      if (logs.jobId !== lastJobLogIdRef.current) {
+        hasChanges = true;
+        lastJobLogIdRef.current = logs.jobId;
+      }
+
+      if (hasChanges) {
+        fetchDies(true);
+        fetchIssueRequests();
+        fetchPicklists();
+      }
+    };
+
     const id = setInterval(() => {
-      fetchDies();
-      fetchIssueRequests();
-      fetchPicklists();
+      checkAndRefresh();
     }, POLL_MS);
 
     // Also reload immediately whenever the browser tab regains focus / becomes visible.
     const handleVisible = () => {
       if (document.visibilityState === 'visible') {
-        fetchDies();
-        fetchIssueRequests();
-        fetchPicklists();
+        checkAndRefresh();
       }
     };
     document.addEventListener('visibilitychange', handleVisible);
@@ -774,7 +844,7 @@ export default function DieInventoryPage() {
 
         {/* Action buttons */}
         <div className="mb-4 flex flex-wrap gap-2 md:gap-3 justify-end items-center">
-          <Button onClick={fetchDies} variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8">
+          <Button onClick={handleManualRefresh} variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8">
             <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
             Refresh
           </Button>

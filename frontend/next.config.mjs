@@ -5,6 +5,13 @@ const projectRoot = path.dirname(fileURLToPath(import.meta.url))
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  onDemandEntries: {
+    maxInactiveAge: 15 * 1000,
+    pagesBufferLength: 2,
+  },
+  experimental: {
+    webpackBuildWorker: false,
+  },
   turbopack: {
     root: projectRoot,
   },

@@ -145,7 +145,7 @@ class ActivityLogViewSet(ListModelMixin, GenericViewSet):
 	  date_to     — ISO date, e.g. 2026-12-31
 	  search      — partial match on object_repr or user_name
 	"""
-	permission_classes = [IsSuperuser]
+	permission_classes = [IsAuthenticated]
 	serializer_class = ActivityLogSerializer
 	pagination_class = ActivityLogPagination
 	queryset = ActivityLog.objects.select_related('user').all()
