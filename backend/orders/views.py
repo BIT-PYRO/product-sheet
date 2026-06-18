@@ -1,11 +1,16 @@
+import logging
+
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 
 from .models import Order, OrderItem
 from .serializers import OrderDetailSerializer, OrderListSerializer
+
+logger = logging.getLogger(__name__)
 
 
 class OrderViewSet(viewsets.ModelViewSet):
@@ -113,10 +118,47 @@ class OrderViewSet(viewsets.ModelViewSet):
         serializer = OrderDetailSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
+        # Determine the source: 'auto-sync' if triggered by server-side sync, else the authenticated user
+        is_auto_sync = (
+            not (request.user and request.user.is_authenticated)
+            or getattr(request, 'is_picklist_auto_sync', False)
+        )
+
         if request.user and request.user.is_authenticated:
             serializer.save(order_source='picklist', tenant=tenant, company=company, created_by=request.user)
         else:
             serializer.save(order_source='picklist', tenant=tenant, company=company)
+
+        # ── Activity log for this picklist sync ───────────────────────────────
+        try:
+            from common.audit import log_activity
+            from common.models import ActivityLog
+            instance = serializer.instance
+            item_count = instance.items.count() if hasattr(instance, 'items') else len(request.data.get('items', []))
+            log_activity(
+                request,
+                ActivityLog.ACTION_CREATE,
+                'order',
+                instance,
+                extra={
+                    'action_detail': 'Picklist auto-synced' if is_auto_sync else 'Picklist registered',
+                    'picklist_number': picklist_number,
+                    'order_name': str(instance),
+                    'item_count': item_count,
+                    'source': 'auto-sync' if is_auto_sync else 'manual',
+                    'synced_at': timezone.now().isoformat(),
+                },
+            )
+        except Exception:
+            pass  # Never block the main response
+
+        logger.info(
+            'Picklist #%s registered as order #%s (%s, %d items)',
+            picklist_number,
+            serializer.instance.pk,
+            'auto-sync' if is_auto_sync else 'manual',
+            len(request.data.get('items', [])),
+        )
 
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 

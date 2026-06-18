@@ -177,26 +177,62 @@ export function OrderSheetView({ embedded = false, defaultPicklistNum = null }) 
       .catch(() => {});
   }, []);
 
-  // Check if external sync is configured (to show/hide Sync button) and auto-sync on mount
+  // Check if external sync is configured (to show/hide Sync button) and set up polling
   useEffect(() => {
+    let intervalId = null;
+    let isMounted = true;
+
+    const SYNC_INTERVAL_MS = Number(process.env.NEXT_PUBLIC_PICKLIST_SYNC_INTERVAL_MS) || 300_000; // 5 min default
+
+    const runSync = async (isBackground = true) => {
+      try {
+        const res = await fetch('/api/picklist-sync?days=7', { method: 'POST' });
+        const result = await res.json().catch(() => null);
+
+        if (!isMounted) return;
+
+        if (result?.success && !result.skipped) {
+          // New batch(es) arrived — refresh orders + inventory sheet
+          const now = new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+          setSyncStatus({ tone: 'success', message: `${result.message || 'New batch synced.'} (at ${now})` });
+
+          try {
+            const freshRes = await fetch('/frontend/api/picklist-groups', { cache: 'no-store' }).catch(() => null);
+            const freshData = freshRes?.ok ? await freshRes.json().catch(() => null) : null;
+            const freshList = Array.isArray(freshData?.data) ? freshData.data : [];
+            localStorage.setItem(PSD_PICKLISTS_KEY, JSON.stringify(freshList));
+          } catch { /* ignore localStorage write failures */ }
+
+          window.dispatchEvent(
+            new CustomEvent('inventory_sheet_sync', { detail: { updatedAt: Date.now().toString() } })
+          );
+          await loadOrdersAndProducts();
+        }
+      } catch (err) {
+        if (isMounted && !isBackground) {
+          console.error('Background picklist sync failed:', err);
+        }
+      }
+    };
+
     fetch('/api/picklist-sync', { cache: 'no-store' })
       .then((res) => res.json())
       .then((data) => {
+        if (!isMounted) return;
         if (data?.configured) {
           setExternalSyncConfigured(true);
-          // Trigger background auto-sync of picklists for the last 7 days on mount
-          fetch('/api/picklist-sync?days=7', { method: 'POST' })
-            .then((res) => res.json())
-            .then((result) => {
-              if (result?.success && !result.skipped) {
-                // If new picklists were synced, refresh the orders list
-                loadOrdersAndProducts();
-              }
-            })
-            .catch((err) => console.error('Background sync failed:', err));
+          // Fire immediately on mount, then poll at the configured interval
+          runSync(true);
+          intervalId = setInterval(() => runSync(true), SYNC_INTERVAL_MS);
         }
       })
       .catch(() => {});
+
+    return () => {
+      isMounted = false;
+      if (intervalId) clearInterval(intervalId);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleExternalSync = async () => {

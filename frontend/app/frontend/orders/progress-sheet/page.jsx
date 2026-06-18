@@ -185,23 +185,37 @@ export function OrderProgressSheetView({ embedded = false }) {
   useEffect(() => {
     loadData();
 
-    // Check if external sync is configured and trigger background auto-sync of picklists on mount
+    // Set up recurring picklist sync polling so new batches are picked up automatically
+    let intervalId = null;
+    let isMounted = true;
+    const SYNC_INTERVAL_MS = Number(process.env.NEXT_PUBLIC_PICKLIST_SYNC_INTERVAL_MS) || 300_000;
+
+    const runSync = async () => {
+      try {
+        const res = await fetch('/api/picklist-sync?days=7', { method: 'POST' });
+        const result = await res.json().catch(() => null);
+        if (isMounted && result?.success && !result.skipped) {
+          loadData();
+        }
+      } catch { /* silent — background polling */ }
+    };
+
     fetch('/api/picklist-sync', { cache: 'no-store' })
       .then((res) => res.json())
       .then((data) => {
+        if (!isMounted) return;
         if (data?.configured) {
-          fetch('/api/picklist-sync?days=7', { method: 'POST' })
-            .then((res) => res.json())
-            .then((result) => {
-              if (result?.success && !result.skipped) {
-                // If new picklists were synced, refresh the progress data
-                loadData();
-              }
-            })
-            .catch((err) => console.error('Background sync failed:', err));
+          runSync(); // fire immediately
+          intervalId = setInterval(runSync, SYNC_INTERVAL_MS);
         }
       })
       .catch(() => {});
+
+    return () => {
+      isMounted = false;
+      if (intervalId) clearInterval(intervalId);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {

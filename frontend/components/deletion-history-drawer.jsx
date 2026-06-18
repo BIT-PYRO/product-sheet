@@ -19,6 +19,13 @@ const ACTION_COLORS = {
   login: 'bg-gray-100 text-gray-700',
 };
 
+/** Returns a human-readable label for the action, enhanced for picklist sync events. */
+function getActionLabel(log) {
+  const extra = log.extra || {};
+  if (extra.action_detail) return extra.action_detail;
+  return log.action;
+}
+
 /**
  * DeletionHistoryDrawer
  *
@@ -370,11 +377,18 @@ export default function DeletionHistoryDrawer({ appLabel, modelName, sheet, obje
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2 flex-wrap">
                                 <span className="text-sm font-semibold text-midnight-ink truncate max-w-[200px]">
-                                  {log.object_repr || `ID #${log.object_id}`}
+                                  {log.extra?.action_detail
+                                    ? log.extra.action_detail
+                                    : (log.object_repr || `ID #${log.object_id}`)}
                                 </span>
                                 <span className={`text-xs font-medium px-2 py-0.5 rounded-full shrink-0 ${actionColorClass}`}>
                                   {log.action}
                                 </span>
+                                {log.extra?.source === 'auto-sync' && (
+                                  <span className="text-xs font-medium px-2 py-0.5 rounded-full shrink-0 bg-emerald-100 text-emerald-700">
+                                    🔄 auto-sync
+                                  </span>
+                                )}
                                 {changesEntries.length > 0 && (
                                   <span className="text-xs text-cool-gray shrink-0">
                                     {changesEntries.length} field{changesEntries.length !== 1 ? 's' : ''} changed
@@ -384,12 +398,22 @@ export default function DeletionHistoryDrawer({ appLabel, modelName, sheet, obje
                               <div className="mt-1 flex items-center gap-3 flex-wrap text-xs text-cool-gray">
                                 <span>
                                   <span className="font-medium">By:</span>{' '}
-                                  {log.user_display || log.user_name || 'Unknown'}
+                                  {log.user_display || log.user_name || (log.extra?.source === 'auto-sync' ? '🔄 Auto-sync' : 'Unknown')}
                                 </span>
                                 <span>
                                   <span className="font-medium">At:</span>{' '}
                                   {formatDate(log.timestamp)}
                                 </span>
+                                {log.extra?.picklist_number != null && (
+                                  <span>
+                                    <span className="font-medium">Picklist:</span>{' '}#{log.extra.picklist_number}
+                                  </span>
+                                )}
+                                {log.extra?.item_count != null && (
+                                  <span>
+                                    <span className="font-medium">Items:</span>{' '}{log.extra.item_count}
+                                  </span>
+                                )}
                               </div>
                             </div>
                             {changesEntries.length > 0 && (

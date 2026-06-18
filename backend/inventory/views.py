@@ -115,6 +115,31 @@ class PicklistGroupViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 			company = Company.objects.filter(tenant=tenant).first()
 		serializer.save(tenant=tenant, company=company)
 
+		# ── Activity log: picklist batch created (auto-sync or manual) ────────
+		try:
+			from common.audit import log_activity
+			from common.models import ActivityLog
+			instance = serializer.instance
+			uploaded_by = getattr(instance, 'uploaded_by', '') or ''
+			is_auto_sync = uploaded_by == 'auto-sync'
+			item_count = instance.items.count() if hasattr(instance, 'items') else 0
+			log_activity(
+				self.request,
+				ActivityLog.ACTION_CREATE,
+				'order',  # surface in the Orders activity log panel
+				instance,
+				extra={
+					'action_detail': 'Picklist batch auto-synced from external software' if is_auto_sync else 'Picklist batch created',
+					'picklist_number': getattr(instance, 'number', None),
+					'batch_name': str(instance),
+					'item_count': item_count,
+					'source': 'auto-sync' if is_auto_sync else 'manual',
+					'synced_at': timezone.now().isoformat(),
+				},
+			)
+		except Exception:
+			pass  # Never block the main response
+
 
 @extend_schema_view(
 	list=extend_schema(summary='List stone items', tags=['Stone Inventory']),
