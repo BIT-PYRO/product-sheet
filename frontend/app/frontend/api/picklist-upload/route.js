@@ -1,4 +1,4 @@
-﻿import { read, utils } from 'xlsx';
+import { read, utils } from 'xlsx';
 import { proxyAuthenticatedRequest } from '@/app/frontend/api/_lib/backend-auth';
 
 // -- Header normalizer ---------------------------------------------------------
@@ -543,6 +543,7 @@ export async function savePicklistOrder(request, savedGroup) {
     items: orderItems,
     discount: 0,
     shipping: 0,
+    uploaded_by: savedGroup.uploadedBy || 'manual',
   };
 
   try {

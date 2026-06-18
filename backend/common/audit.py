@@ -125,23 +125,27 @@ def log_activity(
         # --- resolve user info ---
         user = None
         user_name = ''
-        if request is not None:
-            u = getattr(request, 'user', None)
-            if u is not None and u.is_authenticated:
-                user = u
-                full = f'{u.first_name} {u.last_name}'.strip()
-                user_name = full or u.username or ''
-
-        if not user:
-            try:
-                from core_tenants.context import get_current_user
-                u = get_current_user()
+        if extra and extra.get('source') == 'auto-sync':
+            user = None
+            user_name = 'auto-sync'
+        else:
+            if request is not None:
+                u = getattr(request, 'user', None)
                 if u is not None and u.is_authenticated:
                     user = u
                     full = f'{u.first_name} {u.last_name}'.strip()
                     user_name = full or u.username or ''
-            except Exception:
-                pass
+
+            if not user:
+                try:
+                    from core_tenants.context import get_current_user
+                    u = get_current_user()
+                    if u is not None and u.is_authenticated:
+                        user = u
+                        full = f'{u.first_name} {u.last_name}'.strip()
+                        user_name = full or u.username or ''
+                except Exception:
+                    pass
 
         # --- changes / diff ---
         changes: dict = {}

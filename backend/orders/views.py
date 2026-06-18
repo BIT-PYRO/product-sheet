@@ -118,13 +118,14 @@ class OrderViewSet(viewsets.ModelViewSet):
         serializer = OrderDetailSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        # Determine the source: 'auto-sync' if triggered by server-side sync, else the authenticated user
+        # Determine the source: 'auto-sync' if triggered by server-side sync or payload uploaded_by, else the authenticated user
         is_auto_sync = (
             not (request.user and request.user.is_authenticated)
             or getattr(request, 'is_picklist_auto_sync', False)
+            or request.data.get('uploaded_by') == 'auto-sync'
         )
 
-        if request.user and request.user.is_authenticated:
+        if request.user and request.user.is_authenticated and not is_auto_sync:
             serializer.save(order_source='picklist', tenant=tenant, company=company, created_by=request.user)
         else:
             serializer.save(order_source='picklist', tenant=tenant, company=company)
