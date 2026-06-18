@@ -401,6 +401,14 @@ export default function StoneInventoryPage() {
       selected.map((s) => ({
         stoneId: s.id,
         // pre-filled editable stone properties
+        stone_type: s.stone_type || '',
+        species: s.species || '',
+        variety: s.variety || '',
+        color: s.color || '',
+        quality: s.quality || '',
+        wax_setting: s.wax_setting || false,
+        dos: s.dos || '',
+        donts: s.donts || '',
         cut: s.cut || '',
         shape: s.shape || '',
         length: s.length || '',
@@ -833,6 +841,14 @@ export default function StoneInventoryPage() {
     const toSave = stockRows.filter((row) => {
       const orig = stones.find((s) => s.id === row.stoneId);
       const propsChanged = orig && (
+        row.stone_type !== (orig.stone_type || '') ||
+        row.species !== (orig.species || '') ||
+        row.variety !== (orig.variety || '') ||
+        row.color !== (orig.color || '') ||
+        row.quality !== (orig.quality || '') ||
+        row.wax_setting !== (orig.wax_setting || false) ||
+        row.dos !== (orig.dos || '') ||
+        row.donts !== (orig.donts || '') ||
         row.cut !== (orig.cut || '') ||
         row.shape !== (orig.shape || '') ||
         row.length !== (orig.length || '') ||
@@ -847,12 +863,28 @@ export default function StoneInventoryPage() {
       setStatusMsg('No changes or stock updates were made.');
       return;
     }
+
+    for (const row of toSave) {
+      if (!row.stone_type || !row.stone_type.trim()) {
+        setStatusMsg('Type is required for all stones.');
+        return;
+      }
+    }
+
     setSavingStock(true);
     setStatusMsg('');
     try {
       for (const row of toSave) {
         // 1. PATCH the stone item with the editable stone properties
         const stoneUpdate = {
+          stone_type: row.stone_type,
+          species: row.species,
+          variety: row.variety,
+          color: row.color,
+          quality: row.quality,
+          wax_setting: row.wax_setting,
+          dos: row.dos,
+          donts: row.donts,
           cut: row.cut,
           shape: row.shape,
           length: row.length,
@@ -954,25 +986,21 @@ export default function StoneInventoryPage() {
     { key: 'donts', label: "Don'ts" },
   ];
 
-  // locked fields = same as Add New Stone
-  const LOCKED_KEYS = [
-    { key: 'stone_type', label: 'Type', minW: 'min-w-[80px]' },
-    { key: 'species', label: 'Species', minW: 'min-w-[80px]' },
-    { key: 'variety', label: 'Variety', minW: 'min-w-[80px]' },
-    { key: 'color', label: 'Color', minW: 'min-w-[70px]' },
-    { key: 'quality', label: 'Quality', minW: 'min-w-[70px]' },
-    { key: 'wax_setting', label: 'Wax Setting', minW: 'min-w-[80px]', render: (v) => (v ? 'Yes' : 'No') },
-    { key: 'dos', label: "Do's", minW: 'min-w-[80px]' },
-    { key: 'donts', label: "Don'ts", minW: 'min-w-[80px]' },
-  ];
-
   // editable stone-property fields in the stock popup
   const EDITABLE_STONE_KEYS = [
-    { key: 'cut', label: 'Cut', minW: 'min-w-[60px]' },
-    { key: 'shape', label: 'Shape', minW: 'min-w-[70px]' },
-    { key: 'length', label: 'Length', minW: 'min-w-[60px]' },
-    { key: 'width', label: 'Width', minW: 'min-w-[60px]' },
-    { key: 'height', label: 'Height', minW: 'min-w-[60px]' },
+    { key: 'stone_type', label: 'Type *', minW: 'min-w-[90px]' },
+    { key: 'species', label: 'Species', minW: 'min-w-[90px]' },
+    { key: 'variety', label: 'Variety', minW: 'min-w-[90px]' },
+    { key: 'color', label: 'Color', minW: 'min-w-[80px]' },
+    { key: 'quality', label: 'Quality', minW: 'min-w-[80px]' },
+    { key: 'wax_setting', label: 'Wax Setting', minW: 'min-w-[100px]', isSelect: true },
+    { key: 'dos', label: "Do's", minW: 'min-w-[100px]' },
+    { key: 'donts', label: "Don'ts", minW: 'min-w-[100px]' },
+    { key: 'cut', label: 'Cut', minW: 'min-w-[70px]' },
+    { key: 'shape', label: 'Shape', minW: 'min-w-[80px]' },
+    { key: 'length', label: 'Length', minW: 'min-w-[70px]' },
+    { key: 'width', label: 'Width', minW: 'min-w-[70px]' },
+    { key: 'height', label: 'Height', minW: 'min-w-[70px]' },
   ];
 
   // â”€â”€â”€ render â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -1410,9 +1438,9 @@ export default function StoneInventoryPage() {
         </>
       )}
 
-      {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-          Add Stone Stock dialog â€” table of selected stones
-      â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
+      {/* ———————————————————————————————————————————————————————————————————————————————————————————————————— 
+          Add Stone Stock dialog — table of selected stones
+      ————————————————————————————————————————————————————————————————————————————————————————————————————  */}
       <Dialog open={addStockOpen} onOpenChange={setAddStockOpen}>
         <DialogContent className="max-w-[96vw] w-[96vw] max-h-[90vh] overflow-hidden flex flex-col">
           <DialogHeader className="flex-shrink-0">
@@ -1428,19 +1456,13 @@ export default function StoneInventoryPage() {
           <div className="flex-1 overflow-auto mt-3 rounded-lg border border-soft-border">
             <table className="min-w-full border-collapse text-xs">
               <thead className="sticky top-0 z-10">
-                {/* â”€â”€ row 1: section spans â”€â”€ */}
+                {/* ——— row 1: section spans ——— */}
                 <tr className="bg-muted dark:bg-muted">
-                  <th
-                    colSpan={LOCKED_KEYS.length}
-                    className="border border-soft-border px-3 py-1.5 text-center text-xs font-normal text-foreground"
-                  >
-                    Pre-filled (locked)
-                  </th>
                   <th
                     colSpan={EDITABLE_STONE_KEYS.length}
                     className="border border-soft-border px-3 py-1.5 text-center text-xs font-semibold text-midnight-ink uppercase tracking-wide bg-amber-50 dark:bg-amber-900/20"
                   >
-                    Editable
+                    Stone Details (editable)
                   </th>
                   <th className="border border-soft-border px-3 py-1.5 text-center text-xs font-normal text-foreground">
                     Qty
@@ -1472,14 +1494,6 @@ export default function StoneInventoryPage() {
                 </tr>
                 {/* â”€â”€ row 2: column labels â”€â”€ */}
                 <tr className="bg-muted">
-                  {LOCKED_KEYS.map((c) => (
-                    <th
-                      key={c.key}
-                      className={`border border-soft-border px-3 py-2 text-left text-xs font-normal text-foreground ${c.minW}`}
-                    >
-                      {c.label}
-                    </th>
-                  ))}
                   {EDITABLE_STONE_KEYS.map((c) => (
                     <th
                       key={c.key}
@@ -1525,22 +1539,24 @@ export default function StoneInventoryPage() {
                   if (!stone) return null;
                   return (
                     <tr key={row.stoneId} className="hover:bg-blue-50">
-                      {/* locked pre-filled cells */}
-                      {LOCKED_KEYS.map((c) => (
-                        <td
-                          key={c.key}
-                          className="border border-soft-border px-3 py-1.5 text-cool-gray bg-muted whitespace-nowrap"
-                        >
-                          {c.render ? c.render(stone[c.key]) : (stone[c.key] || 'â€”')}
-                        </td>
-                      ))}
                       {/* editable stone property cells */}
                       {EDITABLE_STONE_KEYS.map((c) => (
                         <td key={c.key} className="border border-soft-border px-2 py-1 bg-amber-50 dark:bg-amber-900/20">
-                          <CellInput
-                            value={row[c.key]}
-                            onChange={(v) => updateStockRow(row.stoneId, c.key, v)}
-                          />
+                          {c.isSelect ? (
+                            <select
+                              value={row[c.key] ? 'true' : 'false'}
+                              onChange={(e) => updateStockRow(row.stoneId, c.key, e.target.value === 'true')}
+                              className="w-full min-w-[80px] rounded border border-soft-border px-1.5 py-1 text-xs text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue bg-background"
+                            >
+                              <option value="true">Yes</option>
+                              <option value="false">No</option>
+                            </select>
+                          ) : (
+                            <CellInput
+                              value={row[c.key]}
+                              onChange={(v) => updateStockRow(row.stoneId, c.key, v)}
+                            />
+                          )}
                         </td>
                       ))}
                       {/* qty */}
