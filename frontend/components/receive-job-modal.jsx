@@ -468,7 +468,7 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
       setSubmitError(`This voucher cannot be received (status: ${voucherData?.approvalStatus}). Only in-process or partially complete vouchers can be received.`)
       return
     }
-    const isPreCasting = ['wax-pieces', 'wax-setting', 'casting'].includes(deptFrom)
+    const isPreCasting = ['wax-pieces', 'wax-setting', 'casting'].includes(deptTo)
     const receivedRows = rows
       .filter(r => String(r.receivedQty || '').trim() !== '' || String(r.lossQty || '').trim() !== '')
       .map(r => {
@@ -538,7 +538,7 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
       setSubmitError(`Cannot process a voucher with status: "${voucherData?.approvalStatus}". Only in-process or partially complete vouchers can be sent for the next stage.`)
       return
     }
-    const isPreCastingSend = ['wax-pieces', 'wax-setting', 'casting'].includes(deptFrom)
+    const isPreCastingSend = ['wax-pieces', 'wax-setting', 'casting'].includes(deptTo)
     const payloadRows = rows
       .filter(r => r.sku)
       .map(r => {
@@ -809,10 +809,18 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
   }
 
   const isCompleted = ['completed', 'replaced'].includes(voucherData?.approvalStatus)
-  const isBaseLocked = isCompleted || voucherData?.approvalStatus === 'partially_complete'
+  // Partial vouchers are NOT locked — they still need remaining entries
+  const isBaseLocked = isCompleted
 
   const getRowLockState = (row) => {
     if (isCompleted) return true
+    // For partial vouchers: rows where all issued qty has been accounted for are locked,
+    // but rows that still have remaining (issued_qty > 0) stay editable
+    if (voucherData?.approvalStatus === 'partially_complete') {
+      const issued = parseFloat(row.issuedQty) || 0
+      return issued <= 0
+    }
+    // For in_process: only lock rows with no issued qty at all
     const issued = parseFloat(row.issuedQty) || 0
     return issued <= 0
   }
@@ -1037,7 +1045,7 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
           {/* Partially complete info banner */}
           {voucherData?.approvalStatus === 'partially_complete' && (
             <div className="rounded-md bg-amber-50 border border-amber-300 px-3 py-2 text-xs text-amber-800 font-semibold">
-              This voucher is PARTIALLY COMPLETE. Received and loss quantities shown below are the final recorded values.
+              ⚠️ This voucher is <span className="uppercase">Partially Complete</span>. Enter the remaining quantities below and click <strong>Send for Next Stage</strong> (or <strong>Save Partial</strong>) to continue.
             </div>
           )}
 
