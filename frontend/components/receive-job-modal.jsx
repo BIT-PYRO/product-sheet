@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -66,6 +66,7 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState('')
   const [submitWarnings, setSubmitWarnings] = useState([])
+  const errorRef = useRef(null)
   const [stoneIssueRequests, setStoneIssueRequests] = useState([])
   const [isRecalcStone, setIsRecalcStone] = useState(false)
   const [copyAllReceived, setCopyAllReceived] = useState(false)
@@ -461,11 +462,13 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
     const voucherId = voucherData?.id
     if (!voucherId) {
       setSubmitError('No voucher ID found. Please re-open the voucher card.')
+      setTimeout(() => errorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 50)
       return
     }
     const canReceive = ['in_process', 'partially_complete'].includes(voucherData?.approvalStatus)
     if (!canReceive) {
       setSubmitError(`This voucher cannot be received (status: ${voucherData?.approvalStatus}). Only in-process or partially complete vouchers can be received.`)
+      setTimeout(() => errorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 50)
       return
     }
     const isPreCasting = ['wax-pieces', 'wax-setting', 'casting'].includes(deptTo)
@@ -531,11 +534,13 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
     const voucherId = voucherData?.id
     if (!voucherId) {
       setSubmitError('No voucher ID found. Please re-open the voucher card.')
+      setTimeout(() => errorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 50)
       return
     }
     const canSend = ['in_process', 'partially_complete'].includes(voucherData?.approvalStatus)
     if (!canSend) {
       setSubmitError(`Cannot process a voucher with status: "${voucherData?.approvalStatus}". Only in-process or partially complete vouchers can be sent for the next stage.`)
+      setTimeout(() => errorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 50)
       return
     }
     const isPreCastingSend = ['wax-pieces', 'wax-setting', 'casting'].includes(deptTo)
@@ -554,11 +559,13 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
       })
     if (payloadRows.length === 0) {
       setSubmitError('No rows with SKU found.')
+      setTimeout(() => errorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 50)
       return
     }
     const hasAnyQty = payloadRows.some(r => r.received_qty > 0 || r.loss_qty > 0)
     if (!hasAnyQty) {
       setSubmitError('Enter at least one Received Qty or Loss Qty before submitting.')
+      setTimeout(() => errorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 50)
       return
     }
     setIsSubmitting(true)
@@ -1295,31 +1302,48 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
             </div>
           )}
 
-          {/* Error / Warning Display */}
-          {submitError && (
-            <div className="rounded-md bg-red-50 border border-red-300 px-3 py-2 text-xs text-red-700">
-              {submitError}
-            </div>
-          )}
-          {submitWarnings.length > 0 && (
-            <div className="rounded-md bg-yellow-50 border border-yellow-300 px-3 py-2 text-xs text-yellow-800">
-              <p className="font-semibold mb-1">Warnings (inventory updated for other rows):</p>
-              {submitWarnings.map((w, i) => <p key={i}>• {w}</p>)}
-            </div>
-          )}
+          {/* Error / Warning Display - always visible just above the action button */}
+          <div ref={errorRef}>
+            {submitError && (
+              <div className="rounded-md bg-red-50 border border-red-300 px-3 py-2 text-xs text-red-700 font-medium">
+                ⚠️ {submitError}
+              </div>
+            )}
+            {submitWarnings.length > 0 && (
+              <div className="rounded-md bg-yellow-50 border border-yellow-300 px-3 py-2 text-xs text-yellow-800">
+                <p className="font-semibold mb-1">Warnings (inventory updated for other rows):</p>
+                {submitWarnings.map((w, i) => <p key={i}>• {w}</p>)}
+              </div>
+            )}
+          </div>
 
           {/* Action Button */}
-          {!isCompleted && (
-          <div className="flex">
-            <Button
-              className="flex-1 h-9 bg-trust-blue hover:bg-deep-blue text-white font-bold text-sm rounded"
-              onClick={handleSendForNextStage}
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? 'Processing...' : 'Send for Next Stage'}
-            </Button>
-          </div>
-          )}
+          {!isCompleted && (() => {
+            const isAwaiting = voucherData?.approvalStatus === 'awaiting'
+            const isActionable = ['in_process', 'partially_complete'].includes(voucherData?.approvalStatus)
+            if (isAwaiting) {
+              return (
+                <div className="rounded-md bg-blue-50 border border-blue-300 px-4 py-3 text-sm text-blue-800 font-semibold text-center">
+                  ⏳ This voucher is <span className="uppercase font-bold">Awaiting</span> the previous stage to complete first.
+                  It will become active automatically once the preceding step is done.
+                </div>
+              )
+            }
+            if (isActionable) {
+              return (
+                <div className="flex">
+                  <Button
+                    className="flex-1 h-9 bg-trust-blue hover:bg-deep-blue text-white font-bold text-sm rounded"
+                    onClick={handleSendForNextStage}
+                    disabled={isSubmitting}
+                  >
+                    {isSubmitting ? 'Processing...' : 'Send for Next Stage'}
+                  </Button>
+                </div>
+              )
+            }
+            return null
+          })()}
 
           {/* Received By, Contact, and Rate Workmanship - Single Row */}
           <div className="border border-border rounded-md px-3 py-2">
