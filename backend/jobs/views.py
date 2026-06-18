@@ -146,9 +146,12 @@ def _activate_ready_batch_vouchers(batch_id):
 					for event in (pred.received_rows or []):
 						for row in (event.get('rows') or []):
 							s = str(row.get('sku', '') or '').strip().upper()
+							m = str(row.get('master_sku', '') or '').strip().upper()
 							qty = int(float(row.get('received_qty', 0) or 0))
 							if s:
 								actual_received[s] = actual_received.get(s, 0) + qty
+							if m:
+								actual_received[m] = actual_received.get(m, 0) + qty
 
 				if actual_received:
 					updated_rows = []
@@ -216,9 +219,12 @@ def _propagate_qty_to_active_downstream(batch_id, voucher):
 		for event in (pred.received_rows or []):
 			for row in (event.get('rows') or []):
 				s = str(row.get('sku', '') or '').strip().upper()
+				m = str(row.get('master_sku', '') or '').strip().upper()
 				qty = int(float(row.get('received_qty', 0) or 0))
 				if s:
 					total_received[s] = total_received.get(s, 0) + qty
+				if m:
+					total_received[m] = total_received.get(m, 0) + qty
 
 	if not total_received:
 		return
@@ -1293,8 +1299,8 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 						pass
 
 					synthetic_received_rows.append({
-						'die_code': dc,
-						'sku': str(dr.get('master_sku', '') or '').strip(),
+						'sku': dc,
+						'master_sku': str(dr.get('master_sku', '') or '').strip(),
 						'received_qty': str(remaining),
 						'loss_qty': '0',
 					})
@@ -1427,15 +1433,14 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 
 				# Build die issued map from die_rows
 				die_issued_map: dict = {}
-				die_info_map: dict = {}  # die_code_upper -> {master_sku, qty_per_piece}
+				die_info_map: dict = {}  # (die_code_upper, master_sku_upper) -> qty_per_piece
 				for dr in (voucher.die_rows or []):
 					dc = str(dr.get('die_code', '') or '').strip().upper()
-					if dc:
-						die_issued_map[dc] = die_issued_map.get(dc, 0) + int(float(dr.get('issued_qty', 0) or 0))
-						die_info_map[dc] = {
-							'master_sku': str(dr.get('master_sku', '') or '').strip(),
-							'qty_per_piece': float(dr.get('qty_per_piece', 1) or 1) or 1.0,
-						}
+					mku = str(dr.get('master_sku', '') or '').strip().upper()
+					if dc and mku:
+						key = (dc, mku)
+						die_issued_map[key] = die_issued_map.get(key, 0) + int(float(dr.get('issued_qty', 0) or 0))
+						die_info_map[key] = float(dr.get('qty_per_piece', 1) or 1) or 1.0
 
 				master_sku_received: dict = {}  # master_sku_upper -> master pieces received this batch
 				die_receive_log_rows: list = []
@@ -1445,19 +1450,28 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 
 				for row_data in rows:
 					die_code_raw = str(row_data.get('die_code', '') or row_data.get('sku', '') or '').strip()
+					master_sku_raw = str(row_data.get('master_sku', '') or '').strip()
 					if not die_code_raw:
 						continue
 					dc_upper = die_code_raw.upper()
+					mku_upper = master_sku_raw.upper()
+
 					received_qty = max(0, int(float(row_data.get('received_qty', 0) or 0)))
 					loss_qty = max(0, int(float(row_data.get('loss_qty', 0) or 0)))
 					if received_qty <= 0 and loss_qty <= 0:
 						continue
 
-					info = die_info_map.get(dc_upper, {})
-					master_sku = info.get('master_sku', '')
-					qty_per_piece = info.get('qty_per_piece', 1) or 1.0
+					key = (dc_upper, mku_upper)
+					if key not in die_info_map:
+						matching_keys = [k for k in die_info_map.keys() if k[0] == dc_upper]
+						if matching_keys:
+							key = matching_keys[0]
+							mku_upper = key[1]
+						else:
+							warnings.append(f"Die {die_code_raw}: not found on this voucher.")
+							continue
 
-					remaining = die_issued_map.get(dc_upper, 0)
+					remaining = die_issued_map.get(key, 0)
 					total_incoming = received_qty + loss_qty
 					if total_incoming > remaining:
 						warnings.append(
@@ -1477,7 +1491,7 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 
 					# DieTransaction + DieInventoryItem stage qty update
 					try:
-						die_item = DieInventoryItem.objects.get(die_code__iexact=die_code_raw)
+						die_item = DieInventoryItem.objects.get(die_code__iexact=dc_upper)
 						if received_qty > 0:
 							DieTransaction.objects.create(
 								tenant=voucher.tenant,
@@ -1486,7 +1500,7 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 								die=die_item,
 								die_code=die_item.die_code,
 								txn_type='received',
-								master_sku=master_sku,
+								master_sku=mku_upper,
 								qty=received_qty,
 								remark=f'Received from {voucher.dept_from}: {voucher.voucher_no}',
 								activity_status='received',
@@ -1499,27 +1513,31 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 						warnings.append(f'Die {die_code_raw}: not found in die inventory — DieTransaction skipped.')
 
 					# Convert die qty to master SKU pieces for InventoryTransaction
+					qty_per_piece = die_info_map.get(key, 1.0)
 					master_pieces = round(received_qty / qty_per_piece)
-					if master_sku and master_pieces > 0:
-						key = master_sku.upper()
-						master_sku_received[key] = master_sku_received.get(key, 0) + master_pieces
+					if mku_upper and master_pieces > 0:
+						master_sku_received[mku_upper] = master_sku_received.get(mku_upper, 0) + master_pieces
 
 					# Update voucher's die_rows
+					new_remaining = max(0, remaining - total_incoming)
+					die_issued_map[key] = new_remaining
 					for dr in new_die_rows:
-						if str(dr.get('die_code', '') or '').strip().upper() == dc_upper:
-							dr['issued_qty'] = str(max(0, remaining - total_incoming))
+						dr_dc = str(dr.get('die_code', '') or '').strip().upper()
+						dr_mku = str(dr.get('master_sku', '') or '').strip().upper()
+						if dr_dc == dc_upper and dr_mku == mku_upper:
+							dr['issued_qty'] = str(new_remaining)
 							break
 
 					# Also update voucher's material_rows (where sku contains die code)
 					for mr in new_material_rows:
 						if str(mr.get('sku', '') or '').strip().upper() == dc_upper:
-							mr['issued_qty'] = str(max(0, remaining - total_incoming))
+							cur_val = int(float(mr.get('issued_qty', 0) or 0))
+							mr['issued_qty'] = str(max(0, cur_val - total_incoming))
 							break
 
 					die_receive_log_rows.append({
-						'die_code': die_code_raw,
-						'master_sku': master_sku,
-						'sku': master_sku,  # backward-compat for downstream propagation
+						'sku': die_code_raw,
+						'master_sku': mku_upper,
 						'received_qty': str(received_qty),
 						'loss_qty': str(loss_qty),
 					})
@@ -1774,15 +1792,14 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 
 				stage_qty_field = PRE_CASTING_STAGE_QTY_FIELD.get(voucher.dept_to, '')
 				die_issued_map: dict = {}
-				die_info_map_pre: dict = {}  # die_code_upper -> {master_sku, qty_per_piece}
+				die_info_map_pre: dict = {}  # (die_code_upper, master_sku_upper) -> qty_per_piece
 				for dr in (voucher.die_rows or []):
 					dc = str(dr.get('die_code', '') or '').strip().upper()
-					if dc:
-						die_issued_map[dc] = die_issued_map.get(dc, 0) + int(float(dr.get('issued_qty', 0) or 0))
-						die_info_map_pre[dc] = {
-							'master_sku': str(dr.get('master_sku', '') or '').strip(),
-							'qty_per_piece': float(dr.get('qty_per_piece', 1) or 1) or 1.0,
-						}
+					mku = str(dr.get('master_sku', '') or '').strip().upper()
+					if dc and mku:
+						key = (dc, mku)
+						die_issued_map[key] = die_issued_map.get(key, 0) + int(float(dr.get('issued_qty', 0) or 0))
+						die_info_map_pre[key] = float(dr.get('qty_per_piece', 1) or 1) or 1.0
 
 				master_sku_received_pre: dict = {}  # master_sku_upper → received pieces
 				master_sku_loss_pre: dict = {}       # master_sku_upper → loss pieces
@@ -1790,23 +1807,32 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 				new_die_rows = list(voucher.die_rows or [])
 				new_material_rows = list(voucher.material_rows or [])
 
+				enriched_rows = []
+
 				for row_data in rows_data:
 					die_code_raw = str(row_data.get('die_code', '') or row_data.get('sku', '') or '').strip()
+					master_sku_raw = str(row_data.get('master_sku', '') or '').strip()
 					if not die_code_raw:
 						continue
 					dc_upper = die_code_raw.upper()
+					mku_upper = master_sku_raw.upper()
+
 					recv = max(0, int(float(row_data.get('received_qty', 0) or 0)))
 					loss = max(0, int(float(row_data.get('loss_qty', 0) or 0)))
 					if recv <= 0 and loss <= 0:
 						continue
 
-					info = die_info_map_pre.get(dc_upper, {})
-					master_sku = str(info.get('master_sku', '') or dc_upper).strip()
-					qpp = float(info.get('qty_per_piece', 1) or 1.0)
-					if qpp <= 0:
-						qpp = 1.0
+					key = (dc_upper, mku_upper)
+					if key not in die_info_map_pre:
+						matching_keys = [k for k in die_info_map_pre.keys() if k[0] == dc_upper]
+						if matching_keys:
+							key = matching_keys[0]
+							mku_upper = key[1]
+						else:
+							warnings_list.append(f"Die {die_code_raw}: not found on this voucher.")
+							continue
 
-					remaining = die_issued_map.get(dc_upper, 0)
+					remaining = die_issued_map.get(key, 0)
 					total_incoming = recv + loss
 					if total_incoming > remaining:
 						if recv >= remaining:
@@ -1819,7 +1845,7 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 							continue
 
 					try:
-						die_item = DieInventoryItem.objects.get(die_code__iexact=die_code_raw)
+						die_item = DieInventoryItem.objects.get(die_code__iexact=dc_upper)
 						if recv > 0:
 							_DieTransaction.objects.create(
 								tenant=voucher.tenant,
@@ -1828,7 +1854,7 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 								die=die_item,
 								die_code=die_item.die_code,
 								txn_type='received',
-								master_sku=master_sku,
+								master_sku=mku_upper,
 								qty=recv,
 								remark=f'Received from {voucher.dept_from}: {voucher.voucher_no}',
 								activity_status='received',
@@ -1840,36 +1866,38 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 					except DieInventoryItem.DoesNotExist:
 						warnings_list.append(f'Die {die_code_raw}: not found — DieTransaction skipped.')
 
-					if master_sku:
-						mku = master_sku.upper()
-						master_sku_received_pre[mku] = master_sku_received_pre.get(mku, 0) + round(recv / qpp)
-						master_sku_loss_pre[mku] = master_sku_loss_pre.get(mku, 0) + round(loss / qpp)
+					qpp = die_info_map_pre.get(key, 1.0)
+					master_sku_received_pre[mku_upper] = master_sku_received_pre.get(mku_upper, 0) + round(recv / qpp)
+					master_sku_loss_pre[mku_upper] = master_sku_loss_pre.get(mku_upper, 0) + round(loss / qpp)
 
 					# Update new_die_rows
+					new_remaining = max(0, remaining - total_incoming)
+					die_issued_map[key] = new_remaining
 					for dr in new_die_rows:
-						if str(dr.get('die_code', '') or '').strip().upper() == dc_upper:
-							dr['issued_qty'] = str(max(0, remaining - total_incoming))
+						dr_dc = str(dr.get('die_code', '') or '').strip().upper()
+						dr_mku = str(dr.get('master_sku', '') or '').strip().upper()
+						if dr_dc == dc_upper and dr_mku == mku_upper:
+							dr['issued_qty'] = str(new_remaining)
 							break
 
 					# Update new_material_rows (where sku contains die code)
 					for mr in new_material_rows:
 						if str(mr.get('sku', '') or '').strip().upper() == dc_upper:
-							mr['issued_qty'] = str(max(0, remaining - total_incoming))
+							cur_val = int(float(mr.get('issued_qty', 0) or 0))
+							mr['issued_qty'] = str(max(0, cur_val - total_incoming))
 							break
+
+					enriched_rows.append({
+						'sku': die_code_raw,
+						'master_sku': mku_upper,
+						'received_qty': recv,
+						'loss_qty': loss,
+					})
 
 				voucher.die_rows = new_die_rows
 				voucher.material_rows = new_material_rows
+				rows_data = enriched_rows
 
-				# Replace rows_data with master-SKU form so the existing pipeline logic works
-				rows_data = [
-					{
-						'sku': mku,
-						'received_qty': master_sku_received_pre.get(mku, 0),
-						'loss_qty': master_sku_loss_pre.get(mku, 0),
-					}
-					for mku in set(list(master_sku_received_pre.keys()) + list(master_sku_loss_pre.keys()))
-					if master_sku_received_pre.get(mku, 0) + master_sku_loss_pre.get(mku, 0) > 0
-				]
 
 			# ── Build issued map ────────────────────────────────────────────────
 			issued_map: dict = {}
@@ -1894,7 +1922,7 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 				loss_qty = max(0, int(float(row_data.get('loss_qty', 0) or 0)))
 				reissue_qty = loss_qty
 
-				remaining = issued_map.get(sku_key, 0)
+				remaining = (received_qty + loss_qty) if voucher.dept_to in PRE_CASTING_DEPT_TOS else issued_map.get(sku_key, 0)
 				total_incoming = received_qty + loss_qty
 				if total_incoming > remaining:
 					if received_qty >= remaining:
@@ -1911,6 +1939,7 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 				parsed.append({
 					'sku': sku,
 					'sku_key': sku_key,
+					'master_sku': row_data.get('master_sku', ''),
 					'received_qty': received_qty,
 					'loss_qty': loss_qty,
 					'reissue_qty': reissue_qty,
@@ -1955,8 +1984,9 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 			for p in parsed:
 				if p['received_qty'] <= 0:
 					continue
+				mku = p.get('master_sku') or p['sku']
 				product = _Product.objects.filter(
-					Q(master_sku__iexact=p['sku'])
+					Q(master_sku__iexact=mku)
 				).first() or voucher.product
 				if not product:
 					warnings_list.append(
@@ -1989,6 +2019,7 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 				'rows': [
 					{
 						'sku': p['sku'],
+						'master_sku': p.get('master_sku', ''),
 						'received_qty': str(p['received_qty']),
 						'loss_qty': str(p['loss_qty']),
 					}
