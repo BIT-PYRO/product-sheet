@@ -2380,11 +2380,11 @@ function ProductSheetContent() {
                       <div className="font-semibold text-sm mb-2">SETTING TYPE</div>
                       <div className="flex gap-2">
                         {[['wax', 'WAX SETTING'], ['hand', 'HAND SETTING']].map(([val, label]) => {
-                          const active = settingType.split(',').map(s => s.trim()).filter(Boolean).includes(val)
+                          const active = settingType.split(',').map(s => s.trim().toLowerCase()).filter(Boolean).includes(val.toLowerCase())
                           return (
                             <button key={val} onClick={() => setSettingType(prev => {
-                              const parts = prev.split(',').map(s => s.trim()).filter(Boolean)
-                              return active ? parts.filter(p => p !== val).join(',') : [...parts, val].join(',')
+                              const parts = prev.split(',').map(s => s.trim().toLowerCase()).filter(Boolean)
+                              return active ? parts.filter(p => p !== val.toLowerCase()).join(',') : [...parts, val.toLowerCase()].join(',')
                             })} className={`flex-1 px-2 py-1 text-sm font-semibold rounded border ${active ? 'bg-trust-blue text-white border-trust-blue' : 'bg-background text-foreground border-soft-border'}`}>
                               {label}
                             </button>
@@ -3165,17 +3165,24 @@ function ProductSheetContent() {
           <div className="bg-background border border-soft-border rounded-xl p-2">
             <div className="text-xs font-semibold text-midnight-ink mb-1.5">SETTING TYPE</div>
             <div className="flex gap-2">
-              {['WAX SETTING', 'HAND SETTING'].map((opt) => (
-                <button key={opt} type="button" onClick={() => setDesigner((prev) => {
-                  const parts = (prev.settingType || '').split(',').map(s => s.trim()).filter(Boolean)
-                  const active = parts.includes(opt)
-                  const next = active ? parts.filter(p => p !== opt) : [...parts, opt]
-                  return { ...prev, settingType: next.join(',') }
-                })}
-                  className={`flex-1 px-3 py-1.5 text-xs font-semibold rounded-full border transition-colors ${(designer.settingType || '').split(',').map(s => s.trim()).includes(opt) ? 'bg-trust-blue text-white border-trust-blue shadow-sm' : 'bg-background text-foreground border-soft-border hover:bg-cloud-gray'}`}>
-                  {opt}
-                </button>
-              ))}
+              {['WAX SETTING', 'HAND SETTING'].map((opt) => {
+                const keyword = opt.toLowerCase().split(' ')[0]; // 'wax' or 'hand'
+                const parts = (designer.settingType || '').split(',').map(s => s.trim()).filter(Boolean)
+                const active = parts.some(p => p.toLowerCase().includes(keyword))
+                return (
+                  <button key={opt} type="button" onClick={() => setDesigner((prev) => {
+                    const currentParts = (prev.settingType || '').split(',').map(s => s.trim()).filter(Boolean)
+                    const isCurrentlyActive = currentParts.some(p => p.toLowerCase().includes(keyword))
+                    const next = isCurrentlyActive 
+                      ? currentParts.filter(p => !p.toLowerCase().includes(keyword)) 
+                      : [...currentParts, opt]
+                    return { ...prev, settingType: next.join(',') }
+                  })}
+                    className={`flex-1 px-3 py-1.5 text-xs font-semibold rounded-full border transition-colors ${active ? 'bg-trust-blue text-white border-trust-blue shadow-sm' : 'bg-background text-foreground border-soft-border hover:bg-cloud-gray'}`}>
+                    {opt}
+                  </button>
+                )
+              })}
             </div>
           </div>
           <div className="bg-background border border-soft-border rounded-xl p-2">
@@ -3578,11 +3585,11 @@ function ProductSheetContent() {
                               <div className="font-semibold text-sm mb-2">SETTING TYPE</div>
                               <div className="flex gap-2">
                                 {[['wax', 'WAX SETTING'], ['hand', 'HAND SETTING']].map(([val, lbl]) => {
-                                  const active = settingType.split(',').map(s => s.trim()).filter(Boolean).includes(val)
+                                  const active = settingType.split(',').map(s => s.trim().toLowerCase()).filter(Boolean).includes(val.toLowerCase())
                                   return (
                                     <button key={val} onClick={() => setSettingType(prev => {
-                                      const parts = prev.split(',').map(s => s.trim()).filter(Boolean)
-                                      return active ? parts.filter(p => p !== val).join(',') : [...parts, val].join(',')
+                                      const parts = prev.split(',').map(s => s.trim().toLowerCase()).filter(Boolean)
+                                      return active ? parts.filter(p => p !== val.toLowerCase()).join(',') : [...parts, val.toLowerCase()].join(',')
                                     })} className={`flex-1 px-2 py-1 text-sm font-semibold rounded border ${active ? 'bg-trust-blue text-white border-trust-blue' : 'bg-background text-foreground border-soft-border'}`}>
                                       {lbl}
                                     </button>

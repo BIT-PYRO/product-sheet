@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { Suspense, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
@@ -9,6 +9,32 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
 import DateTimeStamp from '@/components/date-time-stamp';
+
+function normalizeSettingType(value) {
+  if (!value) return '';
+  const parts = String(value).split(',');
+  const normalizedParts = parts.map((part) => {
+    const trimmed = part.trim();
+    const lower = trimmed.toLowerCase();
+    if (lower === 'hand') return 'Hand';
+    if (lower === 'wax') return 'Wax';
+    if (trimmed.length > 0) {
+      return trimmed.charAt(0).toUpperCase() + trimmed.slice(1).toLowerCase();
+    }
+    return '';
+  }).filter(Boolean);
+
+  const uniqueParts = [];
+  const seen = new Set();
+  for (const part of normalizedParts) {
+    const lower = part.toLowerCase();
+    if (!seen.has(lower)) {
+      seen.add(lower);
+      uniqueParts.push(part);
+    }
+  }
+  return uniqueParts.join(', ');
+}
 
 const STONE_DEFAULT_ROWS = () => [
   { id: 1, type: '', species: '', variety: '', color: '', cut: '', shape: '', length: '', width: '', height: '', qty: '' },
@@ -100,7 +126,7 @@ function ProductDetailContent() {
         weight: product.weight || '',
         category: product.category || '',
         collection: product.collection || '',
-        settingType: product.settingType || '',
+        settingType: normalizeSettingType(product.settingType),
         enamelType: product.enamelType || '',
         activeChannels: product.activeChannels || '',
         shopifyStatus: product.shopifyStatus || '',
@@ -131,7 +157,7 @@ function ProductDetailContent() {
         weight: product.weight || '',
         category: product.category || '',
         collection: product.collection || '',
-        settingType: product.settingType || '',
+        settingType: normalizeSettingType(product.settingType),
         enamelType: product.enamelType || '',
         activeChannels: product.activeChannels || '',
         shopifyStatus: product.shopifyStatus || '',
@@ -178,7 +204,7 @@ function ProductDetailContent() {
         weight: editData.weight,
         category: editData.category,
         collection: editData.collection,
-        setting_type: editData.settingType,
+        setting_type: normalizeSettingType(editData.settingType),
         enamel_type: editData.enamelType,
         active_channels: editData.activeChannels,
         is_active: editData.shopifyStatus === 'active',
@@ -211,7 +237,7 @@ function ProductDetailContent() {
                 weight: editData.weight,
                 category: editData.category,
                 collection: editData.collection,
-                settingType: editData.settingType,
+                settingType: normalizeSettingType(editData.settingType),
                 enamelType: editData.enamelType,
                 activeChannels: editData.activeChannels,
                 shopifyStatus: editData.shopifyStatus,

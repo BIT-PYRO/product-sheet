@@ -123,6 +123,30 @@ class ProductSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError('Master SKU cannot be blank.')
         return sku
 
+    def validate_setting_type(self, value):
+        if not value:
+            return ''
+        parts = [p.strip() for p in value.split(',')]
+        normalized = []
+        for part in parts:
+            if not part:
+                continue
+            lower = part.lower()
+            if lower == 'hand':
+                normalized.append('Hand')
+            elif lower == 'wax':
+                normalized.append('Wax')
+            else:
+                normalized.append(part.title())
+        seen = set()
+        deduped = []
+        for part in normalized:
+            lower = part.lower()
+            if lower not in seen:
+                seen.add(lower)
+                deduped.append(part)
+        return ', '.join(deduped)
+
     def _process_images(self, validated_data, instance=None):
         """Upload any base64 data URIs in the images list to Cloudinary.
         Raw base64 is never stored in the database."""

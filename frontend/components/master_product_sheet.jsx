@@ -36,6 +36,32 @@ import DeletionHistoryDrawer from '@/components/deletion-history-drawer';
 import { useSheetPermissions } from '@/hooks/use-sheet-permissions';
 import { useColumnPreferences } from '@/hooks/use-column-preferences';
 
+export function normalizeSettingType(value) {
+  if (!value) return '';
+  const parts = String(value).split(',');
+  const normalizedParts = parts.map((part) => {
+    const trimmed = part.trim();
+    const lower = trimmed.toLowerCase();
+    if (lower === 'hand') return 'Hand';
+    if (lower === 'wax') return 'Wax';
+    if (trimmed.length > 0) {
+      return trimmed.charAt(0).toUpperCase() + trimmed.slice(1).toLowerCase();
+    }
+    return '';
+  }).filter(Boolean);
+
+  const uniqueParts = [];
+  const seen = new Set();
+  for (const part of normalizedParts) {
+    const lower = part.toLowerCase();
+    if (!seen.has(lower)) {
+      seen.add(lower);
+      uniqueParts.push(part);
+    }
+  }
+  return uniqueParts.join(', ');
+}
+
 const FILTER_FIELDS_PS = [
   { key: 'material', label: 'Material' },
   { key: 'category', label: 'Category' },
@@ -346,7 +372,7 @@ export default function MasterProductSheet() {
         weight: product.weight || '',
         category: product.category || '',
         collection: product.collection || '',
-        settingType: product.setting_type || '',
+        settingType: normalizeSettingType(product.setting_type),
         enamelType: product.enamel_type || '',
         activeChannels: product.active_channels || '',
         shopifyStatus: product.is_active ? 'active' : 'inactive',
@@ -697,7 +723,7 @@ export default function MasterProductSheet() {
           material: row.material,
           weight: row.weight,
           collection: row.collection,
-          setting_type: row.settingType,
+          setting_type: normalizeSettingType(row.settingType),
           enamel_type: row.enamelType,
           active_channels: row.activeChannels,
           master_sku: row.masterSku,
@@ -731,7 +757,7 @@ export default function MasterProductSheet() {
           const savedId = result.data?.id;
           if (savedId) {
             updatedData = updatedData.map((r) =>
-              r.id === row.id ? { ...r, id: savedId, _isNew: false } : r
+              r.id === row.id ? { ...r, id: savedId, _isNew: false, settingType: normalizeSettingType(row.settingType) } : r
             );
           }
         } else {
@@ -742,6 +768,9 @@ export default function MasterProductSheet() {
           });
           const result = await response.json().catch(() => null);
           if (!response.ok || !result?.success) throw new Error(result?.message || `Failed to save ${row.sku || 'row'}`);
+          updatedData = updatedData.map((r) =>
+            r.id === row.id ? { ...r, settingType: normalizeSettingType(row.settingType) } : r
+          );
         }
       } catch (err) {
         errors.push(err.message);
@@ -889,9 +918,22 @@ export default function MasterProductSheet() {
       baseData.forEach((row) => {
         const val = row[key];
         if (val) {
-          const trimmed = String(val).trim();
-          const lower = trimmed.toLowerCase();
-          if (!seen.has(lower)) seen.set(lower, trimmed);
+          if (key === 'settingType') {
+            String(val).split(',').forEach((part) => {
+              const trimmed = part.trim();
+              if (trimmed) {
+                const lower = trimmed.toLowerCase();
+                if (!seen.has(lower)) {
+                  const normalized = lower === 'hand' ? 'Hand' : (lower === 'wax' ? 'Wax' : trimmed.charAt(0).toUpperCase() + trimmed.slice(1).toLowerCase());
+                  seen.set(lower, normalized);
+                }
+              }
+            });
+          } else {
+            const trimmed = String(val).trim();
+            const lower = trimmed.toLowerCase();
+            if (!seen.has(lower)) seen.set(lower, trimmed);
+          }
         }
       });
       merged[key] = Array.from(seen.values()).sort((a, b) => a.localeCompare(b));
@@ -916,6 +958,10 @@ export default function MasterProductSheet() {
         const val = row[field.key];
         if (val == null) return false;
         const valLower = String(val).trim().toLowerCase();
+        if (field.key === 'settingType') {
+          const rowParts = valLower.split(',').map((s) => s.trim()).filter(Boolean);
+          return Array.from(selected).some((s) => rowParts.includes(s.toLowerCase()));
+        }
         return Array.from(selected).some((s) => s.toLowerCase() === valLower);
       });
 
