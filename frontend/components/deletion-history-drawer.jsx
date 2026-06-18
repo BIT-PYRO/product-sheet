@@ -364,6 +364,7 @@ export default function DeletionHistoryDrawer({ appLabel, modelName, sheet, obje
                       const isExpanded = actExpandedId === log.id;
                       const actionColorClass = ACTION_COLORS[log.action] || 'bg-gray-100 text-gray-700';
                       const changesEntries = log.changes ? Object.entries(log.changes) : [];
+                      const hasExtra = log.extra && Object.keys(log.extra).length > 0;
                       return (
                         <div
                           key={log.id}
@@ -372,7 +373,7 @@ export default function DeletionHistoryDrawer({ appLabel, modelName, sheet, obje
                           <button
                             type="button"
                             className="w-full text-left px-4 py-3 flex items-start gap-3 hover:bg-cloud-gray/60 transition-colors"
-                            onClick={() => changesEntries.length > 0 && toggleActExpand(log.id)}
+                            onClick={() => (changesEntries.length > 0 || hasExtra) && toggleActExpand(log.id)}
                           >
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2 flex-wrap">
@@ -416,7 +417,7 @@ export default function DeletionHistoryDrawer({ appLabel, modelName, sheet, obje
                                 )}
                               </div>
                             </div>
-                            {changesEntries.length > 0 && (
+                            {(changesEntries.length > 0 || hasExtra) && (
                               isExpanded ? (
                                 <ChevronUp className="h-4 w-4 text-cool-gray shrink-0 mt-0.5" />
                               ) : (
@@ -424,37 +425,109 @@ export default function DeletionHistoryDrawer({ appLabel, modelName, sheet, obje
                               )
                             )}
                           </button>
-                          {isExpanded && changesEntries.length > 0 && (
-                            <div className="border-t border-soft-border bg-cloud-gray/50 px-4 py-3">
-                              <p className="text-xs font-semibold text-cool-gray uppercase tracking-wider mb-2">
-                                Changes
-                              </p>
-                              <div className="overflow-x-auto">
-                                <table className="w-full text-xs">
-                                  <thead>
-                                    <tr className="text-left text-cool-gray">
-                                      <th className="pb-1.5 pr-4 font-medium">Field</th>
-                                      <th className="pb-1.5 pr-4 font-medium">Before</th>
-                                      <th className="pb-1.5 font-medium">After</th>
-                                    </tr>
-                                  </thead>
-                                  <tbody>
-                                    {changesEntries.map(([field, diff]) => (
-                                      <tr key={field} className="border-t border-soft-border/50">
-                                        <td className="py-1 pr-4 font-medium text-midnight-ink capitalize whitespace-nowrap">
-                                          {field.replace(/_/g, ' ')}
-                                        </td>
-                                        <td className="py-1 pr-4 text-red-600 break-all">
-                                          {diff?.old === null || diff?.old === undefined ? '—' : String(diff.old)}
-                                        </td>
-                                        <td className="py-1 text-green-700 break-all">
-                                          {diff?.new === null || diff?.new === undefined ? '—' : String(diff.new)}
-                                        </td>
-                                      </tr>
-                                    ))}
-                                  </tbody>
-                                </table>
-                              </div>
+                          {isExpanded && (changesEntries.length > 0 || hasExtra) && (
+                            <div className="border-t border-soft-border bg-cloud-gray/50 px-4 py-3 space-y-3">
+                              {/* Extra information rendering */}
+                              {hasExtra && (
+                                <div className="text-xs space-y-2">
+                                  {log.extra.button_clicked && (
+                                    <div>
+                                      <span className="font-semibold text-midnight-ink">Button Clicked:</span>{' '}
+                                      <span className="text-cool-gray bg-trust-blue/5 border border-trust-blue/20 px-1.5 py-0.5 rounded">{log.extra.button_clicked}</span>
+                                    </div>
+                                  )}
+                                  {log.extra.batch_id && (
+                                    <div>
+                                      <span className="font-semibold text-midnight-ink">Batch ID:</span>{' '}
+                                      <span className="text-cool-gray">{log.extra.batch_id}</span>
+                                    </div>
+                                  )}
+                                  {log.extra.parent_voucher_no && (
+                                    <div>
+                                      <span className="font-semibold text-midnight-ink">Parent Voucher:</span>{' '}
+                                      <span className="text-cool-gray">{log.extra.parent_voucher_no}</span>
+                                    </div>
+                                  )}
+                                  {/* Table of updated quantities */}
+                                  {((log.extra.quantities || log.extra.quantities_updated || log.extra.reissue_quantities) &&
+                                    Array.isArray(log.extra.quantities || log.extra.quantities_updated || log.extra.reissue_quantities) &&
+                                    (log.extra.quantities || log.extra.quantities_updated || log.extra.reissue_quantities).length > 0) && (
+                                    <div className="mt-2 rounded-md border border-soft-border bg-white overflow-hidden">
+                                      <table className="w-full text-left text-[11px] border-collapse">
+                                        <thead>
+                                          <tr className="bg-cloud-gray text-cool-gray border-b border-soft-border">
+                                            <th className="p-1.5 font-medium">SKU / Die</th>
+                                            {((log.extra.quantities || log.extra.quantities_updated || log.extra.reissue_quantities).some(qtyItem => qtyItem.master_sku != null)) && (
+                                              <th className="p-1.5 font-medium">Master SKU</th>
+                                            )}
+                                            {((log.extra.quantities || log.extra.quantities_updated || log.extra.reissue_quantities).some(qtyItem => qtyItem.issued_qty != null)) && (
+                                              <th className="p-1.5 font-medium">Issued Qty</th>
+                                            )}
+                                            {((log.extra.quantities || log.extra.quantities_updated || log.extra.reissue_quantities).some(qtyItem => qtyItem.received_qty != null)) && (
+                                              <th className="p-1.5 font-medium">Received Qty</th>
+                                            )}
+                                            {((log.extra.quantities || log.extra.quantities_updated || log.extra.reissue_quantities).some(qtyItem => qtyItem.loss_qty != null)) && (
+                                              <th className="p-1.5 font-medium">Loss Qty</th>
+                                            )}
+                                            {((log.extra.quantities || log.extra.quantities_updated || log.extra.reissue_quantities).some(qtyItem => qtyItem.reissue_qty != null || qtyItem.qty != null)) && (
+                                              <th className="p-1.5 font-medium">Reissue Qty</th>
+                                            )}
+                                          </tr>
+                                        </thead>
+                                        <tbody>
+                                          {(log.extra.quantities || log.extra.quantities_updated || log.extra.reissue_quantities).map((qtyItem, qIdx) => (
+                                            <tr key={qIdx} className="border-b border-soft-border/30 last:border-b-0 hover:bg-cloud-gray/20">
+                                              <td className="p-1.5 font-medium text-midnight-ink">{qtyItem.sku || qtyItem.die_code || '—'}</td>
+                                              {qtyItem.master_sku != null && <td className="p-1.5 text-cool-gray">{qtyItem.master_sku || '—'}</td>}
+                                              {qtyItem.issued_qty != null && <td className="p-1.5 text-cool-gray">{qtyItem.issued_qty}</td>}
+                                              {qtyItem.received_qty != null && <td className="p-1.5 text-cool-gray">{qtyItem.received_qty}</td>}
+                                              {qtyItem.loss_qty != null && <td className="p-1.5 text-cool-gray">{qtyItem.loss_qty}</td>}
+                                              {(qtyItem.reissue_qty != null || qtyItem.qty != null) && (
+                                                <td className="p-1.5 text-cool-gray">{qtyItem.reissue_qty ?? qtyItem.qty}</td>
+                                              )}
+                                            </tr>
+                                          ))}
+                                        </tbody>
+                                      </table>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+
+                              {/* Standard field Changes */}
+                              {changesEntries.length > 0 && (
+                                <div className="pt-1">
+                                  <p className="text-xs font-semibold text-cool-gray uppercase tracking-wider mb-2">
+                                    Field Changes
+                                  </p>
+                                  <div className="overflow-x-auto rounded-md border border-soft-border bg-white">
+                                    <table className="w-full text-xs">
+                                      <thead>
+                                        <tr className="bg-cloud-gray text-left text-cool-gray border-b border-soft-border">
+                                          <th className="p-1.5 font-medium">Field</th>
+                                          <th className="p-1.5 font-medium">Before</th>
+                                          <th className="p-1.5 font-medium">After</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody>
+                                        {changesEntries.map(([field, diff]) => (
+                                          <tr key={field} className="border-b border-soft-border/30 last:border-b-0 hover:bg-cloud-gray/20">
+                                            <td className="p-1.5 font-medium text-midnight-ink capitalize whitespace-nowrap">
+                                              {field.replace(/_/g, ' ')}
+                                            </td>
+                                            <td className="p-1.5 text-red-600 break-all">
+                                              {diff?.old === null || diff?.old === undefined ? '—' : String(diff.old)}
+                                            </td>
+                                            <td className="p-1.5 text-green-700 break-all">
+                                              {diff?.new === null || diff?.new === undefined ? '—' : String(diff.new)}
+                                            </td>
+                                          </tr>
+                                        ))}
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           )}
                         </div>

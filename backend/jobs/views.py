@@ -927,8 +927,33 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 				)
 				created_vouchers.append(voucher)
 
-				# NOTE: No inventory transactions here ΓÇö WIP is computed live from
+				# NOTE: No inventory transactions here — WIP is computed live from
 				# in_process vouchers, and source deduction happens at activation.
+
+		# Log created vouchers
+		try:
+			from common.audit import log_activity
+			from common.models import ActivityLog
+			for voucher in created_vouchers:
+				log_activity(
+					request,
+					ActivityLog.ACTION_CREATE,
+					ActivityLog.SHEET_JOB,
+					voucher,
+					extra={
+						'button_clicked': 'Create a Job (Bulk from Picklist)',
+						'action_detail': f"Voucher {voucher.voucher_no} generated from Picklist #{picklist_group.number}",
+						'workforce_member': approved_by,
+						'picklist_number': picklist_group.number,
+						'batch_id': batch_id,
+						'quantities': [
+							{'sku': mr.get('sku', ''), 'issued_qty': mr.get('issued_qty', '0')}
+							for mr in (voucher.material_rows or [])
+						]
+					}
+				)
+		except Exception:
+			pass
 
 		serializer = JobSerializer(created_vouchers, many=True)
 		return Response({
@@ -1161,6 +1186,29 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 			batch.voucher_created = True
 			batch.save()
 
+		# Log created vouchers
+		try:
+			from common.audit import log_activity
+			from common.models import ActivityLog
+			for voucher in created_vouchers:
+				log_activity(
+					request,
+					ActivityLog.ACTION_CREATE,
+					ActivityLog.SHEET_JOB,
+					voucher,
+					extra={
+						'button_clicked': 'Create Repair Vouchers',
+						'action_detail': f"Repair Voucher {voucher.voucher_no} created for Batch {batch.batch_no}",
+						'batch_id': batch.batch_no,
+						'quantities': [
+							{'sku': mr.get('sku', ''), 'issued_qty': mr.get('issued_qty', '0')}
+							for mr in (voucher.material_rows or [])
+						]
+					}
+				)
+		except Exception:
+			pass
+
 		serializer = JobSerializer(created_vouchers, many=True)
 		return Response({
 			'success': True,
@@ -1234,6 +1282,27 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 				v.approved_at = now
 				v.save(update_fields=['approval_status', 'approved_by', 'approved_at'])
 				total_approved += 1
+
+		# Log approved vouchers
+		try:
+			from common.audit import log_activity
+			from common.models import ActivityLog
+			for voucher in submitted:
+				log_activity(
+					request,
+					ActivityLog.ACTION_UPDATE,
+					ActivityLog.SHEET_JOB,
+					voucher,
+					extra={
+						'button_clicked': 'Approve Vouchers',
+						'action_detail': f"Voucher {voucher.voucher_no} approved -> status: {voucher.approval_status}",
+						'approved_by': approved_by,
+						'new_status': voucher.approval_status,
+						'batch_id': voucher.batch_id,
+					}
+				)
+		except Exception:
+			pass
 
 		all_affected_ids = {v.id for v in submitted}
 		serializer = JobSerializer(Job.objects.filter(id__in=all_affected_ids), many=True)
@@ -1368,6 +1437,25 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 			# Activate all vouchers in the batch whose predecessors are now done
 			if voucher.batch_id:
 				_activate_ready_batch_vouchers(voucher.batch_id)
+
+		# Log mark complete action
+		try:
+			from common.audit import log_activity
+			from common.models import ActivityLog
+			log_activity(
+				request,
+				ActivityLog.ACTION_UPDATE,
+				ActivityLog.SHEET_JOB,
+				voucher,
+				extra={
+					'button_clicked': 'Mark Complete',
+					'action_detail': f"Voucher {voucher.voucher_no} marked complete (Auto-received outstanding qty)",
+					'quantities_updated': synthetic_received_rows,
+					'new_status': voucher.approval_status,
+				}
+			)
+		except Exception:
+			pass
 
 		serializer = JobSerializer(voucher)
 		return Response({
@@ -1598,6 +1686,26 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 				if voucher.batch_id:
 					_activate_ready_batch_vouchers(voucher.batch_id)
 					_propagate_qty_to_active_downstream(voucher.batch_id, voucher)
+				# Log receive voucher action (pre-casting)
+				try:
+					from common.audit import log_activity
+					from common.models import ActivityLog
+					log_activity(
+						request,
+						ActivityLog.ACTION_UPDATE,
+						ActivityLog.SHEET_JOB,
+						voucher,
+						extra={
+							'button_clicked': 'Receive Voucher',
+							'action_detail': f"Voucher {voucher.voucher_no} received ({'Partial' if is_partial or not all_die_accounted or any_loss_die else 'Full'}) by {received_by}",
+							'received_by': received_by,
+							'is_partial': is_partial or not all_die_accounted or any_loss_die,
+							'quantities_updated': die_receive_log_rows,
+							'new_status': voucher.approval_status,
+						}
+					)
+				except Exception:
+					pass
 
 				serializer = JobSerializer(voucher)
 				response_data = {**serializer.data}
@@ -1720,6 +1828,33 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 					_activate_ready_batch_vouchers(voucher.batch_id)
 					_propagate_qty_to_active_downstream(voucher.batch_id, voucher)
 
+		# Log receive voucher action (standard)
+		try:
+			from common.audit import log_activity
+			from common.models import ActivityLog
+			log_activity(
+				request,
+				ActivityLog.ACTION_UPDATE,
+				ActivityLog.SHEET_JOB,
+				voucher,
+				extra={
+					'button_clicked': 'Receive Voucher',
+					'action_detail': f"Voucher {voucher.voucher_no} received ({'Partial' if is_partial or not all_accounted else 'Full'}) by {received_by}",
+					'received_by': received_by,
+					'is_partial': is_partial or not all_accounted,
+					'quantities_updated': [
+						{
+							'sku': r.get('sku', ''),
+							'received_qty': r.get('received_qty', '0'),
+							'loss_qty': r.get('loss_qty', '0')
+						} for r in rows
+					],
+					'new_status': voucher.approval_status,
+				}
+			)
+		except Exception:
+			pass
+
 		serializer = JobSerializer(voucher)
 		response_data = {**serializer.data}
 		if warnings:
@@ -1756,6 +1891,8 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 		"""
 		from collections import OrderedDict as _OD
 		from products.models import Product as _Product
+
+		new_vouchers = []
 
 		with transaction.atomic():
 			try:
@@ -2222,6 +2359,54 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 			# Downstream New chain was already activated above via
 			# _activate_ready_batch_vouchers before entering the reissue path.
 
+		# Log send for next stage action on main voucher
+		try:
+			from common.audit import log_activity
+			from common.models import ActivityLog
+			log_activity(
+				request,
+				ActivityLog.ACTION_UPDATE,
+				ActivityLog.SHEET_JOB,
+				voucher,
+				extra={
+					'button_clicked': 'Send for Next Stage',
+					'action_detail': f"Voucher {voucher.voucher_no} sent to next stage by {received_by}",
+					'received_by': received_by,
+					'is_partial': not all_accounted,
+					'quantities_updated': [
+						{
+							'sku': p['sku'],
+							'master_sku': p.get('master_sku', ''),
+							'received_qty': p['received_qty'],
+							'loss_qty': p['loss_qty'],
+						}
+						for p in parsed
+					],
+					'new_status': voucher.approval_status,
+					'reissue_vouchers_created_count': len(new_vouchers) if any_loss else 0,
+				}
+			)
+			# Log any auto-created reissue vouchers
+			if any_loss:
+				for nv in new_vouchers:
+					log_activity(
+						request,
+						ActivityLog.ACTION_CREATE,
+						ActivityLog.SHEET_JOB,
+						nv,
+						extra={
+							'button_clicked': 'Send for Next Stage (Auto Reissue)',
+							'action_detail': f"Re-issue Voucher {nv.voucher_no} created due to loss in {voucher.voucher_no}",
+							'parent_voucher_no': voucher.voucher_no,
+							'quantities': [
+								{'sku': mr.get('sku', ''), 'issued_qty': mr.get('issued_qty', '0')}
+								for mr in (nv.material_rows or [])
+							]
+						}
+					)
+		except Exception:
+			pass
+
 		total_carry_fwd = sum(carry_forward.values()) if any_loss else 0
 		serializer = JobSerializer(voucher)
 		response_data = {**serializer.data}
@@ -2654,6 +2839,8 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 		from collections import OrderedDict as _OD
 		from products.models import Product as _Product
 
+		earlier_ids_to_replace = []
+
 		voucher = self.get_object()
 
 		if voucher.approval_status not in [
@@ -2980,6 +3167,61 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 			#  - New Filing activates using the synthetic receive event (carry-fwd pcs)
 			#  - Re-Issue Filing stays AWAITING until Re-Issue Casting completes
 			_activate_ready_batch_vouchers(batch_id)
+
+		# Log reissue trigger on the original voucher
+		try:
+			from common.audit import log_activity
+			from common.models import ActivityLog
+			log_activity(
+				request,
+				ActivityLog.ACTION_UPDATE,
+				ActivityLog.SHEET_JOB,
+				voucher,
+				extra={
+					'button_clicked': 'Re-Issue for Improvement',
+					'action_detail': f"Voucher {voucher.voucher_no} re-issued for improvement (marked Replaced)",
+					'reissue_quantities': rows,
+					'new_status': voucher.approval_status,
+					'reissue_vouchers_created_count': len(new_vouchers),
+				}
+			)
+			# Log cascade replacement of earlier completed/partially-completed vouchers
+			if earlier_ids_to_replace:
+				for ev_id in earlier_ids_to_replace:
+					try:
+						ev = Job.objects.get(pk=ev_id)
+						log_activity(
+							request,
+							ActivityLog.ACTION_UPDATE,
+							ActivityLog.SHEET_JOB,
+							ev,
+							extra={
+								'button_clicked': 'Re-Issue for Improvement (Cascade)',
+								'action_detail': f"Voucher {ev.voucher_no} replaced by re-issue chain of {voucher.voucher_no}",
+								'new_status': VoucherApprovalStatus.REPLACED,
+							}
+						)
+					except Exception:
+						pass
+			# Log creation of each new reissue voucher
+			for nv in new_vouchers:
+				log_activity(
+					request,
+					ActivityLog.ACTION_CREATE,
+					ActivityLog.SHEET_JOB,
+					nv,
+					extra={
+						'button_clicked': 'Re-Issue for Improvement (New Voucher)',
+						'action_detail': f"Re-issue Voucher {nv.voucher_no} created for {nv.dept_from} -> {nv.dept_to}",
+						'parent_voucher_no': voucher.voucher_no,
+						'quantities': [
+							{'sku': mr.get('sku', ''), 'issued_qty': mr.get('issued_qty', '0')}
+							for mr in (nv.material_rows or [])
+						]
+					}
+				)
+		except Exception:
+			pass
 
 		total_carry_fwd = sum(carry_forward.values())
 		serializer = JobSerializer(new_vouchers, many=True)

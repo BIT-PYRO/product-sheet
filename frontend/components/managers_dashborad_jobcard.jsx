@@ -28,6 +28,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
+import DeletionHistoryDrawer from '@/components/deletion-history-drawer';
 import GlobalSearchBar from '@/components/global-search-bar';
 import { CreateJobModal } from '@/components/create-job-modal';
 import { SuggestedVouchersModal } from '@/components/suggested-vouchers-modal';
@@ -1916,6 +1917,8 @@ export default function ManagersDashboard() {
           <CompanyKYCForm onClose={() => setIsKYCModalOpen(false)} />
         </DialogContent>
       </Dialog>
+
+      <DeletionHistoryDrawer appLabel="jobs" modelName="job" sheet="job" title="Job Card Activity Logs" />
     </div>
   );
 }
