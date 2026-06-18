@@ -80,13 +80,15 @@ function calcAmount(price, qty, weight, priceBy) {
 
 // â”€â”€â”€ tiny form-field â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-function Field({ label, value, onChange, textarea = false, type = 'text', disabled = false }) {
+function Field({ label, value, onChange, textarea = false, type = 'text', disabled = false, required = false }) {
   const base =
     'w-full rounded-md border border-soft-border px-3 py-1.5 text-sm text-midnight-ink placeholder:text-cool-gray focus:outline-none focus:ring-1 focus:ring-trust-blue';
   const cls = `${base} ${disabled ? 'bg-muted cursor-not-allowed text-cool-gray' : 'bg-background'}`;
   return (
     <div className="flex flex-col gap-1">
-      <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">{label}</label>
+      <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">
+        {label} {required && <span className="text-red-500 ml-0.5">*</span>}
+      </label>
       {textarea ? (
         <textarea
           className={`${cls} resize-none`}
@@ -631,6 +633,19 @@ export default function StoneInventoryPage() {
 
     const stone = stones.find((s) => s.id === stoneIdNum);
     try {
+      // Update stone catalog fields in DB if modified
+      await fetch(`/api/stone-inventory/${stoneIdNum}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          cut: issueForm.cut || '',
+          shape: issueForm.shape || '',
+          length: issueForm.length || '',
+          width: issueForm.width || '',
+          height: issueForm.height || '',
+        }),
+      });
+
       const res = await fetch('/api/issue-requests', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -784,6 +799,10 @@ export default function StoneInventoryPage() {
   }
 
   async function handleSaveStone() {
+    if (!stoneForm.stone_type || !stoneForm.stone_type.trim()) {
+      setStatusMsg('Type is required to add a new stone.');
+      return;
+    }
     setSavingStone(true);
     setStatusMsg('');
     try {
@@ -811,11 +830,21 @@ export default function StoneInventoryPage() {
   // â”€â”€ save stock entries â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   async function handleSaveStock() {
-    const toSave = stockRows.filter(
-      (r) => String(r.qty_added).trim() !== '' || String(r.weight_cts_added).trim() !== ''
-    );
+    const toSave = stockRows.filter((row) => {
+      const orig = stones.find((s) => s.id === row.stoneId);
+      const propsChanged = orig && (
+        row.cut !== (orig.cut || '') ||
+        row.shape !== (orig.shape || '') ||
+        row.length !== (orig.length || '') ||
+        row.width !== (orig.width || '') ||
+        row.height !== (orig.height || '')
+      );
+      const transactionEntered = String(row.qty_added).trim() !== '' || String(row.weight_cts_added).trim() !== '';
+      return propsChanged || transactionEntered;
+    });
+
     if (toSave.length === 0) {
-      setStatusMsg('Enter qty or weight for at least one stone.');
+      setStatusMsg('No changes or stock updates were made.');
       return;
     }
     setSavingStock(true);
@@ -841,28 +870,32 @@ export default function StoneInventoryPage() {
           throw new Error(JSON.stringify(err));
         }
 
-        // 2. POST the stock transaction
-        const payload = {
-          stone: row.stoneId,
-          qty_added: row.qty_added || '0',
-          weight_cts_added: row.weight_cts_added || '0',
-          price: row.price || '0',
-          price_by: row.price_by,
-          amount: row.amount || '0',
-          remark: row.remark,
-        };
-        const res = await fetch('/api/stone-transactions', {
-          method: 'POST',
-          credentials: 'include',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        });
-        if (!res.ok) {
-          const err = await res.json().catch(() => ({}));
-          throw new Error(JSON.stringify(err));
+        // 2. POST the stock transaction only if qty_added or weight_cts_added is specified
+        const hasQty = String(row.qty_added).trim() !== '';
+        const hasWeight = String(row.weight_cts_added).trim() !== '';
+        if (hasQty || hasWeight) {
+          const payload = {
+            stone: row.stoneId,
+            qty_added: row.qty_added || '0',
+            weight_cts_added: row.weight_cts_added || '0',
+            price: row.price || '0',
+            price_by: row.price_by,
+            amount: row.amount || '0',
+            remark: row.remark,
+          };
+          const res = await fetch('/api/stone-transactions', {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(JSON.stringify(err));
+          }
         }
       }
-      setStatusMsg(`Stock updated for ${toSave.length} stone(s).`);
+      setStatusMsg(`Updates saved for ${toSave.length} stone(s).`);
       setAddStockOpen(false);
       setSelectedIds(new Set());
       await loadStones();
@@ -1247,7 +1280,7 @@ export default function StoneInventoryPage() {
           </DialogHeader>
 
           <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-            <Field label="Type" value={stoneForm.stone_type} onChange={stoneField('stone_type')} />
+            <Field label="Type" value={stoneForm.stone_type} onChange={stoneField('stone_type')} required />
             <Field label="Species" value={stoneForm.species} onChange={stoneField('species')} />
             <Field label="Variety" value={stoneForm.variety} onChange={stoneField('variety')} />
             <Field label="Color" value={stoneForm.color} onChange={stoneField('color')} />
@@ -1635,12 +1668,12 @@ export default function StoneInventoryPage() {
 
           <div className="mt-2 grid grid-cols-1 gap-4">
             <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Name of Stone</label>
+              <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Name of Stone <span className="text-red-500 ml-0.5">*</span></label>
               <select
                 value={issueForm.stoneId}
                 onChange={(e) => {
                   const stoneId = e.target.value;
-                  const selectedStone = selectedStones.find((stone) => String(stone.id) === stoneId);
+                  const selectedStone = stones.find((stone) => String(stone.id) === stoneId);
                   setIssueForm((prev) => ({
                     ...prev,
                     stoneId,
@@ -1673,10 +1706,11 @@ export default function StoneInventoryPage() {
                   const num = Number(value);
                   setIssueForm((prev) => ({ ...prev, quantity: String(Number.isFinite(num) ? Math.max(0, num) : 0) }));
                 }}
+                required
               />
 
               <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Issued To</label>
+                <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Issued To <span className="text-red-500 ml-0.5">*</span></label>
                 <select
                   value={issueForm.issuedTo}
                   onChange={(e) => setIssueForm((prev) => ({ ...prev, issuedTo: e.target.value }))}
@@ -1689,7 +1723,7 @@ export default function StoneInventoryPage() {
                 </select>
               </div>
               <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Issued By</label>
+                <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Issued By <span className="text-red-500 ml-0.5">*</span></label>
                 <select
                   value={issueForm.issuedBy}
                   onChange={(e) => setIssueForm((prev) => ({ ...prev, issuedBy: e.target.value }))}
@@ -1710,6 +1744,7 @@ export default function StoneInventoryPage() {
               label="Reason of Issue"
               value={issueForm.reason}
               onChange={(value) => setIssueForm((prev) => ({ ...prev, reason: value }))}
+              required
             />
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
@@ -1755,7 +1790,7 @@ export default function StoneInventoryPage() {
           </DialogHeader>
           <div className="mt-2 grid grid-cols-1 gap-4">
             <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Stone</label>
+              <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Stone <span className="text-red-500 ml-0.5">*</span></label>
               <select
                 value={receiveForm.stoneId}
                 onChange={(e) => {
@@ -1790,7 +1825,7 @@ export default function StoneInventoryPage() {
               })()}
             </div>
             <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Employee / Vendor Name</label>
+              <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Employee / Vendor Name <span className="text-red-500 ml-0.5">*</span></label>
               <select
                 value={receiveForm.employeeVendorName}
                 onChange={(e) => setReceiveForm((prev) => ({ ...prev, employeeVendorName: e.target.value }))}
@@ -1806,7 +1841,7 @@ export default function StoneInventoryPage() {
             
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Reference ID</label>
+                <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Reference ID <span className="text-red-500 ml-0.5">*</span></label>
                 <input
                   type="text"
                   value={receiveForm.referenceId}
@@ -1840,7 +1875,7 @@ export default function StoneInventoryPage() {
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-5">
               <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Quantity</label>
+                <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Quantity <span className="text-red-500/80 font-normal text-[10px] lowercase">(at least one required)</span> <span className="text-red-500 ml-0.5">*</span></label>
                 <input
                   type="number"
                   min={0}
@@ -1851,7 +1886,7 @@ export default function StoneInventoryPage() {
                 />
               </div>
               <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Weight</label>
+                <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Weight <span className="text-red-500/80 font-normal text-[10px] lowercase">(at least one required)</span> <span className="text-red-500 ml-0.5">*</span></label>
                 <div className="flex h-[34px] w-full rounded-md border border-soft-border bg-background focus-within:ring-1 focus-within:ring-trust-blue overflow-hidden">
                   <input
                     type="number"
@@ -1874,7 +1909,7 @@ export default function StoneInventoryPage() {
                 </div>
               </div>
               <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Price</label>
+                <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">Price <span className="text-red-500 ml-0.5">*</span></label>
                 <input
                   type="number"
                   min={0}
