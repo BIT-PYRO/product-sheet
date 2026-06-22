@@ -231,12 +231,7 @@ export default function StoneInventoryPage() {
     quality: '',
     employeeVendorName: '',
     referenceId: '',
-    usage: 'new',
-    cut: '',
-    shape: '',
-    length: '',
-    width: '',
-    height: ''
+    usage: 'new'
   });
   const [workforceMembers, setWorkforceMembers] = useState([]);
   const [enrollWorkforceOpen, setEnrollWorkforceOpen] = useState(false);
@@ -521,12 +516,7 @@ export default function StoneInventoryPage() {
       quality: '',
       employeeVendorName: '',
       referenceId: '',
-      usage: 'new',
-      cut: '',
-      shape: '',
-      length: '',
-      width: '',
-      height: ''
+      usage: 'new'
     });
     setReceiveOpen(true);
   }
@@ -562,11 +552,6 @@ export default function StoneInventoryPage() {
     try {
       const stoneUpdate = {
         quality: receiveForm.quality || '',
-        cut: receiveForm.cut || '',
-        shape: receiveForm.shape || '',
-        length: receiveForm.length || '',
-        width: receiveForm.width || '',
-        height: receiveForm.height || '',
       };
       
       const patchRes = await fetch(`/api/stone-inventory/${stoneIdNum}`, {
@@ -809,6 +794,26 @@ export default function StoneInventoryPage() {
   async function handleSaveStone() {
     if (!stoneForm.stone_type || !stoneForm.stone_type.trim()) {
       setStatusMsg('Type is required to add a new stone.');
+      return;
+    }
+    if (!stoneForm.cut || !stoneForm.cut.trim()) {
+      setStatusMsg('Cut is required to add a new stone.');
+      return;
+    }
+    if (!stoneForm.shape || !stoneForm.shape.trim()) {
+      setStatusMsg('Shape is required to add a new stone.');
+      return;
+    }
+    if (!stoneForm.length || !stoneForm.length.trim()) {
+      setStatusMsg('Length is required to add a new stone.');
+      return;
+    }
+    if (!stoneForm.width || !stoneForm.width.trim()) {
+      setStatusMsg('Width is required to add a new stone.');
+      return;
+    }
+    if (!stoneForm.height || !stoneForm.height.trim()) {
+      setStatusMsg('Height is required to add a new stone.');
       return;
     }
     setSavingStone(true);
@@ -1313,6 +1318,11 @@ export default function StoneInventoryPage() {
             <Field label="Variety" value={stoneForm.variety} onChange={stoneField('variety')} />
             <Field label="Color" value={stoneForm.color} onChange={stoneField('color')} />
             <Field label="Quality" value={stoneForm.quality} onChange={stoneField('quality')} />
+            <Field label="Cut" value={stoneForm.cut} onChange={stoneField('cut')} required />
+            <Field label="Shape" value={stoneForm.shape} onChange={stoneField('shape')} required />
+            <Field label="Length" value={stoneForm.length} onChange={stoneField('length')} required />
+            <Field label="Width" value={stoneForm.width} onChange={stoneField('width')} required />
+            <Field label="Height" value={stoneForm.height} onChange={stoneField('height')} required />
             <Field label="Min Level" value={stoneForm.min_level} onChange={stoneField('min_level')} type="number" />
 
             {/* Wax Setting toggle */}
@@ -1816,11 +1826,6 @@ export default function StoneInventoryPage() {
                     ...prev,
                     stoneId,
                     quality: selectedStone?.quality || '',
-                    cut: selectedStone?.cut || '',
-                    shape: selectedStone?.shape || '',
-                    length: selectedStone?.length || '',
-                    width: selectedStone?.width || '',
-                    height: selectedStone?.height || '',
                   }));
                 }}
                 className="w-full rounded-md border border-soft-border bg-background px-3 py-2 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
@@ -1999,20 +2004,6 @@ export default function StoneInventoryPage() {
                   className="w-full rounded-md border border-transparent bg-green-50 dark:bg-green-950/40 px-3 py-1.5 text-sm font-semibold text-success-dark dark:text-emerald-400 focus:outline-none cursor-default"
                 />
               </div>
-            </div>
-
-            <div className="grid grid-cols-5 gap-2">
-              {[['Cut', 'cut'], ['Shape', 'shape'], ['Length', 'length'], ['Width', 'width'], ['Height', 'height']].map(([label, key]) => (
-                <div key={key} className="flex flex-col gap-1">
-                  <label className="text-xs font-medium text-cool-gray uppercase tracking-wide">{label}</label>
-                  <input
-                    type="text"
-                    value={receiveForm[key]}
-                    onChange={(e) => setReceiveForm((prev) => ({ ...prev, [key]: e.target.value }))}
-                    className="w-full rounded-md border border-soft-border bg-background px-2 py-1.5 text-sm text-midnight-ink focus:outline-none focus:ring-1 focus:ring-trust-blue"
-                  />
-                </div>
-              ))}
             </div>
           </div>
           <div className="mt-5 flex justify-end gap-3">

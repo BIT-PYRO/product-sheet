@@ -127,6 +127,11 @@ class StoneItemSerializer(serializers.ModelSerializer):
     averageWeightStock = serializers.SerializerMethodField()
     tenant_id = serializers.UUIDField(read_only=True)
     company_id = serializers.UUIDField(read_only=True)
+    cut = serializers.CharField(required=True, allow_blank=False)
+    shape = serializers.CharField(required=True, allow_blank=False)
+    length = serializers.CharField(required=True, allow_blank=False)
+    width = serializers.CharField(required=True, allow_blank=False)
+    height = serializers.CharField(required=True, allow_blank=False)
 
     def get_averageWeightStock(self, obj):
         return obj.average_weight_stock
