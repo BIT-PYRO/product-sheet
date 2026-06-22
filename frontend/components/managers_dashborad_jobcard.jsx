@@ -549,6 +549,7 @@ export default function ManagersDashboard() {
           batchId: job.batch_id || '',
           departmentOrder: job.department_order || 0,
           stoneRows: Array.isArray(job.stone_rows) ? job.stone_rows : [],
+          findingsRows: Array.isArray(job.findings_rows) ? job.findings_rows : [],
           materialRows,
         };
 
@@ -870,6 +871,56 @@ export default function ManagersDashboard() {
         };
       });
 
+      const findingsMap = new Map();
+      allCards.forEach(card => {
+        const findings = Array.isArray(card.findingsRows) ? card.findingsRows : [];
+        findings.forEach(fr => {
+          if (!fr.finding_code && !fr.qty) return;
+
+          const codeKey = String(fr.finding_code || '').trim().toUpperCase();
+          if (!codeKey) return;
+
+          if (!findingsMap.has(codeKey)) {
+            findingsMap.set(codeKey, {
+              finding_code: fr.finding_code || '',
+              die_number: fr.die_number || '',
+              size: fr.size || '',
+              material: fr.material || '',
+              polish: fr.polish || '',
+              qty: 0,
+              master_sku_breakdown_map: new Map()
+            });
+          }
+
+          const entry = findingsMap.get(codeKey);
+          entry.qty += Number(fr.qty) || 0;
+
+          const breakdown = Array.isArray(fr.master_sku_breakdown) ? fr.master_sku_breakdown : [];
+          breakdown.forEach(b => {
+            const msKey = String(b.master_sku || '').trim().toUpperCase();
+            if (!msKey) return;
+            const currentQty = entry.master_sku_breakdown_map.get(msKey) || 0;
+            entry.master_sku_breakdown_map.set(msKey, currentQty + (Number(b.qty) || 0));
+          });
+        });
+      });
+
+      const findingsRows = Array.from(findingsMap.values()).map(entry => {
+        const master_sku_breakdown = Array.from(entry.master_sku_breakdown_map.entries()).map(([master_sku, qty]) => ({
+          master_sku,
+          qty
+        }));
+        return {
+          finding_code: entry.finding_code,
+          die_number: entry.die_number,
+          size: entry.size,
+          material: entry.material,
+          polish: entry.polish,
+          qty: entry.qty,
+          master_sku_breakdown
+        };
+      });
+
       cardsToRender = [{
         createdAt: combinedDateStr || new Date().toISOString(),
         voucherType: 'Combined',
@@ -884,7 +935,8 @@ export default function ManagersDashboard() {
         qty,
         weight,
         materialRows,
-        stoneRows
+        stoneRows,
+        findingsRows
       }];
     }
 
@@ -910,8 +962,8 @@ export default function ManagersDashboard() {
 
       const stoneRows = Array.isArray(card.stoneRows) ? card.stoneRows.filter(r => r.variety || r.qty || r.shape) : [];
       const stoneSection = stoneRows.length > 0 ? `
-  <!-- STONE / FINDINGS -->
-  <div class="stone-header">Stones / Findings</div>
+  <!-- STONE -->
+  <div class="stone-header">Stones</div>
   <table class="stone-tbl">
     <thead>
       <tr>
@@ -936,6 +988,38 @@ export default function ManagersDashboard() {
           <td>${sr.width || '\u2014'}</td>
           <td>${sr.height || '\u2014'}</td>
           <td style="font-weight:600">${sr.qty ?? '\u2014'}</td>
+          <td class="left" style="font-size:8px">${breakdown}</td>
+        </tr>`;
+      }).join('')}
+    </tbody>
+  </table>` : '';
+
+      const findingsRows = Array.isArray(card.findingsRows) ? card.findingsRows.filter(r => r.finding_code || r.qty) : [];
+      const findingsSection = findingsRows.length > 0 ? `
+  <!-- FINDINGS -->
+  <div class="findings-header">Findings</div>
+  <table class="findings-tbl">
+    <thead>
+      <tr>
+        <th class="left">Finding Code</th><th class="left">Die Number</th><th class="left">Size</th>
+        <th class="left">Material</th><th>Polish</th><th>Qty</th>
+        <th class="left">Master SKUs</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${findingsRows.map(fr => {
+        const breakdown = Array.isArray(fr.master_sku_breakdown) && fr.master_sku_breakdown.length > 0
+          ? fr.master_sku_breakdown
+              .map(b => b.master_sku ? `${b.master_sku}[${Math.round(b.qty * 100) / 100}]` : `[${Math.round(b.qty * 100) / 100}]`)
+              .join(', ')
+          : '\u2014';
+        return `<tr>
+          <td class="left">${fr.finding_code || '\u2014'}</td>
+          <td class="left">${fr.die_number || '\u2014'}</td>
+          <td class="left">${fr.size || '\u2014'}</td>
+          <td class="left">${fr.material || '\u2014'}</td>
+          <td>${fr.polish || '\u2014'}</td>
+          <td style="font-weight:600">${fr.qty ?? '\u2014'}</td>
           <td class="left" style="font-size:8px">${breakdown}</td>
         </tr>`;
       }).join('')}
@@ -1010,6 +1094,7 @@ export default function ManagersDashboard() {
     <tbody>${tableRows}</tbody>
   </table>
   ${stoneSection}
+  ${findingsSection}
 
   <!-- FOOTER -->
   <div class="footer-row">
@@ -1112,6 +1197,14 @@ export default function ManagersDashboard() {
     .stone-tbl td { padding: 2px 4px; border: 1px solid #fde68a; text-align: center; }
     .stone-tbl td.left { text-align: left; padding-left: 5px; }
     .stone-tbl tr:nth-child(even) td { background: #fffbeb; }
+
+    .findings-header { font-size: 7.5px; font-weight: 700; text-transform: uppercase; color: #0f766e; letter-spacing: 0.5px; background: #ccfbf1; border: 1px solid #99f6e4; border-bottom: none; padding: 3px 6px; margin-top: 6px; border-radius: 3px 3px 0 0; }
+    .findings-tbl { border-collapse: collapse; margin-bottom: 6px; font-size: 7.5px; width: 100%; table-layout: fixed; border: 1px solid #99f6e4; }
+    .findings-tbl th { background: #0f766e; color: white; font-weight: 600; padding: 2px 4px; border: 1px solid #0d9488; text-align: center; white-space: nowrap; }
+    .findings-tbl th.left { text-align: left; padding-left: 5px; }
+    .findings-tbl td { padding: 2px 4px; border: 1px solid #99f6e4; text-align: center; }
+    .findings-tbl td.left { text-align: left; padding-left: 5px; }
+    .findings-tbl tr:nth-child(even) td { background: #f0fdfa; }
   </style>
 </head>
 <body>${voucherPages}</body>

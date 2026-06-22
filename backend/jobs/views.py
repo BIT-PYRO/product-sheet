@@ -314,6 +314,147 @@ def _propagate_qty_to_active_downstream(batch_id, voucher):
 			ds.save(update_fields=['material_rows', 'die_rows'])
 
 
+def _calculate_stones_and_findings(material_rows):
+	"""
+	Calculates and returns (stone_rows, findings_rows) for a given list of material rows.
+	"""
+	from products.models import Product as _Product
+	from designers.models import DesignerSheet as _DS
+	from findings.models import Finding as _Finding
+
+	stone_agg = {}
+	findings_agg = {}
+
+	for row in (material_rows or []):
+		raw_sku = str(row.get('sku', '') or '').strip()
+		if not raw_sku:
+			continue
+		try:
+			issued_qty = float(row.get('issued_qty') or row.get('qty') or 0)
+		except (TypeError, ValueError):
+			issued_qty = 0
+		if issued_qty <= 0:
+			continue
+
+		product = _Product.objects.filter(master_sku__iexact=raw_sku).first()
+		if not product:
+			continue
+
+		# ── Stones ──
+		all_stone_sources = list(product.stone_entries or []) if isinstance(product.stone_entries, list) else []
+
+		d_skus = []
+		if product.designer_sku:
+			d_skus.append(product.designer_sku.strip())
+		for ds in (product.designer_skus or []):
+			if ds and str(ds).strip():
+				d_skus.append(str(ds).strip())
+		if d_skus:
+			for designer in _DS.objects.filter(sku__in=d_skus).only('stone_entries'):
+				if isinstance(designer.stone_entries, list):
+					all_stone_sources.extend(designer.stone_entries)
+
+		for se in all_stone_sources:
+			s_type = str(se.get('type', '') or '').strip()
+			s_species = str(se.get('species', '') or '').strip()
+			s_variety = str(se.get('variety', '') or '').strip()
+			s_color = str(se.get('color', '') or '').strip()
+			s_cut = str(se.get('cut', '') or '').strip()
+			s_shape = str(se.get('shape', '') or '').strip()
+			s_length = str(se.get('length', '') or '').strip()
+			s_width = str(se.get('width', '') or '').strip()
+			s_height = str(se.get('height', '') or '').strip()
+			try:
+				s_qty_per_piece = float(se.get('qty', 0) or 0)
+			except (TypeError, ValueError):
+				s_qty_per_piece = 0
+
+			if s_qty_per_piece <= 0 and not (s_variety or s_type or s_shape):
+				continue
+
+			fp = (
+				s_type.lower(), s_variety.lower(), s_color.lower(),
+				s_cut.lower(), s_shape.lower(), s_length.lower(), s_width.lower(), s_height.lower(),
+			)
+			stones_total = s_qty_per_piece * issued_qty
+
+			if fp not in stone_agg:
+				stone_agg[fp] = {
+					'type': s_type, 'species': s_species, 'variety': s_variety,
+					'color': s_color, 'cut': s_cut, 'shape': s_shape,
+					'length': s_length, 'width': s_width, 'height': s_height,
+					'qty': 0, 'master_sku_breakdown': [],
+				}
+			stone_agg[fp]['qty'] += stones_total
+			
+			found_bd = False
+			for bd in stone_agg[fp]['master_sku_breakdown']:
+				if bd['master_sku'].lower() == product.master_sku.lower():
+					bd['qty'] += stones_total
+					found_bd = True
+					break
+			if not found_bd:
+				stone_agg[fp]['master_sku_breakdown'].append({
+					'master_sku': product.master_sku,
+					'qty': stones_total,
+				})
+
+		# ── Findings ──
+		product_findings = product.findings or []
+		if isinstance(product_findings, list):
+			for f_entry in product_findings:
+				if not isinstance(f_entry, dict):
+					continue
+				finding_code = str(f_entry.get('value') or f_entry.get('finding_code') or '').strip()
+				if not finding_code:
+					continue
+				try:
+					qty_per_piece = float(f_entry.get('quantity') or 1.0)
+				except (TypeError, ValueError):
+					qty_per_piece = 1.0
+
+				findings_total = qty_per_piece * issued_qty
+				code_upper = finding_code.upper()
+
+				if code_upper not in findings_agg:
+					findings_agg[code_upper] = {
+						'finding_code': finding_code,
+						'qty': 0.0,
+						'master_sku_breakdown': [],
+					}
+				findings_agg[code_upper]['qty'] += findings_total
+				
+				found_bd = False
+				for bd in findings_agg[code_upper]['master_sku_breakdown']:
+					if bd['master_sku'].lower() == product.master_sku.lower():
+						bd['qty'] += findings_total
+						found_bd = True
+						break
+				if not found_bd:
+					findings_agg[code_upper]['master_sku_breakdown'].append({
+						'master_sku': product.master_sku,
+						'qty': findings_total,
+					})
+
+	if findings_agg:
+		master_findings = _Finding.objects.filter(finding_code__in=list(findings_agg.keys()))
+		master_map = {f.finding_code.upper(): f for f in master_findings}
+		for code_upper, agg in findings_agg.items():
+			mf = master_map.get(code_upper)
+			agg['die_number'] = mf.die_number if mf else ''
+			agg['size'] = mf.size if mf else ''
+			agg['weight'] = mf.weight if mf else ''
+			agg['dead_weight'] = mf.dead_weight if mf else ''
+			agg['material'] = mf.material if mf else ''
+			agg['polish'] = mf.polish if mf else ''
+			agg['notes'] = mf.notes if mf else ''
+
+	stone_rows = list(stone_agg.values())
+	findings_rows = list(findings_agg.values())
+
+	return stone_rows, findings_rows
+
+
 def _deduct_source_current_stock(voucher):
 	"""
 	When a voucher becomes in_process, deduct issued_qty from the Current Stock
@@ -455,6 +596,26 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 			raise
 
 	def perform_create(self, serializer):
+		stone_rows = serializer.validated_data.get('stone_rows', [])
+		findings_rows = serializer.validated_data.get('findings_rows', [])
+		material_rows = serializer.validated_data.get('material_rows', [])
+
+		def is_empty_rows(rows, keys):
+			if not rows:
+				return True
+			for r in rows:
+				if any(str(r.get(k) or '').strip() for k in keys):
+					return False
+			return True
+
+		# Derive rows from product sheet if they are empty or placeholder inputs
+		if material_rows:
+			derived_stones, derived_findings = _calculate_stones_and_findings(material_rows)
+			if is_empty_rows(stone_rows, ['variety', 'qty', 'shape']):
+				serializer.validated_data['stone_rows'] = derived_stones
+			if is_empty_rows(findings_rows, ['finding_code', 'qty']):
+				serializer.validated_data['findings_rows'] = derived_findings
+
 		instance = serializer.save(
 			tenant=(getattr(self.request, 'tenant', None) or (getattr(self.request.user, 'tenant', None) if self.request.user and self.request.user.is_authenticated else None)),
 			company=(getattr(self.request, 'company', None) or (getattr(self.request.user, 'active_company', None) if self.request.user and self.request.user.is_authenticated else None)),
@@ -818,92 +979,8 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 								'issued_qty': str(pieces_needed * (int(qpp) if qpp else 1)),
 							})
 
-				# ── Build stone_rows aggregated across all master SKUs in this voucher ──
-				stone_agg: dict = {}  # fingerprint -> aggregated stone data
-
-				for entry in bucket['items']:
-					product = entry['product']
-					master_sku = entry['master_sku']
-					pieces = entry['qty']
-
-					# Collect stone entries from the product itself
-					all_stone_sources = list(product.stone_entries or []) if isinstance(product.stone_entries, list) else []
-
-					# Also pull from any linked designer sheets
-					d_skus = []
-					if product.designer_sku:
-						d_skus.append(product.designer_sku.strip())
-					for ds in (product.designer_skus or []):
-						if ds and str(ds).strip():
-							d_skus.append(str(ds).strip())
-					if d_skus:
-						for d_sku in d_skus:
-							designer = designer_map.get(d_sku)
-							if designer and isinstance(designer.stone_entries, list):
-								all_stone_sources.extend(designer.stone_entries)
-
-					for se in all_stone_sources:
-						s_type = str(se.get('type', '') or '').strip()
-						s_species = str(se.get('species', '') or '').strip()
-						s_variety = str(se.get('variety', '') or '').strip()
-						s_color = str(se.get('color', '') or '').strip()
-						s_cut = str(se.get('cut', '') or '').strip()
-						s_shape = str(se.get('shape', '') or '').strip()
-						s_length = str(se.get('length', '') or '').strip()
-						s_width = str(se.get('width', '') or '').strip()
-						s_height = str(se.get('height', '') or '').strip()
-						try:
-							s_qty_per_piece = float(se.get('qty', 0) or 0)
-						except (TypeError, ValueError):
-							s_qty_per_piece = 0
-
-						# Skip completely empty rows
-						if s_qty_per_piece <= 0 and not (s_variety or s_type or s_shape):
-							continue
-
-						fingerprint = (
-							s_type.lower(), s_variety.lower(), s_color.lower(),
-							s_cut.lower(), s_shape.lower(), s_length, s_width, s_height,
-						)
-						# Total stones for this master SKU = qty-per-piece × pieces-to-make
-						stones_for_sku = s_qty_per_piece * pieces
-
-						if fingerprint not in stone_agg:
-							stone_agg[fingerprint] = {
-								'type': s_type,
-								'species': s_species,
-								'variety': s_variety,
-								'color': s_color,
-								'cut': s_cut,
-								'shape': s_shape,
-								'length': s_length,
-								'width': s_width,
-								'height': s_height,
-								'qty': 0,
-								'master_sku_breakdown': [],
-							}
-						stone_agg[fingerprint]['qty'] += stones_for_sku
-						stone_agg[fingerprint]['master_sku_breakdown'].append({
-							'master_sku': master_sku,
-							'qty': stones_for_sku,
-						})
-
-				stone_rows = [
-					{
-						'type': d['type'],
-						'species': d['species'],
-						'variety': d['variety'],
-						'color': d['color'],
-						'cut': d['cut'],
-						'shape': d['shape'],
-						'length': d['length'],
-						'width': d['width'],
-						'height': d['height'],
-						'qty': d['qty'],
-						'master_sku_breakdown': d['master_sku_breakdown'],
-					}
-					for d in stone_agg.values()
-				]
+				# ── Build stone_rows and findings_rows aggregated across all master SKUs in this voucher ──
+				stone_rows, findings_rows = _calculate_stones_and_findings(material_rows)
 
 				voucher = Job.objects.create(
 					tenant=(getattr(request, 'tenant', None) or (getattr(request.user, 'tenant', None) if request.user and request.user.is_authenticated else None)),
@@ -922,6 +999,7 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 					department_order=step_idx,
 					material_rows=material_rows,
 					stone_rows=stone_rows,
+					findings_rows=findings_rows,
 					die_rows=die_rows,
 					notes=f'Step {step_idx + 1}: {from_label} \u2192 {to_label}',
 				)
@@ -1071,80 +1149,7 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 						'unit2': ''
 					})
 
-					# Stone rows aggregation logic
-					if product:
-						all_stone_sources = list(product.stone_entries or []) if isinstance(product.stone_entries, list) else []
-						d_skus = []
-						if product.designer_sku:
-							d_skus.append(product.designer_sku.strip())
-						for ds in (product.designer_skus or []):
-							if ds and str(ds).strip():
-								d_skus.append(str(ds).strip())
-						if d_skus:
-							for designer in DesignerSheet.objects.filter(sku__in=d_skus).only('stone_entries'):
-								if isinstance(designer.stone_entries, list):
-									all_stone_sources.extend(designer.stone_entries)
-
-						for se in all_stone_sources:
-							s_type = str(se.get('type', '') or '').strip()
-							s_species = str(se.get('species', '') or '').strip()
-							s_variety = str(se.get('variety', '') or '').strip()
-							s_color = str(se.get('color', '') or '').strip()
-							s_cut = str(se.get('cut', '') or '').strip()
-							s_shape = str(se.get('shape', '') or '').strip()
-							s_length = str(se.get('length', '') or '').strip()
-							s_width = str(se.get('width', '') or '').strip()
-							s_height = str(se.get('height', '') or '').strip()
-							try:
-								s_qty_per_piece = float(se.get('qty', 0) or 0)
-							except (TypeError, ValueError):
-								s_qty_per_piece = 0
-
-							if s_qty_per_piece <= 0 and not (s_variety or s_type or s_shape):
-								continue
-
-							fingerprint = (
-								s_type.lower(), s_variety.lower(), s_color.lower(),
-								s_cut.lower(), s_shape.lower(), s_length, s_width, s_height
-							)
-							stones_for_sku = s_qty_per_piece * entry.quantity
-
-							if fingerprint not in stone_agg:
-								stone_agg[fingerprint] = {
-									'type': s_type,
-									'species': s_species,
-									'variety': s_variety,
-									'color': s_color,
-									'cut': s_cut,
-									'shape': s_shape,
-									'length': s_length,
-									'width': s_width,
-									'height': s_height,
-									'qty': 0,
-									'master_sku_breakdown': []
-								}
-							stone_agg[fingerprint]['qty'] += stones_for_sku
-							stone_agg[fingerprint]['master_sku_breakdown'].append({
-								'master_sku': entry.sku,
-								'qty': stones_for_sku
-							})
-
-				stone_rows = [
-					{
-						'type': d['type'],
-						'species': d['species'],
-						'variety': d['variety'],
-						'color': d['color'],
-						'cut': d['cut'],
-						'shape': d['shape'],
-						'length': d['length'],
-						'width': d['width'],
-						'height': d['height'],
-						'qty': d['qty'],
-						'master_sku_breakdown': d['master_sku_breakdown']
-					}
-					for d in stone_agg.values()
-				]
+				stone_rows, findings_rows = _calculate_stones_and_findings(material_rows)
 
 				voucher_no = f'JJ-{str(counter).zfill(2)}'
 				counter += 1
@@ -1172,6 +1177,7 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 					batch_id=batch.batch_no,
 					material_rows=material_rows,
 					stone_rows=stone_rows,
+					findings_rows=findings_rows,
 					notes=notes or f"Repair batch: {batch.batch_no} — stage: {mapping['to_label']}"
 				)
 				created_vouchers.append(voucher)
@@ -3246,96 +3252,18 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 	@action(detail=True, methods=['post'], url_path='recalculate-stone-rows')
 	def recalculate_stone_rows(self, request, pk=None):
 		"""
-		Re-derive stone_rows for this voucher from the current product/designer-sheet
-		stone_entries.  Useful for fixing vouchers created before stone_rows was
-		populated or before master_sku_breakdown was tracked.
+		Re-derive stone_rows and findings_rows for this voucher from the current product/designer-sheet
+		stone_entries and findings.
 		"""
-		from designers.models import DesignerSheet as _DS
-		from products.models import Product as _Product
-
 		voucher = self.get_object()
-		stone_agg: dict = {}
-
-		for row in (voucher.material_rows or []):
-			raw_sku = str(row.get('sku', '') or '').strip()
-			if not raw_sku:
-				continue
-			try:
-				issued_qty = float(row.get('issued_qty', 0) or 0)
-			except (TypeError, ValueError):
-				issued_qty = 0
-			if issued_qty <= 0:
-				continue
-
-			product = _Product.objects.filter(master_sku__iexact=raw_sku).first()
-			if not product:
-				continue
-
-			all_sources = list(product.stone_entries or []) if isinstance(product.stone_entries, list) else []
-
-			d_skus = []
-			if product.designer_sku:
-				d_skus.append(product.designer_sku.strip())
-			for ds in (product.designer_skus or []):
-				if ds and str(ds).strip():
-					d_skus.append(str(ds).strip())
-			if d_skus:
-				for designer in _DS.objects.filter(sku__in=d_skus).only('stone_entries'):
-					if isinstance(designer.stone_entries, list):
-						all_sources.extend(designer.stone_entries)
-
-			for se in all_sources:
-				s_type = str(se.get('type', '') or '').strip()
-				s_species = str(se.get('species', '') or '').strip()
-				s_variety = str(se.get('variety', '') or '').strip()
-				s_color = str(se.get('color', '') or '').strip()
-				s_cut = str(se.get('cut', '') or '').strip()
-				s_shape = str(se.get('shape', '') or '').strip()
-				s_length = str(se.get('length', '') or '').strip()
-				s_width = str(se.get('width', '') or '').strip()
-				s_height = str(se.get('height', '') or '').strip()
-				try:
-					s_qty_per_piece = float(se.get('qty', 0) or 0)
-				except (TypeError, ValueError):
-					s_qty_per_piece = 0
-
-				if s_qty_per_piece <= 0 and not (s_variety or s_type or s_shape):
-					continue
-
-				fp = (
-					s_type.lower(), s_variety.lower(), s_color.lower(),
-					s_cut.lower(), s_shape.lower(), s_length.lower(), s_width.lower(), s_height.lower(),
-				)
-				stones_total = s_qty_per_piece * issued_qty
-
-				if fp not in stone_agg:
-					stone_agg[fp] = {
-						'type': s_type, 'species': s_species, 'variety': s_variety,
-						'color': s_color, 'cut': s_cut, 'shape': s_shape,
-						'length': s_length, 'width': s_width, 'height': s_height,
-						'qty': 0, 'master_sku_breakdown': [],
-					}
-				stone_agg[fp]['qty'] += stones_total
-				stone_agg[fp]['master_sku_breakdown'].append({
-					'master_sku': product.master_sku,
-					'qty': stones_total,
-				})
-
-		stone_rows = [
-			{
-				'type': d['type'], 'species': d['species'], 'variety': d['variety'],
-				'color': d['color'], 'cut': d['cut'], 'shape': d['shape'],
-				'length': d['length'], 'width': d['width'], 'height': d['height'],
-				'qty': d['qty'], 'master_sku_breakdown': d['master_sku_breakdown'],
-			}
-			for d in stone_agg.values()
-		]
+		stone_rows, findings_rows = _calculate_stones_and_findings(voucher.material_rows)
 
 		voucher.stone_rows = stone_rows
-		voucher.save(update_fields=['stone_rows'])
+		voucher.findings_rows = findings_rows
+		voucher.save(update_fields=['stone_rows', 'findings_rows'])
 
 		return Response({
 			'success': True,
-			'message': f'Recalculated {len(stone_rows)} stone row(s) for voucher {voucher.voucher_no}.',
-			'data': {'stone_rows': stone_rows},
+			'message': f'Recalculated {len(stone_rows)} stone row(s) and {len(findings_rows)} finding row(s) for voucher {voucher.voucher_no}.',
+			'data': {'stone_rows': stone_rows, 'findings_rows': findings_rows},
 		})

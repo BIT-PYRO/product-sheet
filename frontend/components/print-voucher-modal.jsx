@@ -94,12 +94,12 @@ export function PrintVoucherModal({ open, onOpenChange, onEdit, onOpenReceiveMod
             </tbody>
           </table>
 
-          {/* Stone / Findings Reference */}
+          {/* Stone Reference */}
           {Array.isArray(data.stoneRows) && data.stoneRows.some(r => r.variety || r.qty || r.shape) && (
             <div className="mt-3 rounded-md overflow-hidden border border-amber-400/40">
               <div className="px-2.5 py-1.5 bg-amber-50 border-b border-amber-400/40">
                 <p className="text-xs font-bold text-amber-700 uppercase tracking-wide">
-                  Stones / Findings
+                  Stones
                 </p>
               </div>
               <table className="w-full border-collapse text-[11px]">
@@ -124,6 +124,46 @@ export function PrintVoucherModal({ open, onOpenChange, onEdit, onOpenReceiveMod
                       <td className="px-2 py-0.5 border-t border-amber-100">
                         {Array.isArray(sr.master_sku_breakdown) && sr.master_sku_breakdown.length > 0
                           ? sr.master_sku_breakdown.map((b, bi) => (
+                              <span key={bi} className="mr-1 font-semibold">{b.master_sku}[{b.qty}]</span>
+                            ))
+                          : '—'
+                        }
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* Findings Reference */}
+          {Array.isArray(data.findingsRows) && data.findingsRows.some(r => r.finding_code || r.qty) && (
+            <div className="mt-3 rounded-md overflow-hidden border border-teal-500/40">
+              <div className="px-2.5 py-1.5 bg-teal-50 border-b border-teal-500/40">
+                <p className="text-xs font-bold text-teal-700 uppercase tracking-wide">
+                  Findings
+                </p>
+              </div>
+              <table className="w-full border-collapse text-[11px]">
+                <thead>
+                  <tr className="bg-teal-600 text-white font-bold uppercase tracking-wider">
+                    {['Finding Code', 'Die Number', 'Size', 'Material', 'Polish', 'Qty', 'Master SKUs'].map(h => (
+                      <th key={h} className="px-2 py-1 text-left font-bold">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.findingsRows.filter(r => r.finding_code || r.qty).map((fr, idx) => (
+                    <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-teal-50/30'}>
+                      <td className="px-2 py-0.5 border-t border-teal-100">{fr.finding_code || '—'}</td>
+                      <td className="px-2 py-0.5 border-t border-teal-100">{fr.die_number || '—'}</td>
+                      <td className="px-2 py-0.5 border-t border-teal-100">{fr.size || '—'}</td>
+                      <td className="px-2 py-0.5 border-t border-teal-100">{fr.material || '—'}</td>
+                      <td className="px-2 py-0.5 border-t border-teal-100">{fr.polish || '—'}</td>
+                      <td className="px-2 py-0.5 border-t border-teal-100 font-semibold">{fr.qty ?? '—'}</td>
+                      <td className="px-2 py-0.5 border-t border-teal-100">
+                        {Array.isArray(fr.master_sku_breakdown) && fr.master_sku_breakdown.length > 0
+                          ? fr.master_sku_breakdown.map((b, bi) => (
                               <span key={bi} className="mr-1 font-semibold">{b.master_sku}[{b.qty}]</span>
                             ))
                           : '—'

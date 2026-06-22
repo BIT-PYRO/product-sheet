@@ -74,6 +74,8 @@ class Job(AuditModel, TenantCompanyModel):
 	material_rows = models.JSONField(default=list, blank=True, help_text='Issued material rows from SKU table')
 	# Each entry: {variety, color, cut, shape, length, width, height, qty}
 	stone_rows = models.JSONField(default=list, blank=True, help_text='Stone issuance rows')
+	# Each entry: {finding_code, qty, die_number, size, weight, dead_weight, material, polish, notes}
+	findings_rows = models.JSONField(default=list, blank=True, help_text='Findings rows')
 	# Each entry: {die_number, quantity, weight, unit}
 	die_weight_rows = models.JSONField(default=list, blank=True, help_text='Die/findings rows')
 	# Each entry: {master_sku, die_code, qty_per_piece, issued_qty}

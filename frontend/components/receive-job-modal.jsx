@@ -74,6 +74,8 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
   const [totalLoss, setTotalLoss] = useState({})
   const [totalReceivedWeight, setTotalReceivedWeight] = useState({})
   const [totalLossWeight, setTotalLossWeight] = useState({})
+  const [stoneRows, setStoneRows] = useState([])
+  const [findingsRows, setFindingsRows] = useState([])
 
   // Pre-populate form with voucher data when it's selected
   useEffect(() => {
@@ -102,6 +104,8 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
       setTotalLoss({})
       setTotalReceivedWeight({})
       setTotalLossWeight({})
+      setStoneRows([])
+      setFindingsRows([])
       setIsSubmitting(false)
       setIsRecalcStone(false)
       return
@@ -114,6 +118,8 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
       setWorkType(voucherData.workType || voucherData.type || "")
       setDeptFrom(voucherData.deptFrom || voucherData.department || "")
       setDeptTo(voucherData.deptTo || "")
+      setStoneRows(Array.isArray(voucherData.stoneRows) ? voucherData.stoneRows : [])
+      setFindingsRows(Array.isArray(voucherData.findingsRows) ? voucherData.findingsRows : [])
       // Populate date from start_date or created_at
       if (voucherData.createdAt) {
         const d = new Date(voucherData.createdAt)
@@ -209,6 +215,8 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
         if (job.order_name) setOrderName(job.order_name)
         if (job.received_by) setReceivedByName(job.received_by)
         if (job.notes) setNoteForReissue(job.notes)
+        if (Array.isArray(job.stone_rows)) setStoneRows(job.stone_rows)
+        if (Array.isArray(job.findings_rows)) setFindingsRows(job.findings_rows)
 
         const status = job.approval_status || ''
         const isCompleted = status === 'completed' || status === 'replaced'
@@ -627,6 +635,72 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
       </tr>
     `).join('')
 
+    const stoneRowsFiltered = stoneRows.filter(r => r.variety || r.qty || r.shape)
+    const stoneSection = stoneRowsFiltered.length > 0 ? `
+  <!-- STONE -->
+  <div class="stone-header">Stones</div>
+  <table class="stone-tbl">
+    <thead>
+      <tr>
+        <th class="left">Variety</th><th class="left">Color</th><th class="left">Cut</th>
+        <th class="left">Shape</th><th>L</th><th>W</th><th>H</th><th>Qty</th>
+        <th class="left">Master SKUs</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${stoneRowsFiltered.map(sr => {
+        const breakdown = Array.isArray(sr.master_sku_breakdown) && sr.master_sku_breakdown.length > 0
+          ? sr.master_sku_breakdown
+              .map(b => b.master_sku ? `${b.master_sku}[${Math.round(b.qty * 100) / 100}]` : `[${Math.round(b.qty * 100) / 100}]`)
+              .join(', ')
+          : '—';
+        return `<tr>
+          <td class="left">${sr.variety || '—'}</td>
+          <td class="left">${sr.color || '—'}</td>
+          <td class="left">${sr.cut || '—'}</td>
+          <td class="left">${sr.shape || '—'}</td>
+          <td>${sr.length || '—'}</td>
+          <td>${sr.width || '—'}</td>
+          <td>${sr.height || '—'}</td>
+          <td style="font-weight:600">${sr.qty ?? '—'}</td>
+          <td class="left" style="font-size:8px">${breakdown}</td>
+        </tr>`;
+      }).join('')}
+    </tbody>
+  </table>` : '';
+
+    const findingsRowsFiltered = findingsRows.filter(r => r.finding_code || r.qty)
+    const findingsSection = findingsRowsFiltered.length > 0 ? `
+  <!-- FINDINGS -->
+  <div class="findings-header">Findings</div>
+  <table class="findings-tbl">
+    <thead>
+      <tr>
+        <th class="left">Finding Code</th><th class="left">Die Number</th><th class="left">Size</th>
+        <th class="left">Material</th><th>Polish</th><th>Qty</th>
+        <th class="left">Master SKUs</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${findingsRowsFiltered.map(fr => {
+        const breakdown = Array.isArray(fr.master_sku_breakdown) && fr.master_sku_breakdown.length > 0
+          ? fr.master_sku_breakdown
+              .map(b => b.master_sku ? `${b.master_sku}[${Math.round(b.qty * 100) / 100}]` : `[${Math.round(b.qty * 100) / 100}]`)
+              .join(', ')
+          : '—';
+        return `<tr>
+          <td class="left">${fr.finding_code || '—'}</td>
+          <td class="left">${fr.die_number || '—'}</td>
+          <td class="left">${fr.size || '—'}</td>
+          <td class="left">${fr.material || '—'}</td>
+          <td>${fr.polish || '—'}</td>
+          <td style="font-weight:600">${fr.qty ?? '—'}</td>
+          <td class="left" style="font-size:8px">${breakdown}</td>
+        </tr>`;
+      }).join('')}
+    </tbody>
+  </table>` : '';
+
     const ratingDots = Array.from({ length: 10 }, (_, i) => i + 1)
       .map(n => `<div class="rating-dot ${n <= ratingScore ? 'active' : 'inactive'}">${n}</div>`)
       .join('')
@@ -705,6 +779,22 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
 
     .sig-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 30px; margin-top: 16px; }
     .sig-box { border-top: 1px solid #333; padding-top: 3px; text-align: center; font-size: 7px; font-weight: 700; text-transform: uppercase; color: #555; }
+
+    .stone-header { font-size: 7.5px; font-weight: 700; text-transform: uppercase; color: #92400e; letter-spacing: 0.5px; background: #fef3c7; border: 1px solid #fcd34d; border-bottom: none; padding: 3px 6px; margin-top: 6px; border-radius: 3px 3px 0 0; }
+    .stone-tbl { border-collapse: collapse; margin-bottom: 6px; font-size: 7.5px; width: 100%; table-layout: fixed; border: 1px solid #fcd34d; }
+    .stone-tbl th { background: #d97706; color: white; font-weight: 600; padding: 2px 4px; border: 1px solid #b45309; text-align: center; white-space: nowrap; }
+    .stone-tbl th.left { text-align: left; padding-left: 5px; }
+    .stone-tbl td { padding: 2px 4px; border: 1px solid #fde68a; text-align: center; }
+    .stone-tbl td.left { text-align: left; padding-left: 5px; }
+    .stone-tbl tr:nth-child(even) td { background: #fffbeb; }
+
+    .findings-header { font-size: 7.5px; font-weight: 700; text-transform: uppercase; color: #0f766e; letter-spacing: 0.5px; background: #ccfbf1; border: 1px solid #99f6e4; border-bottom: none; padding: 3px 6px; margin-top: 6px; border-radius: 3px 3px 0 0; }
+    .findings-tbl { border-collapse: collapse; margin-bottom: 6px; font-size: 7.5px; width: 100%; table-layout: fixed; border: 1px solid #99f6e4; }
+    .findings-tbl th { background: #0f766e; color: white; font-weight: 600; padding: 2px 4px; border: 1px solid #0d9488; text-align: center; white-space: nowrap; }
+    .findings-tbl th.left { text-align: left; padding-left: 5px; }
+    .findings-tbl td { padding: 2px 4px; border: 1px solid #99f6e4; text-align: center; }
+    .findings-tbl td.left { text-align: left; padding-left: 5px; }
+    .findings-tbl tr:nth-child(even) td { background: #f0fdfa; }
   </style>
 </head>
 <body>
@@ -778,6 +868,9 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
     </thead>
     <tbody>${tableRows}</tbody>
   </table>
+
+  ${stoneSection}
+  ${findingsSection}
 
   <!-- RECEIVED BY + CONTACT + RATING -->
   <div class="footer-row">
@@ -1208,11 +1301,11 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
           </div>
 
           {/* Stone/Findings Reference — shown when voucher has stone rows */}
-          {Array.isArray(voucherData?.stoneRows) && voucherData.stoneRows.some(r => r.variety || r.qty || r.shape) && (
+          {Array.isArray(stoneRows) && stoneRows.some(r => r.variety || r.qty || r.shape) && (
             <div className="rounded-md overflow-hidden border border-amber-400/40">
               <div className="px-2.5 py-1.5 bg-amber-50 dark:bg-amber-950/30 border-b border-amber-400/40 flex items-center justify-between">
                 <p className="text-xs font-bold text-amber-700 dark:text-amber-300 uppercase tracking-wide">
-                  Stones / Findings (Reference Only)
+                  Stones (Reference Only)
                 </p>
                 <div className="flex items-center gap-2">
                   <button
@@ -1264,7 +1357,7 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
                   <div key={h} className="px-1.5 py-1.5">{h}</div>
                 ))}
               </div>
-              {voucherData.stoneRows.filter(r => r.variety || r.qty || r.shape).map((sr, idx) => (
+              {stoneRows.filter(r => r.variety || r.qty || r.shape).map((sr, idx) => (
                 <div key={idx} className="grid grid-cols-[1.2fr_0.8fr_0.7fr_0.7fr_0.5fr_0.5fr_0.5fr_0.6fr_1.6fr] gap-0 border-t border-border bg-background items-start">
                   {[sr.variety, sr.color, sr.cut, sr.shape, sr.length, sr.width, sr.height, sr.qty].map((val, vi) => (
                     <div key={vi} className="px-1.5 py-1 text-xs">{val || '—'}</div>
@@ -1299,6 +1392,39 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
                   })}
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Findings Reference — shown when voucher has findings rows */}
+          {Array.isArray(findingsRows) && findingsRows.some(r => r.finding_code || r.qty) && (
+            <div className="rounded-md overflow-hidden border border-teal-500/40 mt-3">
+              <div className="px-2.5 py-1.5 bg-teal-50 dark:bg-teal-950/30 border-b border-teal-500/40 flex items-center justify-between">
+                <p className="text-xs font-bold text-teal-700 dark:text-teal-300 uppercase tracking-wide">
+                  Findings (Reference Only)
+                </p>
+              </div>
+              <div className="grid grid-cols-[1.5fr_1.2fr_0.8fr_1fr_0.8fr_0.8fr_2.1fr] gap-0 bg-teal-600 text-white text-[9px] font-bold uppercase tracking-wider">
+                {['Finding Code', 'Die Number', 'Size', 'Material', 'Polish', 'Qty', 'Master SKUs'].map(h => (
+                  <div key={h} className="px-1.5 py-1.5">{h}</div>
+                ))}
+              </div>
+              {findingsRows.filter(r => r.finding_code || r.qty).map((fr, idx) => (
+                <div key={idx} className="grid grid-cols-[1.5fr_1.2fr_0.8fr_1fr_0.8fr_0.8fr_2.1fr] gap-0 border-t border-border bg-background items-start">
+                  {[fr.finding_code, fr.die_number, fr.size, fr.material, fr.polish, fr.qty].map((val, vi) => (
+                    <div key={vi} className="px-1.5 py-1 text-xs">{val || '—'}</div>
+                  ))}
+                  <div className="px-1.5 py-1">
+                    {Array.isArray(fr.master_sku_breakdown) && fr.master_sku_breakdown.length > 0
+                      ? fr.master_sku_breakdown.map((b, bi) => (
+                          <div key={bi} className="text-[10px] font-semibold text-midnight-ink leading-tight">
+                            {b.master_sku ? `${b.master_sku}` : ''}[{Math.round((b.qty || 0) * 100) / 100}]
+                          </div>
+                        ))
+                      : <span className="text-xs text-muted-foreground">—</span>
+                    }
+                  </div>
+                </div>
+              ))}
             </div>
           )}
 
