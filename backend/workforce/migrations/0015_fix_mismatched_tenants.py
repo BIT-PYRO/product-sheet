@@ -8,7 +8,7 @@ def fix_tenant_mismatches(apps, schema_editor):
     # Update any WorkforceMember where the tenant doesn't match the corresponding User's tenant
     for member in WorkforceMember.objects.exclude(email='').exclude(email__isnull=True):
         user = User.objects.filter(email__iexact=member.email).first()
-        if user and user.tenant_id != member.tenant_id:
+        if user and user.tenant_id and user.tenant_id != member.tenant_id:
             member.tenant_id = user.tenant_id
             member.save(update_fields=['tenant'])
 
