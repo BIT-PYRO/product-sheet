@@ -85,8 +85,8 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
   const [stoneRows, setStoneRows] = useState([
     { id: 1, variety: "", color: "", cut: "", shape: "", length: "", width: "", height: "", qty: "" },
   ])
-  const [dieWeightRows, setDieWeightRows] = useState([
-    { id: 1, dieNumber: "", quantity: "", weight: "", unit: "" },
+  const [findingsRows, setFindingsRows] = useState([
+    { id: 1, finding_code: "", qty: "", weight: "", unit: "Pcs" },
   ])
   // Die rows for pre-casting stages (wax-pieces, wax-setting, casting)
   const [dieRows, setDieRows] = useState([])
@@ -328,7 +328,16 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
       if (draft.deptTo) setDeptTo(draft.deptTo)
       if (draft.rows) setRows(draft.rows)
       if (draft.stoneRows) setStoneRows(draft.stoneRows.map(r => ({ id: r.id, variety: r.variety ?? r.name ?? '', color: r.color ?? '', cut: r.cut ?? '', shape: r.shape ?? r.size ?? '', length: r.length ?? '', width: r.width ?? '', height: r.height ?? '', qty: r.qty ?? r.quantity ?? '' })))
-      if (draft.dieWeightRows) setDieWeightRows(draft.dieWeightRows)
+      if (draft.findingsRows) setFindingsRows(draft.findingsRows)
+      else if (draft.dieWeightRows) {
+        setFindingsRows(draft.dieWeightRows.map(r => ({
+          id: r.id,
+          finding_code: r.finding_code || r.dieNumber || "",
+          qty: r.qty || r.quantity || "",
+          weight: r.weight || "",
+          unit: r.unit || "Pcs"
+        })))
+      }
       if (draft.voucherType) setVoucherType(draft.voucherType)
       if (draft.workType) setWorkType(draft.workType)
       if (draft.noteByIssuer) setNoteByIssuer(draft.noteByIssuer)
@@ -368,19 +377,19 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
     setStoneRows((prev) => prev.map((r) => (r.id === id ? { ...r, [field]: value } : r)))
   }
 
-  function addDieWeightRow() {
-    setDieWeightRows((prev) => [
+  function addFindingRow() {
+    setFindingsRows((prev) => [
       ...prev,
-      { id: Date.now(), dieNumber: "", quantity: "", weight: "", unit: "" },
+      { id: Date.now(), finding_code: "", qty: "", weight: "", unit: "Pcs" },
     ])
   }
 
-  function deleteDieWeightRow(id) {
-    setDieWeightRows((prev) => prev.filter((r) => r.id !== id))
+  function deleteFindingRow(id) {
+    setFindingsRows((prev) => prev.filter((r) => r.id !== id))
   }
 
-  function updateDieWeightRow(id, field, value) {
-    setDieWeightRows((prev) => prev.map((r) => (r.id === id ? { ...r, [field]: value } : r)))
+  function updateFindingRow(id, field, value) {
+    setFindingsRows((prev) => prev.map((r) => (r.id === id ? { ...r, [field]: value } : r)))
   }
 
   // Derived key from SKU values only — changes when SKUs change, NOT when category/metal fill
@@ -428,56 +437,159 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isPreCasting, skuIssuedKey])
 
-  // Auto-fill category, metal, and stone rows from product when a Master SKU is entered
+  const [productsData, setProductsData] = useState({})
+
+  // Fetch product details for all unique SKUs in the table
   useEffect(() => {
     const skuEntries = rows
-      .map(r => ({ id: r.id, sku: String(r.sku || '').trim() }))
-      .filter(e => e.sku)
-    if (!skuEntries.length) return
+      .map(r => String(r.sku || '').trim())
+      .filter(Boolean)
+    if (!skuEntries.length) {
+      setProductsData({})
+      return
+    }
     const timer = setTimeout(async () => {
-      const fetchedProducts = new Map()
-      const uniqueSkus = [...new Set(skuEntries.map(e => e.sku))]
+      const uniqueSkus = [...new Set(skuEntries)]
+      const newProductsData = { ...productsData }
+      let updated = false
+
       await Promise.all(uniqueSkus.map(async (sku) => {
+        const lowerSku = sku.toLowerCase()
+        if (newProductsData[lowerSku]) return
+
         try {
           const r = await fetch(`/api/products?master_sku=${encodeURIComponent(sku)}`, { cache: 'no-store' })
           const result = await r.json().catch(() => null)
           const items = Array.isArray(result?.data) ? result.data : (result?.data?.results || [])
-          const product = items.find(p => String(p.master_sku || '').toLowerCase() === sku.toLowerCase()) || items[0]
-          if (product) fetchedProducts.set(sku.toLowerCase(), product)
+          const product = items.find(p => String(p.master_sku || '').toLowerCase() === lowerSku) || items[0]
+          if (product) {
+            newProductsData[lowerSku] = product
+            updated = true
+          }
         } catch {}
       }))
-      if (!fetchedProducts.size) return
-      // Fill category + metal for each row (only if currently empty)
-      setRows(prev => prev.map(row => {
-        const sku = String(row.sku || '').trim().toLowerCase()
-        if (!sku) return row
-        const product = fetchedProducts.get(sku)
-        if (!product) return row
-        return {
-          ...row,
-          category: row.category || String(product.category || ''),
-          metal: row.metal || String(product.material || ''),
-        }
-      }))
-      // Fill stone rows from first SKU's product
-      const firstProduct = fetchedProducts.get(skuEntries[0].sku.toLowerCase())
-      if (firstProduct && Array.isArray(firstProduct.stone_entries) && firstProduct.stone_entries.length > 0) {
-        setStoneRows(firstProduct.stone_entries.map((s, i) => ({
-          id: i + 1,
-          variety: s.variety || '',
-          color: s.color || '',
-          cut: s.cut || '',
-          shape: s.shape || '',
-          length: s.length || '',
-          width: s.width || '',
-          height: s.height || '',
-          qty: s.qty || '',
-        })))
+
+      if (updated) {
+        setProductsData(newProductsData)
       }
     }, 600)
     return () => clearTimeout(timer)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [skuKey])
+
+  // Aggregate Stones and Findings across all rows in the table when SKUs or quantities change!
+  useEffect(() => {
+    // 1. Fill category + metal for each row (only if currently empty)
+    setRows(prev => prev.map(row => {
+      const sku = String(row.sku || '').trim().toLowerCase()
+      if (!sku) return row
+      const product = productsData[sku]
+      if (!product) return row
+      return {
+        ...row,
+        category: row.category || String(product.category || ''),
+        metal: row.metal || String(product.material || ''),
+      }
+    }))
+
+    // 2. Aggregate Stones and Findings
+    const stoneAgg = {}
+    const findingsAgg = {}
+
+    rows.forEach(row => {
+      const sku = String(row.sku || '').trim().toLowerCase()
+      if (!sku) return
+      const product = productsData[sku]
+      if (!product) return
+
+      const issuedQty = parseFloat(row.issuedQty) || 0
+      if (issuedQty <= 0) return
+
+      // Aggregate Stones from product.stone_entries
+      const stoneEntries = Array.isArray(product.stone_entries) ? product.stone_entries : []
+      stoneEntries.forEach(se => {
+        const variety = String(se.variety || '').trim()
+        const color = String(se.color || '').trim()
+        const cut = String(se.cut || '').trim()
+        const shape = String(se.shape || '').trim()
+        const length = String(se.length || '').trim()
+        const width = String(se.width || '').trim()
+        const height = String(se.height || '').trim()
+        const qtyPerPiece = parseFloat(se.qty || se.quantity || 0)
+
+        if (qtyPerPiece <= 0 && !variety && !shape) return
+
+        const fp = `${variety.toLowerCase()}|${color.toLowerCase()}|${cut.toLowerCase()}|${shape.toLowerCase()}|${length}|${width}|${height}`
+        const stonesTotal = qtyPerPiece * issuedQty
+
+        if (!stoneAgg[fp]) {
+          stoneAgg[fp] = {
+            variety,
+            color,
+            cut,
+            shape,
+            length,
+            width,
+            height,
+            qty: 0
+          }
+        }
+        stoneAgg[fp].qty += stonesTotal
+      })
+
+      // Aggregate Findings from product.findings
+      const findingsEntries = Array.isArray(product.findings) ? product.findings : []
+      findingsEntries.forEach(fe => {
+        const findingCode = String(fe.value || fe.finding_code || '').trim()
+        if (!findingCode) return
+
+        const qtyPerPiece = parseFloat(fe.quantity || fe.qty || 0)
+        if (qtyPerPiece <= 0) return
+
+        const location = String(fe.location || '').trim()
+        const fp = findingCode.toLowerCase()
+        const findingsTotal = qtyPerPiece * issuedQty
+
+        if (!findingsAgg[fp]) {
+          findingsAgg[fp] = {
+            findingCode,
+            quantity: 0,
+            location,
+            weight: '',
+            unit: 'Pcs'
+          }
+        }
+        findingsAgg[fp].quantity += findingsTotal
+      })
+    })
+
+    // Update stoneRows state
+    const aggregatedStones = Object.values(stoneAgg).map((s, idx) => ({
+      id: idx + 1,
+      ...s,
+      qty: String(s.qty)
+    }))
+    if (aggregatedStones.length > 0) {
+      setStoneRows(aggregatedStones)
+    } else {
+      setStoneRows([{ id: 1, variety: "", color: "", cut: "", shape: "", length: "", width: "", height: "", qty: "" }])
+    }
+
+    // Update findingsRows state
+    const aggregatedFindings = Object.values(findingsAgg).map((f, idx) => ({
+      id: idx + 1,
+      finding_code: f.findingCode,
+      qty: String(f.quantity),
+      weight: f.weight,
+      unit: f.unit
+    }))
+    if (aggregatedFindings.length > 0) {
+      setFindingsRows(aggregatedFindings)
+    } else {
+      setFindingsRows([{ id: 1, finding_code: "", qty: "", weight: "", unit: "Pcs" }])
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [skuIssuedKey, productsData])
 
   async function handleEnrollPerson(personName) {
     const normalizedName = String(personName || '').trim()
@@ -761,8 +873,9 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
                   ? `${notePrefix}${noteByIssuer}`.trim()
                   : (notePrefix ? `${notePrefix}Step ${i + 1}: ${fromDept.label} → ${toDept.label}` : `Step ${i + 1}: ${fromDept.label} → ${toDept.label}`),
                 material_rows: effectiveMaterialRows,
-                stone_rows: stoneRows.map(({ variety, color, cut, shape, length, width, height, qty }) => ({ variety, color, cut, shape, length, width, height, qty })),
-                die_weight_rows: dieWeightRows.map(({ dieNumber, quantity, weight, unit }) => ({ die_number: dieNumber, quantity, weight, unit })),
+                stone_rows: stoneRows.map(({ variety, color, cut, shape, length, width, height, qty }) => ({ variety, color, cut, shape, length, width, height, qty: parseFloat(qty) || 0 })),
+                findings_rows: findingsRows.map(({ finding_code, qty, weight, unit }) => ({ finding_code, qty: parseFloat(qty) || 0, weight: parseFloat(weight) || 0, unit })),
+                die_weight_rows: findingsRows.map(({ finding_code, qty, weight, unit }) => ({ die_number: finding_code, quantity: parseFloat(qty) || 0, weight: parseFloat(weight) || 0, unit })),
                 die_rows: dieRowsForVoucher,
                 ...(picklistGroupDbId ? { picklist_group: picklistGroupDbId } : {}),
               }),
@@ -862,8 +975,9 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
                 return Object.values(agg).map(r => ({ ...r, issued_qty: String(r.issued_qty) }))
               })()
             : rows.map(({ sku, category, metal, issuedQty, unit1, issuedWeight, unit2 }) => ({ sku, category, metal, issued_qty: issuedQty, unit1, issued_weight: issuedWeight, unit2 })),
-          stone_rows: stoneRows.map(({ variety, color, cut, shape, length, width, height, qty }) => ({ variety, color, cut, shape, length, width, height, qty })),
-          die_weight_rows: dieWeightRows.map(({ dieNumber, quantity, weight, unit }) => ({ die_number: dieNumber, quantity, weight, unit })),
+          stone_rows: stoneRows.map(({ variety, color, cut, shape, length, width, height, qty }) => ({ variety, color, cut, shape, length, width, height, qty: parseFloat(qty) || 0 })),
+          findings_rows: findingsRows.map(({ finding_code, qty, weight, unit }) => ({ finding_code, qty: parseFloat(qty) || 0, weight: parseFloat(weight) || 0, unit })),
+          die_weight_rows: findingsRows.map(({ finding_code, qty, weight, unit }) => ({ die_number: finding_code, quantity: parseFloat(qty) || 0, weight: parseFloat(weight) || 0, unit })),
           die_rows: isPreCasting ? dieRows.map(r => ({
             master_sku: r.masterSku,
             die_code: r.dieCode,
@@ -900,7 +1014,7 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
       deptTo,
       rows,
       stoneRows,
-      dieWeightRows,
+      findingsRows,
       voucherNo,
       workType,
       noteByIssuer,
@@ -1454,7 +1568,7 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
               </div>
             </TabsContent>
 
-            {/* DIE NUMBER/WEIGHT TAB */}
+            {/* FINDINGS TAB */}
             <TabsContent value="die" className="mt-2">
               <div className="flex flex-col gap-1">
                 <div className="rounded-md overflow-hidden border border-border">
@@ -1465,22 +1579,22 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
                     <div className="px-1.5 py-2">Unit</div>
                     <div className="px-1.5 py-2"></div>
                   </div>
-                  {dieWeightRows.map((row) => (
+                  {findingsRows.map((row) => (
                     <div
                       key={row.id}
                       className="grid grid-cols-[1fr_1fr_1fr_1fr_32px] gap-0 border-t border-border items-center bg-background"
                     >
                       <div className="px-0.5 py-0.5">
-                        <Input className="h-6 text-sm bg-background border-border" placeholder="Finding Code" value={row.finding_code || row.dieNumber} onChange={(e) => updateDieWeightRow(row.id, "finding_code", e.target.value)} />
+                        <Input className="h-6 text-sm bg-background border-border" placeholder="Finding Code" value={row.finding_code} onChange={(e) => updateFindingRow(row.id, "finding_code", e.target.value)} />
                       </div>
                       <div className="px-0.5 py-0.5">
-                        <Input className="h-6 text-sm bg-background border-border" type="number" placeholder="0" value={row.quantity} onChange={(e) => updateDieWeightRow(row.id, "quantity", e.target.value)} />
+                        <Input className="h-6 text-sm bg-background border-border" type="number" placeholder="0" value={row.qty} onChange={(e) => updateFindingRow(row.id, "qty", e.target.value)} />
                       </div>
                       <div className="px-0.5 py-0.5">
-                        <Input className="h-6 text-sm bg-background border-border" type="number" step="0.01" placeholder="0" value={row.weight} onChange={(e) => updateDieWeightRow(row.id, "weight", e.target.value)} />
+                        <Input className="h-6 text-sm bg-background border-border" type="number" step="0.01" placeholder="0" value={row.weight} onChange={(e) => updateFindingRow(row.id, "weight", e.target.value)} />
                       </div>
                       <div className="px-0.5 py-0.5">
-                        <Select value={row.unit} onValueChange={(value) => updateDieWeightRow(row.id, "unit", value)}>
+                        <Select value={row.unit} onValueChange={(value) => updateFindingRow(row.id, "unit", value)}>
                           <SelectTrigger className="h-6 text-sm bg-background border-border focus:ring-0 focus:outline-none">
                             <SelectValue placeholder="Select unit" />
                           </SelectTrigger>
@@ -1491,18 +1605,19 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
                             <SelectItem value="lb">lb</SelectItem>
                             <SelectItem value="oz">oz</SelectItem>
                             <SelectItem value="ct">ct</SelectItem>
+                            <SelectItem value="Pcs">Pcs</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
                       <div className="flex items-center justify-center">
-                        <button type="button" onClick={() => deleteDieWeightRow(row.id)} className="text-danger hover:text-danger-dark transition-colors" aria-label="Delete row">
+                        <button type="button" onClick={() => deleteFindingRow(row.id)} className="text-danger hover:text-danger-dark transition-colors" aria-label="Delete row">
                           <Trash2 className="h-3 w-3" />
                         </button>
                       </div>
                     </div>
                   ))}
                   <div className="border-t border-border bg-background">
-                    <button type="button" onClick={addDieWeightRow} className="w-full py-0.5 text-trust-blue hover:text-deep-blue text-sm font-semibold transition-colors">
+                    <button type="button" onClick={addFindingRow} className="w-full py-0.5 text-trust-blue hover:text-deep-blue text-sm font-semibold transition-colors">
                       + Add Row
                     </button>
                   </div>
@@ -1683,11 +1798,11 @@ export function CreateJobModal({ open, onOpenChange, onQuickEnroll, onJobCreated
                   }
                 } else if (activeTab === 'die') {
                   // Finding issue — keep existing localStorage behaviour for now
-                  const requests = dieWeightRows.map(row => ({
-                    findingName: row.finding_code || row.dieNumber,
-                    finding_code: row.finding_code || row.dieNumber,
-                    dieNumber: row.dieNumber,
-                    quantity: row.quantity,
+                  const requests = findingsRows.map(row => ({
+                    findingName: row.finding_code,
+                    finding_code: row.finding_code,
+                    dieNumber: row.finding_code,
+                    quantity: row.qty,
                     weight: row.weight,
                     unit: row.unit,
                     issuedBy: issuedByName,

@@ -195,30 +195,56 @@ export default function MasterJobSheet() {
       }
 
       const jobs = Array.isArray(result?.data) ? result.data : (result?.data?.results || []);
-      const mappedRows = jobs.map((job) => ({
-        id: job.id,
-        voucherNo: `JOB-${job.id}`,
-        issued: job.created_at ? new Date(job.created_at).toLocaleDateString('en-IN') : '',
-        department: job.work_type || '',
-        category: job.job_type || job.title || '',
-        firstName: job.issued_to || job.assignee_name || '',
-        status: job.status || '',
-        newReissue: 'New',
-        type: job.title || '',
-        receiver: job.issued_by || '',
-        dayCondition: job.schedule ? new Date(job.schedule).toLocaleDateString('en-IN') : '',
-        issuedQty: '',
-        issuedWeight: '',
-        receivedQty: '',
-        receivedWeight: '',
-        lossQty: '',
-        lossWeight: '',
-        reIssueQty: '',
-        reIssueWeight: '',
-        uploadedFiles: job.uploaded_files || [],
-        notes: job.notes || '',
-        contact: job.contact || '',
-      }));
+      const mappedRows = jobs.map((job) => {
+        const materialRows = Array.isArray(job.material_rows) ? job.material_rows : [];
+        const totalQty = materialRows.reduce((sum, r) => sum + (parseFloat(r.issued_qty) || 0), 0);
+        const totalWeight = materialRows.reduce((sum, r) => sum + (parseFloat(r.issued_weight) || 0), 0);
+
+        const receivedEvents = Array.isArray(job.received_rows) ? job.received_rows : [];
+        let rxQty = 0, rxWeight = 0, lossQty = 0, lossWeight = 0;
+        for (const event of receivedEvents) {
+          for (const row of (event.rows || [])) {
+            rxQty += parseFloat(row.received_qty) || 0;
+            rxWeight += parseFloat(row.received_weight) || 0;
+            lossQty += parseFloat(row.loss_qty) || 0;
+            lossWeight += parseFloat(row.loss_weight) || 0;
+          }
+        }
+
+        return {
+          id: job.id,
+          voucherNo: job.voucher_no || `JOB-${job.id}`,
+          voucherType: job.voucher_type || 'New',
+          issued: job.created_at ? new Date(job.created_at).toLocaleDateString('en-IN') : '',
+          department: job.dept_to || job.work_type || '',
+          category: job.job_type || job.title || '',
+          firstName: job.issued_to || job.assignee_name || '',
+          status: job.approval_status || job.status || '',
+          newReissue: job.voucher_type || 'New',
+          type: job.title || '',
+          receiver: job.issued_by || '',
+          dayCondition: job.schedule ? new Date(job.schedule).toLocaleDateString('en-IN') : '',
+          issuedQty: totalQty || '',
+          issuedWeight: totalWeight || '',
+          receivedQty: rxQty || '',
+          receivedWeight: rxWeight || '',
+          lossQty: lossQty || '',
+          lossWeight: lossWeight || '',
+          reIssueQty: lossQty || '',
+          reIssueWeight: lossWeight || '',
+          uploadedFiles: job.uploaded_files || [],
+          notes: job.notes || '',
+          contact: job.contact || '',
+          // Rich data objects passed to modals
+          materialRows: job.material_rows || [],
+          stoneRows: job.stone_rows || [],
+          findingsRows: job.findings_rows || [],
+          dieRows: job.die_rows || [],
+          deptFrom: job.dept_from || '',
+          deptTo: job.dept_to || '',
+          approvalStatus: job.approval_status || '',
+        };
+      });
 
       setData(mappedRows);
     } catch (err) {

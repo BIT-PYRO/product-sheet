@@ -11,6 +11,10 @@ import { Printer, Download, Pencil, X } from "lucide-react"
 export function PrintVoucherModal({ open, onOpenChange, onEdit, onOpenReceiveModal, data }) {
   if (!data) return null
 
+  const rows = Array.isArray(data.rows) ? data.rows : (Array.isArray(data.materialRows) ? data.materialRows : (Array.isArray(data.material_rows) ? data.material_rows : []))
+  const stoneRows = Array.isArray(data.stoneRows) ? data.stoneRows : (Array.isArray(data.stone_rows) ? data.stone_rows : [])
+  const findingsRows = Array.isArray(data.findingsRows) ? data.findingsRows : (Array.isArray(data.findings_rows) ? data.findings_rows : (Array.isArray(data.die_weight_rows) ? data.die_weight_rows : []))
+
   function handlePrint() {
     window.print()
   }
@@ -46,9 +50,9 @@ export function PrintVoucherModal({ open, onOpenChange, onEdit, onOpenReceiveMod
                 <td className="px-3 py-1.5 text-sm font-bold w-1/4">VOUCHER NO.</td>
               </tr>
               <tr className="bg-white">
-                <td className="border-r border-soft-border px-3 py-1.5 text-sm font-semibold">{data.date}</td>
+                <td className="border-r border-soft-border px-3 py-1.5 text-sm font-semibold">{data.date || data.createdAt || '—'}</td>
                 <td className="border-r border-soft-border px-3 py-1.5 text-sm">—</td>
-                <td className="border-r border-soft-border px-3 py-1.5 text-sm">New</td>
+                <td className="border-r border-soft-border px-3 py-1.5 text-sm">{data.voucherType || data.newReissue || 'New'}</td>
                 <td className="px-3 py-1.5 text-sm font-semibold">{data.voucherNo}</td>
               </tr>
             </tbody>
@@ -62,8 +66,8 @@ export function PrintVoucherModal({ open, onOpenChange, onEdit, onOpenReceiveMod
                 <td className="px-3 py-1.5 text-sm font-bold w-1/2">DEPARTMENT</td>
               </tr>
               <tr className="bg-white">
-                <td className="border-r border-soft-border px-3 py-1.5 text-sm">{data.issuedTo}</td>
-                <td className="px-3 py-1.5 text-sm">{data.department}</td>
+                <td className="border-r border-soft-border px-3 py-1.5 text-sm">{data.issuedTo || data.firstName || '—'}</td>
+                <td className="px-3 py-1.5 text-sm">{data.department || data.deptTo || '—'}</td>
               </tr>
             </tbody>
           </table>
@@ -81,21 +85,29 @@ export function PrintVoucherModal({ open, onOpenChange, onEdit, onOpenReceiveMod
               </tr>
             </thead>
             <tbody>
-              {data.rows.map((row, i) => (
-                <tr key={i} className={i % 2 === 0 ? "bg-white" : "bg-cloud-gray"}>
-                  <td className="border-r border-soft-border px-3 py-1 text-sm">{row.sku}</td>
-                  <td className="border-r border-soft-border px-3 py-1 text-sm">Category</td>
-                  <td className="border-r border-soft-border px-3 py-1 text-sm text-center">{row.qty}</td>
-                  <td className="border-r border-soft-border px-3 py-1 text-sm text-center">Pcs</td>
-                  <td className="border-r border-soft-border px-3 py-1 text-sm text-right">{row.weight}</td>
-                  <td className="px-3 py-1 text-sm text-center">Kg</td>
-                </tr>
-              ))}
+              {rows.map((row, i) => {
+                const sku = row.sku || '';
+                const category = row.category || 'Category';
+                const qty = row.qty !== undefined ? row.qty : (row.issued_qty !== undefined ? row.issued_qty : (row.issuedQty !== undefined ? row.issuedQty : ''));
+                const unit1 = row.unit1 || 'Pcs';
+                const weight = row.weight !== undefined ? row.weight : (row.issued_weight !== undefined ? row.issued_weight : (row.issuedWeight !== undefined ? row.issuedWeight : ''));
+                const unit2 = row.unit2 || 'Kg';
+                return (
+                  <tr key={i} className={i % 2 === 0 ? "bg-white" : "bg-cloud-gray"}>
+                    <td className="border-r border-soft-border px-3 py-1 text-sm">{sku}</td>
+                    <td className="border-r border-soft-border px-3 py-1 text-sm">{category}</td>
+                    <td className="border-r border-soft-border px-3 py-1 text-sm text-center">{qty}</td>
+                    <td className="border-r border-soft-border px-3 py-1 text-sm text-center">{unit1}</td>
+                    <td className="border-r border-soft-border px-3 py-1 text-sm text-right">{weight}</td>
+                    <td className="px-3 py-1 text-sm text-center">{unit2}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
 
           {/* Stone Reference */}
-          {Array.isArray(data.stoneRows) && data.stoneRows.some(r => r.variety || r.qty || r.shape) && (
+          {stoneRows.some(r => r.variety || r.qty || r.shape) && (
             <div className="mt-3 rounded-md overflow-hidden border border-amber-400/40">
               <div className="px-2.5 py-1.5 bg-amber-50 border-b border-amber-400/40">
                 <p className="text-xs font-bold text-amber-700 uppercase tracking-wide">
@@ -111,7 +123,7 @@ export function PrintVoucherModal({ open, onOpenChange, onEdit, onOpenReceiveMod
                   </tr>
                 </thead>
                 <tbody>
-                  {data.stoneRows.filter(r => r.variety || r.qty || r.shape).map((sr, idx) => (
+                  {stoneRows.filter(r => r.variety || r.qty || r.shape).map((sr, idx) => (
                     <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-amber-50/30'}>
                       <td className="px-2 py-0.5 border-t border-amber-100">{sr.variety || '—'}</td>
                       <td className="px-2 py-0.5 border-t border-amber-100">{sr.color || '—'}</td>
@@ -137,7 +149,7 @@ export function PrintVoucherModal({ open, onOpenChange, onEdit, onOpenReceiveMod
           )}
 
           {/* Findings Reference */}
-          {Array.isArray(data.findingsRows) && data.findingsRows.some(r => r.finding_code || r.qty) && (
+          {findingsRows.some(r => r.finding_code || r.qty || r.finding_code === '' && r.die_number) && (
             <div className="mt-3 rounded-md overflow-hidden border border-teal-500/40">
               <div className="px-2.5 py-1.5 bg-teal-50 border-b border-teal-500/40">
                 <p className="text-xs font-bold text-teal-700 uppercase tracking-wide">
@@ -153,24 +165,28 @@ export function PrintVoucherModal({ open, onOpenChange, onEdit, onOpenReceiveMod
                   </tr>
                 </thead>
                 <tbody>
-                  {data.findingsRows.filter(r => r.finding_code || r.qty).map((fr, idx) => (
-                    <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-teal-50/30'}>
-                      <td className="px-2 py-0.5 border-t border-teal-100">{fr.finding_code || '—'}</td>
-                      <td className="px-2 py-0.5 border-t border-teal-100">{fr.die_number || '—'}</td>
-                      <td className="px-2 py-0.5 border-t border-teal-100">{fr.size || '—'}</td>
-                      <td className="px-2 py-0.5 border-t border-teal-100">{fr.material || '—'}</td>
-                      <td className="px-2 py-0.5 border-t border-teal-100">{fr.polish || '—'}</td>
-                      <td className="px-2 py-0.5 border-t border-teal-100 font-semibold">{fr.qty ?? '—'}</td>
-                      <td className="px-2 py-0.5 border-t border-teal-100">
-                        {Array.isArray(fr.master_sku_breakdown) && fr.master_sku_breakdown.length > 0
-                          ? fr.master_sku_breakdown.map((b, bi) => (
-                              <span key={bi} className="mr-1 font-semibold">{b.master_sku}[{b.qty}]</span>
-                            ))
-                          : '—'
-                        }
-                      </td>
-                    </tr>
-                  ))}
+                  {findingsRows.filter(r => r.finding_code || r.qty || r.finding_code === '' && r.die_number).map((fr, idx) => {
+                    const code = fr.finding_code || fr.die_number || '—';
+                    const qty = fr.qty !== undefined ? fr.qty : (fr.quantity !== undefined ? fr.quantity : '—');
+                    return (
+                      <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-teal-50/30'}>
+                        <td className="px-2 py-0.5 border-t border-teal-100">{code}</td>
+                        <td className="px-2 py-0.5 border-t border-teal-100">{fr.die_number || '—'}</td>
+                        <td className="px-2 py-0.5 border-t border-teal-100">{fr.size || '—'}</td>
+                        <td className="px-2 py-0.5 border-t border-teal-100">{fr.material || '—'}</td>
+                        <td className="px-2 py-0.5 border-t border-teal-100">{fr.polish || '—'}</td>
+                        <td className="px-2 py-0.5 border-t border-teal-100 font-semibold">{qty}</td>
+                        <td className="px-2 py-0.5 border-t border-teal-100">
+                          {Array.isArray(fr.master_sku_breakdown) && fr.master_sku_breakdown.length > 0
+                            ? fr.master_sku_breakdown.map((b, bi) => (
+                                <span key={bi} className="mr-1 font-semibold">{b.master_sku}[{b.qty}]</span>
+                              ))
+                            : '—'
+                          }
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

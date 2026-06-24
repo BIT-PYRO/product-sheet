@@ -314,7 +314,7 @@ def _propagate_qty_to_active_downstream(batch_id, voucher):
 			ds.save(update_fields=['material_rows', 'die_rows'])
 
 
-def _calculate_stones_and_findings(material_rows):
+def _calculate_stones_and_findings(material_rows, die_rows=None):
 	"""
 	Calculates and returns (stone_rows, findings_rows) for a given list of material rows.
 	"""
@@ -325,6 +325,7 @@ def _calculate_stones_and_findings(material_rows):
 	stone_agg = {}
 	findings_agg = {}
 
+	product_qtys = {}
 	for row in (material_rows or []):
 		raw_sku = str(row.get('sku', '') or '').strip()
 		if not raw_sku:
@@ -333,10 +334,25 @@ def _calculate_stones_and_findings(material_rows):
 			issued_qty = float(row.get('issued_qty') or row.get('qty') or 0)
 		except (TypeError, ValueError):
 			issued_qty = 0
-		if issued_qty <= 0:
-			continue
+		if issued_qty > 0:
+			product_qtys[raw_sku.upper()] = max(product_qtys.get(raw_sku.upper(), 0), issued_qty)
 
-		product = _Product.objects.filter(master_sku__iexact=raw_sku).first()
+	if die_rows:
+		for row in die_rows:
+			master_sku = str(row.get('master_sku') or row.get('masterSku') or '').strip()
+			if not master_sku:
+				continue
+			try:
+				issued_qty = float(row.get('issued_qty') or row.get('issuedQty') or 0)
+				qpp = float(row.get('qty_per_piece') or row.get('qtyPerPiece') or 1) or 1.0
+				prod_qty = issued_qty / qpp
+			except (TypeError, ValueError, ZeroDivisionError):
+				prod_qty = 0
+			if prod_qty > 0:
+				product_qtys[master_sku.upper()] = max(product_qtys.get(master_sku.upper(), 0), prod_qty)
+
+	for master_sku_upper, issued_qty in product_qtys.items():
+		product = _Product.objects.filter(master_sku__iexact=master_sku_upper).first()
 		if not product:
 			continue
 
@@ -463,7 +479,7 @@ def auto_populate_stones_and_findings(voucher):
 	if not voucher.material_rows:
 		return
 	try:
-		stone_rows, findings_rows = _calculate_stones_and_findings(voucher.material_rows)
+		stone_rows, findings_rows = _calculate_stones_and_findings(voucher.material_rows, die_rows=voucher.die_rows)
 		voucher.stone_rows = stone_rows
 		voucher.findings_rows = findings_rows
 	except Exception as e:
@@ -619,13 +635,18 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 			if not rows:
 				return True
 			for r in rows:
-				if any(str(r.get(k) or '').strip() for k in keys):
-					return False
+				for k in keys:
+					val = r.get(k)
+					if val is not None:
+						val_str = str(val).strip()
+						if val_str and val_str not in ('0', '0.0', '0.00', '0.000'):
+							return False
 			return True
 
 		# Derive rows from product sheet if they are empty or placeholder inputs
 		if material_rows:
-			derived_stones, derived_findings = _calculate_stones_and_findings(material_rows)
+			die_rows = serializer.validated_data.get('die_rows', [])
+			derived_stones, derived_findings = _calculate_stones_and_findings(material_rows, die_rows=die_rows)
 			if is_empty_rows(stone_rows, ['variety', 'qty', 'shape']):
 				serializer.validated_data['stone_rows'] = derived_stones
 			if is_empty_rows(findings_rows, ['finding_code', 'qty']):
@@ -1003,7 +1024,7 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 							})
 
 				# ── Build stone_rows and findings_rows aggregated across all master SKUs in this voucher ──
-				stone_rows, findings_rows = _calculate_stones_and_findings(material_rows)
+				stone_rows, findings_rows = _calculate_stones_and_findings(material_rows, die_rows=die_rows)
 
 				voucher = Job.objects.create(
 					tenant=(getattr(request, 'tenant', None) or (getattr(request.user, 'tenant', None) if request.user and request.user.is_authenticated else None)),
@@ -3281,7 +3302,7 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 		stone_entries and findings.
 		"""
 		voucher = self.get_object()
-		stone_rows, findings_rows = _calculate_stones_and_findings(voucher.material_rows)
+		stone_rows, findings_rows = _calculate_stones_and_findings(voucher.material_rows, die_rows=voucher.die_rows)
 
 		voucher.stone_rows = stone_rows
 		voucher.findings_rows = findings_rows

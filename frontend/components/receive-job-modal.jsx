@@ -118,8 +118,8 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
       setWorkType(voucherData.workType || voucherData.type || "")
       setDeptFrom(voucherData.deptFrom || voucherData.department || "")
       setDeptTo(voucherData.deptTo || "")
-      setStoneRows(Array.isArray(voucherData.stoneRows) ? voucherData.stoneRows : [])
-      setFindingsRows(Array.isArray(voucherData.findingsRows) ? voucherData.findingsRows : [])
+      setStoneRows(Array.isArray(voucherData.stoneRows) ? voucherData.stoneRows : (Array.isArray(voucherData.stone_rows) ? voucherData.stone_rows : []))
+      setFindingsRows(Array.isArray(voucherData.findingsRows) ? voucherData.findingsRows : (Array.isArray(voucherData.findings_rows) ? voucherData.findings_rows : []))
       // Populate date from start_date or created_at
       if (voucherData.createdAt) {
         const d = new Date(voucherData.createdAt)
@@ -134,7 +134,7 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
       setOrderName(voucherData.orderName || '')
 
       // Populate rows from materialRows (multi-SKU voucher)
-      const materialRows = Array.isArray(voucherData.materialRows) ? voucherData.materialRows : []
+      const materialRows = Array.isArray(voucherData.materialRows) ? voucherData.materialRows : (Array.isArray(voucherData.material_rows) ? voucherData.material_rows : [])
       const deptTo = voucherData.deptTo || voucherData.dept_to || ''
       const isPreCastingStage = ['wax-pieces', 'wax-setting', 'casting'].includes(deptTo)
       const dieRowsData = Array.isArray(voucherData.dieRows) ? voucherData.dieRows
