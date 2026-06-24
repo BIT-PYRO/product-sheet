@@ -1330,7 +1330,7 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
                     }}
                     className="text-[9px] font-semibold text-amber-700 border border-amber-400 rounded px-1.5 py-0.5 hover:bg-amber-100 disabled:opacity-50"
                   >
-                    {isRecalcStone ? 'Refreshing…' : '↻ Refresh Stone Data'}
+                    {isRecalcStone ? 'Refreshing…' : '↻ Refresh Reference Data'}
                   </button>
                   {stoneIssueRequests.length > 0 && (
                     <div className="flex items-center gap-1.5">

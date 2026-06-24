@@ -455,6 +455,21 @@ def _calculate_stones_and_findings(material_rows):
 	return stone_rows, findings_rows
 
 
+def auto_populate_stones_and_findings(voucher):
+	"""
+	Derives and populates both stone_rows and findings_rows
+	for the voucher based on its material_rows (SKUs and issued quantities).
+	"""
+	if not voucher.material_rows:
+		return
+	try:
+		stone_rows, findings_rows = _calculate_stones_and_findings(voucher.material_rows)
+		voucher.stone_rows = stone_rows
+		voucher.findings_rows = findings_rows
+	except Exception as e:
+		logger.exception(f"Failed to auto-populate stones and findings: {e}")
+
+
 def _deduct_source_current_stock(voucher):
 	"""
 	When a voucher becomes in_process, deduct issued_qty from the Current Stock
@@ -644,6 +659,14 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 		except Exception:
 			old_data = None
 		serializer.save()
+
+		# Auto-populate stones and findings on update in case SKUs or quantities changed
+		try:
+			auto_populate_stones_and_findings(serializer.instance)
+			serializer.instance.save(update_fields=['stone_rows', 'findings_rows'])
+		except Exception as e:
+			logger.exception(f"Failed to auto-populate stones and findings on update: {e}")
+
 		try:
 			from common.audit import log_activity
 			from common.models import ActivityLog
@@ -2344,6 +2367,7 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 					department_order=dept_order_map.get(stage_v.dept_to, 99),
 					material_rows=new_material_rows,
 					stone_rows=stage_v.stone_rows or [],
+					findings_rows=stage_v.findings_rows or [],
 					notes=notes_text,
 				)
 				new_vouchers.append(new_v)
@@ -3079,6 +3103,7 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 					department_order=dept_order_map.get(stage_v.dept_to, 99),
 					material_rows=new_material_rows,
 					stone_rows=stage_v.stone_rows or [],
+					findings_rows=stage_v.findings_rows or [],
 					notes=notes_text,
 				)
 				new_vouchers.append(new_v)
