@@ -16,8 +16,10 @@ class JobApiTests(APITestCase):
 		set_tenant(self.tenant)
 		set_company(self.company)
 
-		self.user = user_model.objects.create_user(
+		# Make user a superuser/super-admin to bypass RequiresFeature check in tests
+		self.user = user_model.objects.create_superuser(
 			username='jobs_user',
+			email='jobs_user@test.com',
 			password='jobs_pass_123',
 			tenant=self.tenant,
 			active_company=self.company,
@@ -31,6 +33,27 @@ class JobApiTests(APITestCase):
 			category='General',
 			selling_price='300.00',
 			cost_price='200.00',
+			stone_entries=[
+				{
+					'type': 'Diamond',
+					'species': 'Natural',
+					'variety': 'Diamond',
+					'color': 'G',
+					'cut': 'Excellent',
+					'shape': 'Round',
+					'length': '2.0',
+					'width': '2.0',
+					'height': '1.2',
+					'qty': 3
+				}
+			],
+			findings=[
+				{
+					'value': 'Clasp',
+					'quantity': 2,
+					'location': 'Box A'
+				}
+			],
 			created_by=self.user,
 			updated_by=self.user,
 		)
@@ -42,6 +65,13 @@ class JobApiTests(APITestCase):
 				'title': 'Inspect sample item',
 				'product': self.product.id,
 				'status': 'created',
+				'material_rows': [
+					{
+						'sku': 'SKU-JOB-1',
+						'issued_qty': '5',
+						'unit1': 'Pcs'
+					}
+				]
 			},
 			format='json',
 		)
@@ -50,6 +80,15 @@ class JobApiTests(APITestCase):
 		self.assertTrue(response.data['success'])
 		self.assertIn('data', response.data)
 		self.assertEqual(Job.objects.count(), 1)
+
+		# Verify stones and findings are auto-populated
+		job = Job.objects.first()
+		self.assertEqual(len(job.stone_rows), 1)
+		self.assertEqual(job.stone_rows[0]['qty'], 15.0)  # 3 stones * 5 pieces
+
+		self.assertEqual(len(job.die_weight_rows), 1)
+		self.assertEqual(job.die_weight_rows[0]['quantity'], 10.0)  # 2 findings * 5 pieces
+		self.assertEqual(job.die_weight_rows[0]['finding_code'], 'Clasp')
 
 	def test_invalid_job_status_transition_returns_standard_error_shape(self):
 		job = Job.objects.create(

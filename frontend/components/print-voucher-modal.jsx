@@ -94,45 +94,88 @@ export function PrintVoucherModal({ open, onOpenChange, onEdit, onOpenReceiveMod
             </tbody>
           </table>
 
-          {/* Stone / Findings Reference */}
-          {Array.isArray(data.stoneRows) && data.stoneRows.some(r => r.variety || r.qty || r.shape) && (
-            <div className="mt-3 rounded-md overflow-hidden border border-amber-400/40">
-              <div className="px-2.5 py-1.5 bg-amber-50 border-b border-amber-400/40">
-                <p className="text-xs font-bold text-amber-700 uppercase tracking-wide">
-                  Stones / Findings
-                </p>
-              </div>
-              <table className="w-full border-collapse text-[11px]">
-                <thead>
-                  <tr className="bg-amber-600 text-white font-bold uppercase tracking-wider">
-                    {['Variety', 'Color', 'Cut', 'Shape', 'L', 'W', 'H', 'Qty', 'Master SKUs'].map(h => (
-                      <th key={h} className="px-2 py-1 text-left font-bold">{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.stoneRows.filter(r => r.variety || r.qty || r.shape).map((sr, idx) => (
-                    <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-amber-50/30'}>
-                      <td className="px-2 py-0.5 border-t border-amber-100">{sr.variety || '—'}</td>
-                      <td className="px-2 py-0.5 border-t border-amber-100">{sr.color || '—'}</td>
-                      <td className="px-2 py-0.5 border-t border-amber-100">{sr.cut || '—'}</td>
-                      <td className="px-2 py-0.5 border-t border-amber-100">{sr.shape || '—'}</td>
-                      <td className="px-2 py-0.5 border-t border-amber-100">{sr.length || '—'}</td>
-                      <td className="px-2 py-0.5 border-t border-amber-100">{sr.width || '—'}</td>
-                      <td className="px-2 py-0.5 border-t border-amber-100">{sr.height || '—'}</td>
-                      <td className="px-2 py-0.5 border-t border-amber-100 font-semibold">{sr.qty ?? '—'}</td>
-                      <td className="px-2 py-0.5 border-t border-amber-100">
-                        {Array.isArray(sr.master_sku_breakdown) && sr.master_sku_breakdown.length > 0
-                          ? sr.master_sku_breakdown.map((b, bi) => (
-                              <span key={bi} className="mr-1 font-semibold">{b.master_sku}[{b.qty}]</span>
-                            ))
-                          : '—'
-                        }
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+          {/* Stones / Findings Reference */}
+          {((Array.isArray(data.stoneRows) && data.stoneRows.some(r => r.variety || r.qty || r.shape)) || 
+            (Array.isArray(data.die_weight_rows) && data.die_weight_rows.some(r => r.finding_code || r.quantity))) && (
+            <div className="flex flex-col gap-3 mt-3">
+              {/* Stones Table */}
+              {Array.isArray(data.stoneRows) && data.stoneRows.some(r => r.variety || r.qty || r.shape) && (
+                <div className="rounded-md overflow-hidden border border-amber-400/40">
+                  <div className="px-2.5 py-1.5 bg-amber-50 border-b border-amber-400/40">
+                    <p className="text-xs font-bold text-amber-700 uppercase tracking-wide">
+                      Stones Needed
+                    </p>
+                  </div>
+                  <table className="w-full border-collapse text-[11px]">
+                    <thead>
+                      <tr className="bg-amber-600 text-white font-bold uppercase tracking-wider">
+                        {['Variety', 'Color', 'Cut', 'Shape', 'L', 'W', 'H', 'Qty', 'Master SKUs'].map(h => (
+                          <th key={h} className="px-2 py-1 text-left font-bold">{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {data.stoneRows.filter(r => r.variety || r.qty || r.shape).map((sr, idx) => (
+                        <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-amber-50/30'}>
+                          <td className="px-2 py-0.5 border-t border-amber-100">{sr.variety || '—'}</td>
+                          <td className="px-2 py-0.5 border-t border-amber-100">{sr.color || '—'}</td>
+                          <td className="px-2 py-0.5 border-t border-amber-100">{sr.cut || '—'}</td>
+                          <td className="px-2 py-0.5 border-t border-amber-100">{sr.shape || '—'}</td>
+                          <td className="px-2 py-0.5 border-t border-amber-100">{sr.length || '—'}</td>
+                          <td className="px-2 py-0.5 border-t border-amber-100">{sr.width || '—'}</td>
+                          <td className="px-2 py-0.5 border-t border-amber-100">{sr.height || '—'}</td>
+                          <td className="px-2 py-0.5 border-t border-amber-100 font-semibold">{sr.qty ?? '—'}</td>
+                          <td className="px-2 py-0.5 border-t border-amber-100">
+                            {Array.isArray(sr.master_sku_breakdown) && sr.master_sku_breakdown.length > 0
+                              ? sr.master_sku_breakdown.map((b, bi) => (
+                                  <span key={bi} className="mr-1 font-semibold">{b.master_sku}[{Math.round((b.qty || 0) * 100) / 100}]</span>
+                                ))
+                              : '—'
+                            }
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {/* Findings Table */}
+              {Array.isArray(data.die_weight_rows) && data.die_weight_rows.some(r => r.finding_code || r.quantity) && (
+                <div className="rounded-md overflow-hidden border border-violet-400/40">
+                  <div className="px-2.5 py-1.5 bg-violet-50 border-b border-violet-400/40">
+                    <p className="text-xs font-bold text-violet-700 uppercase tracking-wide">
+                      Findings Needed
+                    </p>
+                  </div>
+                  <table className="w-full border-collapse text-[11px]">
+                    <thead>
+                      <tr className="bg-violet-600 text-white font-bold uppercase tracking-wider">
+                        {['Finding Code', 'Location', 'Qty', 'Master SKUs'].map(h => (
+                          <th key={h} className="px-2 py-1 text-left font-bold">{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {data.die_weight_rows.filter(r => r.finding_code || r.quantity).map((fr, idx) => (
+                        <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-violet-50/30'}>
+                          <td className="px-2 py-0.5 border-t border-violet-100 font-semibold text-violet-950">{fr.finding_code || '—'}</td>
+                          <td className="px-2 py-0.5 border-t border-violet-100">{fr.location || '—'}</td>
+                          <td className="px-2 py-0.5 border-t border-violet-100 font-bold">{fr.quantity ?? '—'}</td>
+                          <td className="px-2 py-0.5 border-t border-violet-100">
+                            {Array.isArray(fr.master_sku_breakdown) && fr.master_sku_breakdown.length > 0
+                              ? fr.master_sku_breakdown.map((b, bi) => (
+                                  <span key={bi} className="mr-1 font-semibold">{b.master_sku}[{Math.round((b.qty || 0) * 100) / 100}]</span>
+                                ))
+                              : '—'
+                            }
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           )}
 

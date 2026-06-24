@@ -1,4 +1,4 @@
-﻿"use client"
+"use client"
 
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
@@ -482,6 +482,103 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
       return d
     }
 
+    // ── Generate Stones Table HTML for Printing ──
+    let stonesHtml = ''
+    if (Array.isArray(voucherData?.stoneRows) && voucherData.stoneRows.some(r => r.variety || r.qty || r.shape)) {
+      const stoneRowsHtml = voucherData.stoneRows
+        .filter(r => r.variety || r.qty || r.shape)
+        .map((sr, idx) => {
+          const breakdown = Array.isArray(sr.master_sku_breakdown) && sr.master_sku_breakdown.length > 0
+            ? sr.master_sku_breakdown.map(b => `${b.master_sku || ''}[${Math.round((b.qty || 0) * 100) / 100}]`).join(', ')
+            : '—'
+          return `
+            <tr>
+              <td class="left">${sr.variety || '—'}</td>
+              <td>${sr.color || '—'}</td>
+              <td>${sr.cut || '—'}</td>
+              <td>${sr.shape || '—'}</td>
+              <td>${sr.length || '—'}</td>
+              <td>${sr.width || '—'}</td>
+              <td>${sr.height || '—'}</td>
+              <td class="qty">${sr.qty ?? '—'}</td>
+              <td class="left">${breakdown}</td>
+            </tr>
+          `
+        }).join('')
+
+      stonesHtml = `
+        <div class="print-section">
+          <div class="print-section-title">Stones Reference</div>
+          <table class="reference-table">
+            <colgroup>
+              <col style="width:18%"><col style="width:9%"><col style="width:8%">
+              <col style="width:9%"><col style="width:6%"><col style="width:6%">
+              <col style="width:6%"><col style="width:8%"><col style="width:30%">
+            </colgroup>
+            <thead>
+              <tr>
+                <th class="left">Variety</th>
+                <th>Color</th>
+                <th>Cut</th>
+                <th>Shape</th>
+                <th>L</th>
+                <th>W</th>
+                <th>H</th>
+                <th>Qty</th>
+                <th class="left">Master SKUs Breakdown</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${stoneRowsHtml}
+            </tbody>
+          </table>
+        </div>
+      `
+    }
+
+    // ── Generate Findings Table HTML for Printing ──
+    let findingsHtml = ''
+    if (Array.isArray(voucherData?.die_weight_rows) && voucherData.die_weight_rows.some(r => r.finding_code || r.quantity)) {
+      const findingRowsHtml = voucherData.die_weight_rows
+        .filter(r => r.finding_code || r.quantity)
+        .map((fr, idx) => {
+          const breakdown = Array.isArray(fr.master_sku_breakdown) && fr.master_sku_breakdown.length > 0
+            ? fr.master_sku_breakdown.map(b => `${b.master_sku || ''}[${Math.round((b.qty || 0) * 100) / 100}]`).join(', ')
+            : '—'
+          return `
+            <tr>
+              <td class="left" style="font-weight:700;">${fr.finding_code || '—'}</td>
+              <td>${fr.location || '—'}</td>
+              <td class="qty">${fr.quantity ?? '—'}</td>
+              <td class="left">${breakdown}</td>
+            </tr>
+          `
+        }).join('')
+
+      findingsHtml = `
+        <div class="print-section">
+          <div class="print-section-title">Findings Reference</div>
+          <table class="reference-table">
+            <colgroup>
+              <col style="width:30%"><col style="width:20%">
+              <col style="width:15%"><col style="width:35%">
+            </colgroup>
+            <thead>
+              <tr>
+                <th class="left">Finding Code</th>
+                <th>Location</th>
+                <th>Qty</th>
+                <th class="left">Master SKUs Breakdown</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${findingRowsHtml}
+            </tbody>
+          </table>
+        </div>
+      `
+    }
+
     const html = `<!DOCTYPE html>
 <html>
 <head>
@@ -492,7 +589,7 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: Arial, sans-serif; font-size: 9.5px; color: #111; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 
-    /* ΓöÇΓöÇ TOP ROW: Issue Date left, rest right ΓöÇΓöÇ */
+    /* ── TOP ROW: Issue Date left, rest right ── */
     .top-row { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 6px; }
     .top-field { display: flex; flex-direction: column; gap: 1px; }
     .top-field label { font-size: 7px; font-weight: 700; text-transform: uppercase; color: #64748b; letter-spacing: 0.5px; }
@@ -500,7 +597,7 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
     .top-right { display: flex; align-items: flex-end; gap: 12px; }
     .chip { display: inline-block; padding: 1px 7px; border-radius: 3px; background: #eff6ff; border: 1px solid #bfdbfe; color: #1d4ed8; font-size: 10px; font-weight: 600; }
 
-    /* ΓöÇΓöÇ SECTION BOXES ΓöÇΓöÇ */
+    /* ── SECTION BOXES ── */
     .section-box { border: 1px solid #e2e8f0; border-radius: 3px; padding: 4px 8px; margin-bottom: 5px; }
     .section-grid { display: grid; gap: 0 16px; align-items: end; }
     .grid-3 { grid-template-columns: minmax(160px,220px) 1fr minmax(160px,200px); }
@@ -509,14 +606,14 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
     .field-value { font-size: 10px; font-weight: 500; color: #111; }
     .dash-center { text-align: center; font-size: 11px; color: #94a3b8; }
 
-    /* ΓöÇΓöÇ DEPT SECTION ΓöÇΓöÇ */
+    /* ── DEPT SECTION ── */
     .dept-section { border: 2px solid #3b82f6; border-radius: 3px; padding: 5px 10px; margin-bottom: 5px; background: #eff6ff; }
     .dept-grid { display: grid; grid-template-columns: 1fr 40px 1fr; align-items: center; }
     .dept-label { font-size: 7px; font-weight: 700; text-transform: uppercase; color: #1e40af; display: block; margin-bottom: 1px; }
     .dept-value { font-size: 12px; font-weight: 800; color: #1e3a8a; }
     .dept-arrow { text-align: center; font-size: 18px; color: #3b82f6; font-weight: 900; }
 
-    /* ΓöÇΓöÇ TABLE ΓöÇΓöÇ */
+    /* ── TABLE ── */
     table { border-collapse: collapse; margin-bottom: 6px; font-size: 7.5px; width: 100%; table-layout: fixed; }
     th { background: #1a56db; color: white; font-weight: 500; padding: 2px 4px; text-align: center; border: 1px solid #1e40af; white-space: nowrap; overflow: hidden; word-break: break-all; max-width: 0; }
     th.left { text-align: left; padding-left: 5px; }
@@ -541,7 +638,7 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
     td.reissue-wt{ background: rgba(245,158,11,0.07); }
     .unit { font-size: 7px; color: #94a3b8; margin-left: 2px; }
 
-    /* ΓöÇΓöÇ FOOTER ΓöÇΓöÇ */
+    /* ── FOOTER ── */
     .footer-row { display: grid; grid-template-columns: 1fr 1fr 160px; gap: 6px; margin-bottom: 6px; }
     .footer-box { padding: 4px 7px; border: 1px solid #e2e8f0; border-radius: 3px; overflow: hidden; }
     .footer-box label { font-size: 7px; font-weight: 700; text-transform: uppercase; color: #64748b; display: block; margin-bottom: 2px; }
@@ -556,6 +653,16 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
 
     .sig-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 30px; margin-top: 16px; }
     .sig-box { border-top: 1px solid #333; padding-top: 3px; text-align: center; font-size: 7px; font-weight: 700; text-transform: uppercase; color: #555; }
+
+    /* ── REFERENCE TABLES FOR STONES & FINDINGS ── */
+    .print-section { margin-bottom: 8px; page-break-inside: avoid; }
+    .print-section-title { font-size: 8px; font-weight: 700; text-transform: uppercase; color: #1e40af; letter-spacing: 0.5px; margin-bottom: 3px; }
+    table.reference-table { border-collapse: collapse; width: 100%; table-layout: fixed; font-size: 7.5px; margin-bottom: 4px; }
+    table.reference-table th { background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; font-weight: 600; padding: 2px 4px; }
+    table.reference-table td { border: 1px solid #cbd5e1; padding: 2px 4px; text-align: center; }
+    table.reference-table td.left { text-align: left; }
+    table.reference-table td.qty { font-weight: 700; color: #0f172a; }
+    table.reference-table th.left { text-align: left; }
   </style>
 </head>
 <body>
@@ -643,6 +750,9 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
   <!-- NOTE FOR REISSUE VOUCHER -->
   <span class="note-label">Note for Reissue Voucher</span>
   <div class="note-box">${noteForReissue || ''}</div>
+
+  ${stonesHtml}
+  ${findingsHtml}
 
   <div class="sig-row">
     <div class="sig-box">Issued By Signature</div>
@@ -1000,12 +1110,13 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
             </table>
           </div>
 
-          {/* Stone/Findings Reference — shown when voucher has stone rows */}
-          {Array.isArray(voucherData?.stoneRows) && voucherData.stoneRows.some(r => r.variety || r.qty || r.shape) && (
-            <div className="rounded-md overflow-hidden border border-amber-400/40">
-              <div className="px-2.5 py-1.5 bg-amber-50 dark:bg-amber-950/30 border-b border-amber-400/40 flex items-center justify-between">
-                <p className="text-xs font-bold text-amber-700 dark:text-amber-300 uppercase tracking-wide">
-                  Stones / Findings (Reference Only)
+          {/* Stones / Findings Reference */}
+          {((Array.isArray(voucherData?.stoneRows) && voucherData.stoneRows.some(r => r.variety || r.qty || r.shape)) || 
+            (Array.isArray(voucherData?.die_weight_rows) && voucherData.die_weight_rows.some(r => r.finding_code || r.quantity))) && (
+            <div className="flex flex-col gap-3 rounded-md border border-slate-200 dark:border-slate-800 p-3 bg-slate-50/50 dark:bg-slate-900/10">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wide">
+                  Stones &amp; Findings Reference
                 </p>
                 <div className="flex items-center gap-2">
                   <button
@@ -1028,13 +1139,13 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
                         setIsRecalcStone(false);
                       }
                     }}
-                    className="text-[9px] font-semibold text-amber-700 border border-amber-400 rounded px-1.5 py-0.5 hover:bg-amber-100 disabled:opacity-50"
+                    className="text-[9px] font-semibold text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700 rounded px-1.5 py-0.5 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50 transition-colors"
                   >
-                    {isRecalcStone ? 'Refreshing…' : '↻ Refresh Stone Data'}
+                    {isRecalcStone ? 'Refreshing Reference Data…' : '↻ Refresh Reference Data'}
                   </button>
                   {stoneIssueRequests.length > 0 && (
                     <div className="flex items-center gap-1.5">
-                      <span className="text-[9px] font-semibold text-amber-700 uppercase tracking-wider">Stone Issue:</span>
+                      <span className="text-[9px] font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider">Stone Issue:</span>
                       {stoneIssueRequests.map((req, ri) => {
                         const statusColor = req.status === 'approved'
                           ? 'bg-green-100 text-green-700 border-green-300'
@@ -1052,31 +1163,76 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
                   )}
                 </div>
               </div>
-              <div className="grid grid-cols-[1.2fr_0.8fr_0.7fr_0.7fr_0.5fr_0.5fr_0.5fr_0.6fr_1.6fr] gap-0 bg-amber-600 text-white text-[9px] font-bold uppercase tracking-wider">
-                {['Variety', 'Color', 'Cut', 'Shape', 'L', 'W', 'H', 'Qty', 'Master SKUs'].map(h => (
-                  <div key={h} className="px-1.5 py-1.5">{h}</div>
-                ))}
-              </div>
-              {voucherData.stoneRows.filter(r => r.variety || r.qty || r.shape).map((sr, idx) => (
-                <div key={idx} className="grid grid-cols-[1.2fr_0.8fr_0.7fr_0.7fr_0.5fr_0.5fr_0.5fr_0.6fr_1.6fr] gap-0 border-t border-border bg-background items-start">
-                  {[sr.variety, sr.color, sr.cut, sr.shape, sr.length, sr.width, sr.height, sr.qty].map((val, vi) => (
-                    <div key={vi} className="px-1.5 py-1 text-xs">{val || '—'}</div>
-                  ))}
-                  <div className="px-1.5 py-1">
-                    {Array.isArray(sr.master_sku_breakdown) && sr.master_sku_breakdown.length > 0
-                      ? sr.master_sku_breakdown.map((b, bi) => (
-                          <div key={bi} className="text-[10px] font-semibold text-midnight-ink leading-tight">
-                            {b.master_sku ? `${b.master_sku}` : ''}[{Math.round((b.qty || 0) * 100) / 100}]
-                          </div>
-                        ))
-                      : <span className="text-xs text-muted-foreground">—</span>
-                    }
+
+              {/* Stones Table */}
+              {Array.isArray(voucherData?.stoneRows) && voucherData.stoneRows.some(r => r.variety || r.qty || r.shape) && (
+                <div className="rounded-md overflow-hidden border border-amber-400/40">
+                  <div className="px-2.5 py-1.2 bg-amber-50 dark:bg-amber-950/20 border-b border-amber-400/40">
+                    <p className="text-[10px] font-bold text-amber-700 dark:text-amber-300 uppercase tracking-wide">
+                      Stones Needed
+                    </p>
                   </div>
+                  <div className="grid grid-cols-[1.2fr_0.8fr_0.7fr_0.7fr_0.5fr_0.5fr_0.5fr_0.6fr_1.6fr] gap-0 bg-amber-600 text-white text-[9px] font-bold uppercase tracking-wider">
+                    {['Variety', 'Color', 'Cut', 'Shape', 'L', 'W', 'H', 'Qty', 'Master SKUs'].map(h => (
+                      <div key={h} className="px-1.5 py-1">{h}</div>
+                    ))}
+                  </div>
+                  {voucherData.stoneRows.filter(r => r.variety || r.qty || r.shape).map((sr, idx) => (
+                    <div key={idx} className="grid grid-cols-[1.2fr_0.8fr_0.7fr_0.7fr_0.5fr_0.5fr_0.5fr_0.6fr_1.6fr] gap-0 border-t border-border bg-background items-start">
+                      {[sr.variety, sr.color, sr.cut, sr.shape, sr.length, sr.width, sr.height, sr.qty].map((val, vi) => (
+                        <div key={vi} className="px-1.5 py-1 text-[11px]">{val || '—'}</div>
+                      ))}
+                      <div className="px-1.5 py-1">
+                        {Array.isArray(sr.master_sku_breakdown) && sr.master_sku_breakdown.length > 0
+                          ? sr.master_sku_breakdown.map((b, bi) => (
+                              <div key={bi} className="text-[10px] font-semibold text-midnight-ink dark:text-slate-200 leading-tight">
+                                {b.master_sku ? `${b.master_sku}` : ''}[{Math.round((b.qty || 0) * 100) / 100}]
+                              </div>
+                            ))
+                          : <span className="text-xs text-muted-foreground">—</span>
+                        }
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              )}
+
+              {/* Findings Table */}
+              {Array.isArray(voucherData?.die_weight_rows) && voucherData.die_weight_rows.some(r => r.finding_code || r.quantity) && (
+                <div className="rounded-md overflow-hidden border border-violet-400/40">
+                  <div className="px-2.5 py-1.2 bg-violet-50 dark:bg-violet-950/20 border-b border-violet-400/40">
+                    <p className="text-[10px] font-bold text-violet-700 dark:text-violet-300 uppercase tracking-wide">
+                      Findings Needed
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-[2.5fr_1.5fr_1fr_3fr] gap-0 bg-violet-600 text-white text-[9px] font-bold uppercase tracking-wider">
+                    {['Finding Code', 'Location', 'Qty', 'Master SKUs'].map(h => (
+                      <div key={h} className="px-1.5 py-1">{h}</div>
+                    ))}
+                  </div>
+                  {voucherData.die_weight_rows.filter(r => r.finding_code || r.quantity).map((fr, idx) => (
+                    <div key={idx} className="grid grid-cols-[2.5fr_1.5fr_1fr_3fr] gap-0 border-t border-border bg-background items-start">
+                      <div className="px-1.5 py-1 text-[11px] font-semibold text-violet-950 dark:text-violet-300">{fr.finding_code || '—'}</div>
+                      <div className="px-1.5 py-1 text-[11px]">{fr.location || '—'}</div>
+                      <div className="px-1.5 py-1 text-[11px] font-bold">{fr.quantity ?? '—'}</div>
+                      <div className="px-1.5 py-1">
+                        {Array.isArray(fr.master_sku_breakdown) && fr.master_sku_breakdown.length > 0
+                          ? fr.master_sku_breakdown.map((b, bi) => (
+                              <div key={bi} className="text-[10px] font-semibold text-midnight-ink dark:text-slate-200 leading-tight">
+                                {b.master_sku ? `${b.master_sku}` : ''}[{Math.round((b.qty || 0) * 100) / 100}]
+                              </div>
+                            ))
+                          : <span className="text-xs text-muted-foreground">—</span>
+                        }
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
               {/* Stone issue request status row */}
               {stoneIssueRequests.length > 0 && (
-                <div className="px-2.5 py-1.5 bg-amber-50/50 border-t border-amber-200 flex flex-wrap gap-2">
+                <div className="px-2.5 py-1.5 bg-slate-50 dark:bg-slate-950/30 border-t border-slate-200 dark:border-slate-800 flex flex-wrap gap-2">
                   {stoneIssueRequests.map((req, ri) => {
                     const statusColor = req.status === 'approved'
                       ? 'text-green-700'
