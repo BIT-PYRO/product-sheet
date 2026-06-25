@@ -8,6 +8,7 @@ import SortPopover from '@/components/sort-popover';
 import MasterNavigationDrawer from '@/components/master_navigation_drawer';
 import LastUpdatedFooter from '@/components/last-updated-footer';
 import DeletionHistoryDrawer from '@/components/deletion-history-drawer';
+import BulkUploadButton from '@/components/bulk-upload-button';
 import { useSheetPermissions } from '@/hooks/use-sheet-permissions';
 import { useColumnPreferences } from '@/hooks/use-column-preferences';
 import {
@@ -1086,6 +1087,13 @@ export default function StoneInventoryPage() {
           <Button onClick={() => setIsManageColumnsOpen(true)} variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8">
             Manage Columns
           </Button>
+          {canCreate && (
+            <BulkUploadButton
+              sheetType="stone-inventory"
+              onComplete={loadStones}
+              className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8"
+            />
+          )}
           <Button onClick={() => { setStoneForm(emptyStone()); setAddStoneOpen(true); }} variant="outline" className="border-trust-blue text-trust-blue hover:bg-trust-blue/10 rounded-full px-4 text-sm h-8">
             <Plus size={14} className="mr-1.5" />
             New Stone

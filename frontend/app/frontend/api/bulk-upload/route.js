@@ -1509,6 +1509,108 @@ async function uploadDieInventory(client, rows) {
   return { createdCount, updatedCount, skippedCount, failures, label: 'Die inventory' };
 }
 
+async function uploadStones(client, rows) {
+  const existing = await fetchCollection(client, '/api/v1/inventory/stone-items/');
+  const byFingerprint = new Map(
+    existing.map((s) => {
+      const fp = [
+        String(s.stone_type || '').trim().toLowerCase(),
+        String(s.variety || '').trim().toLowerCase(),
+        String(s.color || '').trim().toLowerCase(),
+        String(s.cut || '').trim().toLowerCase(),
+        String(s.shape || '').trim().toLowerCase(),
+        String(s.length || '').trim().toLowerCase(),
+        String(s.width || '').trim().toLowerCase(),
+        String(s.height || '').trim().toLowerCase(),
+      ].join('|');
+      return [fp, s];
+    })
+  );
+
+  let createdCount = 0;
+  let updatedCount = 0;
+  let skippedCount = 0;
+  const failures = [];
+
+  for (const [index, row] of rows.entries()) {
+    const stoneType = String(pickValue(row, ['stone_type', 'type', 'stonetype'])).trim();
+    if (!stoneType) {
+      skippedCount += 1;
+      continue;
+    }
+
+    const species = String(pickValue(row, ['species'])).trim();
+    const variety = String(pickValue(row, ['variety'])).trim();
+    const color = String(pickValue(row, ['color', 'colour'])).trim();
+    const quality = String(pickValue(row, ['quality'])).trim();
+    const waxSetting = toBoolean(pickValue(row, ['wax_setting', 'waxsetting', 'wax setting']), false);
+    const cut = String(pickValue(row, ['cut'])).trim();
+    const shape = String(pickValue(row, ['shape'])).trim();
+    const length = String(pickValue(row, ['length'])).trim();
+    const width = String(pickValue(row, ['width'])).trim();
+    const height = String(pickValue(row, ['height'])).trim();
+    const qty = toNumber(pickValue(row, ['qty', 'quantity']), 0);
+    const weightCts = toNumber(pickValue(row, ['weight_cts', 'weight', 'weightcts', 'weight cts']), 0);
+    const minLevel = toNumber(pickValue(row, ['min_level', 'minlevel', 'min level', 'minimum level']), 0);
+    const dos = String(pickValue(row, ['dos', "do's", 'do s', 'do'])).trim();
+    const donts = String(pickValue(row, ['donts', "don'ts", 'dont s', 'dont'])).trim();
+
+    const fp = [
+      stoneType.toLowerCase(),
+      variety.toLowerCase(),
+      color.toLowerCase(),
+      cut.toLowerCase(),
+      shape.toLowerCase(),
+      length.toLowerCase(),
+      width.toLowerCase(),
+      height.toLowerCase(),
+    ].join('|');
+
+    const payload = {
+      stone_type: stoneType,
+      species,
+      variety,
+      color,
+      quality,
+      wax_setting: waxSetting,
+      cut,
+      shape,
+      length,
+      width,
+      height,
+      qty,
+      weight_cts: weightCts,
+      min_level: minLevel,
+      dos,
+      donts,
+    };
+
+    const existingItem = byFingerprint.get(fp);
+    const path = existingItem ? `/api/v1/inventory/stone-items/${existingItem.id}/` : '/api/v1/inventory/stone-items/';
+    const method = existingItem ? 'PATCH' : 'POST';
+
+    const { response, payload: result } = await client.request(path, {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      failures.push(`Row ${index + 2}: ${errorMessageFromPayload(result, `Failed to save stone ${stoneType}`)}`);
+      continue;
+    }
+
+    if (existingItem) {
+      updatedCount += 1;
+    } else {
+      createdCount += 1;
+      byFingerprint.set(fp, result?.data || {});
+    }
+  }
+
+  return { createdCount, updatedCount, skippedCount, failures, label: 'Stone inventory' };
+}
+
 const UPLOAD_HANDLERS = {
   products: uploadProducts,
   workforce: uploadWorkforce,
@@ -1520,6 +1622,7 @@ const UPLOAD_HANDLERS = {
   machines: uploadMachines,
   others: uploadOthers,
   'die-inventory': uploadDieInventory,
+  'stone-inventory': uploadStones,
 };
 
 export async function POST(request) {
