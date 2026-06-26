@@ -20,6 +20,7 @@ import {
 import { CalendarIcon, Trash2, X, ArrowRight, Printer, BookImage, Layers } from "lucide-react"
 import PhotoGuideModal from "@/components/photo-guide-modal"
 import DieGuideModal from "@/components/die-guide-modal"
+import ProductDieGuideModal from "@/components/product-die-guide-modal"
 const jewelleryDepartments = [
   { value: "die", label: "Die" },
   { value: "design", label: "Design / CAD" },
@@ -61,6 +62,7 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
   ])
   const [photoGuideOpen, setPhotoGuideOpen] = useState(false)
   const [dieGuideOpen, setDieGuideOpen] = useState(false)
+  const [productDieGuideOpen, setProductDieGuideOpen] = useState(false)
   // API state
   const [workforce, setWorkforce] = useState([])
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -106,6 +108,7 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
       setTotalLossWeight({})
       setStoneRows([])
       setFindingsRows([])
+      setProductDieGuideOpen(false)
       setIsSubmitting(false)
       setIsRecalcStone(false)
       return
@@ -985,6 +988,15 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
                 <Layers className="h-3.5 w-3.5" />
                 Die Guide
               </button>
+              <button
+                onClick={() => setProductDieGuideOpen(true)}
+                className="flex items-center gap-1.5 px-3 h-7 rounded border border-orange-500 text-orange-600 text-sm font-semibold hover:bg-orange-50 transition-colors"
+                aria-label="Open guide"
+                type="button"
+              >
+                <Layers className="h-3.5 w-3.5" />
+                Guide
+              </button>
             </div>
             <button
               onClick={() => onOpenChange(false)}
@@ -1532,6 +1544,12 @@ export function ReceiveJobModal({ open, onOpenChange, onJobReceived, voucherData
     <DieGuideModal
       open={dieGuideOpen}
       onOpenChange={setDieGuideOpen}
+      jobId={voucherData?.id}
+      voucherNo={voucherNo}
+    />
+    <ProductDieGuideModal
+      open={productDieGuideOpen}
+      onOpenChange={setProductDieGuideOpen}
       jobId={voucherData?.id}
       voucherNo={voucherNo}
     />

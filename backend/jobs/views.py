@@ -2861,6 +2861,304 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 			logger.exception("Error in die_guide:")
 			return Response({'success': False, 'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
+	@action(detail=True, methods=['get'], url_path='product-die-guide')
+	def product_die_guide(self, request, pk=None):
+		"""
+		Return a grouped list of Master SKUs and their related Die SKUs for all
+		products in the picklist this voucher belongs to (falls back to material_rows).
+		"""
+		try:
+			from products.models import Product as ProductModel
+			from inventory.models import DieInventoryItem, PicklistItem, PicklistGroup, ProductInventoryItem, InventoryTransaction
+			from django.db.models.functions import Upper
+			from django.db.models import Q
+
+			job = self.get_object()
+
+			# Collect combined picklist group IDs
+			picklist_ids = []
+			if job.picklist_group_id:
+				picklist_ids.append(job.picklist_group_id)
+			
+			# Parse combined picklist numbers from notes
+			notes = job.notes or ""
+			if "Combined Picklists:" in notes:
+				try:
+					line = [l for l in notes.split('\n') if "Combined Picklists:" in l][0]
+					numbers_str = line.replace("Combined Picklists:", "").strip()
+					numbers = [int(num.strip()) for num in numbers_str.split(',') if num.strip().isdigit()]
+					if numbers:
+						combined_groups = PicklistGroup.objects.filter(number__in=numbers).values_list('id', flat=True)
+						for pg_id in combined_groups:
+							if pg_id not in picklist_ids:
+								picklist_ids.append(pg_id)
+				except Exception:
+					pass
+
+			# ── 1. Build sku_needed_map: UPPER_SKU → qty needed ─────────────────
+			sku_needed_map = {}
+			if picklist_ids:
+				for item in PicklistItem.objects.filter(group__in=picklist_ids).only('sku', 'needed'):
+					sku = item.sku.strip()
+					if sku:
+						sku_needed_map[sku.upper()] = sku_needed_map.get(sku.upper(), 0) + (item.needed or 0)
+
+			if not sku_needed_map:
+				# Fallback: collect from this voucher's material_rows
+				for row in (job.material_rows or []):
+					sku = row.get('sku', '').strip()
+					if sku:
+						try:
+							qty = int(row.get('issued_qty') or row.get('qty') or 1)
+						except (ValueError, TypeError):
+							qty = 1
+						sku_needed_map[sku.upper()] = sku_needed_map.get(sku.upper(), 0) + qty
+
+			if not sku_needed_map:
+				return Response({'success': True, 'data': []})
+
+			upper_skus = list(sku_needed_map.keys())
+
+			# ── 2. Fetch Products (exact match, then variant-prefix fallback) ────
+			exact_prods = (
+				ProductModel.objects
+				.annotate(upper_sku=Upper('master_sku'))
+				.filter(upper_sku__in=upper_skus)
+				.only('master_sku', 'die_numbers', 'images')
+			)
+			products_map = {p.master_sku.upper(): p for p in exact_prods}
+
+			# e.g. picklist has "AJS1/G" but product master_sku is "AJS1"
+			unmatched = [s for s in upper_skus if s not in products_map and '/' in s]
+			if unmatched:
+				prefix_to_variants: dict = {}
+				for s in unmatched:
+					prefix_to_variants.setdefault(s.split('/')[0], []).append(s)
+				prefix_prods = (
+					ProductModel.objects
+					.annotate(upper_sku=Upper('master_sku'))
+					.filter(upper_sku__in=prefix_to_variants.keys())
+					.only('master_sku', 'die_numbers', 'images')
+				)
+				for p in prefix_prods:
+					for variant in prefix_to_variants.get(p.master_sku.upper(), []):
+						if variant not in products_map:
+							products_map[variant] = p
+
+			# Group picklist items by master product catalog entries
+			product_qty_map = {}  # product_id -> total_qty_needed
+			product_obj_map = {}  # product_id -> product object
+			for upper_sku, needed_qty in sku_needed_map.items():
+				if needed_qty <= 0:
+					continue
+				product = products_map.get(upper_sku)
+				if not product:
+					continue
+				product_qty_map[product.id] = product_qty_map.get(product.id, 0) + needed_qty
+				product_obj_map[product.id] = product
+
+			product_ids = list(product_qty_map.keys())
+
+			# ── 3. Fetch Product Locations from Inventory ───────────────────────
+			prod_inv_locations = {}
+			if product_ids:
+				inv_items = ProductInventoryItem.objects.filter(product_id__in=product_ids).only('product_id', 'location')
+				for item in inv_items:
+					if item.location:
+						prod_inv_locations.setdefault(item.product_id, set()).add(item.location.strip())
+
+			prod_txn_locations = {}
+			if product_ids:
+				txns = (
+					InventoryTransaction.objects
+					.filter(product_id__in=product_ids, stage__icontains='final')
+					.exclude(location='')
+					.values('product_id', 'location', 'created_at')
+					.order_by('product_id', 'created_at')
+				)
+				for txn in txns:
+					if txn['location']:
+						prod_txn_locations.setdefault(txn['product_id'], set()).add(txn['location'].strip())
+
+			def get_product_location(prod_id):
+				locs = prod_inv_locations.get(prod_id, set())
+				if not locs:
+					locs = prod_txn_locations.get(prod_id, set())
+				if locs:
+					return " | ".join(sorted(list(locs)))
+				return ""
+
+			# ── 4. Fetch DieInventoryItem for image + location ───────────────────
+			all_die_codes = set()
+			for product in product_obj_map.values():
+				if isinstance(product.die_numbers, list):
+					for entry in product.die_numbers:
+						if isinstance(entry, dict):
+							die_code = str(entry.get('value') or '').strip()
+							if die_code:
+								all_die_codes.add(die_code)
+
+			die_inv_map = {
+				d.die_code: d
+				for d in DieInventoryItem.objects
+				.filter(die_code__in=all_die_codes)
+				.only('die_code', 'image', 'location', 'designer_skus', 'wax_piece_location', 'wax_setting_location', 'casting_location')
+			}
+
+			def make_absolute(url):
+				"""Turn a relative /media/... path into an absolute URL."""
+				if not url:
+					return None
+				if isinstance(url, dict):
+					# Handle images stored as {url: "..."} objects
+					url = url.get('url') or url.get('src') or ''
+				url = str(url).strip()
+				if not url:
+					return None
+				if url.startswith('http://') or url.startswith('https://') or url.startswith('data:'):
+					return url
+				return request.build_absolute_uri(url)
+
+			die_details_map = {}
+			for die_code in all_die_codes:
+				inv = die_inv_map.get(die_code)
+				raw_img = (inv.image or '') if inv else ''
+				imgs = []
+				if raw_img:
+					if raw_img.startswith('['):
+						try:
+							import json
+							parsed = json.loads(raw_img)
+							if isinstance(parsed, list):
+								imgs = [str(x) for x in parsed]
+							else:
+								imgs = [str(parsed)]
+						except Exception:
+							imgs = [raw_img]
+					elif ',' in raw_img:
+						imgs = [x.strip() for x in raw_img.split(',') if x.strip()]
+					else:
+						imgs = [raw_img]
+
+				# Resolve image URLs to absolute URLs
+				resolved_imgs = []
+				for img in imgs:
+					abs_img = make_absolute(img)
+					if abs_img:
+						from common.image_upload import sign_cloudinary_url
+						resolved_imgs.append(sign_cloudinary_url(abs_img))
+
+				# If no custom photos uploaded, fetch from Master Designer Sheet & Product Sheet (fallback)
+				if not resolved_imgs and inv:
+					from designers.models import DesignerSheet
+					from products.models import Product as ProductModel
+					skus = [s for s in (inv.designer_skus or []) if s]
+					master_skus = [s for s in (inv.master_skus or []) if s]
+					seen = set()
+					
+					# 1. Fetch from DesignerSheet
+					if skus:
+						sheets = DesignerSheet.objects.filter(sku__in=skus).only(
+							'sku', 'rendered_photo', 'image', 'designer_image_2', 'designer_image_3', 'technical_drawing'
+						)
+						for sheet in sheets:
+							for url in (sheet.rendered_photo, sheet.image, sheet.designer_image_2, sheet.designer_image_3, sheet.technical_drawing):
+								if url:
+									abs_url = make_absolute(url)
+									if abs_url and abs_url not in seen:
+										seen.add(abs_url)
+										from common.image_upload import sign_cloudinary_url
+										resolved_imgs.append(sign_cloudinary_url(abs_url))
+
+					# 2. Fetch from Product (Master product sheet)
+					if master_skus:
+						products = ProductModel.objects.filter(master_sku__in=master_skus).only('images')
+						for prod in products:
+							raw_imgs = prod.images if isinstance(prod.images, list) else []
+							for url in raw_imgs:
+								if isinstance(url, dict):
+									url = url.get('url') or url.get('src') or ''
+								if url:
+									abs_url = make_absolute(url)
+									if abs_url and abs_url not in seen:
+										seen.add(abs_url)
+										from common.image_upload import sign_cloudinary_url
+										resolved_imgs.append(sign_cloudinary_url(abs_url))
+
+				die_details_map[die_code] = {
+					'die_code': die_code,
+					'image': resolved_imgs[0] if resolved_imgs else '',
+					'images': resolved_imgs,
+					'location': (inv.location or '') if inv else '',
+					'wax_piece_location': (inv.wax_piece_location or '') if inv else '',
+					'wax_setting_location': (inv.wax_setting_location or '') if inv else '',
+					'casting_location': (inv.casting_location or '') if inv else '',
+				}
+
+			result = []
+			for product_id, total_qty in product_qty_map.items():
+				product = product_obj_map[product_id]
+				
+				# Resolve product images
+				raw_images = product.images if isinstance(product.images, list) else []
+				from common.image_upload import sign_cloudinary_url
+				resolved_product_imgs = [sign_cloudinary_url(make_absolute(img)) for img in raw_images]
+				resolved_product_imgs = [img for img in resolved_product_imgs if img]
+				
+				# Get product location
+				product_location = get_product_location(product_id)
+				
+				# Resolve related dies
+				related_dies = []
+				if isinstance(product.die_numbers, list):
+					for entry in product.die_numbers:
+						if not isinstance(entry, dict):
+							continue
+						die_code = str(entry.get('value') or '').strip()
+						if not die_code:
+							continue
+						try:
+							qty_per_piece = float(entry.get('quantity') or 0)
+						except (ValueError, TypeError):
+							qty_per_piece = 0.0
+						if qty_per_piece <= 0:
+							continue
+						
+						die_qty = qty_per_piece * total_qty
+						die_qty_formatted = int(die_qty) if die_qty == int(die_qty) else round(die_qty, 2)
+						qty_per_piece_formatted = int(qty_per_piece) if qty_per_piece == int(qty_per_piece) else round(qty_per_piece, 2)
+						
+						die_details = die_details_map.get(die_code, {
+							'die_code': die_code,
+							'image': '',
+							'images': [],
+							'location': '',
+							'wax_piece_location': '',
+							'wax_setting_location': '',
+							'casting_location': '',
+						})
+						
+						related_dies.append({
+							**die_details,
+							'qty_per_piece': qty_per_piece_formatted,
+							'qty_needed': die_qty_formatted,
+						})
+				
+				qty_formatted = int(total_qty) if total_qty == int(total_qty) else round(total_qty, 2)
+				
+				result.append({
+					'master_sku': product.master_sku,
+					'quantity': qty_formatted,
+					'location': product_location,
+					'images': resolved_product_imgs,
+					'dies': related_dies,
+				})
+
+			return Response({'success': True, 'data': result})
+		except Exception as e:
+			logger.exception("Error in product_die_guide:")
+			return Response({'success': False, 'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
 	@action(detail=True, methods=['post'], url_path='reissue-for-improvement')
 	def reissue_for_improvement(self, request, pk=None):
 		"""
