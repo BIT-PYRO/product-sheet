@@ -2899,17 +2899,17 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 			sku_needed_map = {}
 			if picklist_ids:
 				for item in PicklistItem.objects.filter(group__in=picklist_ids).only('sku', 'needed'):
-					sku = item.sku.strip()
+					sku = (item.sku or '').strip()
 					if sku:
 						sku_needed_map[sku.upper()] = sku_needed_map.get(sku.upper(), 0) + (item.needed or 0)
 
 			if not sku_needed_map:
 				# Fallback: collect from this voucher's material_rows
 				for row in (job.material_rows or []):
-					sku = row.get('sku', '').strip()
+					sku = (row.get('sku') or '').strip()
 					if sku:
 						try:
-							qty = int(row.get('issued_qty') or row.get('qty') or 1)
+							qty = int(float(row.get('issued_qty') or row.get('qty') or 1))
 						except (ValueError, TypeError):
 							qty = 1
 						sku_needed_map[sku.upper()] = sku_needed_map.get(sku.upper(), 0) + qty
@@ -2926,7 +2926,7 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 				.filter(upper_sku__in=upper_skus)
 				.only('master_sku', 'die_numbers', 'images')
 			)
-			products_map = {p.master_sku.upper(): p for p in exact_prods}
+			products_map = {p.master_sku.upper(): p for p in exact_prods if p.master_sku}
 
 			# e.g. picklist has "AJS1/G" but product master_sku is "AJS1"
 			unmatched = [s for s in upper_skus if s not in products_map and '/' in s]
@@ -2937,10 +2937,12 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 				prefix_prods = (
 					ProductModel.objects
 					.annotate(upper_sku=Upper('master_sku'))
-					.filter(upper_sku__in=prefix_to_variants.keys())
+					.filter(upper_sku__in=list(prefix_to_variants.keys()))
 					.only('master_sku', 'die_numbers', 'images')
 				)
 				for p in prefix_prods:
+					if not p.master_sku:
+						continue
 					for variant in prefix_to_variants.get(p.master_sku.upper(), []):
 						if variant not in products_map:
 							products_map[variant] = p
@@ -2965,7 +2967,7 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 				inv_items = ProductInventoryItem.objects.filter(product_id__in=product_ids).only('product_id', 'location')
 				for item in inv_items:
 					if item.location:
-						prod_inv_locations.setdefault(item.product_id, set()).add(item.location.strip())
+						prod_inv_locations.setdefault(item.product_id, set()).add(str(item.location).strip())
 
 			prod_txn_locations = {}
 			if product_ids:
@@ -2977,8 +2979,8 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 					.order_by('product_id', 'created_at')
 				)
 				for txn in txns:
-					if txn['location']:
-						prod_txn_locations.setdefault(txn['product_id'], set()).add(txn['location'].strip())
+					if txn.get('location'):
+						prod_txn_locations.setdefault(txn['product_id'], set()).add(str(txn['location']).strip())
 
 			def get_product_location(prod_id):
 				locs = prod_inv_locations.get(prod_id, set())
@@ -3003,6 +3005,7 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 				for d in DieInventoryItem.objects
 				.filter(die_code__in=all_die_codes)
 				.only('die_code', 'image', 'location', 'designer_skus', 'wax_piece_location', 'wax_setting_location', 'casting_location')
+				if d.die_code
 			}
 
 			def make_absolute(url):
@@ -3017,7 +3020,10 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 					return None
 				if url.startswith('http://') or url.startswith('https://') or url.startswith('data:'):
 					return url
-				return request.build_absolute_uri(url)
+				try:
+					return request.build_absolute_uri(url)
+				except Exception:
+					return url
 
 			die_details_map = {}
 			for die_code in all_die_codes:
@@ -3052,8 +3058,13 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 				if not resolved_imgs and inv:
 					from designers.models import DesignerSheet
 					from products.models import Product as ProductModel
-					skus = [s for s in (inv.designer_skus or []) if s]
-					master_skus = [s for s in (inv.master_skus or []) if s]
+					
+					designer_skus_list = inv.designer_skus if isinstance(inv.designer_skus, list) else []
+					skus = [str(s).strip() for s in designer_skus_list if s]
+					
+					master_skus_list = inv.master_skus if isinstance(inv.master_skus, list) else []
+					master_skus = [str(s).strip() for s in master_skus_list if s]
+					
 					seen = set()
 					
 					# 1. Fetch from DesignerSheet
@@ -3102,8 +3113,11 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 				# Resolve product images
 				raw_images = product.images if isinstance(product.images, list) else []
 				from common.image_upload import sign_cloudinary_url
-				resolved_product_imgs = [sign_cloudinary_url(make_absolute(img)) for img in raw_images]
-				resolved_product_imgs = [img for img in resolved_product_imgs if img]
+				resolved_product_imgs = []
+				for img in raw_images:
+					abs_img = make_absolute(img)
+					if abs_img:
+						resolved_product_imgs.append(sign_cloudinary_url(abs_img))
 				
 				# Get product location
 				product_location = get_product_location(product_id)
