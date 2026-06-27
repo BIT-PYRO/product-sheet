@@ -13,14 +13,14 @@ from django.db.models import Q
 
 try:
     try:
-        job = Job.objects.get(id=430)
-        print("Successfully loaded Job 430:", job.voucher_no)
+        job = Job.objects.get(id=438)
+        print("Successfully loaded Job 438:", job.voucher_no)
     except Job.DoesNotExist:
         job = Job.objects.first()
         if not job:
             print("Error: No jobs exist in the database.")
             exit(1)
-        print(f"Job 430 not found. Using first available Job {job.id}: {job.voucher_no}")
+        print(f"Job 438 not found. Using first available Job {job.id}: {job.voucher_no}")
 
     # Let's run the exact view logic:
     picklist_ids = []
