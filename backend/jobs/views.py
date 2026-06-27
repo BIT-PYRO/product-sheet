@@ -2975,12 +2975,11 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 					InventoryTransaction.objects
 					.filter(product_id__in=product_ids, stage__icontains='final')
 					.exclude(location='')
-					.values('product_id', 'location', 'created_at')
-					.order_by('product_id', 'created_at')
+					.only('product_id', 'location')
 				)
 				for txn in txns:
-					if txn.get('location'):
-						prod_txn_locations.setdefault(txn['product_id'], set()).add(str(txn['location']).strip())
+					if txn.location:
+						prod_txn_locations.setdefault(txn.product_id, set()).add(str(txn.location).strip())
 
 			def get_product_location(prod_id):
 				locs = prod_inv_locations.get(prod_id, set())
@@ -3003,7 +3002,7 @@ class JobViewSet(StandardizedSuccessResponseMixin, ModelViewSet):
 			die_inv_map = {
 				d.die_code: d
 				for d in DieInventoryItem.objects
-				.filter(die_code__in=all_die_codes)
+				.filter(die_code__in=list(all_die_codes))
 				.only('die_code', 'image', 'location', 'designer_skus', 'wax_piece_location', 'wax_setting_location', 'casting_location')
 				if d.die_code
 			}
