@@ -247,7 +247,7 @@ const FILTER_FIELDS = [
 const PRODUCT_FIELD_OPTIONS = {
   material: ['Silver', 'Gold', 'Brass', 'Copper'],
   category: ['Ring', 'Necklace', 'Bracelet', 'Earring', 'Pendant'],
-  collection: ['The Jaipur Edit', 'Aarushaa Collection', 'Janki Silver925'],
+  collection: [],
   settingType: ['wax', 'hand'],
   enamelType: ['yes', 'no'],
   shopifyStatus: ['active', 'draft', 'unlisted'],
@@ -454,6 +454,7 @@ export default function MasterInventorySheet() {
   const [isUploadingPicklist, setIsUploadingPicklist] = useState(false);
   const [currentUsername, setCurrentUsername] = useState('');
   const [products, setProducts] = useState([]);
+  const [collectionOptions, setCollectionOptions] = useState([]);
   const [picklists, setPicklists] = useState([]);
   const [selectedPicklists, setSelectedPicklists] = useState([]);
   const [isPicklistDropdownOpen, setIsPicklistDropdownOpen] = useState(false);
@@ -569,6 +570,18 @@ export default function MasterInventorySheet() {
         setVisibleColumns(new Set(newCols.map((c) => c.key)));
       })
       .catch(() => {});
+  }, []);
+
+  // Fetch collections list dynamically on mount
+  useEffect(() => {
+    fetch('/frontend/api/collections', { cache: 'no-store' })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.data) {
+          setCollectionOptions(data.data.map((c) => c.name));
+        }
+      })
+      .catch((err) => console.error('Error fetching collections:', err));
   }, []);
 
   const loadProducts = useCallback(async () => {
@@ -902,7 +915,8 @@ export default function MasterInventorySheet() {
     const optionMaps = {};
     FILTER_FIELDS.forEach((field) => {
       optionMaps[field.key] = new Map();
-      (PRODUCT_FIELD_OPTIONS[field.key] || []).forEach((v) =>
+      const staticOptions = field.key === 'collection' ? collectionOptions : (PRODUCT_FIELD_OPTIONS[field.key] || []);
+      staticOptions.forEach((v) =>
         optionMaps[field.key].set(v.toLowerCase(), v)
       );
     });
@@ -938,7 +952,7 @@ export default function MasterInventorySheet() {
     });
 
     return sorted;
-  }, [products]);
+  }, [products, collectionOptions]);
 
   const toggleFilterSelection = (fieldKey, value) => {
     setFilterSelections((prev) => {
