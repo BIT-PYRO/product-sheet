@@ -208,6 +208,28 @@ const STOCK_FILTER_OPTIONS = [
   { value: 'final-stock-location', label: 'Final SKU Location' },
 ];
 
+const BULK_UPLOAD_OPTIONS = [
+  ...STOCK_FILTER_OPTIONS,
+  { value: 'picklist', label: 'Customer Picklist File' },
+];
+
+const HEADER_TO_FIELD = {
+  waxpiece: 'waxPiece',
+  waxsetting: 'waxSetting',
+  casting: 'casting',
+  filling: 'filling',
+  prepolish: 'prePolish',
+  setting: 'setting',
+  handsetting: 'setting',
+  finalpolish: 'finalPolish',
+  readyforplating: 'readyForPlating',
+  plating: 'readyForPlating',
+  dielocation: 'dieLocation',
+  dienumbers: 'dieNumbers',
+  dienumber: 'dieNumbers',
+};
+
+
 const PRODUCT_SORT_FIELDS = [
   { value: 'sku', label: 'Master SKU' },
   { value: 'listingName', label: 'Listing Name' },
@@ -455,6 +477,11 @@ export default function MasterInventorySheet() {
   const [currentUsername, setCurrentUsername] = useState('');
   const [products, setProducts] = useState([]);
   const [collectionOptions, setCollectionOptions] = useState([]);
+  const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
+  const [pendingExportFieldType, setPendingExportFieldType] = useState('current');
+  const [isBulkUploadDialogOpen, setIsBulkUploadDialogOpen] = useState(false);
+  const [pendingBulkUploadFieldType, setPendingBulkUploadFieldType] = useState('current');
+  const bulkUploadFileInputRef = useRef(null);
   const [picklists, setPicklists] = useState([]);
   const [selectedPicklists, setSelectedPicklists] = useState([]);
   const [isPicklistDropdownOpen, setIsPicklistDropdownOpen] = useState(false);
@@ -1283,15 +1310,15 @@ export default function MasterInventorySheet() {
   // stage locations in stage columns, per-variation Final Stock location in the
   // "Final Stock Value" column (relabelled "Final Stock Location"), and die/findings
   // location in the "Location" column (first variation row only).
-  const buildLocationExportSheet = () => {
+  const buildLocationExportSheet = (stockField) => {
     const exportColumns = visibleColumnList.filter((col) => col.key !== '__select__');
     const headers = exportColumns.map((col) => {
-      if (col.key === 'finalStockValue') return 'Final Stock Location';
+      if (col.key === 'finalStockValue') return stockField === 'final-stock-location' ? 'Final SKU Location' : 'Final Stock Location';
       return col.label;
     });
     const allRows = [];
     for (const product of sortedProducts) {
-      const row = buildInventoryRow(product, 'location');
+      const row = buildInventoryRow(product, stockField);
       const variations = row.finalStockVariations;
       variations.forEach((variation, varIdx) => {
         const isFirst = varIdx === 0;
@@ -1314,14 +1341,22 @@ export default function MasterInventorySheet() {
     return XLSX.utils.aoa_to_sheet([headers, ...allRows]);
   };
 
-  const exportToExcel = () => {
+  const exportToExcel = (stockField) => {
     if (!canExport) return;
+    const label = STOCK_FILTER_OPTIONS.find(o => o.value === stockField)?.label || 'Inventory';
+    const sheetName = label.length > 30 ? label.slice(0, 30) : label; // excel limit sheet name to 30 chars
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, buildExportSheet('current'), 'Current Stock');
-    XLSX.utils.book_append_sheet(wb, buildExportSheet('wip'), 'WIP');
-    XLSX.utils.book_append_sheet(wb, buildExportSheet('min'), 'Min Needed');
-    XLSX.utils.book_append_sheet(wb, buildLocationExportSheet(), 'Location');
-    XLSX.writeFile(wb, 'master_inventory_sheet.xlsx');
+    
+    let sheet;
+    if (stockField === 'location' || stockField === 'final-stock-location') {
+      sheet = buildLocationExportSheet(stockField);
+    } else {
+      sheet = buildExportSheet(stockField);
+    }
+    
+    XLSX.utils.book_append_sheet(wb, sheet, sheetName);
+    const fileName = `master_inventory_${stockField}.xlsx`;
+    XLSX.writeFile(wb, fileName);
     setExportMenuOpen(false);
   };
 
@@ -1341,15 +1376,15 @@ export default function MasterInventorySheet() {
     win.document.close();
   };
 
-  const openLocationPDF = () => {
+  const openLocationPDF = (stockField, title) => {
     const exportColumns = visibleColumnList.filter((col) => col.key !== '__select__');
     const headers = exportColumns.map((col) => {
-      if (col.key === 'finalStockValue') return 'Final Stock Location';
+      if (col.key === 'finalStockValue') return stockField === 'final-stock-location' ? 'Final SKU Location' : 'Final Stock Location';
       return col.label;
     });
     const allRows = [];
     for (const product of sortedProducts) {
-      const row = buildInventoryRow(product, 'location');
+      const row = buildInventoryRow(product, stockField);
       const variations = row.finalStockVariations;
       variations.forEach((variation, varIdx) => {
         const isFirst = varIdx === 0;
@@ -1369,17 +1404,380 @@ export default function MasterInventorySheet() {
       });
     }
     const win = window.open('', '_blank');
-    win.document.write(`<html><head><title>Location</title><style>body{font-family:sans-serif;font-size:11px;margin:16px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #ccc;padding:4px 6px;text-align:left}th{background:#dbeafe}</style></head><body><h2>Location</h2><table><thead><tr>${headers.map((h)=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${allRows.map((r)=>`<tr>${r.map((c)=>`<td>${c}</td>`).join('')}</tr>`).join('')}</tbody></table><script>window.onload=function(){window.print();}<\/script></body></html>`);
+    win.document.write(`<html><head><title>${title}</title><style>body{font-family:sans-serif;font-size:11px;margin:16px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #ccc;padding:4px 6px;text-align:left}th{background:#dbeafe}</style></head><body><h2>${title}</h2><table><thead><tr>${headers.map((h)=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${allRows.map((r)=>`<tr>${r.map((c)=>`<td>${c}</td>`).join('')}</tr>`).join('')}</tbody></table><script>window.onload=function(){window.print();}<\/script></body></html>`);
     win.document.close();
   };
 
-  const exportToPDF = () => {
+  const exportToPDF = (stockField) => {
     if (!canExport) return;
-    openInventoryPDF('current', 'Current Stock');
-    openInventoryPDF('wip', 'WIP');
-    openInventoryPDF('min', 'Min Needed');
-    openLocationPDF();
+    const label = STOCK_FILTER_OPTIONS.find(o => o.value === stockField)?.label || 'Inventory';
+    if (stockField === 'location' || stockField === 'final-stock-location') {
+      openLocationPDF(stockField, label);
+    } else {
+      openInventoryPDF(stockField, label);
+    }
     setExportMenuOpen(false);
+  };
+
+  const handleBulkUploadFileChange = async (event, uploadFieldType) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+
+    if (uploadFieldType === 'picklist') {
+      return handlePicklistFileChange(event);
+    }
+
+    setIsUploadingPicklist(true);
+    setError('');
+
+    try {
+      const data = await file.arrayBuffer();
+      const workbook = XLSX.read(data, { type: 'array' });
+      const firstSheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[firstSheetName];
+      const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+      if (rows.length < 2) {
+        throw new Error('The uploaded sheet is empty or contains no headers.');
+      }
+
+      const headers = rows[0].map((h) => String(h || '').trim());
+      const dataRows = rows.slice(1);
+
+      const normHeaders = headers.map((h) => String(h || '').toLowerCase().replace(/[^a-z0-9]/g, ''));
+      let skuColIdx = normHeaders.findIndex((h) => ['finalstocksku', 'sku', 'mastersku', 'productsku'].includes(h));
+      if (skuColIdx === -1) {
+        skuColIdx = 0;
+      }
+
+      const columnIndices = {};
+      normHeaders.forEach((normH, idx) => {
+        const matchedField = Object.keys(HEADER_TO_FIELD).find((key) => normH === key || normH.includes(key));
+        if (matchedField) {
+          const fieldKey = HEADER_TO_FIELD[matchedField];
+          if (uploadFieldType === 'wip-vs-current') {
+            if (normH.endsWith('wip')) {
+              columnIndices[`${fieldKey}_wip`] = idx;
+            } else if (normH.endsWith('current') || normH.endsWith('cur')) {
+              columnIndices[`${fieldKey}_current`] = idx;
+            } else {
+              columnIndices[`${fieldKey}_current`] = idx;
+            }
+          } else {
+            columnIndices[fieldKey] = idx;
+          }
+        }
+      });
+
+      const dieLocationIdx = normHeaders.findIndex((h) => ['dielocation', 'location', 'loc'].includes(h));
+      const dieNumbersIdx = normHeaders.findIndex((h) => ['dienumbers', 'dienumber', 'diecode', 'diecodes'].includes(h));
+      const finalStockValueIdx = normHeaders.findIndex((h) => ['finalstockvalue', 'finalstocklocation', 'value', 'location', 'loc', 'quantity', 'qty'].includes(h));
+
+      const bulkDraft = new Map();
+      let matchCount = 0;
+
+      dataRows.forEach((row, rowIdx) => {
+        const rowSku = String(row[skuColIdx] || '').trim().toUpperCase();
+        if (!rowSku) return;
+
+        const product = products.find((p) => {
+          const master = String(p.sku || p.masterSku || '').trim().toUpperCase();
+          if (master === rowSku) return true;
+          const variations = Array.isArray(p.finalStock) ? p.finalStock : [];
+          return variations.some((v) => String(v.sku || '').trim().toUpperCase() === rowSku);
+        });
+
+        if (!product) return;
+        matchCount++;
+
+        const entry = {};
+
+        if (uploadFieldType === 'wip-vs-current') {
+          Object.entries(columnIndices).forEach(([key, idx]) => {
+            const cellVal = parseFloat(row[idx]);
+            if (!isNaN(cellVal)) {
+              entry[key] = cellVal;
+            }
+          });
+        } else if (uploadFieldType === 'location') {
+          Object.entries(columnIndices).forEach(([key, idx]) => {
+            if (key === 'finalStockValue') return;
+            const cellVal = String(row[idx] || '').trim();
+            if (cellVal) {
+              entry[key] = cellVal;
+            }
+          });
+          if (dieLocationIdx !== -1) {
+            const cellVal = String(row[dieLocationIdx] || '').trim();
+            if (cellVal) entry.dieLocation = cellVal;
+          }
+          if (dieNumbersIdx !== -1) {
+            const cellVal = String(row[dieNumbersIdx] || '').trim();
+            if (cellVal) entry.dieNumbers = cellVal;
+          }
+        } else if (uploadFieldType === 'final-stock') {
+          const variations = Array.isArray(product.finalStock) ? product.finalStock : [];
+          if (variations.length > 0) {
+            const matchedVar = variations.find((v) => String(v.sku || '').trim().toUpperCase() === rowSku);
+            if (matchedVar) {
+              if (finalStockValueIdx !== -1) {
+                const cellVal = parseFloat(row[finalStockValueIdx]);
+                if (!isNaN(cellVal)) {
+                  entry[matchedVar.sku] = cellVal;
+                }
+              }
+            } else {
+              variations.forEach((v) => {
+                const varHeaderIdx = normHeaders.findIndex((h) => h === v.sku.toLowerCase().replace(/[^a-z0-9]/g, ''));
+                if (varHeaderIdx !== -1) {
+                  const cellVal = parseFloat(row[varHeaderIdx]);
+                  if (!isNaN(cellVal)) entry[v.sku] = cellVal;
+                }
+              });
+            }
+          }
+        } else if (uploadFieldType === 'final-stock-location') {
+          const variations = Array.isArray(product.finalStock) ? product.finalStock : [];
+          if (variations.length > 0) {
+            const matchedVar = variations.find((v) => String(v.sku || '').trim().toUpperCase() === rowSku);
+            if (matchedVar) {
+              if (finalStockValueIdx !== -1) {
+                const cellVal = String(row[finalStockValueIdx] || '').trim();
+                if (cellVal) {
+                  entry[`loc__${matchedVar.sku}`] = cellVal;
+                }
+              }
+            } else {
+              variations.forEach((v) => {
+                const varHeaderIdx = normHeaders.findIndex((h) => h === v.sku.toLowerCase().replace(/[^a-z0-9]/g, ''));
+                if (varHeaderIdx !== -1) {
+                  const cellVal = String(row[varHeaderIdx] || '').trim();
+                  if (cellVal) entry[`loc__${v.sku}`] = cellVal;
+                }
+              });
+            }
+          }
+        } else {
+          Object.entries(columnIndices).forEach(([key, idx]) => {
+            const cellVal = parseFloat(row[idx]);
+            if (!isNaN(cellVal)) {
+              entry[key] = cellVal;
+            }
+          });
+          if (dieLocationIdx !== -1) {
+            const cellVal = String(row[dieLocationIdx] || '').trim();
+            if (cellVal) entry.dieLocation = cellVal;
+          }
+          if (dieNumbersIdx !== -1) {
+            const cellVal = String(row[dieNumbersIdx] || '').trim();
+            if (cellVal) entry.dieNumbers = cellVal;
+          }
+        }
+
+        if (Object.keys(entry).length > 0) {
+          bulkDraft.set(product.id, entry);
+        }
+      });
+
+      if (bulkDraft.size === 0) {
+        throw new Error(`Matched ${matchCount} products, but found no columns in the sheet matching the selected upload type.`);
+      }
+
+      const allCalls = [];
+
+      if (uploadFieldType === 'wip-vs-current') {
+        for (const [productId, editData] of bulkDraft.entries()) {
+          const product = products.find((p) => p.id === productId);
+          if (!product) continue;
+          const wipRow = buildInventoryRow(product, 'wip');
+          const currRow = buildInventoryRow(product, 'current');
+
+          for (const [field, stageName] of Object.entries(STOCK_FIELDS_MAP)) {
+            if (editData[`${field}_wip`] !== undefined) {
+              const wipNew = parseFloat(editData[`${field}_wip`]) || 0;
+              const wipOld = parseNumericValue(wipRow[field]);
+              const wipDelta = Math.round(wipNew - wipOld);
+              if (wipDelta !== 0) {
+                allCalls.push(fetch('/api/inventory/', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ product: productId, txn_type: 'adjust', quantity: wipDelta, stage: STOCK_STAGE_MAP[field], stock_type: 'wip', remark: `Bulk Upload: ${stageName} (WIP)` }),
+                }));
+              }
+            }
+            if (editData[`${field}_current`] !== undefined) {
+              const currNew = parseFloat(editData[`${field}_current`]) || 0;
+              const currOld = parseNumericValue(currRow[field]);
+              const currDelta = Math.round(currNew - currOld);
+              if (currDelta !== 0) {
+                allCalls.push(fetch('/api/inventory/', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ product: productId, txn_type: 'adjust', quantity: currDelta, stage: STOCK_STAGE_MAP[field], stock_type: 'current', remark: `Bulk Upload: ${stageName} (Current)` }),
+                }));
+              }
+            }
+          }
+        }
+      } else if (uploadFieldType === 'location') {
+        const originalRows = products.map((p) => buildInventoryRow(p, 'location'));
+        for (const [productId, editData] of bulkDraft.entries()) {
+          const originalRow = originalRows.find((r) => r.id === productId);
+          if (!originalRow) continue;
+
+          for (const [field, stageKey] of Object.entries(STOCK_STAGE_MAP)) {
+            if (field === 'finalStockValue') continue;
+            if (editData[field] === undefined) continue;
+            const newLoc = String(editData[field] || '').trim();
+            const oldLoc = String(originalRow[field] || '').trim();
+            if (newLoc === oldLoc) continue;
+            allCalls.push(fetch('/api/inventory/', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                product: productId,
+                txn_type: 'adjust',
+                quantity: 0,
+                stage: stageKey,
+                stock_type: 'current',
+                location: newLoc,
+                remark: `Bulk update location — ${STOCK_FIELDS_MAP[field]}`,
+              }),
+            }));
+          }
+
+          if (editData.dieLocation !== undefined && editData.dieLocation !== originalRow.dieLocation) {
+            const product = products.find((p) => p.id === productId);
+            const dieNumbersRaw = Array.isArray(product?.dieNumberFindings) ? product.dieNumberFindings : [];
+            const dieEntry = dieNumbersRaw.length > 0
+              ? dieNumbersRaw.map((item) => ({ ...item, location: editData.dieLocation.trim() }))
+              : (editData.dieNumbers?.trim()
+                ? [{ value: editData.dieNumbers.trim(), quantity: '', location: editData.dieLocation.trim() }]
+                : []);
+            allCalls.push(fetch(`/api/products/${productId}/`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ die_numbers: dieEntry }),
+            }));
+          }
+        }
+      } else if (uploadFieldType === 'final-stock') {
+        for (const [productId, editData] of bulkDraft.entries()) {
+          const product = products.find((p) => p.id === productId);
+          if (!product) continue;
+          const variations = Array.isArray(product.finalStock) ? product.finalStock : [];
+
+          for (const [varSku, newValStr] of Object.entries(editData)) {
+            const originalVariation = variations.find((v) => v.sku === varSku);
+            const oldVal = parseNumericValue(originalVariation?.value) || 0;
+            const newVal = parseFloat(newValStr) || 0;
+            const delta = Math.round(newVal - oldVal);
+            if (delta === 0) continue;
+
+            const isSingleSku = variations.length === 1 && varSku === product.masterSku;
+            const stageKey = isSingleSku ? 'final_stock' : `final_stock__${varSku.toLowerCase()}`;
+
+            allCalls.push(fetch('/api/inventory/', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                product: productId,
+                txn_type: 'adjust',
+                quantity: delta,
+                stage: stageKey,
+                stock_type: 'current',
+                remark: `Bulk Final Stock Value — ${varSku}`,
+              }),
+            }));
+          }
+        }
+      } else if (uploadFieldType === 'final-stock-location') {
+        for (const [productId, editData] of bulkDraft.entries()) {
+          const product = products.find((p) => p.id === productId);
+          if (!product) continue;
+          const variations = Array.isArray(product.finalStock) ? product.finalStock : [];
+
+          for (const [key, newLoc] of Object.entries(editData)) {
+            if (!key.startsWith('loc__')) continue;
+            const varSku = key.slice(5);
+            const originalVariation = variations.find((v) => v.sku === varSku);
+            const oldLoc = String(originalVariation?.location || '').trim();
+            const newLocTrimmed = String(newLoc || '').trim();
+            if (newLocTrimmed === oldLoc) continue;
+
+            const isSingleSku = variations.length === 1 && varSku === product.masterSku;
+            const stageKey = isSingleSku ? 'final_stock' : `final_stock__${varSku.toLowerCase()}`;
+
+            allCalls.push(fetch('/api/inventory/', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                product: productId,
+                txn_type: 'adjust',
+                quantity: 0,
+                stage: stageKey,
+                stock_type: 'current',
+                location: newLocTrimmed,
+                remark: `Bulk Final Stock Location — ${varSku}`,
+              }),
+            }));
+          }
+        }
+      } else {
+        const baseRows = products.map((p) => buildInventoryRow(p, uploadFieldType));
+        for (const [productId, editData] of bulkDraft.entries()) {
+          const originalRow = baseRows.find((r) => r.id === productId);
+          if (!originalRow) continue;
+
+          for (const [field, stageName] of Object.entries(STOCK_FIELDS_MAP)) {
+            if (editData[field] === undefined) continue;
+            const newVal = parseFloat(editData[field]) || 0;
+            const oldVal = parseNumericValue(originalRow[field]);
+            const delta = Math.round(newVal - oldVal);
+            if (delta !== 0) {
+              allCalls.push(fetch('/api/inventory/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  product: productId,
+                  txn_type: 'adjust',
+                  quantity: delta,
+                  stage: STOCK_STAGE_MAP[field],
+                  stock_type: uploadFieldType,
+                  remark: `Bulk Stage: ${stageName}`,
+                }),
+              }));
+            }
+          }
+
+          if (editData.dieLocation !== undefined && editData.dieLocation !== originalRow.dieLocation) {
+            const dieEntry = editData.dieNumbers !== undefined && editData.dieNumbers.trim()
+              ? [{ value: editData.dieNumbers.trim(), quantity: '', location: editData.dieLocation.trim() }]
+              : [];
+            allCalls.push(fetch(`/api/products/${productId}/`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ die_numbers: dieEntry }),
+            }));
+          }
+        }
+      }
+
+      if (allCalls.length === 0) {
+        alert('No changes were detected from the uploaded file.');
+        return;
+      }
+
+      await Promise.all(allCalls);
+      alert(`Bulk upload completed! Successfully updated ${bulkDraft.size} product(s).`);
+      await loadProducts();
+    } catch (err) {
+      alert(`Bulk upload failed: ${err.message}`);
+      console.error(err);
+    } finally {
+      setIsUploadingPicklist(false);
+    }
   };
 
   const handlePicklistUploadClick = () => {
@@ -1838,6 +2236,94 @@ export default function MasterInventorySheet() {
         </DialogContent>
       </Dialog>
 
+      {/* ── Export Field Type Selection Dialog ── */}
+      <Dialog open={isExportDialogOpen} onOpenChange={setIsExportDialogOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Select Field to Export</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <p className="text-sm text-cool-gray">Choose which stock view you want to export:</p>
+            {STOCK_FILTER_OPTIONS.map((option) => (
+              <label key={option.value} className="flex items-center gap-3 cursor-pointer rounded-md p-2 hover:bg-cloud-gray">
+                <input
+                  type="radio"
+                  name="exportFieldType"
+                  value={option.value}
+                  checked={pendingExportFieldType === option.value}
+                  onChange={() => setPendingExportFieldType(option.value)}
+                  className="accent-trust-blue w-4 h-4"
+                />
+                <span className="text-sm font-medium">{option.label}</span>
+              </label>
+            ))}
+          </div>
+          <DialogFooter className="flex gap-2 justify-end">
+            <Button variant="outline" onClick={() => setIsExportDialogOpen(false)} className="rounded-full px-4 text-sm h-8">
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                setIsExportDialogOpen(false);
+                exportToExcel(pendingExportFieldType);
+              }}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-full px-4 text-sm h-8"
+            >
+              Export Excel
+            </Button>
+            <Button
+              onClick={() => {
+                setIsExportDialogOpen(false);
+                exportToPDF(pendingExportFieldType);
+              }}
+              className="bg-red-600 hover:bg-red-700 text-white rounded-full px-4 text-sm h-8"
+            >
+              Export PDF
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Bulk Upload Field Type Selection Dialog ── */}
+      <Dialog open={isBulkUploadDialogOpen} onOpenChange={setIsBulkUploadDialogOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Select Field to Bulk Upload</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <p className="text-sm text-cool-gray">Choose which field/value you want to upload & change:</p>
+            {BULK_UPLOAD_OPTIONS.map((option) => (
+              <label key={option.value} className="flex items-center gap-3 cursor-pointer rounded-md p-2 hover:bg-cloud-gray">
+                <input
+                  type="radio"
+                  name="bulkUploadFieldType"
+                  value={option.value}
+                  checked={pendingBulkUploadFieldType === option.value}
+                  onChange={() => setPendingBulkUploadFieldType(option.value)}
+                  className="accent-trust-blue w-4 h-4"
+                />
+                <span className="text-sm font-medium">{option.label}</span>
+              </label>
+            ))}
+          </div>
+          <DialogFooter className="flex gap-2">
+            <Button variant="outline" onClick={() => setIsBulkUploadDialogOpen(false)} className="rounded-full px-4 text-sm h-8">
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                setIsBulkUploadDialogOpen(false);
+                bulkUploadFileInputRef.current?.click();
+              }}
+              className="bg-trust-blue text-white rounded-full px-4 text-sm h-8 hover:bg-trust-blue/90"
+            >
+              Choose File
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+
       {/* ── Die Breakdown Dialog ── */}
       <Dialog open={!!diePopup} onOpenChange={(open) => { if (!open) setDiePopup(null); }}>
         <DialogContent className="max-w-3xl">
@@ -2066,7 +2552,7 @@ export default function MasterInventorySheet() {
             </Button>
             {canEdit && (
               <Button
-                onClick={handlePicklistUploadClick}
+                onClick={() => { setPendingBulkUploadFieldType('current'); setIsBulkUploadDialogOpen(true); }}
                 disabled={isUploadingPicklist || isEditMode}
                 variant="outline"
                 className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8 hover:bg-cloud-gray disabled:opacity-50 disabled:cursor-not-allowed"
@@ -2134,20 +2620,11 @@ export default function MasterInventorySheet() {
                 <DropdownMenuItem onClick={() => { setSortOrder('default'); setCurrentPage(1); }}>Default Order</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-            <div className="relative">
-              {exportMenuOpen && <div className="fixed inset-0 z-10" onClick={() => setExportMenuOpen(false)} />}
-              <Button onClick={() => setExportMenuOpen((p) => !p)} variant="outline"
-                className="relative z-20 border-emerald-500 text-emerald-600 hover:bg-emerald-50 rounded-full px-4 text-sm h-8 flex items-center gap-1.5"
-                disabled={!canExport} title={!canExport ? 'You do not have permission to export' : undefined}>
-                <Download className="w-3.5 h-3.5" /> Export <ChevronDown className="w-3.5 h-3.5" />
-              </Button>
-              {exportMenuOpen && canExport && (
-                <div className="absolute right-0 top-9 z-30 w-56 rounded-lg bg-white shadow-lg border border-soft-border py-1">
-                  <button type="button" onClick={exportToExcel} className="w-full px-4 py-2 text-sm text-midnight-ink hover:bg-cloud-gray text-left">Export as Excel (.xlsx) — 4 sheets</button>
-                  <button type="button" onClick={exportToPDF} className="w-full px-4 py-2 text-sm text-midnight-ink hover:bg-cloud-gray text-left">Export as PDF — 4 files</button>
-                </div>
-              )}
-            </div>
+            <Button onClick={() => { setPendingExportFieldType(stockField || 'current'); setIsExportDialogOpen(true); }} variant="outline"
+              className="border-emerald-500 text-emerald-600 hover:bg-emerald-50 rounded-full px-4 text-sm h-8 flex items-center gap-1.5"
+              disabled={!canExport} title={!canExport ? 'You do not have permission to export' : undefined}>
+              <Download className="w-3.5 h-3.5" /> Export
+            </Button>
             {canExport && <Button variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8" onClick={() => window.print()}>Print</Button>}
             <Button
               onClick={() => window.location.href = '/inventory/repair-queue'}
@@ -2207,6 +2684,13 @@ export default function MasterInventorySheet() {
               type="file"
               accept="*/*"
               onChange={handlePicklistFileChange}
+              className="hidden"
+            />
+            <input
+              ref={bulkUploadFileInputRef}
+              type="file"
+              accept=".xlsx,.xls,.csv"
+              onChange={(e) => handleBulkUploadFileChange(e, pendingBulkUploadFieldType)}
               className="hidden"
             />
           </div>
