@@ -519,6 +519,8 @@ export default function MasterInventorySheet() {
   const [isEditFieldTypeDialogOpen, setIsEditFieldTypeDialogOpen] = useState(false);
   const [editFieldType, setEditFieldType] = useState('current');
   const [pendingEditFieldType, setPendingEditFieldType] = useState('current');
+  const [isStockSheetPreviewOpen, setIsStockSheetPreviewOpen] = useState(false);
+  const [stockSheetPreviewData, setStockSheetPreviewData] = useState({ headers: [], rows: [], stageCols: [] });
 
   // Die breakdown popup state
   const [diePopup, setDiePopup] = useState(null);
@@ -1360,87 +1362,158 @@ export default function MasterInventorySheet() {
     setExportMenuOpen(false);
   };
 
-  // ─── Print / Export Stock Sheet ───────────────────────────────────────────
-  // Exports a focused .xlsx with Master SKU, stock location, all stage current
-  // stock values (Casting → Final Stock), and image URL(s) for each product.
-  const handlePrintStockSheet = () => {
-    if (!canExport) return;
+  // ─── Stock Sheet Preview & Export ────────────────────────────────────────────
+  // Stage definitions: each has a liveStock key and display label.
+  // "Location / Current Stock" are combined into a single column per stage.
+  const STOCK_SHEET_STAGE_COLS = [
+    { lsKey: 'rawMaterial',      label: 'Wax Piece' },
+    { lsKey: 'rawSetting',       label: 'Wax Setting' },
+    { lsKey: 'wipLiquidCasting', label: 'Casting' },
+    { lsKey: 'filing',           label: 'Filling' },
+    { lsKey: 'packing',          label: 'Pre Polish' },
+    { lsKey: 'setting',          label: 'Hand Setting' },
+    { lsKey: 'finalPolish',      label: 'Final Polish' },
+    { lsKey: 'readyForPlacing',  label: 'Plating' },
+  ];
 
-    const STAGE_COLS = [
-      { key: 'waxPiece',       label: 'Wax Piece' },
-      { key: 'waxSetting',     label: 'Wax Setting' },
-      { key: 'casting',        label: 'Casting' },
-      { key: 'filling',        label: 'Filling' },
-      { key: 'prePolish',      label: 'Pre Polish' },
-      { key: 'setting',        label: 'Hand Setting' },
-      { key: 'finalPolish',    label: 'Final Polish' },
-      { key: 'readyForPlating',label: 'Plating' },
-    ];
-
+  // Build the structured data used for both preview and export
+  const buildStockSheetData = () => {
+    const stageCols = STOCK_SHEET_STAGE_COLS;
     const headers = [
       'Master SKU',
       'Final Stock SKU',
-      'Location',
-      ...STAGE_COLS.map(c => c.label),
+      'Die / Stock Location',
+      ...stageCols.map(c => c.label + '\nLoc / Stock'),
       'Final Stock',
-      'Final Stock Unit',
+      'Unit',
       'Image URL(s)',
     ];
 
     const allRows = [];
     for (const product of sortedProducts) {
       const row = buildInventoryRow(product, 'current');
+      const liveStock = product.liveStock || {};
       const images = Array.isArray(product.images) ? product.images : [];
       const imageStr = images.join(' | ');
 
-      // Build location string: die location + per-variation final stock locations
+      // Die/stock location from die numbers + per-variation final stock locations
       const locParts = [];
       if (row.dieLocation) locParts.push(row.dieLocation);
       (row.finalStockVariations || []).forEach(v => {
         if (v.location) locParts.push(v.sku ? `${v.sku}: ${v.location}` : v.location);
       });
-      const locationStr = locParts.join(' | ');
+      const dieLocStr = locParts.join(' | ');
 
-      // One sub-row per finalStockVariation
+      // Stage cells: "Location / Current" combined
+      const stageCells = stageCols.map(({ lsKey }) => {
+        const stage = liveStock[lsKey] || {};
+        const loc = String(stage.location || '').trim();
+        const cur = String(stage.current || '').trim();
+        if (!loc && !cur) return '';
+        if (!loc) return cur;
+        if (!cur) return loc;
+        return `${loc} / ${cur}`;
+      });
+
       const variations = row.finalStockVariations || [{ sku: row.sku, value: '', unit: 'pcs', location: '' }];
       variations.forEach((variation, varIdx) => {
         const isFirst = varIdx === 0;
-        const stageValues = STAGE_COLS.map(col => {
-          if (!isFirst) return '';
-          const v = row[col.key];
-          if (v && typeof v === 'object' && v.isComposite) return v.current ?? v.wip ?? '';
-          return v ?? '';
-        });
         allRows.push([
           isFirst ? row.sku : '',
           variation.sku ?? '',
-          isFirst ? locationStr : (variation.location ?? ''),
-          ...stageValues,
+          isFirst ? dieLocStr : (variation.location ?? ''),
+          ...stageCells.map(v => isFirst ? v : ''),
           variation.value ?? '',
           variation.unit ?? 'pcs',
           isFirst ? imageStr : '',
         ]);
       });
     }
+    return { headers, rows: allRows, stageCols };
+  };
 
-    const ws = XLSX.utils.aoa_to_sheet([headers, ...allRows]);
+  // Open preview modal (uses currently-filtered sortedProducts — respects Collection filter)
+  const handlePrintStockSheet = () => {
+    if (!canExport) return;
+    const data = buildStockSheetData();
+    setStockSheetPreviewData(data);
+    setIsStockSheetPreviewOpen(true);
+  };
 
-    // Style: column widths
+  // Download as Excel
+  const exportStockSheetExcel = () => {
+    const { headers, rows } = stockSheetPreviewData;
+    // Strip \n from header labels (newline was used for display only)
+    const cleanHeaders = headers.map(h => h.replace('\n', ' '));
+    const ws = XLSX.utils.aoa_to_sheet([cleanHeaders, ...rows]);
     ws['!cols'] = [
-      { wch: 14 }, // Master SKU
-      { wch: 16 }, // Final Stock SKU
-      { wch: 22 }, // Location
-      { wch: 12 }, { wch: 13 }, { wch: 10 }, { wch: 10 }, // stages
-      { wch: 11 }, { wch: 13 }, { wch: 13 }, { wch: 10 }, // stages
-      { wch: 14 }, // Final Stock
-      { wch: 14 }, // Unit
-      { wch: 40 }, // Images
+      { wch: 14 }, { wch: 16 }, { wch: 24 },
+      ...STOCK_SHEET_STAGE_COLS.map(() => ({ wch: 18 })),
+      { wch: 14 }, { wch: 8 }, { wch: 40 },
     ];
-
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Stock Sheet');
     const dateStr = new Date().toISOString().slice(0, 10);
     XLSX.writeFile(wb, `inventory-stock-sheet-${dateStr}.xlsx`);
+  };
+
+  // Print as PDF via browser print dialog
+  const exportStockSheetPDF = () => {
+    const { headers, rows, stageCols } = stockSheetPreviewData;
+    const cleanHeaders = headers.map(h => h.replace('\n', '<br/>'));
+    const colGroup = [
+      '<col style="width:90px">',
+      '<col style="width:100px">',
+      '<col style="width:130px">',
+      ...stageCols.map(() => '<col style="width:100px">'),
+      '<col style="width:80px">',
+      '<col style="width:50px">',
+      '<col style="width:200px">',
+    ].join('');
+    const theadHtml = `<tr>${cleanHeaders.map(h => `<th>${h}</th>`).join('')}</tr>`;
+    const tbodyHtml = rows.map((r, rIdx) =>
+      `<tr class="${rIdx % 2 === 0 ? '' : 'alt'}">${r.map(c => `<td>${c !== '' ? c : '&nbsp;'}</td>`).join('')}</tr>`
+    ).join('');
+
+    const collectionLabel = (() => {
+      const sel = filterSelections?.collection;
+      if (!sel || sel.size === 0) return 'All Collections';
+      return Array.from(sel).join(', ');
+    })();
+
+    const html = `<!DOCTYPE html>
+<html><head><meta charset="utf-8"/>
+<title>Stock Sheet – ${collectionLabel}</title>
+<style>
+  @page { size: A3 landscape; margin: 8mm 10mm; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Arial, sans-serif; font-size: 8px; color: #1e293b;
+         -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  h1 { font-size: 13px; font-weight: 800; color: #92400e; margin-bottom: 2px; }
+  .sub { font-size: 7px; color: #64748b; margin-bottom: 8px; }
+  table { width: 100%; border-collapse: collapse; }
+  colgroup col { }
+  thead tr th { background: #92400e; color: #fff; font-weight: 700;
+    padding: 4px 4px; border: 1px solid #78350f; text-align: center;
+    vertical-align: bottom; font-size: 7.5px; }
+  td { padding: 3px 4px; border: 1px solid #e2e8f0; vertical-align: middle; font-size: 7.5px; }
+  tr.alt td { background: #f8fafc; }
+  td:first-child { font-weight: 700; color: #92400e; }
+</style>
+</head><body>
+<h1>Inventory Stock Sheet</h1>
+<div class="sub">${collectionLabel} &nbsp;·&nbsp; ${sortedProducts.length} products &nbsp;·&nbsp; Generated ${new Date().toLocaleString()}</div>
+<table><colgroup>${colGroup}</colgroup>
+<thead>${theadHtml}</thead>
+<tbody>${tbodyHtml}</tbody>
+</table>
+<script>window.onload=function(){window.print();}</script>
+</body></html>`;
+
+    const win = window.open('', '_blank', 'width=1200,height=800');
+    if (!win) { alert('Pop-up blocked. Allow pop-ups to print.'); return; }
+    win.document.write(html);
+    win.document.close();
   };
 
   const openInventoryPDF = (stockField, title) => {
@@ -3255,6 +3328,106 @@ export default function MasterInventorySheet() {
           loadProducts();
         }}
       />
+
+      {/* ── Stock Sheet Preview Modal ──────────────────────────────────────── */}
+      {isStockSheetPreviewOpen && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={() => setIsStockSheetPreviewOpen(false)}
+          />
+          {/* Panel */}
+          <div className="relative z-10 bg-background border border-border rounded-xl shadow-2xl flex flex-col"
+            style={{ width: '96vw', maxWidth: 1400, height: '88vh' }}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-3 border-b border-border shrink-0">
+              <div>
+                <h2 className="text-base font-bold text-foreground">📋 Stock Sheet Preview</h2>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {(() => {
+                    const sel = filterSelections?.collection;
+                    const label = (!sel || sel.size === 0) ? 'All Collections' : Array.from(sel).join(', ');
+                    return `${label} · ${sortedProducts.length} product(s)`;
+                  })()}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={exportStockSheetExcel}
+                  className="flex items-center gap-1.5 px-4 h-8 rounded-full border border-emerald-500 text-emerald-700 text-sm font-semibold hover:bg-emerald-50 transition-colors"
+                >
+                  <Download className="h-3.5 w-3.5" /> Download Excel
+                </button>
+                <button
+                  onClick={exportStockSheetPDF}
+                  className="flex items-center gap-1.5 px-4 h-8 rounded-full border border-blue-500 text-blue-700 text-sm font-semibold hover:bg-blue-50 transition-colors"
+                >
+                  <FileText className="h-3.5 w-3.5" /> Print / PDF
+                </button>
+                <button
+                  onClick={() => setIsStockSheetPreviewOpen(false)}
+                  className="ml-1 text-muted-foreground hover:text-foreground transition-colors"
+                  aria-label="Close"
+                >
+                  <span className="text-lg">✕</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Scrollable table */}
+            <div className="flex-1 overflow-auto px-2 py-2">
+              <table className="border-collapse text-xs" style={{ minWidth: '100%' }}>
+                <thead className="sticky top-0 z-10">
+                  <tr>
+                    {stockSheetPreviewData.headers.map((h, i) => (
+                      <th
+                        key={i}
+                        className="bg-amber-800 text-white font-bold px-2 py-1.5 border border-amber-700 text-center whitespace-pre-line align-bottom"
+                        style={{ minWidth: i < 3 ? 100 : 90 }}
+                      >
+                        {h.replace('\n', '\n')}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {stockSheetPreviewData.rows.map((row, rIdx) => (
+                    <tr key={rIdx} className={rIdx % 2 === 0 ? 'bg-background' : 'bg-muted/30'}>
+                      {row.map((cell, cIdx) => (
+                        <td
+                          key={cIdx}
+                          className={`px-2 py-1 border border-border/40 align-middle ${
+                            cIdx === 0 ? 'font-bold text-amber-700 whitespace-nowrap' :
+                            cIdx === 1 ? 'font-mono text-xs' : ''
+                          }`}
+                        >
+                          {/* Last col is image URLs — render as small thumbnails */}
+                          {cIdx === stockSheetPreviewData.headers.length - 1 && cell ? (
+                            <div className="flex flex-wrap gap-1">
+                              {cell.split(' | ').filter(Boolean).map((url, idx) => (
+                                <img key={idx} src={url} alt="" className="h-10 w-10 object-contain rounded border border-border" />
+                              ))}
+                            </div>
+                          ) : (
+                            cell || <span className="text-muted-foreground/30">—</span>
+                          )}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Footer */}
+            <div className="px-5 py-2 border-t border-border text-xs text-muted-foreground shrink-0">
+              {stockSheetPreviewData.rows.length} row(s) · Stage columns show <strong>Location / Current Stock</strong> · Only selected collection(s) shown
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
