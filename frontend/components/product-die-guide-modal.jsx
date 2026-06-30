@@ -29,89 +29,77 @@ export default function ProductDieGuideModal({ open, onOpenChange, jobId, vouche
       .finally(() => setLoading(false))
   }, [open, jobId])
 
+  /** Resolve die images to an array of URL strings */
+  function resolveDieImages(d) {
+    if (d.images && d.images.length > 0) return d.images
+    if (!d.image) return []
+    if (d.image.startsWith('[')) {
+      try { return JSON.parse(d.image) } catch { return [d.image] }
+    }
+    if (d.image.includes(',')) return d.image.split(',').map(s => s.trim()).filter(Boolean)
+    return [d.image]
+  }
+
   function handlePrint() {
-    const groupsHtml = data.map((group) => {
-      // Resolve Master SKU images
-      const masterImgsHtml = group.images && group.images.length > 0
-        ? `<div class="image-gallery">` +
-          group.images.map(src => `<img src="${src}" class="master-thumb-img" />`).join('') +
-          `</div>`
-        : '<div class="no-photo">No Master SKU Photo</div>';
+    // Build flat-table HTML — one row per (masterSku × die) combination,
+    // with masterSku cells spanning multiple die rows via rowspan.
+    let rowsHtml = ''
 
-      // Resolve Die SKU rows
-      const dieRows = group.dies && group.dies.length > 0
-        ? group.dies.map(d => {
-            let imgs = [];
-            if (d.images && d.images.length > 0) {
-              imgs = d.images;
-            } else if (d.image) {
-              if (d.image.startsWith('[')) {
-                try { imgs = JSON.parse(d.image); } catch(e) { imgs = [d.image]; }
-              } else if (d.image.includes(',')) {
-                imgs = d.image.split(',').map(s => s.trim()).filter(Boolean);
-              } else {
-                imgs = [d.image];
-              }
-            }
-            const imgsHtml = imgs.length > 0
-              ? `<div class="die-gallery">` +
-                imgs.map(src => `<img src="${src}" class="die-thumb-img" />`).join('') +
-                `</div>`
-              : '—';
+    data.forEach((group) => {
+      const dies = group.dies && group.dies.length > 0 ? group.dies : [null]
+      const rowspan = dies.length
 
-            return `
-              <tr>
-                <td class="die-code">${d.die_code || '—'}</td>
-                <td class="center">${imgsHtml}</td>
-                <td class="center">${d.location || '—'}</td>
-                <td class="center">${d.wax_setting_location || '—'}</td>
-                <td class="center">${d.wax_piece_location || '—'}</td>
-                <td class="center">${d.casting_location || '—'}</td>
-                <td class="center font-medium">${d.qty_per_piece != null ? d.qty_per_piece : '—'}</td>
-                <td class="center font-bold text-amber-800 bg-amber-50">${d.qty_needed != null ? d.qty_needed : '—'}</td>
-              </tr>
-            `;
-          }).join('')
-        : `<tr><td colspan="8" class="center text-muted">No related dies defined for this product.</td></tr>`;
+      dies.forEach((d, dIdx) => {
+        const isFirst = dIdx === 0
 
-      return `
-        <div class="master-group">
-          <div class="master-header">
-            <div class="master-sku">${group.master_sku || '—'}</div>
-            <div class="master-meta">
-              <div class="meta-item"><strong>Qty Needed:</strong> <span>${group.quantity}</span></div>
-              <div class="meta-item"><strong>Stock Location:</strong> <span>${group.location || '—'}</span></div>
-            </div>
-          </div>
-          <div class="master-body">
-            <div class="master-photo-section">
-              <div class="section-title">Master SKU Photos</div>
-              ${masterImgsHtml}
-            </div>
-            <div class="dies-section">
-              <div class="section-title">Related Die SKUs & Quantities</div>
-              <table>
-                <thead>
-                  <tr>
-                    <th>Die Code</th>
-                    <th class="center" style="width:70px">Die Image</th>
-                    <th class="center">Die Location</th>
-                    <th class="center">Wax Setting Loc</th>
-                    <th class="center">Wax Piece Loc</th>
-                    <th class="center">Casting Loc</th>
-                    <th class="center" style="width:70px">Qty / Piece</th>
-                    <th class="center" style="width:80px">Total Qty</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${dieRows}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      `;
-    }).join('')
+        // Master SKU cells (only on first die row)
+        const masterImgHtml = isFirst
+          ? group.images && group.images.length > 0
+            ? `<div class="img-cell">${group.images.map(src => `<img src="${src}" class="master-img" />`).join('')}</div>`
+            : '<span class="no-img">—</span>'
+          : ''
+
+        const masterSkuCell = isFirst
+          ? `<td class="master-img-td" rowspan="${rowspan}">${masterImgHtml}</td>
+             <td class="master-sku-td" rowspan="${rowspan}">${group.master_sku || '—'}</td>
+             <td class="center" rowspan="${rowspan}">${group.location || '—'}</td>
+             <td class="center bold-amber" rowspan="${rowspan}">${group.quantity ?? '—'}</td>`
+          : ''
+
+        // Die cells
+        let dieImgHtml = '—'
+        let dieCode = '—'
+        let dieLoc = '—', waxSetLoc = '—', waxPieceLoc = '—', castingLoc = '—'
+        let qtyPiece = '—', totalQty = '—'
+
+        if (d) {
+          const imgs = resolveDieImages(d)
+          dieImgHtml = imgs.length > 0
+            ? `<div class="img-cell">${imgs.map(src => `<img src="${src}" class="die-img" />`).join('')}</div>`
+            : '—'
+          dieCode = d.die_code || '—'
+          dieLoc = d.location || '—'
+          waxSetLoc = d.wax_setting_location || '—'
+          waxPieceLoc = d.wax_piece_location || '—'
+          castingLoc = d.casting_location || '—'
+          qtyPiece = d.qty_per_piece != null ? d.qty_per_piece : '—'
+          totalQty = d.qty_needed != null ? d.qty_needed : '—'
+        }
+
+        rowsHtml += `
+          <tr class="${dIdx % 2 === 0 ? 'row-even' : 'row-odd'}">
+            ${masterSkuCell}
+            <td class="die-code-td">${dieCode}</td>
+            <td class="center">${dieImgHtml}</td>
+            <td class="center">${dieLoc}</td>
+            <td class="center">${waxSetLoc}</td>
+            <td class="center">${waxPieceLoc}</td>
+            <td class="center">${castingLoc}</td>
+            <td class="center">${qtyPiece}</td>
+            <td class="center total-qty">${totalQty}</td>
+          </tr>`
+      })
+    })
 
     const html = `<!DOCTYPE html>
 <html>
@@ -119,134 +107,63 @@ export default function ProductDieGuideModal({ open, onOpenChange, jobId, vouche
   <meta charset="utf-8" />
   <title>Product Die Guide – ${voucherNo}</title>
   <style>
-    @page { size: A4; margin: 12mm 14mm; }
+    @page { size: A4 landscape; margin: 10mm 12mm; }
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: Arial, sans-serif; font-size: 10px; color: #1e293b;
+    body { font-family: Arial, sans-serif; font-size: 9px; color: #1e293b;
            -webkit-print-color-adjust: exact; print-color-adjust: exact; background: #fff; }
-    .page-title { font-size: 16px; font-weight: 800; color: #b45309; letter-spacing: 0.5px; margin-bottom: 3px; }
-    .voucher-sub { font-size: 9px; color: #64748b; margin-bottom: 15px; border-bottom: 1px solid #e2e8f0; padding-bottom: 6px; }
-    
-    .master-group {
-      border: 1px solid #cbd5e1;
-      border-radius: 6px;
-      padding: 12px;
-      margin-bottom: 20px;
-      page-break-inside: avoid;
-      background: #fff;
+    .page-title { font-size: 15px; font-weight: 800; color: #b45309; margin-bottom: 2px; }
+    .voucher-sub { font-size: 8px; color: #64748b; margin-bottom: 10px;
+                   border-bottom: 1px solid #e2e8f0; padding-bottom: 5px; }
+
+    table { width: 100%; border-collapse: collapse; font-size: 8.5px; }
+    thead tr th {
+      background: #92400e; color: #fff; font-weight: 700;
+      padding: 5px 6px; border: 1px solid #78350f; white-space: nowrap; text-align: center;
     }
-    .master-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      border-bottom: 1.5px solid #d97706;
-      padding-bottom: 6px;
-      margin-bottom: 10px;
-    }
-    .master-sku {
-      font-size: 13px;
-      font-weight: 800;
-      color: #92400e;
-    }
-    .master-meta {
-      display: flex;
-      gap: 16px;
-      font-size: 10px;
-    }
-    .meta-item strong {
-      color: #475569;
-    }
-    .meta-item span {
-      font-weight: 700;
-      color: #0f172a;
-    }
-    
-    .master-body {
-      display: flex;
-      gap: 12px;
-    }
-    .master-photo-section {
-      width: 130px;
-      flex-shrink: 0;
-      border-right: 1px dashed #e2e8f0;
-      padding-right: 12px;
-    }
-    .dies-section {
-      flex-grow: 1;
-    }
-    
-    .section-title {
-      font-size: 8px;
-      font-weight: 700;
-      text-transform: uppercase;
-      color: #64748b;
-      margin-bottom: 6px;
-      letter-spacing: 0.5px;
-    }
-    
-    .image-gallery {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 4px;
-    }
-    .master-thumb-img {
-      height: 52px;
-      width: 52px;
-      object-fit: contain;
-      border: 1px solid #e2e8f0;
-      border-radius: 4px;
-    }
-    .no-photo {
-      height: 52px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border: 1px dashed #cbd5e1;
-      border-radius: 4px;
-      color: #94a3b8;
-      font-size: 8px;
-      text-align: center;
-      background: #f8fafc;
-    }
-    
-    table { width: 100%; border-collapse: collapse; font-size: 9px; }
-    th { background: #f1f5f9; color: #334155; font-weight: 700; padding: 4px 6px;
-         text-align: left; border: 1px solid #cbd5e1; white-space: nowrap; font-size: 8px; }
-    th.center { text-align: center; }
-    td { padding: 4px 6px; border: 1px solid #e2e8f0; vertical-align: middle; }
+    thead tr th.left { text-align: left; }
+    td { padding: 4px 5px; border: 1px solid #e2e8f0; vertical-align: middle; }
     td.center { text-align: center; }
-    td.die-code { font-weight: 700; color: #b45309; }
-    td.font-medium { font-weight: 600; }
-    td.font-bold { font-weight: 700; }
-    td.text-amber-800 { color: #92400e; }
-    td.bg-amber-50 { background: #fffbeb !important; }
-    tr:nth-child(even) td { background: #f8fafc; }
-    
-    .die-gallery {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 3px;
-      justify-content: center;
-    }
-    .die-thumb-img {
-      height: 28px;
-      width: 28px;
-      object-fit: contain;
-      border: 1px solid #cbd5e1;
-      border-radius: 2px;
-    }
-    .text-muted {
-      color: #94a3b8;
-    }
+    td.master-img-td { width: 60px; }
+    td.master-sku-td { font-weight: 800; color: #92400e; font-size: 10px; white-space: nowrap; }
+    td.die-code-td { font-weight: 700; color: #b45309; white-space: nowrap; }
+    td.bold-amber { font-weight: 700; color: #92400e; text-align: center; background: #fffbeb; }
+    td.total-qty { font-weight: 700; color: #92400e; background: #fffbeb !important; }
+    .row-even td { background: #fff; }
+    .row-odd td { background: #f8fafc; }
+    .img-cell { display: flex; flex-wrap: wrap; gap: 2px; justify-content: center; }
+    .master-img { height: 46px; width: 46px; object-fit: contain; border: 1px solid #e2e8f0; border-radius: 3px; }
+    .die-img { height: 26px; width: 26px; object-fit: contain; border: 1px solid #cbd5e1; border-radius: 2px; }
+    .no-img { color: #94a3b8; font-size: 8px; }
   </style>
 </head>
 <body>
   <div class="page-title">Product Die Guide</div>
   <div class="voucher-sub">Voucher: ${voucherNo || '—'} &nbsp;·&nbsp; ${data.length} Master SKU(s)</div>
-  ${groupsHtml}
+  <table>
+    <thead>
+      <tr>
+        <th style="width:58px">Photo</th>
+        <th class="left" style="min-width:80px">Master SKU</th>
+        <th style="min-width:70px">Stock Loc.</th>
+        <th style="width:52px">Qty Needed</th>
+        <th style="min-width:60px">Die Code</th>
+        <th style="width:56px">Die Image</th>
+        <th style="min-width:60px">Die Location</th>
+        <th style="min-width:70px">Wax Setting Loc</th>
+        <th style="min-width:70px">Wax Piece Loc</th>
+        <th style="min-width:60px">Casting Loc</th>
+        <th style="width:54px">Qty/Piece</th>
+        <th style="width:54px">Total Qty</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${rowsHtml}
+    </tbody>
+  </table>
 </body>
 </html>`
 
-    const win = window.open('', '_blank', 'width=950,height=720')
+    const win = window.open('', '_blank', 'width=1100,height=720')
     if (!win) {
       alert('Pop-up blocked. Please allow pop-ups for this site to print.')
       return
@@ -262,7 +179,7 @@ export default function ProductDieGuideModal({ open, onOpenChange, jobId, vouche
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl w-[96vw] max-h-[90vh] overflow-y-auto bg-background text-foreground p-0 gap-0 [&>button]:hidden">
+      <DialogContent className="max-w-5xl w-[98vw] max-h-[90vh] overflow-y-auto bg-background text-foreground p-0 gap-0 [&>button]:hidden">
         <DialogTitle className="sr-only">Product Die Guide</DialogTitle>
 
         {/* Header bar */}
@@ -295,7 +212,7 @@ export default function ProductDieGuideModal({ open, onOpenChange, jobId, vouche
         </div>
 
         {/* Content */}
-        <div className="px-5 py-4">
+        <div className="px-4 py-3">
           {loading ? (
             <div className="flex items-center justify-center py-12 gap-2 text-muted-foreground">
               <div className="w-5 h-5 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
@@ -306,144 +223,142 @@ export default function ProductDieGuideModal({ open, onOpenChange, jobId, vouche
           ) : data.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-8">No products found for this voucher.</p>
           ) : (
-            <div className="flex flex-col gap-6">
-              {data.map((group, index) => (
-                <div key={group.master_sku || index} className="border border-border rounded-lg bg-card text-card-foreground shadow-sm overflow-hidden">
-                  {/* Master SKU header */}
-                  <div className="bg-muted/50 px-4 py-3 border-b border-border flex flex-wrap justify-between items-center gap-3">
-                    <div className="flex items-center gap-3">
-                      <span className="text-sm font-bold text-amber-600 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
-                        Master SKU
-                      </span>
-                      <span className="text-base font-extrabold text-foreground tracking-tight">
-                        {group.master_sku || <span className="text-muted-foreground/40">—</span>}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-6 text-xs text-muted-foreground">
-                      <div>
-                        Qty Needed: <span className="font-bold text-foreground">{group.quantity}</span>
-                      </div>
-                      <div>
-                        Stock Location: <span className="font-bold text-foreground">{group.location || <span className="text-muted-foreground/30">—</span>}</span>
-                      </div>
-                    </div>
-                  </div>
+            /* ── Flat sheet table ── */
+            <div className="overflow-x-auto rounded-lg border border-border">
+              <table className="w-full border-collapse text-xs">
+                <thead>
+                  <tr className="bg-amber-800 text-white text-left">
+                    <th className="px-2 py-2 font-bold text-center border-r border-amber-700 w-14">Photo</th>
+                    <th className="px-3 py-2 font-bold border-r border-amber-700 min-w-[80px]">Master SKU</th>
+                    <th className="px-2 py-2 font-bold text-center border-r border-amber-700 min-w-[70px]">Stock Loc.</th>
+                    <th className="px-2 py-2 font-bold text-center border-r border-amber-700 w-[64px]">Qty Needed</th>
+                    <th className="px-2 py-2 font-bold border-r border-amber-700 min-w-[60px]">Die Code</th>
+                    <th className="px-2 py-2 font-bold text-center border-r border-amber-700 w-14">Die Image</th>
+                    <th className="px-2 py-2 font-bold text-center border-r border-amber-700 min-w-[65px]">Die Location</th>
+                    <th className="px-2 py-2 font-bold text-center border-r border-amber-700 min-w-[75px]">Wax Setting Loc</th>
+                    <th className="px-2 py-2 font-bold text-center border-r border-amber-700 min-w-[75px]">Wax Piece Loc</th>
+                    <th className="px-2 py-2 font-bold text-center border-r border-amber-700 min-w-[65px]">Casting Loc</th>
+                    <th className="px-2 py-2 font-bold text-center border-r border-amber-700 w-[62px]">Qty/Piece</th>
+                    <th className="px-2 py-2 font-bold text-center w-[62px] bg-amber-700">Total Qty</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.map((group, gIdx) => {
+                    const dies = group.dies && group.dies.length > 0 ? group.dies : [null]
+                    return dies.map((d, dIdx) => {
+                      const isFirst = dIdx === 0
+                      const rowspan = dies.length
+                      const evenRow = (gIdx + dIdx) % 2 === 0
 
-                  {/* Master SKU layout */}
-                  <div className="p-4 flex flex-col md:flex-row gap-4">
-                    {/* Master SKU images */}
-                    <div className="w-full md:w-36 flex-shrink-0 md:border-r border-border md:pr-4">
-                      <span className="block text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2">
-                        Master SKU Photos
-                      </span>
-                      {group.images && group.images.length > 0 ? (
-                        <div className="flex flex-wrap gap-2">
-                          {group.images.map((src, idx) => (
-                            <img
-                              key={idx}
-                              src={src}
-                              alt={`${group.master_sku} img ${idx + 1}`}
-                              className="h-16 w-16 object-contain rounded border border-border bg-background"
-                            />
-                          ))}
-                        </div>
-                      ) : (
-                        <div className="flex flex-col items-center justify-center p-3 border border-dashed border-border rounded bg-muted/20 text-muted-foreground h-16 w-16">
-                          <ImageIcon className="h-5 w-5 opacity-40" />
-                          <span className="text-[8px] mt-1">No Image</span>
-                        </div>
-                      )}
-                    </div>
+                      // Die image resolution
+                      const dieImgs = d ? resolveDieImages(d) : []
 
-                    {/* Related Die SKUs table */}
-                    <div className="flex-grow overflow-x-auto">
-                      <span className="block text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2">
-                        Related Die SKUs & Quantities
-                      </span>
-                      <table className="w-full border-collapse text-xs">
-                        <thead>
-                          <tr className="bg-amber-600/10 text-amber-800 text-left border-b border-amber-600/20">
-                            <th className="px-3 py-2 font-bold">Die Code</th>
-                            <th className="px-3 py-2 font-bold text-center w-16">Die Image</th>
-                            <th className="px-3 py-2 font-bold text-center">Die Location</th>
-                            <th className="px-3 py-2 font-bold text-center">Wax Setting Loc</th>
-                            <th className="px-3 py-2 font-bold text-center">Wax Piece Loc</th>
-                            <th className="px-3 py-2 font-bold text-center">Casting Loc</th>
-                            <th className="px-3 py-2 font-bold text-center w-24">Qty / Piece</th>
-                            <th className="px-3 py-2 font-bold text-center w-24 bg-amber-600/10">Total Qty</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {group.dies && group.dies.length > 0 ? (
-                            group.dies.map((d, i) => (
-                              <tr key={d.die_code || i} className="border-b border-border/50 hover:bg-muted/30 transition-colors">
-                                <td className="px-3 py-2 font-bold text-amber-700">
-                                  {d.die_code || <span className="text-muted-foreground/40">—</span>}
-                                </td>
-                                <td className="px-1.5 py-1 text-center align-middle">
-                                  {(() => {
-                                    let imgs = [];
-                                    if (d.images && d.images.length > 0) {
-                                      imgs = d.images;
-                                    } else if (d.image) {
-                                      if (d.image.startsWith('[')) {
-                                        try { imgs = JSON.parse(d.image); } catch(e) { imgs = [d.image]; }
-                                      } else if (d.image.includes(',')) {
-                                        imgs = d.image.split(',').map(s => s.trim()).filter(Boolean);
-                                      } else {
-                                        imgs = [d.image];
-                                      }
-                                    }
-                                    if (imgs.length === 0) {
-                                      return <span className="text-muted-foreground/40 text-xs">—</span>;
-                                    }
-                                    return (
-                                      <div className="flex flex-wrap gap-1 justify-center max-w-[120px] mx-auto">
-                                        {imgs.map((src, idx) => (
-                                          <img
-                                            key={idx}
-                                            src={src}
-                                            alt={`${d.die_code} img ${idx + 1}`}
-                                            className="h-8 w-8 object-contain rounded border border-border bg-background"
-                                          />
-                                        ))}
-                                      </div>
-                                    );
-                                  })()}
-                                </td>
-                                <td className="px-3 py-2 text-center text-foreground">
-                                  {d.location || <span className="text-muted-foreground/40">—</span>}
-                                </td>
-                                <td className="px-3 py-2 text-center text-foreground">
-                                  {d.wax_setting_location || <span className="text-muted-foreground/40">—</span>}
-                                </td>
-                                <td className="px-3 py-2 text-center text-foreground">
-                                  {d.wax_piece_location || <span className="text-muted-foreground/40">—</span>}
-                                </td>
-                                <td className="px-3 py-2 text-center text-foreground">
-                                  {d.casting_location || <span className="text-muted-foreground/40">—</span>}
-                                </td>
-                                <td className="px-3 py-2 text-center font-medium text-foreground">
-                                  {d.qty_per_piece != null ? d.qty_per_piece : <span className="text-muted-foreground/40">—</span>}
-                                </td>
-                                <td className="px-3 py-2 text-center font-bold text-amber-800 bg-amber-500/5">
-                                  {d.qty_needed != null ? d.qty_needed : <span className="text-muted-foreground/40">—</span>}
-                                </td>
-                              </tr>
-                            ))
-                          ) : (
-                            <tr>
-                              <td colSpan={8} className="px-3 py-6 text-center text-muted-foreground">
-                                No related dies defined for this product.
+                      return (
+                        <tr
+                          key={`${group.master_sku}-${dIdx}`}
+                          className={`border-b border-border/40 ${evenRow ? 'bg-background' : 'bg-muted/30'} hover:bg-amber-500/5 transition-colors`}
+                        >
+                          {/* Master SKU cells — only on first die row */}
+                          {isFirst && (
+                            <>
+                              {/* Master photos */}
+                              <td rowSpan={rowspan} className="px-1.5 py-1.5 text-center align-middle border-r border-border/40">
+                                {group.images && group.images.length > 0 ? (
+                                  <div className="flex flex-col gap-1 items-center">
+                                    {group.images.slice(0, 2).map((src, idx) => (
+                                      <img
+                                        key={idx}
+                                        src={src}
+                                        alt={`${group.master_sku} img ${idx + 1}`}
+                                        className="h-11 w-11 object-contain rounded border border-border bg-background"
+                                      />
+                                    ))}
+                                    {group.images.length > 2 && (
+                                      <span className="text-[9px] text-muted-foreground">+{group.images.length - 2}</span>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <div className="flex flex-col items-center justify-center h-10 w-10 mx-auto border border-dashed border-border rounded bg-muted/20 text-muted-foreground">
+                                    <ImageIcon className="h-4 w-4 opacity-40" />
+                                  </div>
+                                )}
                               </td>
-                            </tr>
+
+                              {/* Master SKU name */}
+                              <td rowSpan={rowspan} className="px-3 py-2 font-extrabold text-amber-700 text-sm border-r border-border/40 whitespace-nowrap align-middle">
+                                {group.master_sku || <span className="text-muted-foreground/40">—</span>}
+                              </td>
+
+                              {/* Stock Location */}
+                              <td rowSpan={rowspan} className="px-2 py-2 text-center text-foreground border-r border-border/40 align-middle">
+                                {group.location || <span className="text-muted-foreground/40">—</span>}
+                              </td>
+
+                              {/* Qty Needed */}
+                              <td rowSpan={rowspan} className="px-2 py-2 text-center font-bold text-amber-800 bg-amber-500/5 border-r border-border/40 align-middle">
+                                {group.quantity ?? <span className="text-muted-foreground/40">—</span>}
+                              </td>
+                            </>
                           )}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                </div>
-              ))}
+
+                          {/* Die Code */}
+                          <td className="px-2 py-2 font-bold text-amber-600 border-r border-border/40 whitespace-nowrap">
+                            {d?.die_code || <span className="text-muted-foreground/40">—</span>}
+                          </td>
+
+                          {/* Die Image */}
+                          <td className="px-1 py-1 text-center border-r border-border/40">
+                            {dieImgs.length > 0 ? (
+                              <div className="flex flex-wrap gap-1 justify-center">
+                                {dieImgs.map((src, idx) => (
+                                  <img
+                                    key={idx}
+                                    src={src}
+                                    alt={`${d?.die_code} img ${idx + 1}`}
+                                    className="h-8 w-8 object-contain rounded border border-border bg-background"
+                                  />
+                                ))}
+                              </div>
+                            ) : (
+                              <span className="text-muted-foreground/40">—</span>
+                            )}
+                          </td>
+
+                          {/* Die Location */}
+                          <td className="px-2 py-2 text-center text-foreground border-r border-border/40">
+                            {d?.location || <span className="text-muted-foreground/40">—</span>}
+                          </td>
+
+                          {/* Wax Setting Loc */}
+                          <td className="px-2 py-2 text-center text-foreground border-r border-border/40">
+                            {d?.wax_setting_location || <span className="text-muted-foreground/40">—</span>}
+                          </td>
+
+                          {/* Wax Piece Loc */}
+                          <td className="px-2 py-2 text-center text-foreground border-r border-border/40">
+                            {d?.wax_piece_location || <span className="text-muted-foreground/40">—</span>}
+                          </td>
+
+                          {/* Casting Loc */}
+                          <td className="px-2 py-2 text-center text-foreground border-r border-border/40">
+                            {d?.casting_location || <span className="text-muted-foreground/40">—</span>}
+                          </td>
+
+                          {/* Qty / Piece */}
+                          <td className="px-2 py-2 text-center font-medium text-foreground border-r border-border/40">
+                            {d?.qty_per_piece != null ? d.qty_per_piece : <span className="text-muted-foreground/40">—</span>}
+                          </td>
+
+                          {/* Total Qty */}
+                          <td className="px-2 py-2 text-center font-bold text-amber-800 bg-amber-500/5">
+                            {d?.qty_needed != null ? d.qty_needed : <span className="text-muted-foreground/40">—</span>}
+                          </td>
+                        </tr>
+                      )
+                    })
+                  })}
+                </tbody>
+              </table>
             </div>
           )}
         </div>

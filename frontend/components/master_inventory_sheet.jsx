@@ -1360,6 +1360,89 @@ export default function MasterInventorySheet() {
     setExportMenuOpen(false);
   };
 
+  // ─── Print / Export Stock Sheet ───────────────────────────────────────────
+  // Exports a focused .xlsx with Master SKU, stock location, all stage current
+  // stock values (Casting → Final Stock), and image URL(s) for each product.
+  const handlePrintStockSheet = () => {
+    if (!canExport) return;
+
+    const STAGE_COLS = [
+      { key: 'waxPiece',       label: 'Wax Piece' },
+      { key: 'waxSetting',     label: 'Wax Setting' },
+      { key: 'casting',        label: 'Casting' },
+      { key: 'filling',        label: 'Filling' },
+      { key: 'prePolish',      label: 'Pre Polish' },
+      { key: 'setting',        label: 'Hand Setting' },
+      { key: 'finalPolish',    label: 'Final Polish' },
+      { key: 'readyForPlating',label: 'Plating' },
+    ];
+
+    const headers = [
+      'Master SKU',
+      'Final Stock SKU',
+      'Location',
+      ...STAGE_COLS.map(c => c.label),
+      'Final Stock',
+      'Final Stock Unit',
+      'Image URL(s)',
+    ];
+
+    const allRows = [];
+    for (const product of sortedProducts) {
+      const row = buildInventoryRow(product, 'current');
+      const images = Array.isArray(product.images) ? product.images : [];
+      const imageStr = images.join(' | ');
+
+      // Build location string: die location + per-variation final stock locations
+      const locParts = [];
+      if (row.dieLocation) locParts.push(row.dieLocation);
+      (row.finalStockVariations || []).forEach(v => {
+        if (v.location) locParts.push(v.sku ? `${v.sku}: ${v.location}` : v.location);
+      });
+      const locationStr = locParts.join(' | ');
+
+      // One sub-row per finalStockVariation
+      const variations = row.finalStockVariations || [{ sku: row.sku, value: '', unit: 'pcs', location: '' }];
+      variations.forEach((variation, varIdx) => {
+        const isFirst = varIdx === 0;
+        const stageValues = STAGE_COLS.map(col => {
+          if (!isFirst) return '';
+          const v = row[col.key];
+          if (v && typeof v === 'object' && v.isComposite) return v.current ?? v.wip ?? '';
+          return v ?? '';
+        });
+        allRows.push([
+          isFirst ? row.sku : '',
+          variation.sku ?? '',
+          isFirst ? locationStr : (variation.location ?? ''),
+          ...stageValues,
+          variation.value ?? '',
+          variation.unit ?? 'pcs',
+          isFirst ? imageStr : '',
+        ]);
+      });
+    }
+
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...allRows]);
+
+    // Style: column widths
+    ws['!cols'] = [
+      { wch: 14 }, // Master SKU
+      { wch: 16 }, // Final Stock SKU
+      { wch: 22 }, // Location
+      { wch: 12 }, { wch: 13 }, { wch: 10 }, { wch: 10 }, // stages
+      { wch: 11 }, { wch: 13 }, { wch: 13 }, { wch: 10 }, // stages
+      { wch: 14 }, // Final Stock
+      { wch: 14 }, // Unit
+      { wch: 40 }, // Images
+    ];
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Stock Sheet');
+    const dateStr = new Date().toISOString().slice(0, 10);
+    XLSX.writeFile(wb, `inventory-stock-sheet-${dateStr}.xlsx`);
+  };
+
   const openInventoryPDF = (stockField, title) => {
     const exportColumns = visibleColumnList.filter((col) => col.key !== '__select__');
     const headers = exportColumns.map((col) => col.label);
@@ -2626,6 +2709,9 @@ export default function MasterInventorySheet() {
               <Download className="w-3.5 h-3.5" /> Export
             </Button>
             {canExport && <Button variant="outline" className="border-midnight-ink text-midnight-ink rounded-full px-4 text-sm h-8" onClick={() => window.print()}>Print</Button>}
+            {canExport && <Button variant="outline" className="border-purple-500 text-purple-600 hover:bg-purple-50 rounded-full px-4 text-sm h-8 flex items-center gap-1.5" onClick={handlePrintStockSheet} title="Download stock sheet with all stages and images as Excel">
+              <FileText className="w-3.5 h-3.5" /> Stock Sheet
+            </Button>}
             <Button
               onClick={() => window.location.href = '/inventory/repair-queue'}
               variant="outline"
